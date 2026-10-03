@@ -2,11 +2,13 @@
 //!
 //! A spec is plain JSON: a map of loops, each naming its parent, the segment
 //! (and optional element conditions) that opens it, the segments it may hold
-//! and an optional segment that closes it. Loading compiles that into
-//! index-based definitions so the engine never compares strings, and keeps the
-//! JSON value so patches can be applied on top. Patches follow RFC 7386: objects
-//! merge key by key, while arrays and scalars replace wholesale; see [`Spec::merge_patch`]
-//! for implications when extending a loop's segment list.
+//! and an optional segment that closes it. An optional `segments` section
+//! names and types the elements of each segment id, wherever the segment
+//! appears. Loading compiles that into index-based definitions so the engine
+//! never compares strings, and keeps the JSON value so patches can be applied
+//! on top. Patches follow RFC 7386: objects merge key by key, while arrays and
+//! scalars replace wholesale; see [`Spec::merge_patch`] for what that means
+//! when extending a loop's segment list.
 
 use std::cmp::Reverse;
 use std::collections::BTreeMap;
@@ -64,8 +66,66 @@ pub struct LoopDef {
     pub segments: Vec<Vec<u8>>,
     /// Segment that is captured and then closes the loop, e.g. `SE`.
     pub end: Option<Vec<u8>>,
+    /// How the end segment checks the loop it closes, for envelope loops.
+    pub control: Option<Control>,
     /// Loops whose parent is this one, in spec order.
     pub children: Vec<LoopId>,
+}
+
+/// What a loop's end segment counts.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ControlCount {
+    /// Every segment from the trigger to the end segment, both included.
+    Segments,
+    /// The child loop instances opened by their own trigger.
+    Children,
+}
+
+/// The control elements an envelope loop's trigger and end segment carry.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct Control {
+    /// 1-based position of the control number in the trigger, e.g. `ST02`.
+    pub opener_element: usize,
+    /// 1-based position of the same control number in the end segment, e.g. `SE02`.
+    pub closer_element: usize,
+    /// 1-based position of the count in the end segment, e.g. `SE01`.
+    pub count_element: usize,
+    /// What the count counts.
+    pub count: ControlCount,
+}
+
+/// Why a loop's `control` was rejected.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum ControlError {
+    /// A position key holds 0.
+    ZeroPosition {
+        /// The key, e.g. `opener_element`.
+        key: &'static str,
+    },
+    /// `count` is not `segments` or `children`.
+    UnknownCount {
+        /// The value as written.
+        found: String,
+    },
+    /// The loop has no `end` segment to carry the count and control number.
+    NoEnd,
+}
+
+impl fmt::Display for ControlError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            ControlError::ZeroPosition { key } => {
+                write!(f, "{key:?} must be a 1-based element position; found 0")
+            }
+            ControlError::UnknownCount { found } => {
+                write!(
+                    f,
+                    "\"count\" must be \"segments\" or \"children\"; found {found:?}"
+                )
+            }
+            ControlError::NoEnd => write!(f, "the loop has no \"end\" segment to check"),
+        }
+    }
 }
 
 impl LoopDef {
@@ -75,7 +135,165 @@ impl LoopDef {
     }
 }
 
-/// Why a spec could not be loaded. Each variant names the loop at fault.
+/// The data type of an element, as the X12 standard names it.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ElementType {
+    /// `AN`: a string.
+    An,
+    /// `ID`: a code from a list.
+    Id,
+    /// `N0` to `N9`: an integer with that many implied decimal places.
+    N(u8),
+    /// `R`: a decimal number with an explicit point, kept at `scale` places.
+    R {
+        /// Decimal places; 2 unless the spec says otherwise.
+        scale: u8,
+    },
+    /// `DT`: a date, `CCYYMMDD` or `YYMMDD`.
+    Dt,
+    /// `TM`: a time, `HHMM` optionally followed by seconds and decimal seconds.
+    Tm,
+}
+
+impl ElementType {
+    /// Reads the type code of an element definition; `scale` is the
+    /// definition's `scale` key, which only `R` accepts.
+    fn parse(code: &str, scale: Option<u8>) -> Result<ElementType, ElementDefError> {
+        let kind = match code.as_bytes() {
+            b"AN" => ElementType::An,
+            b"ID" => ElementType::Id,
+            b"R" => ElementType::R {
+                scale: scale.unwrap_or(2),
+            },
+            b"DT" => ElementType::Dt,
+            b"TM" => ElementType::Tm,
+            [b'N', digit @ b'0'..=b'9'] => ElementType::N(digit - b'0'),
+            _ => {
+                return Err(ElementDefError::UnknownType {
+                    found: code.to_string(),
+                });
+            }
+        };
+        if scale.is_some() && !matches!(kind, ElementType::R { .. }) {
+            return Err(ElementDefError::ScaleWithoutR {
+                kind: code.to_string(),
+            });
+        }
+        Ok(kind)
+    }
+}
+
+impl fmt::Display for ElementType {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            ElementType::An => write!(f, "AN (string)"),
+            ElementType::Id => write!(f, "ID (code)"),
+            ElementType::N(places) => {
+                write!(f, "N{places} (integer with {places} implied decimals)")
+            }
+            ElementType::R { scale } => write!(f, "R (decimal, scale {scale})"),
+            ElementType::Dt => write!(f, "DT (date CCYYMMDD or YYMMDD)"),
+            ElementType::Tm => write!(f, "TM (time HHMM, HHMMSS or HHMMSSD..)"),
+        }
+    }
+}
+
+/// One element of a segment, or one component of a composite element.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct ElementDef {
+    /// Name used for the element downstream, e.g. `claim_submitter_id`.
+    pub name: String,
+    /// Data type.
+    pub kind: ElementType,
+    /// `true` when the element must be present and non-empty.
+    pub required: bool,
+    /// Minimum length, when the spec sets one.
+    pub min: Option<usize>,
+    /// Maximum length, when the spec sets one.
+    pub max: Option<usize>,
+    /// Components by 1-based position; empty for a simple element.
+    pub composite: BTreeMap<usize, ElementDef>,
+}
+
+/// The elements of one segment id.
+#[derive(Debug, Clone, PartialEq, Eq, Default)]
+pub struct SegmentDef {
+    /// Elements by 1-based position. Positions with no entry are opaque.
+    pub elements: BTreeMap<usize, ElementDef>,
+}
+
+/// Why an element definition was rejected.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum ElementDefError {
+    /// The position key is not a 1-based integer in canonical form.
+    NonCanonicalPosition,
+    /// `name` is the empty string.
+    EmptyName,
+    /// Another element at the same level already has this name.
+    DuplicateName {
+        /// The repeated name.
+        name: String,
+        /// Position key of the element that used it first, as written.
+        first: String,
+    },
+    /// `type` is not one of the known codes.
+    UnknownType {
+        /// The code as written.
+        found: String,
+    },
+    /// `scale` was given for a type other than `R`.
+    ScaleWithoutR {
+        /// The type code as written.
+        kind: String,
+    },
+    /// `min` is greater than `max`.
+    MinAboveMax {
+        /// The minimum as written.
+        min: usize,
+        /// The maximum as written.
+        max: usize,
+    },
+    /// `composite` was given for a type other than `AN`.
+    CompositeOnNonAn {
+        /// The type code as written.
+        kind: String,
+    },
+    /// A component declares a `composite` of its own.
+    NestedComposite,
+}
+
+impl fmt::Display for ElementDefError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            ElementDefError::NonCanonicalPosition => write!(
+                f,
+                "positions are 1-based integers written in canonical form"
+            ),
+            ElementDefError::EmptyName => write!(f, "\"name\" is empty"),
+            ElementDefError::DuplicateName { name, first } => {
+                write!(f, "name {name:?} is already used by position {first:?}")
+            }
+            ElementDefError::UnknownType { found } => write!(
+                f,
+                "type {found:?} is not one of AN, ID, N0 to N9, R, DT, TM"
+            ),
+            ElementDefError::ScaleWithoutR { kind } => {
+                write!(f, "\"scale\" applies only to type R; found type {kind:?}")
+            }
+            ElementDefError::MinAboveMax { min, max } => {
+                write!(f, "\"min\" {min} is greater than \"max\" {max}")
+            }
+            ElementDefError::CompositeOnNonAn { kind } => {
+                write!(f, "\"composite\" requires type AN; found type {kind:?}")
+            }
+            ElementDefError::NestedComposite => {
+                write!(f, "a component cannot declare its own \"composite\"")
+            }
+        }
+    }
+}
+
+/// Why a spec could not be loaded. Each variant names where in the spec the fault is.
 #[derive(Debug)]
 pub enum SpecError {
     /// The text is not valid JSON.
@@ -109,10 +327,13 @@ pub enum SpecError {
         /// The spec's `name`.
         spec_name: String,
     },
-    /// A trigger has an empty segment id.
+    /// A segment id is the empty string.
     EmptySegmentId {
-        /// The loop with the empty trigger.
-        loop_name: String,
+        /// The loop holding it; `None` for a key of the `segments` section.
+        loop_name: Option<String>,
+        /// Where it sits, as written: `trigger.segment`, `segments[<i>]`,
+        /// `end`, or `segments.""` for the section.
+        key: String,
     },
     /// A `where` key is not a 1-based element position in canonical form.
     BadPosition {
@@ -120,6 +341,38 @@ pub enum SpecError {
         loop_name: String,
         /// The key as written.
         position: String,
+    },
+    /// A value the schema requires to be an object is something else.
+    NotAnObject {
+        /// Where the value sits, keys joined by `.` as written (e.g.
+        /// `loops.2100.trigger`); empty for the top level.
+        path: String,
+        /// What was found instead: `an array`, `a string`, `a number`,
+        /// `a boolean` or `null`.
+        found: &'static str,
+    },
+    /// A segment definition does not match the schema.
+    SegmentSchema {
+        /// The segment id as written.
+        segment: String,
+        /// What serde rejected.
+        source: serde_json::Error,
+    },
+    /// An element definition is invalid.
+    BadElementDef {
+        /// The segment id as written.
+        segment: String,
+        /// The element's key as written; a component is `<element>.composite.<component>`.
+        position: String,
+        /// What is wrong with it.
+        reason: ElementDefError,
+    },
+    /// A loop's `control` is invalid.
+    BadControl {
+        /// The loop.
+        loop_name: String,
+        /// What is wrong with it.
+        reason: ControlError,
     },
     /// Two loops with the same parent have identical triggers.
     AmbiguousTrigger {
@@ -133,6 +386,22 @@ pub enum SpecError {
         segment: String,
         /// The shared trigger conditions, sorted by position.
         conditions: Vec<(usize, String)>,
+    },
+    /// Two loops with the same parent trigger on the same segment id, no
+    /// position tested by both requires different values, and neither set of
+    /// conditions contains the other: one segment can satisfy both and
+    /// neither trigger is more specific.
+    OverlappingTriggers {
+        /// Their common parent; `None` for top-level loops.
+        parent: Option<String>,
+        /// First loop, in spec order.
+        a: String,
+        /// Second loop, in spec order.
+        b: String,
+        /// The first loop's trigger, e.g. `"N1" where {1: "PR"}`.
+        conditions_a: String,
+        /// The second loop's trigger, written the same way.
+        conditions_b: String,
     },
 }
 
@@ -148,6 +417,13 @@ impl fmt::Display for SpecError {
                 loop_name: None,
                 source,
             } => write!(f, "spec does not match the schema: {source}"),
+            SpecError::NotAnObject { path, found } if path.is_empty() => {
+                write!(f, "the spec must be a JSON object; found {found}")
+            }
+            SpecError::NotAnObject { path, found } => write!(
+                f,
+                "spec: the value at {path} must be a JSON object; found {found}"
+            ),
             SpecError::Patch { source } => write!(f, "applying patch: {source}"),
             SpecError::UnknownParent { loop_name, parent } => {
                 write!(f, "loop {loop_name:?} names unknown parent {parent:?}")
@@ -165,9 +441,14 @@ impl fmt::Display for SpecError {
             SpecError::NoLoops { spec_name } => {
                 write!(f, "spec {spec_name:?} declares no loops")
             }
-            SpecError::EmptySegmentId { loop_name } => {
-                write!(f, "loop {loop_name:?} has an empty trigger segment")
-            }
+            SpecError::EmptySegmentId {
+                loop_name: Some(loop_name),
+                key,
+            } => write!(f, "loop {loop_name:?} has an empty segment id at {key}"),
+            SpecError::EmptySegmentId {
+                loop_name: None,
+                key,
+            } => write!(f, "the spec has an empty segment id at {key}"),
             SpecError::BadPosition {
                 loop_name,
                 position,
@@ -176,6 +457,17 @@ impl fmt::Display for SpecError {
                 "loop {loop_name:?} has an invalid \"where\" position {position:?}: \
                  positions are 1-based integers written in canonical form"
             ),
+            SpecError::SegmentSchema { segment, source } => {
+                write!(f, "segment {segment:?} does not match the schema: {source}")
+            }
+            SpecError::BadElementDef {
+                segment,
+                position,
+                reason,
+            } => write!(f, "segment {segment:?} element {position:?}: {reason}"),
+            SpecError::BadControl { loop_name, reason } => {
+                write!(f, "loop {loop_name:?} has an invalid \"control\": {reason}")
+            }
             SpecError::AmbiguousTrigger {
                 first,
                 second,
@@ -201,6 +493,25 @@ impl fmt::Display for SpecError {
                 }
                 Ok(())
             }
+            SpecError::OverlappingTriggers {
+                parent,
+                a,
+                b,
+                conditions_a,
+                conditions_b,
+            } => {
+                write!(f, "loops {a:?} and {b:?} under ")?;
+                match parent {
+                    Some(parent) => write!(f, "{parent:?}")?,
+                    None => write!(f, "the root")?,
+                }
+                write!(
+                    f,
+                    " can open on the same segment: {a:?} on {conditions_a}, {b:?} on \
+                     {conditions_b}, no position they both test requires different values, \
+                     and neither trigger is more specific than the other"
+                )
+            }
         }
     }
 }
@@ -208,7 +519,9 @@ impl fmt::Display for SpecError {
 impl std::error::Error for SpecError {
     fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
         match self {
-            SpecError::Json(e) | SpecError::Schema { source: e, .. } => Some(e),
+            SpecError::Json(e)
+            | SpecError::Schema { source: e, .. }
+            | SpecError::SegmentSchema { source: e, .. } => Some(e),
             SpecError::Patch { source } => Some(source.as_ref()),
             _ => None,
         }
@@ -225,6 +538,8 @@ impl std::error::Error for SpecError {
 struct RawSpec {
     name: String,
     loops: BTreeMap<String, Value>,
+    #[serde(default)]
+    segments: BTreeMap<String, Value>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -235,6 +550,16 @@ struct RawLoop {
     #[serde(default)]
     segments: Vec<String>,
     end: Option<String>,
+    control: Option<RawControl>,
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(deny_unknown_fields, expecting = "a control object")]
+struct RawControl {
+    opener_element: usize,
+    closer_element: usize,
+    count_element: usize,
+    count: String,
 }
 
 #[derive(Debug, Deserialize)]
@@ -245,12 +570,35 @@ struct RawTrigger {
     conditions: BTreeMap<String, String>,
 }
 
+#[derive(Debug, Deserialize)]
+#[serde(deny_unknown_fields, expecting = "a segment object")]
+struct RawSegment {
+    #[serde(default)]
+    elements: BTreeMap<String, RawElement>,
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(deny_unknown_fields, expecting = "an element object")]
+struct RawElement {
+    name: String,
+    #[serde(rename = "type")]
+    kind: String,
+    #[serde(default)]
+    required: bool,
+    min: Option<usize>,
+    max: Option<usize>,
+    scale: Option<u8>,
+    #[serde(default)]
+    composite: BTreeMap<String, RawElement>,
+}
+
 /// A loaded, validated loop structure.
 #[derive(Debug, Clone)]
 pub struct Spec {
     name: String,
     loops: Vec<LoopDef>,
     roots: Vec<LoopId>,
+    segments: BTreeMap<Vec<u8>, SegmentDef>,
     source: Value,
 }
 
@@ -348,6 +696,16 @@ impl Spec {
         &self.roots
     }
 
+    /// The element definitions of a segment id, if the spec has any.
+    pub fn segment(&self, id: &[u8]) -> Option<&SegmentDef> {
+        self.segments.get(id)
+    }
+
+    /// Every defined segment id with its definition, ordered by id.
+    pub fn segments(&self) -> impl Iterator<Item = (&[u8], &SegmentDef)> {
+        self.segments.iter().map(|(id, def)| (id.as_slice(), def))
+    }
+
     /// Children of a loop, or the top-level loops for `None`.
     pub fn children(&self, parent: Option<LoopId>) -> &[LoopId] {
         match parent {
@@ -390,6 +748,7 @@ impl Spec {
     }
 
     pub(crate) fn from_value(source: Value) -> Result<Spec, SpecError> {
+        check_shape(&source)?;
         let raw: RawSpec =
             serde_json::from_value(source.clone()).map_err(|e| SpecError::Schema {
                 loop_name: None,
@@ -414,10 +773,18 @@ impl Spec {
 
         let mut loops = Vec::with_capacity(defs.len());
         for (name, def) in &defs {
+            let empty_at = |key: String| SpecError::EmptySegmentId {
+                loop_name: Some(name.clone()),
+                key,
+            };
             if def.trigger.segment.is_empty() {
-                return Err(SpecError::EmptySegmentId {
-                    loop_name: name.clone(),
-                });
+                return Err(empty_at("trigger.segment".into()));
+            }
+            if let Some(i) = def.segments.iter().position(String::is_empty) {
+                return Err(empty_at(format!("segments[{i}]")));
+            }
+            if def.end.as_deref() == Some("") {
+                return Err(empty_at("end".into()));
             }
             let parent = match &def.parent {
                 None => None,
@@ -428,19 +795,22 @@ impl Spec {
             };
             let mut conditions = Vec::with_capacity(def.trigger.conditions.len());
             for (position, value) in &def.trigger.conditions {
-                // Only the canonical spelling is accepted, so no two keys can
-                // name the same position.
-                let parsed = position
-                    .parse::<usize>()
-                    .ok()
-                    .filter(|&p| p >= 1 && p.to_string() == *position)
-                    .ok_or_else(|| SpecError::BadPosition {
-                        loop_name: name.clone(),
-                        position: position.clone(),
-                    })?;
+                let parsed = parse_position(position).ok_or_else(|| SpecError::BadPosition {
+                    loop_name: name.clone(),
+                    position: position.clone(),
+                })?;
                 conditions.push((parsed, value.as_bytes().to_vec()));
             }
             conditions.sort();
+            let control = match &def.control {
+                None => None,
+                Some(raw) => Some(compile_control(raw, def.end.is_some()).map_err(|reason| {
+                    SpecError::BadControl {
+                        loop_name: name.clone(),
+                        reason,
+                    }
+                })?),
+            };
             loops.push(LoopDef {
                 name: name.clone(),
                 parent,
@@ -450,6 +820,7 @@ impl Spec {
                 },
                 segments: def.segments.iter().map(|s| s.as_bytes().to_vec()).collect(),
                 end: def.end.as_ref().map(|s| s.as_bytes().to_vec()),
+                control,
                 children: Vec::new(),
             });
         }
@@ -465,10 +836,28 @@ impl Spec {
             }
         }
 
+        let mut segments = BTreeMap::new();
+        for (id, value) in &raw.segments {
+            if id.is_empty() {
+                return Err(SpecError::EmptySegmentId {
+                    loop_name: None,
+                    key: "segments.\"\"".into(),
+                });
+            }
+            let def: RawSegment =
+                serde_json::from_value(value.clone()).map_err(|e| SpecError::SegmentSchema {
+                    segment: id.clone(),
+                    source: e,
+                })?;
+            let elements = compile_elements(id, &def.elements, None)?;
+            segments.insert(id.as_bytes().to_vec(), SegmentDef { elements });
+        }
+
         let spec = Spec {
             name: raw.name,
             loops,
             roots,
+            segments,
             source,
         };
         spec.check_ambiguity()?;
@@ -482,14 +871,19 @@ impl Spec {
             for (i, &first) in siblings.iter().enumerate() {
                 for &second in &siblings[i + 1..] {
                     let trigger = &self.loops[first.0].trigger;
-                    if *trigger == self.loops[second.0].trigger {
-                        let text = |bytes: &[u8]| String::from_utf8_lossy(bytes).into_owned();
+                    let other = &self.loops[second.0].trigger;
+                    if trigger.segment != other.segment {
+                        continue;
+                    }
+                    let text = |bytes: &[u8]| String::from_utf8_lossy(bytes).into_owned();
+                    let parent = self.loops[first.0]
+                        .parent
+                        .map(|parent| self.loops[parent.0].name.clone());
+                    if trigger == other {
                         return Err(SpecError::AmbiguousTrigger {
                             first: self.loops[first.0].name.clone(),
                             second: self.loops[second.0].name.clone(),
-                            parent: self.loops[first.0]
-                                .parent
-                                .map(|parent| self.loops[parent.0].name.clone()),
+                            parent,
                             segment: text(&trigger.segment),
                             conditions: trigger
                                 .conditions
@@ -498,11 +892,220 @@ impl Spec {
                                 .collect(),
                         });
                     }
+                    // Siblings are told apart when a shared position requires
+                    // different values, or when one trigger's conditions
+                    // contain the other's: the engine then prefers the one
+                    // with more conditions and the other is the catch-all.
+                    let excluded = trigger.conditions.iter().any(|(position, value)| {
+                        other
+                            .conditions
+                            .iter()
+                            .any(|(p, v)| p == position && v != value)
+                    });
+                    let contains = |big: &Trigger, small: &Trigger| {
+                        small
+                            .conditions
+                            .iter()
+                            .all(|condition| big.conditions.contains(condition))
+                    };
+                    let nested = contains(trigger, other) || contains(other, trigger);
+                    if !excluded && !nested {
+                        return Err(SpecError::OverlappingTriggers {
+                            parent,
+                            a: self.loops[first.0].name.clone(),
+                            b: self.loops[second.0].name.clone(),
+                            conditions_a: render_trigger(trigger),
+                            conditions_b: render_trigger(other),
+                        });
+                    }
                 }
             }
         }
         Ok(())
     }
+}
+
+/// Validates a loop's `control`; `has_end` says whether the loop declares an end segment.
+fn compile_control(raw: &RawControl, has_end: bool) -> Result<Control, ControlError> {
+    if !has_end {
+        return Err(ControlError::NoEnd);
+    }
+    let positions = [
+        ("opener_element", raw.opener_element),
+        ("closer_element", raw.closer_element),
+        ("count_element", raw.count_element),
+    ];
+    if let Some((key, _)) = positions.iter().find(|(_, position)| *position == 0) {
+        return Err(ControlError::ZeroPosition { key });
+    }
+    let count = match raw.count.as_str() {
+        "segments" => ControlCount::Segments,
+        "children" => ControlCount::Children,
+        _ => {
+            return Err(ControlError::UnknownCount {
+                found: raw.count.clone(),
+            });
+        }
+    };
+    Ok(Control {
+        opener_element: raw.opener_element,
+        closer_element: raw.closer_element,
+        count_element: raw.count_element,
+        count,
+    })
+}
+
+/// A trigger as `"N1" where {1: "PR", 2: "X"}`, or `"N1" with no conditions`.
+fn render_trigger(trigger: &Trigger) -> String {
+    let segment = String::from_utf8_lossy(&trigger.segment);
+    if trigger.conditions.is_empty() {
+        return format!("{segment:?} with no conditions");
+    }
+    let parts: Vec<String> = trigger
+        .conditions
+        .iter()
+        .map(|(position, value)| format!("{position}: {:?}", String::from_utf8_lossy(value)))
+        .collect();
+    format!("{segment:?} where {{{}}}", parts.join(", "))
+}
+
+/// A 1-based element position written in canonical form (`"1"`, never
+/// `"01"` or `"+1"`), so no two keys can name the same position.
+fn parse_position(key: &str) -> Option<usize> {
+    key.parse::<usize>()
+        .ok()
+        .filter(|&p| p >= 1 && p.to_string() == key)
+}
+
+/// Compiles the elements of `segment`, or the components of the element at
+/// `parent` (its key as written) when one is given.
+fn compile_elements(
+    segment: &str,
+    raw: &BTreeMap<String, RawElement>,
+    parent: Option<&str>,
+) -> Result<BTreeMap<usize, ElementDef>, SpecError> {
+    let mut elements = BTreeMap::new();
+    let mut names: BTreeMap<&str, &str> = BTreeMap::new();
+    for (key, def) in raw {
+        let position_text = match parent {
+            Some(parent) => format!("{parent}.composite.{key}"),
+            None => key.clone(),
+        };
+        let fail = |reason| SpecError::BadElementDef {
+            segment: segment.to_string(),
+            position: position_text.clone(),
+            reason,
+        };
+        let position =
+            parse_position(key).ok_or_else(|| fail(ElementDefError::NonCanonicalPosition))?;
+        if def.name.is_empty() {
+            return Err(fail(ElementDefError::EmptyName));
+        }
+        if let Some(first) = names.insert(def.name.as_str(), key.as_str()) {
+            return Err(fail(ElementDefError::DuplicateName {
+                name: def.name.clone(),
+                first: first.to_string(),
+            }));
+        }
+        let kind = ElementType::parse(&def.kind, def.scale).map_err(fail)?;
+        if let (Some(min), Some(max)) = (def.min, def.max)
+            && min > max
+        {
+            return Err(fail(ElementDefError::MinAboveMax { min, max }));
+        }
+        let composite = if def.composite.is_empty() {
+            BTreeMap::new()
+        } else if parent.is_some() {
+            return Err(fail(ElementDefError::NestedComposite));
+        } else if kind != ElementType::An {
+            return Err(fail(ElementDefError::CompositeOnNonAn {
+                kind: def.kind.clone(),
+            }));
+        } else {
+            compile_elements(segment, &def.composite, Some(key))?
+        };
+        elements.insert(
+            position,
+            ElementDef {
+                name: def.name.clone(),
+                kind,
+                required: def.required,
+                min: def.min,
+                max: def.max,
+                composite,
+            },
+        );
+    }
+    Ok(elements)
+}
+
+/// How a JSON value is described when it is not the object a spec expects.
+fn kind_of(value: &Value) -> &'static str {
+    match value {
+        Value::Null => "null",
+        Value::Bool(_) => "a boolean",
+        Value::Number(_) => "a number",
+        Value::String(_) => "a string",
+        Value::Array(_) => "an array",
+        Value::Object(_) => "an object",
+    }
+}
+
+/// The value as an object, or [`SpecError::NotAnObject`] naming `path`.
+fn object_at<'v>(
+    value: &'v Value,
+    path: &str,
+) -> Result<&'v serde_json::Map<String, Value>, SpecError> {
+    value.as_object().ok_or_else(|| SpecError::NotAnObject {
+        path: path.to_string(),
+        found: kind_of(value),
+    })
+}
+
+/// Requires an object everywhere the schema has one, before serde sees the
+/// value: serde would accept an array in place of a struct, and its message
+/// for the wrong kind of value does not say that an object was expected.
+/// Missing keys are left to the schema.
+fn check_shape(source: &Value) -> Result<(), SpecError> {
+    let root = object_at(source, "")?;
+    if let Some(loops) = root.get("loops") {
+        for (name, def) in object_at(loops, "loops")? {
+            let at = format!("loops.{name}");
+            let def = object_at(def, &at)?;
+            if let Some(trigger) = def.get("trigger") {
+                let at = format!("{at}.trigger");
+                let trigger = object_at(trigger, &at)?;
+                if let Some(conditions) = trigger.get("where") {
+                    object_at(conditions, &format!("{at}.where"))?;
+                }
+            }
+            if let Some(control) = def.get("control") {
+                object_at(control, &format!("{at}.control"))?;
+            }
+        }
+    }
+    if let Some(segments) = root.get("segments") {
+        for (id, def) in object_at(segments, "segments")? {
+            let at = format!("segments.{id}");
+            let def = object_at(def, &at)?;
+            if let Some(elements) = def.get("elements") {
+                check_elements_shape(elements, &format!("{at}.elements"))?;
+            }
+        }
+    }
+    Ok(())
+}
+
+/// Requires every element (and every component) definition to be an object.
+fn check_elements_shape(elements: &Value, at: &str) -> Result<(), SpecError> {
+    for (position, def) in object_at(elements, at)? {
+        let at = format!("{at}.{position}");
+        let def = object_at(def, &at)?;
+        if let Some(composite) = def.get("composite") {
+            check_elements_shape(composite, &format!("{at}.composite"))?;
+        }
+    }
+    Ok(())
 }
 
 /// Fails with the first parent cycle found, walking from each loop in spec
@@ -575,6 +1178,69 @@ mod tests {
             spec.loop_id("2100")
         );
         assert_eq!(spec.get(transaction).end.as_deref(), Some(&b"SE"[..]));
+    }
+
+    #[test]
+    fn builtin_835_defines_every_segment_its_loops_name() {
+        let spec = Spec::builtin_835();
+        for def in spec.loops() {
+            let ids = std::iter::once(&def.trigger.segment)
+                .chain(&def.segments)
+                .chain(def.end.as_ref());
+            for id in ids {
+                assert!(
+                    spec.segment(id).is_some(),
+                    "loop {} names {} with no definition",
+                    def.name,
+                    String::from_utf8_lossy(id)
+                );
+            }
+        }
+        let ids: Vec<String> = spec
+            .segments()
+            .map(|(id, _)| String::from_utf8_lossy(id).into_owned())
+            .collect();
+        assert_eq!(
+            ids,
+            vec![
+                "AMT", "BPR", "CAS", "CLP", "CUR", "DTM", "GE", "GS", "IEA", "ISA", "LQ", "LX",
+                "MIA", "MOA", "N1", "N3", "N4", "NM1", "PER", "PLB", "QTY", "RDM", "REF", "SE",
+                "ST", "SVC", "TRN", "TS2", "TS3"
+            ]
+        );
+    }
+
+    #[test]
+    fn builtin_835_element_names_are_unique_among_siblings() {
+        fn check(at: &str, elements: &BTreeMap<usize, ElementDef>) {
+            let mut seen = std::collections::BTreeSet::new();
+            for (position, def) in elements {
+                assert!(
+                    seen.insert(def.name.as_str()),
+                    "{at}: name {} repeats at position {position}",
+                    def.name
+                );
+                check(&format!("{at}{position:02}"), &def.composite);
+            }
+        }
+        for (id, def) in Spec::builtin_835().segments() {
+            check(&String::from_utf8_lossy(id), &def.elements);
+        }
+    }
+
+    #[test]
+    fn builtin_835_types_the_elements_the_envelope_checks_rely_on() {
+        let spec = Spec::builtin_835();
+        let element = |id: &[u8], position: usize| &spec.segment(id).unwrap().elements[&position];
+        assert_eq!(element(b"CLP", 1).name, "claim_submitter_identifier");
+        assert_eq!(element(b"CLP", 3).kind, ElementType::R { scale: 2 });
+        assert_eq!(element(b"SE", 1).kind, ElementType::N(0));
+        assert_eq!(element(b"ISA", 13).kind, ElementType::N(0));
+        assert_eq!(element(b"DTM", 2).kind, ElementType::Dt);
+        let procedure = element(b"SVC", 1);
+        assert!(procedure.required);
+        assert_eq!(procedure.composite.len(), 8);
+        assert_eq!(procedure.composite[&2].name, "procedure_code");
     }
 
     #[test]
@@ -738,7 +1404,7 @@ mod tests {
 
     #[test]
     fn a_malformed_top_level_is_a_schema_error_without_a_loop() {
-        let err = Spec::from_json("[]").unwrap_err();
+        let err = Spec::from_json(r#"{"name":"t"}"#).unwrap_err();
         assert!(
             matches!(
                 &err,
@@ -755,6 +1421,71 @@ mod tests {
             "{message}"
         );
         assert!(!message.contains("RawSpec"), "{message}");
+    }
+
+    #[test]
+    fn a_spec_that_is_not_an_object_says_so_in_plain_words() {
+        let err = Spec::from_json("[]").unwrap_err();
+        assert!(
+            matches!(&err, SpecError::NotAnObject { path, found: "an array" } if path.is_empty()),
+            "{err:?}"
+        );
+        assert_eq!(
+            err.to_string(),
+            "the spec must be a JSON object; found an array"
+        );
+    }
+
+    #[test]
+    fn every_object_of_the_loop_schema_is_checked_with_its_path() {
+        let cases = [
+            (r#"{"name":"t","loops":[]}"#, "loops", "an array"),
+            (r#"{"name":"t","loops":{"a":"AA"}}"#, "loops.a", "a string"),
+            (
+                r#"{"name":"t","loops":{"a":{"trigger":["AA"]}}}"#,
+                "loops.a.trigger",
+                "an array",
+            ),
+            (
+                r#"{"name":"t","loops":{"a":{"trigger":{"segment":"AA","where":1}}}}"#,
+                "loops.a.trigger.where",
+                "a number",
+            ),
+            (
+                r#"{"name":"t","loops":{"a":{"trigger":{"segment":"AA","where":null}}}}"#,
+                "loops.a.trigger.where",
+                "null",
+            ),
+        ];
+        for (json, expected_path, expected_found) in cases {
+            let err = Spec::from_json(json).unwrap_err();
+            assert!(
+                matches!(&err, SpecError::NotAnObject { path, found } if path == expected_path && *found == expected_found),
+                "{json}: {err:?}"
+            );
+        }
+    }
+
+    #[test]
+    fn a_patched_spec_goes_through_the_same_shape_check() {
+        let err = Spec::builtin_835()
+            .merge_patch(r#"{"loops":{"2100":{"trigger":["CLP"]}}}"#)
+            .unwrap_err();
+        assert_eq!(
+            err.to_string(),
+            "applying patch: spec: the value at loops.2100.trigger must be a JSON object; found an array"
+        );
+    }
+
+    #[test]
+    fn every_kind_of_json_value_is_named() {
+        use serde_json::json;
+        assert_eq!(kind_of(&json!(null)), "null");
+        assert_eq!(kind_of(&json!(true)), "a boolean");
+        assert_eq!(kind_of(&json!(1)), "a number");
+        assert_eq!(kind_of(&json!("x")), "a string");
+        assert_eq!(kind_of(&json!([])), "an array");
+        assert_eq!(kind_of(&json!({})), "an object");
     }
 
     #[test]
@@ -776,12 +1507,34 @@ mod tests {
     }
 
     #[test]
-    fn empty_trigger_segment_is_rejected() {
-        let err = Spec::from_json(r#"{"name":"t","loops":{"a":{"trigger":{"segment":""}}}}"#)
-            .unwrap_err();
+    fn empty_segment_ids_are_rejected_with_the_loop_and_the_key() {
+        let cases = [
+            (r#"{"trigger":{"segment":""}}"#, "trigger.segment"),
+            (
+                r#"{"trigger":{"segment":"AA"},"segments":["A1",""]}"#,
+                "segments[1]",
+            ),
+            (r#"{"trigger":{"segment":"AA"},"end":""}"#, "end"),
+        ];
+        for (def, expected_key) in cases {
+            let json = format!(r#"{{"name":"t","loops":{{"a":{def}}}}}"#);
+            let err = Spec::from_json(&json).unwrap_err();
+            assert!(
+                matches!(&err, SpecError::EmptySegmentId { loop_name: Some(name), key } if name == "a" && key == expected_key),
+                "{def}: {err:?}"
+            );
+        }
+    }
+
+    #[test]
+    fn an_empty_segment_id_in_the_segments_section_is_rejected() {
+        let err = Spec::from_json(
+            r#"{"name":"t","loops":{"a":{"trigger":{"segment":"AA"}}},"segments":{"":{"elements":{}}}}"#,
+        )
+        .unwrap_err();
         assert!(
-            matches!(&err, SpecError::EmptySegmentId { loop_name } if loop_name == "a"),
-            "{err}"
+            matches!(&err, SpecError::EmptySegmentId { loop_name: None, key } if key == "segments.\"\""),
+            "{err:?}"
         );
     }
 
@@ -861,6 +1614,117 @@ mod tests {
     }
 
     #[test]
+    fn siblings_testing_different_positions_overlap_and_are_rejected() {
+        let err = Spec::from_json(
+            r#"{"name":"t","loops":{
+                "transaction":{"trigger":{"segment":"ST"}},
+                "payer":{"parent":"transaction","trigger":{"segment":"N1","where":{"1":"PR"}}},
+                "other":{"parent":"transaction","trigger":{"segment":"N1","where":{"2":"X"}}}
+            }}"#,
+        )
+        .unwrap_err();
+        assert!(
+            matches!(&err, SpecError::OverlappingTriggers { parent: Some(parent), a, b, .. } if parent == "transaction" && a == "other" && b == "payer"),
+            "{err:?}"
+        );
+        assert_eq!(
+            err.to_string(),
+            "loops \"other\" and \"payer\" under \"transaction\" can open on the same segment: \"other\" on \"N1\" where {2: \"X\"}, \"payer\" on \"N1\" where {1: \"PR\"}, no position they both test requires different values, and neither trigger is more specific than the other"
+        );
+    }
+
+    #[test]
+    fn a_bare_trigger_beside_a_conditioned_sibling_is_a_catch_all_and_loads() {
+        let spec = Spec::from_json(
+            r#"{"name":"t","loops":{
+                "transaction":{"trigger":{"segment":"ST"}},
+                "any":{"parent":"transaction","trigger":{"segment":"N1"}},
+                "payer":{"parent":"transaction","trigger":{"segment":"N1","where":{"1":"PR"}}}
+            }}"#,
+        );
+        assert!(spec.is_ok(), "{spec:?}");
+    }
+
+    #[test]
+    fn a_strict_superset_of_conditions_does_not_overlap() {
+        let spec = Spec::from_json(
+            r#"{"name":"t","loops":{
+                "payer":{"trigger":{"segment":"N1","where":{"1":"PR"}}},
+                "acme":{"trigger":{"segment":"N1","where":{"1":"PR","2":"X"}}}
+            }}"#,
+        )
+        .unwrap();
+        let segments = segs(b"N1*PR*X~N1*PR*Y~");
+        assert_eq!(
+            spec.matching_child(None, &segments[0]),
+            spec.loop_id("acme"),
+            "the more specific trigger wins"
+        );
+        assert_eq!(
+            spec.matching_child(None, &segments[1]),
+            spec.loop_id("payer")
+        );
+    }
+
+    #[test]
+    fn siblings_that_differ_at_a_shared_position_do_not_overlap() {
+        let ok = Spec::from_json(
+            r#"{"name":"t","loops":{
+                "payer":{"trigger":{"segment":"N1","where":{"1":"PR","2":"X"}}},
+                "payee":{"trigger":{"segment":"N1","where":{"1":"PE"}}},
+                "other":{"trigger":{"segment":"N3"}}
+            }}"#,
+        );
+        assert!(ok.is_ok(), "{ok:?}");
+        let builtin = Spec::builtin_835();
+        assert!(builtin.loop_id("1000A").is_some() && builtin.loop_id("1000B").is_some());
+    }
+
+    #[test]
+    fn overlapping_triggers_display_both_loops_and_their_triggers() {
+        let err = SpecError::OverlappingTriggers {
+            parent: Some("transaction".into()),
+            a: "1000A".into(),
+            b: "1000C".into(),
+            conditions_a: "\"N1\" where {1: \"PR\"}".into(),
+            conditions_b: "\"N1\" where {2: \"X\"}".into(),
+        };
+        assert_eq!(
+            err.to_string(),
+            "loops \"1000A\" and \"1000C\" under \"transaction\" can open on the same segment: \"1000A\" on \"N1\" where {1: \"PR\"}, \"1000C\" on \"N1\" where {2: \"X\"}, no position they both test requires different values, and neither trigger is more specific than the other"
+        );
+        assert!(std::error::Error::source(&err).is_none());
+        let err = SpecError::OverlappingTriggers {
+            parent: None,
+            a: "a".into(),
+            b: "b".into(),
+            conditions_a: "\"AA\" where {1: \"X\"}".into(),
+            conditions_b: "\"AA\" where {2: \"Y\"}".into(),
+        };
+        assert_eq!(
+            err.to_string(),
+            "loops \"a\" and \"b\" under the root can open on the same segment: \"a\" on \"AA\" where {1: \"X\"}, \"b\" on \"AA\" where {2: \"Y\"}, no position they both test requires different values, and neither trigger is more specific than the other"
+        );
+    }
+
+    #[test]
+    fn triggers_render_with_their_conditions_in_position_order() {
+        let bare = Trigger {
+            segment: b"N1".to_vec(),
+            conditions: Vec::new(),
+        };
+        assert_eq!(render_trigger(&bare), "\"N1\" with no conditions");
+        let conditioned = Trigger {
+            segment: b"N1".to_vec(),
+            conditions: vec![(1, b"PR".to_vec()), (3, b"X".to_vec())],
+        };
+        assert_eq!(
+            render_trigger(&conditioned),
+            "\"N1\" where {1: \"PR\", 3: \"X\"}"
+        );
+    }
+
+    #[test]
     fn to_json_round_trips_through_from_json() {
         let spec = Spec::builtin_835();
         let again = Spec::from_json(&spec.to_json()).unwrap();
@@ -910,17 +1774,39 @@ mod tests {
     fn patch_error_displays_the_inner_error_once() {
         let err = SpecError::Patch {
             source: Box::new(SpecError::EmptySegmentId {
-                loop_name: "a".into(),
+                loop_name: Some("a".into()),
+                key: "end".into(),
             }),
         };
         assert_eq!(
             err.to_string(),
-            "applying patch: loop \"a\" has an empty trigger segment"
+            "applying patch: loop \"a\" has an empty segment id at end"
         );
         let source = std::error::Error::source(&err).map(ToString::to_string);
         assert_eq!(
             source.as_deref(),
-            Some("loop \"a\" has an empty trigger segment")
+            Some("loop \"a\" has an empty segment id at end")
+        );
+    }
+
+    #[test]
+    fn not_an_object_displays_the_path_and_what_was_found() {
+        let err = SpecError::NotAnObject {
+            path: "loops.2100.trigger".into(),
+            found: "an array",
+        };
+        assert_eq!(
+            err.to_string(),
+            "spec: the value at loops.2100.trigger must be a JSON object; found an array"
+        );
+        assert!(std::error::Error::source(&err).is_none());
+        let err = SpecError::NotAnObject {
+            path: String::new(),
+            found: "a string",
+        };
+        assert_eq!(
+            err.to_string(),
+            "the spec must be a JSON object; found a string"
         );
     }
 
@@ -953,11 +1839,23 @@ mod tests {
     }
 
     #[test]
-    fn empty_segment_id_displays_the_loop() {
+    fn empty_segment_id_displays_the_loop_and_the_key() {
         let err = SpecError::EmptySegmentId {
-            loop_name: "a".into(),
+            loop_name: Some("2100".into()),
+            key: "segments[3]".into(),
         };
-        assert_eq!(err.to_string(), "loop \"a\" has an empty trigger segment");
+        assert_eq!(
+            err.to_string(),
+            "loop \"2100\" has an empty segment id at segments[3]"
+        );
+        let err = SpecError::EmptySegmentId {
+            loop_name: None,
+            key: "segments.\"\"".into(),
+        };
+        assert_eq!(
+            err.to_string(),
+            "the spec has an empty segment id at segments.\"\""
+        );
     }
 
     #[test]
@@ -996,6 +1894,471 @@ mod tests {
             err.to_string(),
             "loops \"a\" and \"b\" under the root share the identical trigger \"AA\""
         );
+    }
+
+    const CLP_ONLY: &str = r#"{"name":"t",
+        "loops":{"2100":{"trigger":{"segment":"CLP"},"segments":["ZZ1"]}},
+        "segments":{"CLP":{"elements":{
+            "1":{"name":"claim_submitter_id","type":"AN","required":true,"min":1,"max":38},
+            "3":{"name":"total_claim_charge_amount","type":"R","required":true},
+            "12":{"name":"drg_weight","type":"R","scale":4}
+        }},
+        "SVC":{"elements":{
+            "1":{"name":"procedure","type":"AN","required":true,"composite":{
+                "1":{"name":"qualifier","type":"ID","required":true,"min":2,"max":2},
+                "2":{"name":"code","type":"AN","required":true}
+            }},
+            "5":{"name":"units","type":"N0"}
+        }}}
+    }"#;
+
+    fn element_error(elements: &str) -> SpecError {
+        let json = format!(
+            r#"{{"name":"t","loops":{{"a":{{"trigger":{{"segment":"AA"}}}}}},"segments":{{"AA":{{"elements":{elements}}}}}}}"#
+        );
+        Spec::from_json(&json).unwrap_err()
+    }
+
+    #[test]
+    fn segments_are_keyed_by_id_and_elements_by_position() {
+        let spec = Spec::from_json(CLP_ONLY).unwrap();
+        let clp = spec.segment(b"CLP").unwrap();
+        let first = &clp.elements[&1];
+        assert_eq!(first.name, "claim_submitter_id");
+        assert_eq!(first.kind, ElementType::An);
+        assert!(first.required);
+        assert_eq!((first.min, first.max), (Some(1), Some(38)));
+        assert_eq!(clp.elements[&3].kind, ElementType::R { scale: 2 });
+        assert!(!clp.elements[&12].required, "required defaults to false");
+        assert_eq!(clp.elements[&12].kind, ElementType::R { scale: 4 });
+        assert_eq!(
+            clp.elements.keys().copied().collect::<Vec<_>>(),
+            vec![1, 3, 12]
+        );
+        let svc = spec.segment(b"SVC").unwrap();
+        let procedure = &svc.elements[&1];
+        assert_eq!(procedure.composite[&1].kind, ElementType::Id);
+        assert_eq!(procedure.composite[&2].name, "code");
+        assert_eq!(svc.elements[&5].kind, ElementType::N(0));
+        let ids: Vec<&[u8]> = spec.segments().map(|(id, _)| id).collect();
+        assert_eq!(ids, vec![&b"CLP"[..], &b"SVC"[..]]);
+    }
+
+    #[test]
+    fn every_type_code_is_read() {
+        let cases = [
+            ("AN", None, ElementType::An),
+            ("ID", None, ElementType::Id),
+            ("N0", None, ElementType::N(0)),
+            ("N2", None, ElementType::N(2)),
+            ("N9", None, ElementType::N(9)),
+            ("R", None, ElementType::R { scale: 2 }),
+            ("R", Some(6), ElementType::R { scale: 6 }),
+            ("DT", None, ElementType::Dt),
+            ("TM", None, ElementType::Tm),
+        ];
+        for (code, scale, expected) in cases {
+            assert_eq!(ElementType::parse(code, scale), Ok(expected), "{code}");
+        }
+        for code in ["an", "N", "N10", "NA", "R2", "", "B"] {
+            assert_eq!(
+                ElementType::parse(code, None),
+                Err(ElementDefError::UnknownType {
+                    found: code.to_string()
+                }),
+                "{code:?}"
+            );
+        }
+    }
+
+    #[test]
+    fn element_types_display_their_code_and_meaning() {
+        assert_eq!(ElementType::An.to_string(), "AN (string)");
+        assert_eq!(ElementType::Id.to_string(), "ID (code)");
+        assert_eq!(
+            ElementType::N(2).to_string(),
+            "N2 (integer with 2 implied decimals)"
+        );
+        assert_eq!(
+            ElementType::R { scale: 2 }.to_string(),
+            "R (decimal, scale 2)"
+        );
+        assert_eq!(ElementType::Dt.to_string(), "DT (date CCYYMMDD or YYMMDD)");
+        assert_eq!(
+            ElementType::Tm.to_string(),
+            "TM (time HHMM, HHMMSS or HHMMSSD..)"
+        );
+    }
+
+    #[test]
+    fn a_segment_a_loop_lists_without_a_definition_stays_opaque() {
+        let spec = Spec::from_json(CLP_ONLY).unwrap();
+        assert!(spec.get(spec.loop_id("2100").unwrap()).accepts(b"ZZ1"));
+        assert_eq!(spec.segment(b"ZZ1"), None);
+    }
+
+    #[test]
+    fn a_spec_without_segments_has_none() {
+        let spec =
+            Spec::from_json(r#"{"name":"t","loops":{"a":{"trigger":{"segment":"AA"}}}}"#).unwrap();
+        assert_eq!(spec.segments().count(), 0);
+    }
+
+    #[test]
+    fn bad_element_definitions_are_rejected_with_segment_position_and_reason() {
+        let cases = [
+            (
+                r#"{"01":{"name":"a","type":"AN"}}"#,
+                "01",
+                ElementDefError::NonCanonicalPosition,
+            ),
+            (
+                r#"{"0":{"name":"a","type":"AN"}}"#,
+                "0",
+                ElementDefError::NonCanonicalPosition,
+            ),
+            (
+                r#"{"1":{"name":"","type":"AN"}}"#,
+                "1",
+                ElementDefError::EmptyName,
+            ),
+            (
+                r#"{"1":{"name":"a","type":"AN"},"2":{"name":"a","type":"ID"}}"#,
+                "2",
+                ElementDefError::DuplicateName {
+                    name: "a".into(),
+                    first: "1".into(),
+                },
+            ),
+            (
+                r#"{"1":{"name":"a","type":"XX"}}"#,
+                "1",
+                ElementDefError::UnknownType { found: "XX".into() },
+            ),
+            (
+                r#"{"1":{"name":"a","type":"N2","scale":2}}"#,
+                "1",
+                ElementDefError::ScaleWithoutR { kind: "N2".into() },
+            ),
+            (
+                r#"{"1":{"name":"a","type":"AN","min":5,"max":2}}"#,
+                "1",
+                ElementDefError::MinAboveMax { min: 5, max: 2 },
+            ),
+            (
+                r#"{"1":{"name":"a","type":"ID","composite":{"1":{"name":"b","type":"AN"}}}}"#,
+                "1",
+                ElementDefError::CompositeOnNonAn { kind: "ID".into() },
+            ),
+            (
+                r#"{"1":{"name":"a","type":"AN","composite":{"2":{"name":"b","type":"AN","composite":{"1":{"name":"c","type":"AN"}}}}}}"#,
+                "1.composite.2",
+                ElementDefError::NestedComposite,
+            ),
+            (
+                r#"{"1":{"name":"a","type":"AN","composite":{"1":{"name":"b","type":"AN"},"2":{"name":"b","type":"AN"}}}}"#,
+                "1.composite.2",
+                ElementDefError::DuplicateName {
+                    name: "b".into(),
+                    first: "1".into(),
+                },
+            ),
+        ];
+        for (elements, expected_position, expected_reason) in cases {
+            let err = element_error(elements);
+            assert!(
+                matches!(&err, SpecError::BadElementDef { segment, position, reason } if segment == "AA" && position == expected_position && *reason == expected_reason),
+                "{elements}: {err:?}"
+            );
+        }
+    }
+
+    #[test]
+    fn names_only_need_to_be_unique_among_siblings() {
+        let ok = Spec::from_json(
+            r#"{"name":"t","loops":{"a":{"trigger":{"segment":"AA"}}},"segments":{"AA":{"elements":{
+                "1":{"name":"code","type":"AN","composite":{"1":{"name":"code","type":"AN"}}}
+            }}}}"#,
+        );
+        assert!(ok.is_ok(), "{ok:?}");
+    }
+
+    #[test]
+    fn a_segment_definition_that_breaks_the_schema_names_the_segment() {
+        let err = Spec::from_json(
+            r#"{"name":"t","loops":{"a":{"trigger":{"segment":"AA"}}},"segments":{"AA":{"elements":{"1":{"name":"a","type":"AN","lenght":3}}}}}"#,
+        )
+        .unwrap_err();
+        assert!(
+            matches!(&err, SpecError::SegmentSchema { segment, .. } if segment == "AA"),
+            "{err:?}"
+        );
+        assert!(
+            err.to_string()
+                .starts_with("segment \"AA\" does not match the schema: "),
+            "{err}"
+        );
+        assert!(err.to_string().contains("lenght"), "{err}");
+    }
+
+    #[test]
+    fn every_object_of_the_segment_schema_is_checked_with_its_path() {
+        let cases = [
+            (r#"[]"#, "segments", "an array"),
+            (r#"{"CLP":[]}"#, "segments.CLP", "an array"),
+            (
+                r#"{"CLP":{"elements":[]}}"#,
+                "segments.CLP.elements",
+                "an array",
+            ),
+            (
+                r#"{"CLP":{"elements":{"1":"claim_id"}}}"#,
+                "segments.CLP.elements.1",
+                "a string",
+            ),
+            (
+                r#"{"SVC":{"elements":{"1":{"name":"p","type":"AN","composite":{"2":7}}}}}"#,
+                "segments.SVC.elements.1.composite.2",
+                "a number",
+            ),
+        ];
+        for (segments, expected_path, expected_found) in cases {
+            let json = format!(
+                r#"{{"name":"t","loops":{{"a":{{"trigger":{{"segment":"AA"}}}}}},"segments":{segments}}}"#
+            );
+            let err = Spec::from_json(&json).unwrap_err();
+            assert!(
+                matches!(&err, SpecError::NotAnObject { path, found } if path == expected_path && *found == expected_found),
+                "{segments}: {err:?}"
+            );
+        }
+    }
+
+    #[test]
+    fn a_patch_retouches_one_element_and_keeps_the_rest() {
+        let spec = Spec::from_json(CLP_ONLY)
+            .unwrap()
+            .merge_patch(r#"{"segments":{"CLP":{"elements":{"1":{"max":30}}}}}"#)
+            .unwrap();
+        let clp = spec.segment(b"CLP").unwrap();
+        assert_eq!(clp.elements[&1].max, Some(30));
+        assert_eq!(clp.elements[&1].name, "claim_submitter_id");
+        assert_eq!(clp.elements.len(), 3);
+    }
+
+    #[test]
+    fn a_patch_adds_a_segment_definition() {
+        let spec = Spec::from_json(CLP_ONLY)
+            .unwrap()
+            .merge_patch(
+                r#"{"segments":{"ZZ1":{"elements":{"1":{"name":"payer_note","type":"AN"}}}}}"#,
+            )
+            .unwrap();
+        assert_eq!(
+            spec.segment(b"ZZ1").unwrap().elements[&1].name,
+            "payer_note"
+        );
+    }
+
+    #[test]
+    fn to_json_round_trips_the_segments_section() {
+        let spec = Spec::from_json(CLP_ONLY).unwrap();
+        let again = Spec::from_json(&spec.to_json()).unwrap();
+        assert!(spec.segments().eq(again.segments()));
+        assert_eq!(again.segments().count(), 2);
+    }
+
+    #[test]
+    fn segment_schema_error_displays_the_segment_and_the_serde_message() {
+        let err = SpecError::SegmentSchema {
+            segment: "CLP".into(),
+            source: serde_json::from_value::<RawSegment>(serde_json::json!(1)).unwrap_err(),
+        };
+        assert_eq!(
+            err.to_string(),
+            "segment \"CLP\" does not match the schema: invalid type: integer `1`, expected a segment object"
+        );
+        assert!(std::error::Error::source(&err).is_some());
+    }
+
+    #[test]
+    fn bad_element_def_displays_segment_position_and_every_reason() {
+        let cases = [
+            (
+                ElementDefError::NonCanonicalPosition,
+                "segment \"CLP\" element \"01\": positions are 1-based integers written in canonical form",
+            ),
+            (
+                ElementDefError::EmptyName,
+                "segment \"CLP\" element \"01\": \"name\" is empty",
+            ),
+            (
+                ElementDefError::DuplicateName {
+                    name: "claim_id".into(),
+                    first: "1".into(),
+                },
+                "segment \"CLP\" element \"01\": name \"claim_id\" is already used by position \"1\"",
+            ),
+            (
+                ElementDefError::UnknownType { found: "XX".into() },
+                "segment \"CLP\" element \"01\": type \"XX\" is not one of AN, ID, N0 to N9, R, DT, TM",
+            ),
+            (
+                ElementDefError::ScaleWithoutR { kind: "N2".into() },
+                "segment \"CLP\" element \"01\": \"scale\" applies only to type R; found type \"N2\"",
+            ),
+            (
+                ElementDefError::MinAboveMax { min: 5, max: 2 },
+                "segment \"CLP\" element \"01\": \"min\" 5 is greater than \"max\" 2",
+            ),
+            (
+                ElementDefError::CompositeOnNonAn { kind: "ID".into() },
+                "segment \"CLP\" element \"01\": \"composite\" requires type AN; found type \"ID\"",
+            ),
+            (
+                ElementDefError::NestedComposite,
+                "segment \"CLP\" element \"01\": a component cannot declare its own \"composite\"",
+            ),
+        ];
+        for (reason, expected) in cases {
+            let err = SpecError::BadElementDef {
+                segment: "CLP".into(),
+                position: "01".into(),
+                reason,
+            };
+            assert_eq!(err.to_string(), expected);
+            assert!(std::error::Error::source(&err).is_none());
+        }
+    }
+
+    fn control_error(control: &str) -> SpecError {
+        let json = format!(
+            r#"{{"name":"t","loops":{{"env":{{"trigger":{{"segment":"HD"}},"end":"TR","control":{control}}}}}}}"#
+        );
+        Spec::from_json(&json).unwrap_err()
+    }
+
+    #[test]
+    fn builtin_835_declares_the_envelope_controls() {
+        let spec = Spec::builtin_835();
+        let control = |name: &str| spec.get(spec.loop_id(name).unwrap()).control;
+        assert_eq!(
+            control("interchange"),
+            Some(Control {
+                opener_element: 13,
+                closer_element: 2,
+                count_element: 1,
+                count: ControlCount::Children,
+            })
+        );
+        assert_eq!(
+            control("group"),
+            Some(Control {
+                opener_element: 6,
+                closer_element: 2,
+                count_element: 1,
+                count: ControlCount::Children,
+            })
+        );
+        assert_eq!(
+            control("transaction"),
+            Some(Control {
+                opener_element: 2,
+                closer_element: 2,
+                count_element: 1,
+                count: ControlCount::Segments,
+            })
+        );
+        assert_eq!(control("2100"), None);
+    }
+
+    #[test]
+    fn bad_controls_are_rejected_with_the_loop_and_the_reason() {
+        let cases = [
+            (
+                r#"{"opener_element":0,"closer_element":2,"count_element":1,"count":"segments"}"#,
+                ControlError::ZeroPosition {
+                    key: "opener_element",
+                },
+            ),
+            (
+                r#"{"opener_element":2,"closer_element":2,"count_element":0,"count":"segments"}"#,
+                ControlError::ZeroPosition {
+                    key: "count_element",
+                },
+            ),
+            (
+                r#"{"opener_element":2,"closer_element":2,"count_element":1,"count":"segs"}"#,
+                ControlError::UnknownCount {
+                    found: "segs".into(),
+                },
+            ),
+        ];
+        for (control, expected) in cases {
+            let err = control_error(control);
+            assert!(
+                matches!(&err, SpecError::BadControl { loop_name, reason } if loop_name == "env" && *reason == expected),
+                "{control}: {err:?}"
+            );
+        }
+        let err = Spec::from_json(
+            r#"{"name":"t","loops":{"env":{"trigger":{"segment":"HD"},"control":{"opener_element":2,"closer_element":2,"count_element":1,"count":"segments"}}}}"#,
+        )
+        .unwrap_err();
+        assert!(
+            matches!(
+                &err,
+                SpecError::BadControl {
+                    reason: ControlError::NoEnd,
+                    ..
+                }
+            ),
+            "{err:?}"
+        );
+    }
+
+    #[test]
+    fn a_control_that_is_not_an_object_or_misses_a_key_is_rejected() {
+        let err = control_error("[2,2,1]");
+        assert!(
+            matches!(&err, SpecError::NotAnObject { path, found: "an array" } if path == "loops.env.control"),
+            "{err:?}"
+        );
+        let err = control_error(r#"{"opener_element":2,"closer_element":2,"count":"segments"}"#);
+        assert!(
+            matches!(&err, SpecError::Schema { loop_name: Some(name), .. } if name == "env"),
+            "{err:?}"
+        );
+    }
+
+    #[test]
+    fn bad_control_displays_the_loop_and_every_reason() {
+        let cases = [
+            (
+                ControlError::ZeroPosition {
+                    key: "opener_element",
+                },
+                "loop \"transaction\" has an invalid \"control\": \"opener_element\" must be a 1-based element position; found 0",
+            ),
+            (
+                ControlError::UnknownCount {
+                    found: "segs".into(),
+                },
+                "loop \"transaction\" has an invalid \"control\": \"count\" must be \"segments\" or \"children\"; found \"segs\"",
+            ),
+            (
+                ControlError::NoEnd,
+                "loop \"transaction\" has an invalid \"control\": the loop has no \"end\" segment to check",
+            ),
+        ];
+        for (reason, expected) in cases {
+            let err = SpecError::BadControl {
+                loop_name: "transaction".into(),
+                reason,
+            };
+            assert_eq!(err.to_string(), expected);
+            assert!(std::error::Error::source(&err).is_none());
+        }
     }
 
     #[test]

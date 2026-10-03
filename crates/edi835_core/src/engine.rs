@@ -18,8 +18,12 @@ pub enum Event {
     LoopOpened {
         /// The loop.
         id: LoopId,
-        /// `true` when no segment opened it.
+        /// `true` when no segment of its own opened it.
         implicit: bool,
+        /// Index of the trigger segment that caused the opening: the loop's
+        /// own trigger, or for an implicit opening the trigger of the
+        /// descendant that needed it.
+        segment: usize,
     },
     /// A loop ended.
     LoopClosed {
@@ -95,7 +99,7 @@ impl<'s> LoopEngine<'s> {
             let parent = depth.checked_sub(1).map(|i| self.stack[i]);
             if let Some(child) = self.spec.matching_child(parent, segment) {
                 self.close_to(depth);
-                self.open(child, false);
+                self.open(child, false, index);
                 self.capture(child, index);
                 return &self.events;
             }
@@ -132,9 +136,9 @@ impl<'s> LoopEngine<'s> {
                 .unwrap_or((0, 0));
             self.close_to(depth);
             for &ancestor in &chain[first_missing..] {
-                self.open(ancestor, true);
+                self.open(ancestor, true, index);
             }
-            self.open(target, false);
+            self.open(target, false, index);
             self.capture(target, index);
             return &self.events;
         }
@@ -152,9 +156,13 @@ impl<'s> LoopEngine<'s> {
         &self.events
     }
 
-    fn open(&mut self, id: LoopId, implicit: bool) {
+    fn open(&mut self, id: LoopId, implicit: bool, segment: usize) {
         self.stack.push(id);
-        self.events.push(Event::LoopOpened { id, implicit });
+        self.events.push(Event::LoopOpened {
+            id,
+            implicit,
+            segment,
+        });
     }
 
     fn capture(&mut self, id: LoopId, segment: usize) {
@@ -214,7 +222,8 @@ mod tests {
             vec![
                 Event::LoopOpened {
                     id: id(&spec, "A"),
-                    implicit: false
+                    implicit: false,
+                    segment: 0
                 },
                 Event::Captured {
                     id: id(&spec, "A"),
@@ -249,7 +258,8 @@ mod tests {
                 Event::LoopClosed { id: id(&spec, "B") },
                 Event::LoopOpened {
                     id: id(&spec, "B"),
-                    implicit: false
+                    implicit: false,
+                    segment: 3
                 },
                 Event::Captured {
                     id: id(&spec, "B"),
@@ -322,7 +332,8 @@ mod tests {
             events[0],
             Event::LoopOpened {
                 id: id(&spec, "C"),
-                implicit: false
+                implicit: false,
+                segment: 2
             }
         );
         assert_eq!(path, vec!["A", "B", "C"]);
@@ -337,15 +348,18 @@ mod tests {
             vec![
                 Event::LoopOpened {
                     id: id(&spec, "A"),
-                    implicit: true
+                    implicit: true,
+                    segment: 0
                 },
                 Event::LoopOpened {
                     id: id(&spec, "B"),
-                    implicit: true
+                    implicit: true,
+                    segment: 0
                 },
                 Event::LoopOpened {
                     id: id(&spec, "C"),
-                    implicit: false
+                    implicit: false,
+                    segment: 0
                 },
                 Event::Captured {
                     id: id(&spec, "C"),
@@ -359,7 +373,8 @@ mod tests {
             events[0],
             Event::LoopOpened {
                 id: id(&spec, "B"),
-                implicit: true
+                implicit: true,
+                segment: 1
             },
             "only the missing ancestor is implicit"
         );
@@ -411,7 +426,8 @@ mod tests {
                 Event::LoopClosed { id: id(&spec, "B") },
                 Event::LoopOpened {
                     id: id(&spec, "D"),
-                    implicit: false
+                    implicit: false,
+                    segment: 3
                 },
                 Event::Captured {
                     id: id(&spec, "D"),
@@ -440,11 +456,13 @@ mod tests {
                 Event::LoopClosed { id: id(&spec, "B") },
                 Event::LoopOpened {
                     id: id(&spec, "P"),
-                    implicit: true
+                    implicit: true,
+                    segment: 2
                 },
                 Event::LoopOpened {
                     id: id(&spec, "T"),
-                    implicit: false
+                    implicit: false,
+                    segment: 2
                 },
                 Event::Captured {
                     id: id(&spec, "T"),
@@ -472,7 +490,8 @@ mod tests {
             vec![
                 Event::LoopOpened {
                     id: id(&spec, "Y"),
-                    implicit: false
+                    implicit: false,
+                    segment: 2
                 },
                 Event::Captured {
                     id: id(&spec, "Y"),
@@ -522,6 +541,41 @@ mod tests {
             .map(|segment| reused.feed(segment).to_vec())
             .collect();
         assert_eq!(again, expected);
+    }
+
+    #[test]
+    fn an_event_stays_three_words() {
+        assert_eq!(
+            std::mem::size_of::<Event>(),
+            3 * std::mem::size_of::<usize>()
+        );
+    }
+
+    #[test]
+    fn every_explicit_opening_names_its_own_trigger() {
+        let spec = spec();
+        let mut engine = LoopEngine::new(&spec);
+        let opened: Vec<(&str, bool, usize)> = segs(b"AA~BB~B1~BB~CC*X~")
+            .iter()
+            .flat_map(|segment| engine.feed(segment).to_vec())
+            .filter_map(|event| match event {
+                Event::LoopOpened {
+                    id,
+                    implicit,
+                    segment,
+                } => Some((spec.loop_name(id), implicit, segment)),
+                _ => None,
+            })
+            .collect();
+        assert_eq!(
+            opened,
+            vec![
+                ("A", false, 0),
+                ("B", false, 1),
+                ("B", false, 3),
+                ("C", false, 4)
+            ]
+        );
     }
 
     #[test]

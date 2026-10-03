@@ -3,18 +3,21 @@
   "loops": {
     "interchange": {
       "trigger": { "segment": "ISA" },
-      "end": "IEA"
+      "end": "IEA",
+      "control": { "opener_element": 13, "closer_element": 2, "count_element": 1, "count": "children" }
     },
     "group": {
       "parent": "interchange",
       "trigger": { "segment": "GS" },
-      "end": "GE"
+      "end": "GE",
+      "control": { "opener_element": 6, "closer_element": 2, "count_element": 1, "count": "children" }
     },
     "transaction": {
       "parent": "group",
       "trigger": { "segment": "ST" },
       "segments": ["BPR", "TRN", "CUR", "REF", "DTM", "PLB"],
-      "end": "SE"
+      "end": "SE",
+      "control": { "opener_element": 2, "closer_element": 2, "count_element": 1, "count": "segments" }
     },
     "1000A": {
       "parent": "transaction",
@@ -41,5 +44,347 @@
       "trigger": { "segment": "SVC" },
       "segments": ["DTM", "CAS", "REF", "AMT", "QTY", "LQ"]
     }
+  },
+  "segments": {
+    "ISA": { "elements": {
+      "1": {"name": "authorization_information_qualifier", "type": "ID", "required": true, "min": 2, "max": 2},
+      "2": {"name": "authorization_information", "type": "AN", "required": true, "min": 10, "max": 10},
+      "3": {"name": "security_information_qualifier", "type": "ID", "required": true, "min": 2, "max": 2},
+      "4": {"name": "security_information", "type": "AN", "required": true, "min": 10, "max": 10},
+      "5": {"name": "interchange_sender_id_qualifier", "type": "ID", "required": true, "min": 2, "max": 2},
+      "6": {"name": "interchange_sender_id", "type": "AN", "required": true, "min": 15, "max": 15},
+      "7": {"name": "interchange_receiver_id_qualifier", "type": "ID", "required": true, "min": 2, "max": 2},
+      "8": {"name": "interchange_receiver_id", "type": "AN", "required": true, "min": 15, "max": 15},
+      "9": {"name": "interchange_date", "type": "DT", "required": true, "min": 6, "max": 6},
+      "10": {"name": "interchange_time", "type": "TM", "required": true, "min": 4, "max": 4},
+      "11": {"name": "repetition_separator", "type": "AN", "required": true, "min": 1, "max": 1},
+      "12": {"name": "interchange_control_version_number", "type": "ID", "required": true, "min": 5, "max": 5},
+      "13": {"name": "interchange_control_number", "type": "N0", "required": true, "min": 9, "max": 9},
+      "14": {"name": "acknowledgment_requested", "type": "ID", "required": true, "min": 1, "max": 1},
+      "15": {"name": "interchange_usage_indicator", "type": "ID", "required": true, "min": 1, "max": 1},
+      "16": {"name": "component_element_separator", "type": "AN", "required": true, "min": 1, "max": 1}
+    } },
+    "GS": { "elements": {
+      "1": {"name": "functional_identifier_code", "type": "ID", "required": true, "min": 2, "max": 2},
+      "2": {"name": "application_sender_code", "type": "AN", "required": true, "min": 2, "max": 15},
+      "3": {"name": "application_receiver_code", "type": "AN", "required": true, "min": 2, "max": 15},
+      "4": {"name": "date", "type": "DT", "required": true, "min": 8, "max": 8},
+      "5": {"name": "time", "type": "TM", "required": true, "min": 4, "max": 8},
+      "6": {"name": "group_control_number", "type": "N0", "required": true, "min": 1, "max": 9},
+      "7": {"name": "responsible_agency_code", "type": "ID", "required": true, "min": 1, "max": 2},
+      "8": {"name": "version_release_industry_identifier_code", "type": "AN", "required": true, "min": 1, "max": 12}
+    } },
+    "ST": { "elements": {
+      "1": {"name": "transaction_set_identifier_code", "type": "ID", "required": true, "min": 3, "max": 3},
+      "2": {"name": "transaction_set_control_number", "type": "AN", "required": true, "min": 4, "max": 9},
+      "3": {"name": "implementation_convention_reference", "type": "AN", "min": 1, "max": 35}
+    } },
+    "BPR": { "elements": {
+      "1": {"name": "transaction_handling_code", "type": "ID", "required": true, "min": 1, "max": 2},
+      "2": {"name": "total_actual_provider_payment_amount", "type": "R", "required": true, "min": 1, "max": 18},
+      "3": {"name": "credit_debit_flag_code", "type": "ID", "required": true, "min": 1, "max": 1},
+      "4": {"name": "payment_method_code", "type": "ID", "required": true, "min": 3, "max": 3},
+      "5": {"name": "payment_format_code", "type": "ID", "min": 1, "max": 10},
+      "6": {"name": "sender_dfi_id_number_qualifier", "type": "ID", "min": 2, "max": 2},
+      "7": {"name": "sender_dfi_identification_number", "type": "AN", "min": 3, "max": 12},
+      "8": {"name": "sender_account_number_qualifier", "type": "ID", "min": 1, "max": 3},
+      "9": {"name": "sender_account_number", "type": "AN", "min": 1, "max": 35},
+      "10": {"name": "originating_company_identifier", "type": "AN", "min": 10, "max": 10},
+      "11": {"name": "originating_company_supplemental_code", "type": "AN", "min": 9, "max": 9},
+      "12": {"name": "receiver_dfi_id_number_qualifier", "type": "ID", "min": 2, "max": 2},
+      "13": {"name": "receiver_dfi_identification_number", "type": "AN", "min": 3, "max": 12},
+      "14": {"name": "receiver_account_number_qualifier", "type": "ID", "min": 1, "max": 3},
+      "15": {"name": "receiver_account_number", "type": "AN", "min": 1, "max": 35},
+      "16": {"name": "check_issue_or_eft_effective_date", "type": "DT", "min": 8, "max": 8},
+      "17": {"name": "business_function_code", "type": "ID", "min": 1, "max": 3},
+      "18": {"name": "dfi_id_number_qualifier_3", "type": "ID", "min": 2, "max": 2},
+      "19": {"name": "dfi_identification_number_3", "type": "AN", "min": 3, "max": 12},
+      "20": {"name": "account_number_qualifier_3", "type": "ID", "min": 1, "max": 3},
+      "21": {"name": "account_number_3", "type": "AN", "min": 1, "max": 35}
+    } },
+    "TRN": { "elements": {
+      "1": {"name": "trace_type_code", "type": "ID", "required": true, "min": 1, "max": 2},
+      "2": {"name": "check_or_eft_trace_number", "type": "AN", "required": true, "min": 1, "max": 50},
+      "3": {"name": "payer_identifier", "type": "AN", "min": 10, "max": 10},
+      "4": {"name": "originating_company_supplemental_code", "type": "AN", "min": 1, "max": 50}
+    } },
+    "CUR": { "elements": {
+      "1": {"name": "entity_identifier_code", "type": "ID", "required": true, "min": 2, "max": 3},
+      "2": {"name": "currency_code", "type": "ID", "required": true, "min": 3, "max": 3},
+      "3": {"name": "exchange_rate", "type": "R", "min": 4, "max": 10, "scale": 6}
+    } },
+    "REF": { "elements": {
+      "1": {"name": "reference_identification_qualifier", "type": "ID", "required": true, "min": 2, "max": 3},
+      "2": {"name": "reference_identification", "type": "AN", "min": 1, "max": 50},
+      "3": {"name": "description", "type": "AN", "min": 1, "max": 80},
+      "4": {"name": "reference_identifier", "type": "AN", "composite": {
+        "1": {"name": "reference_identification_qualifier", "type": "ID", "required": true, "min": 2, "max": 3},
+        "2": {"name": "reference_identification", "type": "AN", "required": true, "min": 1, "max": 50},
+        "3": {"name": "reference_identification_qualifier_2", "type": "ID", "min": 2, "max": 3},
+        "4": {"name": "reference_identification_2", "type": "AN", "min": 1, "max": 50},
+        "5": {"name": "reference_identification_qualifier_3", "type": "ID", "min": 2, "max": 3},
+        "6": {"name": "reference_identification_3", "type": "AN", "min": 1, "max": 50}
+      }}
+    } },
+    "DTM": { "elements": {
+      "1": {"name": "date_time_qualifier", "type": "ID", "required": true, "min": 3, "max": 3},
+      "2": {"name": "date", "type": "DT", "min": 8, "max": 8},
+      "3": {"name": "time", "type": "TM", "min": 4, "max": 8},
+      "4": {"name": "time_code", "type": "ID", "min": 2, "max": 2},
+      "5": {"name": "date_time_period_format_qualifier", "type": "ID", "min": 2, "max": 3},
+      "6": {"name": "date_time_period", "type": "AN", "min": 1, "max": 35}
+    } },
+    "N1": { "elements": {
+      "1": {"name": "entity_identifier_code", "type": "ID", "required": true, "min": 2, "max": 3},
+      "2": {"name": "name", "type": "AN", "min": 1, "max": 60},
+      "3": {"name": "identification_code_qualifier", "type": "ID", "min": 1, "max": 2},
+      "4": {"name": "identification_code", "type": "AN", "min": 2, "max": 80},
+      "5": {"name": "entity_relationship_code", "type": "ID", "min": 2, "max": 2},
+      "6": {"name": "entity_identifier_code_2", "type": "ID", "min": 2, "max": 3}
+    } },
+    "N3": { "elements": {
+      "1": {"name": "address_information", "type": "AN", "required": true, "min": 1, "max": 55},
+      "2": {"name": "address_information_2", "type": "AN", "min": 1, "max": 55}
+    } },
+    "N4": { "elements": {
+      "1": {"name": "city_name", "type": "AN", "min": 2, "max": 30},
+      "2": {"name": "state_or_province_code", "type": "ID", "min": 2, "max": 2},
+      "3": {"name": "postal_code", "type": "ID", "min": 3, "max": 15},
+      "4": {"name": "country_code", "type": "ID", "min": 2, "max": 3},
+      "5": {"name": "location_qualifier", "type": "ID", "min": 1, "max": 2},
+      "6": {"name": "location_identifier", "type": "AN", "min": 1, "max": 30},
+      "7": {"name": "country_subdivision_code", "type": "ID", "min": 1, "max": 3}
+    } },
+    "PER": { "elements": {
+      "1": {"name": "contact_function_code", "type": "ID", "required": true, "min": 2, "max": 2},
+      "2": {"name": "name", "type": "AN", "min": 1, "max": 60},
+      "3": {"name": "communication_number_qualifier", "type": "ID", "min": 2, "max": 2},
+      "4": {"name": "communication_number", "type": "AN", "min": 1, "max": 256},
+      "5": {"name": "communication_number_qualifier_2", "type": "ID", "min": 2, "max": 2},
+      "6": {"name": "communication_number_2", "type": "AN", "min": 1, "max": 256},
+      "7": {"name": "communication_number_qualifier_3", "type": "ID", "min": 2, "max": 2},
+      "8": {"name": "communication_number_3", "type": "AN", "min": 1, "max": 256},
+      "9": {"name": "contact_inquiry_reference", "type": "AN", "min": 1, "max": 20}
+    } },
+    "RDM": { "elements": {
+      "1": {"name": "report_transmission_code", "type": "ID", "required": true, "min": 1, "max": 2},
+      "2": {"name": "name", "type": "AN", "min": 1, "max": 60},
+      "3": {"name": "communication_number", "type": "AN", "min": 1, "max": 256}
+    } },
+    "LX": { "elements": {
+      "1": {"name": "assigned_number", "type": "N0", "required": true, "min": 1, "max": 6}
+    } },
+    "TS3": { "elements": {
+      "1": {"name": "provider_identifier", "type": "AN", "required": true, "min": 1, "max": 50},
+      "2": {"name": "facility_type_code", "type": "AN", "required": true, "min": 1, "max": 2},
+      "3": {"name": "fiscal_period_date", "type": "DT", "required": true, "min": 8, "max": 8},
+      "4": {"name": "total_claim_count", "type": "R", "required": true, "min": 1, "max": 15},
+      "5": {"name": "total_claim_charge_amount", "type": "R", "required": true, "min": 1, "max": 18},
+      "13": {"name": "total_msp_payer_amount", "type": "R", "min": 1, "max": 18},
+      "15": {"name": "total_non_lab_charge_amount", "type": "R", "min": 1, "max": 18},
+      "17": {"name": "total_hcpcs_reported_charge_amount", "type": "R", "min": 1, "max": 18},
+      "18": {"name": "total_hcpcs_payable_amount", "type": "R", "min": 1, "max": 18},
+      "20": {"name": "total_professional_component_amount", "type": "R", "min": 1, "max": 18},
+      "21": {"name": "total_msp_patient_liability_met_amount", "type": "R", "min": 1, "max": 18},
+      "22": {"name": "total_patient_reimbursement_amount", "type": "R", "min": 1, "max": 18},
+      "23": {"name": "total_pip_claim_count", "type": "R", "min": 1, "max": 15},
+      "24": {"name": "total_pip_adjustment_amount", "type": "R", "min": 1, "max": 18}
+    } },
+    "TS2": { "elements": {
+      "1": {"name": "total_drg_amount", "type": "R", "min": 1, "max": 18},
+      "2": {"name": "total_federal_specific_amount", "type": "R", "min": 1, "max": 18},
+      "3": {"name": "total_hospital_specific_amount", "type": "R", "min": 1, "max": 18},
+      "4": {"name": "total_disproportionate_share_amount", "type": "R", "min": 1, "max": 18},
+      "5": {"name": "total_capital_amount", "type": "R", "min": 1, "max": 18},
+      "6": {"name": "total_indirect_medical_education_amount", "type": "R", "min": 1, "max": 18},
+      "7": {"name": "total_outlier_day_count", "type": "R", "min": 1, "max": 15},
+      "8": {"name": "total_day_outlier_amount", "type": "R", "min": 1, "max": 18},
+      "9": {"name": "total_cost_outlier_amount", "type": "R", "min": 1, "max": 18},
+      "10": {"name": "average_drg_length_of_stay", "type": "R", "min": 1, "max": 15},
+      "11": {"name": "total_discharge_count", "type": "R", "min": 1, "max": 15},
+      "12": {"name": "total_cost_report_day_count", "type": "R", "min": 1, "max": 15},
+      "13": {"name": "total_covered_day_count", "type": "R", "min": 1, "max": 15},
+      "14": {"name": "total_noncovered_day_count", "type": "R", "min": 1, "max": 15},
+      "15": {"name": "total_msp_pass_through_amount", "type": "R", "min": 1, "max": 18},
+      "16": {"name": "average_drg_weight", "type": "R", "min": 1, "max": 15, "scale": 4},
+      "17": {"name": "total_pps_capital_fsp_drg_amount", "type": "R", "min": 1, "max": 18},
+      "18": {"name": "total_pps_capital_hsp_drg_amount", "type": "R", "min": 1, "max": 18},
+      "19": {"name": "total_pps_dsh_drg_amount", "type": "R", "min": 1, "max": 18}
+    } },
+    "CLP": { "elements": {
+      "1": {"name": "claim_submitter_identifier", "type": "AN", "required": true, "min": 1, "max": 38},
+      "2": {"name": "claim_status_code", "type": "ID", "required": true, "min": 1, "max": 2},
+      "3": {"name": "total_claim_charge_amount", "type": "R", "required": true, "min": 1, "max": 18},
+      "4": {"name": "claim_payment_amount", "type": "R", "required": true, "min": 1, "max": 18},
+      "5": {"name": "patient_responsibility_amount", "type": "R", "min": 1, "max": 18},
+      "6": {"name": "claim_filing_indicator_code", "type": "ID", "min": 1, "max": 2},
+      "7": {"name": "payer_claim_control_number", "type": "AN", "min": 1, "max": 50},
+      "8": {"name": "facility_type_code", "type": "AN", "min": 1, "max": 2},
+      "9": {"name": "claim_frequency_type_code", "type": "ID", "min": 1, "max": 1},
+      "10": {"name": "patient_status_code", "type": "ID", "min": 1, "max": 2},
+      "11": {"name": "drg_code", "type": "ID", "min": 1, "max": 4},
+      "12": {"name": "drg_weight", "type": "R", "min": 1, "max": 15, "scale": 4},
+      "13": {"name": "discharge_fraction", "type": "R", "min": 1, "max": 10, "scale": 4},
+      "14": {"name": "yes_no_condition_or_response_code", "type": "ID", "min": 1, "max": 1}
+    } },
+    "CAS": { "elements": {
+      "1": {"name": "claim_adjustment_group_code", "type": "ID", "required": true, "min": 1, "max": 2},
+      "2": {"name": "adjustment_reason_code", "type": "ID", "required": true, "min": 1, "max": 5},
+      "3": {"name": "adjustment_amount", "type": "R", "required": true, "min": 1, "max": 18},
+      "4": {"name": "adjustment_quantity", "type": "R", "min": 1, "max": 15},
+      "5": {"name": "adjustment_reason_code_2", "type": "ID", "min": 1, "max": 5},
+      "6": {"name": "adjustment_amount_2", "type": "R", "min": 1, "max": 18},
+      "7": {"name": "adjustment_quantity_2", "type": "R", "min": 1, "max": 15},
+      "8": {"name": "adjustment_reason_code_3", "type": "ID", "min": 1, "max": 5},
+      "9": {"name": "adjustment_amount_3", "type": "R", "min": 1, "max": 18},
+      "10": {"name": "adjustment_quantity_3", "type": "R", "min": 1, "max": 15},
+      "11": {"name": "adjustment_reason_code_4", "type": "ID", "min": 1, "max": 5},
+      "12": {"name": "adjustment_amount_4", "type": "R", "min": 1, "max": 18},
+      "13": {"name": "adjustment_quantity_4", "type": "R", "min": 1, "max": 15},
+      "14": {"name": "adjustment_reason_code_5", "type": "ID", "min": 1, "max": 5},
+      "15": {"name": "adjustment_amount_5", "type": "R", "min": 1, "max": 18},
+      "16": {"name": "adjustment_quantity_5", "type": "R", "min": 1, "max": 15},
+      "17": {"name": "adjustment_reason_code_6", "type": "ID", "min": 1, "max": 5},
+      "18": {"name": "adjustment_amount_6", "type": "R", "min": 1, "max": 18},
+      "19": {"name": "adjustment_quantity_6", "type": "R", "min": 1, "max": 15}
+    } },
+    "NM1": { "elements": {
+      "1": {"name": "entity_identifier_code", "type": "ID", "required": true, "min": 2, "max": 3},
+      "2": {"name": "entity_type_qualifier", "type": "ID", "required": true, "min": 1, "max": 1},
+      "3": {"name": "name_last_or_organization_name", "type": "AN", "min": 1, "max": 60},
+      "4": {"name": "name_first", "type": "AN", "min": 1, "max": 35},
+      "5": {"name": "name_middle", "type": "AN", "min": 1, "max": 25},
+      "6": {"name": "name_prefix", "type": "AN", "min": 1, "max": 10},
+      "7": {"name": "name_suffix", "type": "AN", "min": 1, "max": 10},
+      "8": {"name": "identification_code_qualifier", "type": "ID", "min": 1, "max": 2},
+      "9": {"name": "identification_code", "type": "AN", "min": 2, "max": 80},
+      "10": {"name": "entity_relationship_code", "type": "ID", "min": 2, "max": 2},
+      "11": {"name": "entity_identifier_code_2", "type": "ID", "min": 2, "max": 3},
+      "12": {"name": "name_last_or_organization_name_2", "type": "AN", "min": 1, "max": 60}
+    } },
+    "MIA": { "elements": {
+      "1": {"name": "covered_days_or_visits_count", "type": "R", "required": true, "min": 1, "max": 15},
+      "2": {"name": "pps_operating_outlier_amount", "type": "R", "min": 1, "max": 18},
+      "3": {"name": "lifetime_psychiatric_days_count", "type": "R", "min": 1, "max": 15},
+      "4": {"name": "claim_drg_amount", "type": "R", "min": 1, "max": 18},
+      "5": {"name": "claim_payment_remark_code", "type": "AN", "min": 1, "max": 50},
+      "6": {"name": "claim_disproportionate_share_amount", "type": "R", "min": 1, "max": 18},
+      "7": {"name": "claim_msp_pass_through_amount", "type": "R", "min": 1, "max": 18},
+      "8": {"name": "claim_pps_capital_amount", "type": "R", "min": 1, "max": 18},
+      "9": {"name": "pps_capital_fsp_drg_amount", "type": "R", "min": 1, "max": 18},
+      "10": {"name": "pps_capital_hsp_drg_amount", "type": "R", "min": 1, "max": 18},
+      "11": {"name": "pps_capital_dsh_drg_amount", "type": "R", "min": 1, "max": 18},
+      "12": {"name": "old_capital_amount", "type": "R", "min": 1, "max": 18},
+      "13": {"name": "pps_capital_ime_amount", "type": "R", "min": 1, "max": 18},
+      "14": {"name": "pps_operating_hospital_specific_drg_amount", "type": "R", "min": 1, "max": 18},
+      "15": {"name": "cost_report_day_count", "type": "R", "min": 1, "max": 15},
+      "16": {"name": "pps_operating_federal_specific_drg_amount", "type": "R", "min": 1, "max": 18},
+      "17": {"name": "claim_pps_capital_outlier_amount", "type": "R", "min": 1, "max": 18},
+      "18": {"name": "claim_indirect_teaching_amount", "type": "R", "min": 1, "max": 18},
+      "19": {"name": "nonpayable_professional_component_amount", "type": "R", "min": 1, "max": 18},
+      "20": {"name": "claim_payment_remark_code_2", "type": "AN", "min": 1, "max": 50},
+      "21": {"name": "claim_payment_remark_code_3", "type": "AN", "min": 1, "max": 50},
+      "22": {"name": "claim_payment_remark_code_4", "type": "AN", "min": 1, "max": 50},
+      "23": {"name": "claim_payment_remark_code_5", "type": "AN", "min": 1, "max": 50},
+      "24": {"name": "pps_capital_exception_amount", "type": "R", "min": 1, "max": 18}
+    } },
+    "MOA": { "elements": {
+      "1": {"name": "reimbursement_rate", "type": "R", "min": 1, "max": 10, "scale": 4},
+      "2": {"name": "hcpcs_payable_amount", "type": "R", "min": 1, "max": 18},
+      "3": {"name": "claim_payment_remark_code", "type": "AN", "min": 1, "max": 50},
+      "4": {"name": "claim_payment_remark_code_2", "type": "AN", "min": 1, "max": 50},
+      "5": {"name": "claim_payment_remark_code_3", "type": "AN", "min": 1, "max": 50},
+      "6": {"name": "claim_payment_remark_code_4", "type": "AN", "min": 1, "max": 50},
+      "7": {"name": "claim_payment_remark_code_5", "type": "AN", "min": 1, "max": 50},
+      "8": {"name": "esrd_payment_amount", "type": "R", "min": 1, "max": 18},
+      "9": {"name": "nonpayable_professional_component_amount", "type": "R", "min": 1, "max": 18}
+    } },
+    "AMT": { "elements": {
+      "1": {"name": "amount_qualifier_code", "type": "ID", "required": true, "min": 1, "max": 3},
+      "2": {"name": "monetary_amount", "type": "R", "required": true, "min": 1, "max": 18},
+      "3": {"name": "credit_debit_flag_code", "type": "ID", "min": 1, "max": 1}
+    } },
+    "QTY": { "elements": {
+      "1": {"name": "quantity_qualifier", "type": "ID", "required": true, "min": 2, "max": 2},
+      "2": {"name": "quantity", "type": "R", "min": 1, "max": 15},
+      "4": {"name": "free_form_information", "type": "AN", "min": 1, "max": 30}
+    } },
+    "SVC": { "elements": {
+      "1": {"name": "composite_medical_procedure", "type": "AN", "required": true, "composite": {
+        "1": {"name": "product_or_service_id_qualifier", "type": "ID", "required": true, "min": 2, "max": 2},
+        "2": {"name": "procedure_code", "type": "AN", "required": true, "min": 1, "max": 48},
+        "3": {"name": "procedure_modifier_1", "type": "AN", "min": 2, "max": 2},
+        "4": {"name": "procedure_modifier_2", "type": "AN", "min": 2, "max": 2},
+        "5": {"name": "procedure_modifier_3", "type": "AN", "min": 2, "max": 2},
+        "6": {"name": "procedure_modifier_4", "type": "AN", "min": 2, "max": 2},
+        "7": {"name": "description", "type": "AN", "min": 1, "max": 80},
+        "8": {"name": "product_or_service_id", "type": "AN", "min": 1, "max": 48}
+      }},
+      "2": {"name": "line_item_charge_amount", "type": "R", "required": true, "min": 1, "max": 18},
+      "3": {"name": "line_item_provider_payment_amount", "type": "R", "min": 1, "max": 18},
+      "4": {"name": "national_uniform_billing_committee_revenue_code", "type": "AN", "min": 1, "max": 48},
+      "5": {"name": "units_of_service_paid_count", "type": "R", "min": 1, "max": 15},
+      "6": {"name": "original_composite_medical_procedure", "type": "AN", "composite": {
+        "1": {"name": "original_product_or_service_id_qualifier", "type": "ID", "required": true, "min": 2, "max": 2},
+        "2": {"name": "original_procedure_code", "type": "AN", "required": true, "min": 1, "max": 48},
+        "3": {"name": "original_procedure_modifier_1", "type": "AN", "min": 2, "max": 2},
+        "4": {"name": "original_procedure_modifier_2", "type": "AN", "min": 2, "max": 2},
+        "5": {"name": "original_procedure_modifier_3", "type": "AN", "min": 2, "max": 2},
+        "6": {"name": "original_procedure_modifier_4", "type": "AN", "min": 2, "max": 2},
+        "7": {"name": "original_description", "type": "AN", "min": 1, "max": 80},
+        "8": {"name": "original_product_or_service_id", "type": "AN", "min": 1, "max": 48}
+      }},
+      "7": {"name": "original_units_of_service_count", "type": "R", "min": 1, "max": 15}
+    } },
+    "LQ": { "elements": {
+      "1": {"name": "code_list_qualifier_code", "type": "ID", "min": 1, "max": 3},
+      "2": {"name": "industry_code", "type": "AN", "min": 1, "max": 30}
+    } },
+    "PLB": { "elements": {
+      "1": {"name": "provider_identifier", "type": "AN", "required": true, "min": 1, "max": 50},
+      "2": {"name": "fiscal_period_date", "type": "DT", "required": true, "min": 8, "max": 8},
+      "3": {"name": "adjustment_identifier", "type": "AN", "required": true, "composite": {
+        "1": {"name": "adjustment_reason_code", "type": "ID", "required": true, "min": 2, "max": 2},
+        "2": {"name": "reference_identification", "type": "AN", "min": 1, "max": 50}
+      }},
+      "4": {"name": "provider_adjustment_amount", "type": "R", "required": true, "min": 1, "max": 18},
+      "5": {"name": "adjustment_identifier_2", "type": "AN", "composite": {
+        "1": {"name": "adjustment_reason_code", "type": "ID", "required": true, "min": 2, "max": 2},
+        "2": {"name": "reference_identification", "type": "AN", "min": 1, "max": 50}
+      }},
+      "6": {"name": "provider_adjustment_amount_2", "type": "R", "min": 1, "max": 18},
+      "7": {"name": "adjustment_identifier_3", "type": "AN", "composite": {
+        "1": {"name": "adjustment_reason_code", "type": "ID", "required": true, "min": 2, "max": 2},
+        "2": {"name": "reference_identification", "type": "AN", "min": 1, "max": 50}
+      }},
+      "8": {"name": "provider_adjustment_amount_3", "type": "R", "min": 1, "max": 18},
+      "9": {"name": "adjustment_identifier_4", "type": "AN", "composite": {
+        "1": {"name": "adjustment_reason_code", "type": "ID", "required": true, "min": 2, "max": 2},
+        "2": {"name": "reference_identification", "type": "AN", "min": 1, "max": 50}
+      }},
+      "10": {"name": "provider_adjustment_amount_4", "type": "R", "min": 1, "max": 18},
+      "11": {"name": "adjustment_identifier_5", "type": "AN", "composite": {
+        "1": {"name": "adjustment_reason_code", "type": "ID", "required": true, "min": 2, "max": 2},
+        "2": {"name": "reference_identification", "type": "AN", "min": 1, "max": 50}
+      }},
+      "12": {"name": "provider_adjustment_amount_5", "type": "R", "min": 1, "max": 18},
+      "13": {"name": "adjustment_identifier_6", "type": "AN", "composite": {
+        "1": {"name": "adjustment_reason_code", "type": "ID", "required": true, "min": 2, "max": 2},
+        "2": {"name": "reference_identification", "type": "AN", "min": 1, "max": 50}
+      }},
+      "14": {"name": "provider_adjustment_amount_6", "type": "R", "min": 1, "max": 18}
+    } },
+    "SE": { "elements": {
+      "1": {"name": "number_of_included_segments", "type": "N0", "required": true, "min": 1, "max": 10},
+      "2": {"name": "transaction_set_control_number", "type": "AN", "required": true, "min": 4, "max": 9}
+    } },
+    "GE": { "elements": {
+      "1": {"name": "number_of_transaction_sets_included", "type": "N0", "required": true, "min": 1, "max": 6},
+      "2": {"name": "group_control_number", "type": "N0", "required": true, "min": 1, "max": 9}
+    } },
+    "IEA": { "elements": {
+      "1": {"name": "number_of_included_functional_groups", "type": "N0", "required": true, "min": 1, "max": 5},
+      "2": {"name": "interchange_control_number", "type": "N0", "required": true, "min": 9, "max": 9}
+    } }
   }
 }

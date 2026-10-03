@@ -98,3 +98,22 @@ pub fn events_of(
 ) -> Vec<edi835_core::Event> {
     run_engine(spec, edi835_core::Tokenizer::with_delimiters(bytes, delims))
 }
+
+/// Tokenize `bytes` with `delims`, run the engine and the envelope checker
+/// side by side, and return every diagnostic in order, `finish` included.
+pub fn diagnostics_of(
+    spec: &edi835_core::Spec,
+    bytes: &[u8],
+    delims: edi835_core::Delimiters,
+) -> Vec<edi835_core::Diagnostic> {
+    let mut engine = edi835_core::LoopEngine::new(spec);
+    let mut checker = edi835_core::EnvelopeChecker::new(spec);
+    let mut diagnostics = Vec::new();
+    for segment in edi835_core::Tokenizer::with_delimiters(bytes, delims) {
+        let events = engine.feed(&segment);
+        diagnostics.extend_from_slice(checker.on(&segment, events));
+    }
+    engine.finish();
+    diagnostics.extend_from_slice(checker.finish());
+    diagnostics
+}

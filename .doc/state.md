@@ -1,11 +1,20 @@
-# State — 2026-10-03
+# State — 2026-10-03 (night)
 
 Snapshot for picking the project up cold. Update when a stage changes state.
 
 ## Where we are
 
-- Stages 0–3 are merged on `master` (PRs #1 #2 #3 #5 #6). Suite: 156 tests; clippy, fmt,
-  rustdoc `-D warnings` clean; CI green.
+- Stages 0–3 are merged on `master` (PRs #1 #2 #3 #5 #6), plus the test-hygiene sprint
+  (PR #20, closed #9–#13) and the merge-patch docs (PR #21, closed #14).
+- Stage 4a is implemented on branch `stage-4a-spec-diagnostics` (plan
+  `plans/stage-4a-spec-diagnostics.md`, 8 tasks, all reviewed; final Opus review with P10
+  focus clean after one fix wave) and awaits the owner's merge of its PR. Suite there: 229
+  tests; clippy, fmt, rustdoc `-D warnings` clean. Baseline: envelope checker 84–96 MiB/s
+  on the three largest samples (commit 616599d message).
+- The crate after 4a adds: `Spec` `segments` section (`ElementType`, `ElementDef`,
+  `SegmentDef`), shape pre-check (`NotAnObject`), `EmptySegmentId`, `OverlappingTriggers`
+  (narrow rule), `control` per envelope loop, `Event::LoopOpened.segment`,
+  `Node::opened_by`, `Diagnostic`/`Rule`/`SnipLevel`/`LoopRef`, `EnvelopeChecker` (SNIP 1).
 - The crate (`crates/edi835_core`) offers: `Delimiters::from_isa`, `frame::next_frame`,
   `Tokenizer<'a>` (lazy, lossless `Segment` stream), `Segment::write_to` (symmetric writer),
   `Document<'a>` (`Cow` bytes + spans, borrowed or owned), `Spec` (JSON loop spec with
@@ -21,19 +30,26 @@ Snapshot for picking the project up cold. Update when a stage changes state.
 
 ## Open items
 
-- Project #8 Backlog: issues #7–#19 (deferred review minors). Priority Alta: #18 (array-form
-  specs accepted; odd message for `[]`). Media: #7, #12, #15, #17, #19. Baja: the rest.
-  Suggested first sprint before Stage 4: test hygiene (#9, #10, #11, #12, #13), small enough
-  for a Haiku implementer in one PR.
-- `.doc/analysis/` study notes cover Stage 0–1 code only; Stages 2 and 3 (document, spec,
-  engine, tree, goldens) still need their sections (structure, flow, tests with reasons,
-  concepts, patterns), written from the real code.
+- Project #8 Backlog: #8, #15, #16 (Stage 3 leftovers) and #22–#29 (Stage 4a final-review
+  findings: schema key paths, composite control values, lossy UTF-8 in Display, ImplicitLoop
+  naming the missing trigger, `end == trigger`, R scale cap, ISA11 name, separator-ambiguous
+  paths). #7, #17, #18, #19 close with the 4a PR.
+- `.doc/analysis/` study notes describe the whole crate from the real code (rewritten
+  2026-10-03 at commit 8f86e42); update them again when Stage 4 lands.
 - Older plans (`stage-1`, `stage-2`) show pre-P10 error shapes; they are historical records,
   not to be edited.
 
-## Next stage: 4 · Projection + validation
+## Current stage: 4 · Projection + validation
 
-Design questions to settle in chat before writing §7 Stage 4:
+§7 Stage 4 approved 2026-10-03 (T11–T17, resolves D10, opens D11). The stage runs as two
+plans and two PRs. 4a (spec `segments` + validation closing #7 #17 #18, `LoopOpened.segment`
+for #19, `Diagnostic`, `EnvelopeChecker` SNIP 1) is done and in PR. Next: plan 4b
+(`plans/stage-4b-projection.md`: Arrow-layout columns, `Projector` SNIP 2, `tables`,
+`Processor`, table and diagnostic goldens, bench), written from §7 T14–T16 and the Rule
+level-2 variants already declared in `diagnostic.rs`; it must also settle #27 (R scale cap)
+and decide on #25 (Display contract of ImplicitLoop) before freezing diagnostics. Execution
+with subagents: main session orchestrates only; implementer by complexity, reviewer one tier up.
+The decisions that were open, now settled in §7:
 - `Diagnostic` as a first-class deliverable (P10): segment index, byte range, element and
   component position, loop path, rule code, message; rendering of engine anomalies
   (unmatched, implicit opens; see #19).

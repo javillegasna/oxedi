@@ -56,8 +56,12 @@ fn describe_diff(actual: &str, expected: &str) -> String {
 fn line(spec: &Spec, event: Event, segment_id: &[u8]) -> String {
     let id = String::from_utf8_lossy(segment_id);
     match event {
-        Event::LoopOpened { id: l, implicit } => format!(
-            "open{} {}",
+        Event::LoopOpened {
+            id: l,
+            implicit,
+            segment,
+        } => format!(
+            "open{} {} #{segment}",
             if implicit { "!" } else { "" },
             spec.loop_name(l)
         ),

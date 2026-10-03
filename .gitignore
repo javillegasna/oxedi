@@ -6,3 +6,6 @@
 samples/
 __pycache__/
 .superpowers/
+
+# Human-oriented analyses (text + mermaid): personal study notes, not part of the repo.
+.doc/analysis/

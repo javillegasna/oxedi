@@ -313,6 +313,247 @@ impl fmt::Display for ElementDefError {
     }
 }
 
+/// Name of the automatic column that numbers a table's rows from 0, across
+/// the whole stream.
+pub const ROW_COLUMN: &str = "row";
+
+/// Name of the automatic column that holds the index of a row's anchor
+/// segment: the segment that opened the anchor loop instance, or the
+/// anchored segment itself.
+pub const SEGMENT_COLUMN: &str = "segment";
+
+/// How a table's segment repeats a group of elements: one row per group.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct Repeat {
+    /// 1-based position of the first group's first element.
+    pub from: usize,
+    /// Elements per group.
+    pub step: usize,
+}
+
+/// Where a column takes its value from.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum ColumnSource {
+    /// An element (or one of its components) of the first segment that
+    /// matches `segment` and `conditions`, captured in the anchor loop
+    /// instance, or in the first instance of `loop_id` inside it. In a table
+    /// anchored on a segment, the anchor segment itself.
+    Element {
+        /// A loop inside the anchor loop to read from; `None` for the anchor loop.
+        loop_id: Option<LoopId>,
+        /// The segment id.
+        segment: Vec<u8>,
+        /// `(1-based element position, required value)`, sorted by position.
+        conditions: Vec<(usize, Vec<u8>)>,
+        /// 1-based element position.
+        element: usize,
+        /// 1-based component position, to read one component of a composite.
+        component: Option<usize>,
+    },
+    /// The index of the first segment that matches, chosen as for `Element`.
+    SegmentIndex {
+        /// A loop inside the anchor loop to read from; `None` for the anchor loop.
+        loop_id: Option<LoopId>,
+        /// The segment id.
+        segment: Vec<u8>,
+        /// `(1-based element position, required value)`, sorted by position.
+        conditions: Vec<(usize, Vec<u8>)>,
+    },
+    /// An element of the row's group, in a table whose segment repeats a
+    /// group: position `from + k * step + offset` for group `k`.
+    GroupElement {
+        /// 0-based position inside the group.
+        offset: usize,
+        /// 1-based component position, to read one component of a composite.
+        component: Option<usize>,
+    },
+}
+
+/// One table of the projection.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct TableDef {
+    /// Name used in the JSON, e.g. `claims`.
+    pub name: String,
+    /// Name of the column that refers to a row of this table from the
+    /// tables below it, e.g. `claim`; the table's name unless the spec says.
+    pub reference: String,
+    /// The loops whose instances (or whose segments) give rows.
+    pub loops: Vec<LoopId>,
+    /// With a segment, one row per occurrence of it in an anchor loop
+    /// instead of one row per loop instance.
+    pub segment: Option<Vec<u8>>,
+    /// With a repeat, one row per element group of the segment.
+    pub repeat: Option<Repeat>,
+    /// The declared columns by name, in name order.
+    pub columns: Vec<(String, ColumnSource)>,
+    /// The nearest table above this one, as an index into [`Spec::tables`].
+    pub parent: Option<usize>,
+    /// Every table above this one, outermost first; the last is `parent`.
+    /// Each one gets an automatic column named after its `reference`.
+    pub ancestors: Vec<usize>,
+}
+
+/// Why a table definition was rejected.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum TableDefError {
+    /// A table name, column name or `ref` is the empty string.
+    EmptyName {
+        /// Which one: `table name`, `column name` or `ref`.
+        what: &'static str,
+    },
+    /// `loops` is empty.
+    NoLoops,
+    /// A loop name does not exist.
+    UnknownLoop {
+        /// The name as written.
+        name: String,
+    },
+    /// A column name or `ref` is taken by an automatic column.
+    ReservedName {
+        /// The name as written.
+        name: String,
+    },
+    /// Another table already uses this `ref`.
+    RefTaken {
+        /// The `ref` as written.
+        name: String,
+        /// The table that uses it first, in name order.
+        table: String,
+    },
+    /// `repeat` was given without `segment`.
+    RepeatWithoutSegment,
+    /// `repeat.step` is 0.
+    ZeroStep,
+    /// A 1-based position holds 0.
+    ZeroPosition {
+        /// The key: `repeat.from`, `element` or `component`.
+        key: &'static str,
+    },
+    /// A `where` key is not a 1-based element position in canonical form.
+    BadPosition {
+        /// The key as written.
+        key: String,
+    },
+    /// `group_element` does not fit inside a group.
+    OffsetBeyondStep {
+        /// The offset as written.
+        offset: usize,
+        /// The group size.
+        step: usize,
+    },
+    /// Two anchor loops of a table without `segment` nest.
+    NestedAnchors {
+        /// The enclosing loop.
+        outer: String,
+        /// The loop inside it.
+        inner: String,
+    },
+    /// The loop already anchors another table without `segment`.
+    SharedAnchor {
+        /// The loop.
+        loop_name: String,
+        /// The table that anchors in it first, in name order.
+        other: String,
+    },
+    /// Two anchor loops lead to tables above that are not one chain.
+    UnrelatedAnchors {
+        /// The anchor loop with the longest chain of tables above it.
+        first: String,
+        /// The anchor loop whose chain disagrees.
+        second: String,
+    },
+    /// A column's `loop` is not inside every anchor loop.
+    NotADescendant {
+        /// The column's loop.
+        loop_name: String,
+        /// The anchor loop it is not inside.
+        anchor: String,
+    },
+    /// A key that picks a segment is used in a table anchored on a segment.
+    AnchorSegmentOnly {
+        /// The key: `segment`, `loop` or `where`.
+        key: &'static str,
+    },
+    /// A column of a table without `segment` names no segment.
+    NeedsSegment,
+    /// `group_element` is used in a table without `repeat`.
+    GroupWithoutRepeat,
+    /// A column does not name exactly one value source.
+    SourceCount {
+        /// How many of `element`, `group_element` and `segment_index` it names.
+        found: usize,
+    },
+    /// `component` is given with `segment_index`.
+    ComponentOnIndex,
+}
+
+impl fmt::Display for TableDefError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            TableDefError::EmptyName { what } => write!(f, "the {what} is empty"),
+            TableDefError::NoLoops => {
+                write!(
+                    f,
+                    "\"loops\" is empty; a table anchors in at least one loop"
+                )
+            }
+            TableDefError::UnknownLoop { name } => write!(f, "loop {name:?} does not exist"),
+            TableDefError::ReservedName { name } => {
+                write!(f, "the name {name:?} is taken by an automatic column")
+            }
+            TableDefError::RefTaken { name, table } => {
+                write!(f, "\"ref\" {name:?} is already used by table {table:?}")
+            }
+            TableDefError::RepeatWithoutSegment => write!(
+                f,
+                "\"repeat\" requires \"segment\": only a segment's elements repeat"
+            ),
+            TableDefError::ZeroStep => write!(f, "\"repeat.step\" is 0"),
+            TableDefError::ZeroPosition { key } => {
+                write!(f, "{key:?} must be a 1-based position; found 0")
+            }
+            TableDefError::BadPosition { key } => write!(
+                f,
+                "\"where\" position {key:?} is not a 1-based integer in canonical form"
+            ),
+            TableDefError::OffsetBeyondStep { offset, step } => write!(
+                f,
+                "\"group_element\" {offset} is outside a group of {step} elements (offsets start at 0)"
+            ),
+            TableDefError::NestedAnchors { outer, inner } => write!(
+                f,
+                "anchor loops {outer:?} and {inner:?} nest; a table without \"segment\" anchors in loops that do not"
+            ),
+            TableDefError::SharedAnchor { loop_name, other } => write!(
+                f,
+                "loop {loop_name:?} already anchors table {other:?}; a loop anchors at most one table without \"segment\""
+            ),
+            TableDefError::UnrelatedAnchors { first, second } => write!(
+                f,
+                "anchor loops {first:?} and {second:?} sit under tables that are not one chain"
+            ),
+            TableDefError::NotADescendant { loop_name, anchor } => {
+                write!(f, "loop {loop_name:?} is not inside anchor loop {anchor:?}")
+            }
+            TableDefError::AnchorSegmentOnly { key } => write!(
+                f,
+                "{key:?} does not apply in a table anchored on a segment: its columns read that segment"
+            ),
+            TableDefError::NeedsSegment => write!(f, "the column names no \"segment\" to read"),
+            TableDefError::GroupWithoutRepeat => {
+                write!(f, "\"group_element\" requires the table's \"repeat\"")
+            }
+            TableDefError::SourceCount { found } => write!(
+                f,
+                "a column takes exactly one of \"element\", \"group_element\" or \"segment_index\"; found {found}"
+            ),
+            TableDefError::ComponentOnIndex => {
+                write!(f, "\"component\" does not apply to \"segment_index\"")
+            }
+        }
+    }
+}
+
 /// Why a spec could not be loaded. Each variant names where in the spec the fault is.
 #[derive(Debug)]
 pub enum SpecError {
@@ -386,6 +627,24 @@ pub enum SpecError {
         position: String,
         /// What is wrong with it.
         reason: ElementDefError,
+    },
+    /// A table or column definition does not match the schema.
+    TableSchema {
+        /// The table name as written.
+        table: String,
+        /// The column name as written, when the fault is inside a column.
+        column: Option<String>,
+        /// What serde rejected.
+        source: serde_json::Error,
+    },
+    /// A table definition is invalid.
+    BadTable {
+        /// The table name as written.
+        table: String,
+        /// The column name as written, when the fault is inside a column.
+        column: Option<String>,
+        /// What is wrong with it.
+        reason: TableDefError,
     },
     /// A loop's `control` is invalid.
     BadControl {
@@ -485,6 +744,29 @@ impl fmt::Display for SpecError {
                 position,
                 reason,
             } => write!(f, "segment {segment:?} element {position:?}: {reason}"),
+            SpecError::TableSchema {
+                table,
+                column: None,
+                source,
+            } => write!(f, "table {table:?} does not match the schema: {source}"),
+            SpecError::TableSchema {
+                table,
+                column: Some(column),
+                source,
+            } => write!(
+                f,
+                "table {table:?} column {column:?} does not match the schema: {source}"
+            ),
+            SpecError::BadTable {
+                table,
+                column: None,
+                reason,
+            } => write!(f, "table {table:?}: {reason}"),
+            SpecError::BadTable {
+                table,
+                column: Some(column),
+                reason,
+            } => write!(f, "table {table:?} column {column:?}: {reason}"),
             SpecError::BadControl { loop_name, reason } => {
                 write!(f, "loop {loop_name:?} has an invalid \"control\": {reason}")
             }
@@ -541,7 +823,8 @@ impl std::error::Error for SpecError {
         match self {
             SpecError::Json(e)
             | SpecError::Schema { source: e, .. }
-            | SpecError::SegmentSchema { source: e, .. } => Some(e),
+            | SpecError::SegmentSchema { source: e, .. }
+            | SpecError::TableSchema { source: e, .. } => Some(e),
             SpecError::Patch { source } => Some(source.as_ref()),
             _ => None,
         }
@@ -560,6 +843,8 @@ struct RawSpec {
     loops: BTreeMap<String, Value>,
     #[serde(default)]
     segments: BTreeMap<String, Value>,
+    #[serde(default)]
+    tables: BTreeMap<String, Value>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -612,6 +897,41 @@ struct RawElement {
     composite: BTreeMap<String, RawElement>,
 }
 
+// Columns are kept as raw values so a schema error can name the column.
+#[derive(Debug, Deserialize)]
+#[serde(deny_unknown_fields, expecting = "a table object")]
+struct RawTable {
+    loops: Vec<String>,
+    #[serde(rename = "ref")]
+    reference: Option<String>,
+    segment: Option<String>,
+    repeat: Option<RawRepeat>,
+    #[serde(default)]
+    columns: BTreeMap<String, Value>,
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(deny_unknown_fields, expecting = "a repeat object")]
+struct RawRepeat {
+    from: usize,
+    step: usize,
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(deny_unknown_fields, expecting = "a column object")]
+struct RawColumn {
+    #[serde(rename = "loop")]
+    loop_name: Option<String>,
+    segment: Option<String>,
+    #[serde(default, rename = "where")]
+    conditions: BTreeMap<String, String>,
+    element: Option<usize>,
+    component: Option<usize>,
+    group_element: Option<usize>,
+    #[serde(default)]
+    segment_index: bool,
+}
+
 /// A loaded, validated loop structure.
 #[derive(Debug, Clone)]
 pub struct Spec {
@@ -619,6 +939,7 @@ pub struct Spec {
     loops: Vec<LoopDef>,
     roots: Vec<LoopId>,
     segments: BTreeMap<Vec<u8>, SegmentDef>,
+    tables: Vec<TableDef>,
     source: Value,
 }
 
@@ -724,6 +1045,31 @@ impl Spec {
     /// Every defined segment id with its definition, ordered by id.
     pub fn segments(&self) -> impl Iterator<Item = (&[u8], &SegmentDef)> {
         self.segments.iter().map(|(id, def)| (id.as_slice(), def))
+    }
+
+    /// The definition of an element, or of one of its components; `None`
+    /// when the spec does not define it.
+    pub fn element_def(
+        &self,
+        segment: &[u8],
+        element: usize,
+        component: Option<usize>,
+    ) -> Option<&ElementDef> {
+        let def = self.segments.get(segment)?.elements.get(&element)?;
+        match component {
+            None => Some(def),
+            Some(component) => def.composite.get(&component),
+        }
+    }
+
+    /// Every table, in name order.
+    pub fn tables(&self) -> &[TableDef] {
+        &self.tables
+    }
+
+    /// A table by name.
+    pub fn table(&self, name: &str) -> Option<&TableDef> {
+        self.tables.iter().find(|table| table.name == name)
     }
 
     /// Children of a loop, or the top-level loops for `None`.
@@ -873,14 +1219,16 @@ impl Spec {
             segments.insert(id.as_bytes().to_vec(), SegmentDef { elements });
         }
 
-        let spec = Spec {
+        let mut spec = Spec {
             name: raw.name,
             loops,
             roots,
             segments,
+            tables: Vec::new(),
             source,
         };
         spec.check_ambiguity()?;
+        spec.tables = compile_tables(&spec, &raw.tables)?;
         Ok(spec)
     }
 
@@ -943,6 +1291,336 @@ impl Spec {
         }
         Ok(())
     }
+}
+
+/// Compiles the `tables` section against the loops of `spec`, then links
+/// every table to the tables above it.
+fn compile_tables(spec: &Spec, raw: &BTreeMap<String, Value>) -> Result<Vec<TableDef>, SpecError> {
+    let mut tables = Vec::with_capacity(raw.len());
+    for (name, value) in raw {
+        let def: RawTable =
+            serde_json::from_value(value.clone()).map_err(|e| SpecError::TableSchema {
+                table: name.clone(),
+                column: None,
+                source: e,
+            })?;
+        tables.push(compile_table(spec, name, &def)?);
+    }
+    link_tables(spec, &mut tables)?;
+    Ok(tables)
+}
+
+fn compile_table(spec: &Spec, name: &str, def: &RawTable) -> Result<TableDef, SpecError> {
+    let fail = |reason| SpecError::BadTable {
+        table: name.to_string(),
+        column: None,
+        reason,
+    };
+    if name.is_empty() {
+        return Err(fail(TableDefError::EmptyName { what: "table name" }));
+    }
+    if def.loops.is_empty() {
+        return Err(fail(TableDefError::NoLoops));
+    }
+    let mut loops = Vec::with_capacity(def.loops.len());
+    for loop_name in &def.loops {
+        let id = spec.loop_id(loop_name).ok_or_else(|| {
+            fail(TableDefError::UnknownLoop {
+                name: loop_name.clone(),
+            })
+        })?;
+        loops.push(id);
+    }
+    let reference = def.reference.clone().unwrap_or_else(|| name.to_string());
+    if reference.is_empty() {
+        return Err(fail(TableDefError::EmptyName { what: "ref" }));
+    }
+    if reference == ROW_COLUMN || reference == SEGMENT_COLUMN {
+        return Err(fail(TableDefError::ReservedName { name: reference }));
+    }
+    let segment = match def.segment.as_deref() {
+        None => None,
+        Some("") => {
+            return Err(SpecError::EmptySegmentId {
+                loop_name: None,
+                key: format!("tables.{name}.segment"),
+            });
+        }
+        Some(id) => Some(id.as_bytes().to_vec()),
+    };
+    let repeat = match &def.repeat {
+        None => None,
+        Some(_) if segment.is_none() => return Err(fail(TableDefError::RepeatWithoutSegment)),
+        Some(raw) if raw.from == 0 => {
+            return Err(fail(TableDefError::ZeroPosition { key: "repeat.from" }));
+        }
+        Some(raw) if raw.step == 0 => return Err(fail(TableDefError::ZeroStep)),
+        Some(raw) => Some(Repeat {
+            from: raw.from,
+            step: raw.step,
+        }),
+    };
+    if segment.is_none() {
+        for &a in &loops {
+            for &b in &loops {
+                if spec.ancestors(b).contains(&a) {
+                    return Err(fail(TableDefError::NestedAnchors {
+                        outer: spec.loop_name(a).to_string(),
+                        inner: spec.loop_name(b).to_string(),
+                    }));
+                }
+            }
+        }
+    }
+    let mut columns = Vec::with_capacity(def.columns.len());
+    for (column, value) in &def.columns {
+        let raw: RawColumn =
+            serde_json::from_value(value.clone()).map_err(|e| SpecError::TableSchema {
+                table: name.to_string(),
+                column: Some(column.clone()),
+                source: e,
+            })?;
+        let source = compile_column(spec, name, column, &raw, &loops, segment.as_deref(), repeat)?;
+        columns.push((column.clone(), source));
+    }
+    Ok(TableDef {
+        name: name.to_string(),
+        reference,
+        loops,
+        segment,
+        repeat,
+        columns,
+        parent: None,
+        ancestors: Vec::new(),
+    })
+}
+
+fn compile_column(
+    spec: &Spec,
+    table: &str,
+    column: &str,
+    raw: &RawColumn,
+    anchors: &[LoopId],
+    anchor_segment: Option<&[u8]>,
+    repeat: Option<Repeat>,
+) -> Result<ColumnSource, SpecError> {
+    let fail = |reason| SpecError::BadTable {
+        table: table.to_string(),
+        column: Some(column.to_string()),
+        reason,
+    };
+    if column.is_empty() {
+        return Err(fail(TableDefError::EmptyName {
+            what: "column name",
+        }));
+    }
+    if column == ROW_COLUMN || column == SEGMENT_COLUMN {
+        return Err(fail(TableDefError::ReservedName {
+            name: column.to_string(),
+        }));
+    }
+    let found = usize::from(raw.element.is_some())
+        + usize::from(raw.group_element.is_some())
+        + usize::from(raw.segment_index);
+    if found != 1 {
+        return Err(fail(TableDefError::SourceCount { found }));
+    }
+    if raw.segment_index && raw.component.is_some() {
+        return Err(fail(TableDefError::ComponentOnIndex));
+    }
+    if raw.element == Some(0) {
+        return Err(fail(TableDefError::ZeroPosition { key: "element" }));
+    }
+    if raw.component == Some(0) {
+        return Err(fail(TableDefError::ZeroPosition { key: "component" }));
+    }
+    if let Some(offset) = raw.group_element {
+        let Some(repeat) = repeat else {
+            return Err(fail(TableDefError::GroupWithoutRepeat));
+        };
+        if offset >= repeat.step {
+            return Err(fail(TableDefError::OffsetBeyondStep {
+                offset,
+                step: repeat.step,
+            }));
+        }
+        return Ok(ColumnSource::GroupElement {
+            offset,
+            component: raw.component,
+        });
+    }
+    let (loop_id, segment, conditions) = match anchor_segment {
+        Some(anchor) => {
+            let keys = [
+                ("segment", raw.segment.is_some()),
+                ("loop", raw.loop_name.is_some()),
+                ("where", !raw.conditions.is_empty()),
+            ];
+            if let Some(&(key, _)) = keys.iter().find(|(_, present)| *present) {
+                return Err(fail(TableDefError::AnchorSegmentOnly { key }));
+            }
+            (None, anchor.to_vec(), Vec::new())
+        }
+        None => {
+            let segment = match raw.segment.as_deref() {
+                None => return Err(fail(TableDefError::NeedsSegment)),
+                Some("") => {
+                    return Err(SpecError::EmptySegmentId {
+                        loop_name: None,
+                        key: format!("tables.{table}.columns.{column}.segment"),
+                    });
+                }
+                Some(id) => id.as_bytes().to_vec(),
+            };
+            let loop_id = match &raw.loop_name {
+                None => None,
+                Some(name) => {
+                    let id = spec
+                        .loop_id(name)
+                        .ok_or_else(|| fail(TableDefError::UnknownLoop { name: name.clone() }))?;
+                    if let Some(&anchor) = anchors
+                        .iter()
+                        .find(|&&anchor| !spec.ancestors(id).contains(&anchor))
+                    {
+                        return Err(fail(TableDefError::NotADescendant {
+                            loop_name: name.clone(),
+                            anchor: spec.loop_name(anchor).to_string(),
+                        }));
+                    }
+                    Some(id)
+                }
+            };
+            let mut conditions = Vec::with_capacity(raw.conditions.len());
+            for (key, value) in &raw.conditions {
+                let position = parse_position(key)
+                    .ok_or_else(|| fail(TableDefError::BadPosition { key: key.clone() }))?;
+                conditions.push((position, value.as_bytes().to_vec()));
+            }
+            conditions.sort();
+            (loop_id, segment, conditions)
+        }
+    };
+    Ok(match raw.element {
+        Some(element) => ColumnSource::Element {
+            loop_id,
+            segment,
+            conditions,
+            element,
+            component: raw.component,
+        },
+        None => ColumnSource::SegmentIndex {
+            loop_id,
+            segment,
+            conditions,
+        },
+    })
+}
+
+/// Rejects a loop anchoring two tables without `segment` and a `ref` used
+/// twice, then gives each table its chain of tables above: the tables
+/// anchored on the loops above each anchor (from the anchor loop itself for
+/// a table anchored on a segment, whose rows live inside that loop). Chains
+/// run outermost first, and every anchor's chain must begin the longest one.
+fn link_tables(spec: &Spec, tables: &mut [TableDef]) -> Result<(), SpecError> {
+    let bad = |table: &TableDef, column: Option<&str>, reason| SpecError::BadTable {
+        table: table.name.clone(),
+        column: column.map(str::to_string),
+        reason,
+    };
+    let mut anchored: Vec<Option<usize>> = vec![None; spec.loops().len()];
+    for (index, table) in tables.iter().enumerate() {
+        if table.segment.is_some() {
+            continue;
+        }
+        for &id in &table.loops {
+            if let Some(other) = anchored[id.index()] {
+                return Err(bad(
+                    table,
+                    None,
+                    TableDefError::SharedAnchor {
+                        loop_name: spec.loop_name(id).to_string(),
+                        other: tables[other].name.clone(),
+                    },
+                ));
+            }
+            anchored[id.index()] = Some(index);
+        }
+    }
+    for (index, table) in tables.iter().enumerate() {
+        if let Some(first) = tables[..index]
+            .iter()
+            .find(|other| other.reference == table.reference)
+        {
+            return Err(bad(
+                table,
+                None,
+                TableDefError::RefTaken {
+                    name: table.reference.clone(),
+                    table: first.name.clone(),
+                },
+            ));
+        }
+    }
+    for index in 0..tables.len() {
+        let table = &tables[index];
+        let mut longest: Option<(LoopId, Vec<usize>)> = None;
+        let mut chains = Vec::with_capacity(table.loops.len());
+        for &anchor in &table.loops {
+            let mut chain = Vec::new();
+            let mut current = if table.segment.is_some() {
+                Some(anchor)
+            } else {
+                spec.get(anchor).parent
+            };
+            while let Some(id) = current {
+                if let Some(owner) = anchored[id.index()] {
+                    chain.push(owner);
+                }
+                current = spec.get(id).parent;
+            }
+            chain.reverse();
+            if longest
+                .as_ref()
+                .is_none_or(|(_, best)| chain.len() > best.len())
+            {
+                longest = Some((anchor, chain.clone()));
+            }
+            chains.push((anchor, chain));
+        }
+        let Some((first, ancestors)) = longest else {
+            continue;
+        };
+        for (anchor, chain) in &chains {
+            if !ancestors.starts_with(chain) {
+                return Err(bad(
+                    table,
+                    None,
+                    TableDefError::UnrelatedAnchors {
+                        first: spec.loop_name(first).to_string(),
+                        second: spec.loop_name(*anchor).to_string(),
+                    },
+                ));
+            }
+        }
+        for (column, _) in &table.columns {
+            if ancestors
+                .iter()
+                .any(|&above| tables[above].reference == *column)
+            {
+                return Err(bad(
+                    table,
+                    Some(column),
+                    TableDefError::ReservedName {
+                        name: column.clone(),
+                    },
+                ));
+            }
+        }
+        let table = &mut tables[index];
+        table.parent = ancestors.last().copied();
+        table.ancestors = ancestors;
+    }
+    Ok(())
 }
 
 /// Validates a loop's `control`; `has_end` says whether the loop declares an end segment.
@@ -1109,6 +1787,25 @@ fn check_shape(source: &Value) -> Result<(), SpecError> {
             }
             if let Some(control) = def.get("control") {
                 object_at(control, &format!("{at}.control"))?;
+            }
+        }
+    }
+    if let Some(tables) = root.get("tables") {
+        for (name, def) in object_at(tables, "tables")? {
+            let at = format!("tables.{name}");
+            let def = object_at(def, &at)?;
+            if let Some(repeat) = def.get("repeat") {
+                object_at(repeat, &format!("{at}.repeat"))?;
+            }
+            if let Some(columns) = def.get("columns") {
+                let at = format!("{at}.columns");
+                for (column, def) in object_at(columns, &at)? {
+                    let at = format!("{at}.{column}");
+                    let def = object_at(def, &at)?;
+                    if let Some(conditions) = def.get("where") {
+                        object_at(conditions, &format!("{at}.where"))?;
+                    }
+                }
             }
         }
     }
@@ -2310,6 +3007,603 @@ mod tests {
         assert_eq!(
             at(ElementDefError::ZeroMax).to_string(),
             "segment \"CLP\" element \"12\": \"max\" is 0; an element holds at least one character"
+        );
+    }
+
+    const TABLED: &str = r#"{"name":"t",
+        "loops":{
+            "A":{"trigger":{"segment":"AA"},"segments":["A1"],"end":"AE"},
+            "B":{"parent":"A","trigger":{"segment":"BB"},"segments":["B1","AJ"]},
+            "C":{"parent":"B","trigger":{"segment":"CC"},"segments":["C1","AJ"]},
+            "D":{"parent":"A","trigger":{"segment":"DD"}}
+        },
+        "segments":{
+            "BB":{"elements":{"1":{"name":"id","type":"AN"},"2":{"name":"amount","type":"R"}}},
+            "CC":{"elements":{"1":{"name":"code","type":"AN","composite":{
+                "1":{"name":"qualifier","type":"ID"},"2":{"name":"value","type":"AN"}}}}}
+        },
+        "tables":{
+            "heads":{"loops":["A"],"ref":"head","columns":{
+                "code":{"segment":"AA","element":1},
+                "note":{"loop":"D","segment":"DD","where":{"1":"N"},"element":2}
+            }},
+            "bodies":{"loops":["B"],"ref":"body","columns":{
+                "id":{"segment":"BB","element":1},
+                "line_at":{"loop":"C","segment":"C1","segment_index":true}
+            }},
+            "lines":{"loops":["C"],"ref":"line","columns":{
+                "code":{"segment":"CC","element":1,"component":2}
+            }},
+            "adjustments":{"loops":["B","C"],"segment":"AJ","repeat":{"from":2,"step":2},"columns":{
+                "kind":{"element":1},
+                "reason":{"group_element":0},
+                "amount":{"group_element":1}
+            }}
+        }
+    }"#;
+
+    fn table_error(tables: &str) -> SpecError {
+        let json = format!(
+            r#"{{"name":"t","loops":{{
+                "A":{{"trigger":{{"segment":"AA"}}}},
+                "B":{{"parent":"A","trigger":{{"segment":"BB"}}}},
+                "C":{{"parent":"B","trigger":{{"segment":"CC"}}}},
+                "D":{{"parent":"A","trigger":{{"segment":"DD"}}}}
+            }},"tables":{tables}}}"#
+        );
+        Spec::from_json(&json).unwrap_err()
+    }
+
+    #[test]
+    fn tables_are_read_in_name_order_with_their_sources() {
+        let spec = Spec::from_json(TABLED).unwrap();
+        let names: Vec<&str> = spec.tables().iter().map(|t| t.name.as_str()).collect();
+        assert_eq!(names, vec!["adjustments", "bodies", "heads", "lines"]);
+        let id = |name: &str| spec.loop_id(name).unwrap();
+        let heads = spec.table("heads").unwrap();
+        assert_eq!(heads.reference, "head");
+        assert_eq!(heads.loops, vec![id("A")]);
+        assert_eq!((heads.segment.as_ref(), heads.repeat), (None, None));
+        assert_eq!(
+            heads.columns,
+            vec![
+                (
+                    "code".to_string(),
+                    ColumnSource::Element {
+                        loop_id: None,
+                        segment: b"AA".to_vec(),
+                        conditions: Vec::new(),
+                        element: 1,
+                        component: None,
+                    }
+                ),
+                (
+                    "note".to_string(),
+                    ColumnSource::Element {
+                        loop_id: Some(id("D")),
+                        segment: b"DD".to_vec(),
+                        conditions: vec![(1, b"N".to_vec())],
+                        element: 2,
+                        component: None,
+                    }
+                ),
+            ]
+        );
+        assert_eq!(
+            spec.table("bodies").unwrap().columns[1].1,
+            ColumnSource::SegmentIndex {
+                loop_id: Some(id("C")),
+                segment: b"C1".to_vec(),
+                conditions: Vec::new(),
+            }
+        );
+        let adjustments = spec.table("adjustments").unwrap();
+        assert_eq!(
+            adjustments.reference, "adjustments",
+            "ref defaults to the name"
+        );
+        assert_eq!(adjustments.loops, vec![id("B"), id("C")]);
+        assert_eq!(adjustments.segment.as_deref(), Some(&b"AJ"[..]));
+        assert_eq!(adjustments.repeat, Some(Repeat { from: 2, step: 2 }));
+        assert_eq!(
+            adjustments.columns,
+            vec![
+                (
+                    "amount".to_string(),
+                    ColumnSource::GroupElement {
+                        offset: 1,
+                        component: None
+                    }
+                ),
+                (
+                    "kind".to_string(),
+                    ColumnSource::Element {
+                        loop_id: None,
+                        segment: b"AJ".to_vec(),
+                        conditions: Vec::new(),
+                        element: 1,
+                        component: None,
+                    }
+                ),
+                (
+                    "reason".to_string(),
+                    ColumnSource::GroupElement {
+                        offset: 0,
+                        component: None
+                    }
+                ),
+            ]
+        );
+        assert_eq!(spec.table("missing"), None);
+    }
+
+    #[test]
+    fn a_table_hangs_from_the_tables_anchored_above_it() {
+        let spec = Spec::from_json(TABLED).unwrap();
+        let index = |name: &str| spec.tables().iter().position(|t| t.name == name).unwrap();
+        let (adjustments, bodies, heads, lines) = (
+            index("adjustments"),
+            index("bodies"),
+            index("heads"),
+            index("lines"),
+        );
+        let table = |i: usize| &spec.tables()[i];
+        assert_eq!(
+            (table(heads).parent, table(heads).ancestors.clone()),
+            (None, vec![])
+        );
+        assert_eq!(table(bodies).parent, Some(heads));
+        assert_eq!(table(lines).ancestors, vec![heads, bodies]);
+        assert_eq!(
+            table(adjustments).ancestors,
+            vec![heads, bodies, lines],
+            "a segment table anchored in B and C hangs from the deepest chain"
+        );
+        assert_eq!(table(adjustments).parent, Some(lines));
+    }
+
+    #[test]
+    fn element_definitions_are_found_by_segment_position_and_component() {
+        let spec = Spec::from_json(TABLED).unwrap();
+        assert_eq!(spec.element_def(b"BB", 2, None).unwrap().name, "amount");
+        assert_eq!(spec.element_def(b"CC", 1, Some(2)).unwrap().name, "value");
+        assert_eq!(spec.element_def(b"CC", 1, Some(3)), None);
+        assert_eq!(spec.element_def(b"BB", 9, None), None);
+        assert_eq!(spec.element_def(b"ZZ", 1, None), None);
+    }
+
+    #[test]
+    fn bad_tables_are_rejected_with_the_table_the_column_and_the_reason() {
+        let cases: Vec<(&str, &str, Option<&str>, TableDefError)> = vec![
+            (
+                r#"{"":{"loops":["A"]}}"#,
+                "",
+                None,
+                TableDefError::EmptyName { what: "table name" },
+            ),
+            (r#"{"t":{"loops":[]}}"#, "t", None, TableDefError::NoLoops),
+            (
+                r#"{"t":{"loops":["Z"]}}"#,
+                "t",
+                None,
+                TableDefError::UnknownLoop { name: "Z".into() },
+            ),
+            (
+                r#"{"t":{"loops":["A"],"ref":""}}"#,
+                "t",
+                None,
+                TableDefError::EmptyName { what: "ref" },
+            ),
+            (
+                r#"{"t":{"loops":["A"],"ref":"segment"}}"#,
+                "t",
+                None,
+                TableDefError::ReservedName {
+                    name: "segment".into(),
+                },
+            ),
+            (
+                r#"{"a":{"loops":["A"],"ref":"x"},"b":{"loops":["B"],"ref":"x"}}"#,
+                "b",
+                None,
+                TableDefError::RefTaken {
+                    name: "x".into(),
+                    table: "a".into(),
+                },
+            ),
+            (
+                r#"{"t":{"loops":["A"],"repeat":{"from":1,"step":2}}}"#,
+                "t",
+                None,
+                TableDefError::RepeatWithoutSegment,
+            ),
+            (
+                r#"{"t":{"loops":["A"],"segment":"AA","repeat":{"from":0,"step":2}}}"#,
+                "t",
+                None,
+                TableDefError::ZeroPosition { key: "repeat.from" },
+            ),
+            (
+                r#"{"t":{"loops":["A"],"segment":"AA","repeat":{"from":1,"step":0}}}"#,
+                "t",
+                None,
+                TableDefError::ZeroStep,
+            ),
+            (
+                r#"{"t":{"loops":["C","A"]}}"#,
+                "t",
+                None,
+                TableDefError::NestedAnchors {
+                    outer: "A".into(),
+                    inner: "C".into(),
+                },
+            ),
+            (
+                r#"{"a":{"loops":["B"]},"b":{"loops":["D","B"]}}"#,
+                "b",
+                None,
+                TableDefError::SharedAnchor {
+                    loop_name: "B".into(),
+                    other: "a".into(),
+                },
+            ),
+            (
+                r#"{"b":{"loops":["B"]},"d":{"loops":["D"]},"x":{"loops":["C","D"],"segment":"XX"}}"#,
+                "x",
+                None,
+                TableDefError::UnrelatedAnchors {
+                    first: "C".into(),
+                    second: "D".into(),
+                },
+            ),
+            (
+                r#"{"t":{"loops":["A"],"columns":{"":{"segment":"AA","element":1}}}}"#,
+                "t",
+                Some(""),
+                TableDefError::EmptyName {
+                    what: "column name",
+                },
+            ),
+            (
+                r#"{"t":{"loops":["A"],"columns":{"row":{"segment":"AA","element":1}}}}"#,
+                "t",
+                Some("row"),
+                TableDefError::ReservedName { name: "row".into() },
+            ),
+            (
+                r#"{"a":{"loops":["A"],"ref":"head"},"b":{"loops":["B"],"columns":{"head":{"segment":"BB","element":1}}}}"#,
+                "b",
+                Some("head"),
+                TableDefError::ReservedName {
+                    name: "head".into(),
+                },
+            ),
+            (
+                r#"{"t":{"loops":["A"],"columns":{"c":{"segment":"AA"}}}}"#,
+                "t",
+                Some("c"),
+                TableDefError::SourceCount { found: 0 },
+            ),
+            (
+                r#"{"t":{"loops":["A"],"columns":{"c":{"segment":"AA","element":1,"segment_index":true}}}}"#,
+                "t",
+                Some("c"),
+                TableDefError::SourceCount { found: 2 },
+            ),
+            (
+                r#"{"t":{"loops":["A"],"columns":{"c":{"segment":"AA","segment_index":true,"component":1}}}}"#,
+                "t",
+                Some("c"),
+                TableDefError::ComponentOnIndex,
+            ),
+            (
+                r#"{"t":{"loops":["A"],"columns":{"c":{"segment":"AA","element":0}}}}"#,
+                "t",
+                Some("c"),
+                TableDefError::ZeroPosition { key: "element" },
+            ),
+            (
+                r#"{"t":{"loops":["A"],"columns":{"c":{"segment":"AA","element":1,"component":0}}}}"#,
+                "t",
+                Some("c"),
+                TableDefError::ZeroPosition { key: "component" },
+            ),
+            (
+                r#"{"t":{"loops":["A"],"columns":{"c":{"group_element":0}}}}"#,
+                "t",
+                Some("c"),
+                TableDefError::GroupWithoutRepeat,
+            ),
+            (
+                r#"{"t":{"loops":["A"],"segment":"AA","repeat":{"from":2,"step":3},"columns":{"c":{"group_element":3}}}}"#,
+                "t",
+                Some("c"),
+                TableDefError::OffsetBeyondStep { offset: 3, step: 3 },
+            ),
+            (
+                r#"{"t":{"loops":["A"],"segment":"AA","columns":{"c":{"loop":"B","element":1}}}}"#,
+                "t",
+                Some("c"),
+                TableDefError::AnchorSegmentOnly { key: "loop" },
+            ),
+            (
+                r#"{"t":{"loops":["A"],"columns":{"c":{"element":1}}}}"#,
+                "t",
+                Some("c"),
+                TableDefError::NeedsSegment,
+            ),
+            (
+                r#"{"t":{"loops":["A"],"columns":{"c":{"loop":"Z","segment":"ZZ","element":1}}}}"#,
+                "t",
+                Some("c"),
+                TableDefError::UnknownLoop { name: "Z".into() },
+            ),
+            (
+                r#"{"t":{"loops":["B","D"],"columns":{"c":{"loop":"C","segment":"CC","element":1}}}}"#,
+                "t",
+                Some("c"),
+                TableDefError::NotADescendant {
+                    loop_name: "C".into(),
+                    anchor: "D".into(),
+                },
+            ),
+            (
+                r#"{"t":{"loops":["A"],"columns":{"c":{"loop":"A","segment":"AA","element":1}}}}"#,
+                "t",
+                Some("c"),
+                TableDefError::NotADescendant {
+                    loop_name: "A".into(),
+                    anchor: "A".into(),
+                },
+            ),
+            (
+                r#"{"t":{"loops":["A"],"columns":{"c":{"segment":"AA","where":{"01":"X"},"element":1}}}}"#,
+                "t",
+                Some("c"),
+                TableDefError::BadPosition { key: "01".into() },
+            ),
+        ];
+        for (tables, expected_table, expected_column, expected_reason) in cases {
+            let err = table_error(tables);
+            assert!(
+                matches!(&err, SpecError::BadTable { table, column, reason } if table == expected_table && column.as_deref() == expected_column && *reason == expected_reason),
+                "{tables}: {err:?}"
+            );
+        }
+    }
+
+    #[test]
+    fn empty_segment_ids_in_tables_name_their_key() {
+        let cases = [
+            (r#"{"t":{"loops":["A"],"segment":""}}"#, "tables.t.segment"),
+            (
+                r#"{"t":{"loops":["A"],"columns":{"c":{"segment":"","element":1}}}}"#,
+                "tables.t.columns.c.segment",
+            ),
+        ];
+        for (tables, expected_key) in cases {
+            let err = table_error(tables);
+            assert!(
+                matches!(&err, SpecError::EmptySegmentId { loop_name: None, key } if key == expected_key),
+                "{tables}: {err:?}"
+            );
+        }
+    }
+
+    #[test]
+    fn a_table_that_breaks_the_schema_names_the_table_and_the_column() {
+        let err = table_error(r#"{"t":{"loops":["A"],"anchor":"x"}}"#);
+        assert!(
+            matches!(&err, SpecError::TableSchema { table, column: None, .. } if table == "t"),
+            "{err:?}"
+        );
+        assert!(err.to_string().contains("anchor"), "{err}");
+        let err = table_error(r#"{"t":{"loops":["A"],"columns":{"c":{"elemnt":1}}}}"#);
+        assert!(
+            matches!(&err, SpecError::TableSchema { table, column: Some(column), .. } if table == "t" && column == "c"),
+            "{err:?}"
+        );
+        assert!(err.to_string().contains("elemnt"), "{err}");
+    }
+
+    #[test]
+    fn every_object_of_the_table_schema_is_checked_with_its_path() {
+        let cases = [
+            (r#"[]"#, "tables", "an array"),
+            (r#"{"t":[]}"#, "tables.t", "an array"),
+            (
+                r#"{"t":{"loops":["A"],"repeat":[2,3]}}"#,
+                "tables.t.repeat",
+                "an array",
+            ),
+            (
+                r#"{"t":{"loops":["A"],"columns":[]}}"#,
+                "tables.t.columns",
+                "an array",
+            ),
+            (
+                r#"{"t":{"loops":["A"],"columns":{"c":"CLP01"}}}"#,
+                "tables.t.columns.c",
+                "a string",
+            ),
+            (
+                r#"{"t":{"loops":["A"],"columns":{"c":{"segment":"AA","element":1,"where":["X"]}}}}"#,
+                "tables.t.columns.c.where",
+                "an array",
+            ),
+        ];
+        for (tables, expected_path, expected_found) in cases {
+            let err = table_error(tables);
+            assert!(
+                matches!(&err, SpecError::NotAnObject { path, found } if path == expected_path && *found == expected_found),
+                "{tables}: {err:?}"
+            );
+        }
+    }
+
+    #[test]
+    fn a_patch_adds_a_column_with_three_lines() {
+        let spec = Spec::from_json(TABLED).unwrap();
+        let patched = spec
+            .merge_patch(
+                r#"{"tables":{"bodies":{"columns":{
+                    "amount":{"segment":"BB","element":2}
+                }}}}"#,
+            )
+            .unwrap();
+        let names: Vec<&str> = patched
+            .table("bodies")
+            .unwrap()
+            .columns
+            .iter()
+            .map(|(name, _)| name.as_str())
+            .collect();
+        assert_eq!(names, vec!["amount", "id", "line_at"]);
+    }
+
+    #[test]
+    fn to_json_round_trips_the_tables_section() {
+        let spec = Spec::from_json(TABLED).unwrap();
+        let again = Spec::from_json(&spec.to_json()).unwrap();
+        assert_eq!(again.tables(), spec.tables());
+        assert_eq!(again.tables().len(), 4);
+    }
+
+    #[test]
+    fn table_errors_display_the_table_the_column_and_every_reason() {
+        let cases = [
+            (TableDefError::EmptyName { what: "ref" }, "the ref is empty"),
+            (
+                TableDefError::NoLoops,
+                "\"loops\" is empty; a table anchors in at least one loop",
+            ),
+            (
+                TableDefError::UnknownLoop {
+                    name: "2101".into(),
+                },
+                "loop \"2101\" does not exist",
+            ),
+            (
+                TableDefError::ReservedName { name: "row".into() },
+                "the name \"row\" is taken by an automatic column",
+            ),
+            (
+                TableDefError::RefTaken {
+                    name: "claim".into(),
+                    table: "claims".into(),
+                },
+                "\"ref\" \"claim\" is already used by table \"claims\"",
+            ),
+            (
+                TableDefError::RepeatWithoutSegment,
+                "\"repeat\" requires \"segment\": only a segment's elements repeat",
+            ),
+            (TableDefError::ZeroStep, "\"repeat.step\" is 0"),
+            (
+                TableDefError::ZeroPosition { key: "element" },
+                "\"element\" must be a 1-based position; found 0",
+            ),
+            (
+                TableDefError::BadPosition { key: "01".into() },
+                "\"where\" position \"01\" is not a 1-based integer in canonical form",
+            ),
+            (
+                TableDefError::OffsetBeyondStep { offset: 3, step: 3 },
+                "\"group_element\" 3 is outside a group of 3 elements (offsets start at 0)",
+            ),
+            (
+                TableDefError::NestedAnchors {
+                    outer: "2100".into(),
+                    inner: "2110".into(),
+                },
+                "anchor loops \"2100\" and \"2110\" nest; a table without \"segment\" anchors in loops that do not",
+            ),
+            (
+                TableDefError::SharedAnchor {
+                    loop_name: "2100".into(),
+                    other: "claims".into(),
+                },
+                "loop \"2100\" already anchors table \"claims\"; a loop anchors at most one table without \"segment\"",
+            ),
+            (
+                TableDefError::UnrelatedAnchors {
+                    first: "2110".into(),
+                    second: "1000A".into(),
+                },
+                "anchor loops \"2110\" and \"1000A\" sit under tables that are not one chain",
+            ),
+            (
+                TableDefError::NotADescendant {
+                    loop_name: "1000A".into(),
+                    anchor: "2100".into(),
+                },
+                "loop \"1000A\" is not inside anchor loop \"2100\"",
+            ),
+            (
+                TableDefError::AnchorSegmentOnly { key: "where" },
+                "\"where\" does not apply in a table anchored on a segment: its columns read that segment",
+            ),
+            (
+                TableDefError::NeedsSegment,
+                "the column names no \"segment\" to read",
+            ),
+            (
+                TableDefError::GroupWithoutRepeat,
+                "\"group_element\" requires the table's \"repeat\"",
+            ),
+            (
+                TableDefError::SourceCount { found: 2 },
+                "a column takes exactly one of \"element\", \"group_element\" or \"segment_index\"; found 2",
+            ),
+            (
+                TableDefError::ComponentOnIndex,
+                "\"component\" does not apply to \"segment_index\"",
+            ),
+        ];
+        for (reason, expected) in cases {
+            let in_column = SpecError::BadTable {
+                table: "claims".into(),
+                column: Some("charge".into()),
+                reason: reason.clone(),
+            };
+            assert_eq!(
+                in_column.to_string(),
+                format!("table \"claims\" column \"charge\": {expected}")
+            );
+            let in_table = SpecError::BadTable {
+                table: "claims".into(),
+                column: None,
+                reason,
+            };
+            assert_eq!(
+                in_table.to_string(),
+                format!("table \"claims\": {expected}")
+            );
+            assert!(std::error::Error::source(&in_table).is_none());
+        }
+    }
+
+    #[test]
+    fn table_schema_errors_display_the_table_the_column_and_the_serde_message() {
+        let source = || serde_json::from_value::<RawColumn>(serde_json::json!(1)).unwrap_err();
+        let in_column = SpecError::TableSchema {
+            table: "claims".into(),
+            column: Some("charge".into()),
+            source: source(),
+        };
+        assert_eq!(
+            in_column.to_string(),
+            "table \"claims\" column \"charge\" does not match the schema: invalid type: integer `1`, expected a column object"
+        );
+        assert!(std::error::Error::source(&in_column).is_some());
+        let in_table = SpecError::TableSchema {
+            table: "claims".into(),
+            column: None,
+            source: serde_json::from_value::<RawTable>(serde_json::json!(1)).unwrap_err(),
+        };
+        assert_eq!(
+            in_table.to_string(),
+            "table \"claims\" does not match the schema: invalid type: integer `1`, expected a table object"
         );
     }
 

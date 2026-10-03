@@ -46,8 +46,9 @@ pub use engine::{Event, LoopEngine};
 pub use frame::{Frame, next_frame};
 pub use segment::{Segment, WriteError};
 pub use spec::{
-    Control, ControlCount, ControlError, ElementDef, ElementDefError, ElementType, LoopDef, LoopId,
-    SegmentDef, Spec, SpecError, Trigger, merge_patch,
+    ColumnSource, Control, ControlCount, ControlError, ElementDef, ElementDefError, ElementType,
+    LoopDef, LoopId, Repeat, SegmentDef, Spec, SpecError, TableDef, TableDefError, Trigger,
+    merge_patch,
 };
 pub use tokenizer::Tokenizer;
 pub use tree::{LoopTree, Node, NodeId};

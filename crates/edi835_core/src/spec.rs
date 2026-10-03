@@ -1985,6 +1985,103 @@ mod tests {
     }
 
     #[test]
+    fn builtin_835_declares_five_tables_and_how_they_nest() {
+        let spec = Spec::builtin_835();
+        let names: Vec<&str> = spec.tables().iter().map(|t| t.name.as_str()).collect();
+        assert_eq!(
+            names,
+            vec![
+                "adjustments",
+                "claims",
+                "payments",
+                "provider_adjustments",
+                "services"
+            ]
+        );
+        let above = |name: &str| -> Vec<&str> {
+            spec.table(name)
+                .unwrap()
+                .ancestors
+                .iter()
+                .map(|&i| spec.tables()[i].name.as_str())
+                .collect()
+        };
+        assert!(above("payments").is_empty());
+        assert_eq!(above("claims"), vec!["payments"]);
+        assert_eq!(above("services"), vec!["payments", "claims"]);
+        assert_eq!(above("adjustments"), vec!["payments", "claims", "services"]);
+        assert_eq!(above("provider_adjustments"), vec!["payments"]);
+        let references: Vec<&str> = ["payments", "claims", "services"]
+            .iter()
+            .map(|name| spec.table(name).unwrap().reference.as_str())
+            .collect();
+        assert_eq!(references, vec!["payment", "claim", "service"]);
+        let loops = |name: &str| -> Vec<&str> {
+            spec.table(name)
+                .unwrap()
+                .loops
+                .iter()
+                .map(|&id| spec.loop_name(id))
+                .collect()
+        };
+        assert_eq!(loops("adjustments"), vec!["2100", "2110"]);
+        assert_eq!(loops("provider_adjustments"), vec!["transaction"]);
+        let adjustments = spec.table("adjustments").unwrap();
+        assert_eq!(adjustments.segment.as_deref(), Some(&b"CAS"[..]));
+        assert_eq!(adjustments.repeat, Some(Repeat { from: 2, step: 3 }));
+        let plb = spec.table("provider_adjustments").unwrap();
+        assert_eq!(plb.segment.as_deref(), Some(&b"PLB"[..]));
+        assert_eq!(plb.repeat, Some(Repeat { from: 3, step: 2 }));
+        let counts: Vec<usize> = spec.tables().iter().map(|t| t.columns.len()).collect();
+        assert_eq!(counts, vec![4, 21, 13, 5, 9]);
+    }
+
+    #[test]
+    fn builtin_835_columns_read_elements_the_spec_defines_in_loops_that_hold_them() {
+        let spec = Spec::builtin_835();
+        for table in spec.tables() {
+            for (column, source) in &table.columns {
+                let at = format!("{}.{column}", table.name);
+                match source {
+                    ColumnSource::Element {
+                        loop_id,
+                        segment,
+                        element,
+                        component,
+                        ..
+                    } => {
+                        assert!(
+                            spec.element_def(segment, *element, *component).is_some(),
+                            "{at} reads an element the spec does not define"
+                        );
+                        let readers = loop_id.map_or(table.loops.clone(), |id| vec![id]);
+                        for id in readers {
+                            let def = spec.get(id);
+                            assert!(
+                                def.trigger.segment == *segment || def.accepts(segment),
+                                "{at}: loop {} does not hold {}",
+                                def.name,
+                                String::from_utf8_lossy(segment)
+                            );
+                        }
+                    }
+                    ColumnSource::SegmentIndex { .. } => {}
+                    ColumnSource::GroupElement { offset, component } => {
+                        let (Some(segment), Some(repeat)) = (&table.segment, table.repeat) else {
+                            panic!("{at}: a group column outside a repeating table");
+                        };
+                        assert!(
+                            spec.element_def(segment, repeat.from + offset, *component)
+                                .is_some(),
+                            "{at} reads a group element the spec does not define"
+                        );
+                    }
+                }
+            }
+        }
+    }
+
+    #[test]
     fn ancestors_are_listed_root_first() {
         let spec = Spec::builtin_835();
         let chain: Vec<_> = spec
@@ -3813,10 +3910,24 @@ mod tests {
     #[test]
     fn patch_null_deletes() {
         let spec = Spec::builtin_835()
-            .merge_patch(r#"{"loops":{"2110":null}}"#)
+            .merge_patch(
+                r#"{"loops":{"2110":null},"tables":{"services":null,"adjustments":{"loops":["2100"]}}}"#,
+            )
             .unwrap();
         assert_eq!(spec.loop_id("2110"), None);
         assert!(spec.children(spec.loop_id("2100")).is_empty());
+        assert_eq!(spec.table("services"), None);
+    }
+
+    #[test]
+    fn deleting_a_loop_a_table_anchors_in_names_the_table() {
+        let err = Spec::builtin_835()
+            .merge_patch(r#"{"loops":{"2110":null}}"#)
+            .unwrap_err();
+        assert_eq!(
+            err.to_string(),
+            "applying patch: table \"adjustments\": loop \"2110\" does not exist"
+        );
     }
 
     #[test]

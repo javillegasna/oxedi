@@ -13,7 +13,7 @@ when a stage changes state.
 | 1 · Framing + Tokenizer | Lossless `Segment` stream, ISA delimiters, symmetric writer | **Done** 2026-10-02 | PR #1, fix PR #2 |
 | 2 · Lossless Document | `Document` as `Cow` bytes + spans, borrowed or owned | **Done** 2026-10-02 | PR #3; samples PR #5 |
 | 3 · Loop engine | JSON spec, `LoopEngine` events, `LoopTree`, merge-patch extension | **Approved, in progress** | `plans/stage-3-loop-engine.md` |
-| 4 · Projection + validation | Element names/types in the spec, business tables, SNIP checks | Not started | — |
+| 4 · Projection + validation | Element names/types in the spec, business tables, SNIP checks, `Diagnostic` with segment/element location (P10) | Not started | — |
 | 5 · Python binding | PyO3/maturin, GIL released, iterator and table APIs | Not started | — |
 | 6 · Distribution | crates.io, PyPI wheels, release CI | Not started | — |
 | 7 · Writer | Data → loops → bytes, same spec | Deferred (D7) | — |

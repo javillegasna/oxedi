@@ -137,6 +137,28 @@ fn unmatched_and_implicit_are_exactly_the_known_anomalies() {
 }
 
 #[test]
+fn every_opening_names_the_segment_captured_right_after_it() {
+    let spec = Spec::builtin_835();
+    for (name, bytes, delims) in common::all_files() {
+        let events = common::events_of(&spec, &bytes, delims);
+        for (at, event) in events.iter().enumerate() {
+            let Event::LoopOpened { segment, .. } = *event else {
+                continue;
+            };
+            let next_capture = events[at..].iter().find_map(|later| match *later {
+                Event::Captured { segment, .. } => Some(segment),
+                _ => None,
+            });
+            assert_eq!(
+                next_capture,
+                Some(segment),
+                "{name}: event #{at} {event:?} names a segment other than the next capture"
+            );
+        }
+    }
+}
+
+#[test]
 fn feeding_from_a_document_or_a_tokenizer_gives_the_same_events() {
     use edi835_core::Document;
     let spec = Spec::builtin_835();

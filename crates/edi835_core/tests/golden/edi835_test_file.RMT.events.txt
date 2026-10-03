@@ -1,145 +1,145 @@
-open interchange
+open interchange #0
 cap interchange ISA #0
-open group
+open group #1
 cap group GS #1
-open transaction
+open transaction #2
 cap transaction ST #2
 cap transaction BPR #3
 cap transaction TRN #4
 cap transaction REF #5
 cap transaction DTM #6
-open 1000A
+open 1000A #7
 cap 1000A N1 #7
 cap 1000A N3 #8
 cap 1000A N4 #9
 close 1000A
-open 1000B
+open 1000B #10
 cap 1000B N1 #10
 cap 1000B N3 #11
 cap 1000B N4 #12
 cap 1000B REF #13
 close 1000B
-open 2000
+open 2000 #14
 cap 2000 LX #14
-open 2100
+open 2100 #15
 cap 2100 CLP #15
 cap 2100 NM1 #16
 cap 2100 DTM #17
 cap 2100 DTM #18
 cap 2100 AMT #19
-open 2110
+open 2110 #20
 cap 2110 SVC #20
 cap 2110 CAS #21
 cap 2110 AMT #22
 close 2110
-open 2110
+open 2110 #23
 cap 2110 SVC #23
 close 2110
-open 2110
+open 2110 #24
 cap 2110 SVC #24
 close 2110
-open 2110
+open 2110 #25
 cap 2110 SVC #25
 cap 2110 CAS #26
 cap 2110 AMT #27
 close 2110
-open 2110
+open 2110 #28
 cap 2110 SVC #28
 close 2110
 close 2100
 close 2000
-open 2000
+open 2000 #29
 cap 2000 LX #29
-open 2100
+open 2100 #30
 cap 2100 CLP #30
 cap 2100 NM1 #31
 cap 2100 NM1 #32
 cap 2100 DTM #33
 cap 2100 DTM #34
-open 2110
+open 2110 #35
 cap 2110 SVC #35
 cap 2110 CAS #36
 close 2110
-open 2110
+open 2110 #37
 cap 2110 SVC #37
 cap 2110 CAS #38
 close 2110
-open 2110
+open 2110 #39
 cap 2110 SVC #39
 close 2110
-open 2110
+open 2110 #40
 cap 2110 SVC #40
 close 2110
-open 2110
+open 2110 #41
 cap 2110 SVC #41
 close 2110
-open 2110
+open 2110 #42
 cap 2110 SVC #42
 cap 2110 CAS #43
 close 2110
-open 2110
+open 2110 #44
 cap 2110 SVC #44
 cap 2110 CAS #45
 close 2110
 close 2100
 close 2000
-open 2000
+open 2000 #46
 cap 2000 LX #46
-open 2100
+open 2100 #47
 cap 2100 CLP #47
 cap 2100 NM1 #48
 cap 2100 DTM #49
 cap 2100 DTM #50
 cap 2100 AMT #51
-open 2110
+open 2110 #52
 cap 2110 SVC #52
 cap 2110 AMT #53
 close 2110
-open 2110
+open 2110 #54
 cap 2110 SVC #54
 cap 2110 AMT #55
 close 2110
-open 2110
+open 2110 #56
 cap 2110 SVC #56
 close 2110
-open 2110
+open 2110 #57
 cap 2110 SVC #57
 close 2110
-open 2110
+open 2110 #58
 cap 2110 SVC #58
 close 2110
-open 2110
+open 2110 #59
 cap 2110 SVC #59
 cap 2110 CAS #60
 close 2110
 close 2100
 close 2000
-open 2000
+open 2000 #61
 cap 2000 LX #61
-open 2100
+open 2100 #62
 cap 2100 CLP #62
 cap 2100 NM1 #63
 cap 2100 NM1 #64
 cap 2100 DTM #65
 cap 2100 DTM #66
 cap 2100 AMT #67
-open 2110
+open 2110 #68
 cap 2110 SVC #68
 cap 2110 CAS #69
 cap 2110 AMT #70
 close 2110
-open 2110
+open 2110 #71
 cap 2110 SVC #71
 close 2110
-open 2110
+open 2110 #72
 cap 2110 SVC #72
 close 2110
-open 2110
+open 2110 #73
 cap 2110 SVC #73
 cap 2110 CAS #74
 cap 2110 AMT #75
 close 2110
-open 2110
+open 2110 #76
 cap 2110 SVC #76
 close 2110
 close 2100

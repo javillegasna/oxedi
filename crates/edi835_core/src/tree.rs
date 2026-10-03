@@ -26,6 +26,10 @@ pub struct Node {
     pub loop_id: Option<LoopId>,
     /// `true` when the engine opened it without a triggering segment.
     pub implicit: bool,
+    /// Index of the trigger segment that caused the opening (for an implicit
+    /// node, the trigger of the descendant that needed it); `None` only for
+    /// the root.
+    pub opened_by: Option<usize>,
     /// The enclosing node, or `None` for the root.
     pub parent: Option<NodeId>,
     /// Nested instances, in stream order.
@@ -64,11 +68,16 @@ impl LoopTree {
     fn apply(&mut self, open: &mut Vec<NodeId>, event: Event) {
         let current = *open.last().unwrap_or(&NodeId(0));
         match event {
-            Event::LoopOpened { id, implicit } => {
+            Event::LoopOpened {
+                id,
+                implicit,
+                segment,
+            } => {
                 let node = NodeId(self.nodes.len());
                 self.nodes.push(Node {
                     loop_id: Some(id),
                     implicit,
+                    opened_by: Some(segment),
                     parent: Some(current),
                     children: Vec::new(),
                     segments: Vec::new(),
@@ -123,6 +132,7 @@ impl Node {
         Node {
             loop_id: None,
             implicit: false,
+            opened_by: None,
             parent: None,
             children: Vec::new(),
             segments: Vec::new(),
@@ -189,6 +199,40 @@ mod tests {
         let b = tree.nodes_of(spec.loop_id("B").unwrap()).next().unwrap();
         assert!(!tree.node(b).implicit);
         assert!(tree.node(a).segments.is_empty());
+    }
+
+    #[test]
+    fn every_node_but_the_root_knows_the_segment_that_opened_it() {
+        let (spec, explicit) = tree(b"AA~A1~BB~B1~BB~AE~AA~");
+        assert_eq!(explicit.node(explicit.root()).opened_by, None);
+        let opened: Vec<(&str, Option<usize>)> = explicit.nodes()[1..]
+            .iter()
+            .map(|node| {
+                (
+                    node.loop_id.map_or("", |id| spec.loop_name(id)),
+                    node.opened_by,
+                )
+            })
+            .collect();
+        assert_eq!(
+            opened,
+            vec![
+                ("A", Some(0)),
+                ("B", Some(2)),
+                ("B", Some(4)),
+                ("A", Some(6))
+            ]
+        );
+        let (spec, implicit) = tree(b"BB~");
+        let a = implicit
+            .nodes_of(spec.loop_id("A").unwrap())
+            .next()
+            .unwrap();
+        assert_eq!(
+            implicit.node(a).opened_by,
+            Some(0),
+            "the implicit A was opened for BB"
+        );
     }
 
     #[test]

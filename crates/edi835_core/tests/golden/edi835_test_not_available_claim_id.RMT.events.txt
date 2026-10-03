@@ -1,27 +1,27 @@
-open interchange
+open interchange #0
 cap interchange ISA #0
-open group
+open group #1
 cap group GS #1
-open transaction
+open transaction #2
 cap transaction ST #2
 cap transaction BPR #3
 cap transaction TRN #4
 cap transaction REF #5
 cap transaction DTM #6
-open 1000A
+open 1000A #7
 cap 1000A N1 #7
 cap 1000A N3 #8
 cap 1000A N4 #9
 close 1000A
-open 1000B
+open 1000B #10
 cap 1000B N1 #10
 cap 1000B N3 #11
 cap 1000B N4 #12
 cap 1000B REF #13
 close 1000B
-open 2000
+open 2000 #14
 cap 2000 LX #14
-open 2100
+open 2100 #15
 cap 2100 CLP #15
 cap 2100 NM1 #16
 cap 2100 NM1 #17
@@ -29,13 +29,13 @@ cap 2100 REF #18
 cap 2100 REF #19
 cap 2100 DTM #20
 cap 2100 AMT #21
-open 2110
+open 2110 #22
 cap 2110 SVC #22
 cap 2110 DTM #23
 cap 2110 CAS #24
 cap 2110 LQ #25
 close 2110
-open 2110
+open 2110 #26
 cap 2110 SVC #26
 cap 2110 DTM #27
 cap 2110 CAS #28
@@ -43,9 +43,9 @@ cap 2110 LQ #29
 close 2110
 close 2100
 close 2000
-open 2000
+open 2000 #30
 cap 2000 LX #30
-open 2100
+open 2100 #31
 cap 2100 CLP #31
 cap 2100 NM1 #32
 cap 2100 NM1 #33
@@ -53,7 +53,7 @@ cap 2100 REF #34
 cap 2100 REF #35
 cap 2100 DTM #36
 cap 2100 AMT #37
-open 2110
+open 2110 #38
 cap 2110 SVC #38
 cap 2110 DTM #39
 cap 2110 CAS #40
@@ -61,9 +61,9 @@ cap 2110 LQ #41
 close 2110
 close 2100
 close 2000
-open 2000
+open 2000 #42
 cap 2000 LX #42
-open 2100
+open 2100 #43
 cap 2100 CLP #43
 cap 2100 NM1 #44
 cap 2100 NM1 #45
@@ -71,19 +71,19 @@ cap 2100 REF #46
 cap 2100 REF #47
 cap 2100 DTM #48
 cap 2100 AMT #49
-open 2110
+open 2110 #50
 cap 2110 SVC #50
 cap 2110 DTM #51
 close 2110
-open 2110
+open 2110 #52
 cap 2110 SVC #52
 cap 2110 DTM #53
 close 2110
 close 2100
 close 2000
-open 2000
+open 2000 #54
 cap 2000 LX #54
-open 2100
+open 2100 #55
 cap 2100 CLP #55
 cap 2100 NM1 #56
 cap 2100 NM1 #57
@@ -91,13 +91,13 @@ cap 2100 REF #58
 cap 2100 REF #59
 cap 2100 DTM #60
 cap 2100 AMT #61
-open 2110
+open 2110 #62
 cap 2110 SVC #62
 cap 2110 DTM #63
 cap 2110 CAS #64
 cap 2110 LQ #65
 close 2110
-open 2110
+open 2110 #66
 cap 2110 SVC #66
 cap 2110 DTM #67
 cap 2110 CAS #68
@@ -105,9 +105,9 @@ cap 2110 LQ #69
 close 2110
 close 2100
 close 2000
-open 2000
+open 2000 #70
 cap 2000 LX #70
-open 2100
+open 2100 #71
 cap 2100 CLP #71
 cap 2100 NM1 #72
 cap 2100 NM1 #73
@@ -115,13 +115,13 @@ cap 2100 REF #74
 cap 2100 REF #75
 cap 2100 DTM #76
 cap 2100 AMT #77
-open 2110
+open 2110 #78
 cap 2110 SVC #78
 cap 2110 DTM #79
 cap 2110 CAS #80
 cap 2110 LQ #81
 close 2110
-open 2110
+open 2110 #82
 cap 2110 SVC #82
 cap 2110 DTM #83
 cap 2110 CAS #84
@@ -129,9 +129,9 @@ cap 2110 LQ #85
 close 2110
 close 2100
 close 2000
-open 2000
+open 2000 #86
 cap 2000 LX #86
-open 2100
+open 2100 #87
 cap 2100 CLP #87
 cap 2100 NM1 #88
 cap 2100 NM1 #89
@@ -139,13 +139,13 @@ cap 2100 REF #90
 cap 2100 REF #91
 cap 2100 DTM #92
 cap 2100 AMT #93
-open 2110
+open 2110 #94
 cap 2110 SVC #94
 cap 2110 DTM #95
 cap 2110 CAS #96
 cap 2110 LQ #97
 close 2110
-open 2110
+open 2110 #98
 cap 2110 SVC #98
 cap 2110 DTM #99
 cap 2110 CAS #100
@@ -153,16 +153,16 @@ cap 2110 LQ #101
 close 2110
 close 2100
 close 2000
-open 2000
+open 2000 #102
 cap 2000 LX #102
-open 2100
+open 2100 #103
 cap 2100 CLP #103
 cap 2100 NM1 #104
 cap 2100 REF #105
 cap 2100 REF #106
 cap 2100 DTM #107
 cap 2100 AMT #108
-open 2110
+open 2110 #109
 cap 2110 SVC #109
 cap 2110 DTM #110
 cap 2110 CAS #111
@@ -170,9 +170,9 @@ cap 2110 LQ #112
 close 2110
 close 2100
 close 2000
-open 2000
+open 2000 #113
 cap 2000 LX #113
-open 2100
+open 2100 #114
 cap 2100 CLP #114
 cap 2100 NM1 #115
 cap 2100 NM1 #116
@@ -180,13 +180,13 @@ cap 2100 REF #117
 cap 2100 REF #118
 cap 2100 DTM #119
 cap 2100 AMT #120
-open 2110
+open 2110 #121
 cap 2110 SVC #121
 cap 2110 DTM #122
 cap 2110 CAS #123
 cap 2110 LQ #124
 close 2110
-open 2110
+open 2110 #125
 cap 2110 SVC #125
 cap 2110 DTM #126
 cap 2110 CAS #127
@@ -194,9 +194,9 @@ cap 2110 LQ #128
 close 2110
 close 2100
 close 2000
-open 2000
+open 2000 #129
 cap 2000 LX #129
-open 2100
+open 2100 #130
 cap 2100 CLP #130
 cap 2100 NM1 #131
 cap 2100 NM1 #132
@@ -204,13 +204,13 @@ cap 2100 REF #133
 cap 2100 REF #134
 cap 2100 DTM #135
 cap 2100 AMT #136
-open 2110
+open 2110 #137
 cap 2110 SVC #137
 cap 2110 DTM #138
 cap 2110 CAS #139
 cap 2110 LQ #140
 close 2110
-open 2110
+open 2110 #141
 cap 2110 SVC #141
 cap 2110 DTM #142
 cap 2110 CAS #143
@@ -218,9 +218,9 @@ cap 2110 LQ #144
 close 2110
 close 2100
 close 2000
-open 2000
+open 2000 #145
 cap 2000 LX #145
-open 2100
+open 2100 #146
 cap 2100 CLP #146
 cap 2100 NM1 #147
 cap 2100 NM1 #148
@@ -228,7 +228,7 @@ cap 2100 REF #149
 cap 2100 REF #150
 cap 2100 DTM #151
 cap 2100 AMT #152
-open 2110
+open 2110 #153
 cap 2110 SVC #153
 cap 2110 DTM #154
 cap 2110 CAS #155
@@ -236,9 +236,9 @@ cap 2110 LQ #156
 close 2110
 close 2100
 close 2000
-open 2000
+open 2000 #157
 cap 2000 LX #157
-open 2100
+open 2100 #158
 cap 2100 CLP #158
 cap 2100 NM1 #159
 cap 2100 NM1 #160
@@ -246,7 +246,7 @@ cap 2100 REF #161
 cap 2100 REF #162
 cap 2100 DTM #163
 cap 2100 AMT #164
-open 2110
+open 2110 #165
 cap 2110 SVC #165
 cap 2110 DTM #166
 cap 2110 CAS #167
@@ -254,9 +254,9 @@ cap 2110 LQ #168
 close 2110
 close 2100
 close 2000
-open 2000
+open 2000 #169
 cap 2000 LX #169
-open 2100
+open 2100 #170
 cap 2100 CLP #170
 cap 2100 NM1 #171
 cap 2100 NM1 #172
@@ -264,7 +264,7 @@ cap 2100 REF #173
 cap 2100 REF #174
 cap 2100 DTM #175
 cap 2100 AMT #176
-open 2110
+open 2110 #177
 cap 2110 SVC #177
 cap 2110 DTM #178
 cap 2110 CAS #179
@@ -272,9 +272,9 @@ cap 2110 LQ #180
 close 2110
 close 2100
 close 2000
-open 2000
+open 2000 #181
 cap 2000 LX #181
-open 2100
+open 2100 #182
 cap 2100 CLP #182
 cap 2100 NM1 #183
 cap 2100 NM1 #184
@@ -282,7 +282,7 @@ cap 2100 REF #185
 cap 2100 REF #186
 cap 2100 DTM #187
 cap 2100 AMT #188
-open 2110
+open 2110 #189
 cap 2110 SVC #189
 cap 2110 DTM #190
 cap 2110 CAS #191
@@ -290,9 +290,9 @@ cap 2110 LQ #192
 close 2110
 close 2100
 close 2000
-open 2000
+open 2000 #193
 cap 2000 LX #193
-open 2100
+open 2100 #194
 cap 2100 CLP #194
 cap 2100 NM1 #195
 cap 2100 NM1 #196
@@ -300,7 +300,7 @@ cap 2100 REF #197
 cap 2100 REF #198
 cap 2100 DTM #199
 cap 2100 AMT #200
-open 2110
+open 2110 #201
 cap 2110 SVC #201
 cap 2110 DTM #202
 cap 2110 CAS #203
@@ -308,9 +308,9 @@ cap 2110 LQ #204
 close 2110
 close 2100
 close 2000
-open 2000
+open 2000 #205
 cap 2000 LX #205
-open 2100
+open 2100 #206
 cap 2100 CLP #206
 cap 2100 NM1 #207
 cap 2100 NM1 #208
@@ -318,7 +318,7 @@ cap 2100 REF #209
 cap 2100 REF #210
 cap 2100 DTM #211
 cap 2100 AMT #212
-open 2110
+open 2110 #213
 cap 2110 SVC #213
 cap 2110 DTM #214
 cap 2110 CAS #215
@@ -326,9 +326,9 @@ cap 2110 LQ #216
 close 2110
 close 2100
 close 2000
-open 2000
+open 2000 #217
 cap 2000 LX #217
-open 2100
+open 2100 #218
 cap 2100 CLP #218
 cap 2100 NM1 #219
 cap 2100 NM1 #220
@@ -336,7 +336,7 @@ cap 2100 REF #221
 cap 2100 REF #222
 cap 2100 DTM #223
 cap 2100 AMT #224
-open 2110
+open 2110 #225
 cap 2110 SVC #225
 cap 2110 DTM #226
 cap 2110 CAS #227
@@ -344,9 +344,9 @@ cap 2110 LQ #228
 close 2110
 close 2100
 close 2000
-open 2000
+open 2000 #229
 cap 2000 LX #229
-open 2100
+open 2100 #230
 cap 2100 CLP #230
 cap 2100 NM1 #231
 cap 2100 NM1 #232
@@ -354,7 +354,7 @@ cap 2100 REF #233
 cap 2100 REF #234
 cap 2100 DTM #235
 cap 2100 AMT #236
-open 2110
+open 2110 #237
 cap 2110 SVC #237
 cap 2110 DTM #238
 cap 2110 CAS #239
@@ -362,22 +362,22 @@ cap 2110 LQ #240
 close 2110
 close 2100
 close 2000
-open 2000
+open 2000 #241
 cap 2000 LX #241
-open 2100
+open 2100 #242
 cap 2100 CLP #242
 cap 2100 NM1 #243
 cap 2100 REF #244
 cap 2100 REF #245
 cap 2100 DTM #246
 cap 2100 AMT #247
-open 2110
+open 2110 #248
 cap 2110 SVC #248
 cap 2110 DTM #249
 cap 2110 CAS #250
 cap 2110 LQ #251
 close 2110
-open 2110
+open 2110 #252
 cap 2110 SVC #252
 cap 2110 DTM #253
 cap 2110 CAS #254

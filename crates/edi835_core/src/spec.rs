@@ -403,6 +403,11 @@ pub enum TableDefError {
     },
     /// `loops` is empty.
     NoLoops,
+    /// A loop name appears twice in `loops`.
+    DuplicateLoop {
+        /// The loop name as written.
+        loop_name: String,
+    },
     /// A loop name does not exist.
     UnknownLoop {
         /// The name as written.
@@ -491,6 +496,12 @@ impl fmt::Display for TableDefError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             TableDefError::EmptyName { what } => write!(f, "the {what} is empty"),
+            TableDefError::DuplicateLoop { loop_name } => {
+                write!(
+                    f,
+                    "loop {loop_name:?} is listed more than once in \"loops\""
+                )
+            }
             TableDefError::NoLoops => {
                 write!(
                     f,
@@ -1329,6 +1340,11 @@ fn compile_table(spec: &Spec, name: &str, def: &RawTable) -> Result<TableDef, Sp
                 name: loop_name.clone(),
             })
         })?;
+        if loops.contains(&id) {
+            return Err(fail(TableDefError::DuplicateLoop {
+                loop_name: loop_name.clone(),
+            }));
+        }
         loops.push(id);
     }
     let reference = def.reference.clone().unwrap_or_else(|| name.to_string());
@@ -1434,6 +1450,16 @@ fn compile_column(
     if raw.component == Some(0) {
         return Err(fail(TableDefError::ZeroPosition { key: "component" }));
     }
+    if anchor_segment.is_some() {
+        let keys = [
+            ("segment", raw.segment.is_some()),
+            ("loop", raw.loop_name.is_some()),
+            ("where", !raw.conditions.is_empty()),
+        ];
+        if let Some(&(key, _)) = keys.iter().find(|(_, present)| *present) {
+            return Err(fail(TableDefError::AnchorSegmentOnly { key }));
+        }
+    }
     if let Some(offset) = raw.group_element {
         let Some(repeat) = repeat else {
             return Err(fail(TableDefError::GroupWithoutRepeat));
@@ -1450,17 +1476,7 @@ fn compile_column(
         });
     }
     let (loop_id, segment, conditions) = match anchor_segment {
-        Some(anchor) => {
-            let keys = [
-                ("segment", raw.segment.is_some()),
-                ("loop", raw.loop_name.is_some()),
-                ("where", !raw.conditions.is_empty()),
-            ];
-            if let Some(&(key, _)) = keys.iter().find(|(_, present)| *present) {
-                return Err(fail(TableDefError::AnchorSegmentOnly { key }));
-            }
-            (None, anchor.to_vec(), Vec::new())
-        }
+        Some(anchor) => (None, anchor.to_vec(), Vec::new()),
         None => {
             let segment = match raw.segment.as_deref() {
                 None => return Err(fail(TableDefError::NeedsSegment)),
@@ -3183,6 +3199,20 @@ mod tests {
             ),
             (r#"{"t":{"loops":[]}}"#, "t", None, TableDefError::NoLoops),
             (
+                r#"{"t":{"loops":["A","B","A"]}}"#,
+                "t",
+                None,
+                TableDefError::DuplicateLoop {
+                    loop_name: "A".into(),
+                },
+            ),
+            (
+                r#"{"t":{"loops":["A"],"segment":"AA","repeat":{"from":2,"step":2},"columns":{"c":{"group_element":0,"where":{"1":"X"}}}}}"#,
+                "t",
+                Some("c"),
+                TableDefError::AnchorSegmentOnly { key: "where" },
+            ),
+            (
                 r#"{"t":{"loops":["Z"]}}"#,
                 "t",
                 None,
@@ -3476,6 +3506,12 @@ mod tests {
             (
                 TableDefError::NoLoops,
                 "\"loops\" is empty; a table anchors in at least one loop",
+            ),
+            (
+                TableDefError::DuplicateLoop {
+                    loop_name: "2100".into(),
+                },
+                "loop \"2100\" is listed more than once in \"loops\"",
             ),
             (
                 TableDefError::UnknownLoop {

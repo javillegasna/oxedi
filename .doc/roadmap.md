@@ -50,7 +50,7 @@ when a stage changes state.
 | Decision | Stage that closes it | One line |
 |----------|----------------------|----------|
 | D2 · Spec format and merge | 3 (closed as T6–T8) | JSON + serde, flat loops with `parent`, RFC 7386 merge patch |
-| D8 · `Cow`+spans vs `Arc`+spans | 5 | Measure time and memory with Python holding documents |
+| D8 · `Cow`+spans vs `Arc`+spans | 5 (closed as T24: keep `Cow`) | Measured on the largest sample: `Arc` builds slower, same retention memory, wins only on clones nobody makes; spans weigh 2× the bytes → #45 |
 | D9 · YAML specs | after 3, when someone writes specs by hand | Second deserializer over the same `Spec` |
 | D10 · Columnar projection / Arrow | 4 (closed as T14–T15) and 5 | Stage 4 emits Arrow-layout columns without the crate; Python exports zero-copy |
 | D11 · Segment cardinality per loop, declarative balancing rules | after 4 | SNIP 2 completion and SNIP 3 need a spec extension; decide once tables are in use |

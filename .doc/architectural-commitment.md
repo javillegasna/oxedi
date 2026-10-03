@@ -186,6 +186,17 @@ carga su prueba de costura con la capa inferior (N7).
   Descartado `Document` siempre dueño: pagaría una copia del archivo en el camino normal.
   Candidato a revisar: buffer compartido `Arc<[u8]>` + spans (ver D8), que cambia solo la
   representación del buffer y deja los spans intactos.
+- **T24 · D8 resuelta: el documento sigue siendo `Cow` + spans — 2026-10-03.** Medido con
+  `examples/buffer_retention.rs` sobre `edi835_test_united.rmt` (629 KB, 30 302 segmentos,
+  release, AMD Ryzen 7 5700U) frente a un prototipo `Arc<[u8]>` con los mismos spans.
+  Construir desde el `Vec<u8>` que el binding ya copió: 1,13 ms con `Cow` y 1,54 ms con
+  `Arc` (`Arc::from(Vec)` vuelve a copiar el buffer). Iterar todos los segmentos: 4,2 frente
+  a 4,1 ms. Retener N documentos de N entradas ocupa lo mismo: 1,9 / 18,5 / 185 MiB para
+  N = 1, 10, 100. `Arc` solo gana al clonar (35 frente a 77 µs), y nadie clona: Python
+  comparte el objeto `Document` por referencia y `stream` no construye documento. Se descarta
+  `Arc`. Hallazgo: los spans pesan el doble que los bytes (40 bytes por segmento frente a
+  ~21 de texto), así que retener menos pasa por compactar `Span`, no por compartir el buffer
+  (issue #45).
 
 ### §6.2 · Abiertas (marcadas para no olvidarlas)
 
@@ -201,7 +212,7 @@ carga su prueba de costura con la capa inferior (N7).
   llamador. Opciones a decidir cuando exista el caso: segmentos con datos propios solo en
   este modo, o buffer interno con préstamo ligado al tokenizer (patrón *lending iterator*,
   no expresable con `Iterator` estándar). El framing (T3) se reutiliza tal cual.
-- **D8 · `Cow` + spans frente a `Arc<[u8]>` + spans**: en el stage siguiente al que
+- **D8 · `Cow` + spans frente a `Arc<[u8]>` + spans** → resuelta por T24 (Stage 5): en el stage siguiente al que
   tenga un consumidor que comparta el documento (previsiblemente Stage 5, Python), medir
   las dos representaciones en tiempo y en memoria sobre las mismas fixtures y los samples
   grandes: construir, iterar, `into_owned` o clonar, y retener N documentos a la vez. Se

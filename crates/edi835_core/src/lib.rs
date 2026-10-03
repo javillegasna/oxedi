@@ -61,4 +61,4 @@ pub use spec::{
     Trigger, merge_patch,
 };
 pub use tokenizer::Tokenizer;
-pub use tree::{LoopTree, Node, NodeId};
+pub use tree::{LoopTree, Node, NodeId, TreeBuilder};

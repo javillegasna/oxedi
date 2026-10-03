@@ -4,7 +4,7 @@ mod common;
 
 use std::collections::BTreeMap;
 
-use edi835_core::{Event, LoopTree, Spec, Tokenizer};
+use edi835_core::{Event, LoopEngine, LoopTree, Spec, Tokenizer};
 
 #[test]
 fn every_segment_is_accounted_for_exactly_once_and_loops_balance() {
@@ -167,5 +167,20 @@ fn feeding_from_a_document_or_a_tokenizer_gives_the_same_events() {
         let a = common::run_engine(&spec, &doc);
         let b = common::events_of(&spec, &bytes, delims);
         assert_eq!(a, b, "{name}");
+    }
+}
+
+#[test]
+fn a_tree_folded_from_caller_driven_events_equals_the_built_tree() {
+    let spec = Spec::builtin_835();
+    for (name, bytes, delims) in common::all_files() {
+        let built = LoopTree::build(&spec, Tokenizer::with_delimiters(&bytes, delims));
+        let mut engine = LoopEngine::new(&spec);
+        let mut builder = LoopTree::builder();
+        for segment in Tokenizer::with_delimiters(&bytes, delims) {
+            builder.on(engine.feed(&segment));
+        }
+        builder.on(engine.finish());
+        assert_eq!(builder.finish(), built, "{name}");
     }
 }

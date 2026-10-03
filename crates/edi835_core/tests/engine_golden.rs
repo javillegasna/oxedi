@@ -17,6 +17,42 @@ fn golden_dir() -> PathBuf {
     PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("tests/golden")
 }
 
+/// Human-readable location of the first difference between two line streams.
+fn describe_diff(actual: &str, expected: &str) -> String {
+    let actual_lines: Vec<&str> = actual.lines().collect();
+    let expected_lines: Vec<&str> = expected.lines().collect();
+
+    for (i, (a, e)) in actual_lines.iter().zip(expected_lines.iter()).enumerate() {
+        if a != e {
+            return format!("line {}: actual {:?}, expected {:?}", i + 1, a, e);
+        }
+    }
+
+    match actual_lines.len().cmp(&expected_lines.len()) {
+        std::cmp::Ordering::Greater => {
+            let extra = actual_lines.len() - expected_lines.len();
+            let first_extra = actual_lines[expected_lines.len()];
+            format!(
+                "expected ends at line {}; actual has {} extra line(s), first: {:?}",
+                expected_lines.len(),
+                extra,
+                first_extra
+            )
+        }
+        std::cmp::Ordering::Less => {
+            let extra = expected_lines.len() - actual_lines.len();
+            let first_extra = expected_lines[actual_lines.len()];
+            format!(
+                "actual ends at line {}; expected has {} more line(s), first: {:?}",
+                actual_lines.len(),
+                extra,
+                first_extra
+            )
+        }
+        std::cmp::Ordering::Equal => "no difference".to_string(),
+    }
+}
+
 fn line(spec: &Spec, event: Event, segment_id: &[u8]) -> String {
     let id = String::from_utf8_lossy(segment_id);
     match event {
@@ -105,15 +141,42 @@ fn event_streams_match_the_golden_files() {
             )
         });
         if actual != expected {
-            let first_diff = actual
-                .lines()
-                .zip(expected.lines())
-                .position(|(a, e)| a != e);
             failures.push(format!(
-                "{name}: differs at line {:?}",
-                first_diff.map(|n| n + 1)
+                "{name} ({}): {}",
+                path.display(),
+                describe_diff(&actual, &expected)
             ));
         }
     }
     assert!(failures.is_empty(), "{failures:#?}");
+}
+
+#[test]
+fn describe_diff_reports_content_drift() {
+    let actual = "line 1\nline 2a\nline 3";
+    let expected = "line 1\nline 2b\nline 3";
+    let diff = describe_diff(actual, expected);
+    assert_eq!(diff, r#"line 2: actual "line 2a", expected "line 2b""#);
+}
+
+#[test]
+fn describe_diff_reports_when_actual_is_longer() {
+    let actual = "line 1\nline 2\nline 3 extra";
+    let expected = "line 1\nline 2";
+    let diff = describe_diff(actual, expected);
+    assert_eq!(
+        diff,
+        r#"expected ends at line 2; actual has 1 extra line(s), first: "line 3 extra""#
+    );
+}
+
+#[test]
+fn describe_diff_reports_when_expected_is_longer() {
+    let actual = "line 1\nline 2";
+    let expected = "line 1\nline 2\nline 3 missing";
+    let diff = describe_diff(actual, expected);
+    assert_eq!(
+        diff,
+        r#"actual ends at line 2; expected has 1 more line(s), first: "line 3 missing""#
+    );
 }

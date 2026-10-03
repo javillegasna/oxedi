@@ -189,6 +189,24 @@ impl Column {
     }
 }
 
+/// The most bytes a binary column holds.
+#[cfg(not(test))]
+fn offset_limit() -> usize {
+    i32::MAX as usize
+}
+
+#[cfg(test)]
+thread_local! {
+    pub(crate) static OFFSET_LIMIT: std::cell::Cell<usize> =
+        const { std::cell::Cell::new(i32::MAX as usize) };
+}
+
+/// The most bytes a binary column holds; tests lower it per thread.
+#[cfg(test)]
+fn offset_limit() -> usize {
+    OFFSET_LIMIT.with(std::cell::Cell::get)
+}
+
 /// One value on its way into, or out of, a column.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Cell<'a> {
@@ -207,6 +225,27 @@ pub enum Cell<'a> {
 }
 
 impl Cell<'_> {
+    /// The cell's value as text for an error message: numbers as stored,
+    /// bytes quoted on one line and cut at 32 bytes.
+    fn raw_text(&self) -> String {
+        const CUT: usize = 32;
+        match self {
+            Cell::Null => "null".to_string(),
+            Cell::Binary(bytes) => {
+                let shown = bytes.get(..CUT).unwrap_or(bytes);
+                let text = format!("{:?}", String::from_utf8_lossy(shown));
+                if shown.len() < bytes.len() {
+                    format!("{text}...")
+                } else {
+                    text
+                }
+            }
+            Cell::Int64(value) => value.to_string(),
+            Cell::Decimal128(value) => value.to_string(),
+            Cell::Date32(value) | Cell::Time32(value) => value.to_string(),
+        }
+    }
+
     fn kind_name(&self) -> &'static str {
         match self {
             Cell::Null => "null",
@@ -228,6 +267,10 @@ pub enum CellError {
         column: ColumnType,
         /// The cell's type, e.g. `int64`.
         cell: &'static str,
+        /// The cell's value: integers as written, a decimal as its scaled
+        /// integer, dates as days and times as seconds, bytes as a quoted
+        /// string cut at 32 bytes.
+        value: String,
     },
     /// The bytes would take a binary column past what `i32` offsets address.
     BinaryOverflow {
@@ -239,8 +282,17 @@ pub enum CellError {
 impl fmt::Display for CellError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            CellError::TypeMismatch { column, cell } => {
-                write!(f, "a {column} column cannot hold a {cell} value")
+            CellError::TypeMismatch {
+                column,
+                cell,
+                value,
+            } => {
+                write!(
+                    f,
+                    "{} {column} column cannot hold {} {cell} value ({value})",
+                    article(&column.to_string()),
+                    article(cell)
+                )
             }
             CellError::BinaryOverflow { bytes } => write!(
                 f,
@@ -248,6 +300,15 @@ impl fmt::Display for CellError {
                 i32::MAX
             ),
         }
+    }
+}
+
+/// `an` before a word that starts with a vowel, `a` otherwise.
+fn article(word: &str) -> &'static str {
+    if word.starts_with(['a', 'e', 'i', 'o', 'u']) {
+        "an"
+    } else {
+        "a"
     }
 }
 
@@ -331,7 +392,8 @@ impl ColumnData {
     /// Row `row` as text: bytes as UTF-8 (invalid sequences replaced),
     /// integers as digits, decimals in fixed point with the column's scale,
     /// dates as `YYYY-MM-DD`, times as `HH:MM:SS` and a null as `∅`; `None`
-    /// past the end.
+    /// past the end. A date too far from 1970 to convert and a negative time
+    /// render as their raw number, `date32(2147483647)` or `time32(-1)`.
     pub fn render(&self, row: usize) -> Option<String> {
         Some(match self.get(row)? {
             Cell::Null => "∅".to_string(),
@@ -351,10 +413,14 @@ impl ColumnData {
                     format!("{sign}{whole}.{fraction}")
                 }
             }
+            Cell::Date32(days) if days.checked_add(719_468).is_none() => {
+                format!("date32({days})")
+            }
             Cell::Date32(days) => {
                 let (year, month, day) = civil_from_days(days);
                 format!("{year:04}-{month:02}-{day:02}")
             }
+            Cell::Time32(seconds) if seconds < 0 => format!("time32({seconds})"),
             Cell::Time32(seconds) => format!(
                 "{:02}:{:02}:{:02}",
                 seconds / 3600,
@@ -401,11 +467,12 @@ impl ColumnData {
             return Err(CellError::TypeMismatch {
                 column: self.kind(),
                 cell: cell.kind_name(),
+                value: cell.raw_text(),
             });
         }
         if let (Column::Binary { data, .. }, Cell::Binary(bytes)) = (&self.column, cell) {
             let total = data.len().saturating_add(bytes.len());
-            if i32::try_from(total).is_err() {
+            if total > offset_limit() {
                 return Err(CellError::BinaryOverflow { bytes: total });
             }
         }
@@ -751,7 +818,9 @@ fn civil_from_days(days: i32) -> (i32, i32, i32) {
 }
 
 /// A `DT` value as days since 1970-01-01: `CCYYMMDD`, or `YYMMDD` with
-/// years 00–49 read as 20xx and 50–99 as 19xx. The date must exist.
+/// years 00–49 read as 20xx and 50–99 as 19xx. The date must exist, and the
+/// year `0000` is refused (so is the all-zero date some payers write for "no
+/// date"): it is not a meaningful `CCYY`.
 pub fn parse_dt(text: &[u8]) -> Option<i32> {
     let (year, month_day) = match text.len() {
         8 => (small_number(text.get(..4)?)?, text.get(4..)?),
@@ -764,7 +833,7 @@ pub fn parse_dt(text: &[u8]) -> Option<i32> {
     };
     let month = small_number(month_day.get(..2)?)?;
     let day = small_number(month_day.get(2..)?)?;
-    if !(1..=12).contains(&month) || day < 1 || day > days_in_month(year, month) {
+    if year < 1 || !(1..=12).contains(&month) || day < 1 || day > days_in_month(year, month) {
         return None;
     }
     Some(days_from_civil(year, month, day))
@@ -962,13 +1031,46 @@ mod tests {
     }
 
     #[test]
+    fn dates_and_times_out_of_range_render_as_raw_numbers() {
+        let mut dates = ColumnData::new(ColumnType::Date32);
+        for days in [i32::MAX, i32::MAX - 719_468, i32::MAX - 719_469, 0] {
+            dates.push(Cell::Date32(days)).unwrap();
+        }
+        assert_eq!(dates.render(0).as_deref(), Some("date32(2147483647)"));
+        assert_eq!(dates.render(1).as_deref(), Some("5879610-09-09"));
+        assert_eq!(dates.render(2).as_deref(), Some("5879610-09-08"));
+        assert_eq!(dates.render(3).as_deref(), Some("1970-01-01"));
+        let mut times = ColumnData::new(ColumnType::Time32);
+        for seconds in [-1, i32::MIN, 0] {
+            times.push(Cell::Time32(seconds)).unwrap();
+        }
+        assert_eq!(times.render(0).as_deref(), Some("time32(-1)"));
+        assert_eq!(times.render(1).as_deref(), Some("time32(-2147483648)"));
+        assert_eq!(times.render(2).as_deref(), Some("00:00:00"));
+    }
+
+    #[test]
+    fn a_refused_text_value_is_quoted_and_cut_at_32_bytes() {
+        let mut column = ColumnData::new(ColumnType::Date32);
+        let long = [b'x'; 40];
+        assert_eq!(
+            column.push(Cell::Binary(&long)).unwrap_err().to_string(),
+            format!(
+                "a date32 column cannot hold a binary value (\"{}\"...)",
+                "x".repeat(32)
+            )
+        );
+    }
+
+    #[test]
     fn a_cell_of_another_type_is_refused_and_nothing_is_appended() {
         let mut column = ColumnData::new(ColumnType::Date32);
         assert_eq!(
             column.push(Cell::Int64(3)),
             Err(CellError::TypeMismatch {
                 column: ColumnType::Date32,
-                cell: "int64"
+                cell: "int64",
+                value: "3".into()
             })
         );
         assert!(column.is_empty());
@@ -979,10 +1081,20 @@ mod tests {
         assert_eq!(
             CellError::TypeMismatch {
                 column: ColumnType::Date32,
-                cell: "int64"
+                cell: "int64",
+                value: "3".into()
             }
             .to_string(),
-            "a date32 column cannot hold a int64 value"
+            "a date32 column cannot hold an int64 value (3)"
+        );
+        assert_eq!(
+            CellError::TypeMismatch {
+                column: ColumnType::Int64 { scale: 0 },
+                cell: "date32",
+                value: "-1".into()
+            }
+            .to_string(),
+            "an int64 column cannot hold a date32 value (-1)"
         );
         assert_eq!(
             CellError::BinaryOverflow { bytes: 2147483650 }.to_string(),
@@ -1012,7 +1124,8 @@ mod tests {
                 column: "amount".into(),
                 source: CellError::TypeMismatch {
                     column: ColumnType::Int64 { scale: 0 },
-                    cell: "binary"
+                    cell: "binary",
+                    value: "\"x\"".into()
                 }
             }
         );
@@ -1053,11 +1166,12 @@ mod tests {
                     scale: 2,
                 },
                 cell: "binary",
+                value: "\"ab\"".into(),
             },
         };
         assert_eq!(
             cell.to_string(),
-            "table \"claims\" column \"charge\": a decimal128(38, 2) column cannot hold a binary value"
+            "table \"claims\" column \"charge\": a decimal128(38, 2) column cannot hold a binary value (\"ab\")"
         );
         assert!(std::error::Error::source(&cell).is_some());
     }
@@ -1161,6 +1275,8 @@ mod tests {
             b"2024-01-01",
             b"",
             b"240229 ",
+            b"00000101",
+            b"00000000",
         ] {
             assert_eq!(parse_dt(text), None, "{:?}", String::from_utf8_lossy(text));
         }

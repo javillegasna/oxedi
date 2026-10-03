@@ -10,11 +10,13 @@
 //! scalars replace wholesale; see [`Spec::merge_patch`] for what that means
 //! when extending a loop's segment list.
 
+use std::borrow::Cow;
 use std::cmp::Reverse;
 use std::collections::BTreeMap;
 use std::fmt;
 
 use serde::Deserialize;
+use serde::de::IgnoredAny;
 use serde_json::Value;
 
 use crate::element::Element;
@@ -393,6 +395,15 @@ pub struct TableDef {
     pub ancestors: Vec<usize>,
 }
 
+/// The tables above two anchor loops, outermost first.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct AnchorChains {
+    /// The tables above the first anchor loop.
+    pub first: Vec<String>,
+    /// The tables above the second anchor loop.
+    pub second: Vec<String>,
+}
+
 /// Why a table definition was rejected.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum TableDefError {
@@ -466,6 +477,8 @@ pub enum TableDefError {
         first: String,
         /// The anchor loop whose chain disagrees.
         second: String,
+        /// The table names above each anchor loop.
+        chains: Box<AnchorChains>,
     },
     /// A column's `loop` is not inside every anchor loop.
     NotADescendant {
@@ -485,6 +498,10 @@ pub enum TableDefError {
     AnchorSegmentOnly {
         /// The key: `segment`, `loop` or `where`.
         key: &'static str,
+        /// The segment the table is anchored on.
+        anchor_segment: String,
+        /// The key's value as the spec writes it, in JSON.
+        written: String,
     },
     /// A column of a table without `segment` names no segment.
     NeedsSegment,
@@ -546,9 +563,15 @@ impl fmt::Display for TableDefError {
                 f,
                 "loop {loop_name:?} already anchors table {other:?}; a loop anchors at most one table without \"segment\""
             ),
-            TableDefError::UnrelatedAnchors { first, second } => write!(
+            TableDefError::UnrelatedAnchors {
+                first,
+                second,
+                chains,
+            } => write!(
                 f,
-                "anchor loops {first:?} and {second:?} sit under tables that are not one chain"
+                "anchor loops {first:?} and {second:?} sit under tables that are not one chain: {first:?} under {}, {second:?} under {}",
+                render_chain(&chains.first),
+                render_chain(&chains.second)
             ),
             TableDefError::NotADescendant { loop_name, anchor } => {
                 write!(f, "loop {loop_name:?} is not inside anchor loop {anchor:?}")
@@ -557,9 +580,13 @@ impl fmt::Display for TableDefError {
                 f,
                 "segment {segment:?} is neither the trigger nor a segment of loop {loop_name:?}, so it is never read there"
             ),
-            TableDefError::AnchorSegmentOnly { key } => write!(
+            TableDefError::AnchorSegmentOnly {
+                key,
+                anchor_segment,
+                written,
+            } => write!(
                 f,
-                "{key:?} does not apply in a table anchored on a segment: its columns read that segment"
+                "{key:?} ({written}) does not apply in a table anchored on segment {anchor_segment:?}: its columns read that segment"
             ),
             TableDefError::NeedsSegment => write!(f, "the column names no \"segment\" to read"),
             TableDefError::GroupWithoutRepeat => {
@@ -618,6 +645,13 @@ pub enum SpecError {
         /// `end`, or `segments.""` for the section.
         key: String,
     },
+    /// A loop's `end` is the segment that opens it.
+    EndIsTrigger {
+        /// The loop.
+        loop_name: String,
+        /// The segment id both keys name.
+        segment: String,
+    },
     /// A `where` key is not a 1-based element position in canonical form.
     BadPosition {
         /// The loop with the bad key.
@@ -633,6 +667,21 @@ pub enum SpecError {
         /// What was found instead: `an array`, `a string`, `a number`,
         /// `a boolean` or `null`.
         found: &'static str,
+    },
+    /// A scalar the schema requires to be of one kind is of another.
+    WrongType {
+        /// Where the value sits, keys joined by `.` as written (e.g.
+        /// `loops.env.control.opener_element`).
+        path: String,
+        /// What the schema requires, e.g. `a non-negative integer`.
+        expected: &'static str,
+        /// What was found instead: `a string`, `a number`, `a negative
+        /// number`, `an array`, `null`, and so on.
+        found: &'static str,
+        /// The offending value: a scalar as compact JSON (`"2"`, `7`,
+        /// `true`), an array or object as its length (`3 items`,
+        /// `2 members`); empty for `null`.
+        value: String,
     },
     /// A segment definition does not match the schema.
     SegmentSchema {
@@ -725,6 +774,24 @@ impl fmt::Display for SpecError {
                 f,
                 "spec: the value at {path} must be a JSON object; found {found}"
             ),
+            SpecError::WrongType {
+                path,
+                expected,
+                found,
+                value,
+            } if value.is_empty() => write!(
+                f,
+                "spec: the value at {path} must be {expected}; found {found}"
+            ),
+            SpecError::WrongType {
+                path,
+                expected,
+                found,
+                value,
+            } => write!(
+                f,
+                "spec: the value at {path} must be {expected}; found {found} ({value})"
+            ),
             SpecError::Patch { source } => write!(f, "applying patch: {source}"),
             SpecError::UnknownParent { loop_name, parent } => {
                 write!(f, "loop {loop_name:?} names unknown parent {parent:?}")
@@ -750,6 +817,11 @@ impl fmt::Display for SpecError {
                 loop_name: None,
                 key,
             } => write!(f, "the spec has an empty segment id at {key}"),
+            SpecError::EndIsTrigger { loop_name, segment } => write!(
+                f,
+                "loop {loop_name:?} has \"end\" {segment:?}, the same segment as its \
+                 \"trigger\": the loop would close on the segment that opens it"
+            ),
             SpecError::BadPosition {
                 loop_name,
                 position,
@@ -853,8 +925,9 @@ impl std::error::Error for SpecError {
     }
 }
 
-// Loops are kept as raw values so each one is deserialized on its own and a
-// schema error can name the loop it came from.
+// The loop, segment and table sections are only checked for their outer shape
+// here; each entry is then deserialized on its own, straight from the spec's
+// JSON, so a schema error can name the entry it came from.
 #[derive(Debug, Deserialize)]
 #[serde(
     deny_unknown_fields,
@@ -862,11 +935,11 @@ impl std::error::Error for SpecError {
 )]
 struct RawSpec {
     name: String,
-    loops: BTreeMap<String, Value>,
-    #[serde(default)]
-    segments: BTreeMap<String, Value>,
-    #[serde(default)]
-    tables: BTreeMap<String, Value>,
+    loops: BTreeMap<String, IgnoredAny>,
+    #[serde(default, rename = "segments")]
+    _segments: BTreeMap<String, IgnoredAny>,
+    #[serde(default, rename = "tables")]
+    _tables: BTreeMap<String, IgnoredAny>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -919,7 +992,8 @@ struct RawElement {
     composite: BTreeMap<String, RawElement>,
 }
 
-// Columns are kept as raw values so a schema error can name the column.
+// Columns are checked for their outer shape here and deserialized one by one,
+// so a schema error can name the column.
 #[derive(Debug, Deserialize)]
 #[serde(deny_unknown_fields, expecting = "a table object")]
 struct RawTable {
@@ -929,7 +1003,7 @@ struct RawTable {
     segment: Option<String>,
     repeat: Option<RawRepeat>,
     #[serde(default)]
-    columns: BTreeMap<String, Value>,
+    columns: BTreeMap<String, IgnoredAny>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -1105,13 +1179,20 @@ impl Spec {
     /// Ancestors of a loop, root-most first, excluding the loop itself.
     pub fn ancestors(&self, id: LoopId) -> Vec<LoopId> {
         let mut chain = Vec::new();
+        self.ancestors_into(id, &mut chain);
+        chain
+    }
+
+    /// Like [`ancestors`](Spec::ancestors), writing the chain into `chain`
+    /// after clearing it, so a caller can reuse one buffer.
+    pub fn ancestors_into(&self, id: LoopId, chain: &mut Vec<LoopId>) {
+        chain.clear();
         let mut current = self.loops[id.0].parent;
         while let Some(parent) = current {
             chain.push(parent);
             current = self.loops[parent.0].parent;
         }
         chain.reverse();
-        chain
     }
 
     /// The child of `parent` that `segment` triggers, preferring the trigger
@@ -1137,24 +1218,22 @@ impl Spec {
 
     pub(crate) fn from_value(source: Value) -> Result<Spec, SpecError> {
         check_shape(&source)?;
-        let raw: RawSpec =
-            serde_json::from_value(source.clone()).map_err(|e| SpecError::Schema {
-                loop_name: None,
-                source: e,
-            })?;
+        let raw = RawSpec::deserialize(&source).map_err(|e| SpecError::Schema {
+            loop_name: None,
+            source: e,
+        })?;
         if raw.loops.is_empty() {
             return Err(SpecError::NoLoops {
                 spec_name: raw.name,
             });
         }
         let mut defs = Vec::with_capacity(raw.loops.len());
-        for (name, value) in &raw.loops {
-            let def: RawLoop =
-                serde_json::from_value(value.clone()).map_err(|e| SpecError::Schema {
-                    loop_name: Some(name.clone()),
-                    source: e,
-                })?;
-            defs.push((name.clone(), def));
+        for (name, value) in section(&source, "loops") {
+            let def = RawLoop::deserialize(value).map_err(|e| SpecError::Schema {
+                loop_name: Some(name.to_string()),
+                source: e,
+            })?;
+            defs.push((name.to_string(), def));
         }
         let names: Vec<&str> = raw.loops.keys().map(String::as_str).collect();
         let id_of = |name: &str| names.iter().position(|&n| n == name).map(LoopId);
@@ -1173,6 +1252,12 @@ impl Spec {
             }
             if def.end.as_deref() == Some("") {
                 return Err(empty_at("end".into()));
+            }
+            if def.end.as_deref() == Some(def.trigger.segment.as_str()) {
+                return Err(SpecError::EndIsTrigger {
+                    loop_name: name.clone(),
+                    segment: def.trigger.segment.clone(),
+                });
             }
             let parent = match &def.parent {
                 None => None,
@@ -1225,18 +1310,17 @@ impl Spec {
         }
 
         let mut segments = BTreeMap::new();
-        for (id, value) in &raw.segments {
+        for (id, value) in section(&source, "segments") {
             if id.is_empty() {
                 return Err(SpecError::EmptySegmentId {
                     loop_name: None,
                     key: "segments.\"\"".into(),
                 });
             }
-            let def: RawSegment =
-                serde_json::from_value(value.clone()).map_err(|e| SpecError::SegmentSchema {
-                    segment: id.clone(),
-                    source: e,
-                })?;
+            let def = RawSegment::deserialize(value).map_err(|e| SpecError::SegmentSchema {
+                segment: id.to_string(),
+                source: e,
+            })?;
             let elements = compile_elements(id, &def.elements, None)?;
             segments.insert(id.as_bytes().to_vec(), SegmentDef { elements });
         }
@@ -1250,7 +1334,7 @@ impl Spec {
             source,
         };
         spec.check_ambiguity()?;
-        spec.tables = compile_tables(&spec, &raw.tables)?;
+        spec.tables = compile_tables(&spec, section(&spec.source, "tables"))?;
         Ok(spec)
     }
 
@@ -1315,24 +1399,46 @@ impl Spec {
     }
 }
 
+/// Table names outermost first, joined by `/`; `no table` when there are none.
+fn render_chain(chain: &[String]) -> String {
+    if chain.is_empty() {
+        return "no table".to_string();
+    }
+    let names: Vec<Cow<'_, str>> = chain.iter().map(|name| render_key(name)).collect();
+    names.join("/")
+}
+
+/// The members of the object at `key`, in key order; empty when there is none.
+fn section<'v>(value: &'v Value, key: &str) -> BTreeMap<&'v str, &'v Value> {
+    value
+        .get(key)
+        .and_then(Value::as_object)
+        .map(|members| members.iter().map(|(k, v)| (k.as_str(), v)).collect())
+        .unwrap_or_default()
+}
+
 /// Compiles the `tables` section against the loops of `spec`, then links
 /// every table to the tables above it.
-fn compile_tables(spec: &Spec, raw: &BTreeMap<String, Value>) -> Result<Vec<TableDef>, SpecError> {
+fn compile_tables(spec: &Spec, raw: BTreeMap<&str, &Value>) -> Result<Vec<TableDef>, SpecError> {
     let mut tables = Vec::with_capacity(raw.len());
     for (name, value) in raw {
-        let def: RawTable =
-            serde_json::from_value(value.clone()).map_err(|e| SpecError::TableSchema {
-                table: name.clone(),
-                column: None,
-                source: e,
-            })?;
-        tables.push(compile_table(spec, name, &def)?);
+        let def = RawTable::deserialize(value).map_err(|e| SpecError::TableSchema {
+            table: name.to_string(),
+            column: None,
+            source: e,
+        })?;
+        tables.push(compile_table(spec, name, &def, value)?);
     }
     link_tables(spec, &mut tables)?;
     Ok(tables)
 }
 
-fn compile_table(spec: &Spec, name: &str, def: &RawTable) -> Result<TableDef, SpecError> {
+fn compile_table(
+    spec: &Spec,
+    name: &str,
+    def: &RawTable,
+    value: &Value,
+) -> Result<TableDef, SpecError> {
     let fail = |reason| SpecError::BadTable {
         table: name.to_string(),
         column: None,
@@ -1370,7 +1476,7 @@ fn compile_table(spec: &Spec, name: &str, def: &RawTable) -> Result<TableDef, Sp
         Some("") => {
             return Err(SpecError::EmptySegmentId {
                 loop_name: None,
-                key: format!("tables.{name}.segment"),
+                key: format!("tables.{}.segment", render_key(name)),
             });
         }
         Some(id) => Some(id.as_bytes().to_vec()),
@@ -1403,15 +1509,14 @@ fn compile_table(spec: &Spec, name: &str, def: &RawTable) -> Result<TableDef, Sp
         }
     }
     let mut columns = Vec::with_capacity(def.columns.len());
-    for (column, value) in &def.columns {
-        let raw: RawColumn =
-            serde_json::from_value(value.clone()).map_err(|e| SpecError::TableSchema {
-                table: name.to_string(),
-                column: Some(column.clone()),
-                source: e,
-            })?;
+    for (column, value) in section(value, "columns") {
+        let raw = RawColumn::deserialize(value).map_err(|e| SpecError::TableSchema {
+            table: name.to_string(),
+            column: Some(column.to_string()),
+            source: e,
+        })?;
         let source = compile_column(spec, name, column, &raw, &loops, segment.as_deref(), repeat)?;
-        columns.push((column.clone(), source));
+        columns.push((column.to_string(), source));
     }
     Ok(TableDef {
         name: name.to_string(),
@@ -1471,7 +1576,17 @@ fn compile_column(
             ("where", !raw.conditions.is_empty()),
         ];
         if let Some(&(key, _)) = keys.iter().find(|(_, present)| *present) {
-            return Err(fail(TableDefError::AnchorSegmentOnly { key }));
+            let value = match key {
+                "segment" => serde_json::to_string(&raw.segment),
+                "loop" => serde_json::to_string(&raw.loop_name),
+                _ => serde_json::to_string(&raw.conditions),
+            };
+            return Err(fail(TableDefError::AnchorSegmentOnly {
+                key,
+                anchor_segment: String::from_utf8_lossy(anchor_segment.unwrap_or_default())
+                    .into_owned(),
+                written: value.unwrap_or_default(),
+            }));
         }
     }
     if let Some(offset) = raw.group_element {
@@ -1497,7 +1612,11 @@ fn compile_column(
                 Some("") => {
                     return Err(SpecError::EmptySegmentId {
                         loop_name: None,
-                        key: format!("tables.{table}.columns.{column}.segment"),
+                        key: format!(
+                            "tables.{}.columns.{}.segment",
+                            render_key(table),
+                            render_key(column)
+                        ),
                     });
                 }
                 Some(id) => id.as_bytes().to_vec(),
@@ -1527,7 +1646,7 @@ fn compile_column(
                 conditions.push((position, value.as_bytes().to_vec()));
             }
             conditions.sort();
-            if raw.element.is_some() {
+            if raw.element.is_some() || raw.segment_index {
                 let readers = loop_id.map_or_else(|| anchors.to_vec(), |id| vec![id]);
                 check_held(spec, &readers, &segment).map_err(fail)?;
             }
@@ -1647,6 +1766,16 @@ fn link_tables(spec: &Spec, tables: &mut [TableDef]) -> Result<(), SpecError> {
                     TableDefError::UnrelatedAnchors {
                         first: spec.loop_name(first).to_string(),
                         second: spec.loop_name(*anchor).to_string(),
+                        chains: Box::new(AnchorChains {
+                            first: ancestors
+                                .iter()
+                                .map(|&above| tables[above].name.clone())
+                                .collect(),
+                            second: chain
+                                .iter()
+                                .map(|&above| tables[above].name.clone())
+                                .collect(),
+                        }),
                     },
                 ));
             }
@@ -1817,66 +1946,242 @@ fn object_at<'v>(
     })
 }
 
-/// Requires an object everywhere the schema has one, before serde sees the
-/// value: serde would accept an array in place of a struct, and its message
-/// for the wrong kind of value does not say that an object was expected.
-/// Missing keys are left to the schema.
-fn check_shape(source: &Value) -> Result<(), SpecError> {
-    let root = object_at(source, "")?;
-    if let Some(loops) = root.get("loops") {
-        for (name, def) in object_at(loops, "loops")? {
-            let at = format!("loops.{name}");
-            let def = object_at(def, &at)?;
-            if let Some(trigger) = def.get("trigger") {
-                let at = format!("{at}.trigger");
-                let trigger = object_at(trigger, &at)?;
-                if let Some(conditions) = trigger.get("where") {
-                    object_at(conditions, &format!("{at}.where"))?;
+/// The scalar kinds the raw structs expect.
+#[derive(Clone, Copy)]
+enum Leaf {
+    Text,
+    Flag,
+    Count,
+    Byte,
+}
+
+impl Leaf {
+    fn expected(self) -> &'static str {
+        match self {
+            Leaf::Text => "a string",
+            Leaf::Flag => "a boolean",
+            Leaf::Count => "a non-negative integer",
+            Leaf::Byte => "an integer from 0 to 255",
+        }
+    }
+
+    /// What `value` is, in words, when it is not this kind; `None` when it is.
+    fn mismatch(self, value: &Value) -> Option<&'static str> {
+        match (self, value) {
+            (Leaf::Text, Value::String(_)) | (Leaf::Flag, Value::Bool(_)) => None,
+            (Leaf::Count | Leaf::Byte, Value::Number(number)) => {
+                if let Some(n) = number.as_u64() {
+                    if matches!(self, Leaf::Byte) && n > 255 {
+                        Some("a number above 255")
+                    } else {
+                        None
+                    }
+                } else if number.is_f64() {
+                    if number.as_f64().is_some_and(|float| float.fract() != 0.0) {
+                        Some("a number with a fractional part")
+                    } else {
+                        Some("a floating-point number")
+                    }
+                } else {
+                    Some("a negative number")
                 }
             }
+            _ => Some(kind_of(value)),
+        }
+    }
+}
+
+/// The value as the datum of a [`SpecError::WrongType`]: a scalar as compact
+/// JSON, a container as its length, `null` as nothing.
+fn render_value(value: &Value) -> String {
+    match value {
+        Value::Null => String::new(),
+        Value::Array(items) => format!("{} items", items.len()),
+        Value::Object(members) => format!("{} members", members.len()),
+        scalar => scalar.to_string(),
+    }
+}
+
+/// A key as it appears in a rendered path: unchanged, or JSON-quoted when it
+/// is empty or holds a path separator (`.`, `/`, `#`) or whitespace, which
+/// would make the path ambiguous.
+pub(crate) fn render_key(key: &str) -> Cow<'_, str> {
+    let ambiguous = key.is_empty()
+        || key
+            .chars()
+            .any(|c| matches!(c, '.' | '/' | '#') || c.is_whitespace());
+    if !ambiguous {
+        return Cow::Borrowed(key);
+    }
+    Cow::Owned(serde_json::to_string(key).unwrap_or_else(|_| format!("{key:?}")))
+}
+
+/// Joins a key to the path it sits under.
+fn child(at: &str, key: &str) -> String {
+    let key = render_key(key);
+    if at.is_empty() {
+        key.into_owned()
+    } else {
+        format!("{at}.{key}")
+    }
+}
+
+/// Requires `value` to be of the `kind`.
+fn check_leaf(value: &Value, at: &str, kind: Leaf) -> Result<(), SpecError> {
+    match kind.mismatch(value) {
+        None => Ok(()),
+        Some(found) => Err(SpecError::WrongType {
+            path: at.to_string(),
+            expected: kind.expected(),
+            found,
+            value: render_value(value),
+        }),
+    }
+}
+
+/// Requires the member `key` of `map`, when present, to be of the `kind`;
+/// `null` also passes when `nullable`.
+fn check_member(
+    map: &serde_json::Map<String, Value>,
+    at: &str,
+    key: &str,
+    kind: Leaf,
+    nullable: bool,
+) -> Result<(), SpecError> {
+    match map.get(key) {
+        None => Ok(()),
+        Some(Value::Null) if nullable => Ok(()),
+        Some(value) => check_leaf(value, &child(at, key), kind),
+    }
+}
+
+/// Requires the member `key` of `map`, when present, to be an object whose
+/// values are all of the `kind`.
+fn check_member_map(
+    map: &serde_json::Map<String, Value>,
+    at: &str,
+    key: &str,
+    kind: Leaf,
+) -> Result<(), SpecError> {
+    if let Some(members) = map.get(key) {
+        let at = child(at, key);
+        for (name, value) in object_at(members, &at)? {
+            check_leaf(value, &child(&at, name), kind)?;
+        }
+    }
+    Ok(())
+}
+
+/// Requires the member `key` of `map`, when present, to be an array of strings.
+fn check_member_texts(
+    map: &serde_json::Map<String, Value>,
+    at: &str,
+    key: &str,
+) -> Result<(), SpecError> {
+    let Some(list) = map.get(key) else {
+        return Ok(());
+    };
+    let at = child(at, key);
+    let Value::Array(items) = list else {
+        return Err(SpecError::WrongType {
+            path: at,
+            expected: "an array of strings",
+            found: kind_of(list),
+            value: render_value(list),
+        });
+    };
+    for (i, item) in items.iter().enumerate() {
+        check_leaf(item, &format!("{at}[{i}]"), Leaf::Text)?;
+    }
+    Ok(())
+}
+
+/// Requires an object everywhere the schema has one, and the scalar kind
+/// everywhere the schema has a scalar, before serde sees the value: serde
+/// would accept an array in place of a struct, and its messages for the wrong
+/// kind of value name neither the key nor, for objects, that an object was
+/// expected. Missing and unknown keys are left to the schema.
+fn check_shape(source: &Value) -> Result<(), SpecError> {
+    let root = object_at(source, "")?;
+    check_member(root, "", "name", Leaf::Text, false)?;
+    if let Some(loops) = root.get("loops") {
+        for (name, def) in object_at(loops, "loops")? {
+            let at = child("loops", name);
+            let def = object_at(def, &at)?;
+            check_member(def, &at, "parent", Leaf::Text, true)?;
+            check_member(def, &at, "end", Leaf::Text, true)?;
+            check_member_texts(def, &at, "segments")?;
+            if let Some(trigger) = def.get("trigger") {
+                let at = child(&at, "trigger");
+                let trigger = object_at(trigger, &at)?;
+                check_member(trigger, &at, "segment", Leaf::Text, false)?;
+                check_member_map(trigger, &at, "where", Leaf::Text)?;
+            }
             if let Some(control) = def.get("control") {
-                object_at(control, &format!("{at}.control"))?;
+                let at = child(&at, "control");
+                let control = object_at(control, &at)?;
+                for key in ["opener_element", "closer_element", "count_element"] {
+                    check_member(control, &at, key, Leaf::Count, false)?;
+                }
+                check_member(control, &at, "count", Leaf::Text, false)?;
             }
         }
     }
     if let Some(tables) = root.get("tables") {
         for (name, def) in object_at(tables, "tables")? {
-            let at = format!("tables.{name}");
+            let at = child("tables", name);
             let def = object_at(def, &at)?;
+            check_member_texts(def, &at, "loops")?;
+            check_member(def, &at, "ref", Leaf::Text, true)?;
+            check_member(def, &at, "segment", Leaf::Text, true)?;
             if let Some(repeat) = def.get("repeat") {
-                object_at(repeat, &format!("{at}.repeat"))?;
+                let at = child(&at, "repeat");
+                let repeat = object_at(repeat, &at)?;
+                check_member(repeat, &at, "from", Leaf::Count, false)?;
+                check_member(repeat, &at, "step", Leaf::Count, false)?;
             }
             if let Some(columns) = def.get("columns") {
-                let at = format!("{at}.columns");
+                let at = child(&at, "columns");
                 for (column, def) in object_at(columns, &at)? {
-                    let at = format!("{at}.{column}");
+                    let at = child(&at, column);
                     let def = object_at(def, &at)?;
-                    if let Some(conditions) = def.get("where") {
-                        object_at(conditions, &format!("{at}.where"))?;
+                    check_member(def, &at, "loop", Leaf::Text, true)?;
+                    check_member(def, &at, "segment", Leaf::Text, true)?;
+                    check_member_map(def, &at, "where", Leaf::Text)?;
+                    for key in ["element", "component", "group_element"] {
+                        check_member(def, &at, key, Leaf::Count, true)?;
                     }
+                    check_member(def, &at, "segment_index", Leaf::Flag, false)?;
                 }
             }
         }
     }
     if let Some(segments) = root.get("segments") {
         for (id, def) in object_at(segments, "segments")? {
-            let at = format!("segments.{id}");
+            let at = child("segments", id);
             let def = object_at(def, &at)?;
             if let Some(elements) = def.get("elements") {
-                check_elements_shape(elements, &format!("{at}.elements"))?;
+                check_elements_shape(elements, &child(&at, "elements"))?;
             }
         }
     }
     Ok(())
 }
 
-/// Requires every element (and every component) definition to be an object.
+/// Requires every element (and every component) definition to be an object
+/// whose scalar members are of the kind the schema expects.
 fn check_elements_shape(elements: &Value, at: &str) -> Result<(), SpecError> {
     for (position, def) in object_at(elements, at)? {
-        let at = format!("{at}.{position}");
+        let at = child(at, position);
         let def = object_at(def, &at)?;
+        check_member(def, &at, "name", Leaf::Text, false)?;
+        check_member(def, &at, "type", Leaf::Text, false)?;
+        check_member(def, &at, "required", Leaf::Flag, false)?;
+        check_member(def, &at, "min", Leaf::Count, true)?;
+        check_member(def, &at, "max", Leaf::Count, true)?;
+        check_member(def, &at, "scale", Leaf::Byte, true)?;
         if let Some(composite) = def.get("composite") {
-            check_elements_shape(composite, &format!("{at}.composite"))?;
+            check_elements_shape(composite, &child(&at, "composite"))?;
         }
     }
     Ok(())
@@ -2115,6 +2420,17 @@ mod tests {
     }
 
     #[test]
+    fn ancestors_into_reuses_the_buffer_and_matches_ancestors() {
+        let spec = Spec::builtin_835();
+        let mut chain = vec![spec.loop_id("2110").unwrap(); 9];
+        for name in ["2110", "interchange", "transaction"] {
+            let id = spec.loop_id(name).unwrap();
+            spec.ancestors_into(id, &mut chain);
+            assert_eq!(chain, spec.ancestors(id), "{name}");
+        }
+    }
+
+    #[test]
     fn ancestors_are_listed_root_first() {
         let spec = Spec::builtin_835();
         let chain: Vec<_> = spec
@@ -2345,6 +2661,51 @@ mod tests {
         assert_eq!(
             err.to_string(),
             "applying patch: spec: the value at loops.2100.trigger must be a JSON object; found an array"
+        );
+    }
+
+    #[test]
+    fn keys_with_a_separator_or_whitespace_are_quoted_in_paths() {
+        assert_eq!(render_key("2100"), "2100");
+        assert_eq!(render_key("a.b"), "\"a.b\"");
+        assert_eq!(render_key("x/y"), "\"x/y\"");
+        assert_eq!(render_key("x#2"), "\"x#2\"");
+        assert_eq!(render_key("a b"), "\"a b\"");
+        assert_eq!(render_key(""), "\"\"");
+    }
+
+    #[test]
+    fn a_spec_error_path_quotes_a_loop_name_that_holds_a_dot() {
+        let plain = Spec::from_json(r#"{"name":"t","loops":{"ab":{"trigger":[]}}}"#).unwrap_err();
+        assert!(
+            matches!(&plain, SpecError::NotAnObject { path, .. } if path == "loops.ab.trigger"),
+            "{plain:?}"
+        );
+        let quoted = Spec::from_json(r#"{"name":"t","loops":{"a.b":{"trigger":[]}}}"#).unwrap_err();
+        assert!(
+            matches!(&quoted, SpecError::NotAnObject { path, .. } if path == "loops.\"a.b\".trigger"),
+            "{quoted:?}"
+        );
+        let wrong = Spec::from_json(
+            r#"{"name":"t","loops":{"a b":{"trigger":{"segment":"AA","where":{"1":2}}}}}"#,
+        )
+        .unwrap_err();
+        assert_eq!(
+            wrong.to_string(),
+            "spec: the value at loops.\"a b\".trigger.where.1 must be a string; found a number (2)"
+        );
+    }
+
+    #[test]
+    fn an_empty_segment_id_path_quotes_a_table_or_column_name_that_holds_a_dot() {
+        let err = Spec::from_json(
+            r#"{"name":"t","loops":{"A":{"trigger":{"segment":"AA"}}},
+                "tables":{"a.b":{"loops":["A"],"columns":{"c d":{"segment":"","element":1}}}}}"#,
+        )
+        .unwrap_err();
+        assert_eq!(
+            err.to_string(),
+            "the spec has an empty segment id at tables.\"a.b\".columns.\"c d\".segment"
         );
     }
 
@@ -2726,6 +3087,36 @@ mod tests {
         assert_eq!(
             err.to_string(),
             "the spec has an empty segment id at segments.\"\""
+        );
+    }
+
+    #[test]
+    fn a_loop_ending_on_its_own_trigger_is_rejected() {
+        let err = Spec::from_json(
+            r#"{"name":"t","loops":{"a":{"trigger":{"segment":"AA"},"end":"AA"}}}"#,
+        )
+        .unwrap_err();
+        assert!(
+            matches!(&err, SpecError::EndIsTrigger { loop_name, segment } if loop_name == "a" && segment == "AA"),
+            "{err:?}"
+        );
+        assert!(
+            Spec::from_json(
+                r#"{"name":"t","loops":{"a":{"trigger":{"segment":"AA"},"end":"BB"}}}"#
+            )
+            .is_ok()
+        );
+    }
+
+    #[test]
+    fn end_is_trigger_displays_the_loop_the_segment_and_why() {
+        let err = SpecError::EndIsTrigger {
+            loop_name: "a".into(),
+            segment: "AA".into(),
+        };
+        assert_eq!(
+            err.to_string(),
+            "loop \"a\" has \"end\" \"AA\", the same segment as its \"trigger\": the loop would close on the segment that opens it"
         );
     }
 
@@ -3340,7 +3731,11 @@ mod tests {
                 r#"{"t":{"loops":["A"],"segment":"AA","repeat":{"from":2,"step":2},"columns":{"c":{"group_element":0,"where":{"1":"X"}}}}}"#,
                 "t",
                 Some("c"),
-                TableDefError::AnchorSegmentOnly { key: "where" },
+                TableDefError::AnchorSegmentOnly {
+                    key: "where",
+                    anchor_segment: "AA".into(),
+                    written: r#"{"1":"X"}"#.into(),
+                },
             ),
             (
                 r#"{"t":{"loops":["Z"]}}"#,
@@ -3414,6 +3809,10 @@ mod tests {
                 TableDefError::UnrelatedAnchors {
                     first: "C".into(),
                     second: "D".into(),
+                    chains: Box::new(AnchorChains {
+                        first: vec!["b".into()],
+                        second: vec!["d".into()],
+                    }),
                 },
             ),
             (
@@ -3484,7 +3883,11 @@ mod tests {
                 r#"{"t":{"loops":["A"],"segment":"AA","columns":{"c":{"loop":"B","element":1}}}}"#,
                 "t",
                 Some("c"),
-                TableDefError::AnchorSegmentOnly { key: "loop" },
+                TableDefError::AnchorSegmentOnly {
+                    key: "loop",
+                    anchor_segment: "AA".into(),
+                    written: r#""B""#.into(),
+                },
             ),
             (
                 r#"{"t":{"loops":["A"],"columns":{"c":{"element":1}}}}"#,
@@ -3576,6 +3979,56 @@ mod tests {
                 ..
             } if segment == "REFF" && loop_name == "A"
         ));
+    }
+
+    #[test]
+    fn a_segment_index_column_must_name_a_segment_its_loop_holds() {
+        let json = |tables: &str| {
+            format!(
+                r#"{{"name":"t","loops":{{
+                    "A":{{"trigger":{{"segment":"AA"}},"segments":["A1"]}},
+                    "B":{{"parent":"A","trigger":{{"segment":"BB"}}}}
+                }},"tables":{tables}}}"#
+            )
+        };
+        let held = json(
+            r#"{"t":{"loops":["A"],"columns":{
+                "a":{"segment":"AA","segment_index":true},
+                "b":{"segment":"A1","segment_index":true}}}}"#,
+        );
+        assert!(Spec::from_json(&held).is_ok());
+        let bad_anchor = json(
+            r#"{"t":{"loops":["A"],"columns":{"c":{"segment":"REFF","segment_index":true}}}}"#,
+        );
+        assert_eq!(
+            Spec::from_json(&bad_anchor).unwrap_err().to_string(),
+            "table \"t\" column \"c\": segment \"REFF\" is neither the trigger nor a segment of loop \"A\", so it is never read there"
+        );
+        let bad_loop = json(
+            r#"{"t":{"loops":["A"],"columns":{"c":{"loop":"B","segment":"A1","segment_index":true}}}}"#,
+        );
+        assert_eq!(
+            Spec::from_json(&bad_loop).unwrap_err().to_string(),
+            "table \"t\" column \"c\": segment \"A1\" is neither the trigger nor a segment of loop \"B\", so it is never read there"
+        );
+    }
+
+    #[test]
+    fn anchor_conflicts_show_the_datum_as_the_spec_writes_it() {
+        let err = table_error(
+            r#"{"t":{"loops":["A"],"segment":"AA","columns":{"c":{"element":1,"where":{"2":"X"}}}}}"#,
+        );
+        assert_eq!(
+            err.to_string(),
+            "table \"t\" column \"c\": \"where\" ({\"2\":\"X\"}) does not apply in a table anchored on segment \"AA\": its columns read that segment"
+        );
+        let err = table_error(
+            r#"{"b":{"loops":["B"]},"d":{"loops":["D"]},"x":{"loops":["C","D"],"segment":"XX"}}"#,
+        );
+        assert_eq!(
+            err.to_string(),
+            "table \"x\": anchor loops \"C\" and \"D\" sit under tables that are not one chain: \"C\" under b, \"D\" under d"
+        );
     }
 
     #[test]
@@ -3741,8 +4194,23 @@ mod tests {
                 TableDefError::UnrelatedAnchors {
                     first: "2110".into(),
                     second: "1000A".into(),
+                    chains: Box::new(AnchorChains {
+                        first: vec!["payments".into(), "claims".into()],
+                        second: vec!["payers".into()],
+                    }),
                 },
-                "anchor loops \"2110\" and \"1000A\" sit under tables that are not one chain",
+                "anchor loops \"2110\" and \"1000A\" sit under tables that are not one chain: \"2110\" under payments/claims, \"1000A\" under payers",
+            ),
+            (
+                TableDefError::UnrelatedAnchors {
+                    first: "2110".into(),
+                    second: "1000A".into(),
+                    chains: Box::new(AnchorChains {
+                        first: vec!["a b".into()],
+                        second: Vec::new(),
+                    }),
+                },
+                "anchor loops \"2110\" and \"1000A\" sit under tables that are not one chain: \"2110\" under \"a b\", \"1000A\" under no table",
             ),
             (
                 TableDefError::NotADescendant {
@@ -3759,8 +4227,20 @@ mod tests {
                 "segment \"REFF\" is neither the trigger nor a segment of loop \"2100\", so it is never read there",
             ),
             (
-                TableDefError::AnchorSegmentOnly { key: "where" },
-                "\"where\" does not apply in a table anchored on a segment: its columns read that segment",
+                TableDefError::AnchorSegmentOnly {
+                    key: "where",
+                    anchor_segment: "CLP".into(),
+                    written: r#"{"1":"X"}"#.into(),
+                },
+                "\"where\" ({\"1\":\"X\"}) does not apply in a table anchored on segment \"CLP\": its columns read that segment",
+            ),
+            (
+                TableDefError::AnchorSegmentOnly {
+                    key: "segment",
+                    anchor_segment: "CLP".into(),
+                    written: r#""SVC""#.into(),
+                },
+                "\"segment\" (\"SVC\") does not apply in a table anchored on segment \"CLP\": its columns read that segment",
             ),
             (
                 TableDefError::NeedsSegment,
@@ -3954,6 +4434,159 @@ mod tests {
             assert_eq!(err.to_string(), expected);
             assert!(std::error::Error::source(&err).is_none());
         }
+    }
+
+    #[test]
+    fn a_scalar_of_the_wrong_kind_is_rejected_with_its_key_path() {
+        let loop_json = |loop_def: &str| format!(r#"{{"name":"t","loops":{{"env":{loop_def}}}}}"#);
+        let cases = [
+            (
+                loop_json(
+                    r#"{"trigger":{"segment":"HD"},"end":"TR","control":{"opener_element":"2","closer_element":2,"count_element":1,"count":"segments"}}"#,
+                ),
+                "spec: the value at loops.env.control.opener_element must be a non-negative integer; found a string (\"2\")",
+            ),
+            (
+                loop_json(
+                    r#"{"trigger":{"segment":"HD"},"end":"TR","control":{"opener_element":2,"closer_element":-2,"count_element":1,"count":"segments"}}"#,
+                ),
+                "spec: the value at loops.env.control.closer_element must be a non-negative integer; found a negative number (-2)",
+            ),
+            (
+                loop_json(
+                    r#"{"trigger":{"segment":"HD"},"end":"TR","control":{"opener_element":2,"closer_element":2,"count_element":1,"count":7}}"#,
+                ),
+                "spec: the value at loops.env.control.count must be a string; found a number (7)",
+            ),
+            (
+                loop_json(r#"{"trigger":{"segment":"HD","where":{"1":"X","2":5}}}"#),
+                "spec: the value at loops.env.trigger.where.2 must be a string; found a number (5)",
+            ),
+            (
+                loop_json(r#"{"trigger":{"segment":7}}"#),
+                "spec: the value at loops.env.trigger.segment must be a string; found a number (7)",
+            ),
+            (
+                loop_json(r#"{"trigger":{"segment":"HD"},"segments":["A",null]}"#),
+                "spec: the value at loops.env.segments[1] must be a string; found null",
+            ),
+            (
+                loop_json(r#"{"trigger":{"segment":"HD"},"segments":"A"}"#),
+                "spec: the value at loops.env.segments must be an array of strings; found a string (\"A\")",
+            ),
+            (
+                loop_json(r#"{"trigger":{"segment":"HD"},"end":true}"#),
+                "spec: the value at loops.env.end must be a string; found a boolean (true)",
+            ),
+        ];
+        for (json, expected) in cases {
+            let err = Spec::from_json(&json).unwrap_err();
+            assert!(
+                matches!(&err, SpecError::WrongType { .. }),
+                "{json}: {err:?}"
+            );
+            assert_eq!(err.to_string(), expected, "{json}");
+        }
+    }
+
+    #[test]
+    fn a_segment_scalar_of_the_wrong_kind_is_rejected_with_its_key_path() {
+        let cases = [
+            (
+                r#"{"3":{"name":"p","type":"AN","min":"1"}}"#,
+                "spec: the value at segments.AA.elements.3.min must be a non-negative integer; found a string (\"1\")",
+            ),
+            (
+                r#"{"3":{"name":"p","type":"R","scale":300}}"#,
+                "spec: the value at segments.AA.elements.3.scale must be an integer from 0 to 255; found a number above 255 (300)",
+            ),
+            (
+                r#"{"3":{"name":"p","type":"AN","required":"yes"}}"#,
+                "spec: the value at segments.AA.elements.3.required must be a boolean; found a string (\"yes\")",
+            ),
+            (
+                r#"{"3":{"name":5,"type":"AN"}}"#,
+                "spec: the value at segments.AA.elements.3.name must be a string; found a number (5)",
+            ),
+            (
+                r#"{"1":{"name":"c","type":"AN","composite":{"2":{"name":"x","type":"AN","max":1.5}}}}"#,
+                "spec: the value at segments.AA.elements.1.composite.2.max must be a non-negative integer; found a number with a fractional part (1.5)",
+            ),
+            (
+                r#"{"3":{"name":"p","type":"AN","max":2.0}}"#,
+                "spec: the value at segments.AA.elements.3.max must be a non-negative integer; found a floating-point number (2.0)",
+            ),
+        ];
+        for (elements, expected) in cases {
+            let err = element_error(elements);
+            assert!(
+                matches!(&err, SpecError::WrongType { .. }),
+                "{elements}: {err:?}"
+            );
+            assert_eq!(err.to_string(), expected, "{elements}");
+        }
+    }
+
+    #[test]
+    fn a_table_scalar_of_the_wrong_kind_is_rejected_with_its_key_path() {
+        let cases = [
+            (
+                r#"{"claims":{"loops":["A",2]}}"#,
+                "spec: the value at tables.claims.loops[1] must be a string; found a number (2)",
+            ),
+            (
+                r#"{"claims":{"loops":"A"}}"#,
+                "spec: the value at tables.claims.loops must be an array of strings; found a string (\"A\")",
+            ),
+            (
+                r#"{"claims":{"loops":["A"],"repeat":{"from":"2","step":3}}}"#,
+                "spec: the value at tables.claims.repeat.from must be a non-negative integer; found a string (\"2\")",
+            ),
+            (
+                r#"{"claims":{"loops":["A"],"columns":{"x":{"segment":"AA","element":"1"}}}}"#,
+                "spec: the value at tables.claims.columns.x.element must be a non-negative integer; found a string (\"1\")",
+            ),
+            (
+                r#"{"claims":{"loops":["A"],"columns":{"x":{"segment_index":1}}}}"#,
+                "spec: the value at tables.claims.columns.x.segment_index must be a boolean; found a number (1)",
+            ),
+            (
+                r#"{"claims":{"loops":["A"],"columns":{"x":{"segment":"AA","element":1,"where":{"1":2}}}}}"#,
+                "spec: the value at tables.claims.columns.x.where.1 must be a string; found a number (2)",
+            ),
+        ];
+        for (tables, expected) in cases {
+            let err = table_error(tables);
+            assert!(
+                matches!(&err, SpecError::WrongType { .. }),
+                "{tables}: {err:?}"
+            );
+            assert_eq!(err.to_string(), expected, "{tables}");
+        }
+    }
+
+    #[test]
+    fn wrong_type_displays_the_path_what_is_required_and_what_was_found() {
+        let err = SpecError::WrongType {
+            path: "loops.env.control.opener_element".into(),
+            expected: "a non-negative integer",
+            found: "a string",
+            value: "\"2\"".into(),
+        };
+        assert_eq!(
+            err.to_string(),
+            "spec: the value at loops.env.control.opener_element must be a non-negative integer; found a string (\"2\")"
+        );
+        let null = SpecError::WrongType {
+            path: "loops.env.end".into(),
+            expected: "a string",
+            found: "null",
+            value: String::new(),
+        };
+        assert_eq!(
+            null.to_string(),
+            "spec: the value at loops.env.end must be a string; found null"
+        );
     }
 
     #[test]

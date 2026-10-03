@@ -9,7 +9,7 @@
 use std::fmt;
 
 use crate::document::{Document, Span};
-use crate::spec::ElementType;
+use crate::spec::{ElementType, render_key};
 
 /// The SNIP validation level a rule belongs to.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
@@ -45,7 +45,7 @@ pub struct LoopRef {
 
 impl fmt::Display for LoopRef {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "{}#{}", self.name, self.ordinal)
+        write!(f, "{}#{}", render_key(&self.name), self.ordinal)
     }
 }
 
@@ -87,6 +87,13 @@ pub enum Rule {
         expected: usize,
         /// The count element as written.
         found: Vec<u8>,
+    },
+    /// A control or count element the spec names is absent from its segment.
+    ControlElementMissing {
+        /// The segment id, e.g. `SE`.
+        segment_id: Vec<u8>,
+        /// 1-based position of the absent element.
+        element: usize,
     },
     /// A closing segment's control number differs from its opener's.
     ControlNumberMismatch {
@@ -146,6 +153,15 @@ pub enum Rule {
         /// The value's length.
         length: usize,
     },
+    /// A text value was not stored: its column cannot address more bytes.
+    ValueDropped {
+        /// The table.
+        table: String,
+        /// The column.
+        column: String,
+        /// The column's byte length the value would have produced.
+        bytes: usize,
+    },
     /// A composite element has more components than its definition declares.
     CompositeShape {
         /// The segment id.
@@ -169,21 +185,36 @@ impl Rule {
             | Rule::ImplicitLoop { .. }
             | Rule::UnterminatedLoop { .. }
             | Rule::ControlCountMismatch { .. }
+            | Rule::ControlElementMissing { .. }
             | Rule::ControlNumberMismatch { .. } => SnipLevel::L1,
             Rule::RequiredElementMissing { .. }
             | Rule::TypeMismatch { .. }
             | Rule::LengthOutOfRange { .. }
-            | Rule::CompositeShape { .. } => SnipLevel::L2,
+            | Rule::CompositeShape { .. }
+            | Rule::ValueDropped { .. } => SnipLevel::L2,
         }
     }
 }
 
-/// Bytes from the file, shown as text (invalid UTF-8 replaced) and quoted.
+/// Bytes from the file, quoted on one line: valid text is escaped as a Rust
+/// string literal is, and each invalid byte is written as `\xNN`.
 struct Quoted<'a>(&'a [u8]);
 
 impl fmt::Display for Quoted<'_> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "{:?}", String::from_utf8_lossy(self.0))
+        f.write_str("\"")?;
+        for chunk in self.0.utf8_chunks() {
+            let escaped = format!("{:?}", chunk.valid());
+            let inner = escaped
+                .strip_prefix('"')
+                .and_then(|text| text.strip_suffix('"'))
+                .unwrap_or(&escaped);
+            f.write_str(inner)?;
+            for byte in chunk.invalid() {
+                write!(f, "\\x{byte:02X}")?;
+            }
+        }
+        f.write_str("\"")
     }
 }
 
@@ -251,6 +282,18 @@ impl fmt::Display for Rule {
                     component: None
                 },
                 Quoted(found)
+            ),
+            Rule::ControlElementMissing {
+                segment_id,
+                element,
+            } => write!(
+                f,
+                "control element {} is missing: the segment has no element {element}",
+                ElementRef {
+                    segment_id,
+                    element: *element,
+                    component: None
+                }
             ),
             Rule::ControlNumberMismatch {
                 opener,
@@ -336,6 +379,15 @@ impl fmt::Display for Rule {
                     (None, None) => write!(f, "any length"),
                 }
             }
+            Rule::ValueDropped {
+                table,
+                column,
+                bytes,
+            } => write!(
+                f,
+                "text for column {column:?} of table {table:?} was not stored: it would bring the column to {bytes} bytes and a column holds at most {}",
+                i32::MAX
+            ),
             Rule::CompositeShape {
                 segment_id,
                 element,
@@ -466,6 +518,20 @@ mod tests {
     }
 
     #[test]
+    fn a_loop_ref_quotes_a_name_that_holds_a_separator() {
+        let at = LoopRef {
+            name: "x/y".into(),
+            ordinal: 2,
+        };
+        assert_eq!(at.to_string(), "\"x/y\"#2");
+        let at = LoopRef {
+            name: "x#2".into(),
+            ordinal: 1,
+        };
+        assert_eq!(at.to_string(), "\"x#2\"#1");
+    }
+
+    #[test]
     fn unknown_segment_displays_id_index_path_and_datum() {
         let diagnostic = Diagnostic::new(
             Rule::UnknownSegment { id: b"XX".to_vec() },
@@ -574,6 +640,25 @@ mod tests {
         assert_eq!(
             diagnostic.to_string(),
             "SNIP 1 · SE01 declares \"15\" but the count is 18 · segment #19, element 1 · at interchange#1/group#1/transaction#1 · datum \"15\""
+        );
+    }
+
+    #[test]
+    fn control_element_missing_displays_the_segment_and_the_position() {
+        let diagnostic = Diagnostic::new(
+            Rule::ControlElementMissing {
+                segment_id: b"SE".to_vec(),
+                element: 2,
+            },
+            Some(4),
+            Some(2),
+            None,
+            path(TRANSACTION),
+            Vec::new(),
+        );
+        assert_eq!(
+            diagnostic.to_string(),
+            "SNIP 1 · control element SE02 is missing: the segment has no element 2 · segment #4, element 2 · at interchange#1/group#1/transaction#1 · datum \"\""
         );
     }
 
@@ -732,7 +817,32 @@ mod tests {
     }
 
     #[test]
-    fn invalid_utf8_in_a_datum_is_shown_with_replacement_characters() {
+    fn value_dropped_displays_the_table_the_column_the_byte_total_and_the_value() {
+        let diagnostic = Diagnostic::new(
+            Rule::ValueDropped {
+                table: "claims".into(),
+                column: "note".into(),
+                bytes: 2147483650,
+            },
+            Some(9),
+            None,
+            None,
+            path(&[("2100", 4)]),
+            b"a long note".to_vec(),
+        );
+        assert_eq!(
+            diagnostic.level.to_string(),
+            "SNIP 2",
+            "a dropped value is a level 2 finding"
+        );
+        assert_eq!(
+            diagnostic.to_string(),
+            "SNIP 2 · text for column \"note\" of table \"claims\" was not stored: it would bring the column to 2147483650 bytes and a column holds at most 2147483647 · segment #9 · at 2100#4 · datum \"a long note\""
+        );
+    }
+
+    #[test]
+    fn invalid_utf8_in_a_datum_is_shown_as_hex_escapes() {
         let diagnostic = Diagnostic::new(
             Rule::UnknownSegment {
                 id: vec![b'Z', 0xFF],
@@ -743,12 +853,12 @@ mod tests {
             Vec::new(),
             vec![b'Z', 0xFF],
         );
-        assert!(
-            diagnostic
-                .to_string()
-                .ends_with("at the root · datum \"Z\u{FFFD}\""),
-            "{diagnostic}"
+        assert_eq!(
+            diagnostic.to_string(),
+            "SNIP 1 · segment \"Z\\xFF\" is not part of the structure: no open loop holds it and it opens no loop · segment #1 · at the root · datum \"Z\\xFF\""
         );
+        let mixed = Quoted(b"a\"b\n\xC3\xA9\xE9\x80c");
+        assert_eq!(mixed.to_string(), "\"a\\\"b\\n\u{e9}\\xE9\\x80c\"");
     }
 
     #[test]

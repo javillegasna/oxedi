@@ -46,35 +46,40 @@ pub struct LoopTree {
     nodes: Vec<Node>,
 }
 
-impl LoopTree {
-    /// Runs the engine over `segments` and folds its events into a tree.
-    pub fn build<'a>(spec: &Spec, segments: impl IntoIterator<Item = Segment<'a>>) -> LoopTree {
-        let mut tree = LoopTree {
-            nodes: vec![Node::root()],
-        };
-        let mut open = vec![NodeId(0)];
-        let mut engine = LoopEngine::new(spec);
-        for segment in segments {
-            for &event in engine.feed(&segment) {
-                tree.apply(&mut open, event);
-            }
+/// Folds engine events into a [`LoopTree`] as the caller receives them.
+///
+/// For a caller that drives its own [`LoopEngine`]: pass every slice `feed` and
+/// `finish` return to [`on`](TreeBuilder::on), in order.
+#[derive(Debug, Clone)]
+pub struct TreeBuilder {
+    tree: LoopTree,
+    open: Vec<NodeId>,
+}
+
+impl TreeBuilder {
+    /// Folds `events`, in the order the engine returned them.
+    pub fn on(&mut self, events: &[Event]) {
+        for &event in events {
+            self.apply(event);
         }
-        for &event in engine.finish() {
-            tree.apply(&mut open, event);
-        }
-        tree
     }
 
-    fn apply(&mut self, open: &mut Vec<NodeId>, event: Event) {
-        let current = *open.last().unwrap_or(&NodeId(0));
+    /// The tree of everything folded so far.
+    pub fn finish(self) -> LoopTree {
+        self.tree
+    }
+
+    fn apply(&mut self, event: Event) {
+        let current = *self.open.last().unwrap_or(&NodeId(0));
+        let tree = &mut self.tree;
         match event {
             Event::LoopOpened {
                 id,
                 implicit,
                 segment,
             } => {
-                let node = NodeId(self.nodes.len());
-                self.nodes.push(Node {
+                let node = NodeId(tree.nodes.len());
+                tree.nodes.push(Node {
                     loop_id: Some(id),
                     implicit,
                     opened_by: Some(segment),
@@ -83,18 +88,41 @@ impl LoopTree {
                     segments: Vec::new(),
                     unmatched: Vec::new(),
                 });
-                self.nodes[current.0].children.push(node);
-                open.push(node);
+                tree.nodes[current.0].children.push(node);
+                self.open.push(node);
             }
             Event::LoopClosed { .. } => {
-                if open.len() > 1 {
-                    open.pop();
+                if self.open.len() > 1 {
+                    self.open.pop();
                 }
             }
-            Event::Captured { segment, .. } => self.nodes[current.0].segments.push(segment),
-            Event::Unmatched { segment } => self.nodes[current.0].unmatched.push(segment),
+            Event::Captured { segment, .. } => tree.nodes[current.0].segments.push(segment),
+            Event::Unmatched { segment } => tree.nodes[current.0].unmatched.push(segment),
             Event::Empty { .. } => {}
         }
+    }
+}
+
+impl LoopTree {
+    /// An empty builder, for events the caller gets from its own engine.
+    pub fn builder() -> TreeBuilder {
+        TreeBuilder {
+            tree: LoopTree {
+                nodes: vec![Node::root()],
+            },
+            open: vec![NodeId(0)],
+        }
+    }
+
+    /// Runs the engine over `segments` and folds its events into a tree.
+    pub fn build<'a>(spec: &Spec, segments: impl IntoIterator<Item = Segment<'a>>) -> LoopTree {
+        let mut builder = LoopTree::builder();
+        let mut engine = LoopEngine::new(spec);
+        for segment in segments {
+            builder.on(engine.feed(&segment));
+        }
+        builder.on(engine.finish());
+        builder.finish()
     }
 
     /// The virtual root.
@@ -233,6 +261,47 @@ mod tests {
             Some(0),
             "the implicit A was opened for BB"
         );
+    }
+
+    #[test]
+    fn a_builder_folds_hand_built_events_in_slices() {
+        let spec = Spec::from_json(TINY).unwrap();
+        let a = spec.loop_id("A").unwrap();
+        let b = spec.loop_id("B").unwrap();
+        let mut builder = LoopTree::builder();
+        builder.on(&[
+            Event::LoopOpened {
+                id: a,
+                implicit: false,
+                segment: 0,
+            },
+            Event::Captured { id: a, segment: 0 },
+        ]);
+        builder.on(&[]);
+        builder.on(&[
+            Event::LoopOpened {
+                id: b,
+                implicit: true,
+                segment: 1,
+            },
+            Event::Captured { id: b, segment: 1 },
+            Event::Unmatched { segment: 2 },
+            Event::Empty { segment: 3 },
+            Event::LoopClosed { id: b },
+            Event::LoopClosed { id: a },
+            Event::LoopClosed { id: a },
+            Event::Unmatched { segment: 4 },
+        ]);
+        let tree = builder.finish();
+        assert_eq!(tree.node_count(), 3);
+        let root = tree.node(tree.root());
+        assert_eq!(root.unmatched, vec![4], "extra closes never pop the root");
+        let a_node = tree.node(root.children[0]);
+        assert_eq!(a_node.segments, vec![0]);
+        let b_node = tree.node(a_node.children[0]);
+        assert!(b_node.implicit);
+        assert_eq!(b_node.segments, vec![1]);
+        assert_eq!(b_node.unmatched, vec![2]);
     }
 
     #[test]

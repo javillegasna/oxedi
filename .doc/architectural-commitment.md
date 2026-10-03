@@ -252,9 +252,14 @@ carga su prueba de costura con la capa inferior (N7).
   que esa librería pierde (por ejemplo los ajustes a nivel de claim, "other claim
   adjustments", los `PLB` o los `REF`/`AMT` que no mapea) y demostrar con los mismos
   archivos que `oxedi835` sí los reconoce y los entrega; (3) una API Python compatible
-  (`parse(path | dir) -> TransactionSets`, `to_dataframe()`, la misma forma de columnas) sobre
-  el paquete `oxedi835`, para que un usuario de la librería vieja migre sin tocar su código y
-  gane lo que aquella pierde.
+  sobre el paquete `oxedi835` que cubra toda la superficie pública de esa librería (1.8.0),
+  no solo `to_dataframe()`: `parse(path | dir) -> TransactionSets`; en `TransactionSets`,
+  `__iter__`, `__len__`, `count_claims()`, `count_patients()`, `sum_payments()`,
+  `sort_columns(df)` y `to_dataframe()`; en `TransactionSet`, `payer`, `payee`,
+  `to_dataframe()` y `serialize_service(...)`, con los objetos que expone (`interchange`,
+  `financial_information`, `claims`, `organizations` y los loops `Claim`/`Service` con sus
+  segmentos), con la misma forma de columnas y los mismos tipos. Así un usuario de la
+  librería vieja migra sin tocar su código y gana lo que aquella pierde.
 - **D13 · Estructura de módulos**: `spec.rs` supera las 2.500 líneas tras el Stage 4a y
   `diagnostic.rs`, `engine.rs` y `check.rs` crecen. Tras el Stage 5, planificar la división
   en submódulos (por ejemplo `spec/{load,shape,segments,tables,control,patch}.rs`) con
@@ -754,8 +759,10 @@ el binding lo envuelve, libera el GIL y entrega las tablas de Stage 4 sin copiar
 `parse`, `stream`, `Spec`, `Document` y `Diagnostic`; las tablas salen por el protocolo
 PyCapsule de Arrow para que Polars, pyarrow o DuckDB las consuman sin copia y sin que el
 paquete dependa de ninguno de ellos. Todo el trabajo corre con el GIL liberado (N4). Los
-diagnósticos son valores, nunca excepciones (P7); el único error que se lanza es el de una
-spec inválida, con el texto de su `Display` (P10).
+diagnósticos son valores, nunca excepciones (P7); las excepciones quedan para los errores de
+uso: spec inválida (`SpecError`) y entrada sin `ISA` (`ParseError`) con el texto del `Display`
+del core, más las nativas de Python para índices, claves y tipos de argumento, todas con
+regla, lugar y dato (P10).
 
 **Decisiones de diseño (cada una con la alternativa descartada).**
 - **T18 · PyO3 + maturin, wheels `abi3`, Python ≥ 3.11** (3.9 quedó fuera de soporte en
@@ -804,8 +811,9 @@ spec inválida, con el texto de su `Display` (P10).
   ejecuta pytest desde fuera del repo.
 
 **Entregable / contrato.**
-- `crates/oxedi835_py`: `Cargo.toml` (`pyo3` con `abi3-py39` y `extension-module`,
-  `arrow` solo con las features de `ffi`/`pyarrow`-free que hagan falta), `pyproject.toml`
+- `crates/oxedi835_py`: `Cargo.toml` (`pyo3` con `abi3-py311`; el modo extensión se activa con
+  `PYO3_BUILD_EXTENSION_MODULE` en `.cargo/config.toml` porque PyO3 0.29 retira la feature;
+  los crates `arrow-*` solo con `ffi`), `pyproject.toml`
   con maturin, `src/lib.rs` con el módulo y las clases `Spec`, `Document`, `Segment`,
   `Tables`, `Table`, `Diagnostic`, `Result`, `Stream`; `python/oxedi835/__init__.py` con
   `parse_file` y los re-exports; `tests/` en pytest.

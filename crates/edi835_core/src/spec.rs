@@ -156,6 +156,11 @@ pub enum ElementType {
 }
 
 impl ElementType {
+    /// Largest `scale` an `R` element may declare. An `R` value is held as an
+    /// `i128` scaled by `10^scale` in a column of precision 38, so a scale of
+    /// 18 still leaves 20 digits for the integer part.
+    pub const MAX_SCALE: u8 = 18;
+
     /// Reads the type code of an element definition; `scale` is the
     /// definition's `scale` key, which only `R` accepts.
     fn parse(code: &str, scale: Option<u8>) -> Result<ElementType, ElementDefError> {
@@ -260,6 +265,13 @@ pub enum ElementDefError {
     },
     /// A component declares a `composite` of its own.
     NestedComposite,
+    /// `scale` is above [`ElementType::MAX_SCALE`].
+    ScaleAboveMaximum {
+        /// The scale as written.
+        scale: u8,
+    },
+    /// `max` is 0, so no value could ever be valid.
+    ZeroMax,
 }
 
 impl fmt::Display for ElementDefError {
@@ -288,6 +300,14 @@ impl fmt::Display for ElementDefError {
             }
             ElementDefError::NestedComposite => {
                 write!(f, "a component cannot declare its own \"composite\"")
+            }
+            ElementDefError::ScaleAboveMaximum { scale } => write!(
+                f,
+                "\"scale\" {scale} is above the maximum of {}",
+                ElementType::MAX_SCALE
+            ),
+            ElementDefError::ZeroMax => {
+                write!(f, "\"max\" is 0; an element holds at least one character")
             }
         }
     }
@@ -956,7 +976,7 @@ fn compile_control(raw: &RawControl, has_end: bool) -> Result<Control, ControlEr
 }
 
 /// A trigger as `"N1" where {1: "PR", 2: "X"}`, or `"N1" with no conditions`.
-fn render_trigger(trigger: &Trigger) -> String {
+pub(crate) fn render_trigger(trigger: &Trigger) -> String {
     let segment = String::from_utf8_lossy(&trigger.segment);
     if trigger.conditions.is_empty() {
         return format!("{segment:?} with no conditions");
@@ -1008,6 +1028,14 @@ fn compile_elements(
             }));
         }
         let kind = ElementType::parse(&def.kind, def.scale).map_err(fail)?;
+        if let ElementType::R { scale } = kind
+            && scale > ElementType::MAX_SCALE
+        {
+            return Err(fail(ElementDefError::ScaleAboveMaximum { scale }));
+        }
+        if def.max == Some(0) {
+            return Err(fail(ElementDefError::ZeroMax));
+        }
         if let (Some(min), Some(max)) = (def.min, def.max)
             && min > max
         {
@@ -2229,6 +2257,60 @@ mod tests {
             assert_eq!(err.to_string(), expected);
             assert!(std::error::Error::source(&err).is_none());
         }
+    }
+
+    #[test]
+    fn an_r_scale_above_18_or_a_zero_max_is_rejected_with_the_value() {
+        let cases = [
+            (
+                r#"{"3":{"name":"a","type":"R","scale":19}}"#,
+                ElementDefError::ScaleAboveMaximum { scale: 19 },
+            ),
+            (
+                r#"{"3":{"name":"a","type":"R","scale":200}}"#,
+                ElementDefError::ScaleAboveMaximum { scale: 200 },
+            ),
+            (
+                r#"{"3":{"name":"a","type":"AN","max":0}}"#,
+                ElementDefError::ZeroMax,
+            ),
+            (
+                r#"{"3":{"name":"a","type":"R","min":0,"max":0}}"#,
+                ElementDefError::ZeroMax,
+            ),
+        ];
+        for (elements, expected_reason) in cases {
+            let err = element_error(elements);
+            assert!(
+                matches!(&err, SpecError::BadElementDef { segment, position, reason } if segment == "AA" && position == "3" && *reason == expected_reason),
+                "{elements}: {err:?}"
+            );
+        }
+        let at_the_cap = Spec::from_json(
+            r#"{"name":"t","loops":{"a":{"trigger":{"segment":"AA"}}},"segments":{"AA":{"elements":{"1":{"name":"a","type":"R","scale":18,"max":1}}}}}"#,
+        )
+        .unwrap();
+        assert_eq!(
+            at_the_cap.segment(b"AA").unwrap().elements[&1].kind,
+            ElementType::R { scale: 18 }
+        );
+    }
+
+    #[test]
+    fn scale_and_max_reasons_display_segment_position_and_value() {
+        let at = |reason| SpecError::BadElementDef {
+            segment: "CLP".into(),
+            position: "12".into(),
+            reason,
+        };
+        assert_eq!(
+            at(ElementDefError::ScaleAboveMaximum { scale: 19 }).to_string(),
+            "segment \"CLP\" element \"12\": \"scale\" 19 is above the maximum of 18"
+        );
+        assert_eq!(
+            at(ElementDefError::ZeroMax).to_string(),
+            "segment \"CLP\" element \"12\": \"max\" is 0; an element holds at least one character"
+        );
     }
 
     fn control_error(control: &str) -> SpecError {

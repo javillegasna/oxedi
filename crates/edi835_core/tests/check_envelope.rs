@@ -35,8 +35,8 @@ fn the_known_anomalies_are_reported_exactly_and_nothing_else() {
         (
             "blue_cross_nc_sample.txt".to_string(),
             vec![
-                "SNIP 1 · loop \"interchange\" opened without its own trigger to hold segment \"ST\" · segment #0 · at interchange#1 · datum \"ST\"".to_string(),
-                "SNIP 1 · loop \"group\" opened without its own trigger to hold segment \"ST\" · segment #0 · at interchange#1/group#1 · datum \"ST\"".to_string(),
+                "SNIP 1 · loop \"interchange\" opened without its own trigger (\"ISA\" with no conditions) to hold segment \"ST\" · segment #0 · at interchange#1 · datum \"ST\"".to_string(),
+                "SNIP 1 · loop \"group\" opened without its own trigger (\"GS\" with no conditions) to hold segment \"ST\" · segment #0 · at interchange#1/group#1 · datum \"ST\"".to_string(),
                 se01("33", 32, 31),
             ],
         ),

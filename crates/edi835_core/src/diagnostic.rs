@@ -61,6 +61,9 @@ pub enum Rule {
     ImplicitLoop {
         /// The loop that was opened.
         loop_name: String,
+        /// The loop's own trigger as the spec writes it, e.g.
+        /// `"GS" with no conditions` or `"N1" where {1: "PR"}`.
+        expected_trigger: String,
         /// Id of the segment whose loop needed it.
         caused_by: Vec<u8>,
     },
@@ -70,6 +73,9 @@ pub enum Rule {
         loop_name: String,
         /// The end segment the spec declares for it.
         expected_end: Vec<u8>,
+        /// Index of the segment that opened the instance; `None` for an
+        /// instance opened implicitly.
+        opened_at: Option<usize>,
     },
     /// A closing segment's count element does not match what it counts.
     ControlCountMismatch {
@@ -96,6 +102,8 @@ pub enum Rule {
         opener_value: Vec<u8>,
         /// The closer's control number as written.
         closer_value: Vec<u8>,
+        /// Index of the opening segment; `None` for an instance opened implicitly.
+        opened_at: Option<usize>,
     },
     /// A required element (or component) is absent or empty.
     RequiredElementMissing {
@@ -211,20 +219,24 @@ impl fmt::Display for Rule {
             ),
             Rule::ImplicitLoop {
                 loop_name,
+                expected_trigger,
                 caused_by,
             } => write!(
                 f,
-                "loop {loop_name:?} opened without its own trigger to hold segment {}",
+                "loop {loop_name:?} opened without its own trigger ({expected_trigger}) to hold segment {}",
                 Quoted(caused_by)
             ),
             Rule::UnterminatedLoop {
                 loop_name,
                 expected_end,
-            } => write!(
-                f,
-                "loop {loop_name:?} closed without its end segment {}",
-                Quoted(expected_end)
-            ),
+                opened_at,
+            } => {
+                write!(f, "loop {loop_name:?} ")?;
+                if let Some(opened_at) = opened_at {
+                    write!(f, "opened at segment #{opened_at} ")?;
+                }
+                write!(f, "closed without its end segment {}", Quoted(expected_end))
+            }
             Rule::ControlCountMismatch {
                 segment_id,
                 element,
@@ -247,22 +259,29 @@ impl fmt::Display for Rule {
                 closer_element,
                 opener_value,
                 closer_value,
-            } => write!(
-                f,
-                "{} {} does not match {} {}",
-                ElementRef {
-                    segment_id: closer,
-                    element: *closer_element,
-                    component: None
-                },
-                Quoted(closer_value),
-                ElementRef {
-                    segment_id: opener,
-                    element: *opener_element,
-                    component: None
-                },
-                Quoted(opener_value)
-            ),
+                opened_at,
+            } => {
+                write!(
+                    f,
+                    "{} {} does not match {} {}",
+                    ElementRef {
+                        segment_id: closer,
+                        element: *closer_element,
+                        component: None
+                    },
+                    Quoted(closer_value),
+                    ElementRef {
+                        segment_id: opener,
+                        element: *opener_element,
+                        component: None
+                    },
+                    Quoted(opener_value)
+                )?;
+                match opened_at {
+                    Some(opened_at) => write!(f, " of segment #{opened_at}"),
+                    None => Ok(()),
+                }
+            }
             Rule::RequiredElementMissing {
                 segment_id,
                 element,
@@ -473,6 +492,7 @@ mod tests {
         let diagnostic = Diagnostic::new(
             Rule::ImplicitLoop {
                 loop_name: "group".into(),
+                expected_trigger: "\"GS\" with no conditions".into(),
                 caused_by: b"ST".to_vec(),
             },
             Some(0),
@@ -483,16 +503,17 @@ mod tests {
         );
         assert_eq!(
             diagnostic.to_string(),
-            "SNIP 1 · loop \"group\" opened without its own trigger to hold segment \"ST\" · segment #0 · at interchange#1/group#1 · datum \"ST\""
+            "SNIP 1 · loop \"group\" opened without its own trigger (\"GS\" with no conditions) to hold segment \"ST\" · segment #0 · at interchange#1/group#1 · datum \"ST\""
         );
     }
 
     #[test]
-    fn unterminated_loop_displays_the_expected_end_and_the_closing_segment() {
+    fn unterminated_loop_displays_the_opener_the_expected_end_and_the_closing_segment() {
         let diagnostic = Diagnostic::new(
             Rule::UnterminatedLoop {
                 loop_name: "transaction".into(),
                 expected_end: b"SE".to_vec(),
+                opened_at: Some(2),
             },
             Some(4),
             None,
@@ -502,7 +523,16 @@ mod tests {
         );
         assert_eq!(
             diagnostic.to_string(),
-            "SNIP 1 · loop \"transaction\" closed without its end segment \"SE\" · segment #4 · at interchange#1/group#1/transaction#1 · datum \"GE\""
+            "SNIP 1 · loop \"transaction\" opened at segment #2 closed without its end segment \"SE\" · segment #4 · at interchange#1/group#1/transaction#1 · datum \"GE\""
+        );
+        let implicit = Rule::UnterminatedLoop {
+            loop_name: "transaction".into(),
+            expected_end: b"SE".to_vec(),
+            opened_at: None,
+        };
+        assert_eq!(
+            implicit.to_string(),
+            "loop \"transaction\" closed without its end segment \"SE\""
         );
     }
 
@@ -512,6 +542,7 @@ mod tests {
             Rule::UnterminatedLoop {
                 loop_name: "interchange".into(),
                 expected_end: b"IEA".to_vec(),
+                opened_at: Some(0),
             },
             None,
             None,
@@ -521,7 +552,7 @@ mod tests {
         );
         assert_eq!(
             diagnostic.to_string(),
-            "SNIP 1 · loop \"interchange\" closed without its end segment \"IEA\" · end of stream · at interchange#1 · datum \"\""
+            "SNIP 1 · loop \"interchange\" opened at segment #0 closed without its end segment \"IEA\" · end of stream · at interchange#1 · datum \"\""
         );
     }
 
@@ -547,7 +578,7 @@ mod tests {
     }
 
     #[test]
-    fn control_number_mismatch_displays_both_elements_and_values() {
+    fn control_number_mismatch_displays_both_elements_values_and_the_opener() {
         let diagnostic = Diagnostic::new(
             Rule::ControlNumberMismatch {
                 opener: b"ST".to_vec(),
@@ -556,6 +587,7 @@ mod tests {
                 closer_element: 2,
                 opener_value: b"0001".to_vec(),
                 closer_value: b"0002".to_vec(),
+                opened_at: Some(2),
             },
             Some(4),
             Some(2),
@@ -565,7 +597,20 @@ mod tests {
         );
         assert_eq!(
             diagnostic.to_string(),
-            "SNIP 1 · SE02 \"0002\" does not match ST02 \"0001\" · segment #4, element 2 · at interchange#1/group#1/transaction#1 · datum \"0002\""
+            "SNIP 1 · SE02 \"0002\" does not match ST02 \"0001\" of segment #2 · segment #4, element 2 · at interchange#1/group#1/transaction#1 · datum \"0002\""
+        );
+        let implicit = Rule::ControlNumberMismatch {
+            opener: b"ST".to_vec(),
+            opener_element: 2,
+            closer: b"SE".to_vec(),
+            closer_element: 2,
+            opener_value: b"0001".to_vec(),
+            closer_value: b"0002".to_vec(),
+            opened_at: None,
+        };
+        assert_eq!(
+            implicit.to_string(),
+            "SE02 \"0002\" does not match ST02 \"0001\""
         );
     }
 

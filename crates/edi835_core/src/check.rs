@@ -11,7 +11,7 @@ use crate::diagnostic::{Diagnostic, LoopRef, Rule};
 use crate::element::Element;
 use crate::engine::Event;
 use crate::segment::Segment;
-use crate::spec::{ControlCount, LoopId, Spec};
+use crate::spec::{ControlCount, LoopId, Spec, render_trigger};
 
 /// One loop instance the checker is inside of.
 #[derive(Debug, Clone)]
@@ -19,6 +19,8 @@ struct Open {
     id: LoopId,
     ordinal: usize,
     implicit: bool,
+    /// Index of the trigger that opened the instance; `None` when implicit.
+    opened_at: Option<usize>,
     /// Non-empty segments consumed before the trigger of this instance.
     start: usize,
     /// Child instances opened by their own trigger.
@@ -115,6 +117,7 @@ impl<'s> EnvelopeChecker<'s> {
             id,
             ordinal,
             implicit,
+            opened_at: (!implicit).then_some(trigger),
             start: self.seen,
             children: 0,
             control_number,
@@ -124,6 +127,7 @@ impl<'s> EnvelopeChecker<'s> {
             self.report(
                 Rule::ImplicitLoop {
                     loop_name: def.name.clone(),
+                    expected_trigger: render_trigger(&def.trigger),
                     caused_by: segment.id.to_vec(),
                 },
                 Some(trigger),
@@ -144,6 +148,7 @@ impl<'s> EnvelopeChecker<'s> {
             return;
         };
         top.ended = true;
+        let opened_at = top.opened_at;
         let Some(control) = def.control else {
             return;
         };
@@ -180,6 +185,7 @@ impl<'s> EnvelopeChecker<'s> {
                         closer_element: control.closer_element,
                         opener_value,
                         closer_value: closer_value.to_vec(),
+                        opened_at,
                     },
                     Some(segment.index),
                     Some(control.closer_element),
@@ -207,6 +213,7 @@ impl<'s> EnvelopeChecker<'s> {
                 Rule::UnterminatedLoop {
                     loop_name: def.name.clone(),
                     expected_end: end.clone(),
+                    opened_at: top.opened_at,
                 },
                 at.map(|segment| segment.index),
                 None,
@@ -346,8 +353,8 @@ mod tests {
         assert_eq!(
             rendered(&spec, "ST*835*0001~BPR*I*1*C*CHK~SE*3*0001~"),
             vec![
-                "SNIP 1 · loop \"interchange\" opened without its own trigger to hold segment \"ST\" · segment #0 · at interchange#1 · datum \"ST\"",
-                "SNIP 1 · loop \"group\" opened without its own trigger to hold segment \"ST\" · segment #0 · at interchange#1/group#1 · datum \"ST\"",
+                "SNIP 1 · loop \"interchange\" opened without its own trigger (\"ISA\" with no conditions) to hold segment \"ST\" · segment #0 · at interchange#1 · datum \"ST\"",
+                "SNIP 1 · loop \"group\" opened without its own trigger (\"GS\" with no conditions) to hold segment \"ST\" · segment #0 · at interchange#1/group#1 · datum \"ST\"",
             ]
         );
     }
@@ -398,9 +405,9 @@ mod tests {
         assert_eq!(
             rendered(&spec, &input),
             vec![
-                "SNIP 1 · SE02 \"0002\" does not match ST02 \"0001\" · segment #3, element 2 · at interchange#1/group#1/transaction#1 · datum \"0002\"",
-                "SNIP 1 · GE02 \"8\" does not match GS06 \"7\" · segment #4, element 2 · at interchange#1/group#1 · datum \"8\"",
-                "SNIP 1 · IEA02 \"000000002\" does not match ISA13 \"000000001\" · segment #5, element 2 · at interchange#1 · datum \"000000002\"",
+                "SNIP 1 · SE02 \"0002\" does not match ST02 \"0001\" of segment #2 · segment #3, element 2 · at interchange#1/group#1/transaction#1 · datum \"0002\"",
+                "SNIP 1 · GE02 \"8\" does not match GS06 \"7\" of segment #1 · segment #4, element 2 · at interchange#1/group#1 · datum \"8\"",
+                "SNIP 1 · IEA02 \"000000002\" does not match ISA13 \"000000001\" of segment #0 · segment #5, element 2 · at interchange#1 · datum \"000000002\"",
             ]
         );
     }
@@ -443,7 +450,7 @@ mod tests {
         assert_eq!(
             rendered(&spec, &input),
             vec![
-                "SNIP 1 · loop \"transaction\" closed without its end segment \"SE\" · segment #4 · at interchange#1/group#1/transaction#1 · datum \"GE\""
+                "SNIP 1 · loop \"transaction\" opened at segment #2 closed without its end segment \"SE\" · segment #4 · at interchange#1/group#1/transaction#1 · datum \"GE\""
             ]
         );
     }
@@ -455,9 +462,9 @@ mod tests {
         assert_eq!(
             rendered(&spec, &input),
             vec![
-                "SNIP 1 · loop \"transaction\" closed without its end segment \"SE\" · end of stream · at interchange#1/group#1/transaction#1 · datum \"\"",
-                "SNIP 1 · loop \"group\" closed without its end segment \"GE\" · end of stream · at interchange#1/group#1 · datum \"\"",
-                "SNIP 1 · loop \"interchange\" closed without its end segment \"IEA\" · end of stream · at interchange#1 · datum \"\"",
+                "SNIP 1 · loop \"transaction\" opened at segment #2 closed without its end segment \"SE\" · end of stream · at interchange#1/group#1/transaction#1 · datum \"\"",
+                "SNIP 1 · loop \"group\" opened at segment #1 closed without its end segment \"GE\" · end of stream · at interchange#1/group#1 · datum \"\"",
+                "SNIP 1 · loop \"interchange\" opened at segment #0 closed without its end segment \"IEA\" · end of stream · at interchange#1 · datum \"\"",
             ]
         );
     }
@@ -476,7 +483,7 @@ mod tests {
             rendered(&spec, "HDR*A1~LN*x~TRL*9*B2~"),
             vec![
                 "SNIP 1 · TRL01 declares \"9\" but the count is 3 · segment #2, element 1 · at batch#1 · datum \"9\"",
-                "SNIP 1 · TRL02 \"B2\" does not match HDR01 \"A1\" · segment #2, element 2 · at batch#1 · datum \"B2\"",
+                "SNIP 1 · TRL02 \"B2\" does not match HDR01 \"A1\" of segment #0 · segment #2, element 2 · at batch#1 · datum \"B2\"",
             ]
         );
     }
@@ -491,7 +498,7 @@ mod tests {
         assert_eq!(
             rendered(&spec, "HDR*1~"),
             vec![
-                "SNIP 1 · loop \"batch\" closed without its end segment \"TRL\" · end of stream · at batch#1 · datum \"\""
+                "SNIP 1 · loop \"batch\" opened at segment #0 closed without its end segment \"TRL\" · end of stream · at batch#1 · datum \"\""
             ]
         );
     }

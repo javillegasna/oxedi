@@ -45,3 +45,15 @@ def read(name):
 @pytest.fixture(params=ALL_FILES)
 def file_name(request):
     return request.param
+
+
+def delimiters_for(name):
+    import oxedi835
+
+    return oxedi835.Delimiters() if name in NO_ISA else None
+
+
+def parse_named(name):
+    import oxedi835
+
+    return oxedi835.parse(read(name), delimiters=delimiters_for(name))

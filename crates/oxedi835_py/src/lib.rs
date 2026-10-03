@@ -7,6 +7,8 @@
 
 use pyo3::prelude::*;
 
+mod document;
+mod parse;
 mod spec;
 
 /// The `oxedi835._core` extension module.
@@ -14,7 +16,13 @@ mod spec;
 #[pyo3(name = "_core")]
 fn core_module(m: &Bound<'_, PyModule>) -> PyResult<()> {
     let py = m.py();
+    m.add("ParseError", py.get_type::<document::ParseError>())?;
     m.add("SpecError", py.get_type::<spec::SpecError>())?;
+    m.add_class::<document::PyDelimiters>()?;
+    m.add_class::<document::PyDocument>()?;
+    m.add_class::<document::PySegment>()?;
+    m.add_class::<parse::PyParseResult>()?;
     m.add_class::<spec::PySpec>()?;
+    m.add_function(wrap_pyfunction!(parse::parse, m)?)?;
     Ok(())
 }

@@ -8,4 +8,5 @@ See [`.doc/architectural-commitment.md`](.doc/architectural-commitment.md) for t
 
 ## Status
 
-**Stage 0 — scaffolding.** No parsing logic yet.
+**Stage 1 — framing + tokenizer.** Bytes → lazy, lossless `Segment` stream, delimiters
+read from the ISA, symmetric writer. No 835 knowledge yet (that is Stage 3 data).

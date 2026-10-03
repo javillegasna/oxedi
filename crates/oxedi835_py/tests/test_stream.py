@@ -1,4 +1,5 @@
 import json
+import os
 import subprocess
 import sys
 import time
@@ -101,18 +102,28 @@ def test_streaming_holds_one_transaction_not_the_file():
     assert parse_beyond > 5 * max(stream_beyond, mib), (parse, stream)
 
 
+@pytest.mark.skipif(
+    (os.cpu_count() or 1) < 2, reason="needs at least two CPUs to run in parallel"
+)
 def test_two_threads_parse_faster_than_one_after_the_other():
     inputs = [repeated(LARGEST, 4), repeated("edi835_test_versant.RMT", 12)]
     for data in inputs:
         oxedi835.parse(data)
-    start = time.perf_counter()
-    for data in inputs:
-        oxedi835.parse(data)
-    sequential = time.perf_counter() - start
-    with ThreadPoolExecutor(max_workers=2) as pool:
+
+    def sequential_run():
         start = time.perf_counter()
-        list(pool.map(oxedi835.parse, inputs))
-        threaded = time.perf_counter() - start
+        for data in inputs:
+            oxedi835.parse(data)
+        return time.perf_counter() - start
+
+    def threaded_run():
+        with ThreadPoolExecutor(max_workers=2) as pool:
+            start = time.perf_counter()
+            list(pool.map(oxedi835.parse, inputs))
+            return time.perf_counter() - start
+
+    sequential = min(sequential_run() for _ in range(3))
+    threaded = min(threaded_run() for _ in range(3))
     assert threaded < 0.8 * sequential, (threaded, sequential)
 
 

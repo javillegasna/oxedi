@@ -76,6 +76,9 @@ impl State {
 }
 
 /// Iterates the batches of a file. Each step runs with the GIL released.
+///
+/// A stream must be advanced from one thread at a time: a concurrent `next()`
+/// raises a `RuntimeError`, like a generator that is already executing.
 #[pyclass(name = "Stream", module = "oxedi835")]
 pub struct PyStream {
     state: State,

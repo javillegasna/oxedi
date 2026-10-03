@@ -33,7 +33,15 @@ pub enum Event {
         /// Index of the segment in the stream.
         segment: usize,
     },
-    /// No loop could hold the segment; the path is unchanged.
+    /// No loop could hold the segment; the path is unchanged. The segment
+    /// itself is found by index through [`Document::segment`] or
+    /// [`Document::spans`]; its loop location is [`LoopEngine::path`] at the
+    /// moment this event is returned (in a [`LoopTree`], the node whose
+    /// `unmatched` list holds the index).
+    ///
+    /// [`Document::segment`]: crate::Document::segment
+    /// [`Document::spans`]: crate::Document::spans
+    /// [`LoopTree`]: crate::LoopTree
     Unmatched {
         /// Index of the segment in the stream.
         segment: usize,
@@ -136,6 +144,8 @@ impl<'s> LoopEngine<'s> {
     }
 
     /// Closes every open loop, innermost first. Call once the stream ends.
+    /// The engine is then back at the root: feeding it again behaves like a
+    /// fresh engine.
     pub fn finish(&mut self) -> &[Event] {
         self.events.clear();
         self.close_to(0);
@@ -380,6 +390,138 @@ mod tests {
         let (events, path) = run(&spec, b"AA~\n");
         assert_eq!(events, vec![Event::Empty { segment: 1 }]);
         assert_eq!(path, vec!["A"]);
+    }
+
+    #[test]
+    fn a_reachable_trigger_wins_over_capture_in_the_current_loop() {
+        let spec = Spec::from_json(
+            r#"{"name":"t","loops":{
+                "A":{"trigger":{"segment":"AA"}},
+                "B":{"parent":"A","trigger":{"segment":"BB"}},
+                "C":{"parent":"B","trigger":{"segment":"CC"},"segments":["N1"]},
+                "D":{"parent":"A","trigger":{"segment":"N1"}}
+            }}"#,
+        )
+        .unwrap();
+        let (events, path) = run(&spec, b"AA~BB~CC~N1~");
+        assert_eq!(
+            events,
+            vec![
+                Event::LoopClosed { id: id(&spec, "C") },
+                Event::LoopClosed { id: id(&spec, "B") },
+                Event::LoopOpened {
+                    id: id(&spec, "D"),
+                    implicit: false
+                },
+                Event::Captured {
+                    id: id(&spec, "D"),
+                    segment: 3
+                },
+            ]
+        );
+        assert_eq!(path, vec!["A", "D"]);
+    }
+
+    #[test]
+    fn implicit_open_keeps_the_nearest_open_ancestor_below_the_top() {
+        let spec = Spec::from_json(
+            r#"{"name":"t","loops":{
+                "A":{"trigger":{"segment":"AA"}},
+                "B":{"parent":"A","trigger":{"segment":"BB"}},
+                "P":{"parent":"A","trigger":{"segment":"PP"}},
+                "T":{"parent":"P","trigger":{"segment":"TT"}}
+            }}"#,
+        )
+        .unwrap();
+        let (events, path) = run(&spec, b"AA~BB~TT~");
+        assert_eq!(
+            events,
+            vec![
+                Event::LoopClosed { id: id(&spec, "B") },
+                Event::LoopOpened {
+                    id: id(&spec, "P"),
+                    implicit: true
+                },
+                Event::LoopOpened {
+                    id: id(&spec, "T"),
+                    implicit: false
+                },
+                Event::Captured {
+                    id: id(&spec, "T"),
+                    segment: 2
+                },
+            ]
+        );
+        assert_eq!(path, vec!["A", "P", "T"]);
+    }
+
+    #[test]
+    fn a_trigger_matching_at_two_depths_opens_under_the_innermost_parent() {
+        let spec = Spec::from_json(
+            r#"{"name":"t","loops":{
+                "A":{"trigger":{"segment":"AA"}},
+                "B":{"parent":"A","trigger":{"segment":"BB"}},
+                "X":{"parent":"A","trigger":{"segment":"XX"}},
+                "Y":{"parent":"B","trigger":{"segment":"XX"}}
+            }}"#,
+        )
+        .unwrap();
+        let (events, path) = run(&spec, b"AA~BB~XX~");
+        assert_eq!(
+            events,
+            vec![
+                Event::LoopOpened {
+                    id: id(&spec, "Y"),
+                    implicit: false
+                },
+                Event::Captured {
+                    id: id(&spec, "Y"),
+                    segment: 2
+                },
+            ]
+        );
+        assert_eq!(path, vec!["A", "B", "Y"]);
+    }
+
+    #[test]
+    fn an_end_segment_listed_by_an_inner_loop_is_captured_there_and_closes_nothing() {
+        let spec = Spec::from_json(
+            r#"{"name":"t","loops":{
+                "A":{"trigger":{"segment":"AA"},"end":"AE"},
+                "B":{"parent":"A","trigger":{"segment":"BB"},"segments":["AE"]}
+            }}"#,
+        )
+        .unwrap();
+        let (events, path) = run(&spec, b"AA~BB~AE~");
+        assert_eq!(
+            events,
+            vec![Event::Captured {
+                id: id(&spec, "B"),
+                segment: 2
+            }]
+        );
+        assert_eq!(path, vec!["A", "B"]);
+    }
+
+    #[test]
+    fn feeding_after_finish_behaves_like_a_fresh_engine() {
+        let spec = spec();
+        let segments = segs(b"AA~BB~CC*X~");
+        let mut fresh = LoopEngine::new(&spec);
+        let expected: Vec<Vec<Event>> = segments
+            .iter()
+            .map(|segment| fresh.feed(segment).to_vec())
+            .collect();
+        let mut reused = LoopEngine::new(&spec);
+        for segment in &segments {
+            reused.feed(segment);
+        }
+        reused.finish();
+        let again: Vec<Vec<Event>> = segments
+            .iter()
+            .map(|segment| reused.feed(segment).to_vec())
+            .collect();
+        assert_eq!(again, expected);
     }
 
     #[test]

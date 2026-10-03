@@ -394,6 +394,15 @@ pub struct TableDef {
     pub ancestors: Vec<usize>,
 }
 
+/// The tables above two anchor loops, outermost first.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct AnchorChains {
+    /// The tables above the first anchor loop.
+    pub first: Vec<String>,
+    /// The tables above the second anchor loop.
+    pub second: Vec<String>,
+}
+
 /// Why a table definition was rejected.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum TableDefError {
@@ -467,6 +476,8 @@ pub enum TableDefError {
         first: String,
         /// The anchor loop whose chain disagrees.
         second: String,
+        /// The table names above each anchor loop.
+        chains: Box<AnchorChains>,
     },
     /// A column's `loop` is not inside every anchor loop.
     NotADescendant {
@@ -486,6 +497,10 @@ pub enum TableDefError {
     AnchorSegmentOnly {
         /// The key: `segment`, `loop` or `where`.
         key: &'static str,
+        /// The segment the table is anchored on.
+        anchor_segment: String,
+        /// The key's value as the spec writes it, in JSON.
+        written: String,
     },
     /// A column of a table without `segment` names no segment.
     NeedsSegment,
@@ -547,9 +562,15 @@ impl fmt::Display for TableDefError {
                 f,
                 "loop {loop_name:?} already anchors table {other:?}; a loop anchors at most one table without \"segment\""
             ),
-            TableDefError::UnrelatedAnchors { first, second } => write!(
+            TableDefError::UnrelatedAnchors {
+                first,
+                second,
+                chains,
+            } => write!(
                 f,
-                "anchor loops {first:?} and {second:?} sit under tables that are not one chain"
+                "anchor loops {first:?} and {second:?} sit under tables that are not one chain: {first:?} under {}, {second:?} under {}",
+                render_chain(&chains.first),
+                render_chain(&chains.second)
             ),
             TableDefError::NotADescendant { loop_name, anchor } => {
                 write!(f, "loop {loop_name:?} is not inside anchor loop {anchor:?}")
@@ -558,9 +579,13 @@ impl fmt::Display for TableDefError {
                 f,
                 "segment {segment:?} is neither the trigger nor a segment of loop {loop_name:?}, so it is never read there"
             ),
-            TableDefError::AnchorSegmentOnly { key } => write!(
+            TableDefError::AnchorSegmentOnly {
+                key,
+                anchor_segment,
+                written,
+            } => write!(
                 f,
-                "{key:?} does not apply in a table anchored on a segment: its columns read that segment"
+                "{key:?} ({written}) does not apply in a table anchored on segment {anchor_segment:?}: its columns read that segment"
             ),
             TableDefError::NeedsSegment => write!(f, "the column names no \"segment\" to read"),
             TableDefError::GroupWithoutRepeat => {
@@ -1353,6 +1378,15 @@ impl Spec {
     }
 }
 
+/// Table names outermost first, joined by `/`; `no table` when there are none.
+fn render_chain(chain: &[String]) -> String {
+    if chain.is_empty() {
+        return "no table".to_string();
+    }
+    let names: Vec<Cow<'_, str>> = chain.iter().map(|name| render_key(name)).collect();
+    names.join("/")
+}
+
 /// Compiles the `tables` section against the loops of `spec`, then links
 /// every table to the tables above it.
 fn compile_tables(spec: &Spec, raw: &BTreeMap<String, Value>) -> Result<Vec<TableDef>, SpecError> {
@@ -1509,7 +1543,17 @@ fn compile_column(
             ("where", !raw.conditions.is_empty()),
         ];
         if let Some(&(key, _)) = keys.iter().find(|(_, present)| *present) {
-            return Err(fail(TableDefError::AnchorSegmentOnly { key }));
+            let value = match key {
+                "segment" => serde_json::to_string(&raw.segment),
+                "loop" => serde_json::to_string(&raw.loop_name),
+                _ => serde_json::to_string(&raw.conditions),
+            };
+            return Err(fail(TableDefError::AnchorSegmentOnly {
+                key,
+                anchor_segment: String::from_utf8_lossy(anchor_segment.unwrap_or_default())
+                    .into_owned(),
+                written: value.unwrap_or_default(),
+            }));
         }
     }
     if let Some(offset) = raw.group_element {
@@ -1689,6 +1733,16 @@ fn link_tables(spec: &Spec, tables: &mut [TableDef]) -> Result<(), SpecError> {
                     TableDefError::UnrelatedAnchors {
                         first: spec.loop_name(first).to_string(),
                         second: spec.loop_name(*anchor).to_string(),
+                        chains: Box::new(AnchorChains {
+                            first: ancestors
+                                .iter()
+                                .map(|&above| tables[above].name.clone())
+                                .collect(),
+                            second: chain
+                                .iter()
+                                .map(|&above| tables[above].name.clone())
+                                .collect(),
+                        }),
                     },
                 ));
             }
@@ -3622,7 +3676,11 @@ mod tests {
                 r#"{"t":{"loops":["A"],"segment":"AA","repeat":{"from":2,"step":2},"columns":{"c":{"group_element":0,"where":{"1":"X"}}}}}"#,
                 "t",
                 Some("c"),
-                TableDefError::AnchorSegmentOnly { key: "where" },
+                TableDefError::AnchorSegmentOnly {
+                    key: "where",
+                    anchor_segment: "AA".into(),
+                    written: r#"{"1":"X"}"#.into(),
+                },
             ),
             (
                 r#"{"t":{"loops":["Z"]}}"#,
@@ -3696,6 +3754,10 @@ mod tests {
                 TableDefError::UnrelatedAnchors {
                     first: "C".into(),
                     second: "D".into(),
+                    chains: Box::new(AnchorChains {
+                        first: vec!["b".into()],
+                        second: vec!["d".into()],
+                    }),
                 },
             ),
             (
@@ -3766,7 +3828,11 @@ mod tests {
                 r#"{"t":{"loops":["A"],"segment":"AA","columns":{"c":{"loop":"B","element":1}}}}"#,
                 "t",
                 Some("c"),
-                TableDefError::AnchorSegmentOnly { key: "loop" },
+                TableDefError::AnchorSegmentOnly {
+                    key: "loop",
+                    anchor_segment: "AA".into(),
+                    written: r#""B""#.into(),
+                },
             ),
             (
                 r#"{"t":{"loops":["A"],"columns":{"c":{"element":1}}}}"#,
@@ -3858,6 +3924,24 @@ mod tests {
                 ..
             } if segment == "REFF" && loop_name == "A"
         ));
+    }
+
+    #[test]
+    fn anchor_conflicts_show_the_datum_as_the_spec_writes_it() {
+        let err = table_error(
+            r#"{"t":{"loops":["A"],"segment":"AA","columns":{"c":{"element":1,"where":{"2":"X"}}}}}"#,
+        );
+        assert_eq!(
+            err.to_string(),
+            "table \"t\" column \"c\": \"where\" ({\"2\":\"X\"}) does not apply in a table anchored on segment \"AA\": its columns read that segment"
+        );
+        let err = table_error(
+            r#"{"b":{"loops":["B"]},"d":{"loops":["D"]},"x":{"loops":["C","D"],"segment":"XX"}}"#,
+        );
+        assert_eq!(
+            err.to_string(),
+            "table \"x\": anchor loops \"C\" and \"D\" sit under tables that are not one chain: \"C\" under b, \"D\" under d"
+        );
     }
 
     #[test]
@@ -4023,8 +4107,23 @@ mod tests {
                 TableDefError::UnrelatedAnchors {
                     first: "2110".into(),
                     second: "1000A".into(),
+                    chains: Box::new(AnchorChains {
+                        first: vec!["payments".into(), "claims".into()],
+                        second: vec!["payers".into()],
+                    }),
                 },
-                "anchor loops \"2110\" and \"1000A\" sit under tables that are not one chain",
+                "anchor loops \"2110\" and \"1000A\" sit under tables that are not one chain: \"2110\" under payments/claims, \"1000A\" under payers",
+            ),
+            (
+                TableDefError::UnrelatedAnchors {
+                    first: "2110".into(),
+                    second: "1000A".into(),
+                    chains: Box::new(AnchorChains {
+                        first: vec!["a b".into()],
+                        second: Vec::new(),
+                    }),
+                },
+                "anchor loops \"2110\" and \"1000A\" sit under tables that are not one chain: \"2110\" under \"a b\", \"1000A\" under no table",
             ),
             (
                 TableDefError::NotADescendant {
@@ -4041,8 +4140,20 @@ mod tests {
                 "segment \"REFF\" is neither the trigger nor a segment of loop \"2100\", so it is never read there",
             ),
             (
-                TableDefError::AnchorSegmentOnly { key: "where" },
-                "\"where\" does not apply in a table anchored on a segment: its columns read that segment",
+                TableDefError::AnchorSegmentOnly {
+                    key: "where",
+                    anchor_segment: "CLP".into(),
+                    written: r#"{"1":"X"}"#.into(),
+                },
+                "\"where\" ({\"1\":\"X\"}) does not apply in a table anchored on segment \"CLP\": its columns read that segment",
+            ),
+            (
+                TableDefError::AnchorSegmentOnly {
+                    key: "segment",
+                    anchor_segment: "CLP".into(),
+                    written: r#""SVC""#.into(),
+                },
+                "\"segment\" (\"SVC\") does not apply in a table anchored on segment \"CLP\": its columns read that segment",
             ),
             (
                 TableDefError::NeedsSegment,

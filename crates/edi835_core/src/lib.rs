@@ -56,9 +56,9 @@ pub use process::{Output, Processor};
 pub use project::Projector;
 pub use segment::{Segment, WriteError};
 pub use spec::{
-    ColumnSource, Control, ControlCount, ControlError, ElementDef, ElementDefError, ElementType,
-    LoopDef, LoopId, Repeat, SegmentDef, Spec, SpecError, TableDef, TableDefError, Trigger,
-    merge_patch,
+    AnchorChains, ColumnSource, Control, ControlCount, ControlError, ElementDef, ElementDefError,
+    ElementType, LoopDef, LoopId, Repeat, SegmentDef, Spec, SpecError, TableDef, TableDefError,
+    Trigger, merge_patch,
 };
 pub use tokenizer::Tokenizer;
 pub use tree::{LoopTree, Node, NodeId};

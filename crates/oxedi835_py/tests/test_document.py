@@ -1,4 +1,5 @@
 import mmap
+from array import array
 
 import pytest
 
@@ -65,7 +66,7 @@ def test_a_delimiter_must_be_one_byte():
     with pytest.raises(ValueError) as info:
         oxedi835.Delimiters(element=b"**")
     assert str(info.value) == (
-        "delimiter element must be exactly one byte, got 2 bytes: [42, 42]"
+        "delimiter element must be exactly one byte, got 2 bytes: b'**'"
     )
 
 
@@ -88,7 +89,46 @@ def test_any_buffer_is_accepted(kind):
 def test_text_is_refused_with_a_hint():
     with pytest.raises(TypeError) as info:
         oxedi835.parse("ISA*00")
-    assert "not str" in str(info.value)
+    assert str(info.value) == (
+        "the input must be bytes or another buffer, not str: "
+        "open the file in binary mode or encode the text"
+    )
+
+
+EXPECTED = "a buffer of unsigned bytes, format 'B', 'b' or 'c'"
+
+
+@pytest.mark.parametrize("function", ["parse", "stream"])
+@pytest.mark.parametrize(
+    ("value", "found"),
+    [(array("i"), "format 'i'"), (5, "type int")],
+)
+def test_input_that_is_not_unsigned_bytes_names_function_argument_and_format(
+    function, value, found
+):
+    with pytest.raises(TypeError) as info:
+        getattr(oxedi835, function)(value)
+    assert str(info.value) == (
+        f"{function}: argument data must be {EXPECTED}; found {found}"
+    )
+
+
+def test_reprs_of_the_document_types():
+    result = parse_named(EMEDNY)
+    assert repr(result) == "Result(segments=69, tables=5, diagnostics=0)"
+    assert repr(result.document) == "Document(segments=69, bytes=1813)"
+    assert repr(result.document[0]) == "Segment(index=0, id=b'ISA')"
+    assert repr(result.document.delimiters) == (
+        "Delimiters(element=b'*', component=b':', segment=b'~', "
+        "repetition=b'^', release=None)"
+    )
+
+
+def test_delimiters_repr_writes_a_newline_as_python_does():
+    assert repr(oxedi835.Delimiters(element=b"\n", release=b"?")) == (
+        "Delimiters(element=b'\\n', component=b':', segment=b'~', "
+        "repetition=None, release=b'?')"
+    )
 
 
 def test_parse_file_reads_in_binary_mode(tmp_path):

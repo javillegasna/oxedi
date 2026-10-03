@@ -60,8 +60,14 @@ impl PySpec {
             text.to_cow()?.into_owned()
         } else if patch.is_instance_of::<PyDict>() {
             py.import("json")?
-                .call_method1("dumps", (patch,))?
-                .extract::<String>()?
+                .call_method1("dumps", (patch,))
+                .and_then(|text| text.extract::<String>())
+                .map_err(|err| {
+                    PyTypeError::new_err(format!(
+                        "Spec.patch: the dict cannot be written as JSON: {}",
+                        err.value(py)
+                    ))
+                })?
         } else {
             return Err(PyTypeError::new_err(format!(
                 "Spec.patch takes a dict or a JSON string, not {}",

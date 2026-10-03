@@ -133,3 +133,20 @@ def test_batches_concatenated_in_polars_equal_the_parsed_table():
     data = repeated(LARGEST, 3)
     parts = [pl.DataFrame(batch.tables["services"]) for batch in oxedi835.stream(data, by="2100")]
     assert pl.concat(parts).equals(pl.DataFrame(oxedi835.parse(data).tables["services"]))
+
+
+def test_input_without_an_isa_raises_parse_error():
+    with pytest.raises(oxedi835.ParseError) as info:
+        oxedi835.stream(b"ST*835~")
+    assert str(info.value) == (
+        "input does not start with an ISA segment "
+        "(found bytes [53 54 2a 38 33 35 7e])"
+    )
+
+
+def test_the_batch_repr():
+    (batch,) = list(oxedi835.stream(read("emedny_sample.txt")))
+    assert repr(batch) == (
+        "Batch(tables=Tables(adjustments: 4 rows, claims: 3 rows, payments: 1 rows, "
+        "provider_adjustments: 0 rows, services: 10 rows), diagnostics=0)"
+    )

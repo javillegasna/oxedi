@@ -26,18 +26,24 @@ pub struct PyDelimiters {
     pub inner: Delimiters,
 }
 
-fn one_byte(name: &str, value: &[u8]) -> PyResult<u8> {
+/// The bytes as Python writes them, e.g. `b'*'` or `b'\n'`.
+fn bytes_repr(py: Python<'_>, bytes: &[u8]) -> PyResult<String> {
+    Ok(PyBytes::new(py, bytes).repr()?.to_string())
+}
+
+fn one_byte(py: Python<'_>, name: &str, value: &[u8]) -> PyResult<u8> {
     match value {
         [byte] => Ok(*byte),
         _ => Err(PyValueError::new_err(format!(
-            "delimiter {name} must be exactly one byte, got {} bytes: {value:?}",
-            value.len()
+            "delimiter {name} must be exactly one byte, got {} bytes: {}",
+            value.len(),
+            bytes_repr(py, value)?
         ))),
     }
 }
 
-fn quoted(byte: Option<u8>) -> String {
-    byte.map_or_else(|| "None".to_string(), |b| format!("'{}'", b as char))
+fn optional_repr(py: Python<'_>, byte: Option<u8>) -> PyResult<String> {
+    byte.map_or_else(|| Ok("None".to_string()), |b| bytes_repr(py, &[b]))
 }
 
 fn single<'py>(py: Python<'py>, byte: u8) -> Bound<'py, PyBytes> {
@@ -49,6 +55,7 @@ impl PyDelimiters {
     #[new]
     #[pyo3(signature = (element = b"*".as_slice(), component = b":".as_slice(), segment = b"~".as_slice(), repetition = None, release = None))]
     fn new(
+        py: Python<'_>,
         element: &[u8],
         component: &[u8],
         segment: &[u8],
@@ -56,15 +63,15 @@ impl PyDelimiters {
         release: Option<&[u8]>,
     ) -> PyResult<Self> {
         let mut inner = Delimiters::new(
-            one_byte("element", element)?,
-            one_byte("component", component)?,
-            one_byte("segment", segment)?,
+            one_byte(py, "element", element)?,
+            one_byte(py, "component", component)?,
+            one_byte(py, "segment", segment)?,
         );
         inner.repetition = repetition
-            .map(|value| one_byte("repetition", value))
+            .map(|value| one_byte(py, "repetition", value))
             .transpose()?;
         inner.release = release
-            .map(|value| one_byte("release", value))
+            .map(|value| one_byte(py, "release", value))
             .transpose()?;
         Ok(Self { inner })
     }
@@ -99,15 +106,15 @@ impl PyDelimiters {
         self.inner.release.map(|byte| single(py, byte))
     }
 
-    fn __repr__(&self) -> String {
-        format!(
-            "Delimiters(element='{}', component='{}', segment='{}', repetition={}, release={})",
-            self.inner.element as char,
-            self.inner.component as char,
-            self.inner.segment as char,
-            quoted(self.inner.repetition),
-            quoted(self.inner.release)
-        )
+    fn __repr__(&self, py: Python<'_>) -> PyResult<String> {
+        Ok(format!(
+            "Delimiters(element={}, component={}, segment={}, repetition={}, release={})",
+            bytes_repr(py, &[self.inner.element])?,
+            bytes_repr(py, &[self.inner.component])?,
+            bytes_repr(py, &[self.inner.segment])?,
+            optional_repr(py, self.inner.repetition)?,
+            optional_repr(py, self.inner.release)?
+        ))
     }
 }
 
@@ -234,30 +241,14 @@ impl PySegment {
     }
 
     fn __repr__(&self, py: Python<'_>) -> PyResult<String> {
-        self.with(py, |segment| {
-            format!(
+        self.with(py, |segment| -> PyResult<String> {
+            Ok(format!(
                 "Segment(index={}, id={})",
                 segment.index,
-                bytes_repr(segment.id)
-            )
-        })
+                bytes_repr(py, segment.id)?
+            ))
+        })?
     }
-}
-
-fn bytes_repr(bytes: &[u8]) -> String {
-    let mut out = String::from("b'");
-    for &byte in bytes {
-        match byte {
-            b'\'' | b'\\' => {
-                out.push('\\');
-                out.push(byte as char);
-            }
-            0x20..=0x7e => out.push(byte as char),
-            _ => out.push_str(&format!("\\x{byte:02x}")),
-        }
-    }
-    out.push('\'');
-    out
 }
 
 /// Indexes owned bytes, reading the delimiters from the ISA or using the

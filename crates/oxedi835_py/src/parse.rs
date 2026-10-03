@@ -13,14 +13,41 @@ use crate::tables::PyTables;
 
 /// Copies the input exactly once into memory Rust owns. Any object with the
 /// buffer protocol is accepted (`bytes`, `bytearray`, `memoryview`, `mmap`).
-pub fn copy_input(data: &Bound<'_, PyAny>) -> PyResult<Vec<u8>> {
+pub fn copy_input(function: &str, data: &Bound<'_, PyAny>) -> PyResult<Vec<u8>> {
     if data.is_instance_of::<PyString>() {
         return Err(PyTypeError::new_err(
             "the input must be bytes or another buffer, not str: open the file in binary mode or encode the text",
         ));
     }
-    let buffer = PyBuffer::<u8>::get(data)?;
-    buffer.to_vec(data.py())
+    match PyBuffer::<u8>::get(data) {
+        Ok(buffer) => buffer.to_vec(data.py()),
+        Err(_) => Err(PyTypeError::new_err(format!(
+            "{function}: argument data must be a buffer of unsigned bytes, format 'B', 'b' or 'c'; found {}",
+            found(data)
+        ))),
+    }
+}
+
+/// What the object is, for the refusal: its buffer format when it has one,
+/// else its type name.
+fn found(data: &Bound<'_, PyAny>) -> String {
+    let format = data
+        .py()
+        .import("builtins")
+        .and_then(|builtins| builtins.getattr("memoryview"))
+        .and_then(|view| view.call1((data,)))
+        .and_then(|view| view.getattr("format"))
+        .and_then(|format| format.repr())
+        .map(|format| format.to_string());
+    match format {
+        Ok(format) => format!("format {format}"),
+        Err(_) => format!(
+            "type {}",
+            data.get_type()
+                .name()
+                .map_or_else(|_| "?".to_string(), |name| name.to_string())
+        ),
+    }
 }
 
 /// What one parse produced.
@@ -72,7 +99,7 @@ pub fn parse(
     spec: Option<&Bound<'_, PySpec>>,
     delimiters: Option<&Bound<'_, PyDelimiters>>,
 ) -> PyResult<PyParseResult> {
-    let bytes = copy_input(data)?;
+    let bytes = copy_input("parse", data)?;
     let spec = spec::or_builtin(spec);
     let delimiters = delimiters.map(|d| d.get().inner);
     let (document, tables, diagnostics) = py.detach(|| -> PyResult<_> {

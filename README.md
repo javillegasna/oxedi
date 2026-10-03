@@ -8,7 +8,7 @@ See [`.doc/architectural-commitment.md`](.doc/architectural-commitment.md) for t
 
 ## Status
 
-**Stage 5 — Python binding.** `pip install` from source builds one `abi3` wheel for
+**Stage 5 — Python binding.** Building from source (`maturin develop`) produces one `abi3` wheel for
 Python 3.11 and later. `oxedi835.parse` reads a whole file with the GIL released and
 returns the lossless document, the typed tables and every diagnostic as a value;
 `oxedi835.stream` yields the tables one transaction (or any loop) at a time with memory

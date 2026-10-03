@@ -78,7 +78,7 @@ impl State {
 /// Iterates the batches of a file. Each step runs with the GIL released.
 ///
 /// A stream must be advanced from one thread at a time: a concurrent `next()`
-/// raises a `RuntimeError`, like a generator that is already executing.
+/// raises a `RuntimeError`; unlike a generator, it does not raise `ValueError`.
 #[pyclass(name = "Stream", module = "oxedi835")]
 pub struct PyStream {
     state: State,
@@ -145,7 +145,7 @@ pub fn stream(
     by: &str,
     delimiters: Option<&Bound<'_, PyDelimiters>>,
 ) -> PyResult<PyStream> {
-    let bytes = copy_input(data)?;
+    let bytes = copy_input("stream", data)?;
     let spec = spec::or_builtin(spec);
     let Some(by) = spec.loop_id(by) else {
         let names: Vec<&str> = spec.loops().iter().map(|l| l.name.as_str()).collect();

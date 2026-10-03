@@ -72,8 +72,9 @@ impl PyTables {
         self.count()
     }
 
-    fn __contains__(&self, name: &str) -> bool {
-        self.tables.get(name).is_some()
+    fn __contains__(&self, name: &Bound<'_, PyAny>) -> bool {
+        name.extract::<&str>()
+            .is_ok_and(|name| self.tables.get(name).is_some())
     }
 
     fn __iter__<'py>(&self, py: Python<'py>) -> PyResult<Bound<'py, PyIterator>> {

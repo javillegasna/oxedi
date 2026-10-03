@@ -50,3 +50,16 @@ def test_a_patch_must_be_a_dict_or_a_string():
     with pytest.raises(TypeError) as info:
         Spec.builtin().patch(3)
     assert str(info.value) == "Spec.patch takes a dict or a JSON string, not int"
+
+
+def test_a_dict_that_json_cannot_write_raises_type_error():
+    with pytest.raises(TypeError) as info:
+        Spec.builtin().patch({"loops": {1}})
+    assert str(info.value) == (
+        "Spec.patch: the dict cannot be written as JSON: "
+        "Object of type set is not JSON serializable"
+    )
+
+
+def test_the_spec_repr():
+    assert repr(Spec.builtin()) == "Spec(name='835', loops=8, tables=5)"

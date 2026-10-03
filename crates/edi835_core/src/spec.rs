@@ -634,6 +634,17 @@ pub enum SpecError {
         /// `a boolean` or `null`.
         found: &'static str,
     },
+    /// A scalar the schema requires to be of one kind is of another.
+    WrongType {
+        /// Where the value sits, keys joined by `.` as written (e.g.
+        /// `loops.env.control.opener_element`).
+        path: String,
+        /// What the schema requires, e.g. `a non-negative integer`.
+        expected: &'static str,
+        /// What was found instead: `a string`, `a number`, `a negative
+        /// number`, `an array`, `null`, and so on.
+        found: &'static str,
+    },
     /// A segment definition does not match the schema.
     SegmentSchema {
         /// The segment id as written.
@@ -724,6 +735,14 @@ impl fmt::Display for SpecError {
             SpecError::NotAnObject { path, found } => write!(
                 f,
                 "spec: the value at {path} must be a JSON object; found {found}"
+            ),
+            SpecError::WrongType {
+                path,
+                expected,
+                found,
+            } => write!(
+                f,
+                "spec: the value at {path} must be {expected}; found {found}"
             ),
             SpecError::Patch { source } => write!(f, "applying patch: {source}"),
             SpecError::UnknownParent { loop_name, parent } => {
@@ -1817,66 +1836,216 @@ fn object_at<'v>(
     })
 }
 
-/// Requires an object everywhere the schema has one, before serde sees the
-/// value: serde would accept an array in place of a struct, and its message
-/// for the wrong kind of value does not say that an object was expected.
-/// Missing keys are left to the schema.
-fn check_shape(source: &Value) -> Result<(), SpecError> {
-    let root = object_at(source, "")?;
-    if let Some(loops) = root.get("loops") {
-        for (name, def) in object_at(loops, "loops")? {
-            let at = format!("loops.{name}");
-            let def = object_at(def, &at)?;
-            if let Some(trigger) = def.get("trigger") {
-                let at = format!("{at}.trigger");
-                let trigger = object_at(trigger, &at)?;
-                if let Some(conditions) = trigger.get("where") {
-                    object_at(conditions, &format!("{at}.where"))?;
+/// The scalar kinds the raw structs expect.
+#[derive(Clone, Copy)]
+enum Leaf {
+    Text,
+    Flag,
+    Count,
+    Byte,
+}
+
+impl Leaf {
+    fn expected(self) -> &'static str {
+        match self {
+            Leaf::Text => "a string",
+            Leaf::Flag => "a boolean",
+            Leaf::Count => "a non-negative integer",
+            Leaf::Byte => "an integer from 0 to 255",
+        }
+    }
+
+    /// What `value` is, in words, when it is not this kind; `None` when it is.
+    fn mismatch(self, value: &Value) -> Option<&'static str> {
+        match (self, value) {
+            (Leaf::Text, Value::String(_)) | (Leaf::Flag, Value::Bool(_)) => None,
+            (Leaf::Count | Leaf::Byte, Value::Number(number)) => {
+                if let Some(n) = number.as_u64() {
+                    if matches!(self, Leaf::Byte) && n > 255 {
+                        Some("a number above 255")
+                    } else {
+                        None
+                    }
+                } else if number.is_f64() {
+                    Some("a fractional number")
+                } else {
+                    Some("a negative number")
                 }
             }
+            _ => Some(kind_of(value)),
+        }
+    }
+}
+
+/// Joins a key to the path it sits under.
+fn child(at: &str, key: &str) -> String {
+    if at.is_empty() {
+        key.to_string()
+    } else {
+        format!("{at}.{key}")
+    }
+}
+
+/// Requires `value` to be of the `kind`.
+fn check_leaf(value: &Value, at: &str, kind: Leaf) -> Result<(), SpecError> {
+    match kind.mismatch(value) {
+        None => Ok(()),
+        Some(found) => Err(SpecError::WrongType {
+            path: at.to_string(),
+            expected: kind.expected(),
+            found,
+        }),
+    }
+}
+
+/// Requires the member `key` of `map`, when present, to be of the `kind`;
+/// `null` also passes when `nullable`.
+fn check_member(
+    map: &serde_json::Map<String, Value>,
+    at: &str,
+    key: &str,
+    kind: Leaf,
+    nullable: bool,
+) -> Result<(), SpecError> {
+    match map.get(key) {
+        None => Ok(()),
+        Some(Value::Null) if nullable => Ok(()),
+        Some(value) => check_leaf(value, &child(at, key), kind),
+    }
+}
+
+/// Requires the member `key` of `map`, when present, to be an object whose
+/// values are all of the `kind`.
+fn check_member_map(
+    map: &serde_json::Map<String, Value>,
+    at: &str,
+    key: &str,
+    kind: Leaf,
+) -> Result<(), SpecError> {
+    if let Some(members) = map.get(key) {
+        let at = child(at, key);
+        for (name, value) in object_at(members, &at)? {
+            check_leaf(value, &child(&at, name), kind)?;
+        }
+    }
+    Ok(())
+}
+
+/// Requires the member `key` of `map`, when present, to be an array of strings.
+fn check_member_texts(
+    map: &serde_json::Map<String, Value>,
+    at: &str,
+    key: &str,
+) -> Result<(), SpecError> {
+    let Some(list) = map.get(key) else {
+        return Ok(());
+    };
+    let at = child(at, key);
+    let Value::Array(items) = list else {
+        return Err(SpecError::WrongType {
+            path: at,
+            expected: "an array of strings",
+            found: kind_of(list),
+        });
+    };
+    for (i, item) in items.iter().enumerate() {
+        check_leaf(item, &child(&at, &i.to_string()), Leaf::Text)?;
+    }
+    Ok(())
+}
+
+/// Requires an object everywhere the schema has one, and the scalar kind
+/// everywhere the schema has a scalar, before serde sees the value: serde
+/// would accept an array in place of a struct, and its messages for the wrong
+/// kind of value name neither the key nor, for objects, that an object was
+/// expected. Missing and unknown keys are left to the schema.
+fn check_shape(source: &Value) -> Result<(), SpecError> {
+    let root = object_at(source, "")?;
+    check_member(root, "", "name", Leaf::Text, false)?;
+    if let Some(loops) = root.get("loops") {
+        for (name, def) in object_at(loops, "loops")? {
+            let at = child("loops", name);
+            let def = object_at(def, &at)?;
+            check_member(def, &at, "parent", Leaf::Text, true)?;
+            check_member(def, &at, "end", Leaf::Text, true)?;
+            check_member_texts(def, &at, "segments")?;
+            if let Some(trigger) = def.get("trigger") {
+                let at = child(&at, "trigger");
+                let trigger = object_at(trigger, &at)?;
+                check_member(trigger, &at, "segment", Leaf::Text, false)?;
+                if let Some(conditions) = trigger.get("where") {
+                    object_at(conditions, &child(&at, "where"))?;
+                }
+                check_member_map(trigger, &at, "where", Leaf::Text)?;
+            }
             if let Some(control) = def.get("control") {
-                object_at(control, &format!("{at}.control"))?;
+                let at = child(&at, "control");
+                let control = object_at(control, &at)?;
+                for key in ["opener_element", "closer_element", "count_element"] {
+                    check_member(control, &at, key, Leaf::Count, false)?;
+                }
+                check_member(control, &at, "count", Leaf::Text, false)?;
             }
         }
     }
     if let Some(tables) = root.get("tables") {
         for (name, def) in object_at(tables, "tables")? {
-            let at = format!("tables.{name}");
+            let at = child("tables", name);
             let def = object_at(def, &at)?;
+            check_member_texts(def, &at, "loops")?;
+            check_member(def, &at, "ref", Leaf::Text, true)?;
+            check_member(def, &at, "segment", Leaf::Text, true)?;
             if let Some(repeat) = def.get("repeat") {
-                object_at(repeat, &format!("{at}.repeat"))?;
+                let at = child(&at, "repeat");
+                let repeat = object_at(repeat, &at)?;
+                check_member(repeat, &at, "from", Leaf::Count, false)?;
+                check_member(repeat, &at, "step", Leaf::Count, false)?;
             }
             if let Some(columns) = def.get("columns") {
-                let at = format!("{at}.columns");
+                let at = child(&at, "columns");
                 for (column, def) in object_at(columns, &at)? {
-                    let at = format!("{at}.{column}");
+                    let at = child(&at, column);
                     let def = object_at(def, &at)?;
+                    check_member(def, &at, "loop", Leaf::Text, true)?;
+                    check_member(def, &at, "segment", Leaf::Text, true)?;
                     if let Some(conditions) = def.get("where") {
-                        object_at(conditions, &format!("{at}.where"))?;
+                        object_at(conditions, &child(&at, "where"))?;
                     }
+                    check_member_map(def, &at, "where", Leaf::Text)?;
+                    for key in ["element", "component", "group_element"] {
+                        check_member(def, &at, key, Leaf::Count, true)?;
+                    }
+                    check_member(def, &at, "segment_index", Leaf::Flag, false)?;
                 }
             }
         }
     }
     if let Some(segments) = root.get("segments") {
         for (id, def) in object_at(segments, "segments")? {
-            let at = format!("segments.{id}");
+            let at = child("segments", id);
             let def = object_at(def, &at)?;
             if let Some(elements) = def.get("elements") {
-                check_elements_shape(elements, &format!("{at}.elements"))?;
+                check_elements_shape(elements, &child(&at, "elements"))?;
             }
         }
     }
     Ok(())
 }
 
-/// Requires every element (and every component) definition to be an object.
+/// Requires every element (and every component) definition to be an object
+/// whose scalar members are of the kind the schema expects.
 fn check_elements_shape(elements: &Value, at: &str) -> Result<(), SpecError> {
     for (position, def) in object_at(elements, at)? {
-        let at = format!("{at}.{position}");
+        let at = child(at, position);
         let def = object_at(def, &at)?;
+        check_member(def, &at, "name", Leaf::Text, false)?;
+        check_member(def, &at, "type", Leaf::Text, false)?;
+        check_member(def, &at, "required", Leaf::Flag, false)?;
+        check_member(def, &at, "min", Leaf::Count, true)?;
+        check_member(def, &at, "max", Leaf::Count, true)?;
+        check_member(def, &at, "scale", Leaf::Byte, true)?;
         if let Some(composite) = def.get("composite") {
-            check_elements_shape(composite, &format!("{at}.composite"))?;
+            check_elements_shape(composite, &child(&at, "composite"))?;
         }
     }
     Ok(())
@@ -3954,6 +4123,144 @@ mod tests {
             assert_eq!(err.to_string(), expected);
             assert!(std::error::Error::source(&err).is_none());
         }
+    }
+
+    #[test]
+    fn a_scalar_of_the_wrong_kind_is_rejected_with_its_key_path() {
+        let loop_json = |loop_def: &str| format!(r#"{{"name":"t","loops":{{"env":{loop_def}}}}}"#);
+        let cases = [
+            (
+                loop_json(
+                    r#"{"trigger":{"segment":"HD"},"end":"TR","control":{"opener_element":"2","closer_element":2,"count_element":1,"count":"segments"}}"#,
+                ),
+                "spec: the value at loops.env.control.opener_element must be a non-negative integer; found a string",
+            ),
+            (
+                loop_json(
+                    r#"{"trigger":{"segment":"HD"},"end":"TR","control":{"opener_element":2,"closer_element":-2,"count_element":1,"count":"segments"}}"#,
+                ),
+                "spec: the value at loops.env.control.closer_element must be a non-negative integer; found a negative number",
+            ),
+            (
+                loop_json(
+                    r#"{"trigger":{"segment":"HD"},"end":"TR","control":{"opener_element":2,"closer_element":2,"count_element":1,"count":7}}"#,
+                ),
+                "spec: the value at loops.env.control.count must be a string; found a number",
+            ),
+            (
+                loop_json(r#"{"trigger":{"segment":"HD","where":{"1":"X","2":5}}}"#),
+                "spec: the value at loops.env.trigger.where.2 must be a string; found a number",
+            ),
+            (
+                loop_json(r#"{"trigger":{"segment":7}}"#),
+                "spec: the value at loops.env.trigger.segment must be a string; found a number",
+            ),
+            (
+                loop_json(r#"{"trigger":{"segment":"HD"},"segments":["A",null]}"#),
+                "spec: the value at loops.env.segments.1 must be a string; found null",
+            ),
+            (
+                loop_json(r#"{"trigger":{"segment":"HD"},"segments":"A"}"#),
+                "spec: the value at loops.env.segments must be an array of strings; found a string",
+            ),
+            (
+                loop_json(r#"{"trigger":{"segment":"HD"},"end":true}"#),
+                "spec: the value at loops.env.end must be a string; found a boolean",
+            ),
+        ];
+        for (json, expected) in cases {
+            let err = Spec::from_json(&json).unwrap_err();
+            assert!(
+                matches!(&err, SpecError::WrongType { .. }),
+                "{json}: {err:?}"
+            );
+            assert_eq!(err.to_string(), expected, "{json}");
+        }
+    }
+
+    #[test]
+    fn a_segment_scalar_of_the_wrong_kind_is_rejected_with_its_key_path() {
+        let cases = [
+            (
+                r#"{"3":{"name":"p","type":"AN","min":"1"}}"#,
+                "spec: the value at segments.AA.elements.3.min must be a non-negative integer; found a string",
+            ),
+            (
+                r#"{"3":{"name":"p","type":"R","scale":300}}"#,
+                "spec: the value at segments.AA.elements.3.scale must be an integer from 0 to 255; found a number above 255",
+            ),
+            (
+                r#"{"3":{"name":"p","type":"AN","required":"yes"}}"#,
+                "spec: the value at segments.AA.elements.3.required must be a boolean; found a string",
+            ),
+            (
+                r#"{"3":{"name":5,"type":"AN"}}"#,
+                "spec: the value at segments.AA.elements.3.name must be a string; found a number",
+            ),
+            (
+                r#"{"1":{"name":"c","type":"AN","composite":{"2":{"name":"x","type":"AN","max":1.5}}}}"#,
+                "spec: the value at segments.AA.elements.1.composite.2.max must be a non-negative integer; found a fractional number",
+            ),
+        ];
+        for (elements, expected) in cases {
+            let err = element_error(elements);
+            assert!(
+                matches!(&err, SpecError::WrongType { .. }),
+                "{elements}: {err:?}"
+            );
+            assert_eq!(err.to_string(), expected, "{elements}");
+        }
+    }
+
+    #[test]
+    fn a_table_scalar_of_the_wrong_kind_is_rejected_with_its_key_path() {
+        let cases = [
+            (
+                r#"{"claims":{"loops":["A",2]}}"#,
+                "spec: the value at tables.claims.loops.1 must be a string; found a number",
+            ),
+            (
+                r#"{"claims":{"loops":"A"}}"#,
+                "spec: the value at tables.claims.loops must be an array of strings; found a string",
+            ),
+            (
+                r#"{"claims":{"loops":["A"],"repeat":{"from":"2","step":3}}}"#,
+                "spec: the value at tables.claims.repeat.from must be a non-negative integer; found a string",
+            ),
+            (
+                r#"{"claims":{"loops":["A"],"columns":{"x":{"segment":"AA","element":"1"}}}}"#,
+                "spec: the value at tables.claims.columns.x.element must be a non-negative integer; found a string",
+            ),
+            (
+                r#"{"claims":{"loops":["A"],"columns":{"x":{"segment_index":1}}}}"#,
+                "spec: the value at tables.claims.columns.x.segment_index must be a boolean; found a number",
+            ),
+            (
+                r#"{"claims":{"loops":["A"],"columns":{"x":{"segment":"AA","element":1,"where":{"1":2}}}}}"#,
+                "spec: the value at tables.claims.columns.x.where.1 must be a string; found a number",
+            ),
+        ];
+        for (tables, expected) in cases {
+            let err = table_error(tables);
+            assert!(
+                matches!(&err, SpecError::WrongType { .. }),
+                "{tables}: {err:?}"
+            );
+            assert_eq!(err.to_string(), expected, "{tables}");
+        }
+    }
+
+    #[test]
+    fn wrong_type_displays_the_path_what_is_required_and_what_was_found() {
+        let err = SpecError::WrongType {
+            path: "loops.env.control.opener_element".into(),
+            expected: "a non-negative integer",
+            found: "a string",
+        };
+        assert_eq!(
+            err.to_string(),
+            "spec: the value at loops.env.control.opener_element must be a non-negative integer; found a string"
+        );
     }
 
     #[test]

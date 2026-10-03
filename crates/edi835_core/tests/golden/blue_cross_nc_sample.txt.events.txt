@@ -1,0 +1,52 @@
+open! interchange
+open! group
+open transaction
+cap transaction ST #0
+cap transaction BPR #1
+cap transaction TRN #2
+cap transaction REF #3
+cap transaction DTM #4
+open 1000A
+cap 1000A N1 #5
+cap 1000A N3 #6
+cap 1000A N4 #7
+cap 1000A PER #8
+close 1000A
+open 1000B
+cap 1000B N1 #9
+cap 1000B N3 #10
+cap 1000B N4 #11
+cap 1000B REF #12
+close 1000B
+open 2000
+cap 2000 LX #13
+open 2100
+cap 2100 CLP #14
+cap 2100 NM1 #15
+cap 2100 DTM #16
+open 2110
+cap 2110 SVC #17
+cap 2110 DTM #18
+cap 2110 CAS #19
+cap 2110 CAS #20
+cap 2110 REF #21
+cap 2110 AMT #22
+close 2110
+open 2110
+cap 2110 SVC #23
+cap 2110 DTM #24
+cap 2110 CAS #25
+cap 2110 REF #26
+close 2110
+open 2110
+cap 2110 SVC #27
+cap 2110 DTM #28
+cap 2110 REF #29
+cap 2110 AMT #30
+close 2110
+close 2100
+close 2000
+cap transaction SE #31
+close transaction
+close group
+close interchange

@@ -1,0 +1,45 @@
+cap 1000A N1 x1
+cap 1000A N3 x1
+cap 1000A N4 x1
+cap 1000B N1 x1
+cap 1000B N3 x1
+cap 1000B N4 x1
+cap 1000B REF x1
+cap 2000 LX x648
+cap 2100 AMT x643
+cap 2100 CAS x3
+cap 2100 CLP x648
+cap 2100 DTM x648
+cap 2100 NM1 x837
+cap 2100 REF x1296
+cap 2110 CAS x780
+cap 2110 DTM x1778
+cap 2110 LQ x1098
+cap 2110 SVC x1778
+cap group GE x1
+cap group GS x1
+cap interchange IEA x1
+cap interchange ISA x1
+cap transaction BPR x1
+cap transaction DTM x1
+cap transaction PLB x3
+cap transaction REF x1
+cap transaction SE x1
+cap transaction ST x1
+cap transaction TRN x1
+close 1000A x1
+close 1000B x1
+close 2000 x648
+close 2100 x648
+close 2110 x1778
+close group x1
+close interchange x1
+close transaction x1
+open 1000A x1
+open 1000B x1
+open 2000 x648
+open 2100 x648
+open 2110 x1778
+open group x1
+open interchange x1
+open transaction x1

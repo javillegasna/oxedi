@@ -34,7 +34,7 @@
     "2100": {
       "parent": "2000",
       "trigger": { "segment": "CLP" },
-      "segments": ["CAS", "NM1", "MIA", "MOA", "REF", "DTM", "PER", "AMT", "QTY"]
+      "segments": ["CAS", "NM1", "N3", "N4", "MIA", "MOA", "REF", "DTM", "PER", "AMT", "QTY"]
     },
     "2110": {
       "parent": "2100",

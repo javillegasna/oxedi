@@ -1,8 +1,7 @@
-//! Tokenizer throughput over the three largest fixtures. No threshold: this
-//! records a baseline.
+//! Throughput of the tokenizer, the document index pass and the loop engine over the three largest fixtures.
 
 use criterion::{BenchmarkId, Criterion, Throughput, criterion_group, criterion_main};
-use edi835_core::{Document, Tokenizer};
+use edi835_core::{Document, LoopEngine, Spec, Tokenizer};
 use std::hint::black_box;
 
 const FIXTURES: &[&str] = &[
@@ -50,5 +49,25 @@ fn index_fixtures(c: &mut Criterion) {
     group.finish();
 }
 
-criterion_group!(benches, tokenize_fixtures, index_fixtures);
+fn engine_fixtures(c: &mut Criterion) {
+    let spec = Spec::builtin_835();
+    let mut group = c.benchmark_group("engine");
+    for name in FIXTURES {
+        let bytes = load(name);
+        group.throughput(Throughput::Bytes(bytes.len() as u64));
+        group.bench_with_input(BenchmarkId::from_parameter(name), &bytes, |b, bytes| {
+            b.iter(|| {
+                let mut engine = LoopEngine::new(&spec);
+                let mut events = 0usize;
+                for segment in Tokenizer::new(black_box(bytes)).expect("fixture has an ISA") {
+                    events += engine.feed(&segment).len();
+                }
+                events + engine.finish().len()
+            });
+        });
+    }
+    group.finish();
+}
+
+criterion_group!(benches, tokenize_fixtures, index_fixtures, engine_fixtures);
 criterion_main!(benches);

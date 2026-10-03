@@ -1,6 +1,6 @@
 [workspace]
 resolver = "3"
-members = ["crates/edi835_core"]
+members = ["crates/edi835_core", "crates/oxedi835_py"]
 
 [workspace.package]
 edition = "2024"

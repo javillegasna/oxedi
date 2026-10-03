@@ -1,0 +1,4 @@
+# The Python binding is an extension module: the interpreter that loads it
+# provides the Python symbols, so no libpython is linked by any cargo command.
+[env]
+PYO3_BUILD_EXTENSION_MODULE = "1"

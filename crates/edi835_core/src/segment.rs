@@ -64,6 +64,10 @@ pub enum WriteError {
     DelimiterInValue {
         /// The offending byte.
         byte: u8,
+        /// `0` for the segment id, otherwise the 1-based element position.
+        element: usize,
+        /// 1-based component position when the element is a composite.
+        component: Option<usize>,
     },
 }
 
@@ -71,10 +75,23 @@ impl fmt::Display for WriteError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             WriteError::Io(e) => write!(f, "write failed: {e}"),
-            WriteError::DelimiterInValue { byte } => write!(
-                f,
-                "value contains delimiter byte 0x{byte:02X} and no release byte is configured"
-            ),
+            WriteError::DelimiterInValue {
+                byte,
+                element,
+                component,
+            } => {
+                match (element, component) {
+                    (0, _) => write!(f, "segment id")?,
+                    (element, None) => write!(f, "element {element}")?,
+                    (element, Some(component)) => {
+                        write!(f, "element {element} component {component}")?;
+                    }
+                }
+                write!(
+                    f,
+                    " contains delimiter byte 0x{byte:02X} and no release byte is configured"
+                )
+            }
         }
     }
 }
@@ -106,19 +123,23 @@ impl Segment<'_> {
         out: &mut W,
     ) -> Result<(), WriteError> {
         if let Some(&byte) = self.id.iter().find(|&&byte| delims.is_special(byte)) {
-            return Err(WriteError::DelimiterInValue { byte });
+            return Err(WriteError::DelimiterInValue {
+                byte,
+                element: 0,
+                component: None,
+            });
         }
         out.write_all(self.id)?;
-        for element in &self.elements {
+        for (position, element) in (1..).zip(&self.elements) {
             out.write_all(&[delims.element])?;
             match element {
-                Element::Simple(value) => write_value(value, delims, out)?,
+                Element::Simple(value) => write_value(value, delims, out, position, None)?,
                 Element::Composite(values) => {
-                    for (i, value) in values.iter().enumerate() {
-                        if i > 0 {
+                    for (component, value) in (1..).zip(values) {
+                        if component > 1 {
                             out.write_all(&[delims.component])?;
                         }
-                        write_value(value, delims, out)?;
+                        write_value(value, delims, out, position, Some(component))?;
                     }
                 }
             }
@@ -128,10 +149,13 @@ impl Segment<'_> {
     }
 }
 
+/// Writes one value; `element` and `component` locate it for the error.
 fn write_value<W: io::Write>(
     value: &[u8],
     delims: &Delimiters,
     out: &mut W,
+    element: usize,
+    component: Option<usize>,
 ) -> Result<(), WriteError> {
     if !value.iter().any(|&byte| delims.is_special(byte)) {
         return Ok(out.write_all(value)?);
@@ -142,7 +166,11 @@ fn write_value<W: io::Write>(
             .copied()
             .find(|&byte| delims.is_special(byte))
             .unwrap_or_default();
-        return Err(WriteError::DelimiterInValue { byte });
+        return Err(WriteError::DelimiterInValue {
+            byte,
+            element,
+            component,
+        });
     };
     for &byte in value {
         if delims.is_special(byte) {
@@ -258,7 +286,35 @@ mod tests {
         };
         assert!(matches!(
             written(&segment, &delims),
-            Err(WriteError::DelimiterInValue { byte: b'*' })
+            Err(WriteError::DelimiterInValue {
+                byte: b'*',
+                element: 1,
+                component: None
+            })
+        ));
+    }
+
+    #[test]
+    fn write_to_reports_the_element_and_component_holding_the_delimiter() {
+        let delims = Delimiters::new(b'*', b':', b'~');
+        let segment = Segment {
+            index: 0,
+            raw: b"",
+            id: b"SVC",
+            elements: vec![
+                Element::Simple(Cow::Borrowed(b"1")),
+                Element::Simple(Cow::Borrowed(b"2")),
+                Element::Composite(vec![Cow::Borrowed(b"HC"), Cow::Borrowed(b"A~B")]),
+            ],
+            terminated: true,
+        };
+        assert!(matches!(
+            written(&segment, &delims),
+            Err(WriteError::DelimiterInValue {
+                byte: b'~',
+                element: 3,
+                component: Some(2)
+            })
         ));
     }
 
@@ -278,11 +334,41 @@ mod tests {
     }
 
     #[test]
-    fn write_error_displays_a_message() {
+    fn delimiter_in_value_displays_where_the_byte_is() {
         assert_eq!(
-            WriteError::DelimiterInValue { byte: b'*' }.to_string(),
-            "value contains delimiter byte 0x2A and no release byte is configured"
+            WriteError::DelimiterInValue {
+                byte: b'*',
+                element: 3,
+                component: Some(2)
+            }
+            .to_string(),
+            "element 3 component 2 contains delimiter byte 0x2A and no release byte is configured"
         );
+        assert_eq!(
+            WriteError::DelimiterInValue {
+                byte: b'*',
+                element: 1,
+                component: None
+            }
+            .to_string(),
+            "element 1 contains delimiter byte 0x2A and no release byte is configured"
+        );
+        assert_eq!(
+            WriteError::DelimiterInValue {
+                byte: b'*',
+                element: 0,
+                component: None
+            }
+            .to_string(),
+            "segment id contains delimiter byte 0x2A and no release byte is configured"
+        );
+    }
+
+    #[test]
+    fn io_error_displays_the_sink_failure() {
+        let err = WriteError::Io(io::Error::other("disk full"));
+        assert_eq!(err.to_string(), "write failed: disk full");
+        assert!(std::error::Error::source(&err).is_some());
     }
 
     #[test]
@@ -297,7 +383,7 @@ mod tests {
                 terminated: true,
             };
             assert!(
-                matches!(written(&segment, &delims), Err(WriteError::DelimiterInValue { byte: b }) if b == byte),
+                matches!(written(&segment, &delims), Err(WriteError::DelimiterInValue { byte: b, element: 0, component: None }) if b == byte),
                 "id {:?}",
                 id
             );
@@ -312,7 +398,11 @@ mod tests {
         };
         assert!(matches!(
             written(&segment, &with_release),
-            Err(WriteError::DelimiterInValue { byte: b'?' })
+            Err(WriteError::DelimiterInValue {
+                byte: b'?',
+                element: 0,
+                component: None
+            })
         ));
     }
 }

@@ -193,8 +193,16 @@ mod tests {
 
     #[test]
     fn new_fails_without_an_isa() {
-        assert_eq!(Tokenizer::new(b"ST*835~").err(), Some(IsaError::NotIsa));
-        assert_eq!(Tokenizer::new(b"").err(), Some(IsaError::NotIsa));
+        assert_eq!(
+            Tokenizer::new(b"ST*835~").err(),
+            Some(IsaError::NotIsa {
+                found: b"ST*835~".to_vec()
+            })
+        );
+        assert_eq!(
+            Tokenizer::new(b"").err(),
+            Some(IsaError::NotIsa { found: Vec::new() })
+        );
     }
 
     #[test]

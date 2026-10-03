@@ -20,3 +20,6 @@ Known quirks, kept on purpose:
 - The two short ISAs are why delimiters are read by counting separators, never by offset.
 - `blue_cross_nc_sample.txt` is a fragment without an envelope: `Tokenizer::new` must fail
   with `NotIsa` and `Tokenizer::with_delimiters` must work.
+- `multi_claim_sample.txt` carries `N3`/`N4` patient address segments inside loop 2100, which
+  the 835 standard does not define there; with the built-in spec they are reported as
+  unmatched (4 segments), and a user patch adding them to loop 2100 captures them.

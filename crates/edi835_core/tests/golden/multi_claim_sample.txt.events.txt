@@ -26,8 +26,8 @@ open 2100
 cap 2100 CLP #16
 cap 2100 CAS #17
 cap 2100 NM1 #18
-cap 2100 N3 #19
-cap 2100 N4 #20
+unmatched N3 #19
+unmatched N4 #20
 cap 2100 MIA #21
 cap 2100 DTM #22
 cap 2100 DTM #23
@@ -49,8 +49,8 @@ open 2100
 cap 2100 CLP #31
 cap 2100 CAS #32
 cap 2100 NM1 #33
-cap 2100 N3 #34
-cap 2100 N4 #35
+unmatched N3 #34
+unmatched N4 #35
 cap 2100 MIA #36
 cap 2100 DTM #37
 cap 2100 DTM #38

@@ -121,8 +121,11 @@ fn unmatched_and_implicit_are_exactly_the_known_anomalies() {
     }
     assert_eq!(
         unmatched,
-        BTreeMap::from([("trizetto_sample.rmt".to_string(), 1)]),
-        "only the bogus XX segment is unmatched"
+        BTreeMap::from([
+            ("multi_claim_sample.txt".to_string(), 4),
+            ("trizetto_sample.rmt".to_string(), 1),
+        ]),
+        "only the multi_claim N3/N4 in loop 2100 and the bogus trizetto XX are unmatched"
     );
     assert_eq!(
         implicit,

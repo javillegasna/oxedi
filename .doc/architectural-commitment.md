@@ -161,7 +161,7 @@ carga su prueba de costura con la capa inferior (N7).
   la puerta al streaming por trozos (D6) sin reescritura.
 - **T4 · Spec estructural y bidireccional — 2026-10-02.** Ver P6. Es lo que deja abierta la
   puerta al escritor (D7) sin una segunda spec.
-- **T5 · Documento = buffer `Cow` + índices (resuelve D1) — 2026-10-02 (propuesto).** El
+- **T5 · Documento = buffer `Cow` + índices (resuelve D1) — 2026-10-02.** El
   `Document<'a>` no guarda `Segment`s: guarda los bytes como `Cow<'a, [u8]>` y un vector de
   *spans* (rangos de `raw` y `body` por segmento). Los `Segment` se construyen bajo demanda
   prestando del documento. Así un mismo tipo es cero-copia cuando presta del llamador
@@ -169,6 +169,8 @@ carga su prueba de costura con la capa inferior (N7).
   `Document<'static>`), que es lo que PyO3 y un tokenizer por trozos (D6) necesitarán.
   Descartado `Vec<Segment<'a>>`: no puede volverse dueño sin un struct autorreferencial.
   Descartado `Document` siempre dueño: pagaría una copia del archivo en el camino normal.
+  Candidato a revisar: buffer compartido `Arc<[u8]>` + spans (ver D8), que cambia solo la
+  representación del buffer y deja los spans intactos.
 
 ### §6.2 · Abiertas (marcadas para no olvidarlas)
 
@@ -184,6 +186,11 @@ carga su prueba de costura con la capa inferior (N7).
   llamador. Opciones a decidir cuando exista el caso: segmentos con datos propios solo en
   este modo, o buffer interno con préstamo ligado al tokenizer (patrón *lending iterator*,
   no expresable con `Iterator` estándar). El framing (T3) se reutiliza tal cual.
+- **D8 · `Cow` + spans frente a `Arc<[u8]>` + spans**: en el stage siguiente al que
+  tenga un consumidor que comparta el documento (previsiblemente Stage 5, Python), medir
+  las dos representaciones en tiempo y en memoria sobre las mismas fixtures y los samples
+  grandes: construir, iterar, `into_owned` o clonar, y retener N documentos a la vez. Se
+  decide con números, no antes. El cambio es local porque los spans no cambian.
 - **D7 · Stage 7, Escritor**: ver §5. YAGNI hasta que haya un caso de generación. La mitad
   del trabajo ya la paga el round-trip de Stage 1 (serializar segmentos con escape) y la
   otra mitad la paga T4. Lo propio del escritor: campos derivados y builder desde dominio.
@@ -329,7 +336,7 @@ genérico para la serialización.
 (Stage 2), división de repeticiones `^`, decodificación a `&str`, tokenizer por trozos
 (D6), inferir `release` del archivo.
 
-### Stage 2 · Documento lossless — PROPUESTO 2026-10-02 (pendiente de aprobación)
+### Stage 2 · Documento lossless — APROBADO 2026-10-02
 
 Materialización opcional del flujo (P9). El camino principal sigue siendo el iterador; el
 documento existe para quien necesita acceso aleatorio, el archivo entero en memoria, o un

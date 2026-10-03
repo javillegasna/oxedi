@@ -29,19 +29,28 @@ fn every_segment_is_accounted_for_exactly_once_and_loops_balance() {
                 }
                 Event::Captured { segment, .. }
                 | Event::Unmatched { segment }
-                | Event::Empty { segment } => {
-                    seen[segment] += 1;
-                }
+                | Event::Empty { segment } => match seen.get_mut(segment) {
+                    Some(n) => *n += 1,
+                    None => panic!(
+                        "{name}: event {event:?} references segment #{segment} but the file has only {} segments",
+                        segments.len()
+                    ),
+                },
             }
         }
-        assert!(
-            seen.iter().all(|&n| n == 1),
-            "{name}: every segment index exactly once"
-        );
+        if let Some((index, &count)) = seen.iter().enumerate().find(|&(_, &n)| n != 1) {
+            panic!(
+                "{name}: segment #{index} appears {count} times among Captured/Unmatched/Empty, expected exactly once"
+            );
+        }
         assert_eq!(opens, closes, "{name}: opens and closes balance");
         assert_eq!(depth, 0, "{name}: nothing left open after finish");
         let engine = LoopEngine::new(&spec);
-        assert!(engine.path().is_empty(), "{name}");
+        assert!(
+            engine.path().is_empty(),
+            "{name}: path is not empty after finish: {:?}",
+            engine.path()
+        );
     }
 }
 

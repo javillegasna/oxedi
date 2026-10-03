@@ -618,6 +618,13 @@ pub enum SpecError {
         /// `end`, or `segments.""` for the section.
         key: String,
     },
+    /// A loop's `end` is the segment that opens it.
+    EndIsTrigger {
+        /// The loop.
+        loop_name: String,
+        /// The segment id both keys name.
+        segment: String,
+    },
     /// A `where` key is not a 1-based element position in canonical form.
     BadPosition {
         /// The loop with the bad key.
@@ -769,6 +776,11 @@ impl fmt::Display for SpecError {
                 loop_name: None,
                 key,
             } => write!(f, "the spec has an empty segment id at {key}"),
+            SpecError::EndIsTrigger { loop_name, segment } => write!(
+                f,
+                "loop {loop_name:?} has \"end\" {segment:?}, the same segment as its \
+                 \"trigger\": the loop would close on the segment that opens it"
+            ),
             SpecError::BadPosition {
                 loop_name,
                 position,
@@ -1192,6 +1204,12 @@ impl Spec {
             }
             if def.end.as_deref() == Some("") {
                 return Err(empty_at("end".into()));
+            }
+            if def.end.as_deref() == Some(def.trigger.segment.as_str()) {
+                return Err(SpecError::EndIsTrigger {
+                    loop_name: name.clone(),
+                    segment: def.trigger.segment.clone(),
+                });
             }
             let parent = match &def.parent {
                 None => None,
@@ -2895,6 +2913,36 @@ mod tests {
         assert_eq!(
             err.to_string(),
             "the spec has an empty segment id at segments.\"\""
+        );
+    }
+
+    #[test]
+    fn a_loop_ending_on_its_own_trigger_is_rejected() {
+        let err = Spec::from_json(
+            r#"{"name":"t","loops":{"a":{"trigger":{"segment":"AA"},"end":"AA"}}}"#,
+        )
+        .unwrap_err();
+        assert!(
+            matches!(&err, SpecError::EndIsTrigger { loop_name, segment } if loop_name == "a" && segment == "AA"),
+            "{err:?}"
+        );
+        assert!(
+            Spec::from_json(
+                r#"{"name":"t","loops":{"a":{"trigger":{"segment":"AA"},"end":"BB"}}}"#
+            )
+            .is_ok()
+        );
+    }
+
+    #[test]
+    fn end_is_trigger_displays_the_loop_the_segment_and_why() {
+        let err = SpecError::EndIsTrigger {
+            loop_name: "a".into(),
+            segment: "AA".into(),
+        };
+        assert_eq!(
+            err.to_string(),
+            "loop \"a\" has \"end\" \"AA\", the same segment as its \"trigger\": the loop would close on the segment that opens it"
         );
     }
 

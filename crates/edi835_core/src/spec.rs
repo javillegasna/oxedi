@@ -119,6 +119,15 @@ pub enum SpecError {
         /// The key as written.
         position: String,
     },
+    /// A value the schema requires to be an object is something else.
+    NotAnObject {
+        /// Where the value sits, keys joined by `.` as written (e.g.
+        /// `loops.2100.trigger`); empty for the top level.
+        path: String,
+        /// What was found instead: `an array`, `a string`, `a number`,
+        /// `a boolean` or `null`.
+        found: &'static str,
+    },
     /// Two loops with the same parent have identical triggers.
     AmbiguousTrigger {
         /// First loop, in spec order.
@@ -146,6 +155,13 @@ impl fmt::Display for SpecError {
                 loop_name: None,
                 source,
             } => write!(f, "spec does not match the schema: {source}"),
+            SpecError::NotAnObject { path, found } if path.is_empty() => {
+                write!(f, "the spec must be a JSON object; found {found}")
+            }
+            SpecError::NotAnObject { path, found } => write!(
+                f,
+                "spec: the value at {path} must be a JSON object; found {found}"
+            ),
             SpecError::Patch { source } => write!(f, "applying patch: {source}"),
             SpecError::UnknownParent { loop_name, parent } => {
                 write!(f, "loop {loop_name:?} names unknown parent {parent:?}")
@@ -368,6 +384,7 @@ impl Spec {
     }
 
     pub(crate) fn from_value(source: Value) -> Result<Spec, SpecError> {
+        check_shape(&source)?;
         let raw: RawSpec =
             serde_json::from_value(source.clone()).map_err(|e| SpecError::Schema {
                 loop_name: None,
@@ -481,6 +498,51 @@ impl Spec {
         }
         Ok(())
     }
+}
+
+/// How a JSON value is described when it is not the object a spec expects.
+fn kind_of(value: &Value) -> &'static str {
+    match value {
+        Value::Null => "null",
+        Value::Bool(_) => "a boolean",
+        Value::Number(_) => "a number",
+        Value::String(_) => "a string",
+        Value::Array(_) => "an array",
+        Value::Object(_) => "an object",
+    }
+}
+
+/// The value as an object, or [`SpecError::NotAnObject`] naming `path`.
+fn object_at<'v>(
+    value: &'v Value,
+    path: &str,
+) -> Result<&'v serde_json::Map<String, Value>, SpecError> {
+    value.as_object().ok_or_else(|| SpecError::NotAnObject {
+        path: path.to_string(),
+        found: kind_of(value),
+    })
+}
+
+/// Requires an object everywhere the schema has one, before serde sees the
+/// value: serde would accept an array in place of a struct, and its message
+/// for the wrong kind of value does not say that an object was expected.
+/// Missing keys are left to the schema.
+fn check_shape(source: &Value) -> Result<(), SpecError> {
+    let root = object_at(source, "")?;
+    if let Some(loops) = root.get("loops") {
+        for (name, def) in object_at(loops, "loops")? {
+            let at = format!("loops.{name}");
+            let def = object_at(def, &at)?;
+            if let Some(trigger) = def.get("trigger") {
+                let at = format!("{at}.trigger");
+                let trigger = object_at(trigger, &at)?;
+                if let Some(conditions) = trigger.get("where") {
+                    object_at(conditions, &format!("{at}.where"))?;
+                }
+            }
+        }
+    }
+    Ok(())
 }
 
 /// Fails with the first parent cycle found, walking from each loop in spec
@@ -716,7 +778,7 @@ mod tests {
 
     #[test]
     fn a_malformed_top_level_is_a_schema_error_without_a_loop() {
-        let err = Spec::from_json("[]").unwrap_err();
+        let err = Spec::from_json(r#"{"name":"t"}"#).unwrap_err();
         assert!(
             matches!(
                 &err,
@@ -733,6 +795,71 @@ mod tests {
             "{message}"
         );
         assert!(!message.contains("RawSpec"), "{message}");
+    }
+
+    #[test]
+    fn a_spec_that_is_not_an_object_says_so_in_plain_words() {
+        let err = Spec::from_json("[]").unwrap_err();
+        assert!(
+            matches!(&err, SpecError::NotAnObject { path, found: "an array" } if path.is_empty()),
+            "{err:?}"
+        );
+        assert_eq!(
+            err.to_string(),
+            "the spec must be a JSON object; found an array"
+        );
+    }
+
+    #[test]
+    fn every_object_of_the_loop_schema_is_checked_with_its_path() {
+        let cases = [
+            (r#"{"name":"t","loops":[]}"#, "loops", "an array"),
+            (r#"{"name":"t","loops":{"a":"AA"}}"#, "loops.a", "a string"),
+            (
+                r#"{"name":"t","loops":{"a":{"trigger":["AA"]}}}"#,
+                "loops.a.trigger",
+                "an array",
+            ),
+            (
+                r#"{"name":"t","loops":{"a":{"trigger":{"segment":"AA","where":1}}}}"#,
+                "loops.a.trigger.where",
+                "a number",
+            ),
+            (
+                r#"{"name":"t","loops":{"a":{"trigger":{"segment":"AA","where":null}}}}"#,
+                "loops.a.trigger.where",
+                "null",
+            ),
+        ];
+        for (json, expected_path, expected_found) in cases {
+            let err = Spec::from_json(json).unwrap_err();
+            assert!(
+                matches!(&err, SpecError::NotAnObject { path, found } if path == expected_path && *found == expected_found),
+                "{json}: {err:?}"
+            );
+        }
+    }
+
+    #[test]
+    fn a_patched_spec_goes_through_the_same_shape_check() {
+        let err = Spec::builtin_835()
+            .merge_patch(r#"{"loops":{"2100":{"trigger":["CLP"]}}}"#)
+            .unwrap_err();
+        assert_eq!(
+            err.to_string(),
+            "applying patch: spec: the value at loops.2100.trigger must be a JSON object; found an array"
+        );
+    }
+
+    #[test]
+    fn every_kind_of_json_value_is_named() {
+        use serde_json::json;
+        assert_eq!(kind_of(&json!(null)), "null");
+        assert_eq!(kind_of(&json!(true)), "a boolean");
+        assert_eq!(kind_of(&json!(1)), "a number");
+        assert_eq!(kind_of(&json!("x")), "a string");
+        assert_eq!(kind_of(&json!([])), "an array");
+        assert_eq!(kind_of(&json!({})), "an object");
     }
 
     #[test]
@@ -899,6 +1026,27 @@ mod tests {
         assert_eq!(
             source.as_deref(),
             Some("loop \"a\" has an empty trigger segment")
+        );
+    }
+
+    #[test]
+    fn not_an_object_displays_the_path_and_what_was_found() {
+        let err = SpecError::NotAnObject {
+            path: "loops.2100.trigger".into(),
+            found: "an array",
+        };
+        assert_eq!(
+            err.to_string(),
+            "spec: the value at loops.2100.trigger must be a JSON object; found an array"
+        );
+        assert!(std::error::Error::source(&err).is_none());
+        let err = SpecError::NotAnObject {
+            path: String::new(),
+            found: "a string",
+        };
+        assert_eq!(
+            err.to_string(),
+            "the spec must be a JSON object; found a string"
         );
     }
 

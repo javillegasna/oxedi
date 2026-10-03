@@ -8,14 +8,35 @@ See [`.doc/architectural-commitment.md`](.doc/architectural-commitment.md) for t
 
 ## Status
 
-**Stage 4 — projection and validation.** The JSON spec names and types every element of
-the 835's segments and declares the tables to project. One pass over a file feeds the
-loop engine, an envelope checker and a projector: the checker reports unknown segments,
-implicit or unterminated loops and envelope counts or control numbers that do not
-match; the projector checks every element (required, type, length, components) and
-fills typed, Arrow-layout tables of payments, claims, services, adjustments and provider
-adjustments, each row pointing at the rows that enclose it. Every finding is a
-self-explanatory diagnostic. The Python binding comes next.
+**Stage 5 — Python binding.** Building from source (`maturin develop`) produces one `abi3` wheel for
+Python 3.11 and later. `oxedi835.parse` reads a whole file with the GIL released and
+returns the lossless document, the typed tables and every diagnostic as a value;
+`oxedi835.stream` yields the tables one transaction (or any loop) at a time with memory
+bounded by that loop. Tables reach Polars, pyarrow or DuckDB through the Arrow PyCapsule
+interface without copying.
+
+## Python
+
+From a clone (publishing to PyPI comes later):
+
+```bash
+uv venv && source .venv/bin/activate
+uv pip install maturin && maturin develop --uv --release --manifest-path crates/oxedi835_py/Cargo.toml
+```
+
+```python
+import oxedi835, polars as pl
+from pathlib import Path
+
+result = oxedi835.parse_file("remittance.835")
+claims = pl.DataFrame(result.tables["claims"])                # zero-copy, through Arrow
+problems = [str(d) for d in result.diagnostics]               # values, never raised
+for batch in oxedi835.stream(Path("big.835").read_bytes()):   # one transaction at a time
+    services = pl.DataFrame(batch.tables["services"])
+```
+
+`Spec.builtin().patch({...})` extends the structure with the same JSON patches as below;
+`parse(data, spec=...)` and `stream(data, spec=..., by="2100")` take the result.
 
 ## Extending the 835 spec
 

@@ -5,3 +5,8 @@ __pycache__/
 
 # Human-oriented analyses (text + mermaid): personal study notes, not part of the repo.
 .doc/analysis/
+
+# Python: local environments, the editable-install extension, test caches.
+.venv/
+crates/oxedi835_py/python/oxedi835/*.so
+.pytest_cache/

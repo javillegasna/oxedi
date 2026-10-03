@@ -1,0 +1,25 @@
+[build-system]
+requires = ["maturin>=1.9.4,<2"]
+build-backend = "maturin"
+
+[project]
+name = "oxedi835"
+version = "0.0.0"
+description = "Lossless, fast, data-driven EDI 835 parser"
+requires-python = ">=3.11"
+license = "MIT"
+readme = "README.md"
+classifiers = [
+    "Programming Language :: Rust",
+    "Programming Language :: Python :: Implementation :: CPython",
+]
+
+[project.optional-dependencies]
+test = ["pytest>=8", "polars>=1.0", "pyarrow>=14"]
+
+[tool.maturin]
+module-name = "oxedi835._core"
+python-source = "python"
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]

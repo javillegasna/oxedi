@@ -186,6 +186,18 @@ carga su prueba de costura con la capa inferior (N7).
   Descartado `Document` siempre dueño: pagaría una copia del archivo en el camino normal.
   Candidato a revisar: buffer compartido `Arc<[u8]>` + spans (ver D8), que cambia solo la
   representación del buffer y deja los spans intactos.
+- **T24 · D8 resuelta: el documento sigue siendo `Cow` + spans — 2026-10-03.** Medido con
+  `examples/buffer_retention.rs` sobre `edi835_test_united.rmt` (629 KB, 30 302 segmentos,
+  release, AMD Ryzen 7 5700U) frente a un prototipo `Arc<[u8]>` con los mismos spans.
+  Construir desde el `Vec<u8>` que el binding ya copió: 1,13 ms con `Cow` y 1,54 ms con
+  `Arc` (`Arc::from(Vec)` vuelve a copiar el buffer en una asignación nueva, con sus fallos de
+  página). Iterar todos los segmentos: 4,2 frente
+  a 4,1 ms. Retener N documentos de N entradas ocupa lo mismo: 1,9 / 18,5 / 185 MiB para
+  N = 1, 10, 100. `Arc` solo gana al clonar (35 frente a 77 µs), y nadie clona: Python
+  comparte el objeto `Document` por referencia y `stream` no construye documento. Se descarta
+  `Arc`. Hallazgo: los spans pesan el doble que los bytes (40 bytes por segmento frente a
+  ~21 de texto), así que retener menos pasa por compactar `Span`, no por compartir el buffer
+  (issue #45).
 
 ### §6.2 · Abiertas (marcadas para no olvidarlas)
 
@@ -201,7 +213,7 @@ carga su prueba de costura con la capa inferior (N7).
   llamador. Opciones a decidir cuando exista el caso: segmentos con datos propios solo en
   este modo, o buffer interno con préstamo ligado al tokenizer (patrón *lending iterator*,
   no expresable con `Iterator` estándar). El framing (T3) se reutiliza tal cual.
-- **D8 · `Cow` + spans frente a `Arc<[u8]>` + spans**: en el stage siguiente al que
+- **D8 · `Cow` + spans frente a `Arc<[u8]>` + spans** → resuelta por T24 (Stage 5): en el stage siguiente al que
   tenga un consumidor que comparta el documento (previsiblemente Stage 5, Python), medir
   las dos representaciones en tiempo y en memoria sobre las mismas fixtures y los samples
   grandes: construir, iterar, `into_owned` o clonar, y retener N documentos a la vez. Se
@@ -223,7 +235,31 @@ carga su prueba de costura con la capa inferior (N7).
   parche que haga falta) cuya salida coincida fila a fila con el DataFrame de esa librería
   sobre los archivos que ambos pueden leer. Si se consigue solo con datos, N3 queda probada
   frente a un parser real y sus usuarios tienen camino de migración; si exige código, la
-  diferencia dice qué le falta a la spec. La comparación es un test reproducible.
+  diferencia dice qué le falta a la spec. La comparación es un test reproducible. Nota
+  2026-10-03: `edi-835-parser` falla en cinco de los seis samples anonimizados; la
+  comparativa se hace sobre los originales (fuera del repo), y antes hay que identificar
+  qué campo altera `scripts/anonymize_835.py` de forma que rompe a ese parser y corregir
+  el anonimizador, regenerando los samples por el camino previsto (nunca a mano).
+  Diagnóstico del mismo día (#46): el anonimizador no es la causa; los originales fallan
+  igual porque la librería hace `int()` sobre `N104` y los payers usan ids `XV`
+  alfanuméricos, válidos en X12. La comparativa de 5b corre sobre los originales con un
+  parche mínimo en el script de comparación que acepte `N104` no numérico, documentado como
+  la única divergencia conocida, y la corrección se ofrece aguas arriba.
+  Alcance fijado por el dueño el 2026-10-03, en tres partes y en este orden: (1) una spec de
+  `tables` (y parche) cuyo DataFrame coincide con `TransactionSets.to_dataframe()` de
+  `edi-835-parser` fila a fila y columna a columna sobre los originales; la velocidad es un
+  dato más, no el objetivo; (2) con esa paridad probada, buscar en los archivos las secciones
+  que esa librería pierde (por ejemplo los ajustes a nivel de claim, "other claim
+  adjustments", los `PLB` o los `REF`/`AMT` que no mapea) y demostrar con los mismos
+  archivos que `oxedi835` sí los reconoce y los entrega; (3) una API Python compatible
+  sobre el paquete `oxedi835` que cubra toda la superficie pública de esa librería (1.8.0),
+  no solo `to_dataframe()`: `parse(path | dir) -> TransactionSets`; en `TransactionSets`,
+  `__iter__`, `__len__`, `count_claims()`, `count_patients()`, `sum_payments()`,
+  `sort_columns(df)` y `to_dataframe()`; en `TransactionSet`, `payer`, `payee`,
+  `to_dataframe()` y `serialize_service(...)`, con los objetos que expone (`interchange`,
+  `financial_information`, `claims`, `organizations` y los loops `Claim`/`Service` con sus
+  segmentos), con la misma forma de columnas y los mismos tipos. Así un usuario de la
+  librería vieja migra sin tocar su código y gana lo que aquella pierde.
 - **D13 · Estructura de módulos**: `spec.rs` supera las 2.500 líneas tras el Stage 4a y
   `diagnostic.rs`, `engine.rs` y `check.rs` crecen. Tras el Stage 5, planificar la división
   en submódulos (por ejemplo `spec/{load,shape,segments,tables,control,patch}.rs`) con
@@ -712,3 +748,92 @@ elementos (`chunks`, `step_by`).
 **Fuera de alcance.** SNIP 4–7; listas de códigos externos (CARC, RARC); cardinalidad de
 segmentos por loop y lenguaje de reglas de cuadre (D11); interfaz C de Arrow y PyO3 (Stage
 5); medir `Cow` frente a `Arc` (D8); escritor (D7).
+
+### Stage 5 · Binding Python — APROBADO 2026-10-03
+
+El stage que devuelve el proyecto a su problema original: ingerir 835 desde Python más
+rápido que la librería vieja, sin perder nada por el camino. El core no cambia de contrato;
+el binding lo envuelve, libera el GIL y entrega las tablas de Stage 4 sin copiarlas. Mide D8.
+
+**Propósito.** Un paquete Python `oxedi835` construido con PyO3 y maturin que expone
+`parse`, `stream`, `Spec`, `Document` y `Diagnostic`; las tablas salen por el protocolo
+PyCapsule de Arrow para que Polars, pyarrow o DuckDB las consuman sin copia y sin que el
+paquete dependa de ninguno de ellos. Todo el trabajo corre con el GIL liberado (N4). Los
+diagnósticos son valores, nunca excepciones (P7); las excepciones quedan para los errores de
+uso: spec inválida (`SpecError`) y entrada sin `ISA` (`ParseError`) con el texto del `Display`
+del core, más las nativas de Python para índices, claves y tipos de argumento, todas con
+regla, lugar y dato (P10).
+
+**Decisiones de diseño (cada una con la alternativa descartada).**
+- **T18 · PyO3 + maturin, wheels `abi3`, Python ≥ 3.11** (3.9 quedó fuera de soporte en
+  octubre de 2025 y la ABI estable de 3.11 da acceso al protocolo buffer, así `parse`
+  copia una sola vez cualquier objeto con buffer). Crate nuevo `crates/oxedi835_py`
+  (`cdylib`) en el workspace; el core sigue sin más dependencias que `serde` y `serde_json`
+  (P3, T7). Un wheel por plataforma, no por versión de Python. Descartado `ctypes` con
+  cbindgen (sin tipos ni gestión del GIL) y UniFFI (sin Arrow ni iteradores naturales).
+- **T19 · Copia única del buffer; D8 se mide aquí.** `parse` acepta cualquier objeto con
+  protocolo buffer, copia los bytes una vez y construye un `Document<'static>` propio. Con
+  ese documento en mano se mide D8: `Cow` propio frente a `Arc<[u8]>` con N documentos
+  retenidos desde Python, en tiempo y memoria sobre los samples grandes; el resultado se
+  registra en §6.1 y, si `Arc` gana, el cambio es local a la representación del buffer
+  (T5). Descartado prestar del `PyBytes` sin copiar: ata la vida del documento a un objeto
+  Python y complica cada método; el coste de la copia es de milisegundos por archivo.
+- **T20 · GIL liberado en todo pase.** `parse`, `stream` y la escritura corren dentro de
+  `allow_threads`; los tipos que cruzan son `Send` porque el core no comparte estado. El
+  paralelismo real es entre archivos, desde un `ThreadPoolExecutor` (T2).
+- **T21 · Arrow por PyCapsule con el crate `arrow` solo en el binding.** Las columnas de
+  Stage 4 ya tienen la disposición de Arrow; el binding las envuelve como `Buffer`s sin
+  copiar, forma `RecordBatch`es y los expone por `__arrow_c_stream__` /
+  `__arrow_c_array__`. El `unsafe` de la interfaz C lo escribe arrow-rs, no nosotros.
+  Descartado implementar la interfaz C a mano (más código inseguro para lo mismo) y
+  devolver listas o numpy (copia, pierde el sentido de T14).
+- **T22 · API pequeña y fiel al core.** `oxedi835.parse(data, spec=None) -> Result` con
+  `.tables` (mapa nombre → tabla exportable a Arrow, con `.render()` que produce el mismo
+  texto que los goldens), `.diagnostics` (lista de `Diagnostic` con `level`, `rule`,
+  `segment`, `element`, `component`, `path`, `datum` y `__str__` igual al `Display`) y
+  `.document` (`len`, indexado por posición con `id`, `elements` y `raw`, `write() ->
+  bytes` idéntico a la entrada, N1). `oxedi835.stream(data, spec=None, by="transaction")`
+  itera lotes de tablas por transacción con memoria acotada (es `take_tables` al cerrar
+  cada `transaction`, P9). `Spec.builtin()`, `Spec.from_json(str)`, `Spec.patch(dict | str)
+  -> Spec`, `Spec.to_json()`. `oxedi835.parse_file(path)` lee en Python y llama a `parse`:
+  la I/O vive en la capa Python, no en el core. `SpecError(ValueError)` con el texto del
+  `Display`. Descartada una API de objetos Claim/Service como la librería vieja: eso lo
+  cubre 5b con una spec, no con código (N3).
+- **T23 · Verificación sobre los mismos oráculos.** pytest recorre los once archivos y
+  compara `tables.render()` byte a byte con `tests/golden/project/*.tables.txt` y los
+  `str(diagnostic)` con `*.diagnostics.txt`; `document.write()` reproduce cada archivo; una
+  prueba consume `.tables["claims"]` desde Polars por el protocolo PyCapsule y comprueba
+  filas y tipos; un test de memoria recorre el sample mayor con `stream` y comprueba con
+  `tracemalloc`/RSS que el pico queda acotado por una transacción, no por el archivo; un
+  test de concurrencia comprueba que dos hilos parsean en paralelo (tiempo total menor que
+  la suma). Un script, no un gate, cronometra `parse` frente a `edi-835-parser` en los
+  archivos que ambos leen (adelanta 5b). El gate final instala el wheel en un venv limpio y
+  ejecuta pytest desde fuera del repo.
+
+**Entregable / contrato.**
+- `crates/oxedi835_py`: `Cargo.toml` (`pyo3` con `abi3-py311`; el modo extensión se activa con
+  `PYO3_BUILD_EXTENSION_MODULE` en `.cargo/config.toml` porque PyO3 0.29 retira la feature;
+  los crates `arrow-*` solo con `ffi`), `pyproject.toml`
+  con maturin, `src/lib.rs` con el módulo y las clases `Spec`, `Document`, `Segment`,
+  `Tables`, `Table`, `Diagnostic`, `Result`, `Stream`; `python/oxedi835/__init__.py` con
+  `parse_file` y los re-exports; `tests/` en pytest.
+- Las clases Python no reimplementan nada: cada método delega en el core; el único código
+  con lógica propia es el puente de columnas a `RecordBatch` y la conversión de
+  `Diagnostic` a atributos.
+- Baseline de D8 y del tiempo de `parse` por archivo en el mensaje de commit del bench.
+
+**Gate de verificación (salida del Stage 5).**
+- `cargo test --workspace --locked`, clippy, fmt, bench `--no-run` y `cargo doc` siguen en
+  verde para todo el workspace; `maturin develop` y `pytest` en verde en local y en CI.
+- Goldens de tablas y diagnósticos reproducidos desde Python en los once archivos; `write()`
+  byte a byte; prueba Polars; test de memoria; test de concurrencia.
+- D8 medido y registrado; decisión tomada en §6.1 con los números.
+- Wheel instalado en un venv limpio pasa el smoke test.
+
+**Rust que exprimes.** FFI con PyO3: `#[pyclass]`, `#[pymethods]`, `Py<T>` y `Bound<T>`,
+el token del GIL y `allow_threads` con límites `Send`; borrar vidas con tipos propios en la
+frontera; el protocolo PyCapsule de Arrow; maturin y `abi3`; `Arc` frente a `Cow` medido,
+no supuesto; errores Rust a excepciones Python conservando el texto.
+
+**Fuera de alcance.** Publicar en PyPI y la matriz manylinux/macOS/Windows (Stage 6);
+`asyncio`; API orientada a objetos del 835 (5b); escritor (D7); tokenizer por trozos (D6).

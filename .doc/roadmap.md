@@ -14,8 +14,8 @@ when a stage changes state.
 | 2 · Lossless Document | `Document` as `Cow` bytes + spans, borrowed or owned | **Done** 2026-10-02 | PR #3; samples PR #5 |
 | 3 · Loop engine | JSON spec, `LoopEngine` events, `LoopTree`, merge-patch extension, P10 errors | **Done** 2026-10-03 | PR #6; deferred findings: issues #7–#19 on Project #8; test hygiene PR #20 closed #9–#13 |
 | 4 · Projection + validation | `segments` and `tables` in the spec, Arrow-layout columns, SNIP 1–2 diagnostics with full location (P10), closes #7 #17 #18 #19 | **Done** 2026-10-03 (4a PR #30, 4b PR #38, backlog sprint PR #43) | findings closed by #43; open: #28, #39–#42; SNIP 3 → D11 |
-| 5 · Python binding | PyO3/maturin, GIL released, iterator and table APIs | Not started | — |
-| 5b · Compatibility oracle | A `tables` spec (plus patch) whose output matches `edi-835-parser` (keiron-stoddart, Python) row for row on the shared files; the diff is the compatibility test | Not started (after 5, D12) | — |
+| 5 · Python binding | PyO3/maturin `abi3` (Python ≥ 3.11), GIL released, `parse`/`stream`/`Spec`, Arrow by PyCapsule, D8 measured | **In PR** 2026-10-03 (7 tasks in 3 batches; 112 pytest; D8 → T24) | branch `stage-5-python`; findings #47–#49 |
+| 5b · Compatibility oracle | (1) A `tables` spec whose DataFrame equals `edi-835-parser`'s `to_dataframe()` row for row on the originals (shim for its `int(N104)` limitation, #46); (2) find what that library drops (claim-level adjustments, `PLB`, unmapped `REF`/`AMT`) and prove `oxedi835` keeps it on the same files; (3) a compatible Python API covering that library's whole public surface (`parse(path\|dir)`, `TransactionSets` with iteration, `len`, `count_claims`, `count_patients`, `sum_payments`, `sort_columns`, `to_dataframe`; `TransactionSet` with `payer`, `payee`, `to_dataframe`, `serialize_service` and its loop objects) so its users migrate without code changes | Not started (after 5, D12) | — |
 | 5c · Module layout | Split the large source files into navigable submodules with short files and a one-glance discovery path; no behaviour change | Not started (after 5, D13) | — |
 | 6 · Distribution | crates.io, PyPI wheels, release CI | Not started | — |
 | 7 · Writer | Data → loops → bytes, same spec | Deferred (D7) | — |
@@ -36,8 +36,9 @@ when a stage changes state.
   and extendable with a JSON patch. First stage with business meaning.
 - After **4**: rows comparable with the old Python parser; SNIP validation on real files.
 - After **5**: the original problem (slow Python ingestion) can be benchmarked end to end.
-- After **5b**: a user of `edi-835-parser` can switch with a spec, not a rewrite; the
-  row-for-row diff is a public, reproducible compatibility test.
+- After **5b**: a user of `edi-835-parser` can switch with a spec and a compatible API, not a
+  rewrite; the row-for-row diff is a public, reproducible compatibility test, and the data
+  that library drops is shown recovered on the same files.
 - After **8**: a reader learns why the project is shaped this way without opening the code,
   and a user of the Python library or the CLI has a guide that does not go stale.
 - After **9**: adding a transaction set is writing a spec, the toolkit's promise made good
@@ -50,7 +51,7 @@ when a stage changes state.
 | Decision | Stage that closes it | One line |
 |----------|----------------------|----------|
 | D2 · Spec format and merge | 3 (closed as T6–T8) | JSON + serde, flat loops with `parent`, RFC 7386 merge patch |
-| D8 · `Cow`+spans vs `Arc`+spans | 5 | Measure time and memory with Python holding documents |
+| D8 · `Cow`+spans vs `Arc`+spans | 5 (closed as T24: keep `Cow`) | Measured on the largest sample: `Arc` builds slower, same retention memory, wins only on clones nobody makes; spans weigh 2× the bytes → #45 |
 | D9 · YAML specs | after 3, when someone writes specs by hand | Second deserializer over the same `Spec` |
 | D10 · Columnar projection / Arrow | 4 (closed as T14–T15) and 5 | Stage 4 emits Arrow-layout columns without the crate; Python exports zero-copy |
 | D11 · Segment cardinality per loop, declarative balancing rules | after 4 | SNIP 2 completion and SNIP 3 need a spec extension; decide once tables are in use |

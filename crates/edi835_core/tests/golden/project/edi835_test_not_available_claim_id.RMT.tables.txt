@@ -1,0 +1,84 @@
+## adjustments (rows: 24)
+row: int64 | segment: int64 | payment: int64 | claim: int64 | service: int64 | amount: decimal128(38, 2) | group_code: binary | quantity: decimal128(38, 2) | reason_code: binary
+0 | 24 | 0 | 0 | 0 | -100.00 | CO | ∅ | 45
+1 | 28 | 0 | 0 | 1 | 100.00 | CO | ∅ | 45
+2 | 40 | 0 | 1 | 2 | 92.00 | CO | ∅ | 45
+3 | 64 | 0 | 3 | 5 | -55.00 | CO | ∅ | 45
+4 | 68 | 0 | 3 | 6 | 100.00 | CO | ∅ | 45
+5 | 80 | 0 | 4 | 7 | -105.00 | CO | ∅ | 45
+6 | 84 | 0 | 4 | 8 | 350.00 | CO | ∅ | 45
+7 | 96 | 0 | 5 | 9 | -105.00 | CO | ∅ | 45
+8 | 100 | 0 | 5 | 10 | 250.00 | CO | ∅ | 45
+9 | 111 | 0 | 6 | 11 | 25.00 | CO | ∅ | 45
+10 | 123 | 0 | 7 | 12 | -25.00 | CO | ∅ | 45
+11 | 127 | 0 | 7 | 13 | 100.00 | CO | ∅ | 45
+12 | 139 | 0 | 8 | 14 | -105.00 | CO | ∅ | 45
+13 | 143 | 0 | 8 | 15 | 350.00 | CO | ∅ | 45
+14 | 155 | 0 | 9 | 16 | 18.00 | CO | ∅ | 45
+15 | 167 | 0 | 10 | 17 | 18.00 | CO | ∅ | 45
+16 | 179 | 0 | 11 | 18 | 18.00 | CO | ∅ | 45
+17 | 191 | 0 | 12 | 19 | 18.00 | CO | ∅ | 45
+18 | 203 | 0 | 13 | 20 | 18.00 | CO | ∅ | 45
+19 | 215 | 0 | 14 | 21 | 18.00 | CO | ∅ | 45
+20 | 227 | 0 | 15 | 22 | 18.00 | CO | ∅ | 45
+21 | 239 | 0 | 16 | 23 | 18.00 | CO | ∅ | 45
+22 | 250 | 0 | 17 | 24 | -5.00 | CO | ∅ | 45
+23 | 254 | 0 | 17 | 25 | 25.00 | CO | ∅ | 45
+
+## claims (rows: 18)
+row: int64 | segment: int64 | payment: int64 | charge_amount: decimal128(38, 2) | claim_id: binary | claim_status: binary | coverage_amount: decimal128(38, 2) | discharge_fraction: decimal128(38, 4) | drg_code: binary | drg_weight: decimal128(38, 4) | facility_type: binary | filing_indicator: binary | frequency_code: binary | group_number: binary | patient_first_name: binary | patient_id: binary | patient_last_name: binary | patient_responsibility: decimal128(38, 2) | payer_control_number: binary | payment_amount: decimal128(38, 2) | rendering_provider_id: binary | rendering_provider_name: binary | statement_from: date32 | statement_to: date32
+0 | 15 | 0 | 195.00 | FH SFWNRZJ GYGG ENN | 1 | 195.00 | ∅ | ∅ | ∅ | 11 | HM | ∅ | 65747 | DUNIA | 33 | SALAZAR | ∅ | JSE93757550 | 195.00 | ∅ | ∅ | 2024-04-09 | ∅
+1 | 31 | 0 | 292.00 | FH SFWNRZJ GYGG ENN | 1 | 200.00 | ∅ | ∅ | ∅ | 11 | HM | ∅ | 65747 | JONAS | 33 | YANEZ | ∅ | LNB68547061 | 200.00 | ∅ | ∅ | 2024-04-05 | ∅
+2 | 43 | 0 | 95.00 | FH SFWNRZJ GYGG ENN | 1 | 95.00 | ∅ | ∅ | ∅ | 11 | HM | ∅ | 65747 | ROSA | 07 | PINEDA | ∅ | 72K40642800 | 95.00 | ∅ | ∅ | 2024-02-06 | ∅
+3 | 55 | 0 | 245.00 | FH SFWNRZJ GYGG ENN | 1 | 200.00 | ∅ | ∅ | ∅ | 11 | HM | ∅ | T2247 | ALICE | 33 | OCHOA | ∅ | BJM42454396 | 200.00 | ∅ | ∅ | 2024-04-05 | ∅
+4 | 71 | 0 | 445.00 | FH SFWNRZJ GYGG ENN | 1 | 200.00 | ∅ | ∅ | ∅ | 11 | HM | ∅ | M4686 | MATEO | 33 | BRAVO | ∅ | JJF38386996 | 200.00 | ∅ | ∅ | 2024-04-09 | ∅
+5 | 87 | 0 | 345.00 | FH SFWNRZJ GYGG ENN | 1 | 200.00 | ∅ | ∅ | ∅ | 11 | HM | ∅ | 65747 | PABLO | 33 | ESPINOZA | ∅ | XEY77533173 | 200.00 | ∅ | ∅ | 2024-04-09 | ∅
+6 | 103 | 0 | 85.00 | BRQVPCNJGQNY | 1 | 60.00 | ∅ | ∅ | ∅ | 11 | HM | ∅ | V2717 | ZOE | WNKLK7084 | MOLINA | ∅ | YQP61680776 | 60.00 | ∅ | ∅ | 2024-04-21 | ∅
+7 | 114 | 0 | 275.00 | FH SFWNRZJ GYGG ENN | 1 | 200.00 | ∅ | ∅ | ∅ | 11 | HM | ∅ | 65747 | LEON | 14 | ROJAS | ∅ | 26Y25288013 | 200.00 | ∅ | ∅ | 2024-04-11 | ∅
+8 | 130 | 0 | 445.00 | FH SFWNRZJ GYGG ENN | 1 | 200.00 | ∅ | ∅ | ∅ | 11 | HM | ∅ | L4986 | DUNIA | 33 | KOVACS | ∅ | 03B67982121 | 200.00 | ∅ | ∅ | 2024-04-05 | ∅
+9 | 146 | 0 | 218.00 | FH SFWNRZJ GYGG ENN | 1 | 200.00 | ∅ | ∅ | ∅ | 11 | HM | ∅ | 58975 | XENIA | 07 | ANDRADE | ∅ | 14D33220041 | 200.00 | ∅ | ∅ | 2024-04-07 | ∅
+10 | 158 | 0 | 218.00 | AE QHSC NUMB LTCYVT | 1 | 200.00 | ∅ | ∅ | ∅ | 11 | HM | ∅ | 58975 | AMIR | 07 | ANDRADE | ∅ | 14D33220041 | 200.00 | ∅ | ∅ | 2024-04-07 | ∅
+11 | 170 | 0 | 218.00 | AE QHSC NUMB LTCYVT | 1 | 200.00 | ∅ | ∅ | ∅ | 11 | HM | ∅ | 58975 | OLGA | 07 | JIMENEZ | ∅ | 14D33220041 | 200.00 | ∅ | ∅ | 2024-04-07 | ∅
+12 | 182 | 0 | 218.00 | AE QHSC NUMB LTCYVT | 1 | 200.00 | ∅ | ∅ | ∅ | 11 | HM | ∅ | 58975 | AMIR | 07 | GALVEZ | ∅ | 14D33220041 | 200.00 | ∅ | ∅ | 2024-04-07 | ∅
+13 | 194 | 0 | 218.00 | EL VFLE JTSN GPTCR | 1 | 200.00 | ∅ | ∅ | ∅ | 11 | HM | ∅ | 58975 | YAGO | 07 | URIBE | ∅ | 14D33220041 | 200.00 | ∅ | ∅ | 2024-04-07 | ∅
+14 | 206 | 0 | 218.00 | EL VFLE JTSN GPTCR | 1 | 200.00 | ∅ | ∅ | ∅ | 11 | HM | ∅ | 58975 | SIMON | 07 | BELTRAN | ∅ | 14D33220041 | 200.00 | ∅ | ∅ | 2024-04-07 | ∅
+15 | 218 | 0 | 218.00 | EL VFLE JTSN GPTCR | 1 | 200.00 | ∅ | ∅ | ∅ | 11 | HM | ∅ | 58975 | ROSA | 07 | LARA | ∅ | 14D33220041 | 200.00 | ∅ | ∅ | 2024-04-07 | ∅
+16 | 230 | 0 | 218.00 | EL VFLE JTSN GPTCR | 1 | 200.00 | ∅ | ∅ | ∅ | 11 | HM | ∅ | 58975 | MATEO | 07 | MENDEZ | ∅ | 14D33220041 | 200.00 | ∅ | ∅ | 2024-04-07 | ∅
+17 | 242 | 0 | 220.00 | BRQVPCNJGQNY | 1 | 200.00 | ∅ | ∅ | ∅ | 11 | HM | ∅ | 21813 | JULIA | DGVXN0565 | SOTO | ∅ | 56J63046421 | 200.00 | ∅ | ∅ | 2024-04-20 | ∅
+
+## payments (rows: 1)
+row: int64 | segment: int64 | credit_debit_flag: binary | handling_code: binary | payee_id: binary | payee_name: binary | payer_identifier: binary | payer_name: binary | payment_date: date32 | payment_format: binary | payment_method: binary | production_date: date32 | receiver_id: binary | total_payment_amount: decimal128(38, 2) | trace_number: binary
+0 | 2 | C | I | 479864355 | MERIDIAN WELLNESS ASSOCIATES | 2797276090 | BLUE RIDGE WELLNESS ASSOCIATES LLC | 2024-04-29 | CCP | ACH | 2024-04-25 | ∅ | 3715.00 | 04781537
+
+## provider_adjustments (rows: 0)
+row: int64 | segment: int64 | payment: int64 | amount: decimal128(38, 2) | fiscal_period_date: date32 | provider_id: binary | reason_code: binary | reference_id: binary
+
+## services (rows: 26)
+row: int64 | segment: int64 | payment: int64 | claim: int64 | allowed_amount: decimal128(38, 2) | charge_amount: decimal128(38, 2) | line_item_control_number: binary | original_units: decimal128(38, 2) | payment_amount: decimal128(38, 2) | procedure_code: binary | procedure_qualifier: binary | service_date: date32 | units_paid: decimal128(38, 2)
+0 | 22 | 0 | 0 | ∅ | 95.00 | ∅ | ∅ | 195.00 | V2020 | HC | 2024-04-09 | 1.00
+1 | 26 | 0 | 0 | ∅ | 100.00 | ∅ | ∅ | 0.00 | V2100 | HC | 2024-04-09 | 1.00
+2 | 38 | 0 | 1 | ∅ | 292.00 | ∅ | ∅ | 200.00 | V2500 | HC | 2024-04-05 | 1.00
+3 | 50 | 0 | 2 | ∅ | 95.00 | ∅ | ∅ | 95.00 | V2020 | HC | 2024-02-06 | 1.00
+4 | 52 | 0 | 2 | ∅ | 0.00 | ∅ | ∅ | 0.00 | V2100 | HC | 2024-02-06 | 1.00
+5 | 62 | 0 | 3 | ∅ | 145.00 | ∅ | ∅ | 200.00 | V2020 | HC | 2024-04-05 | 1.00
+6 | 66 | 0 | 3 | ∅ | 100.00 | ∅ | ∅ | 0.00 | V2100 | HC | 2024-04-05 | 1.00
+7 | 78 | 0 | 4 | ∅ | 95.00 | ∅ | ∅ | 200.00 | V2020 | HC | 2024-04-09 | 1.00
+8 | 82 | 0 | 4 | ∅ | 350.00 | ∅ | ∅ | 0.00 | V2781 | HC | 2024-04-09 | 1.00
+9 | 94 | 0 | 5 | ∅ | 95.00 | ∅ | ∅ | 200.00 | V2020 | HC | 2024-04-09 | 1.00
+10 | 98 | 0 | 5 | ∅ | 250.00 | ∅ | ∅ | 0.00 | V2781 | HC | 2024-04-09 | 1.00
+11 | 109 | 0 | 6 | ∅ | 85.00 | ∅ | ∅ | 60.00 | 92014 | HC | 2024-04-21 | 1.00
+12 | 121 | 0 | 7 | ∅ | 175.00 | ∅ | ∅ | 200.00 | V2020 | HC | 2024-04-11 | 1.00
+13 | 125 | 0 | 7 | ∅ | 100.00 | ∅ | ∅ | 0.00 | V2100 | HC | 2024-04-11 | 1.00
+14 | 137 | 0 | 8 | ∅ | 95.00 | ∅ | ∅ | 200.00 | V2020 | HC | 2024-04-05 | 1.00
+15 | 141 | 0 | 8 | ∅ | 350.00 | ∅ | ∅ | 0.00 | V2200 | HC | 2024-04-05 | 1.00
+16 | 153 | 0 | 9 | ∅ | 218.00 | ∅ | ∅ | 200.00 | V2521 | HC | 2024-04-07 | 1.00
+17 | 165 | 0 | 10 | ∅ | 218.00 | ∅ | ∅ | 200.00 | V2521 | HC | 2024-04-07 | 1.00
+18 | 177 | 0 | 11 | ∅ | 218.00 | ∅ | ∅ | 200.00 | V2521 | HC | 2024-04-07 | 1.00
+19 | 189 | 0 | 12 | ∅ | 218.00 | ∅ | ∅ | 200.00 | V2521 | HC | 2024-04-07 | 1.00
+20 | 201 | 0 | 13 | ∅ | 218.00 | ∅ | ∅ | 200.00 | V2521 | HC | 2024-04-07 | 1.00
+21 | 213 | 0 | 14 | ∅ | 218.00 | ∅ | ∅ | 200.00 | V2521 | HC | 2024-04-07 | 1.00
+22 | 225 | 0 | 15 | ∅ | 218.00 | ∅ | ∅ | 200.00 | V2521 | HC | 2024-04-07 | 1.00
+23 | 237 | 0 | 16 | ∅ | 218.00 | ∅ | ∅ | 200.00 | V2521 | HC | 2024-04-07 | 1.00
+24 | 248 | 0 | 17 | ∅ | 195.00 | ∅ | ∅ | 200.00 | V2020 | HC | 2024-04-20 | 1.00
+25 | 252 | 0 | 17 | ∅ | 25.00 | ∅ | ∅ | 0.00 | V2100 | HC | 2024-04-20 | 1.00
+

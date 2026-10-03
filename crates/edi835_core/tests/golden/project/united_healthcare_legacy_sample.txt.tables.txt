@@ -1,0 +1,30 @@
+## adjustments (rows: 7)
+row: int64 | segment: int64 | payment: int64 | claim: int64 | service: int64 | amount: decimal128(38, 2) | group_code: binary | quantity: decimal128(38, 2) | reason_code: binary
+0 | 29 | 0 | 0 | 0 | 67.50 | CO | ∅ | 45
+1 | 34 | 0 | 0 | 1 | 105.26 | PR | ∅ | 1
+2 | 35 | 0 | 0 | 1 | 79.60 | CO | ∅ | 45
+3 | 49 | 0 | 1 | 2 | 255.72 | CO | ∅ | 45
+4 | 58 | 0 | 1 | 4 | 5.13 | PR | ∅ | 2
+5 | 58 | 0 | 1 | 4 | 110.00 | PR | ∅ | 1
+6 | 59 | 0 | 1 | 4 | 184.32 | CO | ∅ | 45
+
+## claims (rows: 2)
+row: int64 | segment: int64 | payment: int64 | charge_amount: decimal128(38, 2) | claim_id: binary | claim_status: binary | coverage_amount: decimal128(38, 2) | discharge_fraction: decimal128(38, 4) | drg_code: binary | drg_weight: decimal128(38, 4) | facility_type: binary | filing_indicator: binary | frequency_code: binary | group_number: binary | patient_first_name: binary | patient_id: binary | patient_last_name: binary | patient_responsibility: decimal128(38, 2) | payer_control_number: binary | payment_amount: decimal128(38, 2) | rendering_provider_id: binary | rendering_provider_name: binary | statement_from: date32 | statement_to: date32
+0 | 18 | 0 | 341.28 | 001-18573-358 | 1 | 194.18 | ∅ | ∅ | ∅ | 12 | 16 | 1 | 12345 | COOL | 123456789 | MR | 105.26 | ATL2819897200 | 88.92 | ∅ | ∅ | 2020-12-21 | 2021-01-13
+1 | 38 | 0 | 816.24 | 001-18604-358 | 1 | 376.20 | ∅ | ∅ | ∅ | 12 | 16 | 1 | 12345 | COOL | 234567890 | MR | 115.13 | ATL2819897800 | 261.07 | ∅ | ∅ | 2020-12-18 | 2021-01-10
+
+## payments (rows: 1)
+row: int64 | segment: int64 | credit_debit_flag: binary | handling_code: binary | payee_id: binary | payee_name: binary | payer_identifier: binary | payer_name: binary | payment_date: date32 | payment_format: binary | payment_method: binary | production_date: date32 | receiver_id: binary | total_payment_amount: decimal128(38, 2) | trace_number: binary
+0 | 2 | C | I | 1922164458 | KLAUS MEDICAL CENTER | 1234567890 | UNITED HEALTHCARE INSURANCE COMPANY | 2021-02-04 | CCP | ACH | 2021-02-01 | B00099999800 | 349.99 | 1234567890
+
+## provider_adjustments (rows: 0)
+row: int64 | segment: int64 | payment: int64 | amount: decimal128(38, 2) | fiscal_period_date: date32 | provider_id: binary | reason_code: binary | reference_id: binary
+
+## services (rows: 5)
+row: int64 | segment: int64 | payment: int64 | claim: int64 | allowed_amount: decimal128(38, 2) | charge_amount: decimal128(38, 2) | line_item_control_number: binary | original_units: decimal128(38, 2) | payment_amount: decimal128(38, 2) | procedure_code: binary | procedure_qualifier: binary | service_date: date32 | units_paid: decimal128(38, 2)
+0 | 27 | 0 | 0 | 88.92 | 156.42 | 800941258001 | ∅ | 88.92 | B4152 | HC | 2020-12-21 | 234.00
+1 | 32 | 0 | 0 | 105.26 | 184.86 | 800941258002 | ∅ | 0.00 | B4152 | HC | 2021-01-01 | 277.00
+2 | 47 | 0 | 1 | 204.18 | 459.90 | 123456789012 | ∅ | 204.18 | B4154 | HC | 2020-12-18 | 249.00
+3 | 52 | 0 | 1 | 27.84 | 27.84 | 123456789013 | ∅ | 27.84 | B4034 | HC | 2020-12-18 | 12.00
+4 | 56 | 0 | 1 | 144.18 | 328.50 | 123456789014 | ∅ | 29.05 | B4154 | HC | 2021-01-01 | 178.00
+

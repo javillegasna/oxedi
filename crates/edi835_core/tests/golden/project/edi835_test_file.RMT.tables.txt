@@ -1,0 +1,52 @@
+## adjustments (rows: 9)
+row: int64 | segment: int64 | payment: int64 | claim: int64 | service: int64 | amount: decimal128(38, 2) | group_code: binary | quantity: decimal128(38, 2) | reason_code: binary
+0 | 21 | 0 | 0 | 0 | 24.00 | PR | ∅ | 3
+1 | 26 | 0 | 0 | 3 | 235.00 | PR | ∅ | 3
+2 | 36 | 0 | 1 | 5 | 55.00 | PR | ∅ | 3
+3 | 38 | 0 | 1 | 6 | 40.00 | PR | ∅ | 3
+4 | 43 | 0 | 1 | 10 | 50.00 | PR | ∅ | 3
+5 | 45 | 0 | 1 | 11 | 100.00 | PR | ∅ | 3
+6 | 60 | 0 | 2 | 17 | 50.00 | PR | ∅ | 3
+7 | 69 | 0 | 3 | 18 | 12.00 | PR | ∅ | 3
+8 | 74 | 0 | 3 | 21 | 145.00 | PR | ∅ | 3
+
+## claims (rows: 4)
+row: int64 | segment: int64 | payment: int64 | charge_amount: decimal128(38, 2) | claim_id: binary | claim_status: binary | coverage_amount: decimal128(38, 2) | discharge_fraction: decimal128(38, 4) | drg_code: binary | drg_weight: decimal128(38, 4) | facility_type: binary | filing_indicator: binary | frequency_code: binary | group_number: binary | patient_first_name: binary | patient_id: binary | patient_last_name: binary | patient_responsibility: decimal128(38, 2) | payer_control_number: binary | payment_amount: decimal128(38, 2) | rendering_provider_id: binary | rendering_provider_name: binary | statement_from: date32 | statement_to: date32
+0 | 15 | 0 | 395.00 | 5074220218633018656 | 1 | 136.00 | ∅ | ∅ | ∅ | ∅ | OF | ∅ | ∅ | DIEGO | 72150837822 | IBARRA | 259.00 | 260624793497 | 136.00 | ∅ | ∅ | 2024-01-05 | ∅
+1 | 30 | 0 | 245.00 | 1334641708262394415 | 4 | ∅ | ∅ | ∅ | ∅ | ∅ | OF | ∅ | ∅ | GRETA | N9870290850 | WEBER | 245.00 | 195964685029 | 0.00 | ∅ | ∅ | 2023-12-28 | ∅
+2 | 47 | 0 | 145.00 | 4253683308588867011 | 1 | 95.00 | ∅ | ∅ | ∅ | ∅ | OF | ∅ | ∅ | GABRIEL | 33289090414 | ZAMORA | 50.00 | 720064709295 | 95.00 | ∅ | ∅ | 2024-01-05 | ∅
+3 | 62 | 0 | 295.00 | 0992561922035121326 | 1 | 138.00 | ∅ | ∅ | ∅ | ∅ | OF | ∅ | ∅ | GRETA | 43936922186 | JIMENEZ | 157.00 | 637821988020 | 138.00 | ∅ | ∅ | 2023-12-30 | ∅
+
+## payments (rows: 1)
+row: int64 | segment: int64 | credit_debit_flag: binary | handling_code: binary | payee_id: binary | payee_name: binary | payer_identifier: binary | payer_name: binary | payment_date: date32 | payment_format: binary | payment_method: binary | production_date: date32 | receiver_id: binary | total_payment_amount: decimal128(38, 2) | trace_number: binary
+0 | 2 | C | I | 479864355 | COASTAL MEDICAL GROUP LLC | 7027617678 | COASTAL BENEFITS CO | 2024-01-08 | CCP | ACH | 2024-01-08 | ∅ | 8982.00 | 51621440131398625793
+
+## provider_adjustments (rows: 0)
+row: int64 | segment: int64 | payment: int64 | amount: decimal128(38, 2) | fiscal_period_date: date32 | provider_id: binary | reason_code: binary | reference_id: binary
+
+## services (rows: 23)
+row: int64 | segment: int64 | payment: int64 | claim: int64 | allowed_amount: decimal128(38, 2) | charge_amount: decimal128(38, 2) | line_item_control_number: binary | original_units: decimal128(38, 2) | payment_amount: decimal128(38, 2) | procedure_code: binary | procedure_qualifier: binary | service_date: date32 | units_paid: decimal128(38, 2)
+0 | 20 | 0 | 0 | 71.00 | 95.00 | ∅ | ∅ | 71.00 | V2020 | HC | ∅ | ∅
+1 | 23 | 0 | 0 | ∅ | 0.00 | ∅ | ∅ | 0.00 | V2750 | HC | ∅ | ∅
+2 | 24 | 0 | 0 | ∅ | 0.00 | ∅ | ∅ | 0.00 | V2755 | HC | ∅ | ∅
+3 | 25 | 0 | 0 | 65.00 | 300.00 | ∅ | ∅ | 65.00 | V2781 | HC | ∅ | ∅
+4 | 28 | 0 | 0 | ∅ | 0.00 | ∅ | ∅ | 0.00 | V2784 | HC | ∅ | ∅
+5 | 35 | 0 | 1 | ∅ | 55.00 | ∅ | ∅ | 0.00 | V2020 | HC | ∅ | ∅
+6 | 37 | 0 | 1 | ∅ | 40.00 | ∅ | ∅ | 0.00 | V2100 | HC | ∅ | ∅
+7 | 39 | 0 | 1 | ∅ | 0.00 | ∅ | ∅ | 0.00 | V2750 | HC | ∅ | ∅
+8 | 40 | 0 | 1 | ∅ | 0.00 | ∅ | ∅ | 0.00 | V2755 | HC | ∅ | ∅
+9 | 41 | 0 | 1 | ∅ | 0.00 | ∅ | ∅ | 0.00 | V2784 | HC | ∅ | ∅
+10 | 42 | 0 | 1 | ∅ | 50.00 | ∅ | ∅ | 0.00 | V2799 | HC | ∅ | ∅
+11 | 44 | 0 | 1 | ∅ | 100.00 | ∅ | ∅ | 0.00 | V2799 | HC | ∅ | ∅
+12 | 52 | 0 | 2 | 63.00 | 63.00 | ∅ | ∅ | 63.00 | V2020 | HC | ∅ | ∅
+13 | 54 | 0 | 2 | 32.00 | 32.00 | ∅ | ∅ | 32.00 | V2100 | HC | ∅ | ∅
+14 | 56 | 0 | 2 | ∅ | 0.00 | ∅ | ∅ | 0.00 | V2750 | HC | ∅ | ∅
+15 | 57 | 0 | 2 | ∅ | 0.00 | ∅ | ∅ | 0.00 | V2755 | HC | ∅ | ∅
+16 | 58 | 0 | 2 | ∅ | 0.00 | ∅ | ∅ | 0.00 | V2784 | HC | ∅ | ∅
+17 | 59 | 0 | 2 | ∅ | 50.00 | ∅ | ∅ | 0.00 | V2799 | HC | ∅ | ∅
+18 | 68 | 0 | 3 | 83.00 | 95.00 | ∅ | ∅ | 83.00 | V2020 | HC | ∅ | ∅
+19 | 71 | 0 | 3 | ∅ | 0.00 | ∅ | ∅ | 0.00 | V2750 | HC | ∅ | ∅
+20 | 72 | 0 | 3 | ∅ | 0.00 | ∅ | ∅ | 0.00 | V2755 | HC | ∅ | ∅
+21 | 73 | 0 | 3 | 55.00 | 200.00 | ∅ | ∅ | 55.00 | V2781 | HC | ∅ | ∅
+22 | 76 | 0 | 3 | ∅ | 0.00 | ∅ | ∅ | 0.00 | V2784 | HC | ∅ | ∅
+

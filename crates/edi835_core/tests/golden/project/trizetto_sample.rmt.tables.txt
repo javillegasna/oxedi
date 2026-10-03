@@ -1,0 +1,20 @@
+## adjustments (rows: 2)
+row: int64 | segment: int64 | payment: int64 | claim: int64 | service: int64 | amount: decimal128(38, 2) | group_code: binary | quantity: decimal128(38, 2) | reason_code: binary
+0 | 13 | 0 | 0 | ∅ | 733.48 | CO | ∅ | 45
+1 | 18 | 0 | 0 | 0 | 500.00 | CO | 500.00 | 45
+
+## claims (rows: 1)
+row: int64 | segment: int64 | payment: int64 | charge_amount: decimal128(38, 2) | claim_id: binary | claim_status: binary | coverage_amount: decimal128(38, 2) | discharge_fraction: decimal128(38, 4) | drg_code: binary | drg_weight: decimal128(38, 4) | facility_type: binary | filing_indicator: binary | frequency_code: binary | group_number: binary | patient_first_name: binary | patient_id: binary | patient_last_name: binary | patient_responsibility: decimal128(38, 2) | payer_control_number: binary | payment_amount: decimal128(38, 2) | rendering_provider_id: binary | rendering_provider_name: binary | statement_from: date32 | statement_to: date32
+0 | 12 | 0 | 2113.66 | 666123 | 1 | ∅ | ∅ | ∅ | ∅ | 11 | MA | 1 | ∅ | SAM | ∅ | JONES | ∅ | 1999999444444 | 1380.18 | ∅ | ∅ | 2024-08-16 | 2024-08-24
+
+## payments (rows: 1)
+row: int64 | segment: int64 | credit_debit_flag: binary | handling_code: binary | payee_id: binary | payee_name: binary | payer_identifier: binary | payer_name: binary | payment_date: date32 | payment_format: binary | payment_method: binary | production_date: date32 | receiver_id: binary | total_payment_amount: decimal128(38, 2) | trace_number: binary
+0 | 2 | C | C | 6543210903 | REGIONAL HOPE HOSPITAL | 1512345678 | INSURANCE COMPANY OF AMERICA | 2024-04-13 | CTX | ACH | 2024-04-16 | ∅ | 1500.00 | 12345
+
+## provider_adjustments (rows: 0)
+row: int64 | segment: int64 | payment: int64 | amount: decimal128(38, 2) | fiscal_period_date: date32 | provider_id: binary | reason_code: binary | reference_id: binary
+
+## services (rows: 1)
+row: int64 | segment: int64 | payment: int64 | claim: int64 | allowed_amount: decimal128(38, 2) | charge_amount: decimal128(38, 2) | line_item_control_number: binary | original_units: decimal128(38, 2) | payment_amount: decimal128(38, 2) | procedure_code: binary | procedure_qualifier: binary | service_date: date32 | units_paid: decimal128(38, 2)
+0 | 17 | 0 | 0 | ∅ | 1500.00 | ∅ | ∅ | 1000.00 | ∅ | HC:99213 | ∅ | 1.00
+

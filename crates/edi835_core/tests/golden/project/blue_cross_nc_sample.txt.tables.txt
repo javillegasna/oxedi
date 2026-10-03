@@ -1,0 +1,23 @@
+## adjustments (rows: 3)
+row: int64 | segment: int64 | payment: int64 | claim: int64 | service: int64 | amount: decimal128(38, 2) | group_code: binary | quantity: decimal128(38, 2) | reason_code: binary
+0 | 19 | 0 | 0 | 0 | 34.60 | CO | ∅ | 42
+1 | 20 | 0 | 0 | 0 | 117.54 | PR | ∅ | 2
+2 | 25 | 0 | 0 | 1 | 25.00 | PR | ∅ | 3
+
+## claims (rows: 1)
+row: int64 | segment: int64 | payment: int64 | charge_amount: decimal128(38, 2) | claim_id: binary | claim_status: binary | coverage_amount: decimal128(38, 2) | discharge_fraction: decimal128(38, 4) | drg_code: binary | drg_weight: decimal128(38, 4) | facility_type: binary | filing_indicator: binary | frequency_code: binary | group_number: binary | patient_first_name: binary | patient_id: binary | patient_last_name: binary | patient_responsibility: decimal128(38, 2) | payer_control_number: binary | payment_amount: decimal128(38, 2) | rendering_provider_id: binary | rendering_provider_name: binary | statement_from: date32 | statement_to: date32
+0 | 14 | 0 | 2100.00 | 200200964A52 | 1 | ∅ | ∅ | ∅ | ∅ | ∅ | 15 | ∅ | ∅ | Mary |  YPB123456789001 | Dough | 142.54 | 94151100100 | 1922.86 | ∅ | ∅ | ∅ | ∅
+
+## payments (rows: 1)
+row: int64 | segment: int64 | credit_debit_flag: binary | handling_code: binary | payee_id: binary | payee_name: binary | payer_identifier: binary | payer_name: binary | payment_date: date32 | payment_format: binary | payment_method: binary | production_date: date32 | receiver_id: binary | total_payment_amount: decimal128(38, 2) | trace_number: binary
+0 | 0 | C | I | 0987654321 | XYZ HEALTHCARE CORPORATION | 560894904 | BLUE CROSS AND BLUE SHIELD OF NORTH CAROLINA | 2011-01-08 | ∅ | CHK | 2011-01-04 | ∅ | 1922.86 | 02790758
+
+## provider_adjustments (rows: 0)
+row: int64 | segment: int64 | payment: int64 | amount: decimal128(38, 2) | fiscal_period_date: date32 | provider_id: binary | reason_code: binary | reference_id: binary
+
+## services (rows: 3)
+row: int64 | segment: int64 | payment: int64 | claim: int64 | allowed_amount: decimal128(38, 2) | charge_amount: decimal128(38, 2) | line_item_control_number: binary | original_units: decimal128(38, 2) | payment_amount: decimal128(38, 2) | procedure_code: binary | procedure_qualifier: binary | service_date: date32 | units_paid: decimal128(38, 2)
+0 | 17 | 0 | 0 | 1175.40 | 1210.00 | 0001 | ∅ | 1057.86 | 59430 | HC | 2010-12-31 | 1.00
+1 | 23 | 0 | 0 | ∅ | 890.00 | 0002 | ∅ | 865.00 | 59440 | HC | 2010-12-31 | 1.00
+2 | 27 | 0 | 0 | 742.00 | ∅ | 0003 | 742.00 | ∅ | 59426 | HC | 2010-12-31 | ∅
+

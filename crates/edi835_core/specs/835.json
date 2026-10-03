@@ -3,18 +3,21 @@
   "loops": {
     "interchange": {
       "trigger": { "segment": "ISA" },
-      "end": "IEA"
+      "end": "IEA",
+      "control": { "opener_element": 13, "closer_element": 2, "count_element": 1, "count": "children" }
     },
     "group": {
       "parent": "interchange",
       "trigger": { "segment": "GS" },
-      "end": "GE"
+      "end": "GE",
+      "control": { "opener_element": 6, "closer_element": 2, "count_element": 1, "count": "children" }
     },
     "transaction": {
       "parent": "group",
       "trigger": { "segment": "ST" },
       "segments": ["BPR", "TRN", "CUR", "REF", "DTM", "PLB"],
-      "end": "SE"
+      "end": "SE",
+      "control": { "opener_element": 2, "closer_element": 2, "count_element": 1, "count": "segments" }
     },
     "1000A": {
       "parent": "transaction",

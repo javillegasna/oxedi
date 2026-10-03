@@ -16,6 +16,7 @@
 //! The structure is data: no code in this crate is specific to the 835 beyond
 //! the built-in spec it loads.
 
+pub mod check;
 pub mod delimiters;
 pub mod diagnostic;
 pub mod document;
@@ -27,6 +28,7 @@ pub mod spec;
 pub mod tokenizer;
 pub mod tree;
 
+pub use check::EnvelopeChecker;
 pub use delimiters::{Delimiters, IsaError};
 pub use diagnostic::{Diagnostic, LoopRef, Rule, SnipLevel};
 pub use document::{Document, Segments, Span};
@@ -35,8 +37,8 @@ pub use engine::{Event, LoopEngine};
 pub use frame::{Frame, next_frame};
 pub use segment::{Segment, WriteError};
 pub use spec::{
-    ElementDef, ElementDefError, ElementType, LoopDef, LoopId, SegmentDef, Spec, SpecError,
-    Trigger, merge_patch,
+    Control, ControlCount, ControlError, ElementDef, ElementDefError, ElementType, LoopDef, LoopId,
+    SegmentDef, Spec, SpecError, Trigger, merge_patch,
 };
 pub use tokenizer::Tokenizer;
 pub use tree::{LoopTree, Node, NodeId};

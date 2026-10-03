@@ -66,8 +66,66 @@ pub struct LoopDef {
     pub segments: Vec<Vec<u8>>,
     /// Segment that is captured and then closes the loop, e.g. `SE`.
     pub end: Option<Vec<u8>>,
+    /// How the end segment checks the loop it closes, for envelope loops.
+    pub control: Option<Control>,
     /// Loops whose parent is this one, in spec order.
     pub children: Vec<LoopId>,
+}
+
+/// What a loop's end segment counts.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ControlCount {
+    /// Every segment from the trigger to the end segment, both included.
+    Segments,
+    /// The child loop instances opened by their own trigger.
+    Children,
+}
+
+/// The control elements an envelope loop's trigger and end segment carry.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct Control {
+    /// 1-based position of the control number in the trigger, e.g. `ST02`.
+    pub opener_element: usize,
+    /// 1-based position of the same control number in the end segment, e.g. `SE02`.
+    pub closer_element: usize,
+    /// 1-based position of the count in the end segment, e.g. `SE01`.
+    pub count_element: usize,
+    /// What the count counts.
+    pub count: ControlCount,
+}
+
+/// Why a loop's `control` was rejected.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum ControlError {
+    /// A position key holds 0.
+    ZeroPosition {
+        /// The key, e.g. `opener_element`.
+        key: &'static str,
+    },
+    /// `count` is not `segments` or `children`.
+    UnknownCount {
+        /// The value as written.
+        found: String,
+    },
+    /// The loop has no `end` segment to carry the count and control number.
+    NoEnd,
+}
+
+impl fmt::Display for ControlError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            ControlError::ZeroPosition { key } => {
+                write!(f, "{key:?} must be a 1-based element position; found 0")
+            }
+            ControlError::UnknownCount { found } => {
+                write!(
+                    f,
+                    "\"count\" must be \"segments\" or \"children\"; found {found:?}"
+                )
+            }
+            ControlError::NoEnd => write!(f, "the loop has no \"end\" segment to check"),
+        }
+    }
 }
 
 impl LoopDef {
@@ -309,6 +367,13 @@ pub enum SpecError {
         /// What is wrong with it.
         reason: ElementDefError,
     },
+    /// A loop's `control` is invalid.
+    BadControl {
+        /// The loop.
+        loop_name: String,
+        /// What is wrong with it.
+        reason: ControlError,
+    },
     /// Two loops with the same parent have identical triggers.
     AmbiguousTrigger {
         /// First loop, in spec order.
@@ -400,6 +465,9 @@ impl fmt::Display for SpecError {
                 position,
                 reason,
             } => write!(f, "segment {segment:?} element {position:?}: {reason}"),
+            SpecError::BadControl { loop_name, reason } => {
+                write!(f, "loop {loop_name:?} has an invalid \"control\": {reason}")
+            }
             SpecError::AmbiguousTrigger {
                 first,
                 second,
@@ -482,6 +550,16 @@ struct RawLoop {
     #[serde(default)]
     segments: Vec<String>,
     end: Option<String>,
+    control: Option<RawControl>,
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(deny_unknown_fields, expecting = "a control object")]
+struct RawControl {
+    opener_element: usize,
+    closer_element: usize,
+    count_element: usize,
+    count: String,
 }
 
 #[derive(Debug, Deserialize)]
@@ -724,6 +802,15 @@ impl Spec {
                 conditions.push((parsed, value.as_bytes().to_vec()));
             }
             conditions.sort();
+            let control = match &def.control {
+                None => None,
+                Some(raw) => Some(compile_control(raw, def.end.is_some()).map_err(|reason| {
+                    SpecError::BadControl {
+                        loop_name: name.clone(),
+                        reason,
+                    }
+                })?),
+            };
             loops.push(LoopDef {
                 name: name.clone(),
                 parent,
@@ -733,6 +820,7 @@ impl Spec {
                 },
                 segments: def.segments.iter().map(|s| s.as_bytes().to_vec()).collect(),
                 end: def.end.as_ref().map(|s| s.as_bytes().to_vec()),
+                control,
                 children: Vec::new(),
             });
         }
@@ -838,6 +926,36 @@ impl Spec {
 }
 
 /// A trigger as `"N1" where {1: "PR", 2: "X"}`, or `"N1" with no conditions`.
+/// Validates a loop's `control`; `has_end` says whether the loop declares an end segment.
+fn compile_control(raw: &RawControl, has_end: bool) -> Result<Control, ControlError> {
+    if !has_end {
+        return Err(ControlError::NoEnd);
+    }
+    let positions = [
+        ("opener_element", raw.opener_element),
+        ("closer_element", raw.closer_element),
+        ("count_element", raw.count_element),
+    ];
+    if let Some((key, _)) = positions.iter().find(|(_, position)| *position == 0) {
+        return Err(ControlError::ZeroPosition { key });
+    }
+    let count = match raw.count.as_str() {
+        "segments" => ControlCount::Segments,
+        "children" => ControlCount::Children,
+        _ => {
+            return Err(ControlError::UnknownCount {
+                found: raw.count.clone(),
+            });
+        }
+    };
+    Ok(Control {
+        opener_element: raw.opener_element,
+        closer_element: raw.closer_element,
+        count_element: raw.count_element,
+        count,
+    })
+}
+
 fn render_trigger(trigger: &Trigger) -> String {
     let segment = String::from_utf8_lossy(&trigger.segment);
     if trigger.conditions.is_empty() {
@@ -960,6 +1078,9 @@ fn check_shape(source: &Value) -> Result<(), SpecError> {
                 if let Some(conditions) = trigger.get("where") {
                     object_at(conditions, &format!("{at}.where"))?;
                 }
+            }
+            if let Some(control) = def.get("control") {
+                object_at(control, &format!("{at}.control"))?;
             }
         }
     }
@@ -2103,6 +2224,136 @@ mod tests {
             let err = SpecError::BadElementDef {
                 segment: "CLP".into(),
                 position: "01".into(),
+                reason,
+            };
+            assert_eq!(err.to_string(), expected);
+            assert!(std::error::Error::source(&err).is_none());
+        }
+    }
+
+    fn control_error(control: &str) -> SpecError {
+        let json = format!(
+            r#"{{"name":"t","loops":{{"env":{{"trigger":{{"segment":"HD"}},"end":"TR","control":{control}}}}}}}"#
+        );
+        Spec::from_json(&json).unwrap_err()
+    }
+
+    #[test]
+    fn builtin_835_declares_the_envelope_controls() {
+        let spec = Spec::builtin_835();
+        let control = |name: &str| spec.get(spec.loop_id(name).unwrap()).control;
+        assert_eq!(
+            control("interchange"),
+            Some(Control {
+                opener_element: 13,
+                closer_element: 2,
+                count_element: 1,
+                count: ControlCount::Children,
+            })
+        );
+        assert_eq!(
+            control("group"),
+            Some(Control {
+                opener_element: 6,
+                closer_element: 2,
+                count_element: 1,
+                count: ControlCount::Children,
+            })
+        );
+        assert_eq!(
+            control("transaction"),
+            Some(Control {
+                opener_element: 2,
+                closer_element: 2,
+                count_element: 1,
+                count: ControlCount::Segments,
+            })
+        );
+        assert_eq!(control("2100"), None);
+    }
+
+    #[test]
+    fn bad_controls_are_rejected_with_the_loop_and_the_reason() {
+        let cases = [
+            (
+                r#"{"opener_element":0,"closer_element":2,"count_element":1,"count":"segments"}"#,
+                ControlError::ZeroPosition {
+                    key: "opener_element",
+                },
+            ),
+            (
+                r#"{"opener_element":2,"closer_element":2,"count_element":0,"count":"segments"}"#,
+                ControlError::ZeroPosition {
+                    key: "count_element",
+                },
+            ),
+            (
+                r#"{"opener_element":2,"closer_element":2,"count_element":1,"count":"segs"}"#,
+                ControlError::UnknownCount {
+                    found: "segs".into(),
+                },
+            ),
+        ];
+        for (control, expected) in cases {
+            let err = control_error(control);
+            assert!(
+                matches!(&err, SpecError::BadControl { loop_name, reason } if loop_name == "env" && *reason == expected),
+                "{control}: {err:?}"
+            );
+        }
+        let err = Spec::from_json(
+            r#"{"name":"t","loops":{"env":{"trigger":{"segment":"HD"},"control":{"opener_element":2,"closer_element":2,"count_element":1,"count":"segments"}}}}"#,
+        )
+        .unwrap_err();
+        assert!(
+            matches!(
+                &err,
+                SpecError::BadControl {
+                    reason: ControlError::NoEnd,
+                    ..
+                }
+            ),
+            "{err:?}"
+        );
+    }
+
+    #[test]
+    fn a_control_that_is_not_an_object_or_misses_a_key_is_rejected() {
+        let err = control_error("[2,2,1]");
+        assert!(
+            matches!(&err, SpecError::NotAnObject { path, found: "an array" } if path == "loops.env.control"),
+            "{err:?}"
+        );
+        let err = control_error(r#"{"opener_element":2,"closer_element":2,"count":"segments"}"#);
+        assert!(
+            matches!(&err, SpecError::Schema { loop_name: Some(name), .. } if name == "env"),
+            "{err:?}"
+        );
+    }
+
+    #[test]
+    fn bad_control_displays_the_loop_and_every_reason() {
+        let cases = [
+            (
+                ControlError::ZeroPosition {
+                    key: "opener_element",
+                },
+                "loop \"transaction\" has an invalid \"control\": \"opener_element\" must be a 1-based element position; found 0",
+            ),
+            (
+                ControlError::UnknownCount {
+                    found: "segs".into(),
+                },
+                "loop \"transaction\" has an invalid \"control\": \"count\" must be \"segments\" or \"children\"; found \"segs\"",
+            ),
+            (
+                ControlError::NoEnd,
+                "loop \"transaction\" has an invalid \"control\": the loop has no \"end\" segment to check",
+            ),
+        ];
+        for (reason, expected) in cases {
+            let err = SpecError::BadControl {
+                loop_name: "transaction".into(),
                 reason,
             };
             assert_eq!(err.to_string(), expected);

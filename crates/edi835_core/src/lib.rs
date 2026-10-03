@@ -21,6 +21,7 @@
 //! the built-in spec it loads.
 
 pub mod check;
+pub mod column;
 pub mod delimiters;
 pub mod diagnostic;
 pub mod document;
@@ -33,6 +34,10 @@ pub mod tokenizer;
 pub mod tree;
 
 pub use check::EnvelopeChecker;
+pub use column::{
+    Bitmap, Cell, CellError, Column, ColumnData, ColumnType, RowError, Table, Tables, parse_dt,
+    parse_n, parse_r, parse_tm,
+};
 pub use delimiters::{Delimiters, IsaError};
 pub use diagnostic::{Diagnostic, LoopRef, Rule, SnipLevel};
 pub use document::{Document, Segments, Span};

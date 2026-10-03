@@ -31,3 +31,27 @@ jobs:
         run: cargo test --workspace --locked
       - name: Benches compile
         run: cargo bench --workspace --no-run --locked
+
+  python:
+    name: Python ${{ matrix.python }}
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        python: ["3.11", "3.13"]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: astral-sh/setup-uv@v6
+      - name: Environment
+        run: |
+          uv venv --python ${{ matrix.python }} .venv
+          echo "VIRTUAL_ENV=$PWD/.venv" >> "$GITHUB_ENV"
+          echo "$PWD/.venv/bin" >> "$GITHUB_PATH"
+      - name: Tools
+        run: uv pip install "maturin>=1.9.4,<2" pytest polars pyarrow
+      - name: Build
+        run: maturin develop --uv --release --manifest-path crates/oxedi835_py/Cargo.toml
+      - name: Test
+        run: pytest crates/oxedi835_py/tests
+      - name: Wheel in a clean environment
+        run: scripts/smoke_wheel.sh

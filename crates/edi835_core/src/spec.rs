@@ -6,7 +6,9 @@
 //! names and types the elements of each segment id, wherever the segment
 //! appears. Loading compiles that into index-based definitions so the engine
 //! never compares strings, and keeps the JSON value so patches can be applied
-//! on top.
+//! on top. Patches follow RFC 7386: objects merge key by key, while arrays and
+//! scalars replace wholesale; see [`Spec::merge_patch`] for what that means
+//! when extending a loop's segment list.
 
 use std::cmp::Reverse;
 use std::collections::BTreeMap;
@@ -542,6 +544,26 @@ impl Spec {
     /// result: objects merge recursively, arrays and scalars are replaced,
     /// `null` deletes. The result is validated like any spec; every failure,
     /// including unparsable patch text, is wrapped in [`SpecError::Patch`].
+    ///
+    /// Because `segments` is an array, a patch that touches it replaces the whole
+    /// list rather than appending. To add a segment to a loop, the patch must
+    /// list the loop's complete segment list, including the built-in entries that
+    /// would otherwise be lost. Patches that only change `trigger`, `parent`, or
+    /// `end` leave `segments` untouched, since objects merge key by key. The
+    /// current segment list is visible through [`Self::to_json()`] or [`Self::get()`].
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// # use edi835_core::Spec;
+    /// let spec = Spec::builtin_835();
+    /// let patched = spec.merge_patch(
+    ///     r#"{"loops":{"1000A":{"segments":["N3","N4","REF","PER","XX"]}}}"#
+    /// ).unwrap();
+    /// let loop_1000a = patched.get(patched.loop_id("1000A").unwrap());
+    /// assert_eq!(loop_1000a.segments.len(), 5);
+    /// assert!(loop_1000a.segments.contains(&b"XX".to_vec()));
+    /// ```
     pub fn merge_patch(&self, patch_json: &str) -> Result<Spec, SpecError> {
         let patched = serde_json::from_str::<Value>(patch_json)
             .map_err(SpecError::Json)

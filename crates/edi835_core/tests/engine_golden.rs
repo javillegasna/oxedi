@@ -114,9 +114,11 @@ fn summary(spec: &Spec, bytes: &[u8], delims: edi835_core::Delimiters) -> String
 
 #[test]
 fn event_streams_match_the_golden_files() {
+    use std::collections::BTreeSet;
     let spec = Spec::builtin_835();
     let update = std::env::var("UPDATE_GOLDEN").as_deref() == Ok("1");
     let mut failures = Vec::new();
+    let mut expected_paths = BTreeSet::new();
     for (name, bytes, delims) in common::all_files() {
         let (actual, path) = if SUMMARY_ONLY.contains(&name.as_str()) {
             (
@@ -129,6 +131,7 @@ fn event_streams_match_the_golden_files() {
                 golden_dir().join(format!("{name}.events.txt")),
             )
         };
+        expected_paths.insert(path.clone());
         if update {
             std::fs::create_dir_all(golden_dir()).unwrap();
             std::fs::write(&path, &actual).unwrap();
@@ -146,6 +149,17 @@ fn event_streams_match_the_golden_files() {
                 path.display(),
                 describe_diff(&actual, &expected)
             ));
+        }
+    }
+    if let Ok(entries) = std::fs::read_dir(golden_dir()) {
+        for entry in entries.flatten() {
+            let path = entry.path();
+            if path.is_file() && !expected_paths.contains(&path) {
+                failures.push(format!(
+                    "orphaned golden file with no test that compares it: {}",
+                    path.display()
+                ));
+            }
         }
     }
     assert!(failures.is_empty(), "{failures:#?}");

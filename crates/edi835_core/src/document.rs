@@ -97,7 +97,56 @@ impl<'a> Document<'a> {
         };
         Segment::parse(index, frame, &self.delims)
     }
+
+    /// Iterates every segment in order, parsing each on demand.
+    pub fn segments(&self) -> Segments<'_, 'a> {
+        Segments { doc: self, next: 0 }
+    }
+
+    /// Makes the document own its bytes, copying them only if they were borrowed.
+    /// Spans are reused as they are.
+    pub fn into_owned(self) -> Document<'static> {
+        Document {
+            bytes: Cow::Owned(self.bytes.into_owned()),
+            delims: self.delims,
+            spans: self.spans,
+        }
+    }
 }
+
+impl<'d, 'a> IntoIterator for &'d Document<'a> {
+    type Item = Segment<'d>;
+    type IntoIter = Segments<'d, 'a>;
+
+    fn into_iter(self) -> Self::IntoIter {
+        self.segments()
+    }
+}
+
+/// Iterator over a document's segments. `'d` is the borrow of the document,
+/// `'a` the document's own buffer lifetime; items borrow for `'d`.
+#[derive(Debug, Clone)]
+pub struct Segments<'d, 'a> {
+    doc: &'d Document<'a>,
+    next: usize,
+}
+
+impl<'d> Iterator for Segments<'d, '_> {
+    type Item = Segment<'d>;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        let segment = self.doc.segment(self.next)?;
+        self.next += 1;
+        Some(segment)
+    }
+
+    fn size_hint(&self) -> (usize, Option<usize>) {
+        let remaining = self.doc.len().saturating_sub(self.next);
+        (remaining, Some(remaining))
+    }
+}
+
+impl ExactSizeIterator for Segments<'_, '_> {}
 
 /// Runs the framing pass and records each frame as byte ranges.
 fn index(bytes: &[u8], delims: &Delimiters) -> Vec<Span> {
@@ -239,5 +288,66 @@ mod tests {
     fn as_bytes_is_the_input_unchanged() {
         let input = &b"ST*835~\n"[..];
         assert_eq!(Document::with_delimiters(input, plain()).as_bytes(), input);
+    }
+
+    #[test]
+    fn segments_iterator_yields_every_segment_with_consecutive_indices() {
+        let doc = Document::with_delimiters(&b"ST*835~SE*2~\n"[..], plain());
+        let segments: Vec<_> = doc.segments().collect();
+        assert_eq!(segments.len(), 3);
+        assert_eq!(doc.segments().len(), 3, "ExactSizeIterator");
+        for (i, segment) in segments.iter().enumerate() {
+            assert_eq!(segment.index, i);
+            assert_eq!(doc.segment(i).as_ref(), Some(segment));
+        }
+    }
+
+    #[test]
+    fn a_document_reference_can_be_iterated_with_for() {
+        let doc = Document::with_delimiters(&b"ST*835~SE*2~"[..], plain());
+        let mut ids = Vec::new();
+        for segment in &doc {
+            ids.push(segment.id);
+        }
+        assert_eq!(ids, vec![&b"ST"[..], b"SE"]);
+    }
+
+    #[test]
+    fn parse_accepts_owned_bytes() {
+        fn assert_static(_: &Document<'static>) {}
+        let mut input = ISA.to_vec();
+        input.extend_from_slice(b"GS*HP~");
+        let doc = Document::parse(input).unwrap();
+        assert_static(&doc);
+        assert_eq!(doc.len(), 2);
+        assert_eq!(doc.segment(1).unwrap().id, b"GS");
+    }
+
+    #[test]
+    fn into_owned_detaches_from_the_buffer() {
+        fn assert_static(_: &Document<'static>) {}
+        // A `Segment` borrows from the document, so the snapshot taken before
+        // the move must own its bytes: otherwise `into_owned` and `drop` would
+        // not compile while it is alive.
+        fn snapshot(doc: &Document<'_>) -> Vec<(Vec<u8>, Vec<u8>, usize)> {
+            doc.segments()
+                .map(|s| (s.raw.to_vec(), s.id.to_vec(), s.elements.len()))
+                .collect()
+        }
+        let buffer = b"ST*835~SE*2~".to_vec();
+        let borrowed = Document::with_delimiters(&buffer[..], plain());
+        let before = snapshot(&borrowed);
+        let owned = borrowed.into_owned();
+        drop(buffer);
+        assert_static(&owned);
+        assert_eq!(snapshot(&owned), before);
+        assert_eq!(owned.as_bytes(), b"ST*835~SE*2~");
+    }
+
+    #[test]
+    fn into_owned_of_an_owned_document_does_not_change_it() {
+        let doc = Document::with_delimiters(b"ST*835~".to_vec(), plain());
+        let owned = doc.clone().into_owned();
+        assert_eq!(owned, doc);
     }
 }

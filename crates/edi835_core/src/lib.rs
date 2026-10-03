@@ -11,7 +11,7 @@ pub mod segment;
 pub mod tokenizer;
 
 pub use delimiters::{Delimiters, IsaError};
-pub use document::{Document, Span};
+pub use document::{Document, Segments, Span};
 pub use element::{Element, Value};
 pub use frame::{Frame, next_frame};
 pub use segment::{Segment, WriteError};

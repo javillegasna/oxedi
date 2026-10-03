@@ -438,11 +438,13 @@ un segmento que la spec no reconoce se emite como `Unmatched` con su índice (N1
   reemplazan, `null` borra. Es la misma operación que `dict.update` recursivo en Python.
   Descartado el árbol anidado (fusionar exige rutas) y una sintaxis de parche propia.
 - **T9 · Algoritmo de detección con ancestros implícitos.** Para cada segmento, en orden:
-  (a) si dispara un loop hijo del loop actual, se abre; (b) si dispara el loop actual, se
-  cierra y se abre otra instancia; (c) si está en la lista de segmentos del loop actual, se
-  captura; (d) si es el segmento `end` del loop actual, se captura y se cierra; (e) si nada
-  encaja, se cierra el loop actual y se reintenta con el padre; (f) en la raíz sin match,
-  `Unmatched`. Un disparador cuyo loop no es hijo de ningún loop abierto pero cuya cadena
+  (a) si dispara un loop hijo de *cualquier* loop abierto, buscando del más interno al más
+  externo y por último la raíz, se cierran los loops por encima de ese padre y se abre el
+  hijo (esto cubre abrir un hijo del loop actual, repetir un hermano y abrir un primo); los
+  disparadores ganan a la captura: un segmento que dispara un loop alcanzable abre ese loop
+  aunque el loop actual lo liste entre sus segmentos; (b) si algún loop abierto lo acepta,
+  del más interno al más externo, se cierran los de encima y se captura; si es el segmento
+  `end` de ese loop, además se cierra; (c) si nada encaja, `Unmatched` y la ruta no cambia. Un disparador cuyo loop no es hijo de ningún loop abierto pero cuya cadena
   de ancestros llega a la raíz abre esos ancestros con `implicit: true`: así un fragmento
   que empieza en `ST` (como `blue_cross`) produce una transacción dentro de un sobre
   implícito en vez de treinta segmentos `Unmatched`. Descartado el modo estricto (fragmentos
@@ -455,8 +457,9 @@ un segmento que la spec no reconoce se emite como `Unmatched` con su índice (N1
 **Entregable / contrato.**
 - Módulo `spec`: `Spec` (deserializable), `Spec::builtin_835()`, `Spec::from_json(&str)`,
   `Spec::merge_patch(&self, patch: &str) -> Result<Spec, SpecError>`, validación al cargar
-  (padres existen, sin ciclos, raíz única, triggers bien formados) con `SpecError` que
-  nombra el loop culpable. Esquema de un loop:
+  (padres existen, sin ciclos, al menos un loop, posiciones `where` canónicas, triggers de
+  hermanos no idénticos) con `SpecError` que nombra el loop culpable, el ciclo completo, y
+  si el fallo vino de un parche. Esquema de un loop:
   `{"parent": "2000", "trigger": {"segment": "CLP"}, "segments": ["CLP","CAS","NM1",…]}`;
   el trigger admite condiciones por posición: `{"segment":"N1","where":{"1":"PR"}}`;
   `"end": "SE"` marca el segmento que cierra el loop al capturarse.

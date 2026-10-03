@@ -228,7 +228,7 @@ clippy/fmt.
 **Nota tras la revisión del 2026-10-02.** El cambio al modelo por eventos (§3, §4) no
 altera este stage. El plan `plans/stage-0-scaffolding.md` sigue vigente tal cual.
 
-### Stage 1 · Framing + Tokenizer — PROPUESTO 2026-10-02 (pendiente de aprobación)
+### Stage 1 · Framing + Tokenizer — APROBADO 2026-10-02
 
 Primera capa con lógica. Dos unidades con una costura entre ellas (N7): el *framing*, que
 no sabe qué es un segmento, y el *tokenizer*, que no sabe qué es un 835.

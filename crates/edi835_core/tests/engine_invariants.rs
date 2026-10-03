@@ -4,14 +4,14 @@ mod common;
 
 use std::collections::BTreeMap;
 
-use edi835_core::{Event, LoopEngine, LoopTree, Spec, Tokenizer};
+use edi835_core::{Event, LoopTree, Spec, Tokenizer};
 
 #[test]
 fn every_segment_is_accounted_for_exactly_once_and_loops_balance() {
     let spec = Spec::builtin_835();
     for (name, bytes, delims) in common::all_files() {
         let segments: Vec<_> = Tokenizer::with_delimiters(&bytes, delims).collect();
-        let events = common::run_engine(&spec, segments.iter().cloned());
+        let (events, engine) = common::run_engine_keeping(&spec, segments.iter().cloned());
         let mut seen = vec![0usize; segments.len()];
         let mut depth = 0usize;
         let mut opens = 0usize;
@@ -45,7 +45,6 @@ fn every_segment_is_accounted_for_exactly_once_and_loops_balance() {
         }
         assert_eq!(opens, closes, "{name}: opens and closes balance");
         assert_eq!(depth, 0, "{name}: nothing left open after finish");
-        let engine = LoopEngine::new(&spec);
         assert!(
             engine.path().is_empty(),
             "{name}: path is not empty after finish: {:?}",

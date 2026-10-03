@@ -4,5 +4,7 @@
 //! knows what an 835 is: segment meaning is supplied as data by higher layers.
 
 pub mod delimiters;
+pub mod frame;
 
 pub use delimiters::{Delimiters, IsaError};
+pub use frame::{Frame, next_frame};

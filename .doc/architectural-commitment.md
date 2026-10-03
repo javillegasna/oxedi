@@ -191,6 +191,10 @@ carga su prueba de costura con la capa inferior (N7).
   las dos representaciones en tiempo y en memoria sobre las mismas fixtures y los samples
   grandes: construir, iterar, `into_owned` o clonar, y retener N documentos a la vez. Se
   decide con números, no antes. El cambio es local porque los spans no cambian.
+- **D9 · Segundo formato de spec (YAML)**: acordado el 2026-10-02 empezar solo con JSON.
+  YAML se añade después como *otro deserializador* sobre el mismo `Spec` (un crate más,
+  detrás de un feature), sin tocar el motor ni el formato en memoria. Se decide cuándo
+  cuando exista un usuario que escriba specs a mano.
 - **D7 · Stage 7, Escritor**: ver §5. YAGNI hasta que haya un caso de generación. La mitad
   del trabajo ya la paga el round-trip de Stage 1 (serializar segmentos con escape) y la
   otra mitad la paga T4. Lo propio del escritor: campos derivados y builder desde dominio.

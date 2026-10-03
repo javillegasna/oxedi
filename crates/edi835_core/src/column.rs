@@ -813,7 +813,9 @@ fn civil_from_days(days: i32) -> (i32, i32, i32) {
 }
 
 /// A `DT` value as days since 1970-01-01: `CCYYMMDD`, or `YYMMDD` with
-/// years 00–49 read as 20xx and 50–99 as 19xx. The date must exist.
+/// years 00–49 read as 20xx and 50–99 as 19xx. The date must exist, and the
+/// year `0000` is refused (so is the all-zero date some payers write for "no
+/// date"): it is not a meaningful `CCYY`.
 pub fn parse_dt(text: &[u8]) -> Option<i32> {
     let (year, month_day) = match text.len() {
         8 => (small_number(text.get(..4)?)?, text.get(4..)?),
@@ -826,7 +828,7 @@ pub fn parse_dt(text: &[u8]) -> Option<i32> {
     };
     let month = small_number(month_day.get(..2)?)?;
     let day = small_number(month_day.get(2..)?)?;
-    if !(1..=12).contains(&month) || day < 1 || day > days_in_month(year, month) {
+    if year < 1 || !(1..=12).contains(&month) || day < 1 || day > days_in_month(year, month) {
         return None;
     }
     Some(days_from_civil(year, month, day))
@@ -1249,6 +1251,8 @@ mod tests {
             b"2024-01-01",
             b"",
             b"240229 ",
+            b"00000101",
+            b"00000000",
         ] {
             assert_eq!(parse_dt(text), None, "{:?}", String::from_utf8_lossy(text));
         }

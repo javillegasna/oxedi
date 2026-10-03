@@ -8,9 +8,11 @@ See [`.doc/architectural-commitment.md`](.doc/architectural-commitment.md) for t
 
 ## Status
 
-**Stage 3 — declarative loop engine.** A JSON spec describes the loop structure; the
-engine turns the segment stream into loop events and a tree, and users extend the
-built-in 835 spec with JSON merge patches. Element names and validation come next.
+**Stage 4a — element definitions and structural diagnostics.** The JSON spec now names
+and types every element of the 835's segments and rejects malformed or ambiguous specs
+in plain words. Alongside the loop engine, an envelope checker reports unknown segments,
+implicit or unterminated loops and envelope counts or control numbers that do not match,
+as self-explanatory diagnostics. Typed columnar projection comes next.
 
 ## Extending the 835 spec
 

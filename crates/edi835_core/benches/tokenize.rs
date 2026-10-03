@@ -1,9 +1,10 @@
 //! Throughput of the tokenizer and the document index pass over the three
-//! largest fixtures, and of the loop engine over the three largest samples in
-//! bytes and in events.
+//! largest fixtures, of the loop engine over the three largest samples in
+//! bytes and in events, and of the engine with the envelope checker over the
+//! same samples.
 
 use criterion::{BenchmarkId, Criterion, Throughput, criterion_group, criterion_main};
-use edi835_core::{Document, LoopEngine, Spec, Tokenizer};
+use edi835_core::{Document, EnvelopeChecker, LoopEngine, Spec, Tokenizer};
 use std::hint::black_box;
 
 const FIXTURES: &[&str] = &[
@@ -28,6 +29,20 @@ fn load_from(dir: &str, name: &str) -> Vec<u8> {
 
 fn load(name: &str) -> Vec<u8> {
     load_from("tests/fixtures", name)
+}
+
+/// Runs the engine and the envelope checker over every segment and returns
+/// how many diagnostics the checker raised.
+fn run_check(spec: &Spec, bytes: &[u8]) -> usize {
+    let mut engine = LoopEngine::new(spec);
+    let mut checker = EnvelopeChecker::new(spec);
+    let mut diagnostics = 0usize;
+    for segment in Tokenizer::new(bytes).expect("sample has an ISA") {
+        let events = engine.feed(&segment);
+        diagnostics += checker.on(&segment, events).len();
+    }
+    engine.finish();
+    diagnostics + checker.finish().len()
 }
 
 /// Runs the engine over every segment and returns how many events it emitted.
@@ -99,11 +114,25 @@ fn engine_events_samples(c: &mut Criterion) {
     group.finish();
 }
 
+fn check_samples(c: &mut Criterion) {
+    let spec = Spec::builtin_835();
+    let mut group = c.benchmark_group("check");
+    for name in SAMPLES {
+        let bytes = load_from("tests/samples", name);
+        group.throughput(Throughput::Bytes(bytes.len() as u64));
+        group.bench_with_input(BenchmarkId::from_parameter(name), &bytes, |b, bytes| {
+            b.iter(|| run_check(&spec, black_box(bytes)));
+        });
+    }
+    group.finish();
+}
+
 criterion_group!(
     benches,
     tokenize_fixtures,
     index_fixtures,
     engine_samples,
-    engine_events_samples
+    engine_events_samples,
+    check_samples
 );
 criterion_main!(benches);

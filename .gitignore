@@ -5,3 +5,4 @@
 # Remove this line to include them. Originals live outside the repo.
 samples/
 __pycache__/
+.superpowers/

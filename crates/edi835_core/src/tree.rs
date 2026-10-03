@@ -24,7 +24,7 @@ impl NodeId {
 pub struct Node {
     /// The loop, or `None` for the root.
     pub loop_id: Option<LoopId>,
-    /// `true` when the engine opened it without a triggering segment.
+    /// `true` when no segment of its own opened it.
     pub implicit: bool,
     /// Index of the trigger segment that caused the opening (for an implicit
     /// node, the trigger of the descendant that needed it); `None` only for

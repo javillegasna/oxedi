@@ -393,7 +393,7 @@ promoción a `'static`.
 **Fuera de alcance.** Árbol de loops (Stage 3), mutación del documento, escritura distinta
 de `as_bytes`, tokenizer por trozos (D6).
 
-### Stage 3 · Motor declarativo de loops — PROPUESTO 2026-10-02 (pendiente de aprobación)
+### Stage 3 · Motor declarativo de loops — APROBADO 2026-10-02
 
 La capa que convierte un flujo plano de segmentos en una jerarquía de loops, sin saber nada
 del 835: todo el conocimiento del estándar llega como datos (P2, P6). Resuelve D2.

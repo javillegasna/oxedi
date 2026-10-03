@@ -28,6 +28,7 @@ pub mod document;
 pub mod element;
 pub mod engine;
 pub mod frame;
+pub mod process;
 pub mod project;
 pub mod segment;
 pub mod spec;
@@ -45,6 +46,7 @@ pub use document::{Document, Segments, Span};
 pub use element::{Element, Value};
 pub use engine::{Event, LoopEngine};
 pub use frame::{Frame, next_frame};
+pub use process::{Output, Processor};
 pub use project::Projector;
 pub use segment::{Segment, WriteError};
 pub use spec::{

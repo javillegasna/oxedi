@@ -117,3 +117,28 @@ pub fn diagnostics_of(
     diagnostics.extend_from_slice(checker.finish());
     diagnostics
 }
+
+/// A table's header line: every column as `name: type`, separated by ` | `.
+pub fn table_header(table: &edi835_core::Table) -> String {
+    table
+        .columns()
+        .iter()
+        .map(|(name, column)| format!("{name}: {}", column.kind()))
+        .collect::<Vec<_>>()
+        .join(" | ")
+}
+
+/// Every row of a table as one line, cells rendered by
+/// `ColumnData::render` and separated by ` | `.
+pub fn table_rows(table: &edi835_core::Table) -> Vec<String> {
+    (0..table.len())
+        .map(|row| {
+            table
+                .columns()
+                .iter()
+                .map(|(_, column)| column.render(row).unwrap_or_default())
+                .collect::<Vec<_>>()
+                .join(" | ")
+        })
+        .collect()
+}

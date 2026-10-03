@@ -4,6 +4,9 @@
 //! position in the stream so that every later layer can point back at the
 //! exact input it came from.
 
+use std::fmt;
+use std::io;
+
 use crate::delimiters::Delimiters;
 use crate::element::{Element, split_raw};
 use crate::frame::Frame;
@@ -50,6 +53,100 @@ impl<'a> Segment<'a> {
     pub fn element(&self, position: usize) -> Option<&Element<'a>> {
         self.elements.get(position.checked_sub(1)?)
     }
+}
+
+/// Why a segment could not be written.
+#[derive(Debug)]
+pub enum WriteError {
+    /// The sink failed.
+    Io(io::Error),
+    /// A value contains a delimiter and no release byte is configured to escape it.
+    DelimiterInValue {
+        /// The offending byte.
+        byte: u8,
+    },
+}
+
+impl fmt::Display for WriteError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            WriteError::Io(e) => write!(f, "write failed: {e}"),
+            WriteError::DelimiterInValue { byte } => write!(
+                f,
+                "value contains delimiter byte 0x{byte:02X} and no release byte is configured"
+            ),
+        }
+    }
+}
+
+impl std::error::Error for WriteError {
+    fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
+        match self {
+            WriteError::Io(e) => Some(e),
+            WriteError::DelimiterInValue { .. } => None,
+        }
+    }
+}
+
+impl From<io::Error> for WriteError {
+    fn from(e: io::Error) -> Self {
+        WriteError::Io(e)
+    }
+}
+
+impl Segment<'_> {
+    /// Writes `id`, `elements` and the terminator using `delims`. Delimiter
+    /// bytes inside values are escaped with the release byte; without one they
+    /// are an error. Trivia in `raw` is not written: this rebuilds from data.
+    pub fn write_to<W: io::Write>(
+        &self,
+        delims: &Delimiters,
+        out: &mut W,
+    ) -> Result<(), WriteError> {
+        out.write_all(self.id)?;
+        for element in &self.elements {
+            out.write_all(&[delims.element])?;
+            match element {
+                Element::Simple(value) => write_value(value, delims, out)?,
+                Element::Composite(values) => {
+                    for (i, value) in values.iter().enumerate() {
+                        if i > 0 {
+                            out.write_all(&[delims.component])?;
+                        }
+                        write_value(value, delims, out)?;
+                    }
+                }
+            }
+        }
+        out.write_all(&[delims.segment])?;
+        Ok(())
+    }
+}
+
+fn write_value<W: io::Write>(
+    value: &[u8],
+    delims: &Delimiters,
+    out: &mut W,
+) -> Result<(), WriteError> {
+    if !value.iter().any(|&byte| delims.is_special(byte)) {
+        return Ok(out.write_all(value)?);
+    }
+    let Some(release) = delims.release else {
+        let byte = value
+            .iter()
+            .copied()
+            .find(|&byte| delims.is_special(byte))
+            .unwrap_or_default();
+        return Err(WriteError::DelimiterInValue { byte });
+    };
+    for &byte in value {
+        if delims.is_special(byte) {
+            out.write_all(&[release, byte])?;
+        } else {
+            out.write_all(&[byte])?;
+        }
+    }
+    Ok(())
 }
 
 #[cfg(test)]
@@ -113,5 +210,73 @@ mod tests {
         );
         assert_eq!(segment.element(0), None);
         assert_eq!(segment.element(3), None);
+    }
+
+    fn written(segment: &Segment<'_>, delims: &Delimiters) -> Result<Vec<u8>, WriteError> {
+        let mut out = Vec::new();
+        segment.write_to(delims, &mut out)?;
+        Ok(out)
+    }
+
+    #[test]
+    fn write_to_rebuilds_id_elements_and_terminator() {
+        let delims = Delimiters::new(b'*', b':', b'~');
+        let segment = Segment::parse(0, frame(b"SVC*HC:99213*100**12"), &delims);
+        assert_eq!(
+            written(&segment, &delims).unwrap(),
+            b"SVC*HC:99213*100**12~"
+        );
+    }
+
+    #[test]
+    fn write_to_escapes_delimiters_inside_values_when_release_is_set() {
+        let delims = Delimiters::new(b'*', b':', b'~').with_release(b'?');
+        let segment = Segment {
+            index: 0,
+            raw: b"",
+            id: b"N1",
+            elements: vec![Element::Simple(Cow::Owned(b"A*B~C?D".to_vec()))],
+            terminated: true,
+        };
+        assert_eq!(written(&segment, &delims).unwrap(), b"N1*A?*B?~C??D~");
+    }
+
+    #[test]
+    fn write_to_without_release_rejects_a_delimiter_in_a_value() {
+        let delims = Delimiters::new(b'*', b':', b'~');
+        let segment = Segment {
+            index: 0,
+            raw: b"",
+            id: b"N1",
+            elements: vec![Element::Simple(Cow::Borrowed(b"A*B"))],
+            terminated: true,
+        };
+        assert!(matches!(
+            written(&segment, &delims),
+            Err(WriteError::DelimiterInValue { byte: b'*' })
+        ));
+    }
+
+    #[test]
+    fn write_to_does_not_write_trivia_from_raw() {
+        let delims = Delimiters::new(b'*', b':', b'~');
+        let segment = Segment::parse(
+            0,
+            Frame {
+                raw: b"\nSE*2*1~",
+                body: b"SE*2*1",
+                terminated: true,
+            },
+            &delims,
+        );
+        assert_eq!(written(&segment, &delims).unwrap(), b"SE*2*1~");
+    }
+
+    #[test]
+    fn write_error_displays_a_message() {
+        assert_eq!(
+            WriteError::DelimiterInValue { byte: b'*' }.to_string(),
+            "value contains delimiter byte 0x2A and no release byte is configured"
+        );
     }
 }

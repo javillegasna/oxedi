@@ -12,5 +12,5 @@ pub mod tokenizer;
 pub use delimiters::{Delimiters, IsaError};
 pub use element::{Element, Value};
 pub use frame::{Frame, next_frame};
-pub use segment::Segment;
+pub use segment::{Segment, WriteError};
 pub use tokenizer::Tokenizer;

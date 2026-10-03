@@ -118,6 +118,16 @@ impl Delimiters {
             release: None,
         })
     }
+
+    /// `true` when `byte` must be escaped on output: the delimiters the tokenizer
+    /// splits on, plus the release byte itself. The repetition separator is not
+    /// split on, so it is written as data (ISA11 itself contains it).
+    pub fn is_special(&self, byte: u8) -> bool {
+        byte == self.element
+            || byte == self.component
+            || byte == self.segment
+            || self.release == Some(byte)
+    }
 }
 
 #[cfg(test)]
@@ -208,6 +218,21 @@ mod tests {
         assert_eq!(
             IsaError::Truncated { len: 7 }.to_string(),
             "ISA segment truncated after 7 bytes"
+        );
+    }
+
+    #[test]
+    fn is_special_covers_the_delimiters_the_tokenizer_splits_on() {
+        let d = Delimiters::new(b'*', b':', b'~')
+            .with_repetition(b'^')
+            .with_release(b'?');
+        for &byte in b"*:~?" {
+            assert!(d.is_special(byte), "{}", byte as char);
+        }
+        assert!(!d.is_special(b'A'));
+        assert!(
+            !d.is_special(b'^'),
+            "repetition is not split, so it is data"
         );
     }
 }

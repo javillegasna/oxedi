@@ -4,9 +4,14 @@
 
 use std::path::PathBuf;
 
-/// Absolute path to this crate's `tests/fixtures` directory.
+/// Absolute path to this crate's `tests/fixtures` directory (synthetic files).
 pub fn fixtures_dir() -> PathBuf {
     PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("tests/fixtures")
+}
+
+/// Absolute path to this crate's `tests/samples` directory (anonymized real files).
+pub fn samples_dir() -> PathBuf {
+    PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("tests/samples")
 }
 
 /// Read a fixture file's raw bytes by file name. Panics with a clear message if missing.
@@ -17,4 +22,11 @@ pub fn load_fixture(name: &str) -> Vec<u8> {
     let path = fixtures_dir().join(name);
     std::fs::read(&path)
         .unwrap_or_else(|e| panic!("failed to read fixture {}: {e}", path.display()))
+}
+
+/// Read an anonymized real sample's raw bytes by file name. Panics with a clear
+/// message if missing.
+pub fn load_sample(name: &str) -> Vec<u8> {
+    let path = samples_dir().join(name);
+    std::fs::read(&path).unwrap_or_else(|e| panic!("failed to read sample {}: {e}", path.display()))
 }

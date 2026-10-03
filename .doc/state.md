@@ -1,11 +1,11 @@
-# State — 2026-10-03
+# State — 2026-10-03 (evening)
 
 Snapshot for picking the project up cold. Update when a stage changes state.
 
 ## Where we are
 
-- Stages 0–3 are merged on `master` (PRs #1 #2 #3 #5 #6). Suite: 156 tests; clippy, fmt,
-  rustdoc `-D warnings` clean; CI green.
+- Stages 0–3 are merged on `master` (PRs #1 #2 #3 #5 #6), plus the test-hygiene sprint
+  (PR #20, closed #9–#13). Suite: 152 tests; clippy, fmt, rustdoc `-D warnings` clean; CI green.
 - The crate (`crates/edi835_core`) offers: `Delimiters::from_isa`, `frame::next_frame`,
   `Tokenizer<'a>` (lazy, lossless `Segment` stream), `Segment::write_to` (symmetric writer),
   `Document<'a>` (`Cow` bytes + spans, borrowed or owned), `Spec` (JSON loop spec with
@@ -21,19 +21,22 @@ Snapshot for picking the project up cold. Update when a stage changes state.
 
 ## Open items
 
-- Project #8 Backlog: issues #7–#19 (deferred review minors). Priority Alta: #18 (array-form
-  specs accepted; odd message for `[]`). Media: #7, #12, #15, #17, #19. Baja: the rest.
-  Suggested first sprint before Stage 4: test hygiene (#9, #10, #11, #12, #13), small enough
-  for a Haiku implementer in one PR.
-- `.doc/analysis/` study notes cover Stage 0–1 code only; Stages 2 and 3 (document, spec,
-  engine, tree, goldens) still need their sections (structure, flow, tests with reasons,
-  concepts, patterns), written from the real code.
+- Project #8 Backlog: issues #7, #8, #14–#19 (deferred review minors). Priority Alta: #18.
+  Stage 4's spec validation pass closes #7, #17, #18; T12 closes #19. #8, #14, #15, #16 stay.
+- `.doc/analysis/` study notes describe the whole crate from the real code (rewritten
+  2026-10-03 at commit 8f86e42); update them again when Stage 4 lands.
 - Older plans (`stage-1`, `stage-2`) show pre-P10 error shapes; they are historical records,
   not to be edited.
 
-## Next stage: 4 · Projection + validation
+## Current stage: 4 · Projection + validation
 
-Design questions to settle in chat before writing §7 Stage 4:
+§7 Stage 4 approved 2026-10-03 (T11–T17, resolves D10, opens D11) on branch
+`stage-4a-spec-diagnostics`. The stage runs as two plans and two PRs: 4a (spec `segments` +
+validation closing #7 #17 #18, `LoopOpened.segment` for #19, `Diagnostic`, `EnvelopeChecker`
+SNIP 1) in `plans/stage-4a-spec-diagnostics.md`, then 4b (Arrow-layout columns, `Projector`
+SNIP 2, `tables`, `Processor`, goldens, bench) in `plans/stage-4b-projection.md`. Execution
+with subagents: main session orchestrates only; implementer by complexity, reviewer one tier up.
+The decisions that were open, now settled in §7:
 - `Diagnostic` as a first-class deliverable (P10): segment index, byte range, element and
   component position, loop path, rule code, message; rendering of engine anomalies
   (unmatched, implicit opens; see #19).

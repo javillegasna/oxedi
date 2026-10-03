@@ -12,8 +12,8 @@ when a stage changes state.
 | 0 · Scaffolding | Workspace, CI gates, test/property/bench harness | **Done** 2026-10-02 | commits up to `0e1b827` |
 | 1 · Framing + Tokenizer | Lossless `Segment` stream, ISA delimiters, symmetric writer | **Done** 2026-10-02 | PR #1, fix PR #2 |
 | 2 · Lossless Document | `Document` as `Cow` bytes + spans, borrowed or owned | **Done** 2026-10-02 | PR #3; samples PR #5 |
-| 3 · Loop engine | JSON spec, `LoopEngine` events, `LoopTree`, merge-patch extension, P10 errors | **Done** 2026-10-03 | PR #6; deferred findings: issues #7–#19 on Project #8 |
-| 4 · Projection + validation | Element names/types in the spec, business tables, SNIP checks, `Diagnostic` with segment/element location (P10) | Not started | — |
+| 3 · Loop engine | JSON spec, `LoopEngine` events, `LoopTree`, merge-patch extension, P10 errors | **Done** 2026-10-03 | PR #6; deferred findings: issues #7–#19 on Project #8; test hygiene PR #20 closed #9–#13 |
+| 4 · Projection + validation | `segments` and `tables` in the spec, Arrow-layout columns, SNIP 1–2 diagnostics with full location (P10), closes #7 #17 #18 #19 | **§7 approved** 2026-10-03 | two plans/PRs: 4a spec+diagnostics (branch `stage-4a-spec-diagnostics`), 4b projection |
 | 5 · Python binding | PyO3/maturin, GIL released, iterator and table APIs | Not started | — |
 | 6 · Distribution | crates.io, PyPI wheels, release CI | Not started | — |
 | 7 · Writer | Data → loops → bytes, same spec | Deferred (D7) | — |
@@ -40,7 +40,8 @@ when a stage changes state.
 | D2 · Spec format and merge | 3 (closed as T6–T8) | JSON + serde, flat loops with `parent`, RFC 7386 merge patch |
 | D8 · `Cow`+spans vs `Arc`+spans | 5 | Measure time and memory with Python holding documents |
 | D9 · YAML specs | after 3, when someone writes specs by hand | Second deserializer over the same `Spec` |
-| D10 · Columnar projection / Arrow | 4 and 5 | Stage 4 emits typed columns; Python exports Arrow zero-copy |
+| D10 · Columnar projection / Arrow | 4 (closed as T14–T15) and 5 | Stage 4 emits Arrow-layout columns without the crate; Python exports zero-copy |
+| D11 · Segment cardinality per loop, declarative balancing rules | after 4 | SNIP 2 completion and SNIP 3 need a spec extension; decide once tables are in use |
 | D6 · Chunked tokenizer (S3 streaming) | when a file does not fit in memory | Framing is already pure; segments would own or lend |
 | D7 · Writer | when a generation case exists | `write_to` is half of it; spec is already structural |
 | D3 · WASM/Extism extensions | never, unless data patches prove insufficient | — |

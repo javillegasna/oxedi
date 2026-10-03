@@ -44,11 +44,15 @@ Spanish; code, commits, PRs and issues are in English.
 
 1. Discuss open decisions with trade-offs in chat; write the §7 section; owner approves.
 2. Write the plan (superpowers:writing-plans); owner approves.
-3. Feature branch from `master`. Execute with superpowers:subagent-driven-development:
-   one implementer per task, Opus for judgment-heavy tasks and Haiku for transcription,
-   a task review after each, a whole-branch review on Opus at the end with P10 as an
-   explicit focus, one fix wave, one scoped re-review. Rulings go in the ledger; the ledger
-   is copied to `.doc/analysis/stage-N-ledger.md` before the workspace is deleted.
+3. Feature branch from `master`. Execute with superpowers:subagent-driven-development.
+   The main session only orchestrates: it plans and dispatches, never implements. One
+   implementer per task, chosen by complexity: Haiku transcribes complete code from the
+   plan, Sonnet handles prose-described or multi-file tasks, Opus takes design judgment.
+   The task reviewer is one tier above the implementer (Haiku work → Sonnet review, Sonnet
+   work → Opus review, Opus work → Opus review). A whole-branch review on Opus at the end
+   with P10 as an explicit focus, one fix wave, one scoped re-review. Rulings go in the
+   ledger; the ledger is copied to `.doc/analysis/stage-N-ledger.md` before the workspace
+   is deleted.
 4. PR against `master`, body in English with two sections, **Intent** and **Verification**;
    never list the diff content; no attribution lines. The owner merges.
 5. Deferred minors become issues on Project #8. Then update `.doc/roadmap.md` and

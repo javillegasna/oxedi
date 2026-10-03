@@ -210,6 +210,14 @@ carga su prueba de costura con la capa inferior (N7).
   YAML se añade después como *otro deserializador* sobre el mismo `Spec` (un crate más,
   detrás de un feature), sin tocar el motor ni el formato en memoria. Se decide cuándo
   cuando exista un usuario que escriba specs a mano.
+- **D10 · Proyección columnar / Arrow** (resuelta en Stage 4 por T14 y T15): el core
+  construye columnas con la disposición de Arrow sin depender del crate; Stage 5 las expone
+  por la interfaz C sin copiar.
+- **D11 · Cardinalidad de segmentos por loop y reglas de cuadre declarativas**: SNIP 2
+  completo exige saber qué segmentos son obligatorios y cuántas veces se repiten dentro de
+  un loop, y SNIP 3 exige declarar qué columnas se suman contra cuáles. Ambas piden una
+  extensión de la spec que Stage 4 no abre; se decide cuando las tablas proyectadas estén
+  en uso y se vea si una regla "suma por grupo" basta.
 - **D7 · Stage 7, Escritor**: ver §5. YAGNI hasta que haya un caso de generación. La mitad
   del trabajo ya la paga el round-trip de Stage 1 (serializar segmentos con escape) y la
   otra mitad la paga T4. Lo propio del escritor: campos derivados y builder desde dominio.
@@ -511,3 +519,167 @@ validación con `Result` y errores que señalan el dato culpable.
 **Fuera de alcance.** Nombres y tipos de elementos (`segments` en la spec, Stage 4);
 validación de obligatoriedad y cardinalidad (SNIP, Stage 4); división de repeticiones.
 
+### Stage 4 · Proyección a dominio + validación — APROBADO 2026-10-03
+
+La capa que da significado de negocio al árbol: convierte eventos y segmentos en tablas
+columnares tipadas y en diagnósticos SNIP, sin que el código sepa nada del 835: nombres,
+tipos, obligatoriedad y el mapeo a tablas llegan como datos (P2, P6, N3). Resuelve D10 y
+cierra, dentro de su pase de validación de specs, las issues #7, #17, #18 y #19.
+
+**Propósito.** Dos consumidores sobre un único recorrido del flujo de segmentos (P4): un
+`Projector` que llena columnas con la disposición de memoria de Arrow a partir de una
+sección `tables` de la spec y emite los diagnósticos de tipo y obligatoriedad al leer cada
+elemento, y un `EnvelopeChecker` que verifica la integridad de sobres (SNIP 1) a partir de
+los eventos del motor. Todo fallo de datos es un `Diagnostic` que responde qué regla, dónde
+y con qué dato (P10) y el flujo continúa (P7). Lo que Stage 5 entrega a Python son estas
+tablas, sin copia, y esta lista de diagnósticos.
+
+**Decisiones de diseño (cada una con la alternativa descartada).**
+- **T11 · `Diagnostic` es una capa aparte y se explica solo.** Un struct propio con
+  `rule: Rule` (enum con datos por variante), `level: SnipLevel`, `segment: Option<usize>`,
+  `element: Option<usize>`, `component: Option<usize>`, `path: Vec<LoopRef>` (nombre del
+  loop y ordinal de la instancia, `2100#3`) y `datum: Vec<u8>` (el valor ofensivo tal
+  cual). Guarda valores propios, no ids, para que su `Display` sea autocontenido y sea el
+  contrato que P10 exige, con un test por variante; el rango de bytes se resuelve desde
+  `Document::spans` con el índice del segmento, como P10 ya admite. Son el camino frío, así
+  que la asignación por diagnóstico no cuesta. Descartado emitir diagnósticos como eventos
+  del motor (el motor dejaría de ser genérico, P1) y descartado guardar `LoopId`s y
+  renderizar con la spec (un `Display` que necesita contexto no se explica solo).
+- **T12 · `LoopOpened` lleva el índice del segmento que lo abrió.** `Event::LoopOpened
+  { id, implicit, segment }`: en una apertura explícita es el disparador; en una implícita
+  es el disparador del descendiente que forzó la cadena. El `Node` del árbol gana
+  `opened_by: Option<usize>` (solo la raíz es `None`). `Event` sigue siendo `Copy` y del
+  mismo tamaño por alineación; los goldens de eventos se regeneran una vez y se revisa el
+  diff (solo las líneas `open` ganan `#índice`). Cierra #19. Descartado correlacionar la
+  apertura implícita con el `Captured` que la sigue: frágil y duplica lógica del motor.
+- **T13 · La spec gana una sección `segments`, global y clavada por posición.**
+  `"segments": { "CLP": { "elements": { "1": { "name": "claim_id", "type": "AN",
+  "required": true, "min": 1, "max": 38 }, … } } }`. Un `CLP` tiene los mismos elementos
+  esté en el loop que esté, así que se define una vez por id de segmento, no por loop. Las
+  posiciones como claves (no un array) siguen la convención de `where` y hacen que un
+  parche de usuario retoque un solo elemento, porque el merge patch fusiona objetos y
+  reemplaza arrays. Tipos: `AN`, `ID`, `N0`…`N9` (entero con decimales implícitos), `R`
+  (decimal; `scale` opcional, por defecto 2), `DT`, `TM`; `composite` anida subelementos
+  por posición. Un segmento listado en un loop sin entrada en `segments` es válido y
+  opaco (N3). El pase de validación de la spec, en carga, además: rechaza ids vacíos en
+  `segments`, `end` y la sección nueva, nombrando loop y entrada (#7); comprueba sobre
+  `serde_json::Value` que la raíz, `loops`, cada loop, cada trigger, `where`, `segments`,
+  cada segmento y sus `elements` son objetos, y lo dice en palabras llanas, "the spec must
+  be a JSON object; found an array" (#18); rechaza dos hermanos cuyos disparadores no se
+  excluyen en ninguna posición compartida, nombrando ambos loops y sus condiciones (#17;
+  `N1*PR` y `N1*PE` sí se excluyen, el built-in carga). Descartado definir elementos dentro
+  de cada loop (repetición y el dolor de #14) y elementos como array (un parche
+  reemplazaría la lista entera).
+- **T14 · Columnas propias con la disposición de Arrow, sin el crate `arrow`.** Un
+  `Column` por tipo con `validity` como bitmap (un bit por fila, LSB primero) y los buffers
+  que Arrow espera: `Binary` (offsets `i32` + bytes crudos, sin decodificar: lossless y
+  cero-copia) para `AN` e `ID`; `Int64` para `N`n con la escala implícita como metadato;
+  `Decimal128` (`i128` + escala por columna) para `R`; `Date32` para `DT`; `Time32` en
+  segundos para `TM`. Un valor que no cumple su tipo o excede la escala es un diagnóstico y
+  un nulo en la columna. Así Stage 5 expone las tablas por la interfaz C de Arrow sin
+  copiar y el core no suma dependencias (P3, T7). Descartadas las filas como structs
+  (una asignación por fila y transponer después) y depender de `arrow` en el core.
+- **T15 · La proyección es declarativa: sección `tables` en la spec.** Una tabla ancla en
+  uno o más loops (`"loops": ["2100", "2110"]`), opcionalmente en un segmento que se repite
+  dentro de ellos (una fila por aparición) y opcionalmente en un grupo de elementos que se
+  repite dentro del segmento (`"repeat": { "from": 2, "step": 3 }`, una fila por grupo:
+  así `CAS` y `PLB` se explotan). Fuentes de columna: `element` (del primer segmento que
+  cumple `segment` y `where`, en el loop ancla o en un loop descendiente nombrado con
+  `loop`, con `element` y `component` opcional) y `segment_index`. Toda tabla recibe
+  automáticamente `segment` (índice del segmento ancla) y una columna de índice por cada
+  tabla padre (`claims.payment`, `services.claim`, `adjustments.claim` y
+  `adjustments.service`, nulo cuando el ajuste es de claim). Los índices son ordinales
+  globales, así que drenar las tablas por transacción no los invalida. Los tipos salen de
+  `segments`; una columna sin definición de elemento es `Binary`. El built-in 835 trae
+  `payments` (transaction), `claims` (2100), `services` (2110), `adjustments` (CAS en 2100
+  y 2110) y `provider_adjustments` (PLB). Un payer con un `REF` propio añade una columna con
+  un parche de tres líneas, igual que hoy añade un segmento a un loop. Descartadas las
+  tablas del 835 escritas en Rust (rompe N3 y P2).
+- **T16 · Un solo recorrido, dos consumidores.** `Processor<'s>` envuelve `LoopEngine`,
+  `EnvelopeChecker` y `Projector`: `feed(&Segment) -> &Output` entrega eventos y
+  diagnósticos nuevos; `finish()` cierra; `take_tables()` drena las filas acumuladas
+  (memoria acotada claim a claim, P9, N4); `Processor::run(&spec, &Document) -> (Tables,
+  Vec<Diagnostic>)` es la conveniencia de documento completo y recorre exactamente el mismo
+  código. Validar tipo y obligatoriedad ocurre en el mismo acceso al elemento que llena la
+  columna: no hay segunda lectura del árbol. Descartado un segundo recorrido del `LoopTree`
+  para validar.
+- **T17 · Alcance SNIP: niveles 1 y 2 completos; 3 opcional; 4–7 fuera.** Nivel 1, desde
+  los eventos: `SE01` cuenta los segmentos `ST`…`SE`; `ST02`=`SE02`; `GS06`=`GE02`;
+  `ISA13`=`IEA02`; `GE01` = número de `ST`; `IEA01` = número de `GS`; segmento `Unmatched`
+  → `UnknownSegment`; apertura implícita → `ImplicitLoop` con el segmento causante (T12);
+  loop con `end` cerrado sin haberlo capturado → `UnterminatedLoop`. Nivel 2, desde
+  `segments`: `RequiredElementMissing`, `TypeMismatch`, `LengthOutOfRange`,
+  `CompositeShape`. Nivel 3 (cuadre `BPR02` contra claims y `PLB`; `CLP03`−`CLP04` contra
+  los `CAS` del claim y sus servicios; `SVC02`−`SVC03` contra los `CAS` del servicio) entra
+  solo como última tarea opcional del plan y solo si sobre las tablas es una suma por grupo
+  declarable en tres líneas de spec; si exige un lenguaje de reglas, pasa a D11. Fuera:
+  situacionales (4), listas de códigos externos (5), tipos de producto (6), trading
+  partner (7) y la cardinalidad de segmentos por loop (D11).
+
+**Entregable / contrato.**
+- Módulo `diagnostic`: `Diagnostic`, `Rule` (variantes de nivel 1 y 2 arriba, cada una con
+  los datos que su `Display` necesita: esperado, encontrado, índices, path), `SnipLevel`,
+  `LoopRef`. `Display` por variante es contrato; `Diagnostic::span(&self, &Document) ->
+  Option<Span>` resuelve el rango de bytes.
+- Módulo `spec` ampliado: `SegmentDef`, `ElementDef`, `ElementType`, `TableDef`,
+  `ColumnSource`; `Spec::segment(id) -> Option<&SegmentDef>`, `Spec::tables() ->
+  &[TableDef]`; variantes nuevas de `SpecError`: `NotAnObject { path, found }`,
+  `EmptySegmentId { loop, key }`, `OverlappingTriggers { parent, a, b, conditions }`,
+  `BadElementDef { segment, position, reason }`, `BadColumn { table, column, reason }`, con
+  `Display` probado y `source()` donde haya causa.
+- Módulo `engine`: `Event::LoopOpened { id, implicit, segment }`. Módulo `tree`:
+  `Node::opened_by`.
+- Módulo `column`: `Bitmap`, `Column` (`Binary`, `Int64`, `Decimal128`, `Date32`,
+  `Time32`), `Table { name, columns: Vec<(String, Column)> }`, `Tables`; `len()` igual en
+  todas las columnas de una tabla, invariante comprobado.
+- Módulo `project`: `Projector<'s>` (`new(&Spec)`, `on(&Segment, &[Event]) -> &[Diagnostic]`,
+  `take_tables()`). Módulo `check`: `EnvelopeChecker<'s>` (misma firma de `on`). Módulo
+  `process`: `Processor<'s>` con `feed`, `finish`, `take_tables`, `diagnostics()` y
+  `Processor::run`.
+- Spec built-in `835` con `segments` para todos los segmentos que lista (ISA, GS, ST, BPR,
+  TRN, CUR, REF, DTM, N1, N3, N4, PER, RDM, LX, TS3, TS2, CLP, CAS, NM1, MIA, MOA, AMT,
+  QTY, SVC, LQ, PLB, SE, GE, IEA) y las cinco `tables`.
+
+**Gate de verificación (salida del Stage 4).**
+- Golden files sobre los once archivos: por archivo, cada tabla serializada fila a fila
+  (resumen de conteos para los dos samples grandes) y la lista de diagnósticos con su
+  `Display`; mismo interruptor `UPDATE_GOLDEN` y misma detección de huérfanos. Los goldens
+  de eventos cambian una vez por T12 y el diff muestra solo `#índice` en las líneas `open`.
+- Invariantes sobre los once: filas de `claims` = número de `CLP`, `services` = `SVC`,
+  `adjustments` = grupos `CAS` con código de motivo, `provider_adjustments` = grupos `PLB`;
+  todo índice de padre está en rango y apunta a la fila cuyo loop contiene al ancla; todo
+  `segment` de fila es un índice capturado por un nodo del loop ancla; columnas de una
+  tabla con la misma longitud y bitmap coherente con offsets; drenar por transacción y
+  concatenar == `Processor::run` (incremental == documento, P9).
+- Anomalías conocidas renderizadas: el `XX` de trizetto → un `UnknownSegment` con índice,
+  path y `datum`; blue_cross → dos `ImplicitLoop` que nombran `ST` en `#0`; multi_claim →
+  cuatro `UnknownSegment` dentro de `2100#1` y `2100#2`. Unit con segmentos a mano: `SE01`
+  erróneo, `ST02`≠`SE02`, `GE01` erróneo, `ST` sin `SE`, `CLP03` no numérico (nombra
+  segmento, elemento 3 y el texto), `CLP01` vacío siendo obligatorio, `DTM02` con fecha
+  inválida, `R` con más decimales que la escala, composite con más componentes de los
+  declarados. Un test de `Display` de texto completo por variante de `Rule` y de las
+  variantes nuevas de `SpecError` (P10).
+- Spec: `""` en `segments`, `end` y en la sección nueva se rechaza nombrando loop y
+  entrada (#7); `[]` en la raíz, `loops` como array y trigger como array se rechazan con el
+  mensaje en palabras llanas (#18); dos hermanos `N1 where {1:PR}` y `N1 where {2:X}` se
+  rechazan nombrando ambos (#17) y el built-in carga; un parche de tres líneas añade una
+  columna `REF` propia a `claims` y la tabla proyectada la muestra (N3).
+- Property: valores aleatorios válidos de `N`n, `R`, `DT` y `TM` se parsean a su columna y
+  se vuelven a formatear iguales; bytes aleatorios en cualquier elemento nunca producen un
+  pánico, solo diagnósticos o nulos (P7); filas aleatorias escritas en `Column` se leen de
+  vuelta iguales con su bitmap.
+- Costura (N7): motor→proyector (eventos y segmentos construidos a mano producen las filas
+  esperadas) y end-to-end por `Processor::run` sobre los once archivos.
+- Bench: proyección completa sobre los tres samples grandes en bytes/s y filas/s; la base
+  va en el mensaje del commit.
+
+**Rust que exprimes.** Traits como contrato entre consumidores del mismo flujo; enums con
+datos como vocabulario de diagnósticos y `Display` como contrato; bitmaps a mano (`u8`,
+desplazamientos, máscaras); `i128` y parseo numérico sin asignar; `serde` con enums
+etiquetados o `untagged` para `ColumnSource`; borrar la vida del motor con `take` de
+buffers (drenar sin realojar); `impl Trait` en argumentos; iteradores sobre grupos de
+elementos (`chunks`, `step_by`).
+
+**Fuera de alcance.** SNIP 4–7; listas de códigos externos (CARC, RARC); cardinalidad de
+segmentos por loop y lenguaje de reglas de cuadre (D11); interfaz C de Arrow y PyO3 (Stage
+5); medir `Cow` frente a `Arc` (D8); escritor (D7).

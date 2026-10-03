@@ -42,6 +42,27 @@ fn a_patch_makes_the_bogus_trizetto_segment_captured() {
 }
 
 #[test]
+fn a_patch_adding_n3_n4_to_loop_2100_captures_the_multi_claim_addresses() {
+    let bytes = common::load_fixture("multi_claim_sample.txt");
+    let builtin = Spec::builtin_835();
+    let patched = builtin
+        .merge_patch(
+            r#"{"loops":{"2100":{"segments":["CAS","NM1","MIA","MOA","REF","DTM","PER","AMT","QTY","N3","N4"]}}}"#,
+        )
+        .unwrap();
+    let unmatched = |spec: &Spec| {
+        let mut engine = LoopEngine::new(spec);
+        Tokenizer::new(&bytes)
+            .unwrap()
+            .flat_map(|s| engine.feed(&s).to_vec())
+            .filter(|e| matches!(e, Event::Unmatched { .. }))
+            .count()
+    };
+    assert_eq!(unmatched(&builtin), 4, "N3 and N4 in each of two claims");
+    assert_eq!(unmatched(&patched), 0);
+}
+
+#[test]
 fn a_proprietary_loop_opens_and_captures_with_data_only() {
     let input = b"ST*835*1~LX*1~CLP*1*1*10*10**MC*1~ZZ1*A~ZZ2*B~SVC*HC:1*10*10~SE*7*1~";
     let delims = Delimiters::new(b'*', b':', b'~');

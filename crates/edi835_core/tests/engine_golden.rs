@@ -71,7 +71,7 @@ fn summary(spec: &Spec, bytes: &[u8], delims: edi835_core::Delimiters) -> String
 #[test]
 fn event_streams_match_the_golden_files() {
     let spec = Spec::builtin_835();
-    let update = std::env::var_os("UPDATE_GOLDEN").is_some();
+    let update = std::env::var("UPDATE_GOLDEN").as_deref() == Ok("1");
     let mut failures = Vec::new();
     for (name, bytes, delims) in common::all_files() {
         let (actual, path) = if SUMMARY_ONLY.contains(&name.as_str()) {

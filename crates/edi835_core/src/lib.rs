@@ -11,6 +11,7 @@ pub mod frame;
 pub mod segment;
 pub mod spec;
 pub mod tokenizer;
+pub mod tree;
 
 pub use delimiters::{Delimiters, IsaError};
 pub use document::{Document, Segments, Span};
@@ -20,3 +21,4 @@ pub use frame::{Frame, next_frame};
 pub use segment::{Segment, WriteError};
 pub use spec::{LoopDef, LoopId, Spec, SpecError, Trigger, merge_patch};
 pub use tokenizer::Tokenizer;
+pub use tree::{LoopTree, Node, NodeId};

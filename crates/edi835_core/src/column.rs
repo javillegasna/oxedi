@@ -392,7 +392,8 @@ impl ColumnData {
     /// Row `row` as text: bytes as UTF-8 (invalid sequences replaced),
     /// integers as digits, decimals in fixed point with the column's scale,
     /// dates as `YYYY-MM-DD`, times as `HH:MM:SS` and a null as `∅`; `None`
-    /// past the end.
+    /// past the end. A date too far from 1970 to convert and a negative time
+    /// render as their raw number, `date32(2147483647)` or `time32(-1)`.
     pub fn render(&self, row: usize) -> Option<String> {
         Some(match self.get(row)? {
             Cell::Null => "∅".to_string(),
@@ -412,10 +413,14 @@ impl ColumnData {
                     format!("{sign}{whole}.{fraction}")
                 }
             }
+            Cell::Date32(days) if days.checked_add(719_468).is_none() => {
+                format!("date32({days})")
+            }
             Cell::Date32(days) => {
                 let (year, month, day) = civil_from_days(days);
                 format!("{year:04}-{month:02}-{day:02}")
             }
+            Cell::Time32(seconds) if seconds < 0 => format!("time32({seconds})"),
             Cell::Time32(seconds) => format!(
                 "{:02}:{:02}:{:02}",
                 seconds / 3600,
@@ -1023,6 +1028,25 @@ mod tests {
             }
         );
         assert_eq!(column.get(1), Some(Cell::Null));
+    }
+
+    #[test]
+    fn dates_and_times_out_of_range_render_as_raw_numbers() {
+        let mut dates = ColumnData::new(ColumnType::Date32);
+        for days in [i32::MAX, i32::MAX - 719_468, i32::MAX - 719_469, 0] {
+            dates.push(Cell::Date32(days)).unwrap();
+        }
+        assert_eq!(dates.render(0).as_deref(), Some("date32(2147483647)"));
+        assert_eq!(dates.render(1).as_deref(), Some("5879610-09-09"));
+        assert_eq!(dates.render(2).as_deref(), Some("5879610-09-08"));
+        assert_eq!(dates.render(3).as_deref(), Some("1970-01-01"));
+        let mut times = ColumnData::new(ColumnType::Time32);
+        for seconds in [-1, i32::MIN, 0] {
+            times.push(Cell::Time32(seconds)).unwrap();
+        }
+        assert_eq!(times.render(0).as_deref(), Some("time32(-1)"));
+        assert_eq!(times.render(1).as_deref(), Some("time32(-2147483648)"));
+        assert_eq!(times.render(2).as_deref(), Some("00:00:00"));
     }
 
     #[test]

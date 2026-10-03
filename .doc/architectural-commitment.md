@@ -161,16 +161,21 @@ carga su prueba de costura con la capa inferior (N7).
   la puerta al streaming por trozos (D6) sin reescritura.
 - **T4 · Spec estructural y bidireccional — 2026-10-02.** Ver P6. Es lo que deja abierta la
   puerta al escritor (D7) sin una segunda spec.
+- **T5 · Documento = buffer `Cow` + índices (resuelve D1) — 2026-10-02 (propuesto).** El
+  `Document<'a>` no guarda `Segment`s: guarda los bytes como `Cow<'a, [u8]>` y un vector de
+  *spans* (rangos de `raw` y `body` por segmento). Los `Segment` se construyen bajo demanda
+  prestando del documento. Así un mismo tipo es cero-copia cuando presta del llamador
+  (`Cow::Borrowed`) y dueño cuando hace falta (`Cow::Owned`, `into_owned()` da
+  `Document<'static>`), que es lo que PyO3 y un tokenizer por trozos (D6) necesitarán.
+  Descartado `Vec<Segment<'a>>`: no puede volverse dueño sin un struct autorreferencial.
+  Descartado `Document` siempre dueño: pagaría una copia del archivo en el camino normal.
 
 ### §6.2 · Abiertas (marcadas para no olvidarlas)
 
-- **D1 · Prestado vs. dueño** (se decide en Stage 2): ¿`Document<'a>` cero-copia con
-  lifetimes, o `Document` con datos propios más amable para PyO3? `Cow`? arena + índices?
-  Con P9 la tensión baja: el camino principal es el flujo, no el documento. Se decide con D6
-  en mente: un tokenizer por trozos no puede prestar del buffer del llamador.
 - **D2 · Formato exacto de las specs** (Stage 3): esquema, fusión default+usuario, cómo
   llega a Python como `dict`. Restricción fijada por T4: debe describir estructura (loops →
-  segmentos → elementos), no solo disparadores.
+  segmentos → elementos), no solo disparadores. Con T5, los eventos y el árbol de loops
+  referencian segmentos por índice en el documento, no por copia.
 - **D3 · Tier 2 escape hatch (WASM/Extism)**: diseño consciente pero **no se construye**;
   marcado como YAGNI hasta que un caso real lo exija.
 - **D6 · Tokenizer por trozos (streaming desde S3/red)**: dos niveles. Nivel 1,
@@ -323,3 +328,57 @@ genérico para la serialización.
 **Fuera de alcance.** Reconocer qué significa un segmento (Stage 3), árbol en memoria
 (Stage 2), división de repeticiones `^`, decodificación a `&str`, tokenizer por trozos
 (D6), inferir `release` del archivo.
+
+### Stage 2 · Documento lossless — PROPUESTO 2026-10-02 (pendiente de aprobación)
+
+Materialización opcional del flujo (P9). El camino principal sigue siendo el iterador; el
+documento existe para quien necesita acceso aleatorio, el archivo entero en memoria, o un
+valor sin lifetime que cruce a Python.
+
+**Propósito.** Un `Document` que retiene todo el archivo (N1), presta del buffer cuando
+puede (N4), puede volverse dueño cuando hace falta (resuelve D1 según T5), y cuya costura
+con el tokenizer se verifica (N7): recorrer el documento produce exactamente los mismos
+`Segment` que el tokenizer.
+
+**Entregable / contrato.**
+- `Span { raw: Range<usize>, body: Range<usize>, terminated: bool }`: dónde vive un
+  segmento dentro de los bytes. Los `raw` de los spans son contiguos y cubren todo el
+  buffer sin huecos ni solapes: es la misma ley lossless de Stage 1 expresada en índices.
+- `Document<'a> { bytes: Cow<'a, [u8]>, delims: Delimiters, spans: Vec<Span> }`.
+  Constructores: `Document::parse(bytes: impl Into<Cow<'a, [u8]>>) -> Result<Self,
+  IsaError>` (lee el ISA, tolera trivia inicial) y `Document::with_delimiters(bytes,
+  Delimiters)`. Aceptan `&'a [u8]` (presta) o `Vec<u8>` (posee) con la misma firma.
+- Construir el documento solo hace *framing*: no parsea elementos. Es más barato que
+  tokenizar; los elementos se parsean al pedir un segmento.
+- Acceso: `len()`, `is_empty()`, `as_bytes() -> &[u8]`, `delimiters()`, `spans() ->
+  &[Span]`, `segment(i) -> Option<Segment<'_>>` (índice 0-based, igual que
+  `Segment::index`), `segments() -> Segments<'_, 'a>` (iterador con estado propio), y
+  `IntoIterator for &Document` para `for segment in &doc`.
+- `into_owned(self) -> Document<'static>`: copia los bytes solo si eran prestados;
+  los spans se reutilizan. Es la única copia del archivo que existe en el crate.
+- Sin errores nuevos: `parse` devuelve `IsaError`; todo lo demás es infalible.
+
+**Gate de verificación (salida del Stage 2).**
+- Las cinco fixtures: `doc.as_bytes() == archivo`; `doc.len()` igual al número de
+  segmentos del tokenizer; `doc.segment(i)` igual (con `==`, campo a campo, `index`
+  incluido) al i-ésimo `Segment` del tokenizer; `concat(spans.raw) == archivo`;
+  `into_owned()` produce los mismos segmentos.
+- Property: para cualquier `input` y delimitadores con/sin release, los segmentos del
+  documento son iguales a los del tokenizer, y los spans particionan `0..len` sin huecos.
+- Unit: documento vacío; `segment` fuera de rango es `None`; `parse` desde `Vec<u8>` da
+  `Document<'static>`; tras `into_owned()` el buffer original puede soltarse y el documento
+  sigue siendo usable (lo comprueba el compilador); `for s in &doc` funciona.
+- Bench: construir el documento de las tres fixtures mayores, junto al bench de tokenizar,
+  para registrar que indexar es más barato que tokenizar.
+
+**Dependencias.** Stage 1. Sin dependencias nuevas.
+
+**Rust que exprimes.** `Cow` como campo de struct y `impl Into<Cow<'a, [u8]>>` en firmas
+(una API que presta o posee sin duplicarse); métodos `&self -> Segment<'_>` (prestar del
+propio struct); un iterador manual con dos lifetimes (`Segments<'d, 'a>`); `IntoIterator`
+para `&T`; `Range<usize>` como índice en lugar de punteros (arena); `into_owned` y la
+promoción a `'static`.
+
+**Fuera de alcance.** Árbol de loops (Stage 3), mutación del documento, escritura distinta
+de `as_bytes`, tokenizer por trozos (D6).
+

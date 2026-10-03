@@ -267,10 +267,13 @@ pub enum SpecError {
         /// The spec's `name`.
         spec_name: String,
     },
-    /// A trigger has an empty segment id.
+    /// A segment id is the empty string.
     EmptySegmentId {
-        /// The loop with the empty trigger.
-        loop_name: String,
+        /// The loop holding it; `None` for a key of the `segments` section.
+        loop_name: Option<String>,
+        /// Where it sits, as written: `trigger.segment`, `segments[<i>]`,
+        /// `end`, or `segments.""` for the section.
+        key: String,
     },
     /// A `where` key is not a 1-based element position in canonical form.
     BadPosition {
@@ -317,6 +320,22 @@ pub enum SpecError {
         /// The shared trigger conditions, sorted by position.
         conditions: Vec<(usize, String)>,
     },
+    /// Two loops with the same parent trigger on the same segment id, no
+    /// position tested by both requires different values, and neither set of
+    /// conditions contains the other: one segment can satisfy both and
+    /// neither trigger is more specific.
+    OverlappingTriggers {
+        /// Their common parent; `None` for top-level loops.
+        parent: Option<String>,
+        /// First loop, in spec order.
+        a: String,
+        /// Second loop, in spec order.
+        b: String,
+        /// The first loop's trigger, e.g. `"N1" where {1: "PR"}`.
+        conditions_a: String,
+        /// The second loop's trigger, written the same way.
+        conditions_b: String,
+    },
 }
 
 impl fmt::Display for SpecError {
@@ -355,9 +374,14 @@ impl fmt::Display for SpecError {
             SpecError::NoLoops { spec_name } => {
                 write!(f, "spec {spec_name:?} declares no loops")
             }
-            SpecError::EmptySegmentId { loop_name } => {
-                write!(f, "loop {loop_name:?} has an empty trigger segment")
-            }
+            SpecError::EmptySegmentId {
+                loop_name: Some(loop_name),
+                key,
+            } => write!(f, "loop {loop_name:?} has an empty segment id at {key}"),
+            SpecError::EmptySegmentId {
+                loop_name: None,
+                key,
+            } => write!(f, "the spec has an empty segment id at {key}"),
             SpecError::BadPosition {
                 loop_name,
                 position,
@@ -398,6 +422,25 @@ impl fmt::Display for SpecError {
                     write!(f, "}}")?;
                 }
                 Ok(())
+            }
+            SpecError::OverlappingTriggers {
+                parent,
+                a,
+                b,
+                conditions_a,
+                conditions_b,
+            } => {
+                write!(f, "loops {a:?} and {b:?} under ")?;
+                match parent {
+                    Some(parent) => write!(f, "{parent:?}")?,
+                    None => write!(f, "the root")?,
+                }
+                write!(
+                    f,
+                    " can open on the same segment: {a:?} on {conditions_a}, {b:?} on \
+                     {conditions_b}, no position they both test requires different values, \
+                     and neither trigger is more specific than the other"
+                )
             }
         }
     }
@@ -630,10 +673,18 @@ impl Spec {
 
         let mut loops = Vec::with_capacity(defs.len());
         for (name, def) in &defs {
+            let empty_at = |key: String| SpecError::EmptySegmentId {
+                loop_name: Some(name.clone()),
+                key,
+            };
             if def.trigger.segment.is_empty() {
-                return Err(SpecError::EmptySegmentId {
-                    loop_name: name.clone(),
-                });
+                return Err(empty_at("trigger.segment".into()));
+            }
+            if let Some(i) = def.segments.iter().position(String::is_empty) {
+                return Err(empty_at(format!("segments[{i}]")));
+            }
+            if def.end.as_deref() == Some("") {
+                return Err(empty_at("end".into()));
             }
             let parent = match &def.parent {
                 None => None,
@@ -677,6 +728,12 @@ impl Spec {
 
         let mut segments = BTreeMap::new();
         for (id, value) in &raw.segments {
+            if id.is_empty() {
+                return Err(SpecError::EmptySegmentId {
+                    loop_name: None,
+                    key: "segments.\"\"".into(),
+                });
+            }
             let def: RawSegment =
                 serde_json::from_value(value.clone()).map_err(|e| SpecError::SegmentSchema {
                     segment: id.clone(),
@@ -704,14 +761,19 @@ impl Spec {
             for (i, &first) in siblings.iter().enumerate() {
                 for &second in &siblings[i + 1..] {
                     let trigger = &self.loops[first.0].trigger;
-                    if *trigger == self.loops[second.0].trigger {
-                        let text = |bytes: &[u8]| String::from_utf8_lossy(bytes).into_owned();
+                    let other = &self.loops[second.0].trigger;
+                    if trigger.segment != other.segment {
+                        continue;
+                    }
+                    let text = |bytes: &[u8]| String::from_utf8_lossy(bytes).into_owned();
+                    let parent = self.loops[first.0]
+                        .parent
+                        .map(|parent| self.loops[parent.0].name.clone());
+                    if trigger == other {
                         return Err(SpecError::AmbiguousTrigger {
                             first: self.loops[first.0].name.clone(),
                             second: self.loops[second.0].name.clone(),
-                            parent: self.loops[first.0]
-                                .parent
-                                .map(|parent| self.loops[parent.0].name.clone()),
+                            parent,
                             segment: text(&trigger.segment),
                             conditions: trigger
                                 .conditions
@@ -720,11 +782,51 @@ impl Spec {
                                 .collect(),
                         });
                     }
+                    // Siblings are told apart when a shared position requires
+                    // different values, or when one trigger's conditions
+                    // contain the other's: the engine then prefers the one
+                    // with more conditions and the other is the catch-all.
+                    let excluded = trigger.conditions.iter().any(|(position, value)| {
+                        other
+                            .conditions
+                            .iter()
+                            .any(|(p, v)| p == position && v != value)
+                    });
+                    let contains = |big: &Trigger, small: &Trigger| {
+                        small
+                            .conditions
+                            .iter()
+                            .all(|condition| big.conditions.contains(condition))
+                    };
+                    let nested = contains(trigger, other) || contains(other, trigger);
+                    if !excluded && !nested {
+                        return Err(SpecError::OverlappingTriggers {
+                            parent,
+                            a: self.loops[first.0].name.clone(),
+                            b: self.loops[second.0].name.clone(),
+                            conditions_a: render_trigger(trigger),
+                            conditions_b: render_trigger(other),
+                        });
+                    }
                 }
             }
         }
         Ok(())
     }
+}
+
+/// A trigger as `"N1" where {1: "PR", 2: "X"}`, or `"N1" with no conditions`.
+fn render_trigger(trigger: &Trigger) -> String {
+    let segment = String::from_utf8_lossy(&trigger.segment);
+    if trigger.conditions.is_empty() {
+        return format!("{segment:?} with no conditions");
+    }
+    let parts: Vec<String> = trigger
+        .conditions
+        .iter()
+        .map(|(position, value)| format!("{position}: {:?}", String::from_utf8_lossy(value)))
+        .collect();
+    format!("{segment:?} where {{{}}}", parts.join(", "))
 }
 
 /// A 1-based element position written in canonical form (`"1"`, never
@@ -1199,12 +1301,34 @@ mod tests {
     }
 
     #[test]
-    fn empty_trigger_segment_is_rejected() {
-        let err = Spec::from_json(r#"{"name":"t","loops":{"a":{"trigger":{"segment":""}}}}"#)
-            .unwrap_err();
+    fn empty_segment_ids_are_rejected_with_the_loop_and_the_key() {
+        let cases = [
+            (r#"{"trigger":{"segment":""}}"#, "trigger.segment"),
+            (
+                r#"{"trigger":{"segment":"AA"},"segments":["A1",""]}"#,
+                "segments[1]",
+            ),
+            (r#"{"trigger":{"segment":"AA"},"end":""}"#, "end"),
+        ];
+        for (def, expected_key) in cases {
+            let json = format!(r#"{{"name":"t","loops":{{"a":{def}}}}}"#);
+            let err = Spec::from_json(&json).unwrap_err();
+            assert!(
+                matches!(&err, SpecError::EmptySegmentId { loop_name: Some(name), key } if name == "a" && key == expected_key),
+                "{def}: {err:?}"
+            );
+        }
+    }
+
+    #[test]
+    fn an_empty_segment_id_in_the_segments_section_is_rejected() {
+        let err = Spec::from_json(
+            r#"{"name":"t","loops":{"a":{"trigger":{"segment":"AA"}}},"segments":{"":{"elements":{}}}}"#,
+        )
+        .unwrap_err();
         assert!(
-            matches!(&err, SpecError::EmptySegmentId { loop_name } if loop_name == "a"),
-            "{err}"
+            matches!(&err, SpecError::EmptySegmentId { loop_name: None, key } if key == "segments.\"\""),
+            "{err:?}"
         );
     }
 
@@ -1284,6 +1408,117 @@ mod tests {
     }
 
     #[test]
+    fn siblings_testing_different_positions_overlap_and_are_rejected() {
+        let err = Spec::from_json(
+            r#"{"name":"t","loops":{
+                "transaction":{"trigger":{"segment":"ST"}},
+                "payer":{"parent":"transaction","trigger":{"segment":"N1","where":{"1":"PR"}}},
+                "other":{"parent":"transaction","trigger":{"segment":"N1","where":{"2":"X"}}}
+            }}"#,
+        )
+        .unwrap_err();
+        assert!(
+            matches!(&err, SpecError::OverlappingTriggers { parent: Some(parent), a, b, .. } if parent == "transaction" && a == "other" && b == "payer"),
+            "{err:?}"
+        );
+        assert_eq!(
+            err.to_string(),
+            "loops \"other\" and \"payer\" under \"transaction\" can open on the same segment: \"other\" on \"N1\" where {2: \"X\"}, \"payer\" on \"N1\" where {1: \"PR\"}, no position they both test requires different values, and neither trigger is more specific than the other"
+        );
+    }
+
+    #[test]
+    fn a_bare_trigger_beside_a_conditioned_sibling_is_a_catch_all_and_loads() {
+        let spec = Spec::from_json(
+            r#"{"name":"t","loops":{
+                "transaction":{"trigger":{"segment":"ST"}},
+                "any":{"parent":"transaction","trigger":{"segment":"N1"}},
+                "payer":{"parent":"transaction","trigger":{"segment":"N1","where":{"1":"PR"}}}
+            }}"#,
+        );
+        assert!(spec.is_ok(), "{spec:?}");
+    }
+
+    #[test]
+    fn a_strict_superset_of_conditions_does_not_overlap() {
+        let spec = Spec::from_json(
+            r#"{"name":"t","loops":{
+                "payer":{"trigger":{"segment":"N1","where":{"1":"PR"}}},
+                "acme":{"trigger":{"segment":"N1","where":{"1":"PR","2":"X"}}}
+            }}"#,
+        )
+        .unwrap();
+        let segments = segs(b"N1*PR*X~N1*PR*Y~");
+        assert_eq!(
+            spec.matching_child(None, &segments[0]),
+            spec.loop_id("acme"),
+            "the more specific trigger wins"
+        );
+        assert_eq!(
+            spec.matching_child(None, &segments[1]),
+            spec.loop_id("payer")
+        );
+    }
+
+    #[test]
+    fn siblings_that_differ_at_a_shared_position_do_not_overlap() {
+        let ok = Spec::from_json(
+            r#"{"name":"t","loops":{
+                "payer":{"trigger":{"segment":"N1","where":{"1":"PR","2":"X"}}},
+                "payee":{"trigger":{"segment":"N1","where":{"1":"PE"}}},
+                "other":{"trigger":{"segment":"N3"}}
+            }}"#,
+        );
+        assert!(ok.is_ok(), "{ok:?}");
+        let builtin = Spec::builtin_835();
+        assert!(builtin.loop_id("1000A").is_some() && builtin.loop_id("1000B").is_some());
+    }
+
+    #[test]
+    fn overlapping_triggers_display_both_loops_and_their_triggers() {
+        let err = SpecError::OverlappingTriggers {
+            parent: Some("transaction".into()),
+            a: "1000A".into(),
+            b: "1000C".into(),
+            conditions_a: "\"N1\" where {1: \"PR\"}".into(),
+            conditions_b: "\"N1\" where {2: \"X\"}".into(),
+        };
+        assert_eq!(
+            err.to_string(),
+            "loops \"1000A\" and \"1000C\" under \"transaction\" can open on the same segment: \"1000A\" on \"N1\" where {1: \"PR\"}, \"1000C\" on \"N1\" where {2: \"X\"}, no position they both test requires different values, and neither trigger is more specific than the other"
+        );
+        assert!(std::error::Error::source(&err).is_none());
+        let err = SpecError::OverlappingTriggers {
+            parent: None,
+            a: "a".into(),
+            b: "b".into(),
+            conditions_a: "\"AA\" where {1: \"X\"}".into(),
+            conditions_b: "\"AA\" where {2: \"Y\"}".into(),
+        };
+        assert_eq!(
+            err.to_string(),
+            "loops \"a\" and \"b\" under the root can open on the same segment: \"a\" on \"AA\" where {1: \"X\"}, \"b\" on \"AA\" where {2: \"Y\"}, no position they both test requires different values, and neither trigger is more specific than the other"
+        );
+    }
+
+    #[test]
+    fn triggers_render_with_their_conditions_in_position_order() {
+        let bare = Trigger {
+            segment: b"N1".to_vec(),
+            conditions: Vec::new(),
+        };
+        assert_eq!(render_trigger(&bare), "\"N1\" with no conditions");
+        let conditioned = Trigger {
+            segment: b"N1".to_vec(),
+            conditions: vec![(1, b"PR".to_vec()), (3, b"X".to_vec())],
+        };
+        assert_eq!(
+            render_trigger(&conditioned),
+            "\"N1\" where {1: \"PR\", 3: \"X\"}"
+        );
+    }
+
+    #[test]
     fn to_json_round_trips_through_from_json() {
         let spec = Spec::builtin_835();
         let again = Spec::from_json(&spec.to_json()).unwrap();
@@ -1333,17 +1568,18 @@ mod tests {
     fn patch_error_displays_the_inner_error_once() {
         let err = SpecError::Patch {
             source: Box::new(SpecError::EmptySegmentId {
-                loop_name: "a".into(),
+                loop_name: Some("a".into()),
+                key: "end".into(),
             }),
         };
         assert_eq!(
             err.to_string(),
-            "applying patch: loop \"a\" has an empty trigger segment"
+            "applying patch: loop \"a\" has an empty segment id at end"
         );
         let source = std::error::Error::source(&err).map(ToString::to_string);
         assert_eq!(
             source.as_deref(),
-            Some("loop \"a\" has an empty trigger segment")
+            Some("loop \"a\" has an empty segment id at end")
         );
     }
 
@@ -1397,11 +1633,23 @@ mod tests {
     }
 
     #[test]
-    fn empty_segment_id_displays_the_loop() {
+    fn empty_segment_id_displays_the_loop_and_the_key() {
         let err = SpecError::EmptySegmentId {
-            loop_name: "a".into(),
+            loop_name: Some("2100".into()),
+            key: "segments[3]".into(),
         };
-        assert_eq!(err.to_string(), "loop \"a\" has an empty trigger segment");
+        assert_eq!(
+            err.to_string(),
+            "loop \"2100\" has an empty segment id at segments[3]"
+        );
+        let err = SpecError::EmptySegmentId {
+            loop_name: None,
+            key: "segments.\"\"".into(),
+        };
+        assert_eq!(
+            err.to_string(),
+            "the spec has an empty segment id at segments.\"\""
+        );
     }
 
     #[test]

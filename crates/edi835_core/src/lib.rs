@@ -28,6 +28,7 @@ pub mod document;
 pub mod element;
 pub mod engine;
 pub mod frame;
+pub mod project;
 pub mod segment;
 pub mod spec;
 pub mod tokenizer;
@@ -44,6 +45,7 @@ pub use document::{Document, Segments, Span};
 pub use element::{Element, Value};
 pub use engine::{Event, LoopEngine};
 pub use frame::{Frame, next_frame};
+pub use project::Projector;
 pub use segment::{Segment, WriteError};
 pub use spec::{
     ColumnSource, Control, ControlCount, ControlError, ElementDef, ElementDefError, ElementType,

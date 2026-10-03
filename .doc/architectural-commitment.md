@@ -190,7 +190,8 @@ carga su prueba de costura con la capa inferior (N7).
   `examples/buffer_retention.rs` sobre `edi835_test_united.rmt` (629 KB, 30 302 segmentos,
   release, AMD Ryzen 7 5700U) frente a un prototipo `Arc<[u8]>` con los mismos spans.
   Construir desde el `Vec<u8>` que el binding ya copió: 1,13 ms con `Cow` y 1,54 ms con
-  `Arc` (`Arc::from(Vec)` vuelve a copiar el buffer). Iterar todos los segmentos: 4,2 frente
+  `Arc` (`Arc::from(Vec)` vuelve a copiar el buffer en una asignación nueva, con sus fallos de
+  página). Iterar todos los segmentos: 4,2 frente
   a 4,1 ms. Retener N documentos de N entradas ocupa lo mismo: 1,9 / 18,5 / 185 MiB para
   N = 1, 10, 100. `Arc` solo gana al clonar (35 frente a 77 µs), y nadie clona: Python
   comparte el objeto `Document` por referencia y `stream` no construye documento. Se descarta

@@ -228,6 +228,11 @@ carga su prueba de costura con la capa inferior (N7).
   comparativa se hace sobre los originales (fuera del repo), y antes hay que identificar
   qué campo altera `scripts/anonymize_835.py` de forma que rompe a ese parser y corregir
   el anonimizador, regenerando los samples por el camino previsto (nunca a mano).
+  Diagnóstico del mismo día (#46): el anonimizador no es la causa; los originales fallan
+  igual porque la librería hace `int()` sobre `N104` y los payers usan ids `XV`
+  alfanuméricos, válidos en X12. La comparativa de 5b corre sobre los originales con un
+  parche mínimo en el script de comparación que acepte `N104` no numérico, documentado como
+  la única divergencia conocida, y la corrección se ofrece aguas arriba.
 - **D13 · Estructura de módulos**: `spec.rs` supera las 2.500 líneas tras el Stage 4a y
   `diagnostic.rs`, `engine.rs` y `check.rs` crecen. Tras el Stage 5, planificar la división
   en submódulos (por ejemplo `spec/{load,shape,segments,tables,control,patch}.rs`) con

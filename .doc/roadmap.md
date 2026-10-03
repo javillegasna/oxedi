@@ -15,7 +15,7 @@ when a stage changes state.
 | 3 · Loop engine | JSON spec, `LoopEngine` events, `LoopTree`, merge-patch extension, P10 errors | **Done** 2026-10-03 | PR #6; deferred findings: issues #7–#19 on Project #8; test hygiene PR #20 closed #9–#13 |
 | 4 · Projection + validation | `segments` and `tables` in the spec, Arrow-layout columns, SNIP 1–2 diagnostics with full location (P10), closes #7 #17 #18 #19 | **Done** 2026-10-03 (4a PR #30, 4b PR #38, backlog sprint PR #43) | findings closed by #43; open: #28, #39–#42; SNIP 3 → D11 |
 | 5 · Python binding | PyO3/maturin `abi3` (Python ≥ 3.11), GIL released, `parse`/`stream`/`Spec`, Arrow by PyCapsule, D8 measured | **Plan approved** 2026-10-03 | branch `stage-5-python`, `plans/stage-5-python.md` |
-| 5b · Compatibility oracle | A `tables` spec (plus patch) whose output matches `edi-835-parser` (keiron-stoddart, Python) row for row on the original files (outside the repo); first fix the anonymizer alteration that breaks that parser on 5 of 6 samples | Not started (after 5, D12) | — |
+| 5b · Compatibility oracle | A `tables` spec (plus patch) whose output matches `edi-835-parser` (keiron-stoddart, Python) row for row on the original files (outside the repo) with a one-line shim for the library's `int(N104)` limitation (#46; the anonymizer was cleared) | Not started (after 5, D12) | — |
 | 5c · Module layout | Split the large source files into navigable submodules with short files and a one-glance discovery path; no behaviour change | Not started (after 5, D13) | — |
 | 6 · Distribution | crates.io, PyPI wheels, release CI | Not started | — |
 | 7 · Writer | Data → loops → bytes, same spec | Deferred (D7) | — |

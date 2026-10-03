@@ -54,8 +54,8 @@ X12 value parsers), `tables` section of the spec with five built-in tables, `Pro
 (rows at loop close + SNIP 2), `Processor` (one pass), table and diagnostic goldens under
 `tests/golden/project/`. SNIP 3 was not included (D11). `.doc/analysis/` is current at 3707e28. §7 Stage 5 approved 2026-10-03 (T18–T23; floor Python 3.11) and plan
 `plans/stage-5-python.md` approved the same day (7 tasks, 3 batches). D8 measured during
-planning: keep `Cow` (Arc builds slower, same retention memory). New issues: #45 (Document spans ≈ 2× bytes), #46 (anonymizer alteration breaks
-`edi-835-parser` on 5 of 6 samples; fix before 5b, compare on the originals).
+planning: keep `Cow` (Arc builds slower, same retention memory). New issues: #45 (Document spans ≈ 2× bytes), #46 (`edi-835-parser` rejects alphanumeric `N104`; originals fail too,
+anonymizer cleared; 5b compares on the originals with a shim).
 Execution convention: main session orchestrates only; implementer by complexity, reviewer one
 tier up; batches of two to four tasks since 4b.
 The decisions that were open, now settled in §7:

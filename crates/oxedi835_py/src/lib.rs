@@ -7,6 +7,7 @@
 
 use pyo3::prelude::*;
 
+mod arrow;
 mod diagnostic;
 mod document;
 mod parse;

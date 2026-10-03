@@ -21,3 +21,8 @@ workspace = true
 [dependencies]
 edi835_core = { path = "../edi835_core" }
 pyo3 = { version = "0.29", features = ["abi3-py311"] }
+arrow-array = { version = "60", default-features = false, features = ["ffi"] }
+arrow-buffer = { version = "60", default-features = false }
+arrow-data = { version = "60", default-features = false, features = ["ffi"] }
+arrow-schema = { version = "60", default-features = false, features = ["ffi"] }
+bytes = "1.9"

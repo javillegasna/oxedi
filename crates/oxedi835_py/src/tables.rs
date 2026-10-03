@@ -6,7 +6,9 @@ use std::sync::Arc;
 use edi835_core::{Table, Tables};
 use pyo3::exceptions::{PyKeyError, PyRuntimeError};
 use pyo3::prelude::*;
-use pyo3::types::{PyIterator, PyTuple};
+use pyo3::types::{PyCapsule, PyIterator, PyTuple};
+
+use crate::arrow;
 
 /// Writes one table as text: a title with the row count, the header, one
 /// line per row and an empty line.
@@ -160,6 +162,43 @@ impl PyTable {
             render_table(table, &mut out);
             out
         }))
+    }
+
+    /// Exports the table as an Arrow stream of one record batch, sharing
+    /// the column buffers. `requested_schema` is ignored, as the protocol
+    /// allows: the table keeps its own types.
+    #[pyo3(signature = (requested_schema = None))]
+    fn __arrow_c_stream__<'py>(
+        &self,
+        py: Python<'py>,
+        requested_schema: Option<Bound<'py, PyAny>>,
+    ) -> PyResult<Bound<'py, PyCapsule>> {
+        let _ = requested_schema;
+        let stream = py.detach(|| arrow::stream(&self.tables, self.index))?;
+        PyCapsule::new_with_value(py, stream, c"arrow_array_stream")
+    }
+
+    /// Exports the table as one Arrow struct array and its schema, sharing
+    /// the column buffers. `requested_schema` is ignored, as the protocol
+    /// allows.
+    #[pyo3(signature = (requested_schema = None))]
+    fn __arrow_c_array__<'py>(
+        &self,
+        py: Python<'py>,
+        requested_schema: Option<Bound<'py, PyAny>>,
+    ) -> PyResult<(Bound<'py, PyCapsule>, Bound<'py, PyCapsule>)> {
+        let _ = requested_schema;
+        let (array, schema) = py.detach(|| arrow::array(&self.tables, self.index))?;
+        Ok((
+            PyCapsule::new_with_value(py, schema, c"arrow_schema")?,
+            PyCapsule::new_with_value(py, array, c"arrow_array")?,
+        ))
+    }
+
+    /// Exports the table's schema.
+    fn __arrow_c_schema__<'py>(&self, py: Python<'py>) -> PyResult<Bound<'py, PyCapsule>> {
+        let schema = arrow::schema(&self.tables, self.index)?;
+        PyCapsule::new_with_value(py, schema, c"arrow_schema")
     }
 
     fn __repr__(&self) -> PyResult<String> {

@@ -8,5 +8,6 @@ See [`.doc/architectural-commitment.md`](.doc/architectural-commitment.md) for t
 
 ## Status
 
-**Stage 1 — framing + tokenizer.** Bytes → lazy, lossless `Segment` stream, delimiters
-read from the ISA, symmetric writer. No 835 knowledge yet (that is Stage 3 data).
+**Stage 2 — lossless document.** Bytes → lazy `Segment` stream (Stage 1) or a `Document`
+that holds the whole file, borrowed or owned, and yields the same segments on demand.
+No 835 knowledge yet (that is Stage 3 data).

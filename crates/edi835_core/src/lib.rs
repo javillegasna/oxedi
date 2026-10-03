@@ -1,13 +1,8 @@
-//! `edi835_core` — lossless, fast, data-driven EDI 835 parser core.
+//! Lossless, fast, data-driven EDI 835 parser core.
 //!
-//! Stage 0: scaffolding only. No parsing logic yet — see
-//! `.doc/architectural-commitment.md` for the roadmap.
+//! Bytes in, a lazy stream of generic segments out. Nothing in this crate
+//! knows what an 835 is: segment meaning is supplied as data by higher layers.
 
-#[cfg(test)]
-mod tests {
-    /// Smoke test: proves the unit-test harness compiles and runs.
-    #[test]
-    fn smoke() {
-        assert_eq!(2 + 2, 4);
-    }
-}
+pub mod delimiters;
+
+pub use delimiters::{Delimiters, IsaError};

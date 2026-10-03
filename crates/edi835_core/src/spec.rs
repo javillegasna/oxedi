@@ -16,6 +16,7 @@ use std::collections::BTreeMap;
 use std::fmt;
 
 use serde::Deserialize;
+use serde::de::IgnoredAny;
 use serde_json::Value;
 
 use crate::element::Element;
@@ -910,8 +911,9 @@ impl std::error::Error for SpecError {
     }
 }
 
-// Loops are kept as raw values so each one is deserialized on its own and a
-// schema error can name the loop it came from.
+// The loop, segment and table sections are only checked for their outer shape
+// here; each entry is then deserialized on its own, straight from the spec's
+// JSON, so a schema error can name the entry it came from.
 #[derive(Debug, Deserialize)]
 #[serde(
     deny_unknown_fields,
@@ -919,11 +921,11 @@ impl std::error::Error for SpecError {
 )]
 struct RawSpec {
     name: String,
-    loops: BTreeMap<String, Value>,
-    #[serde(default)]
-    segments: BTreeMap<String, Value>,
-    #[serde(default)]
-    tables: BTreeMap<String, Value>,
+    loops: BTreeMap<String, IgnoredAny>,
+    #[serde(default, rename = "segments")]
+    _segments: BTreeMap<String, IgnoredAny>,
+    #[serde(default, rename = "tables")]
+    _tables: BTreeMap<String, IgnoredAny>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -976,7 +978,8 @@ struct RawElement {
     composite: BTreeMap<String, RawElement>,
 }
 
-// Columns are kept as raw values so a schema error can name the column.
+// Columns are checked for their outer shape here and deserialized one by one,
+// so a schema error can name the column.
 #[derive(Debug, Deserialize)]
 #[serde(deny_unknown_fields, expecting = "a table object")]
 struct RawTable {
@@ -986,7 +989,7 @@ struct RawTable {
     segment: Option<String>,
     repeat: Option<RawRepeat>,
     #[serde(default)]
-    columns: BTreeMap<String, Value>,
+    columns: BTreeMap<String, IgnoredAny>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -1194,24 +1197,22 @@ impl Spec {
 
     pub(crate) fn from_value(source: Value) -> Result<Spec, SpecError> {
         check_shape(&source)?;
-        let raw: RawSpec =
-            serde_json::from_value(source.clone()).map_err(|e| SpecError::Schema {
-                loop_name: None,
-                source: e,
-            })?;
+        let raw = RawSpec::deserialize(&source).map_err(|e| SpecError::Schema {
+            loop_name: None,
+            source: e,
+        })?;
         if raw.loops.is_empty() {
             return Err(SpecError::NoLoops {
                 spec_name: raw.name,
             });
         }
         let mut defs = Vec::with_capacity(raw.loops.len());
-        for (name, value) in &raw.loops {
-            let def: RawLoop =
-                serde_json::from_value(value.clone()).map_err(|e| SpecError::Schema {
-                    loop_name: Some(name.clone()),
-                    source: e,
-                })?;
-            defs.push((name.clone(), def));
+        for (name, value) in section(&source, "loops") {
+            let def = RawLoop::deserialize(value).map_err(|e| SpecError::Schema {
+                loop_name: Some(name.to_string()),
+                source: e,
+            })?;
+            defs.push((name.to_string(), def));
         }
         let names: Vec<&str> = raw.loops.keys().map(String::as_str).collect();
         let id_of = |name: &str| names.iter().position(|&n| n == name).map(LoopId);
@@ -1288,18 +1289,17 @@ impl Spec {
         }
 
         let mut segments = BTreeMap::new();
-        for (id, value) in &raw.segments {
+        for (id, value) in section(&source, "segments") {
             if id.is_empty() {
                 return Err(SpecError::EmptySegmentId {
                     loop_name: None,
                     key: "segments.\"\"".into(),
                 });
             }
-            let def: RawSegment =
-                serde_json::from_value(value.clone()).map_err(|e| SpecError::SegmentSchema {
-                    segment: id.clone(),
-                    source: e,
-                })?;
+            let def = RawSegment::deserialize(value).map_err(|e| SpecError::SegmentSchema {
+                segment: id.to_string(),
+                source: e,
+            })?;
             let elements = compile_elements(id, &def.elements, None)?;
             segments.insert(id.as_bytes().to_vec(), SegmentDef { elements });
         }
@@ -1310,10 +1310,11 @@ impl Spec {
             roots,
             segments,
             tables: Vec::new(),
-            source,
+            source: Value::Null,
         };
         spec.check_ambiguity()?;
-        spec.tables = compile_tables(&spec, &raw.tables)?;
+        spec.tables = compile_tables(&spec, section(&source, "tables"))?;
+        spec.source = source;
         Ok(spec)
     }
 
@@ -1387,24 +1388,37 @@ fn render_chain(chain: &[String]) -> String {
     names.join("/")
 }
 
+/// The members of the object at `key`, in key order; empty when there is none.
+fn section<'v>(value: &'v Value, key: &str) -> BTreeMap<&'v str, &'v Value> {
+    value
+        .get(key)
+        .and_then(Value::as_object)
+        .map(|members| members.iter().map(|(k, v)| (k.as_str(), v)).collect())
+        .unwrap_or_default()
+}
+
 /// Compiles the `tables` section against the loops of `spec`, then links
 /// every table to the tables above it.
-fn compile_tables(spec: &Spec, raw: &BTreeMap<String, Value>) -> Result<Vec<TableDef>, SpecError> {
+fn compile_tables(spec: &Spec, raw: BTreeMap<&str, &Value>) -> Result<Vec<TableDef>, SpecError> {
     let mut tables = Vec::with_capacity(raw.len());
     for (name, value) in raw {
-        let def: RawTable =
-            serde_json::from_value(value.clone()).map_err(|e| SpecError::TableSchema {
-                table: name.clone(),
-                column: None,
-                source: e,
-            })?;
-        tables.push(compile_table(spec, name, &def)?);
+        let def = RawTable::deserialize(value).map_err(|e| SpecError::TableSchema {
+            table: name.to_string(),
+            column: None,
+            source: e,
+        })?;
+        tables.push(compile_table(spec, name, &def, value)?);
     }
     link_tables(spec, &mut tables)?;
     Ok(tables)
 }
 
-fn compile_table(spec: &Spec, name: &str, def: &RawTable) -> Result<TableDef, SpecError> {
+fn compile_table(
+    spec: &Spec,
+    name: &str,
+    def: &RawTable,
+    value: &Value,
+) -> Result<TableDef, SpecError> {
     let fail = |reason| SpecError::BadTable {
         table: name.to_string(),
         column: None,
@@ -1475,15 +1489,14 @@ fn compile_table(spec: &Spec, name: &str, def: &RawTable) -> Result<TableDef, Sp
         }
     }
     let mut columns = Vec::with_capacity(def.columns.len());
-    for (column, value) in &def.columns {
-        let raw: RawColumn =
-            serde_json::from_value(value.clone()).map_err(|e| SpecError::TableSchema {
-                table: name.to_string(),
-                column: Some(column.clone()),
-                source: e,
-            })?;
+    for (column, value) in section(value, "columns") {
+        let raw = RawColumn::deserialize(value).map_err(|e| SpecError::TableSchema {
+            table: name.to_string(),
+            column: Some(column.to_string()),
+            source: e,
+        })?;
         let source = compile_column(spec, name, column, &raw, &loops, segment.as_deref(), repeat)?;
-        columns.push((column.clone(), source));
+        columns.push((column.to_string(), source));
     }
     Ok(TableDef {
         name: name.to_string(),

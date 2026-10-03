@@ -32,6 +32,9 @@ pub use element::{Element, Value};
 pub use engine::{Event, LoopEngine};
 pub use frame::{Frame, next_frame};
 pub use segment::{Segment, WriteError};
-pub use spec::{LoopDef, LoopId, Spec, SpecError, Trigger, merge_patch};
+pub use spec::{
+    ElementDef, ElementDefError, ElementType, LoopDef, LoopId, SegmentDef, Spec, SpecError,
+    Trigger, merge_patch,
+};
 pub use tokenizer::Tokenizer;
 pub use tree::{LoopTree, Node, NodeId};

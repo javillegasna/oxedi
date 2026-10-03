@@ -2,9 +2,11 @@
 //!
 //! A spec is plain JSON: a map of loops, each naming its parent, the segment
 //! (and optional element conditions) that opens it, the segments it may hold
-//! and an optional segment that closes it. Loading compiles that into
-//! index-based definitions so the engine never compares strings, and keeps the
-//! JSON value so patches can be applied on top.
+//! and an optional segment that closes it. An optional `segments` section
+//! names and types the elements of each segment id, wherever the segment
+//! appears. Loading compiles that into index-based definitions so the engine
+//! never compares strings, and keeps the JSON value so patches can be applied
+//! on top.
 
 use std::cmp::Reverse;
 use std::collections::BTreeMap;
@@ -73,7 +75,165 @@ impl LoopDef {
     }
 }
 
-/// Why a spec could not be loaded. Each variant names the loop at fault.
+/// The data type of an element, as the X12 standard names it.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ElementType {
+    /// `AN`: a string.
+    An,
+    /// `ID`: a code from a list.
+    Id,
+    /// `N0` to `N9`: an integer with that many implied decimal places.
+    N(u8),
+    /// `R`: a decimal number with an explicit point, kept at `scale` places.
+    R {
+        /// Decimal places; 2 unless the spec says otherwise.
+        scale: u8,
+    },
+    /// `DT`: a date, `CCYYMMDD` or `YYMMDD`.
+    Dt,
+    /// `TM`: a time, `HHMM` optionally followed by seconds and decimal seconds.
+    Tm,
+}
+
+impl ElementType {
+    /// Reads the type code of an element definition; `scale` is the
+    /// definition's `scale` key, which only `R` accepts.
+    fn parse(code: &str, scale: Option<u8>) -> Result<ElementType, ElementDefError> {
+        let kind = match code.as_bytes() {
+            b"AN" => ElementType::An,
+            b"ID" => ElementType::Id,
+            b"R" => ElementType::R {
+                scale: scale.unwrap_or(2),
+            },
+            b"DT" => ElementType::Dt,
+            b"TM" => ElementType::Tm,
+            [b'N', digit @ b'0'..=b'9'] => ElementType::N(digit - b'0'),
+            _ => {
+                return Err(ElementDefError::UnknownType {
+                    found: code.to_string(),
+                });
+            }
+        };
+        if scale.is_some() && !matches!(kind, ElementType::R { .. }) {
+            return Err(ElementDefError::ScaleWithoutR {
+                kind: code.to_string(),
+            });
+        }
+        Ok(kind)
+    }
+}
+
+impl fmt::Display for ElementType {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            ElementType::An => write!(f, "AN (string)"),
+            ElementType::Id => write!(f, "ID (code)"),
+            ElementType::N(places) => {
+                write!(f, "N{places} (integer with {places} implied decimals)")
+            }
+            ElementType::R { scale } => write!(f, "R (decimal, scale {scale})"),
+            ElementType::Dt => write!(f, "DT (date CCYYMMDD or YYMMDD)"),
+            ElementType::Tm => write!(f, "TM (time HHMM, HHMMSS or HHMMSSD..)"),
+        }
+    }
+}
+
+/// One element of a segment, or one component of a composite element.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct ElementDef {
+    /// Name used for the element downstream, e.g. `claim_submitter_id`.
+    pub name: String,
+    /// Data type.
+    pub kind: ElementType,
+    /// `true` when the element must be present and non-empty.
+    pub required: bool,
+    /// Minimum length, when the spec sets one.
+    pub min: Option<usize>,
+    /// Maximum length, when the spec sets one.
+    pub max: Option<usize>,
+    /// Components by 1-based position; empty for a simple element.
+    pub composite: BTreeMap<usize, ElementDef>,
+}
+
+/// The elements of one segment id.
+#[derive(Debug, Clone, PartialEq, Eq, Default)]
+pub struct SegmentDef {
+    /// Elements by 1-based position. Positions with no entry are opaque.
+    pub elements: BTreeMap<usize, ElementDef>,
+}
+
+/// Why an element definition was rejected.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum ElementDefError {
+    /// The position key is not a 1-based integer in canonical form.
+    NonCanonicalPosition,
+    /// `name` is the empty string.
+    EmptyName,
+    /// Another element at the same level already has this name.
+    DuplicateName {
+        /// The repeated name.
+        name: String,
+        /// Position key of the element that used it first, as written.
+        first: String,
+    },
+    /// `type` is not one of the known codes.
+    UnknownType {
+        /// The code as written.
+        found: String,
+    },
+    /// `scale` was given for a type other than `R`.
+    ScaleWithoutR {
+        /// The type code as written.
+        kind: String,
+    },
+    /// `min` is greater than `max`.
+    MinAboveMax {
+        /// The minimum as written.
+        min: usize,
+        /// The maximum as written.
+        max: usize,
+    },
+    /// `composite` was given for a type other than `AN`.
+    CompositeOnNonAn {
+        /// The type code as written.
+        kind: String,
+    },
+    /// A component declares a `composite` of its own.
+    NestedComposite,
+}
+
+impl fmt::Display for ElementDefError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            ElementDefError::NonCanonicalPosition => write!(
+                f,
+                "positions are 1-based integers written in canonical form"
+            ),
+            ElementDefError::EmptyName => write!(f, "\"name\" is empty"),
+            ElementDefError::DuplicateName { name, first } => {
+                write!(f, "name {name:?} is already used by position {first:?}")
+            }
+            ElementDefError::UnknownType { found } => write!(
+                f,
+                "type {found:?} is not one of AN, ID, N0 to N9, R, DT, TM"
+            ),
+            ElementDefError::ScaleWithoutR { kind } => {
+                write!(f, "\"scale\" applies only to type R; found type {kind:?}")
+            }
+            ElementDefError::MinAboveMax { min, max } => {
+                write!(f, "\"min\" {min} is greater than \"max\" {max}")
+            }
+            ElementDefError::CompositeOnNonAn { kind } => {
+                write!(f, "\"composite\" requires type AN; found type {kind:?}")
+            }
+            ElementDefError::NestedComposite => {
+                write!(f, "a component cannot declare its own \"composite\"")
+            }
+        }
+    }
+}
+
+/// Why a spec could not be loaded. Each variant names where in the spec the fault is.
 #[derive(Debug)]
 pub enum SpecError {
     /// The text is not valid JSON.
@@ -127,6 +287,22 @@ pub enum SpecError {
         /// What was found instead: `an array`, `a string`, `a number`,
         /// `a boolean` or `null`.
         found: &'static str,
+    },
+    /// A segment definition does not match the schema.
+    SegmentSchema {
+        /// The segment id as written.
+        segment: String,
+        /// What serde rejected.
+        source: serde_json::Error,
+    },
+    /// An element definition is invalid.
+    BadElementDef {
+        /// The segment id as written.
+        segment: String,
+        /// The element's key as written; a component is `<element>.composite.<component>`.
+        position: String,
+        /// What is wrong with it.
+        reason: ElementDefError,
     },
     /// Two loops with the same parent have identical triggers.
     AmbiguousTrigger {
@@ -190,6 +366,14 @@ impl fmt::Display for SpecError {
                 "loop {loop_name:?} has an invalid \"where\" position {position:?}: \
                  positions are 1-based integers written in canonical form"
             ),
+            SpecError::SegmentSchema { segment, source } => {
+                write!(f, "segment {segment:?} does not match the schema: {source}")
+            }
+            SpecError::BadElementDef {
+                segment,
+                position,
+                reason,
+            } => write!(f, "segment {segment:?} element {position:?}: {reason}"),
             SpecError::AmbiguousTrigger {
                 first,
                 second,
@@ -222,7 +406,9 @@ impl fmt::Display for SpecError {
 impl std::error::Error for SpecError {
     fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
         match self {
-            SpecError::Json(e) | SpecError::Schema { source: e, .. } => Some(e),
+            SpecError::Json(e)
+            | SpecError::Schema { source: e, .. }
+            | SpecError::SegmentSchema { source: e, .. } => Some(e),
             SpecError::Patch { source } => Some(source.as_ref()),
             _ => None,
         }
@@ -239,6 +425,8 @@ impl std::error::Error for SpecError {
 struct RawSpec {
     name: String,
     loops: BTreeMap<String, Value>,
+    #[serde(default)]
+    segments: BTreeMap<String, Value>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -259,12 +447,35 @@ struct RawTrigger {
     conditions: BTreeMap<String, String>,
 }
 
+#[derive(Debug, Deserialize)]
+#[serde(deny_unknown_fields, expecting = "a segment object")]
+struct RawSegment {
+    #[serde(default)]
+    elements: BTreeMap<String, RawElement>,
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(deny_unknown_fields, expecting = "an element object")]
+struct RawElement {
+    name: String,
+    #[serde(rename = "type")]
+    kind: String,
+    #[serde(default)]
+    required: bool,
+    min: Option<usize>,
+    max: Option<usize>,
+    scale: Option<u8>,
+    #[serde(default)]
+    composite: BTreeMap<String, RawElement>,
+}
+
 /// A loaded, validated loop structure.
 #[derive(Debug, Clone)]
 pub struct Spec {
     name: String,
     loops: Vec<LoopDef>,
     roots: Vec<LoopId>,
+    segments: BTreeMap<Vec<u8>, SegmentDef>,
     source: Value,
 }
 
@@ -340,6 +551,16 @@ impl Spec {
     /// Top-level loops (no parent), in spec order.
     pub fn roots(&self) -> &[LoopId] {
         &self.roots
+    }
+
+    /// The element definitions of a segment id, if the spec has any.
+    pub fn segment(&self, id: &[u8]) -> Option<&SegmentDef> {
+        self.segments.get(id)
+    }
+
+    /// Every defined segment id with its definition, ordered by id.
+    pub fn segments(&self) -> impl Iterator<Item = (&[u8], &SegmentDef)> {
+        self.segments.iter().map(|(id, def)| (id.as_slice(), def))
     }
 
     /// Children of a loop, or the top-level loops for `None`.
@@ -423,16 +644,10 @@ impl Spec {
             };
             let mut conditions = Vec::with_capacity(def.trigger.conditions.len());
             for (position, value) in &def.trigger.conditions {
-                // Only the canonical spelling is accepted, so no two keys can
-                // name the same position.
-                let parsed = position
-                    .parse::<usize>()
-                    .ok()
-                    .filter(|&p| p >= 1 && p.to_string() == *position)
-                    .ok_or_else(|| SpecError::BadPosition {
-                        loop_name: name.clone(),
-                        position: position.clone(),
-                    })?;
+                let parsed = parse_position(position).ok_or_else(|| SpecError::BadPosition {
+                    loop_name: name.clone(),
+                    position: position.clone(),
+                })?;
                 conditions.push((parsed, value.as_bytes().to_vec()));
             }
             conditions.sort();
@@ -460,10 +675,22 @@ impl Spec {
             }
         }
 
+        let mut segments = BTreeMap::new();
+        for (id, value) in &raw.segments {
+            let def: RawSegment =
+                serde_json::from_value(value.clone()).map_err(|e| SpecError::SegmentSchema {
+                    segment: id.clone(),
+                    source: e,
+                })?;
+            let elements = compile_elements(id, &def.elements, None)?;
+            segments.insert(id.as_bytes().to_vec(), SegmentDef { elements });
+        }
+
         let spec = Spec {
             name: raw.name,
             loops,
             roots,
+            segments,
             source,
         };
         spec.check_ambiguity()?;
@@ -498,6 +725,76 @@ impl Spec {
         }
         Ok(())
     }
+}
+
+/// A 1-based element position written in canonical form (`"1"`, never
+/// `"01"` or `"+1"`), so no two keys can name the same position.
+fn parse_position(key: &str) -> Option<usize> {
+    key.parse::<usize>()
+        .ok()
+        .filter(|&p| p >= 1 && p.to_string() == key)
+}
+
+/// Compiles the elements of `segment`, or the components of the element at
+/// `parent` (its key as written) when one is given.
+fn compile_elements(
+    segment: &str,
+    raw: &BTreeMap<String, RawElement>,
+    parent: Option<&str>,
+) -> Result<BTreeMap<usize, ElementDef>, SpecError> {
+    let mut elements = BTreeMap::new();
+    let mut names: BTreeMap<&str, &str> = BTreeMap::new();
+    for (key, def) in raw {
+        let position_text = match parent {
+            Some(parent) => format!("{parent}.composite.{key}"),
+            None => key.clone(),
+        };
+        let fail = |reason| SpecError::BadElementDef {
+            segment: segment.to_string(),
+            position: position_text.clone(),
+            reason,
+        };
+        let position =
+            parse_position(key).ok_or_else(|| fail(ElementDefError::NonCanonicalPosition))?;
+        if def.name.is_empty() {
+            return Err(fail(ElementDefError::EmptyName));
+        }
+        if let Some(first) = names.insert(def.name.as_str(), key.as_str()) {
+            return Err(fail(ElementDefError::DuplicateName {
+                name: def.name.clone(),
+                first: first.to_string(),
+            }));
+        }
+        let kind = ElementType::parse(&def.kind, def.scale).map_err(fail)?;
+        if let (Some(min), Some(max)) = (def.min, def.max)
+            && min > max
+        {
+            return Err(fail(ElementDefError::MinAboveMax { min, max }));
+        }
+        let composite = if def.composite.is_empty() {
+            BTreeMap::new()
+        } else if parent.is_some() {
+            return Err(fail(ElementDefError::NestedComposite));
+        } else if kind != ElementType::An {
+            return Err(fail(ElementDefError::CompositeOnNonAn {
+                kind: def.kind.clone(),
+            }));
+        } else {
+            compile_elements(segment, &def.composite, Some(key))?
+        };
+        elements.insert(
+            position,
+            ElementDef {
+                name: def.name.clone(),
+                kind,
+                required: def.required,
+                min: def.min,
+                max: def.max,
+                composite,
+            },
+        );
+    }
+    Ok(elements)
 }
 
 /// How a JSON value is described when it is not the object a spec expects.
@@ -540,6 +837,27 @@ fn check_shape(source: &Value) -> Result<(), SpecError> {
                     object_at(conditions, &format!("{at}.where"))?;
                 }
             }
+        }
+    }
+    if let Some(segments) = root.get("segments") {
+        for (id, def) in object_at(segments, "segments")? {
+            let at = format!("segments.{id}");
+            let def = object_at(def, &at)?;
+            if let Some(elements) = def.get("elements") {
+                check_elements_shape(elements, &format!("{at}.elements"))?;
+            }
+        }
+    }
+    Ok(())
+}
+
+/// Requires every element (and every component) definition to be an object.
+fn check_elements_shape(elements: &Value, at: &str) -> Result<(), SpecError> {
+    for (position, def) in object_at(elements, at)? {
+        let at = format!("{at}.{position}");
+        let def = object_at(def, &at)?;
+        if let Some(composite) = def.get("composite") {
+            check_elements_shape(composite, &format!("{at}.composite"))?;
         }
     }
     Ok(())
@@ -1122,6 +1440,341 @@ mod tests {
             err.to_string(),
             "loops \"a\" and \"b\" under the root share the identical trigger \"AA\""
         );
+    }
+
+    const CLP_ONLY: &str = r#"{"name":"t",
+        "loops":{"2100":{"trigger":{"segment":"CLP"},"segments":["ZZ1"]}},
+        "segments":{"CLP":{"elements":{
+            "1":{"name":"claim_submitter_id","type":"AN","required":true,"min":1,"max":38},
+            "3":{"name":"total_claim_charge_amount","type":"R","required":true},
+            "12":{"name":"drg_weight","type":"R","scale":4}
+        }},
+        "SVC":{"elements":{
+            "1":{"name":"procedure","type":"AN","required":true,"composite":{
+                "1":{"name":"qualifier","type":"ID","required":true,"min":2,"max":2},
+                "2":{"name":"code","type":"AN","required":true}
+            }},
+            "5":{"name":"units","type":"N0"}
+        }}}
+    }"#;
+
+    fn element_error(elements: &str) -> SpecError {
+        let json = format!(
+            r#"{{"name":"t","loops":{{"a":{{"trigger":{{"segment":"AA"}}}}}},"segments":{{"AA":{{"elements":{elements}}}}}}}"#
+        );
+        Spec::from_json(&json).unwrap_err()
+    }
+
+    #[test]
+    fn segments_are_keyed_by_id_and_elements_by_position() {
+        let spec = Spec::from_json(CLP_ONLY).unwrap();
+        let clp = spec.segment(b"CLP").unwrap();
+        let first = &clp.elements[&1];
+        assert_eq!(first.name, "claim_submitter_id");
+        assert_eq!(first.kind, ElementType::An);
+        assert!(first.required);
+        assert_eq!((first.min, first.max), (Some(1), Some(38)));
+        assert_eq!(clp.elements[&3].kind, ElementType::R { scale: 2 });
+        assert!(!clp.elements[&12].required, "required defaults to false");
+        assert_eq!(clp.elements[&12].kind, ElementType::R { scale: 4 });
+        assert_eq!(
+            clp.elements.keys().copied().collect::<Vec<_>>(),
+            vec![1, 3, 12]
+        );
+        let svc = spec.segment(b"SVC").unwrap();
+        let procedure = &svc.elements[&1];
+        assert_eq!(procedure.composite[&1].kind, ElementType::Id);
+        assert_eq!(procedure.composite[&2].name, "code");
+        assert_eq!(svc.elements[&5].kind, ElementType::N(0));
+        let ids: Vec<&[u8]> = spec.segments().map(|(id, _)| id).collect();
+        assert_eq!(ids, vec![&b"CLP"[..], &b"SVC"[..]]);
+    }
+
+    #[test]
+    fn every_type_code_is_read() {
+        let cases = [
+            ("AN", None, ElementType::An),
+            ("ID", None, ElementType::Id),
+            ("N0", None, ElementType::N(0)),
+            ("N2", None, ElementType::N(2)),
+            ("N9", None, ElementType::N(9)),
+            ("R", None, ElementType::R { scale: 2 }),
+            ("R", Some(6), ElementType::R { scale: 6 }),
+            ("DT", None, ElementType::Dt),
+            ("TM", None, ElementType::Tm),
+        ];
+        for (code, scale, expected) in cases {
+            assert_eq!(ElementType::parse(code, scale), Ok(expected), "{code}");
+        }
+        for code in ["an", "N", "N10", "NA", "R2", "", "B"] {
+            assert_eq!(
+                ElementType::parse(code, None),
+                Err(ElementDefError::UnknownType {
+                    found: code.to_string()
+                }),
+                "{code:?}"
+            );
+        }
+    }
+
+    #[test]
+    fn element_types_display_their_code_and_meaning() {
+        assert_eq!(ElementType::An.to_string(), "AN (string)");
+        assert_eq!(ElementType::Id.to_string(), "ID (code)");
+        assert_eq!(
+            ElementType::N(2).to_string(),
+            "N2 (integer with 2 implied decimals)"
+        );
+        assert_eq!(
+            ElementType::R { scale: 2 }.to_string(),
+            "R (decimal, scale 2)"
+        );
+        assert_eq!(ElementType::Dt.to_string(), "DT (date CCYYMMDD or YYMMDD)");
+        assert_eq!(
+            ElementType::Tm.to_string(),
+            "TM (time HHMM, HHMMSS or HHMMSSD..)"
+        );
+    }
+
+    #[test]
+    fn a_segment_a_loop_lists_without_a_definition_stays_opaque() {
+        let spec = Spec::from_json(CLP_ONLY).unwrap();
+        assert!(spec.get(spec.loop_id("2100").unwrap()).accepts(b"ZZ1"));
+        assert_eq!(spec.segment(b"ZZ1"), None);
+    }
+
+    #[test]
+    fn a_spec_without_segments_has_none() {
+        let spec =
+            Spec::from_json(r#"{"name":"t","loops":{"a":{"trigger":{"segment":"AA"}}}}"#).unwrap();
+        assert_eq!(spec.segments().count(), 0);
+    }
+
+    #[test]
+    fn bad_element_definitions_are_rejected_with_segment_position_and_reason() {
+        let cases = [
+            (
+                r#"{"01":{"name":"a","type":"AN"}}"#,
+                "01",
+                ElementDefError::NonCanonicalPosition,
+            ),
+            (
+                r#"{"0":{"name":"a","type":"AN"}}"#,
+                "0",
+                ElementDefError::NonCanonicalPosition,
+            ),
+            (
+                r#"{"1":{"name":"","type":"AN"}}"#,
+                "1",
+                ElementDefError::EmptyName,
+            ),
+            (
+                r#"{"1":{"name":"a","type":"AN"},"2":{"name":"a","type":"ID"}}"#,
+                "2",
+                ElementDefError::DuplicateName {
+                    name: "a".into(),
+                    first: "1".into(),
+                },
+            ),
+            (
+                r#"{"1":{"name":"a","type":"XX"}}"#,
+                "1",
+                ElementDefError::UnknownType { found: "XX".into() },
+            ),
+            (
+                r#"{"1":{"name":"a","type":"N2","scale":2}}"#,
+                "1",
+                ElementDefError::ScaleWithoutR { kind: "N2".into() },
+            ),
+            (
+                r#"{"1":{"name":"a","type":"AN","min":5,"max":2}}"#,
+                "1",
+                ElementDefError::MinAboveMax { min: 5, max: 2 },
+            ),
+            (
+                r#"{"1":{"name":"a","type":"ID","composite":{"1":{"name":"b","type":"AN"}}}}"#,
+                "1",
+                ElementDefError::CompositeOnNonAn { kind: "ID".into() },
+            ),
+            (
+                r#"{"1":{"name":"a","type":"AN","composite":{"2":{"name":"b","type":"AN","composite":{"1":{"name":"c","type":"AN"}}}}}}"#,
+                "1.composite.2",
+                ElementDefError::NestedComposite,
+            ),
+            (
+                r#"{"1":{"name":"a","type":"AN","composite":{"1":{"name":"b","type":"AN"},"2":{"name":"b","type":"AN"}}}}"#,
+                "1.composite.2",
+                ElementDefError::DuplicateName {
+                    name: "b".into(),
+                    first: "1".into(),
+                },
+            ),
+        ];
+        for (elements, expected_position, expected_reason) in cases {
+            let err = element_error(elements);
+            assert!(
+                matches!(&err, SpecError::BadElementDef { segment, position, reason } if segment == "AA" && position == expected_position && *reason == expected_reason),
+                "{elements}: {err:?}"
+            );
+        }
+    }
+
+    #[test]
+    fn names_only_need_to_be_unique_among_siblings() {
+        let ok = Spec::from_json(
+            r#"{"name":"t","loops":{"a":{"trigger":{"segment":"AA"}}},"segments":{"AA":{"elements":{
+                "1":{"name":"code","type":"AN","composite":{"1":{"name":"code","type":"AN"}}}
+            }}}}"#,
+        );
+        assert!(ok.is_ok(), "{ok:?}");
+    }
+
+    #[test]
+    fn a_segment_definition_that_breaks_the_schema_names_the_segment() {
+        let err = Spec::from_json(
+            r#"{"name":"t","loops":{"a":{"trigger":{"segment":"AA"}}},"segments":{"AA":{"elements":{"1":{"name":"a","type":"AN","lenght":3}}}}}"#,
+        )
+        .unwrap_err();
+        assert!(
+            matches!(&err, SpecError::SegmentSchema { segment, .. } if segment == "AA"),
+            "{err:?}"
+        );
+        assert!(
+            err.to_string()
+                .starts_with("segment \"AA\" does not match the schema: "),
+            "{err}"
+        );
+        assert!(err.to_string().contains("lenght"), "{err}");
+    }
+
+    #[test]
+    fn every_object_of_the_segment_schema_is_checked_with_its_path() {
+        let cases = [
+            (r#"[]"#, "segments", "an array"),
+            (r#"{"CLP":[]}"#, "segments.CLP", "an array"),
+            (
+                r#"{"CLP":{"elements":[]}}"#,
+                "segments.CLP.elements",
+                "an array",
+            ),
+            (
+                r#"{"CLP":{"elements":{"1":"claim_id"}}}"#,
+                "segments.CLP.elements.1",
+                "a string",
+            ),
+            (
+                r#"{"SVC":{"elements":{"1":{"name":"p","type":"AN","composite":{"2":7}}}}}"#,
+                "segments.SVC.elements.1.composite.2",
+                "a number",
+            ),
+        ];
+        for (segments, expected_path, expected_found) in cases {
+            let json = format!(
+                r#"{{"name":"t","loops":{{"a":{{"trigger":{{"segment":"AA"}}}}}},"segments":{segments}}}"#
+            );
+            let err = Spec::from_json(&json).unwrap_err();
+            assert!(
+                matches!(&err, SpecError::NotAnObject { path, found } if path == expected_path && *found == expected_found),
+                "{segments}: {err:?}"
+            );
+        }
+    }
+
+    #[test]
+    fn a_patch_retouches_one_element_and_keeps_the_rest() {
+        let spec = Spec::from_json(CLP_ONLY)
+            .unwrap()
+            .merge_patch(r#"{"segments":{"CLP":{"elements":{"1":{"max":30}}}}}"#)
+            .unwrap();
+        let clp = spec.segment(b"CLP").unwrap();
+        assert_eq!(clp.elements[&1].max, Some(30));
+        assert_eq!(clp.elements[&1].name, "claim_submitter_id");
+        assert_eq!(clp.elements.len(), 3);
+    }
+
+    #[test]
+    fn a_patch_adds_a_segment_definition() {
+        let spec = Spec::from_json(CLP_ONLY)
+            .unwrap()
+            .merge_patch(
+                r#"{"segments":{"ZZ1":{"elements":{"1":{"name":"payer_note","type":"AN"}}}}}"#,
+            )
+            .unwrap();
+        assert_eq!(
+            spec.segment(b"ZZ1").unwrap().elements[&1].name,
+            "payer_note"
+        );
+    }
+
+    #[test]
+    fn to_json_round_trips_the_segments_section() {
+        let spec = Spec::from_json(CLP_ONLY).unwrap();
+        let again = Spec::from_json(&spec.to_json()).unwrap();
+        assert!(spec.segments().eq(again.segments()));
+        assert_eq!(again.segments().count(), 2);
+    }
+
+    #[test]
+    fn segment_schema_error_displays_the_segment_and_the_serde_message() {
+        let err = SpecError::SegmentSchema {
+            segment: "CLP".into(),
+            source: serde_json::from_value::<RawSegment>(serde_json::json!(1)).unwrap_err(),
+        };
+        assert_eq!(
+            err.to_string(),
+            "segment \"CLP\" does not match the schema: invalid type: integer `1`, expected a segment object"
+        );
+        assert!(std::error::Error::source(&err).is_some());
+    }
+
+    #[test]
+    fn bad_element_def_displays_segment_position_and_every_reason() {
+        let cases = [
+            (
+                ElementDefError::NonCanonicalPosition,
+                "segment \"CLP\" element \"01\": positions are 1-based integers written in canonical form",
+            ),
+            (
+                ElementDefError::EmptyName,
+                "segment \"CLP\" element \"01\": \"name\" is empty",
+            ),
+            (
+                ElementDefError::DuplicateName {
+                    name: "claim_id".into(),
+                    first: "1".into(),
+                },
+                "segment \"CLP\" element \"01\": name \"claim_id\" is already used by position \"1\"",
+            ),
+            (
+                ElementDefError::UnknownType { found: "XX".into() },
+                "segment \"CLP\" element \"01\": type \"XX\" is not one of AN, ID, N0 to N9, R, DT, TM",
+            ),
+            (
+                ElementDefError::ScaleWithoutR { kind: "N2".into() },
+                "segment \"CLP\" element \"01\": \"scale\" applies only to type R; found type \"N2\"",
+            ),
+            (
+                ElementDefError::MinAboveMax { min: 5, max: 2 },
+                "segment \"CLP\" element \"01\": \"min\" 5 is greater than \"max\" 2",
+            ),
+            (
+                ElementDefError::CompositeOnNonAn { kind: "ID".into() },
+                "segment \"CLP\" element \"01\": \"composite\" requires type AN; found type \"ID\"",
+            ),
+            (
+                ElementDefError::NestedComposite,
+                "segment \"CLP\" element \"01\": a component cannot declare its own \"composite\"",
+            ),
+        ];
+        for (reason, expected) in cases {
+            let err = SpecError::BadElementDef {
+                segment: "CLP".into(),
+                position: "01".into(),
+                reason,
+            };
+            assert_eq!(err.to_string(), expected);
+            assert!(std::error::Error::source(&err).is_none());
+        }
     }
 
     #[test]

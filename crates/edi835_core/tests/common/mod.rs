@@ -184,8 +184,13 @@ pub fn describe_diff(actual: &str, expected: &str) -> String {
 
 /// Compares each `(path, actual)` pair with the committed file at `path`, or
 /// writes `actual` there when `UPDATE_GOLDEN=1`, then reports every file
-/// directly in `dir` that no pair names. Returns one message per failure.
-pub fn compare_goldens(dir: &Path, outputs: &[(PathBuf, String)]) -> Vec<String> {
+/// directly in `dir` that no pair names and every subdirectory of `dir` not
+/// listed in `allowed_subdirs`. Returns one message per failure.
+pub fn compare_goldens(
+    dir: &Path,
+    outputs: &[(PathBuf, String)],
+    allowed_subdirs: &[&str],
+) -> Vec<String> {
     let update = std::env::var("UPDATE_GOLDEN").as_deref() == Ok("1");
     let mut failures = Vec::new();
     for (path, actual) in outputs {
@@ -216,8 +221,31 @@ pub fn compare_goldens(dir: &Path, outputs: &[(PathBuf, String)]) -> Vec<String>
                     "orphaned golden file with no test that compares it: {}",
                     path.display()
                 ));
+            } else if path.is_dir()
+                && !allowed_subdirs
+                    .iter()
+                    .any(|name| entry.file_name() == *name)
+            {
+                failures.push(format!(
+                    "unexpected golden subdirectory with no test that compares it: {}",
+                    path.display()
+                ));
             }
         }
     }
     failures
+}
+
+#[test]
+fn compare_goldens_reports_orphan_files_and_unlisted_subdirectories() {
+    let dir = std::env::temp_dir().join(format!("edi835_goldens_{}", std::process::id()));
+    let _ = std::fs::remove_dir_all(&dir);
+    std::fs::create_dir_all(dir.join("project")).unwrap();
+    std::fs::create_dir_all(dir.join("stray")).unwrap();
+    std::fs::write(dir.join("orphan.txt"), "x").unwrap();
+    let failures = compare_goldens(&dir, &[], &["project"]);
+    std::fs::remove_dir_all(&dir).unwrap();
+    assert_eq!(failures.len(), 2, "{failures:#?}");
+    assert!(failures.iter().any(|f| f.contains("orphan.txt")));
+    assert!(failures.iter().any(|f| f.contains("stray")));
 }

@@ -70,6 +70,6 @@ fn tables_and_diagnostics_match_the_golden_files() {
             diagnostic_lines(&diagnostics),
         ));
     }
-    let failures = common::compare_goldens(&golden_dir(), &outputs);
+    let failures = common::compare_goldens(&golden_dir(), &outputs, &[]);
     assert!(failures.is_empty(), "{failures:#?}");
 }

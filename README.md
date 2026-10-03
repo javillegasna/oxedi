@@ -30,3 +30,12 @@ changing a `trigger` or `end` does not touch `segments`.
   }
 }
 ```
+
+A `tables` patch adds a column the same way. This one reads a payer's `REF*CE`
+reference, and the projected `claims` table gains a `contract_class` column:
+
+```json
+{"tables":{"claims":{"columns":{
+  "contract_class":{"segment":"REF","where":{"1":"CE"},"element":2}
+}}}}
+```

@@ -96,7 +96,7 @@ fn event_streams_match_the_golden_files() {
             )
         });
     }
-    let failures = common::compare_goldens(&golden_dir(), &outputs);
+    let failures = common::compare_goldens(&golden_dir(), &outputs, &["project"]);
     assert!(failures.is_empty(), "{failures:#?}");
 }
 

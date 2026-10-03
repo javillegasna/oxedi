@@ -92,7 +92,9 @@ impl<'s> Processor<'s> {
         self.output.diagnostics()
     }
 
-    /// Moves every appended row out; see [`Projector::take_tables`].
+    /// Moves every appended row out; see [`Projector::take_tables`]. Each
+    /// stream's tables stand on their own: take them before feeding another
+    /// stream, because `finish` restarts row numbers.
     pub fn take_tables(&mut self) -> Tables {
         self.projector.take_tables()
     }

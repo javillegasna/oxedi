@@ -474,6 +474,13 @@ pub enum TableDefError {
         /// The anchor loop it is not inside.
         anchor: String,
     },
+    /// A segment is read from a loop that neither triggers on it nor holds it.
+    SegmentNotHeld {
+        /// The segment the column or table reads.
+        segment: String,
+        /// The loop that never holds it.
+        loop_name: String,
+    },
     /// A key that picks a segment is used in a table anchored on a segment.
     AnchorSegmentOnly {
         /// The key: `segment`, `loop` or `where`.
@@ -546,6 +553,10 @@ impl fmt::Display for TableDefError {
             TableDefError::NotADescendant { loop_name, anchor } => {
                 write!(f, "loop {loop_name:?} is not inside anchor loop {anchor:?}")
             }
+            TableDefError::SegmentNotHeld { segment, loop_name } => write!(
+                f,
+                "segment {segment:?} is neither the trigger nor a segment of loop {loop_name:?}, so it is never read there"
+            ),
             TableDefError::AnchorSegmentOnly { key } => write!(
                 f,
                 "{key:?} does not apply in a table anchored on a segment: its columns read that segment"
@@ -1376,6 +1387,9 @@ fn compile_table(spec: &Spec, name: &str, def: &RawTable) -> Result<TableDef, Sp
             step: raw.step,
         }),
     };
+    if let Some(anchor) = &segment {
+        check_held(spec, &loops, anchor).map_err(fail)?;
+    }
     if segment.is_none() {
         for &a in &loops {
             for &b in &loops {
@@ -1513,6 +1527,10 @@ fn compile_column(
                 conditions.push((position, value.as_bytes().to_vec()));
             }
             conditions.sort();
+            if raw.element.is_some() {
+                let readers = loop_id.map_or_else(|| anchors.to_vec(), |id| vec![id]);
+                check_held(spec, &readers, &segment).map_err(fail)?;
+            }
             (loop_id, segment, conditions)
         }
     };
@@ -1530,6 +1548,21 @@ fn compile_column(
             conditions,
         },
     })
+}
+
+/// Fails with the first loop of `readers` that neither triggers on `segment`
+/// nor holds it.
+fn check_held(spec: &Spec, readers: &[LoopId], segment: &[u8]) -> Result<(), TableDefError> {
+    for &id in readers {
+        let def = spec.get(id);
+        if def.trigger.segment != segment && !def.accepts(segment) {
+            return Err(TableDefError::SegmentNotHeld {
+                segment: String::from_utf8_lossy(segment).into_owned(),
+                loop_name: def.name.clone(),
+            });
+        }
+    }
+    Ok(())
 }
 
 /// Rejects a loop anchoring two tables without `segment` and a `ref` used
@@ -3160,8 +3193,8 @@ mod tests {
             r#"{{"name":"t","loops":{{
                 "A":{{"trigger":{{"segment":"AA"}}}},
                 "B":{{"parent":"A","trigger":{{"segment":"BB"}}}},
-                "C":{{"parent":"B","trigger":{{"segment":"CC"}}}},
-                "D":{{"parent":"A","trigger":{{"segment":"DD"}}}}
+                "C":{{"parent":"B","trigger":{{"segment":"CC"}},"segments":["XX"]}},
+                "D":{{"parent":"A","trigger":{{"segment":"DD"}},"segments":["XX"]}}
             }},"tables":{tables}}}"#
         );
         Spec::from_json(&json).unwrap_err()
@@ -3500,6 +3533,52 @@ mod tests {
     }
 
     #[test]
+    fn a_column_or_table_reading_a_segment_its_loop_never_holds_is_rejected() {
+        let json = |tables: &str| {
+            format!(
+                r#"{{"name":"t","loops":{{
+                    "A":{{"trigger":{{"segment":"AA"}},"segments":["A1"],"end":"AE"}},
+                    "B":{{"parent":"A","trigger":{{"segment":"BB"}}}}
+                }},"tables":{tables}}}"#
+            )
+        };
+        let held = json(
+            r#"{"t":{"loops":["A"],"columns":{
+                "a":{"segment":"AA","element":1},
+                "b":{"segment":"A1","element":1},
+                "c":{"segment":"AE","element":1}}},
+               "u":{"loops":["A"],"segment":"A1","columns":{"x":{"element":1}}}}"#,
+        );
+        assert!(Spec::from_json(&held).is_ok());
+        let bad_column =
+            json(r#"{"t":{"loops":["A"],"columns":{"c":{"segment":"REFF","element":1}}}}"#);
+        assert_eq!(
+            Spec::from_json(&bad_column).unwrap_err().to_string(),
+            "table \"t\" column \"c\": segment \"REFF\" is neither the trigger nor a segment of loop \"A\", so it is never read there"
+        );
+        let bad_loop = json(
+            r#"{"t":{"loops":["A"],"columns":{"c":{"loop":"B","segment":"A1","element":1}}}}"#,
+        );
+        assert!(matches!(
+            Spec::from_json(&bad_loop).unwrap_err(),
+            SpecError::BadTable {
+                reason: TableDefError::SegmentNotHeld { ref loop_name, .. },
+                ..
+            } if loop_name == "B"
+        ));
+        let bad_table =
+            json(r#"{"t":{"loops":["A"],"segment":"REFF","columns":{"c":{"element":1}}}}"#);
+        assert!(matches!(
+            Spec::from_json(&bad_table).unwrap_err(),
+            SpecError::BadTable {
+                column: None,
+                reason: TableDefError::SegmentNotHeld { ref segment, ref loop_name },
+                ..
+            } if segment == "REFF" && loop_name == "A"
+        ));
+    }
+
+    #[test]
     fn empty_segment_ids_in_tables_name_their_key() {
         let cases = [
             (r#"{"t":{"loops":["A"],"segment":""}}"#, "tables.t.segment"),
@@ -3671,6 +3750,13 @@ mod tests {
                     anchor: "2100".into(),
                 },
                 "loop \"1000A\" is not inside anchor loop \"2100\"",
+            ),
+            (
+                TableDefError::SegmentNotHeld {
+                    segment: "REFF".into(),
+                    loop_name: "2100".into(),
+                },
+                "segment \"REFF\" is neither the trigger nor a segment of loop \"2100\", so it is never read there",
             ),
             (
                 TableDefError::AnchorSegmentOnly { key: "where" },

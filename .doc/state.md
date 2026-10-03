@@ -1,4 +1,4 @@
-# State — 2026-10-03 (night)
+# State — 2026-10-03 (late night)
 
 Snapshot for picking the project up cold. Update when a stage changes state.
 
@@ -33,8 +33,8 @@ Snapshot for picking the project up cold. Update when a stage changes state.
   findings: schema key paths, composite control values, lossy UTF-8 in Display, ImplicitLoop
   naming the missing trigger, `end == trigger`, R scale cap, ISA11 name, separator-ambiguous
   paths). #7, #17, #18, #19 closed with PR #30.
-- `.doc/analysis/` study notes describe the whole crate from the real code (rewritten
-  2026-10-03 at commit 8f86e42); update them again when Stage 4 lands.
+- `.doc/analysis/` study notes describe the crate before Stage 4 (rewritten 2026-10-03 at
+  commit 8f86e42); one update from the real code is due after the 4b PR merges.
 - Older plans (`stage-1`, `stage-2`) show pre-P10 error shapes; they are historical records,
   not to be edited.
 
@@ -42,13 +42,17 @@ Snapshot for picking the project up cold. Update when a stage changes state.
 
 §7 Stage 4 approved 2026-10-03 (T11–T17, resolves D10, opens D11). The stage runs as two
 plans and two PRs. 4a (spec `segments` + validation closing #7 #17 #18, `LoopOpened.segment`
-for #19, `Diagnostic`, `EnvelopeChecker` SNIP 1) is merged. Current: plan 4b on branch
-`stage-4b-projection`
-(`plans/stage-4b-projection.md`: Arrow-layout columns, `Projector` SNIP 2, `tables`,
-`Processor`, table and diagnostic goldens, bench), written from §7 T14–T16 and the Rule
-level-2 variants already declared in `diagnostic.rs`; it must also settle #27 (R scale cap)
-and decide on #25 (Display contract of ImplicitLoop) before freezing diagnostics. Execution
-with subagents: main session orchestrates only; implementer by complexity, reviewer one tier up.
+for #19, `Diagnostic`, `EnvelopeChecker` SNIP 1) is merged. 4b is implemented on branch
+`stage-4b-projection` (plan `plans/stage-4b-projection.md`, 8 tasks in 3 batches, batch
+reviews + final Opus triage clean after one fix wave; 308 tests; `process` bench 29–32 MiB/s)
+and awaits the owner's merge of its PR, which closes #25 and #27; its deferred findings are
+issues #31–#37. After 4b the crate adds: `column` (Arrow-layout `Column`/`Table`/`Tables`,
+X12 value parsers), `tables` section of the spec with five built-in tables, `Projector`
+(rows at loop close + SNIP 2), `Processor` (one pass), table and diagnostic goldens under
+`tests/golden/project/`. SNIP 3 was not included (D11). Next after the merge: one update
+of `.doc/analysis/` from the real code, then Stage 5 (Python binding) trade-offs in chat.
+Execution convention: main session orchestrates only; implementer by complexity, reviewer one
+tier up; batches of two to four tasks since 4b.
 The decisions that were open, now settled in §7:
 - `Diagnostic` as a first-class deliverable (P10): segment index, byte range, element and
   component position, loop path, rule code, message; rendering of engine anomalies

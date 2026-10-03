@@ -1626,7 +1626,7 @@ fn compile_column(
                 conditions.push((position, value.as_bytes().to_vec()));
             }
             conditions.sort();
-            if raw.element.is_some() {
+            if raw.element.is_some() || raw.segment_index {
                 let readers = loop_id.map_or_else(|| anchors.to_vec(), |id| vec![id]);
                 check_held(spec, &readers, &segment).map_err(fail)?;
             }
@@ -3937,6 +3937,38 @@ mod tests {
                 ..
             } if segment == "REFF" && loop_name == "A"
         ));
+    }
+
+    #[test]
+    fn a_segment_index_column_must_name_a_segment_its_loop_holds() {
+        let json = |tables: &str| {
+            format!(
+                r#"{{"name":"t","loops":{{
+                    "A":{{"trigger":{{"segment":"AA"}},"segments":["A1"]}},
+                    "B":{{"parent":"A","trigger":{{"segment":"BB"}}}}
+                }},"tables":{tables}}}"#
+            )
+        };
+        let held = json(
+            r#"{"t":{"loops":["A"],"columns":{
+                "a":{"segment":"AA","segment_index":true},
+                "b":{"segment":"A1","segment_index":true}}}}"#,
+        );
+        assert!(Spec::from_json(&held).is_ok());
+        let bad_anchor = json(
+            r#"{"t":{"loops":["A"],"columns":{"c":{"segment":"REFF","segment_index":true}}}}"#,
+        );
+        assert_eq!(
+            Spec::from_json(&bad_anchor).unwrap_err().to_string(),
+            "table \"t\" column \"c\": segment \"REFF\" is neither the trigger nor a segment of loop \"A\", so it is never read there"
+        );
+        let bad_loop = json(
+            r#"{"t":{"loops":["A"],"columns":{"c":{"loop":"B","segment":"A1","segment_index":true}}}}"#,
+        );
+        assert_eq!(
+            Spec::from_json(&bad_loop).unwrap_err().to_string(),
+            "table \"t\" column \"c\": segment \"A1\" is neither the trigger nor a segment of loop \"B\", so it is never read there"
+        );
     }
 
     #[test]

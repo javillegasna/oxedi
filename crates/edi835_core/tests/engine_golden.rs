@@ -9,7 +9,7 @@ use std::collections::BTreeMap;
 use std::fmt::Write as _;
 use std::path::PathBuf;
 
-use edi835_core::{Event, LoopEngine, Spec, Tokenizer};
+use edi835_core::{Event, Spec, Tokenizer};
 
 const SUMMARY_ONLY: &[&str] = &["edi835_test_united.rmt", "edi835_test_versant.RMT"];
 
@@ -34,33 +34,41 @@ fn line(spec: &Spec, event: Event, segment_id: &[u8]) -> String {
 
 fn full_stream(spec: &Spec, bytes: &[u8], delims: edi835_core::Delimiters) -> String {
     let mut out = String::new();
-    let mut engine = LoopEngine::new(spec);
-    for segment in Tokenizer::with_delimiters(bytes, delims) {
-        for &event in engine.feed(&segment) {
-            let _ = writeln!(out, "{}", line(spec, event, segment.id));
-        }
-    }
-    for &event in engine.finish() {
-        let _ = writeln!(out, "{}", line(spec, event, b""));
+    let segments: Vec<_> = Tokenizer::with_delimiters(bytes, delims).collect();
+    let events = common::run_engine(spec, segments.iter().cloned());
+    for event in events {
+        let segment_id = match event {
+            edi835_core::Event::Captured { segment, .. }
+            | edi835_core::Event::Unmatched { segment }
+            | edi835_core::Event::Empty { segment } => {
+                segments.get(segment).map(|s| s.id).unwrap_or(b"")
+            }
+            _ => b"",
+        };
+        let _ = writeln!(out, "{}", line(spec, event, segment_id));
     }
     out
 }
 
 fn summary(spec: &Spec, bytes: &[u8], delims: edi835_core::Delimiters) -> String {
     let mut counts: BTreeMap<String, usize> = BTreeMap::new();
-    let mut engine = LoopEngine::new(spec);
-    for segment in Tokenizer::with_delimiters(bytes, delims) {
-        for &event in engine.feed(&segment) {
-            let key = line(spec, event, segment.id);
-            let key = key
-                .rsplit_once(" #")
-                .map(|(k, _)| k.to_string())
-                .unwrap_or(key);
-            *counts.entry(key).or_default() += 1;
-        }
-    }
-    for &event in engine.finish() {
-        *counts.entry(line(spec, event, b"")).or_default() += 1;
+    let segments: Vec<_> = Tokenizer::with_delimiters(bytes, delims).collect();
+    let events = common::run_engine(spec, segments.iter().cloned());
+    for event in events {
+        let segment_id = match event {
+            edi835_core::Event::Captured { segment, .. }
+            | edi835_core::Event::Unmatched { segment }
+            | edi835_core::Event::Empty { segment } => {
+                segments.get(segment).map(|s| s.id).unwrap_or(b"")
+            }
+            _ => b"",
+        };
+        let key = line(spec, event, segment_id);
+        let key = key
+            .rsplit_once(" #")
+            .map(|(k, _)| k.to_string())
+            .unwrap_or(key);
+        *counts.entry(key).or_default() += 1;
     }
     counts.into_iter().fold(String::new(), |mut out, (key, n)| {
         let _ = writeln!(out, "{key} x{n}");

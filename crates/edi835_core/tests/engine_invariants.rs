@@ -11,16 +11,11 @@ fn every_segment_is_accounted_for_exactly_once_and_loops_balance() {
     let spec = Spec::builtin_835();
     for (name, bytes, delims) in common::all_files() {
         let segments: Vec<_> = Tokenizer::with_delimiters(&bytes, delims).collect();
-        let mut engine = LoopEngine::new(&spec);
+        let events = common::run_engine(&spec, segments.iter().cloned());
         let mut seen = vec![0usize; segments.len()];
         let mut depth = 0usize;
         let mut opens = 0usize;
         let mut closes = 0usize;
-        let mut events = Vec::new();
-        for segment in &segments {
-            events.extend_from_slice(engine.feed(segment));
-        }
-        events.extend_from_slice(engine.finish());
         for event in &events {
             match *event {
                 Event::LoopOpened { .. } => {
@@ -45,6 +40,7 @@ fn every_segment_is_accounted_for_exactly_once_and_loops_balance() {
         );
         assert_eq!(opens, closes, "{name}: opens and closes balance");
         assert_eq!(depth, 0, "{name}: nothing left open after finish");
+        let engine = LoopEngine::new(&spec);
         assert!(engine.path().is_empty(), "{name}");
     }
 }
@@ -106,16 +102,14 @@ fn unmatched_and_implicit_are_exactly_the_known_anomalies() {
     let mut unmatched: BTreeMap<String, usize> = BTreeMap::new();
     let mut implicit: BTreeMap<String, usize> = BTreeMap::new();
     for (name, bytes, delims) in common::all_files() {
-        let mut engine = LoopEngine::new(&spec);
-        for segment in Tokenizer::with_delimiters(&bytes, delims) {
-            for event in engine.feed(&segment) {
-                match event {
-                    Event::Unmatched { .. } => *unmatched.entry(name.clone()).or_default() += 1,
-                    Event::LoopOpened { implicit: true, .. } => {
-                        *implicit.entry(name.clone()).or_default() += 1
-                    }
-                    _ => {}
+        let events = common::events_of(&spec, &bytes, delims);
+        for event in events {
+            match event {
+                Event::Unmatched { .. } => *unmatched.entry(name.clone()).or_default() += 1,
+                Event::LoopOpened { implicit: true, .. } => {
+                    *implicit.entry(name.clone()).or_default() += 1
                 }
+                _ => {}
             }
         }
     }
@@ -140,18 +134,8 @@ fn feeding_from_a_document_or_a_tokenizer_gives_the_same_events() {
     let spec = Spec::builtin_835();
     for (name, bytes, delims) in common::all_files() {
         let doc = Document::with_delimiters(&bytes[..], delims);
-        let mut from_doc = LoopEngine::new(&spec);
-        let mut from_tok = LoopEngine::new(&spec);
-        let mut a = Vec::new();
-        let mut b = Vec::new();
-        for segment in &doc {
-            a.extend_from_slice(from_doc.feed(&segment));
-        }
-        for segment in Tokenizer::with_delimiters(&bytes, delims) {
-            b.extend_from_slice(from_tok.feed(&segment));
-        }
-        a.extend_from_slice(from_doc.finish());
-        b.extend_from_slice(from_tok.finish());
+        let a = common::run_engine(&spec, &doc);
+        let b = common::events_of(&spec, &bytes, delims);
         assert_eq!(a, b, "{name}");
     }
 }

@@ -3,7 +3,7 @@
 
 mod common;
 
-use edi835_core::{Delimiters, Event, LoopEngine, LoopTree, Spec, Tokenizer};
+use edi835_core::{Delimiters, Event, LoopTree, Spec, Tokenizer};
 
 #[test]
 fn a_patch_makes_the_bogus_trizetto_segment_captured() {
@@ -12,11 +12,10 @@ fn a_patch_makes_the_bogus_trizetto_segment_captured() {
     let patched = builtin
         .merge_patch(r#"{"loops":{"1000A":{"segments":["N3","N4","REF","PER","XX"]}}}"#)
         .unwrap();
+    let delims = Delimiters::from_isa(&bytes).unwrap();
     let unmatched = |spec: &Spec| {
-        let mut engine = LoopEngine::new(spec);
-        Tokenizer::new(&bytes)
-            .unwrap()
-            .flat_map(|s| engine.feed(&s).to_vec())
+        common::events_of(spec, &bytes, delims)
+            .iter()
             .filter(|e| matches!(e, Event::Unmatched { .. }))
             .count()
     };
@@ -50,11 +49,10 @@ fn a_patch_adding_n3_n4_to_loop_2100_captures_the_multi_claim_addresses() {
             r#"{"loops":{"2100":{"segments":["CAS","NM1","MIA","MOA","REF","DTM","PER","AMT","QTY","N3","N4"]}}}"#,
         )
         .unwrap();
+    let delims = Delimiters::from_isa(&bytes).unwrap();
     let unmatched = |spec: &Spec| {
-        let mut engine = LoopEngine::new(spec);
-        Tokenizer::new(&bytes)
-            .unwrap()
-            .flat_map(|s| engine.feed(&s).to_vec())
+        common::events_of(spec, &bytes, delims)
+            .iter()
             .filter(|e| matches!(e, Event::Unmatched { .. }))
             .count()
     };

@@ -67,3 +67,26 @@ pub fn all_files() -> Vec<(String, Vec<u8>, edi835_core::Delimiters)> {
     }
     files
 }
+
+/// Feed every segment to a fresh engine, then `finish`, and return every event in order.
+pub fn run_engine<'a>(
+    spec: &edi835_core::Spec,
+    segments: impl IntoIterator<Item = edi835_core::Segment<'a>>,
+) -> Vec<edi835_core::Event> {
+    let mut engine = edi835_core::LoopEngine::new(spec);
+    let mut events = Vec::new();
+    for segment in segments {
+        events.extend_from_slice(engine.feed(&segment));
+    }
+    events.extend_from_slice(engine.finish());
+    events
+}
+
+/// Tokenize `bytes` with `delims` and run the engine over the result.
+pub fn events_of(
+    spec: &edi835_core::Spec,
+    bytes: &[u8],
+    delims: edi835_core::Delimiters,
+) -> Vec<edi835_core::Event> {
+    run_engine(spec, edi835_core::Tokenizer::with_delimiters(bytes, delims))
+}

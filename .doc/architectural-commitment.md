@@ -389,3 +389,103 @@ promoción a `'static`.
 **Fuera de alcance.** Árbol de loops (Stage 3), mutación del documento, escritura distinta
 de `as_bytes`, tokenizer por trozos (D6).
 
+### Stage 3 · Motor declarativo de loops — PROPUESTO 2026-10-02 (pendiente de aprobación)
+
+La capa que convierte un flujo plano de segmentos en una jerarquía de loops, sin saber nada
+del 835: todo el conocimiento del estándar llega como datos (P2, P6). Resuelve D2.
+
+**Propósito.** Un intérprete genérico `LoopEngine` alimentado segmento a segmento (P4) que
+emite eventos (`LoopOpened`, `LoopClosed`, `Captured`, `Unmatched`) según una *spec-dato*
+que describe la estructura de loops. El 835 que shippea el crate es una spec más; un
+usuario la extiende o sobrescribe dando datos en el mismo formato (N3). Nada se descarta:
+un segmento que la spec no reconoce se emite como `Unmatched` con su índice (N1).
+
+**Decisiones de diseño (cada una con la alternativa descartada).**
+- **T6 · Formato: JSON con `serde`.** La spec se deserializa con `serde` a un struct
+  `Spec`; el built-in del 835 vive como `specs/835.json` embebido con `include_str!`, de
+  modo que built-in y extensión son literalmente el mismo formato. JSON porque es lo que un
+  `dict` de Python ya es, no tiene ambigüedades y `serde_json` es ubicuo. Descartado TOML
+  (más legible a mano pero una segunda sintaxis que Python no habla nativamente) y YAML
+  (ambigüedades, crate de referencia sin mantener). Descartado hardcodear el 835 en Rust:
+  rompe N3.
+- **T7 · Dependencias: `serde` y `serde_json` entran al core.** El gate "`[dependencies]`
+  vacío" pasa a ser "sin dependencias de runtime ni de I/O". Son librerías de datos puras,
+  compilan a WASM, y escribir un parser JSON a mano no enseña nada que importe aquí.
+- **T8 · Loops planos con `parent`, fusión por JSON Merge Patch (RFC 7386).** Los loops
+  se declaran como un mapa `id → { parent, trigger, segments, end? }`, no como árbol
+  anidado. Así "añadir el segmento propietario ZZ1 al loop 2100" es un parche de tres
+  líneas y "sobrescribir un loop" es reemplazar una clave. La fusión sigue la semántica
+  estándar de merge patch: objetos se fusionan en profundidad, arrays y escalares se
+  reemplazan, `null` borra. Es la misma operación que `dict.update` recursivo en Python.
+  Descartado el árbol anidado (fusionar exige rutas) y una sintaxis de parche propia.
+- **T9 · Algoritmo de detección con ancestros implícitos.** Para cada segmento, en orden:
+  (a) si dispara un loop hijo del loop actual, se abre; (b) si dispara el loop actual, se
+  cierra y se abre otra instancia; (c) si está en la lista de segmentos del loop actual, se
+  captura; (d) si es el segmento `end` del loop actual, se captura y se cierra; (e) si nada
+  encaja, se cierra el loop actual y se reintenta con el padre; (f) en la raíz sin match,
+  `Unmatched`. Un disparador cuyo loop no es hijo de ningún loop abierto pero cuya cadena
+  de ancestros llega a la raíz abre esos ancestros con `implicit: true`: así un fragmento
+  que empieza en `ST` (como `blue_cross`) produce una transacción dentro de un sobre
+  implícito en vez de treinta segmentos `Unmatched`. Descartado el modo estricto (fragmentos
+  ilegibles) y el modo laxo que abre cualquier loop en cualquier sitio (árboles inválidos).
+- **T10 · Los eventos referencian segmentos por índice**, no por copia (consecuencia de
+  T5). `feed` devuelve un slice de un buffer interno que se reutiliza: cero allocs por
+  segmento en régimen (N4). Los ids de loop son índices internos (`LoopId`) resueltos a
+  nombre por la spec, no `String`s en cada evento.
+
+**Entregable / contrato.**
+- Módulo `spec`: `Spec` (deserializable), `Spec::builtin_835()`, `Spec::from_json(&str)`,
+  `Spec::merge_patch(&self, patch: &str) -> Result<Spec, SpecError>`, validación al cargar
+  (padres existen, sin ciclos, raíz única, triggers bien formados) con `SpecError` que
+  nombra el loop culpable. Esquema de un loop:
+  `{"parent": "2000", "trigger": {"segment": "CLP"}, "segments": ["CLP","CAS","NM1",…]}`;
+  el trigger admite condiciones por posición: `{"segment":"N1","where":{"1":"PR"}}`;
+  `"end": "SE"` marca el segmento que cierra el loop al capturarse.
+- Módulo `engine`: `LoopEngine<'s>` con `new(&'s Spec)`, `feed(&mut self, &Segment<'_>)
+  -> &[Event]`, `finish(&mut self) -> &[Event]` (cierra lo abierto), `path(&self) ->
+  &[LoopId]`. `Event` es `Copy`: `LoopOpened { id, implicit }`, `LoopClosed { id }`,
+  `Captured { id, segment: usize }`, `Unmatched { segment: usize }`.
+- Módulo `tree`: `LoopTree` construido desde los eventos (o directamente desde un
+  `Document` con `LoopTree::build(&Spec, &Document)`): nodos con loop, flag `implicit`,
+  hijos e índices de segmentos capturados; los `Unmatched` cuelgan del nodo donde
+  ocurrieron. Es lo que Stage 4 proyecta y lo que Stage 5 devuelve a Python.
+- Spec built-in `835` (sirve a 4010 y 5010): sobre `interchange` (ISA/IEA) → `group`
+  (GS/GE) → `transaction` (ST/SE, con BPR TRN CUR REF DTM y PLB) → `1000A` (N1*PR), `1000B`
+  (N1*PE), `2000` (LX, TS3, TS2) → `2100` (CLP…) → `2110` (SVC…).
+
+**Gate de verificación (salida del Stage 3).**
+- Golden files: para las cinco fixtures y los cuatro samples pequeños, el flujo de eventos
+  serializado línea a línea se compara con un archivo comprometido; para los dos samples
+  grandes, un resumen (segmentos capturados por loop, loops abiertos por id, `Unmatched`).
+  Regenerables con una variable de entorno, nunca editados a mano.
+- Invariantes sobre los once archivos: cada índice de segmento aparece exactamente una
+  vez entre `Captured` y `Unmatched`; los eventos abren y cierran balanceados; tras
+  `finish` no queda nada abierto; el número de nodos `2100` es el número de `CLP` y el de
+  `2110` el de `SVC`.
+- Caso real de N3: el `XX` espurio de `trizetto` es `Unmatched` con la spec built-in y
+  `Captured` en `2100` con un parche de usuario de tres líneas. Un loop propietario nuevo
+  (trigger inventado bajo `2100`) se abre y captura solo con datos.
+- `blue_cross` (fragmento) produce una transacción bajo `group` e `interchange` implícitos,
+  con cero `Unmatched`.
+- Unit sobre el motor con segmentos construidos a mano: cada regla (a)–(f) por separado,
+  repetición de loop hermano, `end` que cierra, trigger con `where` que no coincide,
+  `Unmatched` en la raíz y en un loop profundo.
+- Unit sobre la spec: parche que añade un segmento a un loop, que sobrescribe un trigger,
+  que añade un loop, que borra con `null`; errores de validación con el loop nombrado.
+- Property: alimentar un documento entero produce exactamente los mismos eventos que
+  alimentarlo partido en cualquier punto en dos motores encadenados por estado (`path`), o
+  más simple: el resultado no depende de que los segmentos lleguen de un `Tokenizer` o de
+  un `Document`.
+- Bench: motor sobre los tres samples mayores, eventos por segundo y MiB/s.
+
+**Dependencias.** Stage 2 (índices), `serde`, `serde_json`.
+
+**Rust que exprimes.** Enums con datos como máquina de estados y `match` exhaustivo;
+`serde` derive y `#[serde(deny_unknown_fields)]`; `Vec` como pila; lifetimes `'s` para
+prestar la spec desde el motor; índices internados en vez de `String`; recursión sobre
+`serde_json::Value` para el merge patch; construcción de un árbol con índices (arena);
+validación con `Result` y errores que señalan el dato culpable.
+
+**Fuera de alcance.** Nombres y tipos de elementos (`segments` en la spec, Stage 4);
+validación de obligatoriedad y cardinalidad (SNIP, Stage 4); división de repeticiones.
+

@@ -21,8 +21,9 @@
 //! does not parse as its type is null in its column; a value whose length is
 //! out of range is reported and kept.
 //!
-//! Allocation: appending a row collects its cells into a new vector and grows
-//! the table's buffers; each diagnostic owns its text. A row being collected
+//! Allocation: appending a row collects its cells into a vector that is kept
+//! from one row to the next and grows the table's buffers; each diagnostic
+//! owns its text. A row being collected
 //! copies the bytes of its text columns into a buffer that is reused from one
 //! instance to the next, and the per-segment state (the checked values and
 //! the text of a composite read as one) lives in buffers that are cleared and
@@ -34,6 +35,8 @@
 //! level-2 diagnostic names the table, the column, the row's anchor segment
 //! and the byte total. Draining the tables per transaction keeps columns far
 //! below the limit.
+
+use std::collections::BTreeMap;
 
 use crate::column::{
     Cell, CellError, ColumnType, RowError, Table, Tables, parse_dt, parse_n, parse_r, parse_tm,
@@ -94,6 +97,85 @@ struct Row {
     bytes: Vec<u8>,
 }
 
+/// One defined element, with what checking it needs worked out once.
+#[derive(Debug, Clone)]
+struct ElementPlan<'s> {
+    position: usize,
+    def: &'s ElementDef,
+    /// The column type the definition maps to.
+    kind: ColumnType,
+    /// Highest component position the definition declares (0 for a simple
+    /// element).
+    declared: usize,
+    /// The components by position, with their column types.
+    components: Vec<(usize, &'s ElementDef, ColumnType)>,
+}
+
+impl<'s> ElementPlan<'s> {
+    fn new(position: usize, def: &'s ElementDef) -> Self {
+        Self {
+            position,
+            def,
+            kind: ColumnType::of(Some(def.kind)),
+            declared: def.composite.keys().copied().max().unwrap_or_default(),
+            components: def
+                .composite
+                .iter()
+                .map(|(&at, part)| (at, part, ColumnType::of(Some(part.kind))))
+                .collect(),
+        }
+    }
+}
+
+/// What the projector does with one segment id, worked out once.
+#[derive(Debug, Clone)]
+struct SegmentPlan<'s> {
+    /// The defined elements to check, by position.
+    elements: Vec<ElementPlan<'s>>,
+    /// Per loop: `(table, column)` for the columns that read this segment
+    /// when it is captured in that loop.
+    watchers: Vec<Vec<(usize, usize)>>,
+}
+
+/// The plans of every segment id. Ids of up to seven bytes are keyed by their
+/// packed bytes, which compare faster than slices.
+#[derive(Debug, Clone, Default)]
+struct Plans<'s> {
+    short: BTreeMap<u64, SegmentPlan<'s>>,
+    long: BTreeMap<Vec<u8>, SegmentPlan<'s>>,
+}
+
+impl<'s> Plans<'s> {
+    /// The packed key of an id, or `None` when it is too long to pack. A
+    /// leading 1 bit keeps ids of different lengths apart.
+    fn key(id: &[u8]) -> Option<u64> {
+        (id.len() <= 7).then(|| {
+            id.iter()
+                .fold(1u64, |key, &byte| key << 8 | u64::from(byte))
+        })
+    }
+
+    fn get(&self, id: &[u8]) -> Option<&SegmentPlan<'s>> {
+        match Self::key(id) {
+            Some(key) => self.short.get(&key),
+            None => self.long.get(id),
+        }
+    }
+
+    /// The plan of `id`, created empty (with room for `loops` watcher lists)
+    /// when there is none.
+    fn entry(&mut self, id: &[u8], loops: usize) -> &mut SegmentPlan<'s> {
+        let empty = || SegmentPlan {
+            elements: Vec::new(),
+            watchers: vec![Vec::new(); loops],
+        };
+        match Self::key(id) {
+            Some(key) => self.short.entry(key).or_insert_with(empty),
+            None => self.long.entry(id.to_vec()).or_insert_with(empty),
+        }
+    }
+}
+
 /// What the projector keeps for one table.
 #[derive(Debug, Clone)]
 struct TableState {
@@ -117,8 +199,8 @@ pub struct Projector<'s> {
     tables: Vec<TableState>,
     /// Per loop: the table without `segment` anchored in it.
     anchored: Vec<Option<usize>>,
-    /// Per loop: `(table, column)` for the columns that read segments captured in it.
-    watchers: Vec<Vec<(usize, usize)>>,
+    /// Per segment id: what is done with the segment when it is captured.
+    plans: Plans<'s>,
     /// Per loop: the tables anchored on a segment inside it.
     segment_tables: Vec<Vec<usize>>,
     /// Open loop instances with their ordinals, outermost first.
@@ -126,6 +208,8 @@ pub struct Projector<'s> {
     /// Instances opened so far, per loop index.
     ordinals: Vec<usize>,
     checked: Vec<Checked>,
+    /// Cells of the row being appended, kept for their allocation.
+    cells: Vec<Cell<'static>>,
     joined: Vec<u8>,
     diagnostics: Vec<Diagnostic>,
 }
@@ -136,7 +220,14 @@ impl<'s> Projector<'s> {
     pub fn new(spec: &'s Spec, delimiters: &Delimiters) -> Self {
         let loops = spec.loops().len();
         let mut anchored = vec![None; loops];
-        let mut watchers = vec![Vec::new(); loops];
+        let mut plans = Plans::default();
+        for (id, def) in spec.segments() {
+            plans.entry(id, loops).elements = def
+                .elements
+                .iter()
+                .map(|(&position, element)| ElementPlan::new(position, element))
+                .collect();
+        }
         let mut segment_tables = vec![Vec::new(); loops];
         let mut tables = Vec::with_capacity(spec.tables().len());
         for (index, def) in spec.tables().iter().enumerate() {
@@ -167,16 +258,21 @@ impl<'s> Projector<'s> {
             }
             if def.segment.is_none() {
                 for (column, (_, source)) in def.columns.iter().enumerate() {
-                    let reader = match source {
-                        ColumnSource::Element { loop_id, .. }
-                        | ColumnSource::SegmentIndex { loop_id, .. } => *loop_id,
+                    let (reader, segment) = match source {
+                        ColumnSource::Element {
+                            loop_id, segment, ..
+                        }
+                        | ColumnSource::SegmentIndex {
+                            loop_id, segment, ..
+                        } => (*loop_id, segment),
                         ColumnSource::GroupElement { .. } => continue,
                     };
+                    let plan = plans.entry(segment, loops);
                     match reader {
-                        Some(id) => watchers[id.index()].push((index, column)),
+                        Some(id) => plan.watchers[id.index()].push((index, column)),
                         None => {
                             for &id in &def.loops {
-                                watchers[id.index()].push((index, column));
+                                plan.watchers[id.index()].push((index, column));
                             }
                         }
                     }
@@ -195,11 +291,12 @@ impl<'s> Projector<'s> {
             separator: delimiters.component,
             tables,
             anchored,
-            watchers,
+            plans,
             segment_tables,
             open: Vec::new(),
             ordinals: vec![0; loops],
             checked: Vec::new(),
+            cells: Vec::new(),
             joined: Vec::new(),
             diagnostics: Vec::new(),
         }
@@ -283,7 +380,7 @@ impl<'s> Projector<'s> {
             let state = &mut self.tables[index];
             if state.open {
                 state.open = false;
-                let dropped = append(&mut state.table, &state.row);
+                let dropped = append(&mut state.table, &state.row, &mut self.cells);
                 let segment = state.row.segment;
                 self.report_dropped(dropped, index, segment);
             }
@@ -293,8 +390,17 @@ impl<'s> Projector<'s> {
 
     fn captured(&mut self, id: LoopId, segment: &Segment<'_>) {
         let mut joined = std::mem::take(&mut self.joined);
-        self.check(segment, &mut joined);
-        self.fill(id, segment, &mut joined);
+        let plans = std::mem::take(&mut self.plans);
+        let plan = plans.get(segment.id);
+        self.check(
+            plan.map_or(&[], |plan| &plan.elements),
+            segment,
+            &mut joined,
+        );
+        if let Some(watchers) = plan.and_then(|plan| plan.watchers.get(id.index())) {
+            self.fill(watchers, segment, &mut joined);
+        }
+        self.plans = plans;
         self.segment_rows(id, segment, &mut joined);
         self.joined = joined;
     }
@@ -307,20 +413,17 @@ impl<'s> Projector<'s> {
 
     /// Checks every element the spec defines for the segment and keeps the
     /// parsed values for the columns that read them.
-    fn check(&mut self, segment: &Segment<'_>, joined: &mut Vec<u8>) {
+    fn check(&mut self, elements: &[ElementPlan<'_>], segment: &Segment<'_>, joined: &mut Vec<u8>) {
         self.checked.clear();
-        let spec = self.spec;
-        let Some(def) = spec.segment(segment.id) else {
-            return;
-        };
-        for (&position, element) in &def.elements {
-            if element.composite.is_empty() {
+        for plan in elements {
+            let (position, element) = (plan.position, plan.def);
+            if plan.components.is_empty() {
                 let text = leaf_text(segment, position, None, self.separator, joined);
                 let value = self.check_value(segment, position, None, element, text);
                 self.checked.push(Checked {
                     element: position,
                     component: None,
-                    kind: ColumnType::of(Some(element.kind)),
+                    kind: plan.kind,
                     value,
                 });
                 continue;
@@ -347,7 +450,7 @@ impl<'s> Projector<'s> {
                 }
                 continue;
             }
-            let declared = element.composite.keys().copied().max().unwrap_or_default();
+            let declared = plan.declared;
             if parts.len() > declared {
                 let extra = parts.get(declared).map_or(&[][..], |part| part.as_ref());
                 self.report(
@@ -364,7 +467,7 @@ impl<'s> Projector<'s> {
                     extra,
                 );
             }
-            for (&component, def) in &element.composite {
+            for &(component, def, kind) in &plan.components {
                 let text = component
                     .checked_sub(1)
                     .and_then(|at| parts.get(at))
@@ -373,7 +476,7 @@ impl<'s> Projector<'s> {
                 self.checked.push(Checked {
                     element: position,
                     component: Some(component),
-                    kind: ColumnType::of(Some(def.kind)),
+                    kind,
                     value,
                 });
             }
@@ -451,9 +554,9 @@ impl<'s> Projector<'s> {
     }
 
     /// Fills the open rows whose columns read this segment and have no value yet.
-    fn fill(&mut self, id: LoopId, segment: &Segment<'_>, joined: &mut Vec<u8>) {
+    fn fill(&mut self, watchers: &[(usize, usize)], segment: &Segment<'_>, joined: &mut Vec<u8>) {
         let spec = self.spec;
-        for &(index, column) in &self.watchers[id.index()] {
+        for &(index, column) in watchers {
             let state = &mut self.tables[index];
             if !state.open || state.row.cells.get(column) != Some(&Slot::Unset) {
                 continue;
@@ -589,7 +692,7 @@ impl<'s> Projector<'s> {
         row.ordinal = state.next;
         row.segment = segment.index;
         state.next = state.next.saturating_add(1);
-        let dropped = append(&mut state.table, &row);
+        let dropped = append(&mut state.table, &row, &mut self.cells);
         state.row = row;
         self.report_dropped(dropped, index, segment.index);
     }
@@ -779,9 +882,16 @@ fn read(
 /// that would take its column past what `i32` offsets address is stored as
 /// null and returned with its column name and the byte total it would have
 /// produced, so row numbers stay aligned and nothing disappears unreported.
-fn append(table: &mut Table, row: &Row) -> Vec<(String, usize)> {
+fn append(table: &mut Table, row: &Row, scratch: &mut Vec<Cell<'static>>) -> Vec<(String, usize)> {
     let index = |value: usize| i64::try_from(value).map_or(Cell::Null, Cell::Int64);
-    let mut cells = Vec::with_capacity(2 + row.parents.len() + row.cells.len());
+    // The scratch vector is empty; collecting an empty iterator out of it
+    // gives its allocation back under the row's lifetime.
+    scratch.clear();
+    let mut cells: Vec<Cell<'_>> = std::mem::take(scratch)
+        .into_iter()
+        .map_while(|_| None)
+        .collect();
+    cells.reserve(2 + row.parents.len() + row.cells.len());
     cells.push(index(row.ordinal));
     cells.push(index(row.segment));
     cells.extend(
@@ -816,6 +926,8 @@ fn append(table: &mut Table, row: &Row) -> Vec<(String, usize)> {
         }
         dropped.push((column, bytes));
     }
+    cells.clear();
+    *scratch = cells.into_iter().map_while(|_| None).collect();
     dropped
 }
 
@@ -999,6 +1111,34 @@ mod tests {
             rendered(&diagnostics),
             vec![
                 "SNIP 2 · text for column \"group\" of table \"adjustments\" was not stored: it would bring the column to 4 bytes and a column holds at most 2147483647 · segment #3 · at head#1/claim#1 · datum \"\""
+            ]
+        );
+    }
+
+    #[test]
+    fn segment_ids_of_any_length_are_checked_and_read() {
+        let spec = Spec::from_json(
+            r#"{"name":"t",
+                "loops":{"head":{"trigger":{"segment":"A"},"segments":["LONGSEGMENT","\u0000A"],"end":"Z"}},
+                "segments":{
+                    "LONGSEGMENT":{"elements":{"1":{"name":"n","type":"N0","required":true}}},
+                    "\u0000A":{"elements":{"1":{"name":"m","type":"AN"}}}
+                },
+                "tables":{"heads":{"loops":["head"],"ref":"head","columns":{
+                    "n":{"segment":"LONGSEGMENT","element":1},
+                    "m":{"segment":"\u0000A","element":1}
+                }}}}"#,
+        )
+        .unwrap();
+        let (tables, diagnostics) = project(&spec, "A~LONGSEGMENT*12~\0A*x~Z~A~LONGSEGMENT*q~Z~");
+        assert_eq!(
+            rows(&tables, "heads"),
+            vec!["row | segment | m | n", "0 | 0 | x | 12", "1 | 4 | ∅ | ∅"]
+        );
+        assert_eq!(
+            rendered(&diagnostics),
+            vec![
+                "SNIP 2 · element LONGSEGMENT01 (n) is not a valid N0 (integer with 0 implied decimals) · segment #5, element 1 · at head#2 · datum \"q\""
             ]
         );
     }

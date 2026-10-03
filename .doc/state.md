@@ -52,8 +52,9 @@ year-0 dates rejected, raw-number rendering out of range, projector +8–10% (30
 Suite: 337 tests. After 4b the crate adds: `column` (Arrow-layout `Column`/`Table`/`Tables`,
 X12 value parsers), `tables` section of the spec with five built-in tables, `Projector`
 (rows at loop close + SNIP 2), `Processor` (one pass), table and diagnostic goldens under
-`tests/golden/project/`. SNIP 3 was not included (D11). Next: one update of `.doc/analysis/` from the real code (in progress), then Stage 5 (Python
-binding) trade-offs in chat before writing §7 Stage 5.
+`tests/golden/project/`. SNIP 3 was not included (D11). `.doc/analysis/` is current at 3707e28. §7 Stage 5 approved 2026-10-03 (T18–T23) on branch
+`stage-5-python`; next: plan `plans/stage-5-python.md` (lean planner: executed code only for
+design-heavy tasks), then batches.
 Execution convention: main session orchestrates only; implementer by complexity, reviewer one
 tier up; batches of two to four tasks since 4b.
 The decisions that were open, now settled in §7:

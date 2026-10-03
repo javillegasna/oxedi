@@ -712,3 +712,87 @@ elementos (`chunks`, `step_by`).
 **Fuera de alcance.** SNIP 4–7; listas de códigos externos (CARC, RARC); cardinalidad de
 segmentos por loop y lenguaje de reglas de cuadre (D11); interfaz C de Arrow y PyO3 (Stage
 5); medir `Cow` frente a `Arc` (D8); escritor (D7).
+
+### Stage 5 · Binding Python — APROBADO 2026-10-03
+
+El stage que devuelve el proyecto a su problema original: ingerir 835 desde Python más
+rápido que la librería vieja, sin perder nada por el camino. El core no cambia de contrato;
+el binding lo envuelve, libera el GIL y entrega las tablas de Stage 4 sin copiarlas. Mide D8.
+
+**Propósito.** Un paquete Python `oxedi835` construido con PyO3 y maturin que expone
+`parse`, `stream`, `Spec`, `Document` y `Diagnostic`; las tablas salen por el protocolo
+PyCapsule de Arrow para que Polars, pyarrow o DuckDB las consuman sin copia y sin que el
+paquete dependa de ninguno de ellos. Todo el trabajo corre con el GIL liberado (N4). Los
+diagnósticos son valores, nunca excepciones (P7); el único error que se lanza es el de una
+spec inválida, con el texto de su `Display` (P10).
+
+**Decisiones de diseño (cada una con la alternativa descartada).**
+- **T18 · PyO3 + maturin, wheels `abi3`, Python ≥ 3.9.** Crate nuevo `crates/oxedi835_py`
+  (`cdylib`) en el workspace; el core sigue sin más dependencias que `serde` y `serde_json`
+  (P3, T7). Un wheel por plataforma, no por versión de Python. Descartado `ctypes` con
+  cbindgen (sin tipos ni gestión del GIL) y UniFFI (sin Arrow ni iteradores naturales).
+- **T19 · Copia única del buffer; D8 se mide aquí.** `parse` acepta cualquier objeto con
+  protocolo buffer, copia los bytes una vez y construye un `Document<'static>` propio. Con
+  ese documento en mano se mide D8: `Cow` propio frente a `Arc<[u8]>` con N documentos
+  retenidos desde Python, en tiempo y memoria sobre los samples grandes; el resultado se
+  registra en §6.1 y, si `Arc` gana, el cambio es local a la representación del buffer
+  (T5). Descartado prestar del `PyBytes` sin copiar: ata la vida del documento a un objeto
+  Python y complica cada método; el coste de la copia es de milisegundos por archivo.
+- **T20 · GIL liberado en todo pase.** `parse`, `stream` y la escritura corren dentro de
+  `allow_threads`; los tipos que cruzan son `Send` porque el core no comparte estado. El
+  paralelismo real es entre archivos, desde un `ThreadPoolExecutor` (T2).
+- **T21 · Arrow por PyCapsule con el crate `arrow` solo en el binding.** Las columnas de
+  Stage 4 ya tienen la disposición de Arrow; el binding las envuelve como `Buffer`s sin
+  copiar, forma `RecordBatch`es y los expone por `__arrow_c_stream__` /
+  `__arrow_c_array__`. El `unsafe` de la interfaz C lo escribe arrow-rs, no nosotros.
+  Descartado implementar la interfaz C a mano (más código inseguro para lo mismo) y
+  devolver listas o numpy (copia, pierde el sentido de T14).
+- **T22 · API pequeña y fiel al core.** `oxedi835.parse(data, spec=None) -> Result` con
+  `.tables` (mapa nombre → tabla exportable a Arrow, con `.render()` que produce el mismo
+  texto que los goldens), `.diagnostics` (lista de `Diagnostic` con `level`, `rule`,
+  `segment`, `element`, `component`, `path`, `datum` y `__str__` igual al `Display`) y
+  `.document` (`len`, indexado por posición con `id`, `elements` y `raw`, `write() ->
+  bytes` idéntico a la entrada, N1). `oxedi835.stream(data, spec=None, by="transaction")`
+  itera lotes de tablas por transacción con memoria acotada (es `take_tables` al cerrar
+  cada `transaction`, P9). `Spec.builtin()`, `Spec.from_json(str)`, `Spec.patch(dict | str)
+  -> Spec`, `Spec.to_json()`. `oxedi835.parse_file(path)` lee en Python y llama a `parse`:
+  la I/O vive en la capa Python, no en el core. `SpecError(ValueError)` con el texto del
+  `Display`. Descartada una API de objetos Claim/Service como la librería vieja: eso lo
+  cubre 5b con una spec, no con código (N3).
+- **T23 · Verificación sobre los mismos oráculos.** pytest recorre los once archivos y
+  compara `tables.render()` byte a byte con `tests/golden/project/*.tables.txt` y los
+  `str(diagnostic)` con `*.diagnostics.txt`; `document.write()` reproduce cada archivo; una
+  prueba consume `.tables["claims"]` desde Polars por el protocolo PyCapsule y comprueba
+  filas y tipos; un test de memoria recorre el sample mayor con `stream` y comprueba con
+  `tracemalloc`/RSS que el pico queda acotado por una transacción, no por el archivo; un
+  test de concurrencia comprueba que dos hilos parsean en paralelo (tiempo total menor que
+  la suma). Un script, no un gate, cronometra `parse` frente a `edi-835-parser` en los
+  archivos que ambos leen (adelanta 5b). El gate final instala el wheel en un venv limpio y
+  ejecuta pytest desde fuera del repo.
+
+**Entregable / contrato.**
+- `crates/oxedi835_py`: `Cargo.toml` (`pyo3` con `abi3-py39` y `extension-module`,
+  `arrow` solo con las features de `ffi`/`pyarrow`-free que hagan falta), `pyproject.toml`
+  con maturin, `src/lib.rs` con el módulo y las clases `Spec`, `Document`, `Segment`,
+  `Tables`, `Table`, `Diagnostic`, `Result`, `Stream`; `python/oxedi835/__init__.py` con
+  `parse_file` y los re-exports; `tests/` en pytest.
+- Las clases Python no reimplementan nada: cada método delega en el core; el único código
+  con lógica propia es el puente de columnas a `RecordBatch` y la conversión de
+  `Diagnostic` a atributos.
+- Baseline de D8 y del tiempo de `parse` por archivo en el mensaje de commit del bench.
+
+**Gate de verificación (salida del Stage 5).**
+- `cargo test --workspace --locked`, clippy, fmt, bench `--no-run` y `cargo doc` siguen en
+  verde para todo el workspace; `maturin develop` y `pytest` en verde en local y en CI.
+- Goldens de tablas y diagnósticos reproducidos desde Python en los once archivos; `write()`
+  byte a byte; prueba Polars; test de memoria; test de concurrencia.
+- D8 medido y registrado; decisión tomada en §6.1 con los números.
+- Wheel instalado en un venv limpio pasa el smoke test.
+
+**Rust que exprimes.** FFI con PyO3: `#[pyclass]`, `#[pymethods]`, `Py<T>` y `Bound<T>`,
+el token del GIL y `allow_threads` con límites `Send`; borrar vidas con tipos propios en la
+frontera; el protocolo PyCapsule de Arrow; maturin y `abi3`; `Arc` frente a `Cow` medido,
+no supuesto; errores Rust a excepciones Python conservando el texto.
+
+**Fuera de alcance.** Publicar en PyPI y la matriz manylinux/macOS/Windows (Stage 6);
+`asyncio`; API orientada a objetos del 835 (5b); escritor (D7); tokenizer por trozos (D6).

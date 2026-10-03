@@ -227,3 +227,99 @@ clippy/fmt.
 
 **Nota tras la revisión del 2026-10-02.** El cambio al modelo por eventos (§3, §4) no
 altera este stage. El plan `plans/stage-0-scaffolding.md` sigue vigente tal cual.
+
+### Stage 1 · Framing + Tokenizer — PROPUESTO 2026-10-02 (pendiente de aprobación)
+
+Primera capa con lógica. Dos unidades con una costura entre ellas (N7): el *framing*, que
+no sabe qué es un segmento, y el *tokenizer*, que no sabe qué es un 835.
+
+**Propósito.** Convertir bytes en un flujo perezoso de segmentos genéricos, sin perder un
+byte (N1), con los delimitadores que declara el archivo (N2), prestando del buffer (N4).
+
+**Hechos de las fixtures que condicionan el diseño** (verificados el 2026-10-02).
+- Cuatro de cinco fixtures empiezan por ISA. `blue_cross_nc_sample.txt` empieza por ST:
+  es un *fragmento* sin sobre. Existen en producción (extractos, pruebas), así que el
+  tokenizer debe poder arrancar con delimitadores dados por el llamador.
+- El ISA es nominalmente de 106 bytes de ancho fijo, pero `multi_claim` mide 105 y
+  `trizetto` 102 (ISA06/ISA08 mal rellenados). **Nunca se leen los delimitadores por
+  offset**: se cuentan separadores. El separador tras `ISA` es el #1; ISA16 (componente)
+  es el byte tras el separador #16 y el terminador es el byte siguiente.
+- Separador `*` y terminador `~` en todas. Componente `:` (emedny) y `>` (las demás).
+  ISA11 vale `U` en 4010 (identificador de estándar, no separador) y `^` en 5010
+  (separador de repetición). Regla: ISA11 es separador de repetición si ISA12 ≥ `00402`.
+- Dos fixtures tienen `\n` tras cada `~`, incluido el último; tres no tienen ningún salto
+  de línea. Los bytes entre un terminador y el siguiente segmento son *trivia* que N1
+  obliga a conservar. Ningún archivo tiene `\r`; se tolera igual como trivia.
+- `trizetto_sample.rmt` tiene `~XX*654321~` donde el POC seguramente quiso `*`: produce un
+  segmento `XX` espurio y el conteo de SE no cuadra. Se conserva tal cual, byte a byte,
+  como caso deliberado de segmento desconocido (N1) e input malformado (P7).
+- Sobre el "escape": X12 no define carácter de release (eso es EDIFACT/UNA) y el POC lo
+  ignoraba. Lectura de N2 para este stage: (a) los delimitadores salen del ISA; (b) un
+  byte que *parece* delimitador pero no es el del archivo (un `*` cuando el separador es
+  `|`) es dato; (c) un carácter de release es **opcional y configurable** por el llamador,
+  nunca inferido del archivo. Si existe, framing, división de elementos y escritura lo
+  respetan.
+
+**Entregable / contrato.**
+- `Delimiters { element, component, segment: u8, repetition: Option<u8>, release:
+  Option<u8> }`. `Delimiters::from_isa(&[u8]) -> Result<Delimiters, IsaError>` con
+  `IsaError::{NotIsa, Truncated { len }}`. Builders `new(element, component, segment)`,
+  `with_repetition`, `with_release`.
+- **Framing (P5), módulo `frame`.** Función pura
+  `next_frame(input: &[u8], &Delimiters) -> Option<(Frame<'_>, &[u8])>` con
+  `Frame { raw, body, terminated }`. `raw` va desde el primer byte de `input` hasta el
+  terminador inclusive (incluye la trivia inicial); `body` es `raw` sin trivia inicial ni
+  terminador; el segundo valor es el resto. Respeta `release` al buscar el terminador. Sin
+  terminador, el último frame es todo lo que queda con `terminated: false` (puede tener
+  `body` vacío: es la trivia final del archivo). Invariante: concatenar todos los `raw`
+  reproduce `input` byte a byte. `None` solo cuando `input` está vacío.
+- **Elementos, módulo `element`.** `Element<'a>` es `Simple(Value<'a>)` o
+  `Composite(Vec<Value<'a>>)` con `Value<'a> = Cow<'a, [u8]>`: prestado del buffer salvo
+  que haya habido que quitar un byte de release (entonces propio). Composite cuando el
+  elemento contiene un separador de componente sin escapar. La repetición (`^`) se
+  reconoce en `Delimiters` pero no se divide (YAGNI hasta que una spec lo pida).
+- **Segmento y tokenizer, módulo `segment` y `tokenizer`.** `Segment<'a> { index, raw,
+  id: &'a [u8], elements: Vec<Element<'a>>, terminated }`. `Tokenizer<'a>` implementa
+  `Iterator<Item = Segment<'a>>`. **El tokenizer no tiene errores por segmento**: todo
+  frame se emite como segmento, incluidos los vacíos (`~~`) y la trivia final, que llevan
+  `id` vacío. N1 y P7 se cumplen por construcción: el consumidor decide qué hacer con un
+  `id` vacío. Dos constructores: `Tokenizer::new(&[u8]) -> Result<_, IsaError>` lee los
+  delimitadores del ISA (tolerando trivia antes de él); `with_delimiters(&[u8],
+  Delimiters)` para fragmentos o para inyectar `release`.
+- **Serialización simétrica (N2 inverso, D7).** `Segment::write_to(&self, &Delimiters,
+  &mut impl io::Write) -> Result<(), WriteError>` reconstruye el segmento desde `id` y
+  `elements`, escapando con `release` cualquier byte delimitador dentro de un valor; sin
+  `release`, un valor con delimitador es `WriteError::DelimiterInValue { byte }`. No
+  escribe la trivia de `raw`: es el camino del escritor, no el lossless.
+- **Errores.** Solo de construcción (`IsaError`) y de escritura (`WriteError`). Nunca
+  `panic` ante input.
+
+**Gate de verificación (salida del Stage 1).**
+- Property (proptest): para cualquier `input` de bytes arbitrarios, con y sin `release`,
+  `concat(frames.raw) == input` (framing lossless).
+- Property: para cualquier segmento generado (id, elementos simples y compuestos), escribir
+  con `write_to` y volver a tokenizar devuelve los mismos `id` y `elements`. Con `release`
+  configurado, los valores pueden contener cualquier byte, delimitadores incluidos.
+- Con separador `|`, un valor que contiene `*` se conserva intacto. Bytes no UTF-8 en un
+  valor pasan intactos.
+- Las cinco fixtures: `concat(segments.raw) == bytes del archivo`; segmentos terminados
+  igual al conteo de `~` (32, 69, 51, 22, 65); `blue_cross` solo tokeniza con
+  `with_delimiters` y con `new` da `NotIsa`; `trizetto` contiene un segmento `XX`.
+- Costura framing→tokenizer (N7): el número de segmentos es igual al número de frames y
+  los índices son consecutivos desde 0.
+- Fixtures reescritas: para cada segmento no vacío, `write_to` reproduce exactamente
+  `raw` sin su trivia inicial.
+- Bench criterion: tokenizar las tres fixtures mayores con throughput en bytes. Sin umbral
+  todavía; solo línea base registrada.
+
+**Dependencias.** Stage 0. Sin dependencias nuevas.
+
+**Rust que exprimes.** Lifetimes en structs e iteradores (`Segment<'a>` presta del
+buffer), `&[u8]` vs `&str` (los archivos EDI no se asumen UTF-8), `Cow` como primer
+contacto con prestado-o-propio (adelanta D1), `Result` y enums de error con `From` para
+`?`, `Iterator` manual con estado, funciones puras y su prueba por propiedad, `io::Write`
+genérico para la serialización.
+
+**Fuera de alcance.** Reconocer qué significa un segmento (Stage 3), árbol en memoria
+(Stage 2), división de repeticiones `^`, decodificación a `&str`, tokenizer por trozos
+(D6), inferir `release` del archivo.

@@ -12,6 +12,18 @@ fn a_patch_makes_the_bogus_trizetto_segment_captured() {
     let patched = builtin
         .merge_patch(r#"{"loops":{"1000A":{"segments":["N3","N4","REF","PER","XX"]}}}"#)
         .unwrap();
+    let payer = patched.get(patched.loop_id("1000A").unwrap());
+    assert_eq!(
+        payer.segments,
+        [
+            b"N3".to_vec(),
+            b"N4".to_vec(),
+            b"REF".to_vec(),
+            b"PER".to_vec(),
+            b"XX".to_vec()
+        ],
+        "a merge patch replaces the segment list wholesale, so the patch lists the built-in entries too"
+    );
     let delims = Delimiters::from_isa(&bytes).unwrap();
     let unmatched = |spec: &Spec| {
         common::events_of(spec, &bytes, delims)

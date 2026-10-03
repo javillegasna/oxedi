@@ -12,6 +12,7 @@ mod diagnostic;
 mod document;
 mod parse;
 mod spec;
+mod stream;
 mod tables;
 
 /// The `oxedi835._core` extension module.
@@ -27,8 +28,11 @@ fn core_module(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_class::<document::PySegment>()?;
     m.add_class::<parse::PyParseResult>()?;
     m.add_class::<spec::PySpec>()?;
+    m.add_class::<stream::PyBatch>()?;
+    m.add_class::<stream::PyStream>()?;
     m.add_class::<tables::PyTable>()?;
     m.add_class::<tables::PyTables>()?;
     m.add_function(wrap_pyfunction!(parse::parse, m)?)?;
+    m.add_function(wrap_pyfunction!(stream::stream, m)?)?;
     Ok(())
 }

@@ -12,6 +12,7 @@ import os
 from typing import Optional, Union
 
 from ._core import (
+    Batch,
     Delimiters,
     Diagnostic,
     Document,
@@ -20,12 +21,15 @@ from ._core import (
     Segment,
     Spec,
     SpecError,
+    Stream,
     Table,
     Tables,
     parse,
+    stream,
 )
 
 __all__ = [
+    "Batch",
     "Delimiters",
     "Diagnostic",
     "Document",
@@ -34,10 +38,12 @@ __all__ = [
     "Segment",
     "Spec",
     "SpecError",
+    "Stream",
     "Table",
     "Tables",
     "parse",
     "parse_file",
+    "stream",
 ]
 
 

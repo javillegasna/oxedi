@@ -26,3 +26,4 @@ arrow-buffer = { version = "60", default-features = false }
 arrow-data = { version = "60", default-features = false, features = ["ffi"] }
 arrow-schema = { version = "60", default-features = false, features = ["ffi"] }
 bytes = "1.9"
+self_cell = "1"

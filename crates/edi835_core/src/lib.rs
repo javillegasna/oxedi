@@ -17,6 +17,7 @@
 //! the built-in spec it loads.
 
 pub mod delimiters;
+pub mod diagnostic;
 pub mod document;
 pub mod element;
 pub mod engine;
@@ -27,6 +28,7 @@ pub mod tokenizer;
 pub mod tree;
 
 pub use delimiters::{Delimiters, IsaError};
+pub use diagnostic::{Diagnostic, LoopRef, Rule, SnipLevel};
 pub use document::{Document, Segments, Span};
 pub use element::{Element, Value};
 pub use engine::{Event, LoopEngine};

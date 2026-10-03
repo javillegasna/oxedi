@@ -27,8 +27,17 @@
 //! instance to the next, and the per-segment state (the checked values and
 //! the text of a composite read as one) lives in buffers that are cleared and
 //! reused.
+//!
+//! Limit: a text column addresses its bytes with `i32` offsets, so it holds at
+//! most `i32::MAX` bytes between two drains of the tables. A text value that
+//! would go past it is not stored: its cell is null, the row is kept and a
+//! level-2 diagnostic names the table, the column, the row's anchor segment
+//! and the byte total. Draining the tables per transaction keeps columns far
+//! below the limit.
 
-use crate::column::{Cell, ColumnType, Table, Tables, parse_dt, parse_n, parse_r, parse_tm};
+use crate::column::{
+    Cell, CellError, ColumnType, RowError, Table, Tables, parse_dt, parse_n, parse_r, parse_tm,
+};
 use crate::delimiters::Delimiters;
 use crate::diagnostic::{Diagnostic, LoopRef, Rule};
 use crate::element::Element;
@@ -230,7 +239,9 @@ impl<'s> Projector<'s> {
     }
 
     /// Moves every appended row out, leaving the tables empty. Rows still
-    /// being collected stay, and keep their numbers.
+    /// being collected stay, and keep their numbers. A text column holds at
+    /// most `i32::MAX` bytes until it is drained; draining per transaction
+    /// stays far below that (see the module notes for what happens past it).
     pub fn take_tables(&mut self) -> Tables {
         Tables::new(
             self.tables
@@ -265,17 +276,19 @@ impl<'s> Projector<'s> {
     }
 
     fn closed(&mut self) {
-        let Some((id, _)) = self.open.pop() else {
+        let Some(&(id, _)) = self.open.last() else {
             return;
         };
-        let Some(index) = self.anchored[id.index()] else {
-            return;
-        };
-        let state = &mut self.tables[index];
-        if state.open {
-            state.open = false;
-            append(&mut state.table, &state.row);
+        if let Some(index) = self.anchored[id.index()] {
+            let state = &mut self.tables[index];
+            if state.open {
+                state.open = false;
+                let dropped = append(&mut state.table, &state.row);
+                let segment = state.row.segment;
+                self.report_dropped(dropped, index, segment);
+            }
         }
+        self.open.pop();
     }
 
     fn captured(&mut self, id: LoopId, segment: &Segment<'_>) {
@@ -576,8 +589,21 @@ impl<'s> Projector<'s> {
         row.ordinal = state.next;
         row.segment = segment.index;
         state.next = state.next.saturating_add(1);
-        append(&mut state.table, &row);
+        let dropped = append(&mut state.table, &row);
         state.row = row;
+        self.report_dropped(dropped, index, segment.index);
+    }
+
+    /// Reports each text value an append could not store.
+    fn report_dropped(&mut self, dropped: Vec<(String, usize)>, table: usize, segment: usize) {
+        for (column, bytes) in dropped {
+            let rule = Rule::ValueDropped {
+                table: self.spec.tables()[table].name.clone(),
+                column,
+                bytes,
+            };
+            self.push_diagnostic(rule, segment, None, None, &[]);
+        }
     }
 
     fn report(
@@ -585,6 +611,17 @@ impl<'s> Projector<'s> {
         rule: Rule,
         segment: usize,
         element: usize,
+        component: Option<usize>,
+        datum: &[u8],
+    ) {
+        self.push_diagnostic(rule, segment, Some(element), component, datum);
+    }
+
+    fn push_diagnostic(
+        &mut self,
+        rule: Rule,
+        segment: usize,
+        element: Option<usize>,
         component: Option<usize>,
         datum: &[u8],
     ) {
@@ -600,7 +637,7 @@ impl<'s> Projector<'s> {
         self.diagnostics.push(Diagnostic::new(
             rule,
             Some(segment),
-            Some(element),
+            element,
             component,
             path,
             datum.to_vec(),
@@ -738,8 +775,11 @@ fn read(
 }
 
 /// Appends a collected row: its number, its anchor segment, the rows above
-/// it, then its columns; a column no segment matched is null.
-fn append(table: &mut Table, row: &Row) {
+/// it, then its columns; a column no segment matched is null. A text value
+/// that would take its column past what `i32` offsets address is stored as
+/// null and returned with its column name and the byte total it would have
+/// produced, so row numbers stay aligned and nothing disappears unreported.
+fn append(table: &mut Table, row: &Row) -> Vec<(String, usize)> {
     let index = |value: usize| i64::try_from(value).map_or(Cell::Null, Cell::Int64);
     let mut cells = Vec::with_capacity(2 + row.parents.len() + row.cells.len());
     cells.push(index(row.ordinal));
@@ -757,17 +797,26 @@ fn append(table: &mut Table, row: &Row) {
         Slot::Date(value) => Cell::Date32(value),
         Slot::Time(value) => Cell::Time32(value),
     }));
-    if table.push_row(&cells).is_err() {
-        // Every cell has its column's type, so only text can fail to fit (a
-        // binary column past what i32 offsets address): keep the row, with
-        // those cells null, so row numbers stay aligned. Nulls always fit.
-        for cell in &mut cells {
-            if matches!(cell, Cell::Binary(_)) {
-                *cell = Cell::Null;
-            }
+    let mut dropped = Vec::new();
+    // Every cell has its column's type, so only text can fail to fit; each
+    // retry nulls one cell, and nulls always fit.
+    while let Err(error) = table.push_row(&cells) {
+        let RowError::Cell {
+            column,
+            source: CellError::BinaryOverflow { bytes },
+            ..
+        } = error
+        else {
+            break;
+        };
+        let at = table.columns().iter().position(|(name, _)| *name == column);
+        match at.and_then(|at| cells.get_mut(at)) {
+            Some(cell) => *cell = Cell::Null,
+            None => break,
         }
-        let _ = table.push_row(&cells);
+        dropped.push((column, bytes));
     }
+    dropped
 }
 
 #[cfg(test)]
@@ -906,6 +955,50 @@ mod tests {
             vec![
                 "row | segment | head | claim | code | date | time",
                 "0 | 8 | 0 | 0 | L1 | 2024-01-07 | 12:30:00",
+            ]
+        );
+    }
+
+    #[test]
+    fn a_text_value_past_the_column_limit_is_reported_and_its_cell_is_null() {
+        let spec = spec();
+        crate::column::OFFSET_LIMIT.with(|limit| limit.set(6));
+        let (tables, diagnostics) = project(&spec, "HD*ABCD~TR~HD*EFGH~TR~");
+        crate::column::OFFSET_LIMIT.with(|limit| limit.set(i32::MAX as usize));
+        assert_eq!(
+            rows(&tables, "heads"),
+            vec![
+                "row | segment | batch | payer",
+                "0 | 0 | ABCD | ∅",
+                "1 | 2 | ∅ | ∅"
+            ],
+            "the row is kept, with the cell null"
+        );
+        assert_eq!(
+            rendered(&diagnostics),
+            vec![
+                "SNIP 2 · text for column \"batch\" of table \"heads\" was not stored: it would bring the column to 8 bytes and a column holds at most 2147483647 · segment #2 · at head#2 · datum \"\""
+            ]
+        );
+    }
+
+    #[test]
+    fn a_text_value_past_the_limit_in_a_segment_row_is_reported() {
+        let spec = spec();
+        crate::column::OFFSET_LIMIT.with(|limit| limit.set(3));
+        let (tables, diagnostics) = project(&spec, "HD*A~CL*C*1~AJ*CO*X*1~AJ*CO*Y*2~TR~");
+        crate::column::OFFSET_LIMIT.with(|limit| limit.set(i32::MAX as usize));
+        assert_eq!(
+            rows(&tables, "adjustments")[1..],
+            [
+                "0 | 2 | 0 | 0 | ∅ | 1.00 | CO | X",
+                "1 | 3 | 0 | 0 | ∅ | 2.00 | ∅ | Y"
+            ]
+        );
+        assert_eq!(
+            rendered(&diagnostics),
+            vec![
+                "SNIP 2 · text for column \"group\" of table \"adjustments\" was not stored: it would bring the column to 4 bytes and a column holds at most 2147483647 · segment #3 · at head#1/claim#1 · datum \"\""
             ]
         );
     }

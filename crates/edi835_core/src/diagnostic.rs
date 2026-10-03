@@ -153,6 +153,15 @@ pub enum Rule {
         /// The value's length.
         length: usize,
     },
+    /// A text value was not stored: its column cannot address more bytes.
+    ValueDropped {
+        /// The table.
+        table: String,
+        /// The column.
+        column: String,
+        /// The column's byte length the value would have produced.
+        bytes: usize,
+    },
     /// A composite element has more components than its definition declares.
     CompositeShape {
         /// The segment id.
@@ -181,7 +190,8 @@ impl Rule {
             Rule::RequiredElementMissing { .. }
             | Rule::TypeMismatch { .. }
             | Rule::LengthOutOfRange { .. }
-            | Rule::CompositeShape { .. } => SnipLevel::L2,
+            | Rule::CompositeShape { .. }
+            | Rule::ValueDropped { .. } => SnipLevel::L2,
         }
     }
 }
@@ -369,6 +379,15 @@ impl fmt::Display for Rule {
                     (None, None) => write!(f, "any length"),
                 }
             }
+            Rule::ValueDropped {
+                table,
+                column,
+                bytes,
+            } => write!(
+                f,
+                "text for column {column:?} of table {table:?} was not stored: it would bring the column to {bytes} bytes and a column holds at most {}",
+                i32::MAX
+            ),
             Rule::CompositeShape {
                 segment_id,
                 element,
@@ -794,6 +813,31 @@ mod tests {
         assert_eq!(
             diagnostic.to_string(),
             "SNIP 2 · element SVC01 (composite_medical_procedure) has 9 components; the spec declares 8 · segment #17, element 1, component 9 · at 2110#1 · datum \"X\""
+        );
+    }
+
+    #[test]
+    fn value_dropped_displays_the_table_the_column_and_the_byte_total() {
+        let diagnostic = Diagnostic::new(
+            Rule::ValueDropped {
+                table: "claims".into(),
+                column: "note".into(),
+                bytes: 2147483650,
+            },
+            Some(9),
+            None,
+            None,
+            path(&[("2100", 4)]),
+            Vec::new(),
+        );
+        assert_eq!(
+            diagnostic.level.to_string(),
+            "SNIP 2",
+            "a dropped value is a level 2 finding"
+        );
+        assert_eq!(
+            diagnostic.to_string(),
+            "SNIP 2 · text for column \"note\" of table \"claims\" was not stored: it would bring the column to 2147483650 bytes and a column holds at most 2147483647 · segment #9 · at 2100#4 · datum \"\""
         );
     }
 

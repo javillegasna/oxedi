@@ -189,6 +189,24 @@ impl Column {
     }
 }
 
+/// The most bytes a binary column holds.
+#[cfg(not(test))]
+fn offset_limit() -> usize {
+    i32::MAX as usize
+}
+
+#[cfg(test)]
+thread_local! {
+    pub(crate) static OFFSET_LIMIT: std::cell::Cell<usize> =
+        const { std::cell::Cell::new(i32::MAX as usize) };
+}
+
+/// The most bytes a binary column holds; tests lower it per thread.
+#[cfg(test)]
+fn offset_limit() -> usize {
+    OFFSET_LIMIT.with(std::cell::Cell::get)
+}
+
 /// One value on its way into, or out of, a column.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Cell<'a> {
@@ -405,7 +423,7 @@ impl ColumnData {
         }
         if let (Column::Binary { data, .. }, Cell::Binary(bytes)) = (&self.column, cell) {
             let total = data.len().saturating_add(bytes.len());
-            if i32::try_from(total).is_err() {
+            if total > offset_limit() {
                 return Err(CellError::BinaryOverflow { bytes: total });
             }
         }

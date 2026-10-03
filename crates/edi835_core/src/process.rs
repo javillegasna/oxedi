@@ -92,7 +92,9 @@ impl<'s> Processor<'s> {
         self.output.diagnostics()
     }
 
-    /// Moves every appended row out; see [`Projector::take_tables`]. Each
+    /// Moves every appended row out; see [`Projector::take_tables`]. A text
+    /// column holds at most `i32::MAX` bytes until drained (a value past that
+    /// is reported and its cell is null), so drain per transaction. Each
     /// stream's tables stand on their own: take them before feeding another
     /// stream, because `finish` restarts row numbers.
     pub fn take_tables(&mut self) -> Tables {

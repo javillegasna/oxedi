@@ -16,5 +16,5 @@ pub use document::{Document, Segments, Span};
 pub use element::{Element, Value};
 pub use frame::{Frame, next_frame};
 pub use segment::{Segment, WriteError};
-pub use spec::{LoopDef, LoopId, Spec, SpecError, Trigger};
+pub use spec::{LoopDef, LoopId, Spec, SpecError, Trigger, merge_patch};
 pub use tokenizer::Tokenizer;

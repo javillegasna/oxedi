@@ -200,6 +200,16 @@ impl Spec {
         Spec::from_value(source)
     }
 
+    /// Applies a JSON Merge Patch (RFC 7386) to this spec's JSON and loads the
+    /// result: objects merge recursively, arrays and scalars are replaced,
+    /// `null` deletes. The result is validated like any spec.
+    pub fn merge_patch(&self, patch_json: &str) -> Result<Spec, SpecError> {
+        let patch: Value = serde_json::from_str(patch_json)?;
+        let mut source = self.source.clone();
+        merge_patch(&mut source, &patch);
+        Spec::from_value(source)
+    }
+
     /// The spec as JSON text, including any patches applied to it.
     pub fn to_json(&self) -> String {
         // A `Value` always serializes; a failure here would be a bug in serde_json.
@@ -374,6 +384,27 @@ impl Spec {
             }
         }
         Ok(())
+    }
+}
+
+/// JSON Merge Patch, RFC 7386: `patch` objects merge into `target` key by key,
+/// `null` members delete, and anything that is not an object replaces `target`.
+pub fn merge_patch(target: &mut Value, patch: &Value) {
+    let Value::Object(members) = patch else {
+        *target = patch.clone();
+        return;
+    };
+    if !target.is_object() {
+        *target = Value::Object(serde_json::Map::new());
+    }
+    if let Value::Object(target) = target {
+        for (key, value) in members {
+            if value.is_null() {
+                target.remove(key);
+            } else {
+                merge_patch(target.entry(key.as_str()).or_insert(Value::Null), value);
+            }
+        }
     }
 }
 
@@ -575,5 +606,127 @@ mod tests {
             err.to_string(),
             "loop \"2100\" names unknown parent \"2000\""
         );
+    }
+
+    #[test]
+    fn patch_adds_a_loop() {
+        let spec = Spec::builtin_835().merge_patch(
+            r#"{"loops":{"2100-ZZ":{"parent":"2100","trigger":{"segment":"ZZ1"},"segments":["ZZ2"]}}}"#,
+        )
+        .unwrap();
+        assert_eq!(spec.loops().len(), 9);
+        let zz = spec.loop_id("2100-ZZ").unwrap();
+        assert_eq!(spec.get(zz).parent, spec.loop_id("2100"));
+        assert!(spec.children(spec.loop_id("2100")).contains(&zz));
+    }
+
+    #[test]
+    fn patch_replaces_arrays_wholesale() {
+        let spec = Spec::builtin_835()
+            .merge_patch(r#"{"loops":{"1000A":{"segments":["N3"]}}}"#)
+            .unwrap();
+        assert_eq!(
+            spec.get(spec.loop_id("1000A").unwrap()).segments,
+            vec![b"N3".to_vec()]
+        );
+    }
+
+    #[test]
+    fn patch_merges_nested_objects_and_keeps_siblings() {
+        let spec = Spec::builtin_835()
+            .merge_patch(r#"{"loops":{"1000A":{"trigger":{"where":{"2":"ACME"}}}}}"#)
+            .unwrap();
+        let trigger = &spec.get(spec.loop_id("1000A").unwrap()).trigger;
+        assert_eq!(trigger.segment, b"N1");
+        assert_eq!(
+            trigger.conditions,
+            vec![(1, b"PR".to_vec()), (2, b"ACME".to_vec())]
+        );
+        assert_eq!(spec.loops().len(), 8, "other loops untouched");
+    }
+
+    #[test]
+    fn patch_null_deletes() {
+        let spec = Spec::builtin_835()
+            .merge_patch(r#"{"loops":{"2110":null}}"#)
+            .unwrap();
+        assert_eq!(spec.loop_id("2110"), None);
+        assert!(spec.children(spec.loop_id("2100")).is_empty());
+    }
+
+    #[test]
+    fn patches_chain_and_to_json_shows_them() {
+        let spec = Spec::builtin_835()
+            .merge_patch(r#"{"loops":{"a":{"trigger":{"segment":"AA"}}}}"#)
+            .unwrap()
+            .merge_patch(r#"{"loops":{"b":{"trigger":{"segment":"BB"}}}}"#)
+            .unwrap();
+        assert_eq!(spec.loops().len(), 10);
+        assert!(spec.to_json().contains("\"AA\"") && spec.to_json().contains("\"BB\""));
+    }
+
+    #[test]
+    fn invalid_patch_result_is_rejected_like_any_spec() {
+        let err = Spec::builtin_835()
+            .merge_patch(r#"{"loops":{"2100":{"parent":"nope"}}}"#)
+            .unwrap_err();
+        assert!(matches!(err, SpecError::UnknownParent { .. }), "{err}");
+        let err = Spec::builtin_835().merge_patch("not json").unwrap_err();
+        assert!(matches!(err, SpecError::Json(_)), "{err}");
+    }
+
+    #[test]
+    fn merge_patch_follows_rfc_7386() {
+        use serde_json::json;
+        let cases = [
+            (json!({"a": "b"}), json!({"a": "c"}), json!({"a": "c"})),
+            (
+                json!({"a": "b"}),
+                json!({"b": "c"}),
+                json!({"a": "b", "b": "c"}),
+            ),
+            (json!({"a": "b"}), json!({"a": null}), json!({})),
+            (
+                json!({"a": "b", "b": "c"}),
+                json!({"a": null}),
+                json!({"b": "c"}),
+            ),
+            (json!({"a": ["b"]}), json!({"a": "c"}), json!({"a": "c"})),
+            (json!({"a": "c"}), json!({"a": ["b"]}), json!({"a": ["b"]})),
+            (
+                json!({"a": {"b": "c"}}),
+                json!({"a": {"b": "d", "c": null}}),
+                json!({"a": {"b": "d"}}),
+            ),
+            (
+                json!({"a": [{"b": "c"}]}),
+                json!({"a": [1]}),
+                json!({"a": [1]}),
+            ),
+            (json!(["a", "b"]), json!(["c", "d"]), json!(["c", "d"])),
+            (json!({"a": "b"}), json!(["c"]), json!(["c"])),
+            (json!({"a": "foo"}), json!(null), json!(null)),
+            (json!({"a": "foo"}), json!("bar"), json!("bar")),
+            (
+                json!({"e": null}),
+                json!({"a": 1}),
+                json!({"e": null, "a": 1}),
+            ),
+            (
+                json!([1, 2]),
+                json!({"a": "b", "c": null}),
+                json!({"a": "b"}),
+            ),
+            (
+                json!({}),
+                json!({"a": {"bb": {"ccc": null}}}),
+                json!({"a": {"bb": {}}}),
+            ),
+        ];
+        for (target, patch, expected) in cases {
+            let mut result = target.clone();
+            merge_patch(&mut result, &patch);
+            assert_eq!(result, expected, "target {target} patch {patch}");
+        }
     }
 }

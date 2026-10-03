@@ -223,7 +223,11 @@ carga su prueba de costura con la capa inferior (N7).
   parche que haga falta) cuya salida coincida fila a fila con el DataFrame de esa librería
   sobre los archivos que ambos pueden leer. Si se consigue solo con datos, N3 queda probada
   frente a un parser real y sus usuarios tienen camino de migración; si exige código, la
-  diferencia dice qué le falta a la spec. La comparación es un test reproducible.
+  diferencia dice qué le falta a la spec. La comparación es un test reproducible. Nota
+  2026-10-03: `edi-835-parser` falla en cinco de los seis samples anonimizados; la
+  comparativa se hace sobre los originales (fuera del repo), y antes hay que identificar
+  qué campo altera `scripts/anonymize_835.py` de forma que rompe a ese parser y corregir
+  el anonimizador, regenerando los samples por el camino previsto (nunca a mano).
 - **D13 · Estructura de módulos**: `spec.rs` supera las 2.500 líneas tras el Stage 4a y
   `diagnostic.rs`, `engine.rs` y `check.rs` crecen. Tras el Stage 5, planificar la división
   en submódulos (por ejemplo `spec/{load,shape,segments,tables,control,patch}.rs`) con
@@ -727,7 +731,9 @@ diagnósticos son valores, nunca excepciones (P7); el único error que se lanza 
 spec inválida, con el texto de su `Display` (P10).
 
 **Decisiones de diseño (cada una con la alternativa descartada).**
-- **T18 · PyO3 + maturin, wheels `abi3`, Python ≥ 3.9.** Crate nuevo `crates/oxedi835_py`
+- **T18 · PyO3 + maturin, wheels `abi3`, Python ≥ 3.11** (3.9 quedó fuera de soporte en
+  octubre de 2025 y la ABI estable de 3.11 da acceso al protocolo buffer, así `parse`
+  copia una sola vez cualquier objeto con buffer). Crate nuevo `crates/oxedi835_py`
   (`cdylib`) en el workspace; el core sigue sin más dependencias que `serde` y `serde_json`
   (P3, T7). Un wheel por plataforma, no por versión de Python. Descartado `ctypes` con
   cbindgen (sin tipos ni gestión del GIL) y UniFFI (sin Arrow ni iteradores naturales).

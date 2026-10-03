@@ -186,12 +186,25 @@ impl Rule {
     }
 }
 
-/// Bytes from the file, shown as text (invalid UTF-8 replaced) and quoted.
+/// Bytes from the file, quoted on one line: valid text is escaped as a Rust
+/// string literal is, and each invalid byte is written as `\xNN`.
 struct Quoted<'a>(&'a [u8]);
 
 impl fmt::Display for Quoted<'_> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "{:?}", String::from_utf8_lossy(self.0))
+        f.write_str("\"")?;
+        for chunk in self.0.utf8_chunks() {
+            let escaped = format!("{:?}", chunk.valid());
+            let inner = escaped
+                .strip_prefix('"')
+                .and_then(|text| text.strip_suffix('"'))
+                .unwrap_or(&escaped);
+            f.write_str(inner)?;
+            for byte in chunk.invalid() {
+                write!(f, "\\x{byte:02X}")?;
+            }
+        }
+        f.write_str("\"")
     }
 }
 
@@ -785,7 +798,7 @@ mod tests {
     }
 
     #[test]
-    fn invalid_utf8_in_a_datum_is_shown_with_replacement_characters() {
+    fn invalid_utf8_in_a_datum_is_shown_as_hex_escapes() {
         let diagnostic = Diagnostic::new(
             Rule::UnknownSegment {
                 id: vec![b'Z', 0xFF],
@@ -796,12 +809,12 @@ mod tests {
             Vec::new(),
             vec![b'Z', 0xFF],
         );
-        assert!(
-            diagnostic
-                .to_string()
-                .ends_with("at the root · datum \"Z\u{FFFD}\""),
-            "{diagnostic}"
+        assert_eq!(
+            diagnostic.to_string(),
+            "SNIP 1 · segment \"Z\\xFF\" is not part of the structure: no open loop holds it and it opens no loop · segment #1 · at the root · datum \"Z\\xFF\""
         );
+        let mixed = Quoted(b"a\"b\n\xC3\xA9\xE9\x80c");
+        assert_eq!(mixed.to_string(), "\"a\\\"b\\n\u{e9}\\xE9\\x80c\"");
     }
 
     #[test]

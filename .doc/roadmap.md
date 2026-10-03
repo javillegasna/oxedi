@@ -12,7 +12,7 @@ when a stage changes state.
 | 0 · Scaffolding | Workspace, CI gates, test/property/bench harness | **Done** 2026-10-02 | commits up to `0e1b827` |
 | 1 · Framing + Tokenizer | Lossless `Segment` stream, ISA delimiters, symmetric writer | **Done** 2026-10-02 | PR #1, fix PR #2 |
 | 2 · Lossless Document | `Document` as `Cow` bytes + spans, borrowed or owned | **Done** 2026-10-02 | PR #3; samples PR #5 |
-| 3 · Loop engine | JSON spec, `LoopEngine` events, `LoopTree`, merge-patch extension | **Approved, in progress** | `plans/stage-3-loop-engine.md` |
+| 3 · Loop engine | JSON spec, `LoopEngine` events, `LoopTree`, merge-patch extension, P10 errors | **Done** 2026-10-03 | PR #6; deferred findings: issues #7–#19 on Project #8 |
 | 4 · Projection + validation | Element names/types in the spec, business tables, SNIP checks, `Diagnostic` with segment/element location (P10) | Not started | — |
 | 5 · Python binding | PyO3/maturin, GIL released, iterator and table APIs | Not started | — |
 | 6 · Distribution | crates.io, PyPI wheels, release CI | Not started | — |

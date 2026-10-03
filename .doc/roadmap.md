@@ -19,6 +19,8 @@ when a stage changes state.
 | 5c · Module layout | Split the large source files into navigable submodules with short files and a one-glance discovery path; no behaviour change | Not started (after 5, D13) | — |
 | 6 · Distribution | crates.io, PyPI wheels, release CI | Not started | — |
 | 7 · Writer | Data → loops → bytes, same spec | Deferred (D7) | — |
+| 8 · Durable documentation | Human-readable book of the ideas, concepts and patterns that govern the project (no code snippets, no line references, nothing that rots); user guides for the Python library and the CLI | Not started (after the roadmap closes, D14) | — |
+| 9 · X12 family toolkit | The engine, spec format, projection and CLI serve other transaction sets of the same family (837 first: same loop logic, different segment definitions); 835 becomes one spec among several | Not started (D15) | — |
 
 ## What each stage unlocks
 
@@ -36,6 +38,10 @@ when a stage changes state.
 - After **5**: the original problem (slow Python ingestion) can be benchmarked end to end.
 - After **5b**: a user of `edi-835-parser` can switch with a spec, not a rewrite; the
   row-for-row diff is a public, reproducible compatibility test.
+- After **8**: a reader learns why the project is shaped this way without opening the code,
+  and a user of the Python library or the CLI has a guide that does not go stale.
+- After **9**: adding a transaction set is writing a spec, the toolkit's promise made good
+  beyond the 835.
 - After **5c**: every module is short enough to read in one sitting and findable from
   `lib.rs` without grepping; a prerequisite for crates.io docs and outside contributors.
 
@@ -51,6 +57,8 @@ when a stage changes state.
 | D6 · Chunked tokenizer (S3 streaming) | when a file does not fit in memory | Framing is already pure; segments would own or lend |
 | D7 · Writer | when a generation case exists | `write_to` is half of it; spec is already structural |
 | D12 · Compatibility with `edi-835-parser` | 5b | Can a data-only `tables` spec reproduce its DataFrame exactly? Measures N3 and gives a migration path for its users |
+| D14 · Durable documentation | 8 | What belongs in the book (ideas, patterns, concepts, guides) vs. what stays in rustdoc and the plans (code, signatures); format and where it lives |
+| D15 · X12 family toolkit (837…) | 9 | Naming (crate and binary no longer 835-specific), one spec per transaction set, what the CLI exposes, which 835 assumptions leaked into code |
 | D13 · Module layout | 5c | `spec.rs` is 2.5k lines after Stage 4a; decide the submodule split and the discovery rules (file length, one noun per file, index in `lib.rs`) |
 | D3 · WASM/Extism extensions | never, unless data patches prove insufficient | — |
 

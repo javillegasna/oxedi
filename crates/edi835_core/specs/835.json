@@ -57,7 +57,7 @@
       "8": {"name": "interchange_receiver_id", "type": "AN", "required": true, "min": 15, "max": 15},
       "9": {"name": "interchange_date", "type": "DT", "required": true, "min": 6, "max": 6},
       "10": {"name": "interchange_time", "type": "TM", "required": true, "min": 4, "max": 4},
-      "11": {"name": "repetition_separator", "type": "AN", "required": true, "min": 1, "max": 1},
+      "11": {"name": "isa11", "type": "AN", "required": true, "min": 1, "max": 1},
       "12": {"name": "interchange_control_version_number", "type": "ID", "required": true, "min": 5, "max": 5},
       "13": {"name": "interchange_control_number", "type": "N0", "required": true, "min": 9, "max": 9},
       "14": {"name": "acknowledgment_requested", "type": "ID", "required": true, "min": 1, "max": 1},

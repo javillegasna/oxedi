@@ -86,6 +86,16 @@ Sin urgencia: priorizamos diseño correcto y verificable sobre velocidad de entr
 - **P9 · Materializar es opcional.** El documento lossless completo (árbol en memoria) es
   el resultado de *recolectar* el flujo, no el paso obligatorio. Quien necesite todo el
   archivo lo recolecta; quien procese claim a claim no paga esa memoria.
+- **P10 · Los errores son declarativos: se explican solos.** Un error, un evento de fallo
+  o un diagnóstico debe poder leerse sin abrir el código y responder tres preguntas:
+  *qué regla no se cumplió*, *dónde* (índice de segmento, rango de bytes resoluble desde el
+  `Document`, ruta de loops cuando aplica) y *con qué dato* (el loop, el byte, la posición
+  o la clave tal como se escribió). Cada tipo de error es un enum con esos datos en sus
+  variantes; el texto de `Display` es parte del contrato y tiene un test por variante;
+  `source()` encadena la causa. Un error que dice "inválido" sin decir qué, dónde ni por
+  qué, es un defecto, no un detalle. Los fallos de datos de entrada no son errores de
+  programa: se emiten como eventos o diagnósticos con la misma información, y el flujo
+  continúa (P7).
 
 ---
 

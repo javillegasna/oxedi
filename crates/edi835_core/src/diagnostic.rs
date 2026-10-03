@@ -9,7 +9,7 @@
 use std::fmt;
 
 use crate::document::{Document, Span};
-use crate::spec::ElementType;
+use crate::spec::{ElementType, render_key};
 
 /// The SNIP validation level a rule belongs to.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
@@ -45,7 +45,7 @@ pub struct LoopRef {
 
 impl fmt::Display for LoopRef {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "{}#{}", self.name, self.ordinal)
+        write!(f, "{}#{}", render_key(&self.name), self.ordinal)
     }
 }
 
@@ -463,6 +463,20 @@ mod tests {
             ordinal: 3,
         };
         assert_eq!(at.to_string(), "2100#3");
+    }
+
+    #[test]
+    fn a_loop_ref_quotes_a_name_that_holds_a_separator() {
+        let at = LoopRef {
+            name: "x/y".into(),
+            ordinal: 2,
+        };
+        assert_eq!(at.to_string(), "\"x/y\"#2");
+        let at = LoopRef {
+            name: "x#2".into(),
+            ordinal: 1,
+        };
+        assert_eq!(at.to_string(), "\"x#2\"#1");
     }
 
     #[test]

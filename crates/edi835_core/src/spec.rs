@@ -10,6 +10,7 @@
 //! scalars replace wholesale; see [`Spec::merge_patch`] for what that means
 //! when extending a loop's segment list.
 
+use std::borrow::Cow;
 use std::cmp::Reverse;
 use std::collections::BTreeMap;
 use std::fmt;
@@ -1407,7 +1408,7 @@ fn compile_table(spec: &Spec, name: &str, def: &RawTable) -> Result<TableDef, Sp
         Some("") => {
             return Err(SpecError::EmptySegmentId {
                 loop_name: None,
-                key: format!("tables.{name}.segment"),
+                key: format!("tables.{}.segment", render_key(name)),
             });
         }
         Some(id) => Some(id.as_bytes().to_vec()),
@@ -1534,7 +1535,11 @@ fn compile_column(
                 Some("") => {
                     return Err(SpecError::EmptySegmentId {
                         loop_name: None,
-                        key: format!("tables.{table}.columns.{column}.segment"),
+                        key: format!(
+                            "tables.{}.columns.{}.segment",
+                            render_key(table),
+                            render_key(column)
+                        ),
                     });
                 }
                 Some(id) => id.as_bytes().to_vec(),
@@ -1895,10 +1900,25 @@ impl Leaf {
     }
 }
 
+/// A key as it appears in a rendered path: unchanged, or JSON-quoted when it
+/// is empty or holds a path separator (`.`, `/`, `#`) or whitespace, which
+/// would make the path ambiguous.
+pub(crate) fn render_key(key: &str) -> Cow<'_, str> {
+    let ambiguous = key.is_empty()
+        || key
+            .chars()
+            .any(|c| matches!(c, '.' | '/' | '#') || c.is_whitespace());
+    if !ambiguous {
+        return Cow::Borrowed(key);
+    }
+    Cow::Owned(serde_json::to_string(key).unwrap_or_else(|_| format!("{key:?}")))
+}
+
 /// Joins a key to the path it sits under.
 fn child(at: &str, key: &str) -> String {
+    let key = render_key(key);
     if at.is_empty() {
-        key.to_string()
+        key.into_owned()
     } else {
         format!("{at}.{key}")
     }
@@ -2532,6 +2552,51 @@ mod tests {
         assert_eq!(
             err.to_string(),
             "applying patch: spec: the value at loops.2100.trigger must be a JSON object; found an array"
+        );
+    }
+
+    #[test]
+    fn keys_with_a_separator_or_whitespace_are_quoted_in_paths() {
+        assert_eq!(render_key("2100"), "2100");
+        assert_eq!(render_key("a.b"), "\"a.b\"");
+        assert_eq!(render_key("x/y"), "\"x/y\"");
+        assert_eq!(render_key("x#2"), "\"x#2\"");
+        assert_eq!(render_key("a b"), "\"a b\"");
+        assert_eq!(render_key(""), "\"\"");
+    }
+
+    #[test]
+    fn a_spec_error_path_quotes_a_loop_name_that_holds_a_dot() {
+        let plain = Spec::from_json(r#"{"name":"t","loops":{"ab":{"trigger":[]}}}"#).unwrap_err();
+        assert!(
+            matches!(&plain, SpecError::NotAnObject { path, .. } if path == "loops.ab.trigger"),
+            "{plain:?}"
+        );
+        let quoted = Spec::from_json(r#"{"name":"t","loops":{"a.b":{"trigger":[]}}}"#).unwrap_err();
+        assert!(
+            matches!(&quoted, SpecError::NotAnObject { path, .. } if path == "loops.\"a.b\".trigger"),
+            "{quoted:?}"
+        );
+        let wrong = Spec::from_json(
+            r#"{"name":"t","loops":{"a b":{"trigger":{"segment":"AA","where":{"1":2}}}}}"#,
+        )
+        .unwrap_err();
+        assert_eq!(
+            wrong.to_string(),
+            "spec: the value at loops.\"a b\".trigger.where.1 must be a string; found a number"
+        );
+    }
+
+    #[test]
+    fn an_empty_segment_id_path_quotes_a_table_or_column_name_that_holds_a_dot() {
+        let err = Spec::from_json(
+            r#"{"name":"t","loops":{"A":{"trigger":{"segment":"AA"}}},
+                "tables":{"a.b":{"loops":["A"],"columns":{"c d":{"segment":"","element":1}}}}}"#,
+        )
+        .unwrap_err();
+        assert_eq!(
+            err.to_string(),
+            "the spec has an empty segment id at tables.\"a.b\".columns.\"c d\".segment"
         );
     }
 

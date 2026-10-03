@@ -1060,6 +1060,69 @@ mod tests {
     }
 
     #[test]
+    fn builtin_835_defines_every_segment_its_loops_name() {
+        let spec = Spec::builtin_835();
+        for def in spec.loops() {
+            let ids = std::iter::once(&def.trigger.segment)
+                .chain(&def.segments)
+                .chain(def.end.as_ref());
+            for id in ids {
+                assert!(
+                    spec.segment(id).is_some(),
+                    "loop {} names {} with no definition",
+                    def.name,
+                    String::from_utf8_lossy(id)
+                );
+            }
+        }
+        let ids: Vec<String> = spec
+            .segments()
+            .map(|(id, _)| String::from_utf8_lossy(id).into_owned())
+            .collect();
+        assert_eq!(
+            ids,
+            vec![
+                "AMT", "BPR", "CAS", "CLP", "CUR", "DTM", "GE", "GS", "IEA", "ISA", "LQ", "LX",
+                "MIA", "MOA", "N1", "N3", "N4", "NM1", "PER", "PLB", "QTY", "RDM", "REF", "SE",
+                "ST", "SVC", "TRN", "TS2", "TS3"
+            ]
+        );
+    }
+
+    #[test]
+    fn builtin_835_element_names_are_unique_among_siblings() {
+        fn check(at: &str, elements: &BTreeMap<usize, ElementDef>) {
+            let mut seen = std::collections::BTreeSet::new();
+            for (position, def) in elements {
+                assert!(
+                    seen.insert(def.name.as_str()),
+                    "{at}: name {} repeats at position {position}",
+                    def.name
+                );
+                check(&format!("{at}{position:02}"), &def.composite);
+            }
+        }
+        for (id, def) in Spec::builtin_835().segments() {
+            check(&String::from_utf8_lossy(id), &def.elements);
+        }
+    }
+
+    #[test]
+    fn builtin_835_types_the_elements_the_envelope_checks_rely_on() {
+        let spec = Spec::builtin_835();
+        let element = |id: &[u8], position: usize| &spec.segment(id).unwrap().elements[&position];
+        assert_eq!(element(b"CLP", 1).name, "claim_submitter_identifier");
+        assert_eq!(element(b"CLP", 3).kind, ElementType::R { scale: 2 });
+        assert_eq!(element(b"SE", 1).kind, ElementType::N(0));
+        assert_eq!(element(b"ISA", 13).kind, ElementType::N(0));
+        assert_eq!(element(b"DTM", 2).kind, ElementType::Dt);
+        let procedure = element(b"SVC", 1);
+        assert!(procedure.required);
+        assert_eq!(procedure.composite.len(), 8);
+        assert_eq!(procedure.composite[&2].name, "procedure_code");
+    }
+
+    #[test]
     fn ancestors_are_listed_root_first() {
         let spec = Spec::builtin_835();
         let chain: Vec<_> = spec

@@ -14,7 +14,9 @@ fn all_fixtures_load_and_are_nonempty() {
         "multi_claim_sample.txt",
     ];
     for name in fixtures {
-        let content = common::load_fixture(name);
-        assert!(!content.trim().is_empty(), "fixture {name} is empty");
+        // The core consumes bytes (P3), so the N7 plumbing must hand over bytes
+        // untouched — never a `String` that would reject non-UTF-8 payer files.
+        let content: Vec<u8> = common::load_fixture(name);
+        assert!(!content.is_empty(), "fixture {name} is empty");
     }
 }

@@ -8,9 +8,12 @@ pub fn fixtures_dir() -> PathBuf {
     PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("tests/fixtures")
 }
 
-/// Read a fixture file's contents by file name. Panics with a clear message if missing.
-pub fn load_fixture(name: &str) -> String {
+/// Read a fixture file's raw bytes by file name. Panics with a clear message if missing.
+///
+/// Returns bytes, not a `String`: the core consumes `&[u8]` (P3) and real payer files
+/// are not guaranteed to be UTF-8. The fixture pipeline must never decode on the way in.
+pub fn load_fixture(name: &str) -> Vec<u8> {
     let path = fixtures_dir().join(name);
-    std::fs::read_to_string(&path)
+    std::fs::read(&path)
         .unwrap_or_else(|e| panic!("failed to read fixture {}: {e}", path.display()))
 }

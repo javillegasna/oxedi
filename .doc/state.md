@@ -60,6 +60,8 @@ The decisions that were open, now settled in §7:
 - SNIP validation levels to cover now vs later; how diagnostics and projection share the
   same walk over the tree.
 - D8 (Cow+spans vs Arc+spans) is measured in Stage 5, not 4; D9 YAML stays deferred.
+- After Stage 5 (owner's request 2026-10-03): 5b compatibility oracle against
+  `edi-835-parser` (D12) and 5c module layout plan (D13); see roadmap.
 
 ## Private material (never in git)
 

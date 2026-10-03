@@ -218,6 +218,18 @@ carga su prueba de costura con la capa inferior (N7).
   un loop, y SNIP 3 exige declarar qué columnas se suman contra cuáles. Ambas piden una
   extensión de la spec que Stage 4 no abre; se decide cuando las tablas proyectadas estén
   en uso y se vea si una regla "suma por grupo" basta.
+- **D12 · Compatibilidad con `edi-835-parser`** (Python, keiron-stoddart; `parse(path)
+  → TransactionSets.to_dataframe()`): tras el Stage 5, escribir una spec de `tables` (y el
+  parche que haga falta) cuya salida coincida fila a fila con el DataFrame de esa librería
+  sobre los archivos que ambos pueden leer. Si se consigue solo con datos, N3 queda probada
+  frente a un parser real y sus usuarios tienen camino de migración; si exige código, la
+  diferencia dice qué le falta a la spec. La comparación es un test reproducible.
+- **D13 · Estructura de módulos**: `spec.rs` supera las 2.500 líneas tras el Stage 4a y
+  `diagnostic.rs`, `engine.rs` y `check.rs` crecen. Tras el Stage 5, planificar la división
+  en submódulos (por ejemplo `spec/{load,shape,segments,tables,control,patch}.rs`) con
+  reglas de descubrimiento: archivos cortos, un sustantivo por archivo, `lib.rs` como índice
+  comentado, tests junto al código que prueban. Sin cambio de comportamiento; se verifica
+  con la suite y los goldens intactos.
 - **D7 · Stage 7, Escritor**: ver §5. YAGNI hasta que haya un caso de generación. La mitad
   del trabajo ya la paga el round-trip de Stage 1 (serializar segmentos con escape) y la
   otra mitad la paga T4. Lo propio del escritor: campos derivados y builder desde dominio.

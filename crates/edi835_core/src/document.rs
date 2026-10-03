@@ -270,9 +270,14 @@ mod tests {
     fn parse_fails_without_an_isa() {
         assert_eq!(
             Document::parse(&b"ST*835~"[..]).err(),
-            Some(IsaError::NotIsa)
+            Some(IsaError::NotIsa {
+                found: b"ST*835~".to_vec()
+            })
         );
-        assert_eq!(Document::parse(&b""[..]).err(), Some(IsaError::NotIsa));
+        assert_eq!(
+            Document::parse(&b""[..]).err(),
+            Some(IsaError::NotIsa { found: Vec::new() })
+        );
     }
 
     #[test]

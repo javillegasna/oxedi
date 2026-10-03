@@ -30,3 +30,40 @@ pub fn load_sample(name: &str) -> Vec<u8> {
     let path = samples_dir().join(name);
     std::fs::read(&path).unwrap_or_else(|e| panic!("failed to read sample {}: {e}", path.display()))
 }
+
+/// The five synthetic fixtures and six anonymized samples, each with the
+/// delimiters to tokenize it (the ISA-less fragment gets caller delimiters).
+pub fn all_files() -> Vec<(String, Vec<u8>, edi835_core::Delimiters)> {
+    let fixtures = [
+        "emedny_sample.txt",
+        "united_healthcare_legacy_sample.txt",
+        "multi_claim_sample.txt",
+        "trizetto_sample.rmt",
+    ];
+    let samples = [
+        "edi835_test_davisvision.RMT",
+        "edi835_test_eyemed.RMT",
+        "edi835_test_file.RMT",
+        "edi835_test_not_available_claim_id.RMT",
+        "edi835_test_united.rmt",
+        "edi835_test_versant.RMT",
+    ];
+    let mut files = Vec::new();
+    for name in fixtures {
+        let bytes = load_fixture(name);
+        let delims = edi835_core::Delimiters::from_isa(&bytes).expect(name);
+        files.push((name.to_string(), bytes, delims));
+    }
+    let blue = load_fixture("blue_cross_nc_sample.txt");
+    files.push((
+        "blue_cross_nc_sample.txt".to_string(),
+        blue,
+        edi835_core::Delimiters::new(b'*', b':', b'~'),
+    ));
+    for name in samples {
+        let bytes = load_sample(name);
+        let delims = edi835_core::Delimiters::from_isa(&bytes).expect(name);
+        files.push((name.to_string(), bytes, delims));
+    }
+    files
+}

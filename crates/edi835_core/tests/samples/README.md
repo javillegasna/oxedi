@@ -17,9 +17,9 @@ production-shaped input. Counts measured 2026-10-02 on the anonymized output.
 | `edi835_test_eyemed.RMT` | 26 328 | 1 206 | 00401 | — | none | 82 |
 | `edi835_test_file.RMT` | 1 953 | 80 | 00401 | — | none | 4 |
 | `edi835_test_not_available_claim_id.RMT` | 5 709 | 259 | 00401 | — | none | 18 |
-| `edi835_test_united.rmt` | 629 300 | 30 302 | 00501 | `^` | LF after every `~` | 1 332 |
+| `edi835_test_united.rmt` | 629 300 | 30 302 | 00501 | `^` | LF after every `~` except the last | 1 332 |
 | `edi835_test_versant.RMT` | 204 584 | 10 177 | 00401 | — | none | 648 |
 
 All six use `*` as element separator, `:` as component separator and `~` as terminator.
-`united` is the only 5010 file; its trailing LF yields one final trivia-only segment,
-which is why its segment count is one more than its `~` count.
+`united` is the only 5010 file; its segment count equals its `~` count because it has no
+trailing trivia.

@@ -25,22 +25,60 @@ pub struct Delimiters {
 }
 
 /// Why an ISA segment could not be read.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub enum IsaError {
     /// The input does not start with the bytes `ISA`.
-    NotIsa,
+    NotIsa {
+        /// The first bytes of the input, at most [`IsaError::FOUND_LEN`].
+        found: Vec<u8>,
+    },
     /// The input ends before the 16 separators, ISA16 and the terminator.
     Truncated {
         /// Length of the input that was examined.
         len: usize,
+        /// Element separators seen before the input ended, `0..=16`.
+        separators_found: usize,
     },
+}
+
+impl IsaError {
+    /// How many leading bytes [`IsaError::NotIsa`] keeps.
+    pub const FOUND_LEN: usize = 8;
 }
 
 impl fmt::Display for IsaError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            IsaError::NotIsa => write!(f, "input does not start with an ISA segment"),
-            IsaError::Truncated { len } => write!(f, "ISA segment truncated after {len} bytes"),
+            IsaError::NotIsa { found } if found.is_empty() => {
+                write!(
+                    f,
+                    "input does not start with an ISA segment (input is empty)"
+                )
+            }
+            IsaError::NotIsa { found } => {
+                write!(f, "input does not start with an ISA segment (found bytes [")?;
+                for (i, byte) in found.iter().enumerate() {
+                    if i > 0 {
+                        write!(f, " ")?;
+                    }
+                    write!(f, "{byte:02x}")?;
+                }
+                write!(f, "])")
+            }
+            IsaError::Truncated {
+                len,
+                separators_found,
+            } if *separators_found >= ISA_SEPARATORS => write!(
+                f,
+                "ISA segment truncated after {len} bytes: ISA16 or the terminator is missing"
+            ),
+            IsaError::Truncated {
+                len,
+                separators_found,
+            } => write!(
+                f,
+                "ISA segment truncated after {len} bytes: found {separators_found} of {ISA_SEPARATORS} element separators"
+            ),
         }
     }
 }
@@ -83,10 +121,14 @@ impl Delimiters {
     /// Bytes after the ISA terminator are ignored. `release` is always `None`.
     pub fn from_isa(input: &[u8]) -> Result<Self, IsaError> {
         if !input.starts_with(b"ISA") {
-            return Err(IsaError::NotIsa);
+            let found = input.iter().take(IsaError::FOUND_LEN).copied().collect();
+            return Err(IsaError::NotIsa { found });
         }
-        let truncated = IsaError::Truncated { len: input.len() };
-        let element = *input.get(3).ok_or(truncated)?;
+        let truncated = |separators_found| IsaError::Truncated {
+            len: input.len(),
+            separators_found,
+        };
+        let element = *input.get(3).ok_or_else(|| truncated(0))?;
 
         let mut separators = input
             .iter()
@@ -95,12 +137,16 @@ impl Delimiters {
             .filter(|&(_, &byte)| byte == element)
             .map(|(at, _)| at);
         let mut at = [0usize; ISA_SEPARATORS];
-        for slot in &mut at {
-            *slot = separators.next().ok_or(truncated)?;
+        for (found, slot) in at.iter_mut().enumerate() {
+            *slot = separators.next().ok_or_else(|| truncated(found))?;
         }
 
-        let component = *input.get(at[15] + 1).ok_or(truncated)?;
-        let segment = *input.get(at[15] + 2).ok_or(truncated)?;
+        let component = *input
+            .get(at[15] + 1)
+            .ok_or_else(|| truncated(ISA_SEPARATORS))?;
+        let segment = *input
+            .get(at[15] + 2)
+            .ok_or_else(|| truncated(ISA_SEPARATORS))?;
 
         // ISA11 sits between separators #11 and #12, ISA12 between #12 and #13.
         let isa11 = &input[at[10] + 1..at[11]];
@@ -178,24 +224,55 @@ mod tests {
 
     #[test]
     fn from_isa_rejects_input_that_does_not_start_with_isa() {
-        assert_eq!(Delimiters::from_isa(b"ST*835*1234~"), Err(IsaError::NotIsa));
-        assert_eq!(Delimiters::from_isa(b""), Err(IsaError::NotIsa));
+        assert_eq!(
+            Delimiters::from_isa(b"ST*835*1234~"),
+            Err(IsaError::NotIsa {
+                found: b"ST*835*1".to_vec()
+            })
+        );
+        assert_eq!(
+            Delimiters::from_isa(b"GS"),
+            Err(IsaError::NotIsa {
+                found: b"GS".to_vec()
+            })
+        );
+        assert_eq!(
+            Delimiters::from_isa(b""),
+            Err(IsaError::NotIsa { found: Vec::new() })
+        );
     }
 
     #[test]
     fn from_isa_reports_truncated_isa() {
         assert_eq!(
             Delimiters::from_isa(b"ISA"),
-            Err(IsaError::Truncated { len: 3 })
+            Err(IsaError::Truncated {
+                len: 3,
+                separators_found: 0
+            })
         );
         assert_eq!(
             Delimiters::from_isa(b"ISA*00*"),
-            Err(IsaError::Truncated { len: 7 })
+            Err(IsaError::Truncated {
+                len: 7,
+                separators_found: 2
+            })
         );
         let cut = &ISA_5010[..ISA_5010.len() - 1]; // terminator missing
         assert_eq!(
             Delimiters::from_isa(cut),
-            Err(IsaError::Truncated { len: 105 })
+            Err(IsaError::Truncated {
+                len: 105,
+                separators_found: 16
+            })
+        );
+        let cut = &ISA_5010[..ISA_5010.len() - 2]; // ISA16 and terminator missing
+        assert_eq!(
+            Delimiters::from_isa(cut),
+            Err(IsaError::Truncated {
+                len: 104,
+                separators_found: 16
+            })
         );
     }
 
@@ -210,14 +287,37 @@ mod tests {
     }
 
     #[test]
-    fn isa_error_displays_a_message() {
+    fn not_isa_displays_the_leading_bytes_in_hex() {
         assert_eq!(
-            IsaError::NotIsa.to_string(),
-            "input does not start with an ISA segment"
+            IsaError::NotIsa {
+                found: b"\xEF\xBB\xBFISA*0".to_vec()
+            }
+            .to_string(),
+            "input does not start with an ISA segment (found bytes [ef bb bf 49 53 41 2a 30])"
         );
         assert_eq!(
-            IsaError::Truncated { len: 7 }.to_string(),
-            "ISA segment truncated after 7 bytes"
+            IsaError::NotIsa { found: Vec::new() }.to_string(),
+            "input does not start with an ISA segment (input is empty)"
+        );
+    }
+
+    #[test]
+    fn truncated_displays_how_many_separators_were_found() {
+        assert_eq!(
+            IsaError::Truncated {
+                len: 7,
+                separators_found: 2
+            }
+            .to_string(),
+            "ISA segment truncated after 7 bytes: found 2 of 16 element separators"
+        );
+        assert_eq!(
+            IsaError::Truncated {
+                len: 105,
+                separators_found: 16
+            }
+            .to_string(),
+            "ISA segment truncated after 105 bytes: ISA16 or the terminator is missing"
         );
     }
 

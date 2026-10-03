@@ -97,7 +97,12 @@ fn fixtures_with_a_newline_per_segment_end_in_an_empty_segment() {
 fn fragment_without_isa_needs_caller_delimiters() {
     let (name, tildes) = FRAGMENT;
     let bytes = common::load_fixture(name);
-    assert_eq!(Tokenizer::new(&bytes).err(), Some(IsaError::NotIsa));
+    assert_eq!(
+        Tokenizer::new(&bytes).err(),
+        Some(IsaError::NotIsa {
+            found: b"ST*835*1".to_vec()
+        })
+    );
     let delims = Delimiters::new(b'*', b':', b'~');
     let segments: Vec<_> = Tokenizer::with_delimiters(&bytes, delims).collect();
     assert_eq!(segments[0].id, b"ST");

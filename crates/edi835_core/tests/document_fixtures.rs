@@ -60,7 +60,12 @@ fn owned_fixtures_yield_the_same_segments() {
 #[test]
 fn fragment_without_isa_needs_caller_delimiters() {
     let bytes = common::load_fixture("blue_cross_nc_sample.txt");
-    assert_eq!(Document::parse(&bytes[..]).err(), Some(IsaError::NotIsa));
+    assert_eq!(
+        Document::parse(&bytes[..]).err(),
+        Some(IsaError::NotIsa {
+            found: b"ST*835*1".to_vec()
+        })
+    );
     let delims = Delimiters::new(b'*', b':', b'~');
     let doc = Document::with_delimiters(&bytes[..], delims);
     assert_eq!(doc.segment(0).unwrap().id, b"ST");

@@ -1,0 +1,45 @@
+{
+  "name": "835",
+  "loops": {
+    "interchange": {
+      "trigger": { "segment": "ISA" },
+      "end": "IEA"
+    },
+    "group": {
+      "parent": "interchange",
+      "trigger": { "segment": "GS" },
+      "end": "GE"
+    },
+    "transaction": {
+      "parent": "group",
+      "trigger": { "segment": "ST" },
+      "segments": ["BPR", "TRN", "CUR", "REF", "DTM", "PLB"],
+      "end": "SE"
+    },
+    "1000A": {
+      "parent": "transaction",
+      "trigger": { "segment": "N1", "where": { "1": "PR" } },
+      "segments": ["N3", "N4", "REF", "PER"]
+    },
+    "1000B": {
+      "parent": "transaction",
+      "trigger": { "segment": "N1", "where": { "1": "PE" } },
+      "segments": ["N3", "N4", "REF", "RDM"]
+    },
+    "2000": {
+      "parent": "transaction",
+      "trigger": { "segment": "LX" },
+      "segments": ["TS3", "TS2"]
+    },
+    "2100": {
+      "parent": "2000",
+      "trigger": { "segment": "CLP" },
+      "segments": ["CAS", "NM1", "MIA", "MOA", "REF", "DTM", "PER", "AMT", "QTY"]
+    },
+    "2110": {
+      "parent": "2100",
+      "trigger": { "segment": "SVC" },
+      "segments": ["DTM", "CAS", "REF", "AMT", "QTY", "LQ"]
+    }
+  }
+}

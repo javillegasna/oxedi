@@ -8,6 +8,6 @@ See [`.doc/architectural-commitment.md`](.doc/architectural-commitment.md) for t
 
 ## Status
 
-**Stage 2 — lossless document.** Bytes → lazy `Segment` stream (Stage 1) or a `Document`
-that holds the whole file, borrowed or owned, and yields the same segments on demand.
-No 835 knowledge yet (that is Stage 3 data).
+**Stage 3 — declarative loop engine.** A JSON spec describes the loop structure; the
+engine turns the segment stream into loop events and a tree, and users extend the
+built-in 835 spec with JSON merge patches. Element names and validation come next.

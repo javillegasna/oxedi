@@ -113,71 +113,105 @@ fn row_counts_follow_the_segments_of_each_file() {
 fn every_row_points_at_its_anchor_and_at_the_rows_that_enclose_it() {
     let spec = Spec::builtin_835();
     for (name, bytes, delims) in common::all_files() {
-        let segments: Vec<Segment<'_>> = Tokenizer::with_delimiters(&bytes, delims).collect();
-        let tree = LoopTree::build(&spec, segments.iter().cloned());
-        let nodes = tree.nodes();
-        let mut owner = vec![None; segments.len()];
-        for (index, node) in nodes.iter().enumerate() {
-            for &segment in &node.segments {
-                owner[segment] = Some(index);
-            }
-        }
-        let enclosing = |node: usize, loops: &[LoopId]| {
-            let mut at = Some(node);
-            while let Some(index) = at {
-                if nodes[index].loop_id.is_some_and(|id| loops.contains(&id)) {
-                    return Some(index);
-                }
-                at = nodes[index].parent.map(|parent| parent.index());
-            }
-            None
-        };
-        let document = Document::with_delimiters(&bytes[..], delims);
+        assert_rows_point_at_their_anchors(&spec, &name, &bytes, delims);
+    }
+}
+
+/// A fragment that starts below the loop a table anchors on opens that loop
+/// implicitly; its rows still sit in an anchor loop and point at the rows
+/// that enclose them.
+#[test]
+fn a_fragment_that_opens_its_anchor_loops_implicitly_passes_the_same_invariants() {
+    let spec = Spec::builtin_835();
+    let delims = edi835_core::Delimiters::new(b'*', b':', b'~');
+    for fragment in [
+        &b"CLP*C1*1*100*80*20*12*R1*11*1~SVC*HC:99213*100*80~CAS*CO*45*20~"[..],
+        &b"SVC*HC:99213*100*80~CAS*CO*45*20~"[..],
+    ] {
+        let document = Document::with_delimiters(fragment, delims);
         let (tables, _) = Processor::run(&spec, &document);
-        for def in spec.tables() {
-            let table = tables.get(&def.name).unwrap();
-            for row in 0..table.len() {
-                assert_eq!(
-                    index_at(table, "row", row),
-                    Some(row),
-                    "{name}: {}",
-                    def.name
-                );
-                let at = index_at(table, "segment", row).unwrap();
-                let node =
-                    owner[at].unwrap_or_else(|| panic!("{name}: segment #{at} is not captured"));
-                let anchor = enclosing(node, &def.loops).unwrap();
+        assert!(
+            tables.iter().any(|table| !table.is_empty()),
+            "the fragment projects rows"
+        );
+        assert_rows_point_at_their_anchors(&spec, "fragment", fragment, delims);
+    }
+}
+
+fn assert_rows_point_at_their_anchors(
+    spec: &Spec,
+    name: &str,
+    bytes: &[u8],
+    delims: edi835_core::Delimiters,
+) {
+    let segments: Vec<Segment<'_>> = Tokenizer::with_delimiters(bytes, delims).collect();
+    let tree = LoopTree::build(spec, segments.iter().cloned());
+    let nodes = tree.nodes();
+    let mut owner = vec![None; segments.len()];
+    for (index, node) in nodes.iter().enumerate() {
+        for &segment in &node.segments {
+            owner[segment] = Some(index);
+        }
+    }
+    let enclosing = |node: usize, loops: &[LoopId]| {
+        let mut at = Some(node);
+        while let Some(index) = at {
+            if nodes[index].loop_id.is_some_and(|id| loops.contains(&id)) {
+                return Some(index);
+            }
+            at = nodes[index].parent.map(|parent| parent.index());
+        }
+        None
+    };
+    let document = Document::with_delimiters(bytes, delims);
+    let (tables, _) = Processor::run(spec, &document);
+    for def in spec.tables() {
+        let table = tables.get(&def.name).unwrap();
+        for row in 0..table.len() {
+            assert_eq!(
+                index_at(table, "row", row),
+                Some(row),
+                "{name}: {}",
+                def.name
+            );
+            let at = index_at(table, "segment", row).unwrap();
+            let node = owner[at].unwrap_or_else(|| panic!("{name}: segment #{at} is not captured"));
+            let anchor = enclosing(node, &def.loops).unwrap();
+            // An implicitly opened anchor captures no segment of its own: the
+            // row's segment is the trigger of the descendant that needed it,
+            // which the anchor records as `opened_by` and a descendant owns.
+            if !nodes[anchor].implicit {
                 assert_eq!(
                     anchor, node,
                     "{name}: {} row {row} sits in its anchor",
                     def.name
                 );
-                if def.segment.is_none() {
-                    assert_eq!(
-                        nodes[node].opened_by,
-                        Some(at),
-                        "{name}: {} row {row}",
+            }
+            if def.segment.is_none() {
+                assert_eq!(
+                    nodes[anchor].opened_by,
+                    Some(at),
+                    "{name}: {} row {row}",
+                    def.name
+                );
+            }
+            for &above in &def.ancestors {
+                let parent = &spec.tables()[above];
+                let expected = enclosing(node, &parent.loops).and_then(|n| nodes[n].opened_by);
+                let found = index_at(table, &parent.reference, row).map(|r| {
+                    let parent_rows = tables.get(&parent.name).unwrap();
+                    assert!(
+                        r < parent_rows.len(),
+                        "{name}: {} row {row} out of range",
                         def.name
                     );
-                }
-                for &above in &def.ancestors {
-                    let parent = &spec.tables()[above];
-                    let expected = enclosing(node, &parent.loops).and_then(|n| nodes[n].opened_by);
-                    let found = index_at(table, &parent.reference, row).map(|r| {
-                        let parent_rows = tables.get(&parent.name).unwrap();
-                        assert!(
-                            r < parent_rows.len(),
-                            "{name}: {} row {row} out of range",
-                            def.name
-                        );
-                        index_at(parent_rows, "segment", r).unwrap()
-                    });
-                    assert_eq!(
-                        found, expected,
-                        "{name}: {}.{} row {row}",
-                        def.name, parent.reference
-                    );
-                }
+                    index_at(parent_rows, "segment", r).unwrap()
+                });
+                assert_eq!(
+                    found, expected,
+                    "{name}: {}.{} row {row}",
+                    def.name, parent.reference
+                );
             }
         }
     }

@@ -791,7 +791,7 @@ mod tests {
                 "3":{"name":"units","type":"N0","max":2},
                 "4":{"name":"procedure","type":"AN","composite":{
                     "1":{"name":"qualifier","type":"ID","required":true,"min":2,"max":2},
-                    "2":{"name":"code","type":"AN","required":true}
+                    "2":{"name":"code","type":"AN","required":true,"max":5}
                 }}
             }},
             "DT":{"elements":{
@@ -1159,6 +1159,30 @@ mod tests {
         let spec = spec();
         let (_, diagnostics) = project(&spec, "HD*B1~ZZ*whatever~QQ*!~CL*C1*1~RF~TR~");
         assert_eq!(rendered(&diagnostics), Vec::<String>::new());
+
+        // `AJ` is defined, but no open loop holds it here: it is unmatched,
+        // so its empty required `AJ01` is not reported and it gives no row.
+        let (tables, diagnostics) = project(&spec, "HD*B1~AJ~TR~");
+        assert_eq!(rendered(&diagnostics), Vec::<String>::new());
+        assert_eq!(tables.get("adjustments").unwrap().len(), 0);
+
+        // `CL04` is read by two columns; its one bad component is reported once.
+        let (tables, diagnostics) = project(&spec, "HD*B1~CL*C1*1**HC:TOOLONG~TR~");
+        assert_eq!(
+            rendered(&diagnostics),
+            vec![
+                "SNIP 2 · element CL04-2 (code) has length 7; the spec allows at most 5 · segment #1, element 4, component 2 · at head#1/claim#1 · datum \"TOOLONG\""
+            ]
+        );
+        let claims = tables.get("claims").unwrap();
+        assert_eq!(
+            claims.column("procedure").unwrap().get(0),
+            Some(Cell::Binary(b"HC:TOOLONG"))
+        );
+        assert_eq!(
+            claims.column("code").unwrap().get(0),
+            Some(Cell::Binary(b"TOOLONG"))
+        );
     }
 
     #[test]

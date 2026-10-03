@@ -97,12 +97,17 @@ impl From<io::Error> for WriteError {
 impl Segment<'_> {
     /// Writes `id`, `elements` and the terminator using `delims`. Delimiter
     /// bytes inside values are escaped with the release byte; without one they
-    /// are an error. Trivia in `raw` is not written: this rebuilds from data.
+    /// are an error. The id is written verbatim, so an id holding a delimiter
+    /// or the release byte is an error too: escaping it would change the id
+    /// that reads back. Trivia in `raw` is not written: this rebuilds from data.
     pub fn write_to<W: io::Write>(
         &self,
         delims: &Delimiters,
         out: &mut W,
     ) -> Result<(), WriteError> {
+        if let Some(&byte) = self.id.iter().find(|&&byte| delims.is_special(byte)) {
+            return Err(WriteError::DelimiterInValue { byte });
+        }
         out.write_all(self.id)?;
         for element in &self.elements {
             out.write_all(&[delims.element])?;
@@ -278,5 +283,36 @@ mod tests {
             WriteError::DelimiterInValue { byte: b'*' }.to_string(),
             "value contains delimiter byte 0x2A and no release byte is configured"
         );
+    }
+
+    #[test]
+    fn write_to_rejects_an_id_containing_a_delimiter_or_release_byte() {
+        let delims = Delimiters::new(b'*', b':', b'~');
+        for (id, byte) in [(&b"A*B"[..], b'*'), (b"A~B", b'~'), (b"A:B", b':')] {
+            let segment = Segment {
+                index: 0,
+                raw: b"",
+                id,
+                elements: vec![],
+                terminated: true,
+            };
+            assert!(
+                matches!(written(&segment, &delims), Err(WriteError::DelimiterInValue { byte: b }) if b == byte),
+                "id {:?}",
+                id
+            );
+        }
+        let with_release = delims.with_release(b'?');
+        let segment = Segment {
+            index: 0,
+            raw: b"",
+            id: b"AB?",
+            elements: vec![],
+            terminated: true,
+        };
+        assert!(matches!(
+            written(&segment, &with_release),
+            Err(WriteError::DelimiterInValue { byte: b'?' })
+        ));
     }
 }

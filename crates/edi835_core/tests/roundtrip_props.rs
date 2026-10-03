@@ -5,7 +5,7 @@ mod common;
 
 use std::borrow::Cow;
 
-use edi835_core::{Delimiters, Element, Segment, Tokenizer, frame::is_trivia};
+use edi835_core::{Delimiters, Element, Segment, Tokenizer, WriteError, frame::is_trivia};
 use proptest::prelude::*;
 
 const ELEMENT: u8 = b'*';
@@ -85,6 +85,37 @@ proptest! {
     ) {
         let delims = Delimiters::new(ELEMENT, COMPONENT, SEGMENT).with_release(RELEASE);
         roundtrip(&id, elements_from(values), delims)?;
+    }
+}
+
+proptest! {
+    /// Every segment the tokenizer produces from *arbitrary* bytes either writes
+    /// back to something that tokenizes to the same id and elements, or is
+    /// rejected because its id holds a byte the writer cannot represent.
+    #[test]
+    fn every_tokenized_segment_round_trips_or_is_rejected(
+        input in prop::collection::vec(any::<u8>(), 0..64),
+        use_release in any::<bool>(),
+    ) {
+        let mut delims = Delimiters::new(ELEMENT, COMPONENT, SEGMENT);
+        if use_release {
+            delims = delims.with_release(RELEASE);
+        }
+        for segment in Tokenizer::with_delimiters(&input, delims) {
+            let mut written = Vec::new();
+            match segment.write_to(&delims, &mut written) {
+                Ok(()) => {
+                    let back: Vec<Segment<'_>> = Tokenizer::with_delimiters(&written, delims).collect();
+                    prop_assert_eq!(back.len(), 1, "written {:?}", written);
+                    prop_assert_eq!(back[0].id, segment.id, "written {:?}", written);
+                    prop_assert_eq!(&back[0].elements, &segment.elements, "written {:?}", written);
+                }
+                Err(WriteError::DelimiterInValue { byte }) => {
+                    prop_assert!(segment.id.contains(&byte), "rejected byte must come from the id");
+                }
+                Err(e) => prop_assert!(false, "unexpected error {e}"),
+            }
+        }
     }
 }
 

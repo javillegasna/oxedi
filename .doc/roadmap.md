@@ -13,7 +13,7 @@ when a stage changes state.
 | 1 · Framing + Tokenizer | Lossless `Segment` stream, ISA delimiters, symmetric writer | **Done** 2026-10-02 | PR #1, fix PR #2 |
 | 2 · Lossless Document | `Document` as `Cow` bytes + spans, borrowed or owned | **Done** 2026-10-02 | PR #3; samples PR #5 |
 | 3 · Loop engine | JSON spec, `LoopEngine` events, `LoopTree`, merge-patch extension, P10 errors | **Done** 2026-10-03 | PR #6; deferred findings: issues #7–#19 on Project #8; test hygiene PR #20 closed #9–#13 |
-| 4 · Projection + validation | `segments` and `tables` in the spec, Arrow-layout columns, SNIP 1–2 diagnostics with full location (P10), closes #7 #17 #18 #19 | **4a in PR** 2026-10-03 (spec `segments`, validation, `Diagnostic`, `EnvelopeChecker`); 4b not started | 4a: branch `stage-4a-spec-diagnostics`, findings #22–#29; 4b: columns, `Projector`, `tables`, `Processor` |
+| 4 · Projection + validation | `segments` and `tables` in the spec, Arrow-layout columns, SNIP 1–2 diagnostics with full location (P10), closes #7 #17 #18 #19 | **4a done** 2026-10-03 (PR #30: spec `segments`, validation, `Diagnostic`, `EnvelopeChecker`); 4b in progress | 4a findings: #22–#29; 4b: branch `stage-4b-projection` (columns, `Projector`, `tables`, `Processor`) |
 | 5 · Python binding | PyO3/maturin, GIL released, iterator and table APIs | Not started | — |
 | 6 · Distribution | crates.io, PyPI wheels, release CI | Not started | — |
 | 7 · Writer | Data → loops → bytes, same spec | Deferred (D7) | — |

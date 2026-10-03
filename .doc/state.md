@@ -6,11 +6,10 @@ Snapshot for picking the project up cold. Update when a stage changes state.
 
 - Stages 0–3 are merged on `master` (PRs #1 #2 #3 #5 #6), plus the test-hygiene sprint
   (PR #20, closed #9–#13) and the merge-patch docs (PR #21, closed #14).
-- Stage 4a is implemented on branch `stage-4a-spec-diagnostics` (plan
-  `plans/stage-4a-spec-diagnostics.md`, 8 tasks, all reviewed; final Opus review with P10
-  focus clean after one fix wave) and awaits the owner's merge of its PR. Suite there: 229
-  tests; clippy, fmt, rustdoc `-D warnings` clean. Baseline: envelope checker 84–96 MiB/s
-  on the three largest samples (commit 616599d message).
+- Stage 4a is merged (PR #30, 2026-10-03; closed #7 #17 #18 #19; plan
+  `plans/stage-4a-spec-diagnostics.md`, ledger `analysis/stage-4a-ledger.md`). Suite: 229
+  tests; clippy, fmt, rustdoc `-D warnings` clean. Baseline: envelope checker 84–96 MiB/s on
+  the three largest samples (commit 616599d message).
 - The crate after 4a adds: `Spec` `segments` section (`ElementType`, `ElementDef`,
   `SegmentDef`), shape pre-check (`NotAnObject`), `EmptySegmentId`, `OverlappingTriggers`
   (narrow rule), `control` per envelope loop, `Event::LoopOpened.segment`,
@@ -33,7 +32,7 @@ Snapshot for picking the project up cold. Update when a stage changes state.
 - Project #8 Backlog: #8, #15, #16 (Stage 3 leftovers) and #22–#29 (Stage 4a final-review
   findings: schema key paths, composite control values, lossy UTF-8 in Display, ImplicitLoop
   naming the missing trigger, `end == trigger`, R scale cap, ISA11 name, separator-ambiguous
-  paths). #7, #17, #18, #19 close with the 4a PR.
+  paths). #7, #17, #18, #19 closed with PR #30.
 - `.doc/analysis/` study notes describe the whole crate from the real code (rewritten
   2026-10-03 at commit 8f86e42); update them again when Stage 4 lands.
 - Older plans (`stage-1`, `stage-2`) show pre-P10 error shapes; they are historical records,
@@ -43,7 +42,8 @@ Snapshot for picking the project up cold. Update when a stage changes state.
 
 §7 Stage 4 approved 2026-10-03 (T11–T17, resolves D10, opens D11). The stage runs as two
 plans and two PRs. 4a (spec `segments` + validation closing #7 #17 #18, `LoopOpened.segment`
-for #19, `Diagnostic`, `EnvelopeChecker` SNIP 1) is done and in PR. Next: plan 4b
+for #19, `Diagnostic`, `EnvelopeChecker` SNIP 1) is merged. Current: plan 4b on branch
+`stage-4b-projection`
 (`plans/stage-4b-projection.md`: Arrow-layout columns, `Projector` SNIP 2, `tables`,
 `Processor`, table and diagnostic goldens, bench), written from §7 T14–T16 and the Rule
 level-2 variants already declared in `diagnostic.rs`; it must also settle #27 (R scale cap)

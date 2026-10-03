@@ -660,8 +660,9 @@ tablas, sin copia, y esta lista de diagnósticos.
 - Módulo `column`: `Bitmap`, `Column` (`Binary`, `Int64`, `Decimal128`, `Date32`,
   `Time32`), `Table { name, columns: Vec<(String, Column)> }`, `Tables`; `len()` igual en
   todas las columnas de una tabla, invariante comprobado.
-- Módulo `project`: `Projector<'s>` (`new(&Spec)`, `on(&Segment, &[Event]) -> &[Diagnostic]`,
-  `take_tables()`). Módulo `check`: `EnvelopeChecker<'s>` (misma firma de `on`). Módulo
+- Módulo `project`: `Projector<'s>` (`new(&Spec, &Delimiters)`, el separador de componentes
+  hace falta para leer como un solo texto un elemento declarado sin composite que el
+  tokenizer partió, como `ISA16`; `on(&Segment, &[Event]) -> &[Diagnostic]`, `take_tables()`). Módulo `check`: `EnvelopeChecker<'s>` (misma firma de `on`). Módulo
   `process`: `Processor<'s>` con `feed`, `finish`, `take_tables`, `diagnostics()` y
   `Processor::run`.
 - Spec built-in `835` con `segments` para todos los segmentos que lista (ISA, GS, ST, BPR,

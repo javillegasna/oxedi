@@ -48,9 +48,12 @@ Spanish; code, commits, PRs and issues are in English.
    The main session only orchestrates: it plans and dispatches, never implements. One
    implementer per task, chosen by complexity: Haiku transcribes complete code from the
    plan, Sonnet handles prose-described or multi-file tasks, Opus takes design judgment.
-   The task reviewer is one tier above the implementer (Haiku work → Sonnet review, Sonnet
-   work → Opus review, Opus work → Opus review). A whole-branch review on Opus at the end
-   with P10 as an explicit focus, one fix wave, one scoped re-review. Rulings go in the
+   The reviewer is one tier above the implementer (Haiku work → Sonnet review, Sonnet
+   work → Opus review, Opus work → Opus review). Token budget rule (since Stage 4b): group
+   consecutive tasks into batches of two to four for one implementer, review per batch, not
+   per task; the plan carries executed code only for design-heavy tasks and precise prose
+   for mechanical ones. A whole-branch review on Opus at the end with P10 as an explicit
+   focus (triage, not a second audit), one fix wave, one scoped re-review. Rulings go in the
    ledger; the ledger is copied to `.doc/analysis/stage-N-ledger.md` before the workspace
    is deleted.
 4. PR against `master`, body in English with two sections, **Intent** and **Verification**;

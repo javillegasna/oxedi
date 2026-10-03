@@ -245,6 +245,16 @@ carga su prueba de costura con la capa inferior (N7).
   alfanuméricos, válidos en X12. La comparativa de 5b corre sobre los originales con un
   parche mínimo en el script de comparación que acepte `N104` no numérico, documentado como
   la única divergencia conocida, y la corrección se ofrece aguas arriba.
+  Alcance fijado por el dueño el 2026-10-03, en tres partes y en este orden: (1) una spec de
+  `tables` (y parche) cuyo DataFrame coincide con `TransactionSets.to_dataframe()` de
+  `edi-835-parser` fila a fila y columna a columna sobre los originales; la velocidad es un
+  dato más, no el objetivo; (2) con esa paridad probada, buscar en los archivos las secciones
+  que esa librería pierde (por ejemplo los ajustes a nivel de claim, "other claim
+  adjustments", los `PLB` o los `REF`/`AMT` que no mapea) y demostrar con los mismos
+  archivos que `oxedi835` sí los reconoce y los entrega; (3) una API Python compatible
+  (`parse(path | dir) -> TransactionSets`, `to_dataframe()`, la misma forma de columnas) sobre
+  el paquete `oxedi835`, para que un usuario de la librería vieja migre sin tocar su código y
+  gane lo que aquella pierde.
 - **D13 · Estructura de módulos**: `spec.rs` supera las 2.500 líneas tras el Stage 4a y
   `diagnostic.rs`, `engine.rs` y `check.rs` crecen. Tras el Stage 5, planificar la división
   en submódulos (por ejemplo `spec/{load,shape,segments,tables,control,patch}.rs`) con

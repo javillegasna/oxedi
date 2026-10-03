@@ -15,7 +15,7 @@ when a stage changes state.
 | 3 · Loop engine | JSON spec, `LoopEngine` events, `LoopTree`, merge-patch extension, P10 errors | **Done** 2026-10-03 | PR #6; deferred findings: issues #7–#19 on Project #8; test hygiene PR #20 closed #9–#13 |
 | 4 · Projection + validation | `segments` and `tables` in the spec, Arrow-layout columns, SNIP 1–2 diagnostics with full location (P10), closes #7 #17 #18 #19 | **Done** 2026-10-03 (4a PR #30, 4b PR #38, backlog sprint PR #43) | findings closed by #43; open: #28, #39–#42; SNIP 3 → D11 |
 | 5 · Python binding | PyO3/maturin `abi3` (Python ≥ 3.11), GIL released, `parse`/`stream`/`Spec`, Arrow by PyCapsule, D8 measured | **Plan approved** 2026-10-03 | branch `stage-5-python`, `plans/stage-5-python.md` |
-| 5b · Compatibility oracle | A `tables` spec (plus patch) whose output matches `edi-835-parser` (keiron-stoddart, Python) row for row on the original files (outside the repo) with a one-line shim for the library's `int(N104)` limitation (#46; the anonymizer was cleared) | Not started (after 5, D12) | — |
+| 5b · Compatibility oracle | (1) A `tables` spec whose DataFrame equals `edi-835-parser`'s `to_dataframe()` row for row on the originals (shim for its `int(N104)` limitation, #46); (2) find what that library drops (claim-level adjustments, `PLB`, unmapped `REF`/`AMT`) and prove `oxedi835` keeps it on the same files; (3) a compatible Python API (`parse(path\|dir)`, `TransactionSets`, `to_dataframe()`) so its users migrate without code changes | Not started (after 5, D12) | — |
 | 5c · Module layout | Split the large source files into navigable submodules with short files and a one-glance discovery path; no behaviour change | Not started (after 5, D13) | — |
 | 6 · Distribution | crates.io, PyPI wheels, release CI | Not started | — |
 | 7 · Writer | Data → loops → bytes, same spec | Deferred (D7) | — |
@@ -36,8 +36,9 @@ when a stage changes state.
   and extendable with a JSON patch. First stage with business meaning.
 - After **4**: rows comparable with the old Python parser; SNIP validation on real files.
 - After **5**: the original problem (slow Python ingestion) can be benchmarked end to end.
-- After **5b**: a user of `edi-835-parser` can switch with a spec, not a rewrite; the
-  row-for-row diff is a public, reproducible compatibility test.
+- After **5b**: a user of `edi-835-parser` can switch with a spec and a compatible API, not a
+  rewrite; the row-for-row diff is a public, reproducible compatibility test, and the data
+  that library drops is shown recovered on the same files.
 - After **8**: a reader learns why the project is shaped this way without opening the code,
   and a user of the Python library or the CLI has a guide that does not go stale.
 - After **9**: adding a transaction set is writing a spec, the toolkit's promise made good

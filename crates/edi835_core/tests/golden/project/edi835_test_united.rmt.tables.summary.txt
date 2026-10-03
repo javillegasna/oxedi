@@ -1,0 +1,5 @@
+adjustments rows: 2370
+claims rows: 1332
+payments rows: 1
+provider_adjustments rows: 0
+services rows: 6192

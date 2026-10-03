@@ -1,0 +1,22 @@
+## adjustments (rows: 2)
+row: int64 | segment: int64 | payment: int64 | claim: int64 | service: int64 | amount: decimal128(38, 2) | group_code: binary | quantity: decimal128(38, 2) | reason_code: binary
+0 | 23 | 0 | 0 | 0 | 315.00 | CO | ∅ | 45
+1 | 27 | 0 | 0 | 1 | -200.00 | CO | ∅ | 45
+
+## claims (rows: 1)
+row: int64 | segment: int64 | payment: int64 | charge_amount: decimal128(38, 2) | claim_id: binary | claim_status: binary | coverage_amount: decimal128(38, 2) | discharge_fraction: decimal128(38, 4) | drg_code: binary | drg_weight: decimal128(38, 4) | facility_type: binary | filing_indicator: binary | frequency_code: binary | group_number: binary | patient_first_name: binary | patient_id: binary | patient_last_name: binary | patient_responsibility: decimal128(38, 2) | payer_control_number: binary | payment_amount: decimal128(38, 2) | rendering_provider_id: binary | rendering_provider_name: binary | statement_from: date32 | statement_to: date32
+0 | 15 | 0 | -55.00 | 9051716610428903704 | 1 | -170.00 | ∅ | ∅ | ∅ | 11 | HM | ∅ | 39523 | CARLA | KVVRK4284 | OCHOA | ∅ | DRN28407545.1 | -170.00 | ∅ | ∅ | 2023-11-24 | ∅
+
+## payments (rows: 1)
+row: int64 | segment: int64 | credit_debit_flag: binary | handling_code: binary | payee_id: binary | payee_name: binary | payer_identifier: binary | payer_name: binary | payment_date: date32 | payment_format: binary | payment_method: binary | production_date: date32 | receiver_id: binary | total_payment_amount: decimal128(38, 2) | trace_number: binary
+0 | 2 | C | H | 479864355 | MERIDIAN WELLNESS ASSOCIATES | 2797276090 | SILVER OAK VISION CENTER | 2024-01-03 | ∅ | NON | 2024-01-01 | ∅ | 0.00 | 60239834
+
+## provider_adjustments (rows: 1)
+row: int64 | segment: int64 | payment: int64 | amount: decimal128(38, 2) | fiscal_period_date: date32 | provider_id: binary | reason_code: binary | reference_id: binary
+0 | 29 | 0 | -170.00 | 2024-01-01 | 878324429 | FB | YMUTWU 04459 VUQ URE 8.61 NJX
+
+## services (rows: 2)
+row: int64 | segment: int64 | payment: int64 | claim: int64 | allowed_amount: decimal128(38, 2) | charge_amount: decimal128(38, 2) | line_item_control_number: binary | original_units: decimal128(38, 2) | payment_amount: decimal128(38, 2) | procedure_code: binary | procedure_qualifier: binary | service_date: date32 | units_paid: decimal128(38, 2)
+0 | 21 | 0 | 0 | ∅ | 145.00 | ∅ | ∅ | -170.00 | V2020 | HC | 2023-11-24 | ∅
+1 | 25 | 0 | 0 | ∅ | -200.00 | ∅ | ∅ | 0.00 | V2781 | HC | 2023-11-24 | ∅
+

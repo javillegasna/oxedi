@@ -386,5 +386,69 @@
       "1": {"name": "number_of_included_functional_groups", "type": "N0", "required": true, "min": 1, "max": 5},
       "2": {"name": "interchange_control_number", "type": "N0", "required": true, "min": 9, "max": 9}
     } }
+  },
+  "tables": {
+    "payments": { "loops": ["transaction"], "ref": "payment", "columns": {
+      "handling_code": {"segment": "BPR", "element": 1},
+      "total_payment_amount": {"segment": "BPR", "element": 2},
+      "credit_debit_flag": {"segment": "BPR", "element": 3},
+      "payment_method": {"segment": "BPR", "element": 4},
+      "payment_format": {"segment": "BPR", "element": 5},
+      "payment_date": {"segment": "BPR", "element": 16},
+      "trace_number": {"segment": "TRN", "element": 2},
+      "payer_identifier": {"segment": "TRN", "element": 3},
+      "payer_name": {"loop": "1000A", "segment": "N1", "element": 2},
+      "payee_name": {"loop": "1000B", "segment": "N1", "element": 2},
+      "payee_id": {"loop": "1000B", "segment": "N1", "element": 4},
+      "receiver_id": {"segment": "REF", "where": {"1": "EV"}, "element": 2},
+      "production_date": {"segment": "DTM", "where": {"1": "405"}, "element": 2}
+    } },
+    "claims": { "loops": ["2100"], "ref": "claim", "columns": {
+      "claim_id": {"segment": "CLP", "element": 1},
+      "claim_status": {"segment": "CLP", "element": 2},
+      "charge_amount": {"segment": "CLP", "element": 3},
+      "payment_amount": {"segment": "CLP", "element": 4},
+      "patient_responsibility": {"segment": "CLP", "element": 5},
+      "filing_indicator": {"segment": "CLP", "element": 6},
+      "payer_control_number": {"segment": "CLP", "element": 7},
+      "facility_type": {"segment": "CLP", "element": 8},
+      "frequency_code": {"segment": "CLP", "element": 9},
+      "drg_code": {"segment": "CLP", "element": 11},
+      "drg_weight": {"segment": "CLP", "element": 12},
+      "discharge_fraction": {"segment": "CLP", "element": 13},
+      "patient_last_name": {"segment": "NM1", "where": {"1": "QC"}, "element": 3},
+      "patient_first_name": {"segment": "NM1", "where": {"1": "QC"}, "element": 4},
+      "patient_id": {"segment": "NM1", "where": {"1": "QC"}, "element": 9},
+      "rendering_provider_name": {"segment": "NM1", "where": {"1": "82"}, "element": 3},
+      "rendering_provider_id": {"segment": "NM1", "where": {"1": "82"}, "element": 9},
+      "statement_from": {"segment": "DTM", "where": {"1": "232"}, "element": 2},
+      "statement_to": {"segment": "DTM", "where": {"1": "233"}, "element": 2},
+      "coverage_amount": {"segment": "AMT", "where": {"1": "AU"}, "element": 2},
+      "group_number": {"segment": "REF", "where": {"1": "1L"}, "element": 2}
+    } },
+    "services": { "loops": ["2110"], "ref": "service", "columns": {
+      "procedure_qualifier": {"segment": "SVC", "element": 1, "component": 1},
+      "procedure_code": {"segment": "SVC", "element": 1, "component": 2},
+      "charge_amount": {"segment": "SVC", "element": 2},
+      "payment_amount": {"segment": "SVC", "element": 3},
+      "units_paid": {"segment": "SVC", "element": 5},
+      "original_units": {"segment": "SVC", "element": 7},
+      "service_date": {"segment": "DTM", "where": {"1": "472"}, "element": 2},
+      "line_item_control_number": {"segment": "REF", "where": {"1": "6R"}, "element": 2},
+      "allowed_amount": {"segment": "AMT", "where": {"1": "B6"}, "element": 2}
+    } },
+    "adjustments": { "loops": ["2100", "2110"], "segment": "CAS", "repeat": {"from": 2, "step": 3}, "columns": {
+      "group_code": {"element": 1},
+      "reason_code": {"group_element": 0},
+      "amount": {"group_element": 1},
+      "quantity": {"group_element": 2}
+    } },
+    "provider_adjustments": { "loops": ["transaction"], "segment": "PLB", "repeat": {"from": 3, "step": 2}, "columns": {
+      "provider_id": {"element": 1},
+      "fiscal_period_date": {"element": 2},
+      "reason_code": {"group_element": 0, "component": 1},
+      "reference_id": {"group_element": 0, "component": 2},
+      "amount": {"group_element": 1}
+    } }
   }
 }

@@ -218,6 +218,30 @@ carga su prueba de costura con la capa inferior (N7).
   un loop, y SNIP 3 exige declarar qué columnas se suman contra cuáles. Ambas piden una
   extensión de la spec que Stage 4 no abre; se decide cuando las tablas proyectadas estén
   en uso y se vea si una regla "suma por grupo" basta.
+- **D12 · Compatibilidad con `edi-835-parser`** (Python, keiron-stoddart; `parse(path)
+  → TransactionSets.to_dataframe()`): tras el Stage 5, escribir una spec de `tables` (y el
+  parche que haga falta) cuya salida coincida fila a fila con el DataFrame de esa librería
+  sobre los archivos que ambos pueden leer. Si se consigue solo con datos, N3 queda probada
+  frente a un parser real y sus usuarios tienen camino de migración; si exige código, la
+  diferencia dice qué le falta a la spec. La comparación es un test reproducible.
+- **D13 · Estructura de módulos**: `spec.rs` supera las 2.500 líneas tras el Stage 4a y
+  `diagnostic.rs`, `engine.rs` y `check.rs` crecen. Tras el Stage 5, planificar la división
+  en submódulos (por ejemplo `spec/{load,shape,segments,tables,control,patch}.rs`) con
+  reglas de descubrimiento: archivos cortos, un sustantivo por archivo, `lib.rs` como índice
+  comentado, tests junto al código que prueban. Sin cambio de comportamiento; se verifica
+  con la suite y los goldens intactos.
+- **D14 · Documentación perdurable** (al cerrar el roadmap): un libro para humanos con las
+  ideas, los conceptos y los patrones que rigen el proyecto (lossless por construcción,
+  motor genérico y estándar como datos, pull, sans-IO, errores que se explican solos,
+  columnas con disposición Arrow), sin fragmentos de código ni referencias a líneas, para
+  que no exija mantenimiento continuo; más guías de uso de la librería Python y del binario.
+  Lo que sí cambia con el código (firmas, ejemplos) se queda en rustdoc y en los planes.
+- **D15 · Toolkit para la familia X12** (835 primero, 837 después): el motor, el formato
+  de spec, la proyección y el binario no saben nada del 835 más allá de la spec built-in, así
+  que otro conjunto de transacciones con la misma lógica de loops y otras definiciones de
+  segmentos debería entrar como una spec más. A decidir: nombres (crate y binario dejan de
+  ser "835"), una spec por conjunto de transacciones, qué expone el CLI, y qué suposiciones
+  del 835 se colaron en código (auditar antes de abrir la 837).
 - **D7 · Stage 7, Escritor**: ver §5. YAGNI hasta que haya un caso de generación. La mitad
   del trabajo ya la paga el round-trip de Stage 1 (serializar segmentos con escape) y la
   otra mitad la paga T4. Lo propio del escritor: campos derivados y builder desde dominio.
@@ -636,8 +660,9 @@ tablas, sin copia, y esta lista de diagnósticos.
 - Módulo `column`: `Bitmap`, `Column` (`Binary`, `Int64`, `Decimal128`, `Date32`,
   `Time32`), `Table { name, columns: Vec<(String, Column)> }`, `Tables`; `len()` igual en
   todas las columnas de una tabla, invariante comprobado.
-- Módulo `project`: `Projector<'s>` (`new(&Spec)`, `on(&Segment, &[Event]) -> &[Diagnostic]`,
-  `take_tables()`). Módulo `check`: `EnvelopeChecker<'s>` (misma firma de `on`). Módulo
+- Módulo `project`: `Projector<'s>` (`new(&Spec, &Delimiters)`, el separador de componentes
+  hace falta para leer como un solo texto un elemento declarado sin composite que el
+  tokenizer partió, como `ISA16`; `on(&Segment, &[Event]) -> &[Diagnostic]`, `take_tables()`). Módulo `check`: `EnvelopeChecker<'s>` (misma firma de `on`). Módulo
   `process`: `Processor<'s>` con `feed`, `finish`, `take_tables`, `diagnostics()` y
   `Processor::run`.
 - Spec built-in `835` con `segments` para todos los segmentos que lista (ISA, GS, ST, BPR,

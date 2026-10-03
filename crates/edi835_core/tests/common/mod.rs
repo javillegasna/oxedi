@@ -2,7 +2,10 @@
 //! Shared helpers for integration tests. Lives in `tests/common/mod.rs` so Cargo
 //! treats it as a module (not its own test binary) when included via `mod common;`.
 
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
+
+/// The two large samples, whose goldens keep a summary instead of every line.
+pub const SUMMARY_ONLY: &[&str] = &["edi835_test_united.rmt", "edi835_test_versant.RMT"];
 
 /// Absolute path to this crate's `tests/fixtures` directory (synthetic files).
 pub fn fixtures_dir() -> PathBuf {
@@ -116,4 +119,133 @@ pub fn diagnostics_of(
     engine.finish();
     diagnostics.extend_from_slice(checker.finish());
     diagnostics
+}
+
+/// A table's header line: every column as `name: type`, separated by ` | `.
+pub fn table_header(table: &edi835_core::Table) -> String {
+    table
+        .columns()
+        .iter()
+        .map(|(name, column)| format!("{name}: {}", column.kind()))
+        .collect::<Vec<_>>()
+        .join(" | ")
+}
+
+/// Every row of a table as one line, cells rendered by
+/// `ColumnData::render` and separated by ` | `.
+pub fn table_rows(table: &edi835_core::Table) -> Vec<String> {
+    (0..table.len())
+        .map(|row| {
+            table
+                .columns()
+                .iter()
+                .map(|(_, column)| column.render(row).unwrap_or_default())
+                .collect::<Vec<_>>()
+                .join(" | ")
+        })
+        .collect()
+}
+
+/// Human-readable location of the first difference between two line streams.
+pub fn describe_diff(actual: &str, expected: &str) -> String {
+    let actual_lines: Vec<&str> = actual.lines().collect();
+    let expected_lines: Vec<&str> = expected.lines().collect();
+
+    for (i, (a, e)) in actual_lines.iter().zip(expected_lines.iter()).enumerate() {
+        if a != e {
+            return format!("line {}: actual {:?}, expected {:?}", i + 1, a, e);
+        }
+    }
+
+    match actual_lines.len().cmp(&expected_lines.len()) {
+        std::cmp::Ordering::Greater => {
+            let extra = actual_lines.len() - expected_lines.len();
+            let first_extra = actual_lines[expected_lines.len()];
+            format!(
+                "expected ends at line {}; actual has {} extra line(s), first: {:?}",
+                expected_lines.len(),
+                extra,
+                first_extra
+            )
+        }
+        std::cmp::Ordering::Less => {
+            let extra = expected_lines.len() - actual_lines.len();
+            let first_extra = expected_lines[actual_lines.len()];
+            format!(
+                "actual ends at line {}; expected has {} more line(s), first: {:?}",
+                actual_lines.len(),
+                extra,
+                first_extra
+            )
+        }
+        std::cmp::Ordering::Equal => "no difference".to_string(),
+    }
+}
+
+/// Compares each `(path, actual)` pair with the committed file at `path`, or
+/// writes `actual` there when `UPDATE_GOLDEN=1`, then reports every file
+/// directly in `dir` that no pair names and every subdirectory of `dir` not
+/// listed in `allowed_subdirs`. Returns one message per failure.
+pub fn compare_goldens(
+    dir: &Path,
+    outputs: &[(PathBuf, String)],
+    allowed_subdirs: &[&str],
+) -> Vec<String> {
+    let update = std::env::var("UPDATE_GOLDEN").as_deref() == Ok("1");
+    let mut failures = Vec::new();
+    for (path, actual) in outputs {
+        if update {
+            std::fs::create_dir_all(dir).unwrap();
+            std::fs::write(path, actual).unwrap();
+            continue;
+        }
+        let expected = std::fs::read_to_string(path).unwrap_or_else(|e| {
+            panic!(
+                "{}: {e}; run with UPDATE_GOLDEN=1 to create it",
+                path.display()
+            )
+        });
+        if *actual != expected {
+            failures.push(format!(
+                "{}: {}",
+                path.display(),
+                describe_diff(actual, &expected)
+            ));
+        }
+    }
+    if let Ok(entries) = std::fs::read_dir(dir) {
+        for entry in entries.flatten() {
+            let path = entry.path();
+            if path.is_file() && !outputs.iter().any(|(named, _)| *named == path) {
+                failures.push(format!(
+                    "orphaned golden file with no test that compares it: {}",
+                    path.display()
+                ));
+            } else if path.is_dir()
+                && !allowed_subdirs
+                    .iter()
+                    .any(|name| entry.file_name() == *name)
+            {
+                failures.push(format!(
+                    "unexpected golden subdirectory with no test that compares it: {}",
+                    path.display()
+                ));
+            }
+        }
+    }
+    failures
+}
+
+#[test]
+fn compare_goldens_reports_orphan_files_and_unlisted_subdirectories() {
+    let dir = std::env::temp_dir().join(format!("edi835_goldens_{}", std::process::id()));
+    let _ = std::fs::remove_dir_all(&dir);
+    std::fs::create_dir_all(dir.join("project")).unwrap();
+    std::fs::create_dir_all(dir.join("stray")).unwrap();
+    std::fs::write(dir.join("orphan.txt"), "x").unwrap();
+    let failures = compare_goldens(&dir, &[], &["project"]);
+    std::fs::remove_dir_all(&dir).unwrap();
+    assert_eq!(failures.len(), 2, "{failures:#?}");
+    assert!(failures.iter().any(|f| f.contains("orphan.txt")));
+    assert!(failures.iter().any(|f| f.contains("stray")));
 }

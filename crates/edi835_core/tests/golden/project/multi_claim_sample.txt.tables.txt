@@ -1,0 +1,33 @@
+## adjustments (rows: 10)
+row: int64 | segment: int64 | payment: int64 | claim: int64 | service: int64 | amount: decimal128(38, 2) | group_code: binary | quantity: decimal128(38, 2) | reason_code: binary
+0 | 17 | 0 | 0 | ∅ | -300.00 | CO | ∅ | 94
+1 | 26 | 0 | 0 | 0 | 150.00 | CO | 150.00 | 45
+2 | 28 | 0 | 0 | 1 | 75.00 | PR | 75.00 | 3
+3 | 29 | 0 | 0 | 1 | 75.00 | CO | 75.00 | 45
+4 | 32 | 0 | 1 | ∅ | -600.00 | CO | ∅ | 94
+5 | 41 | 0 | 1 | 2 | 100.00 | PR | 100.00 | 2
+6 | 42 | 0 | 1 | 2 | 100.00 | CO | 100.00 | 45
+7 | 44 | 0 | 1 | 3 | 150.00 | PR | 150.00 | 3
+8 | 45 | 0 | 1 | 3 | 150.00 | CO | 150.00 | 45
+9 | 47 | 0 | 1 | 4 | 100.00 | CO | 100.00 | 45
+
+## claims (rows: 2)
+row: int64 | segment: int64 | payment: int64 | charge_amount: decimal128(38, 2) | claim_id: binary | claim_status: binary | coverage_amount: decimal128(38, 2) | discharge_fraction: decimal128(38, 4) | drg_code: binary | drg_weight: decimal128(38, 4) | facility_type: binary | filing_indicator: binary | frequency_code: binary | group_number: binary | patient_first_name: binary | patient_id: binary | patient_last_name: binary | patient_responsibility: decimal128(38, 2) | payer_control_number: binary | payment_amount: decimal128(38, 2) | rendering_provider_id: binary | rendering_provider_name: binary | statement_from: date32 | statement_to: date32
+0 | 16 | 0 | 800.00 | 33344555510 | 1 | ∅ | ∅ | 397 | 0.7309 | 11 | 15 | 1 | ∅ | WILLIAM | 33344555510 | BUDD | ∅ | 5554555444 | 500.00 | ∅ | ∅ | 2019-03-07 | 2019-03-10
+1 | 31 | 0 | 1200.00 | 44455666610 | 1 | ∅ | ∅ | 397 | 0.7309 | 11 | 15 | 1 | ∅ | SUSAN | 44455666610 | SETTLE | ∅ | 8765432112 | 600.00 | ∅ | ∅ | 2019-03-05 | 2019-03-08
+
+## payments (rows: 1)
+row: int64 | segment: int64 | credit_debit_flag: binary | handling_code: binary | payee_id: binary | payee_name: binary | payer_identifier: binary | payer_name: binary | payment_date: date32 | payment_format: binary | payment_method: binary | production_date: date32 | receiver_id: binary | total_payment_amount: decimal128(38, 2) | trace_number: binary
+0 | 2 | C | I | 5544667733 | ACME MEDICAL CENTER | 1203174593 | RUSHMORE LIFE INSURANCE | ∅ | CCP | ACH | 2019-03-16 | ∅ | 1100.00 | 0927974940
+
+## provider_adjustments (rows: 0)
+row: int64 | segment: int64 | payment: int64 | amount: decimal128(38, 2) | fiscal_period_date: date32 | provider_id: binary | reason_code: binary | reference_id: binary
+
+## services (rows: 5)
+row: int64 | segment: int64 | payment: int64 | claim: int64 | allowed_amount: decimal128(38, 2) | charge_amount: decimal128(38, 2) | line_item_control_number: binary | original_units: decimal128(38, 2) | payment_amount: decimal128(38, 2) | procedure_code: binary | procedure_qualifier: binary | service_date: date32 | units_paid: decimal128(38, 2)
+0 | 25 | 0 | 0 | ∅ | 500.00 | ∅ | ∅ | 350.00 | ∅ | HC:99213 | ∅ | 1.00
+1 | 27 | 0 | 0 | ∅ | 300.00 | ∅ | ∅ | 150.00 | ∅ | HC:99214 | ∅ | 1.00
+2 | 40 | 0 | 1 | ∅ | 600.00 | ∅ | ∅ | 400.00 | ∅ | HC:99213 | ∅ | 1.00
+3 | 43 | 0 | 1 | ∅ | 400.00 | ∅ | ∅ | 100.00 | ∅ | HC:99214 | ∅ | 1.00
+4 | 46 | 0 | 1 | ∅ | 200.00 | ∅ | ∅ | 100.00 | ∅ | HC:99215 | ∅ | 1.00
+

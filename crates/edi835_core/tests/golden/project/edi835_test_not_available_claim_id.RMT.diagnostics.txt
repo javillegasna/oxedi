@@ -1,0 +1,1 @@
+SNIP 1 · SE01 declares "302" but the count is 255 · segment #256, element 1 · at interchange#1/group#1/transaction#1 · datum "302"

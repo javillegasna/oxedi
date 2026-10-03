@@ -1,10 +1,11 @@
 //! Throughput of the tokenizer and the document index pass over the three
 //! largest fixtures, of the loop engine over the three largest samples in
-//! bytes and in events, and of the engine with the envelope checker over the
-//! same samples.
+//! bytes and in events, of the engine with the envelope checker over the
+//! same samples, and of the whole processor (engine, checker, projector)
+//! over them in bytes and in table rows.
 
 use criterion::{BenchmarkId, Criterion, Throughput, criterion_group, criterion_main};
-use edi835_core::{Document, EnvelopeChecker, LoopEngine, Spec, Tokenizer};
+use edi835_core::{Document, EnvelopeChecker, LoopEngine, Processor, Spec, Tokenizer};
 use std::hint::black_box;
 
 const FIXTURES: &[&str] = &[
@@ -43,6 +44,14 @@ fn run_check(spec: &Spec, bytes: &[u8]) -> usize {
     }
     engine.finish();
     diagnostics + checker.finish().len()
+}
+
+/// Indexes the bytes, runs the processor over the document and returns how
+/// many table rows it produced.
+fn run_process(spec: &Spec, bytes: &[u8]) -> usize {
+    let document = Document::parse(bytes).expect("sample has an ISA");
+    let (tables, _) = Processor::run(spec, &document);
+    tables.iter().map(|table| table.len()).sum()
 }
 
 /// Runs the engine over every segment and returns how many events it emitted.
@@ -127,12 +136,41 @@ fn check_samples(c: &mut Criterion) {
     group.finish();
 }
 
+fn process_samples(c: &mut Criterion) {
+    let spec = Spec::builtin_835();
+    let mut group = c.benchmark_group("process");
+    for name in SAMPLES {
+        let bytes = load_from("tests/samples", name);
+        group.throughput(Throughput::Bytes(bytes.len() as u64));
+        group.bench_with_input(BenchmarkId::from_parameter(name), &bytes, |b, bytes| {
+            b.iter(|| run_process(&spec, black_box(bytes)));
+        });
+    }
+    group.finish();
+}
+
+fn process_rows_samples(c: &mut Criterion) {
+    let spec = Spec::builtin_835();
+    let mut group = c.benchmark_group("process_rows");
+    for name in SAMPLES {
+        let bytes = load_from("tests/samples", name);
+        let rows = run_process(&spec, &bytes);
+        group.throughput(Throughput::Elements(rows as u64));
+        group.bench_with_input(BenchmarkId::from_parameter(name), &bytes, |b, bytes| {
+            b.iter(|| run_process(&spec, black_box(bytes)));
+        });
+    }
+    group.finish();
+}
+
 criterion_group!(
     benches,
     tokenize_fixtures,
     index_fixtures,
     engine_samples,
     engine_events_samples,
-    check_samples
+    check_samples,
+    process_samples,
+    process_rows_samples
 );
 criterion_main!(benches);

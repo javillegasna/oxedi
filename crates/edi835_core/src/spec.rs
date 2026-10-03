@@ -925,7 +925,6 @@ impl Spec {
     }
 }
 
-/// A trigger as `"N1" where {1: "PR", 2: "X"}`, or `"N1" with no conditions`.
 /// Validates a loop's `control`; `has_end` says whether the loop declares an end segment.
 fn compile_control(raw: &RawControl, has_end: bool) -> Result<Control, ControlError> {
     if !has_end {
@@ -956,6 +955,7 @@ fn compile_control(raw: &RawControl, has_end: bool) -> Result<Control, ControlEr
     })
 }
 
+/// A trigger as `"N1" where {1: "PR", 2: "X"}`, or `"N1" with no conditions`.
 fn render_trigger(trigger: &Trigger) -> String {
     let segment = String::from_utf8_lossy(&trigger.segment);
     if trigger.conditions.is_empty() {

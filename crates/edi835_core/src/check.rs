@@ -108,7 +108,7 @@ impl<'s> EnvelopeChecker<'s> {
             parent.children = parent.children.saturating_add(1);
         }
         let control_number = match def.control {
-            Some(control) if !implicit => Some(value_at(segment, control.opener_element)),
+            Some(control) if !implicit => Some(simple_at(segment, control.opener_element).to_vec()),
             _ => None,
         };
         self.open.push(Open {
@@ -151,25 +151,27 @@ impl<'s> EnvelopeChecker<'s> {
             ControlCount::Segments => seen.saturating_sub(top.start),
             ControlCount::Children => top.children,
         };
-        let opener_value = top.control_number.clone();
+        // The instance closes right after its end segment, so its control
+        // number is no longer needed.
+        let opener_value = top.control_number.take();
 
-        let found = value_at(segment, control.count_element);
-        if parse_count(&found) != Some(counted) {
+        let found = simple_at(segment, control.count_element);
+        if parse_count(found) != Some(counted) {
             self.report(
                 Rule::ControlCountMismatch {
                     segment_id: segment.id.to_vec(),
                     element: control.count_element,
                     expected: counted,
-                    found: found.clone(),
+                    found: found.to_vec(),
                 },
                 Some(segment.index),
                 Some(control.count_element),
-                found,
+                found.to_vec(),
             );
         }
         if let Some(opener_value) = opener_value {
-            let closer_value = value_at(segment, control.closer_element);
-            if closer_value != opener_value {
+            let closer_value = simple_at(segment, control.closer_element);
+            if closer_value != opener_value.as_slice() {
                 self.report(
                     Rule::ControlNumberMismatch {
                         opener: def.trigger.segment.clone(),
@@ -177,11 +179,11 @@ impl<'s> EnvelopeChecker<'s> {
                         closer: segment.id.to_vec(),
                         closer_element: control.closer_element,
                         opener_value,
-                        closer_value: closer_value.clone(),
+                        closer_value: closer_value.to_vec(),
                     },
                     Some(segment.index),
                     Some(control.closer_element),
-                    closer_value,
+                    closer_value.to_vec(),
                 );
             }
         }
@@ -237,11 +239,10 @@ impl<'s> EnvelopeChecker<'s> {
 
 /// The simple value at a 1-based position; empty when the element is absent
 /// or composite.
-fn value_at(segment: &Segment<'_>, position: usize) -> Vec<u8> {
+fn simple_at<'a>(segment: &'a Segment<'_>, position: usize) -> &'a [u8] {
     segment
         .element(position)
         .and_then(Element::simple)
-        .map(<[u8]>::to_vec)
         .unwrap_or_default()
 }
 

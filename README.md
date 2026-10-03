@@ -8,11 +8,14 @@ See [`.doc/architectural-commitment.md`](.doc/architectural-commitment.md) for t
 
 ## Status
 
-**Stage 4a — element definitions and structural diagnostics.** The JSON spec now names
-and types every element of the 835's segments and rejects malformed or ambiguous specs
-in plain words. Alongside the loop engine, an envelope checker reports unknown segments,
-implicit or unterminated loops and envelope counts or control numbers that do not match,
-as self-explanatory diagnostics. Typed columnar projection comes next.
+**Stage 4 — projection and validation.** The JSON spec names and types every element of
+the 835's segments and declares the tables to project. One pass over a file feeds the
+loop engine, an envelope checker and a projector: the checker reports unknown segments,
+implicit or unterminated loops and envelope counts or control numbers that do not
+match; the projector checks every element (required, type, length, components) and
+fills typed, Arrow-layout tables of payments, claims, services, adjustments and provider
+adjustments, each row pointing at the rows that enclose it. Every finding is a
+self-explanatory diagnostic. The Python binding comes next.
 
 ## Extending the 835 spec
 

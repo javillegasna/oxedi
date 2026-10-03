@@ -7,15 +7,21 @@
 //! - [`Document`] indexes every segment of a buffer once so any segment can be
 //!   reached by index or byte span.
 //! - [`Spec`] is a JSON loop structure (parents, triggers, held segments, end
-//!   segments, envelope controls) plus the names and types of each segment's
-//!   elements, and can be patched with JSON Merge Patch; [`Spec::builtin_835`]
-//!   ships the 835 as such data.
+//!   segments, envelope controls), the names and types of each segment's
+//!   elements, and the tables to project, and can be patched with JSON Merge
+//!   Patch; [`Spec::builtin_835`] ships the 835 as such data.
 //! - [`LoopEngine`] interprets a segment stream against a spec and emits
 //!   [`Event`]s (loops opened and closed, segments captured or unmatched);
 //!   [`LoopTree`] collects those events into a tree of loop instances.
 //! - [`EnvelopeChecker`] reads the same events and reports structural
 //!   [`Diagnostic`]s: unknown segments, implicit or unterminated loops, and
 //!   envelope counts or control numbers that do not match.
+//! - [`Projector`] reads the same events too: it checks every element the
+//!   spec defines (required, type, length, components) and fills the spec's
+//!   tables, typed [`Table`]s of [`ColumnData`] laid out as Apache Arrow
+//!   lays out its arrays, with each row pointing at the rows that enclose it.
+//! - [`Processor`] feeds one segment at a time to the engine, the checker and
+//!   the projector; [`Processor::run`] does it over a whole [`Document`].
 //!
 //! The structure is data: no code in this crate is specific to the 835 beyond
 //! the built-in spec it loads.

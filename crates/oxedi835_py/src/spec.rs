@@ -24,6 +24,11 @@ pub fn builtin() -> Arc<Spec> {
         .clone()
 }
 
+/// The spec a call uses: the one given, or the built-in.
+pub fn or_builtin(spec: Option<&Bound<'_, PySpec>>) -> Arc<Spec> {
+    spec.map_or_else(builtin, |spec| spec.get().inner.clone())
+}
+
 /// The loop structure, element definitions and tables of a file format.
 #[pyclass(name = "Spec", module = "oxedi835", frozen)]
 pub struct PySpec {

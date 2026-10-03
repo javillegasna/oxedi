@@ -7,9 +7,11 @@
 
 use pyo3::prelude::*;
 
+mod diagnostic;
 mod document;
 mod parse;
 mod spec;
+mod tables;
 
 /// The `oxedi835._core` extension module.
 #[pymodule]
@@ -18,11 +20,14 @@ fn core_module(m: &Bound<'_, PyModule>) -> PyResult<()> {
     let py = m.py();
     m.add("ParseError", py.get_type::<document::ParseError>())?;
     m.add("SpecError", py.get_type::<spec::SpecError>())?;
+    m.add_class::<diagnostic::PyDiagnostic>()?;
     m.add_class::<document::PyDelimiters>()?;
     m.add_class::<document::PyDocument>()?;
     m.add_class::<document::PySegment>()?;
     m.add_class::<parse::PyParseResult>()?;
     m.add_class::<spec::PySpec>()?;
+    m.add_class::<tables::PyTable>()?;
+    m.add_class::<tables::PyTables>()?;
     m.add_function(wrap_pyfunction!(parse::parse, m)?)?;
     Ok(())
 }

@@ -13,23 +13,29 @@ from typing import Optional, Union
 
 from ._core import (
     Delimiters,
+    Diagnostic,
     Document,
     ParseError,
     Result,
     Segment,
     Spec,
     SpecError,
+    Table,
+    Tables,
     parse,
 )
 
 __all__ = [
     "Delimiters",
+    "Diagnostic",
     "Document",
     "ParseError",
     "Result",
     "Segment",
     "Spec",
     "SpecError",
+    "Table",
+    "Tables",
     "parse",
     "parse_file",
 ]
@@ -37,9 +43,10 @@ __all__ = [
 
 def parse_file(
     path: Union[str, "os.PathLike[str]"],
+    spec: Optional[Spec] = None,
     delimiters: Optional[Delimiters] = None,
 ) -> Result:
     """Reads the file at ``path`` in binary mode and parses it."""
     with open(path, "rb") as handle:
         data = handle.read()
-    return parse(data, delimiters=delimiters)
+    return parse(data, spec=spec, delimiters=delimiters)

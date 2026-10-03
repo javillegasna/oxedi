@@ -678,6 +678,10 @@ pub enum SpecError {
         /// What was found instead: `a string`, `a number`, `a negative
         /// number`, `an array`, `null`, and so on.
         found: &'static str,
+        /// The offending value: a scalar as compact JSON (`"2"`, `7`,
+        /// `true`), an array or object as its length (`3 items`,
+        /// `2 members`); empty for `null`.
+        value: String,
     },
     /// A segment definition does not match the schema.
     SegmentSchema {
@@ -774,9 +778,19 @@ impl fmt::Display for SpecError {
                 path,
                 expected,
                 found,
-            } => write!(
+                value,
+            } if value.is_empty() => write!(
                 f,
                 "spec: the value at {path} must be {expected}; found {found}"
+            ),
+            SpecError::WrongType {
+                path,
+                expected,
+                found,
+                value,
+            } => write!(
+                f,
+                "spec: the value at {path} must be {expected}; found {found} ({value})"
             ),
             SpecError::Patch { source } => write!(f, "applying patch: {source}"),
             SpecError::UnknownParent { loop_name, parent } => {
@@ -1317,11 +1331,10 @@ impl Spec {
             roots,
             segments,
             tables: Vec::new(),
-            source: Value::Null,
+            source,
         };
         spec.check_ambiguity()?;
-        spec.tables = compile_tables(&spec, section(&source, "tables"))?;
-        spec.source = source;
+        spec.tables = compile_tables(&spec, section(&spec.source, "tables"))?;
         Ok(spec)
     }
 
@@ -1964,13 +1977,28 @@ impl Leaf {
                         None
                     }
                 } else if number.is_f64() {
-                    Some("a fractional number")
+                    if number.as_f64().is_some_and(|float| float.fract() != 0.0) {
+                        Some("a number with a fractional part")
+                    } else {
+                        Some("a floating-point number")
+                    }
                 } else {
                     Some("a negative number")
                 }
             }
             _ => Some(kind_of(value)),
         }
+    }
+}
+
+/// The value as the datum of a [`SpecError::WrongType`]: a scalar as compact
+/// JSON, a container as its length, `null` as nothing.
+fn render_value(value: &Value) -> String {
+    match value {
+        Value::Null => String::new(),
+        Value::Array(items) => format!("{} items", items.len()),
+        Value::Object(members) => format!("{} members", members.len()),
+        scalar => scalar.to_string(),
     }
 }
 
@@ -2006,6 +2034,7 @@ fn check_leaf(value: &Value, at: &str, kind: Leaf) -> Result<(), SpecError> {
             path: at.to_string(),
             expected: kind.expected(),
             found,
+            value: render_value(value),
         }),
     }
 }
@@ -2058,10 +2087,11 @@ fn check_member_texts(
             path: at,
             expected: "an array of strings",
             found: kind_of(list),
+            value: render_value(list),
         });
     };
     for (i, item) in items.iter().enumerate() {
-        check_leaf(item, &child(&at, &i.to_string()), Leaf::Text)?;
+        check_leaf(item, &format!("{at}[{i}]"), Leaf::Text)?;
     }
     Ok(())
 }
@@ -2085,9 +2115,6 @@ fn check_shape(source: &Value) -> Result<(), SpecError> {
                 let at = child(&at, "trigger");
                 let trigger = object_at(trigger, &at)?;
                 check_member(trigger, &at, "segment", Leaf::Text, false)?;
-                if let Some(conditions) = trigger.get("where") {
-                    object_at(conditions, &child(&at, "where"))?;
-                }
                 check_member_map(trigger, &at, "where", Leaf::Text)?;
             }
             if let Some(control) = def.get("control") {
@@ -2120,9 +2147,6 @@ fn check_shape(source: &Value) -> Result<(), SpecError> {
                     let def = object_at(def, &at)?;
                     check_member(def, &at, "loop", Leaf::Text, true)?;
                     check_member(def, &at, "segment", Leaf::Text, true)?;
-                    if let Some(conditions) = def.get("where") {
-                        object_at(conditions, &child(&at, "where"))?;
-                    }
                     check_member_map(def, &at, "where", Leaf::Text)?;
                     for key in ["element", "component", "group_element"] {
                         check_member(def, &at, key, Leaf::Count, true)?;
@@ -2668,7 +2692,7 @@ mod tests {
         .unwrap_err();
         assert_eq!(
             wrong.to_string(),
-            "spec: the value at loops.\"a b\".trigger.where.1 must be a string; found a number"
+            "spec: the value at loops.\"a b\".trigger.where.1 must be a string; found a number (2)"
         );
     }
 
@@ -4420,39 +4444,39 @@ mod tests {
                 loop_json(
                     r#"{"trigger":{"segment":"HD"},"end":"TR","control":{"opener_element":"2","closer_element":2,"count_element":1,"count":"segments"}}"#,
                 ),
-                "spec: the value at loops.env.control.opener_element must be a non-negative integer; found a string",
+                "spec: the value at loops.env.control.opener_element must be a non-negative integer; found a string (\"2\")",
             ),
             (
                 loop_json(
                     r#"{"trigger":{"segment":"HD"},"end":"TR","control":{"opener_element":2,"closer_element":-2,"count_element":1,"count":"segments"}}"#,
                 ),
-                "spec: the value at loops.env.control.closer_element must be a non-negative integer; found a negative number",
+                "spec: the value at loops.env.control.closer_element must be a non-negative integer; found a negative number (-2)",
             ),
             (
                 loop_json(
                     r#"{"trigger":{"segment":"HD"},"end":"TR","control":{"opener_element":2,"closer_element":2,"count_element":1,"count":7}}"#,
                 ),
-                "spec: the value at loops.env.control.count must be a string; found a number",
+                "spec: the value at loops.env.control.count must be a string; found a number (7)",
             ),
             (
                 loop_json(r#"{"trigger":{"segment":"HD","where":{"1":"X","2":5}}}"#),
-                "spec: the value at loops.env.trigger.where.2 must be a string; found a number",
+                "spec: the value at loops.env.trigger.where.2 must be a string; found a number (5)",
             ),
             (
                 loop_json(r#"{"trigger":{"segment":7}}"#),
-                "spec: the value at loops.env.trigger.segment must be a string; found a number",
+                "spec: the value at loops.env.trigger.segment must be a string; found a number (7)",
             ),
             (
                 loop_json(r#"{"trigger":{"segment":"HD"},"segments":["A",null]}"#),
-                "spec: the value at loops.env.segments.1 must be a string; found null",
+                "spec: the value at loops.env.segments[1] must be a string; found null",
             ),
             (
                 loop_json(r#"{"trigger":{"segment":"HD"},"segments":"A"}"#),
-                "spec: the value at loops.env.segments must be an array of strings; found a string",
+                "spec: the value at loops.env.segments must be an array of strings; found a string (\"A\")",
             ),
             (
                 loop_json(r#"{"trigger":{"segment":"HD"},"end":true}"#),
-                "spec: the value at loops.env.end must be a string; found a boolean",
+                "spec: the value at loops.env.end must be a string; found a boolean (true)",
             ),
         ];
         for (json, expected) in cases {
@@ -4470,23 +4494,27 @@ mod tests {
         let cases = [
             (
                 r#"{"3":{"name":"p","type":"AN","min":"1"}}"#,
-                "spec: the value at segments.AA.elements.3.min must be a non-negative integer; found a string",
+                "spec: the value at segments.AA.elements.3.min must be a non-negative integer; found a string (\"1\")",
             ),
             (
                 r#"{"3":{"name":"p","type":"R","scale":300}}"#,
-                "spec: the value at segments.AA.elements.3.scale must be an integer from 0 to 255; found a number above 255",
+                "spec: the value at segments.AA.elements.3.scale must be an integer from 0 to 255; found a number above 255 (300)",
             ),
             (
                 r#"{"3":{"name":"p","type":"AN","required":"yes"}}"#,
-                "spec: the value at segments.AA.elements.3.required must be a boolean; found a string",
+                "spec: the value at segments.AA.elements.3.required must be a boolean; found a string (\"yes\")",
             ),
             (
                 r#"{"3":{"name":5,"type":"AN"}}"#,
-                "spec: the value at segments.AA.elements.3.name must be a string; found a number",
+                "spec: the value at segments.AA.elements.3.name must be a string; found a number (5)",
             ),
             (
                 r#"{"1":{"name":"c","type":"AN","composite":{"2":{"name":"x","type":"AN","max":1.5}}}}"#,
-                "spec: the value at segments.AA.elements.1.composite.2.max must be a non-negative integer; found a fractional number",
+                "spec: the value at segments.AA.elements.1.composite.2.max must be a non-negative integer; found a number with a fractional part (1.5)",
+            ),
+            (
+                r#"{"3":{"name":"p","type":"AN","max":2.0}}"#,
+                "spec: the value at segments.AA.elements.3.max must be a non-negative integer; found a floating-point number (2.0)",
             ),
         ];
         for (elements, expected) in cases {
@@ -4504,27 +4532,27 @@ mod tests {
         let cases = [
             (
                 r#"{"claims":{"loops":["A",2]}}"#,
-                "spec: the value at tables.claims.loops.1 must be a string; found a number",
+                "spec: the value at tables.claims.loops[1] must be a string; found a number (2)",
             ),
             (
                 r#"{"claims":{"loops":"A"}}"#,
-                "spec: the value at tables.claims.loops must be an array of strings; found a string",
+                "spec: the value at tables.claims.loops must be an array of strings; found a string (\"A\")",
             ),
             (
                 r#"{"claims":{"loops":["A"],"repeat":{"from":"2","step":3}}}"#,
-                "spec: the value at tables.claims.repeat.from must be a non-negative integer; found a string",
+                "spec: the value at tables.claims.repeat.from must be a non-negative integer; found a string (\"2\")",
             ),
             (
                 r#"{"claims":{"loops":["A"],"columns":{"x":{"segment":"AA","element":"1"}}}}"#,
-                "spec: the value at tables.claims.columns.x.element must be a non-negative integer; found a string",
+                "spec: the value at tables.claims.columns.x.element must be a non-negative integer; found a string (\"1\")",
             ),
             (
                 r#"{"claims":{"loops":["A"],"columns":{"x":{"segment_index":1}}}}"#,
-                "spec: the value at tables.claims.columns.x.segment_index must be a boolean; found a number",
+                "spec: the value at tables.claims.columns.x.segment_index must be a boolean; found a number (1)",
             ),
             (
                 r#"{"claims":{"loops":["A"],"columns":{"x":{"segment":"AA","element":1,"where":{"1":2}}}}}"#,
-                "spec: the value at tables.claims.columns.x.where.1 must be a string; found a number",
+                "spec: the value at tables.claims.columns.x.where.1 must be a string; found a number (2)",
             ),
         ];
         for (tables, expected) in cases {
@@ -4543,10 +4571,21 @@ mod tests {
             path: "loops.env.control.opener_element".into(),
             expected: "a non-negative integer",
             found: "a string",
+            value: "\"2\"".into(),
         };
         assert_eq!(
             err.to_string(),
-            "spec: the value at loops.env.control.opener_element must be a non-negative integer; found a string"
+            "spec: the value at loops.env.control.opener_element must be a non-negative integer; found a string (\"2\")"
+        );
+        let null = SpecError::WrongType {
+            path: "loops.env.end".into(),
+            expected: "a string",
+            found: "null",
+            value: String::new(),
+        };
+        assert_eq!(
+            null.to_string(),
+            "spec: the value at loops.env.end must be a string; found null"
         );
     }
 

@@ -698,14 +698,14 @@ impl<'s> Projector<'s> {
     }
 
     /// Reports each text value an append could not store.
-    fn report_dropped(&mut self, dropped: Vec<(String, usize)>, table: usize, segment: usize) {
-        for (column, bytes) in dropped {
+    fn report_dropped(&mut self, dropped: Vec<Dropped>, table: usize, segment: usize) {
+        for (column, bytes, value) in dropped {
             let rule = Rule::ValueDropped {
                 table: self.spec.tables()[table].name.clone(),
                 column,
                 bytes,
             };
-            self.push_diagnostic(rule, segment, None, None, &[]);
+            self.push_diagnostic(rule, segment, None, None, &value);
         }
     }
 
@@ -877,15 +877,21 @@ fn read(
     }
 }
 
+/// A text value an append could not store: its column, the byte total the
+/// column would have reached, and the value.
+type Dropped = (String, usize, Vec<u8>);
+
 /// Appends a collected row: its number, its anchor segment, the rows above
 /// it, then its columns; a column no segment matched is null. A text value
 /// that would take its column past what `i32` offsets address is stored as
-/// null and returned with its column name and the byte total it would have
-/// produced, so row numbers stay aligned and nothing disappears unreported.
-fn append(table: &mut Table, row: &Row, scratch: &mut Vec<Cell<'static>>) -> Vec<(String, usize)> {
+/// null and returned with its column name, the byte total it would have
+/// produced and the value itself, so row numbers stay aligned and nothing
+/// disappears unreported.
+fn append(table: &mut Table, row: &Row, scratch: &mut Vec<Cell<'static>>) -> Vec<Dropped> {
     let index = |value: usize| i64::try_from(value).map_or(Cell::Null, Cell::Int64);
     // The scratch vector is empty; collecting an empty iterator out of it
-    // gives its allocation back under the row's lifetime.
+    // gives its allocation back under the row's lifetime when std reuses the
+    // allocation in place; otherwise this is an ordinary allocation.
     scratch.clear();
     let mut cells: Vec<Cell<'_>> = std::mem::take(scratch)
         .into_iter()
@@ -920,11 +926,14 @@ fn append(table: &mut Table, row: &Row, scratch: &mut Vec<Cell<'static>>) -> Vec
             break;
         };
         let at = table.columns().iter().position(|(name, _)| *name == column);
-        match at.and_then(|at| cells.get_mut(at)) {
-            Some(cell) => *cell = Cell::Null,
-            None => break,
-        }
-        dropped.push((column, bytes));
+        let Some(cell) = at.and_then(|at| cells.get_mut(at)) else {
+            break;
+        };
+        let value = match std::mem::replace(cell, Cell::Null) {
+            Cell::Binary(value) => value.to_vec(),
+            _ => Vec::new(),
+        };
+        dropped.push((column, bytes, value));
     }
     cells.clear();
     *scratch = cells.into_iter().map_while(|_| None).collect();
@@ -1089,7 +1098,7 @@ mod tests {
         assert_eq!(
             rendered(&diagnostics),
             vec![
-                "SNIP 2 · text for column \"batch\" of table \"heads\" was not stored: it would bring the column to 8 bytes and a column holds at most 2147483647 · segment #2 · at head#2 · datum \"\""
+                "SNIP 2 · text for column \"batch\" of table \"heads\" was not stored: it would bring the column to 8 bytes and a column holds at most 2147483647 · segment #2 · at head#2 · datum \"EFGH\""
             ]
         );
     }
@@ -1110,7 +1119,7 @@ mod tests {
         assert_eq!(
             rendered(&diagnostics),
             vec![
-                "SNIP 2 · text for column \"group\" of table \"adjustments\" was not stored: it would bring the column to 4 bytes and a column holds at most 2147483647 · segment #3 · at head#1/claim#1 · datum \"\""
+                "SNIP 2 · text for column \"group\" of table \"adjustments\" was not stored: it would bring the column to 4 bytes and a column holds at most 2147483647 · segment #3 · at head#1/claim#1 · datum \"CO\""
             ]
         );
     }

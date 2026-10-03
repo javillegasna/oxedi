@@ -1,8 +1,10 @@
 //! Throughput of the tokenizer and the document index pass over the three
 //! largest fixtures, of the loop engine over the three largest samples in
 //! bytes and in events, of the engine with the envelope checker over the
-//! same samples, and of the whole processor (engine, checker, projector)
-//! over them in bytes and in table rows.
+//! same samples, of the engine over claim fragments without their envelope
+//! (implicit ancestors against the same segments under an explicit `LX`), and
+//! of the whole processor (engine, checker, projector) over the samples in
+//! bytes and in table rows.
 
 use criterion::{BenchmarkId, Criterion, Throughput, criterion_group, criterion_main};
 use edi835_core::{Delimiters, Document, EnvelopeChecker, LoopEngine, Processor, Spec, Tokenizer};
@@ -133,11 +135,8 @@ fn claim_segments() -> Vec<Vec<String>> {
     for segment in text.split('~').map(str::trim).filter(|s| !s.is_empty()) {
         match segment.split('*').next() {
             Some("CLP") => claims.push(vec![segment.to_string()]),
-            Some("LX" | "SE") => {
-                if segment.starts_with("SE") {
-                    break;
-                }
-            }
+            Some("SE") => break,
+            Some("LX") => {}
             _ => {
                 if let Some(claim) = claims.last_mut() {
                     claim.push(segment.to_string());
@@ -172,10 +171,13 @@ fn run_engine_plain(spec: &Spec, bytes: &[u8]) -> usize {
     events + engine.finish().len()
 }
 
-/// Fragments without their envelope: every claim (and every `CLP` plus `PLB`
-/// pair) arrives with its enclosing loops closed, so the engine opens the
-/// missing ancestors implicitly. Each `implicit` input is paired with a
-/// `baseline` of the same segments preceded by the `LX` that holds them.
+/// Fragments without their envelope. In the `claims` variant each repetition
+/// is every claim of the fixture followed by a `PLB`, and only its first `CLP`
+/// opens the missing ancestors implicitly; in the `pair` variant each
+/// repetition is one `CLP` and one `PLB`, which opens them. Each `implicit`
+/// input is paired with a `baseline` of the same segments preceded by the `LX`
+/// that holds them; both are measured per segment of the implicit unit, so the
+/// baseline's extra `LX` is not counted as work.
 fn engine_fragment(c: &mut Criterion) {
     let spec = Spec::builtin_835();
     let plb = "PLB*1234*20240101*WO:ABC*1".to_string();
@@ -187,11 +189,12 @@ fn engine_fragment(c: &mut Criterion) {
     let pair = vec!["CLP*1*1*100*80".to_string(), plb];
     let mut group = c.benchmark_group("engine_fragment");
     for (label, unit, repeats) in [("claims", claims, 2000), ("pair", pair, 20000)] {
+        let implicit_len = unit.len();
         let mut held = vec!["LX*1".to_string()];
         held.extend(unit.iter().cloned());
         for (kind, unit) in [("implicit", &unit), ("baseline", &held)] {
-            let (bytes, segments) = repeated(unit, repeats);
-            group.throughput(Throughput::Elements(segments as u64));
+            let (bytes, _) = repeated(unit, repeats);
+            group.throughput(Throughput::Elements((implicit_len * repeats) as u64));
             group.bench_with_input(BenchmarkId::new(label, kind), &bytes, |b, bytes| {
                 b.iter(|| run_engine_plain(&spec, black_box(bytes)))
             });

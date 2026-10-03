@@ -817,7 +817,7 @@ mod tests {
     }
 
     #[test]
-    fn value_dropped_displays_the_table_the_column_and_the_byte_total() {
+    fn value_dropped_displays_the_table_the_column_the_byte_total_and_the_value() {
         let diagnostic = Diagnostic::new(
             Rule::ValueDropped {
                 table: "claims".into(),
@@ -828,7 +828,7 @@ mod tests {
             None,
             None,
             path(&[("2100", 4)]),
-            Vec::new(),
+            b"a long note".to_vec(),
         );
         assert_eq!(
             diagnostic.level.to_string(),
@@ -837,7 +837,7 @@ mod tests {
         );
         assert_eq!(
             diagnostic.to_string(),
-            "SNIP 2 · text for column \"note\" of table \"claims\" was not stored: it would bring the column to 2147483650 bytes and a column holds at most 2147483647 · segment #9 · at 2100#4 · datum \"\""
+            "SNIP 2 · text for column \"note\" of table \"claims\" was not stored: it would bring the column to 2147483650 bytes and a column holds at most 2147483647 · segment #9 · at 2100#4 · datum \"a long note\""
         );
     }
 

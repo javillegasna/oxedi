@@ -521,9 +521,11 @@ mod tests {
     fn an_end_segment_at_the_root_checks_nothing() {
         let spec = Spec::builtin_835();
         let found = rendered(&spec, "SE*9*0001~");
-        assert!(
-            found.iter().all(|line| !line.contains("declares")),
-            "{found:?}"
+        assert_eq!(
+            found,
+            vec![
+                "SNIP 1 · segment \"SE\" is not part of the structure: no open loop holds it and it opens no loop · segment #0 · at the root · datum \"SE\""
+            ]
         );
     }
 

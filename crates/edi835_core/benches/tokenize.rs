@@ -5,7 +5,7 @@
 //! over them in bytes and in table rows.
 
 use criterion::{BenchmarkId, Criterion, Throughput, criterion_group, criterion_main};
-use edi835_core::{Document, EnvelopeChecker, LoopEngine, Processor, Spec, Tokenizer};
+use edi835_core::{Delimiters, Document, EnvelopeChecker, LoopEngine, Processor, Spec, Tokenizer};
 use std::hint::black_box;
 
 const FIXTURES: &[&str] = &[
@@ -36,7 +36,8 @@ fn load(name: &str) -> Vec<u8> {
 /// how many diagnostics the checker raised.
 fn run_check(spec: &Spec, bytes: &[u8]) -> usize {
     let mut engine = LoopEngine::new(spec);
-    let mut checker = EnvelopeChecker::new(spec);
+    let delimiters = Delimiters::from_isa(bytes).expect("sample has an ISA");
+    let mut checker = EnvelopeChecker::new(spec, &delimiters);
     let mut diagnostics = 0usize;
     for segment in Tokenizer::new(bytes).expect("sample has an ISA") {
         let events = engine.feed(&segment);

@@ -50,7 +50,7 @@ impl<'s> Processor<'s> {
     pub fn new(spec: &'s Spec, delimiters: &Delimiters) -> Self {
         Self {
             engine: LoopEngine::new(spec),
-            checker: EnvelopeChecker::new(spec),
+            checker: EnvelopeChecker::new(spec, delimiters),
             projector: Projector::new(spec, delimiters),
             output: Output::default(),
         }

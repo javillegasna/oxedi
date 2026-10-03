@@ -7,6 +7,9 @@
 //! envelopes, and which elements carry the count and the control number, is
 //! read from each loop's `control` in the spec.
 
+use std::borrow::Cow;
+
+use crate::delimiters::Delimiters;
 use crate::diagnostic::{Diagnostic, LoopRef, Rule};
 use crate::element::Element;
 use crate::engine::Event;
@@ -35,6 +38,8 @@ struct Open {
 #[derive(Debug, Clone)]
 pub struct EnvelopeChecker<'s> {
     spec: &'s Spec,
+    /// Joins the components of a control value the file split.
+    separator: u8,
     open: Vec<Open>,
     /// Instances opened so far, per loop index.
     ordinals: Vec<usize>,
@@ -44,10 +49,12 @@ pub struct EnvelopeChecker<'s> {
 }
 
 impl<'s> EnvelopeChecker<'s> {
-    /// A checker at the root, with nothing open.
-    pub fn new(spec: &'s Spec) -> Self {
+    /// A checker at the root, with nothing open. `delimiters` gives the
+    /// component separator, which a control value read as one text keeps.
+    pub fn new(spec: &'s Spec, delimiters: &Delimiters) -> Self {
         Self {
             spec,
+            separator: delimiters.component,
             open: Vec::new(),
             ordinals: vec![0; spec.loops().len()],
             seen: 0,
@@ -109,8 +116,15 @@ impl<'s> EnvelopeChecker<'s> {
         if !implicit && let Some(parent) = self.open.last_mut() {
             parent.children = parent.children.saturating_add(1);
         }
+        let mut missing_opener = None;
         let control_number = match def.control {
-            Some(control) if !implicit => Some(simple_at(segment, control.opener_element).to_vec()),
+            Some(control) if !implicit => {
+                let value = text_at(segment, control.opener_element, self.separator);
+                if value.is_none() {
+                    missing_opener = Some(control.opener_element);
+                }
+                value.map(Cow::into_owned)
+            }
             _ => None,
         };
         self.open.push(Open {
@@ -123,6 +137,17 @@ impl<'s> EnvelopeChecker<'s> {
             control_number,
             ended: false,
         });
+        if let Some(element) = missing_opener {
+            self.report(
+                Rule::ControlElementMissing {
+                    segment_id: segment.id.to_vec(),
+                    element,
+                },
+                Some(trigger),
+                Some(element),
+                Vec::new(),
+            );
+        }
         if implicit {
             self.report(
                 Rule::ImplicitLoop {
@@ -160,9 +185,17 @@ impl<'s> EnvelopeChecker<'s> {
         // number is no longer needed.
         let opener_value = top.control_number.take();
 
-        let found = simple_at(segment, control.count_element);
-        if parse_count(found) != Some(counted) {
-            self.report(
+        match text_at(segment, control.count_element, self.separator) {
+            None => self.report(
+                Rule::ControlElementMissing {
+                    segment_id: segment.id.to_vec(),
+                    element: control.count_element,
+                },
+                Some(segment.index),
+                Some(control.count_element),
+                Vec::new(),
+            ),
+            Some(found) if parse_count(&found) != Some(counted) => self.report(
                 Rule::ControlCountMismatch {
                     segment_id: segment.id.to_vec(),
                     element: control.count_element,
@@ -171,26 +204,37 @@ impl<'s> EnvelopeChecker<'s> {
                 },
                 Some(segment.index),
                 Some(control.count_element),
-                found.to_vec(),
-            );
+                found.into_owned(),
+            ),
+            Some(_) => {}
         }
         if let Some(opener_value) = opener_value {
-            let closer_value = simple_at(segment, control.closer_element);
-            if closer_value != opener_value.as_slice() {
-                self.report(
-                    Rule::ControlNumberMismatch {
-                        opener: def.trigger.segment.clone(),
-                        opener_element: control.opener_element,
-                        closer: segment.id.to_vec(),
-                        closer_element: control.closer_element,
-                        opener_value,
-                        closer_value: closer_value.to_vec(),
-                        opened_at,
+            match text_at(segment, control.closer_element, self.separator) {
+                None => self.report(
+                    Rule::ControlElementMissing {
+                        segment_id: segment.id.to_vec(),
+                        element: control.closer_element,
                     },
                     Some(segment.index),
                     Some(control.closer_element),
-                    closer_value.to_vec(),
-                );
+                    Vec::new(),
+                ),
+                Some(closer_value) if closer_value.as_ref() != opener_value.as_slice() => self
+                    .report(
+                        Rule::ControlNumberMismatch {
+                            opener: def.trigger.segment.clone(),
+                            opener_element: control.opener_element,
+                            closer: segment.id.to_vec(),
+                            closer_element: control.closer_element,
+                            opener_value,
+                            closer_value: closer_value.to_vec(),
+                            opened_at,
+                        },
+                        Some(segment.index),
+                        Some(control.closer_element),
+                        closer_value.into_owned(),
+                    ),
+                Some(_) => {}
             }
         }
     }
@@ -244,13 +288,22 @@ impl<'s> EnvelopeChecker<'s> {
     }
 }
 
-/// The simple value at a 1-based position; empty when the element is absent
-/// or composite.
-fn simple_at<'a>(segment: &'a Segment<'_>, position: usize) -> &'a [u8] {
-    segment
-        .element(position)
-        .and_then(Element::simple)
-        .unwrap_or_default()
+/// The whole text of the element at a 1-based position, components re-joined
+/// with `separator`; `None` when the segment has no such element.
+fn text_at<'a>(segment: &'a Segment<'_>, position: usize, separator: u8) -> Option<Cow<'a, [u8]>> {
+    Some(match segment.element(position)? {
+        Element::Simple(value) => Cow::Borrowed(value.as_ref()),
+        Element::Composite(parts) => {
+            let mut joined = Vec::new();
+            for (at, part) in parts.iter().enumerate() {
+                if at > 0 {
+                    joined.push(separator);
+                }
+                joined.extend_from_slice(part);
+            }
+            Cow::Owned(joined)
+        }
+    })
 }
 
 /// A count written as ASCII digits (leading zeros allowed); `None` for
@@ -279,9 +332,9 @@ mod tests {
     /// and returns every diagnostic, `finish` included.
     fn check(spec: &Spec, input: &str) -> Vec<Diagnostic> {
         let mut engine = LoopEngine::new(spec);
-        let mut checker = EnvelopeChecker::new(spec);
-        let mut out = Vec::new();
         let delims = Delimiters::new(b'*', b':', b'~');
+        let mut checker = EnvelopeChecker::new(spec, &delims);
+        let mut out = Vec::new();
         for segment in Tokenizer::with_delimiters(input.as_bytes(), delims) {
             let events = engine.feed(&segment);
             out.extend_from_slice(checker.on(&segment, events));
@@ -387,6 +440,91 @@ mod tests {
             }
         );
         assert_eq!(diagnostics[0].datum, b"3X");
+    }
+
+    #[test]
+    fn a_composite_count_is_reported_as_the_whole_text() {
+        let spec = Spec::builtin_835();
+        let input = format!(
+            "{ISA}GS*HP*S*R*20240101*1200*7*X*005010X221A1~ST*835*0001~BPR*I*1*C*CHK~SE*1:2*0001~GE*1*7~IEA*1*000000001~"
+        );
+        let diagnostics = check(&spec, &input);
+        assert_eq!(diagnostics.len(), 1);
+        assert_eq!(
+            diagnostics[0].to_string(),
+            "SNIP 1 · SE01 declares \"1:2\" but the count is 3 · segment #4, element 1 · at interchange#1/group#1/transaction#1 · datum \"1:2\""
+        );
+        assert_eq!(diagnostics[0].datum, b"1:2");
+    }
+
+    #[test]
+    fn composite_control_numbers_are_compared_as_text() {
+        let spec = Spec::builtin_835();
+        let build = |closer: &str| {
+            format!(
+                "{ISA}GS*HP*S*R*20240101*1200*7*X*005010X221A1~ST*835*1:2~SE*2*{closer}~GE*1*7~IEA*1*000000001~"
+            )
+        };
+        assert_eq!(check(&spec, &build("1:2")), Vec::new());
+        assert_eq!(
+            rendered(&spec, &build("1:3")),
+            vec![
+                "SNIP 1 · SE02 \"1:3\" does not match ST02 \"1:2\" of segment #2 · segment #3, element 2 · at interchange#1/group#1/transaction#1 · datum \"1:3\""
+            ]
+        );
+    }
+
+    #[test]
+    fn a_segment_without_its_count_and_number_reports_each_as_missing() {
+        let spec = Spec::builtin_835();
+        let input = format!(
+            "{ISA}GS*HP*S*R*20240101*1200*7*X*005010X221A1~ST*835*0001~SE~GE*1*7~IEA*1*000000001~"
+        );
+        assert_eq!(
+            rendered(&spec, &input),
+            vec![
+                "SNIP 1 · control element SE01 is missing: the segment has no element 1 · segment #3, element 1 · at interchange#1/group#1/transaction#1 · datum \"\"",
+                "SNIP 1 · control element SE02 is missing: the segment has no element 2 · segment #3, element 2 · at interchange#1/group#1/transaction#1 · datum \"\"",
+            ]
+        );
+    }
+
+    #[test]
+    fn a_missing_closer_number_is_reported_as_missing() {
+        let spec = Spec::builtin_835();
+        let input = format!(
+            "{ISA}GS*HP*S*R*20240101*1200*7*X*005010X221A1~ST*835*0001~SE*2~GE*1*7~IEA*1*000000001~"
+        );
+        assert_eq!(
+            rendered(&spec, &input),
+            vec![
+                "SNIP 1 · control element SE02 is missing: the segment has no element 2 · segment #3, element 2 · at interchange#1/group#1/transaction#1 · datum \"\"",
+            ]
+        );
+    }
+
+    #[test]
+    fn a_missing_opener_number_is_reported_once_at_the_opener() {
+        let spec = Spec::builtin_835();
+        let input = format!(
+            "{ISA}GS*HP*S*R*20240101*1200*7*X*005010X221A1~ST*835~SE*2*0001~GE*1*7~IEA*1*000000001~"
+        );
+        assert_eq!(
+            rendered(&spec, &input),
+            vec![
+                "SNIP 1 · control element ST02 is missing: the segment has no element 2 · segment #2, element 2 · at interchange#1/group#1/transaction#1 · datum \"\"",
+            ]
+        );
+    }
+
+    #[test]
+    fn an_end_segment_at_the_root_checks_nothing() {
+        let spec = Spec::builtin_835();
+        let found = rendered(&spec, "SE*9*0001~");
+        assert!(
+            found.iter().all(|line| !line.contains("declares")),
+            "{found:?}"
+        );
     }
 
     #[test]
@@ -516,8 +654,8 @@ mod tests {
         let input = interchange("ZZZ~", "3");
         let first = check(&spec, &input);
         let mut engine = LoopEngine::new(&spec);
-        let mut checker = EnvelopeChecker::new(&spec);
         let delims = Delimiters::new(b'*', b':', b'~');
+        let mut checker = EnvelopeChecker::new(&spec, &delims);
         let run = |engine: &mut LoopEngine<'_>, checker: &mut EnvelopeChecker<'_>| {
             let mut out = Vec::new();
             for segment in Tokenizer::with_delimiters(input.as_bytes(), delims) {

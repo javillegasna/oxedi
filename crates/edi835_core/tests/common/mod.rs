@@ -110,7 +110,7 @@ pub fn diagnostics_of(
     delims: edi835_core::Delimiters,
 ) -> Vec<edi835_core::Diagnostic> {
     let mut engine = edi835_core::LoopEngine::new(spec);
-    let mut checker = edi835_core::EnvelopeChecker::new(spec);
+    let mut checker = edi835_core::EnvelopeChecker::new(spec, &delims);
     let mut diagnostics = Vec::new();
     for segment in edi835_core::Tokenizer::with_delimiters(bytes, delims) {
         let events = engine.feed(&segment);

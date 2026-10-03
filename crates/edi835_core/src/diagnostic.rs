@@ -88,6 +88,13 @@ pub enum Rule {
         /// The count element as written.
         found: Vec<u8>,
     },
+    /// A control or count element the spec names is absent from its segment.
+    ControlElementMissing {
+        /// The segment id, e.g. `SE`.
+        segment_id: Vec<u8>,
+        /// 1-based position of the absent element.
+        element: usize,
+    },
     /// A closing segment's control number differs from its opener's.
     ControlNumberMismatch {
         /// The opening segment id, e.g. `ST`.
@@ -169,6 +176,7 @@ impl Rule {
             | Rule::ImplicitLoop { .. }
             | Rule::UnterminatedLoop { .. }
             | Rule::ControlCountMismatch { .. }
+            | Rule::ControlElementMissing { .. }
             | Rule::ControlNumberMismatch { .. } => SnipLevel::L1,
             Rule::RequiredElementMissing { .. }
             | Rule::TypeMismatch { .. }
@@ -251,6 +259,18 @@ impl fmt::Display for Rule {
                     component: None
                 },
                 Quoted(found)
+            ),
+            Rule::ControlElementMissing {
+                segment_id,
+                element,
+            } => write!(
+                f,
+                "control element {} is missing: the segment has no element {element}",
+                ElementRef {
+                    segment_id,
+                    element: *element,
+                    component: None
+                }
             ),
             Rule::ControlNumberMismatch {
                 opener,
@@ -588,6 +608,25 @@ mod tests {
         assert_eq!(
             diagnostic.to_string(),
             "SNIP 1 · SE01 declares \"15\" but the count is 18 · segment #19, element 1 · at interchange#1/group#1/transaction#1 · datum \"15\""
+        );
+    }
+
+    #[test]
+    fn control_element_missing_displays_the_segment_and_the_position() {
+        let diagnostic = Diagnostic::new(
+            Rule::ControlElementMissing {
+                segment_id: b"SE".to_vec(),
+                element: 2,
+            },
+            Some(4),
+            Some(2),
+            None,
+            path(TRANSACTION),
+            Vec::new(),
+        );
+        assert_eq!(
+            diagnostic.to_string(),
+            "SNIP 1 · control element SE02 is missing: the segment has no element 2 · segment #4, element 2 · at interchange#1/group#1/transaction#1 · datum \"\""
         );
     }
 

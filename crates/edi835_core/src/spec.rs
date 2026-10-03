@@ -1165,13 +1165,20 @@ impl Spec {
     /// Ancestors of a loop, root-most first, excluding the loop itself.
     pub fn ancestors(&self, id: LoopId) -> Vec<LoopId> {
         let mut chain = Vec::new();
+        self.ancestors_into(id, &mut chain);
+        chain
+    }
+
+    /// Like [`ancestors`](Spec::ancestors), writing the chain into `chain`
+    /// after clearing it, so a caller can reuse one buffer.
+    pub fn ancestors_into(&self, id: LoopId, chain: &mut Vec<LoopId>) {
+        chain.clear();
         let mut current = self.loops[id.0].parent;
         while let Some(parent) = current {
             chain.push(parent);
             current = self.loops[parent.0].parent;
         }
         chain.reverse();
-        chain
     }
 
     /// The child of `parent` that `segment` triggers, preferring the trigger
@@ -2385,6 +2392,17 @@ mod tests {
                     }
                 }
             }
+        }
+    }
+
+    #[test]
+    fn ancestors_into_reuses_the_buffer_and_matches_ancestors() {
+        let spec = Spec::builtin_835();
+        let mut chain = vec![spec.loop_id("2110").unwrap(); 9];
+        for name in ["2110", "interchange", "transaction"] {
+            let id = spec.loop_id(name).unwrap();
+            spec.ancestors_into(id, &mut chain);
+            assert_eq!(chain, spec.ancestors(id), "{name}");
         }
     }
 

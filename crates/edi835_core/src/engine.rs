@@ -63,6 +63,8 @@ pub struct LoopEngine<'s> {
     spec: &'s Spec,
     stack: Vec<LoopId>,
     events: Vec<Event>,
+    /// Scratch for the ancestor chain of an implicit open.
+    chain: Vec<LoopId>,
 }
 
 impl<'s> LoopEngine<'s> {
@@ -72,6 +74,7 @@ impl<'s> LoopEngine<'s> {
             spec,
             stack: Vec::new(),
             events: Vec::new(),
+            chain: Vec::new(),
         }
     }
 
@@ -120,7 +123,8 @@ impl<'s> LoopEngine<'s> {
         }
 
         if let Some(target) = self.spec.matching_any(segment) {
-            let chain = self.spec.ancestors(target);
+            let mut chain = std::mem::take(&mut self.chain);
+            self.spec.ancestors_into(target, &mut chain);
             // Keep the stack down to the nearest open ancestor; everything in
             // the chain after it is missing and opens implicitly.
             let (depth, first_missing) = chain
@@ -138,6 +142,7 @@ impl<'s> LoopEngine<'s> {
             for &ancestor in &chain[first_missing..] {
                 self.open(ancestor, true, index);
             }
+            self.chain = chain;
             self.open(target, false, index);
             self.capture(target, index);
             return &self.events;

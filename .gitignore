@@ -1,9 +1,5 @@
 /target
 **/*.rs.bk
-
-# Anonymized 835 samples: kept out of git until the anonymization is reviewed.
-# Remove this line to include them. Originals live outside the repo.
-samples/
 __pycache__/
 .superpowers/
 

@@ -29,7 +29,8 @@ What is replaced (element positions are X12 positions, XX01 = first element):
 Fake NPIs are Luhn-valid with the 80840 prefix, so NPI validators still pass.
 
 Usage:
-  anonymize_835.py --in-dir samples --out-dir /path/outside/repo/out [--mapping map.json] [--seed x]
+  anonymize_835.py --in-dir /path/outside/repo/originals --out-dir crates/edi835_core/tests/samples \
+                   [--mapping /path/outside/repo/mapping.json] [--seed x]
 
 The mapping file is a re-identification key: keep it with the originals, never
 in the repository.

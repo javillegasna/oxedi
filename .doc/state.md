@@ -1,4 +1,4 @@
-# State — 2026-10-03 (late night)
+# State — 2026-10-03 (after the backlog sprint)
 
 Snapshot for picking the project up cold. Update when a stage changes state.
 
@@ -29,10 +29,10 @@ Snapshot for picking the project up cold. Update when a stage changes state.
 
 ## Open items
 
-- Project #8 Backlog: #8, #15, #16 (Stage 3 leftovers) and #22–#29 (Stage 4a final-review
-  findings: schema key paths, composite control values, lossy UTF-8 in Display, ImplicitLoop
-  naming the missing trigger, `end == trigger`, R scale cap, ISA11 name, separator-ambiguous
-  paths). #7, #17, #18, #19 closed with PR #30.
+- Project #8: open are #28 (rename `ISA11` → `isa11` in `specs/835.json`, one line, owner
+  ruled "no semantics"; the permission classifier blocked the implementer's edit, so it waits
+  for the owner's explicit go), #39 (projector throughput needs design changes to reach
+  50 MiB/s; profile in the issue; decide with Stage 5's zero-copy export), #40–#42 (Baja).
 - `.doc/analysis/` study notes describe the crate before Stage 4 (rewritten 2026-10-03 at
   commit 8f86e42); one update from the real code is due after the 4b PR merges.
 - Older plans (`stage-1`, `stage-2`) show pre-P10 error shapes; they are historical records,
@@ -42,15 +42,18 @@ Snapshot for picking the project up cold. Update when a stage changes state.
 
 §7 Stage 4 approved 2026-10-03 (T11–T17, resolves D10, opens D11). The stage runs as two
 plans and two PRs. 4a (spec `segments` + validation closing #7 #17 #18, `LoopOpened.segment`
-for #19, `Diagnostic`, `EnvelopeChecker` SNIP 1) is merged. 4b is implemented on branch
-`stage-4b-projection` (plan `plans/stage-4b-projection.md`, 8 tasks in 3 batches, batch
-reviews + final Opus triage clean after one fix wave; 308 tests; `process` bench 29–32 MiB/s)
-and awaits the owner's merge of its PR, which closes #25 and #27; its deferred findings are
-issues #31–#37. After 4b the crate adds: `column` (Arrow-layout `Column`/`Table`/`Tables`,
+for #19, `Diagnostic`, `EnvelopeChecker` SNIP 1) is merged. 4b is merged (PR #38, closed #25 #27; plan
+`plans/stage-4b-projection.md`; ledger `analysis/stage-4b-ledger.md`). A backlog sprint
+(PR #43, ledger `analysis/backlog-sprint-ledger.md`) then closed #8 #15 #16 #22 #23 #24 #26
+#29 #31–#37: key paths in every schema error, `EndIsTrigger`, quoted separator keys,
+datum-complete table errors, whole-text control values and `ControlElementMissing`, `\xNN`
+escapes, `TreeBuilder`, implicit-anchor invariants, ancestor scratch buffer, `ValueDropped`,
+year-0 dates rejected, raw-number rendering out of range, projector +8–10% (30→33 MiB/s).
+Suite: 337 tests. After 4b the crate adds: `column` (Arrow-layout `Column`/`Table`/`Tables`,
 X12 value parsers), `tables` section of the spec with five built-in tables, `Projector`
 (rows at loop close + SNIP 2), `Processor` (one pass), table and diagnostic goldens under
-`tests/golden/project/`. SNIP 3 was not included (D11). Next after the merge: one update
-of `.doc/analysis/` from the real code, then Stage 5 (Python binding) trade-offs in chat.
+`tests/golden/project/`. SNIP 3 was not included (D11). Next: one update of `.doc/analysis/` from the real code (in progress), then Stage 5 (Python
+binding) trade-offs in chat before writing §7 Stage 5.
 Execution convention: main session orchestrates only; implementer by complexity, reviewer one
 tier up; batches of two to four tasks since 4b.
 The decisions that were open, now settled in §7:

@@ -565,9 +565,13 @@ tablas, sin copia, y esta lista de diagnósticos.
   `segments`, `end` y la sección nueva, nombrando loop y entrada (#7); comprueba sobre
   `serde_json::Value` que la raíz, `loops`, cada loop, cada trigger, `where`, `segments`,
   cada segmento y sus `elements` son objetos, y lo dice en palabras llanas, "the spec must
-  be a JSON object; found an array" (#18); rechaza dos hermanos cuyos disparadores no se
-  excluyen en ninguna posición compartida, nombrando ambos loops y sus condiciones (#17;
-  `N1*PR` y `N1*PE` sí se excluyen, el built-in carga). Descartado definir elementos dentro
+  be a JSON object; found an array" (#18); rechaza dos hermanos cuyos disparadores se solapan,
+  nombrando ambos loops y sus condiciones (#17): mismo segmento, ninguna posición presente
+  en ambos `where` con valores distintos, y ningún conjunto de condiciones es superconjunto
+  estricto del otro (un `N1` desnudo junto a `N1 {1:PR}` es un comodín válido porque el
+  motor prefiere al más específico; `N1 {1:PR}` junto a `N1 {2:X}` se rechaza porque solo el
+  nombre decidiría; `N1*PR` y `N1*PE` se excluyen, el built-in carga). Los ordinales de la
+  ruta de un diagnóstico (`2100#3`) cuentan instancias del loop en todo el flujo. Descartado definir elementos dentro
   de cada loop (repetición y el dolor de #14) y elementos como array (un parche
   reemplazaría la lista entera).
 - **T14 · Columnas propias con la disposición de Arrow, sin el crate `arrow`.** Un

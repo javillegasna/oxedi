@@ -225,6 +225,27 @@ pub enum Cell<'a> {
 }
 
 impl Cell<'_> {
+    /// The cell's value as text for an error message: numbers as stored,
+    /// bytes quoted on one line and cut at 32 bytes.
+    fn raw_text(&self) -> String {
+        const CUT: usize = 32;
+        match self {
+            Cell::Null => "null".to_string(),
+            Cell::Binary(bytes) => {
+                let shown = bytes.get(..CUT).unwrap_or(bytes);
+                let text = format!("{:?}", String::from_utf8_lossy(shown));
+                if shown.len() < bytes.len() {
+                    format!("{text}...")
+                } else {
+                    text
+                }
+            }
+            Cell::Int64(value) => value.to_string(),
+            Cell::Decimal128(value) => value.to_string(),
+            Cell::Date32(value) | Cell::Time32(value) => value.to_string(),
+        }
+    }
+
     fn kind_name(&self) -> &'static str {
         match self {
             Cell::Null => "null",
@@ -246,6 +267,10 @@ pub enum CellError {
         column: ColumnType,
         /// The cell's type, e.g. `int64`.
         cell: &'static str,
+        /// The cell's value: integers as written, a decimal as its scaled
+        /// integer, dates as days and times as seconds, bytes as a quoted
+        /// string cut at 32 bytes.
+        value: String,
     },
     /// The bytes would take a binary column past what `i32` offsets address.
     BinaryOverflow {
@@ -257,8 +282,17 @@ pub enum CellError {
 impl fmt::Display for CellError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            CellError::TypeMismatch { column, cell } => {
-                write!(f, "a {column} column cannot hold a {cell} value")
+            CellError::TypeMismatch {
+                column,
+                cell,
+                value,
+            } => {
+                write!(
+                    f,
+                    "{} {column} column cannot hold {} {cell} value ({value})",
+                    article(&column.to_string()),
+                    article(cell)
+                )
             }
             CellError::BinaryOverflow { bytes } => write!(
                 f,
@@ -266,6 +300,15 @@ impl fmt::Display for CellError {
                 i32::MAX
             ),
         }
+    }
+}
+
+/// `an` before a word that starts with a vowel, `a` otherwise.
+fn article(word: &str) -> &'static str {
+    if word.starts_with(['a', 'e', 'i', 'o', 'u']) {
+        "an"
+    } else {
+        "a"
     }
 }
 
@@ -419,6 +462,7 @@ impl ColumnData {
             return Err(CellError::TypeMismatch {
                 column: self.kind(),
                 cell: cell.kind_name(),
+                value: cell.raw_text(),
             });
         }
         if let (Column::Binary { data, .. }, Cell::Binary(bytes)) = (&self.column, cell) {
@@ -980,13 +1024,27 @@ mod tests {
     }
 
     #[test]
+    fn a_refused_text_value_is_quoted_and_cut_at_32_bytes() {
+        let mut column = ColumnData::new(ColumnType::Date32);
+        let long = [b'x'; 40];
+        assert_eq!(
+            column.push(Cell::Binary(&long)).unwrap_err().to_string(),
+            format!(
+                "a date32 column cannot hold a binary value (\"{}\"...)",
+                "x".repeat(32)
+            )
+        );
+    }
+
+    #[test]
     fn a_cell_of_another_type_is_refused_and_nothing_is_appended() {
         let mut column = ColumnData::new(ColumnType::Date32);
         assert_eq!(
             column.push(Cell::Int64(3)),
             Err(CellError::TypeMismatch {
                 column: ColumnType::Date32,
-                cell: "int64"
+                cell: "int64",
+                value: "3".into()
             })
         );
         assert!(column.is_empty());
@@ -997,10 +1055,20 @@ mod tests {
         assert_eq!(
             CellError::TypeMismatch {
                 column: ColumnType::Date32,
-                cell: "int64"
+                cell: "int64",
+                value: "3".into()
             }
             .to_string(),
-            "a date32 column cannot hold a int64 value"
+            "a date32 column cannot hold an int64 value (3)"
+        );
+        assert_eq!(
+            CellError::TypeMismatch {
+                column: ColumnType::Int64 { scale: 0 },
+                cell: "date32",
+                value: "-1".into()
+            }
+            .to_string(),
+            "an int64 column cannot hold a date32 value (-1)"
         );
         assert_eq!(
             CellError::BinaryOverflow { bytes: 2147483650 }.to_string(),
@@ -1030,7 +1098,8 @@ mod tests {
                 column: "amount".into(),
                 source: CellError::TypeMismatch {
                     column: ColumnType::Int64 { scale: 0 },
-                    cell: "binary"
+                    cell: "binary",
+                    value: "\"x\"".into()
                 }
             }
         );
@@ -1071,11 +1140,12 @@ mod tests {
                     scale: 2,
                 },
                 cell: "binary",
+                value: "\"ab\"".into(),
             },
         };
         assert_eq!(
             cell.to_string(),
-            "table \"claims\" column \"charge\": a decimal128(38, 2) column cannot hold a binary value"
+            "table \"claims\" column \"charge\": a decimal128(38, 2) column cannot hold a binary value (\"ab\")"
         );
         assert!(std::error::Error::source(&cell).is_some());
     }

@@ -235,10 +235,25 @@ impl Cell<'_> {
             Cell::Null => "null".to_string(),
             Cell::Binary(bytes) => {
                 let mut end = CUT.min(bytes.len());
-                // A continuation byte at the cut belongs to a character that
-                // began before it; step back to where that character starts.
-                while end > 0 && bytes.get(end).is_some_and(|byte| byte & 0xC0 == 0x80) {
-                    end -= 1;
+                // A continuation byte at the cut may belong to a character
+                // that began up to three bytes earlier; step back to its lead
+                // byte. Without a lead byte in reach the cut stays.
+                if bytes.get(end).is_some_and(|byte| byte & 0xC0 == 0x80) {
+                    for back in 1..=3 {
+                        let Some(at) = end.checked_sub(back) else {
+                            break;
+                        };
+                        match bytes.get(at) {
+                            Some(byte) if byte & 0xC0 == 0x80 => {}
+                            Some(byte) => {
+                                if *byte >= 0xC0 {
+                                    end = at;
+                                }
+                                break;
+                            }
+                            None => break,
+                        }
+                    }
                 }
                 let shown = bytes.get(..end).unwrap_or(bytes);
                 let text = Quoted(shown).to_string();
@@ -1104,6 +1119,21 @@ mod tests {
             format!(
                 "a date32 column cannot hold a binary value (\"{}\u{e9}\"...)",
                 "x".repeat(30)
+            )
+        );
+    }
+
+    #[test]
+    fn a_refused_run_of_stray_continuation_bytes_keeps_its_cut_at_32_bytes() {
+        let mut column = ColumnData::new(ColumnType::Date32);
+        assert_eq!(
+            column
+                .push(Cell::Binary(&[0x80; 40]))
+                .unwrap_err()
+                .to_string(),
+            format!(
+                "a date32 column cannot hold a binary value (\"{}\"...)",
+                "\\x80".repeat(32)
             )
         );
     }

@@ -413,3 +413,23 @@ def test_a_prefix_before_the_isa_reads_as_in_the_library(tmp_path, prefix):
         pd.testing.assert_frame_equal(actual.to_dataframe(), expected.to_dataframe(), check_exact=True)
         assert [t.interchange is None for t in actual] == [t.interchange is None for t in expected]
 
+
+MARKED = [
+    (BOM + b"\x0b", True),
+    (BOM + b"\x0c", True),
+    (BOM, False),
+    (BOM + b"\n", False),
+]
+
+
+@pytest.mark.parametrize("prefix, sample", MARKED, ids=repr)
+def test_a_byte_order_mark_never_raises_and_reads_as_in_the_library(tmp_path, prefix, sample):
+    data = prefix + (path_of(SAMPLES[0]).read_bytes() if sample else b"ISA*bad~")
+    path = tmp_path / "marked.835"
+    path.write_bytes(data)
+    expected = old(path)
+    assert [t.interchange for t in expected] == [None]
+    for actual in (compat.parse(path), compat.parse_bytes(data)):
+        pd.testing.assert_frame_equal(actual.to_dataframe(), expected.to_dataframe(), check_exact=True)
+        assert [t.interchange for t in actual] == [None]
+

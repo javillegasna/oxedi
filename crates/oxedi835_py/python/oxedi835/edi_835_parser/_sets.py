@@ -247,8 +247,8 @@ def parse(path: str, debug: bool = False) -> TransactionSets:
 
     Beyond the library: any path-like (``pathlib.Path``) is accepted, ``""``
     raises ``FileNotFoundError`` where the library raises ``IndexError``, and a
-    file whose ISA cannot be read raises ``ParseError`` naming the file where
-    the library raises ``IndexError``."""
+    file whose ISA cannot be read (with no byte order mark before it) raises
+    ``ParseError`` naming the file where the library raises ``IndexError``."""
     path = os.path.expanduser(os.fspath(path))
     if not os.path.isdir(path):
         try:

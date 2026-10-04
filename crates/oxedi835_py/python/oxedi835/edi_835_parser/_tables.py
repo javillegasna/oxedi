@@ -64,18 +64,20 @@ class Rows:
 
 
 BOM = b"\xef\xbb\xbf"
-WHITESPACE = b" \t\n\r\x0b\x0c"
+STRIPPED = bytes(byte for byte in range(128) if chr(byte).isspace())
 
 
-def marked(view, trigger):
-    """Whether ``view`` is a UTF-8 byte order mark, then optional whitespace,
-    then ``trigger``."""
+def opening(view, trigger):
+    """The offset of ``trigger`` when ``view`` is a UTF-8 byte order mark, then
+    optional whitespace (any ASCII byte ``str.strip`` removes), then
+    ``trigger``; otherwise ``None``. Parsing starts at that offset, so the
+    parser never sees the mark or the whitespace."""
     if bytes(view[:len(BOM)]) != BOM:
-        return False
+        return None
     at = len(BOM)
-    while at < len(view) and view[at] in WHITESPACE:
+    while at < len(view) and view[at] in STRIPPED:
         at += 1
-    return bytes(view[at:at + len(trigger)]) == trigger
+    return at if bytes(view[at:at + len(trigger)]) == trigger else None
 
 
 def load(data):
@@ -91,21 +93,24 @@ def load(data):
       one part with every table empty and no document;
     - a UTF-8 byte order mark before that segment (with or without
       whitespace between them) stays glued to the first segment in the
-      library, which then misses only the interchange, so what follows the
-      mark is parsed and the interchange rows are left out;
+      library, which then misses only the interchange, so the input is parsed
+      from that segment on and the interchange rows are left out; if that
+      parse fails, the result is the part with every table empty, since the
+      library never reads the segment that failed;
     - an interchange without transactions gives one part with only its
       interchange rows.
-    Any other ``ParseError`` (an opening segment that cannot be read)
-    propagates."""
+    Any other ``ParseError`` (an opening segment that cannot be read, with
+    no mark before it) propagates."""
     import pyarrow as pa
 
     view = memoryview(data)
     trigger = interchange_trigger()
-    bom = marked(view, trigger)
+    start = opening(view, trigger)
+    bom = start is not None
     try:
-        result = parse(view[len(BOM):] if bom else data, spec=spec())
+        result = parse(view[start:] if bom else data, spec=spec())
     except ParseError:
-        if bom or bytes(view[:len(trigger)]) == trigger:
+        if not bom and bytes(view[:len(trigger)]) == trigger:
             raise
         return None, [{name: Rows.empty() for name in TABLES}]
     tables = {name: pa.table(result.tables[name]).to_pydict() for name in result.tables}

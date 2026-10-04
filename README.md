@@ -56,11 +56,15 @@ extra = parse("remittances/").to_dataframe(extended=True)  # + claims without se
 
 The frame equals edi-835-parser 1.8.0's cell for cell on our test files; payer ids that
 are not numbers (`N104` with qualifier `XV`) work. `extended=True` keeps those columns in
-the same order and only adds columns that start with `x_` and the rows the library drops.
-Differences from the library, all on input it rejects or misreads:
+the same order and only adds columns that start with `x_` and the rows the library drops;
+when claim-only or provider-adjustment rows exist, some strict columns widen their dtype
+(`int` to `float`, `bool` to `object`). Differences from the library:
 
 - One `TransactionSet` per `ST`, not per file; the separators come from the ISA instead of
   being guessed per element; an unknown claim status gives `"unknown"` instead of an error.
+- A second `NM1*QC`, `NM1*82` or `DTM*232`/`233` in a claim: the library raises
+  `AssertionError`, we take the first. A claim without `NM1*QC`: the library raises
+  `AssertionError`, we give `patient` as `None` and count it once in `count_patients`.
 - `parse` also accepts path-like objects (`pathlib.Path`), where the library raises
   `TypeError`; `""` gives `FileNotFoundError` instead of `IndexError`.
 - Arbitrary non-whitespace bytes before the ISA (other than a UTF-8 BOM followed by ASCII
@@ -81,7 +85,7 @@ Differences from the library, all on input it rejects or misreads:
 | `.count_claims()` | `result.count_claims()` |
 | `.count_patients()` | `result.count_patients()` (a null id is not a patient) |
 | `.sum_payments()` (float) | `result.sum_payments()` (`Decimal`) |
-| `transaction_set.payer` / `.payee` | `result.payer` / `result.payee` (dict: `name`, `identification_code`, `address`, `city`, `state`, `zip_code`) |
+| `transaction_set.payer` / `.payee` | `result.payer` / `result.payee` (dict of text values: `name`, `identification_code`, `address`, `city`, `state`, `zip_code`; `ValueError` when `payments` has more than one row) |
 | none | SQL: `duckdb.sql("select ... from claims")` with `claims = result.tables["claims"]` |
 
 ## Extending the 835 spec

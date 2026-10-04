@@ -141,3 +141,18 @@ def test_a_missing_extra_is_named(monkeypatch, owner, method, module, extra):
         f'install it with: pip install "oxedi835[{extra}]"'
     )
     assert isinstance(info.value.__cause__, ImportError)
+
+
+def test_a_sum_that_overflows_names_the_table_row_and_amount():
+    data = read("edi835_test_file.RMT").decode()
+    nines = "9" * 36
+    data = data.replace("BPR*I*8982*", f"BPR*I*{nines}*").encode()
+    spec = Spec.builtin().patch({"segments": {"BPR": {"elements": {"2": {
+        "name": "total_actual_provider_payment_amount", "type": "R", "min": 1, "max": 40}}}}})
+    result = oxedi835.parse(data + data, spec=spec)
+    with pytest.raises(ValueError) as info:
+        result.sum_payments()
+    assert str(info.value) == (
+        'Result.sum_payments: the sum of "total_payment_amount" in the table "payments" '
+        f"overflows a 128-bit decimal at row 1 (amount {nines}.00)"
+    )

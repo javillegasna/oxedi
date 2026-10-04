@@ -2,12 +2,15 @@
 
 from __future__ import annotations
 
+import bisect
+import decimal as decimal_module
 import functools
 import json
 from collections import defaultdict
 
 from .. import ParseError, Spec, parse
 from .._core import EDI_835_PARSER_PATCH
+from ._convert import STRIPPED
 
 PATCH = json.loads(EDI_835_PARSER_PATCH)
 TABLES = sorted(name for name, table in PATCH["tables"].items() if table is not None)
@@ -64,7 +67,6 @@ class Rows:
 
 
 BOM = b"\xef\xbb\xbf"
-STRIPPED = bytes(byte for byte in range(128) if chr(byte).isspace())
 
 
 def opening(view, trigger):
@@ -78,6 +80,86 @@ def opening(view, trigger):
     while at < len(view) and view[at] in STRIPPED:
         at += 1
     return at if bytes(view[at:at + len(trigger)]) == trigger else None
+
+
+def _last(document, index, element, component):
+    """The raw text of ``element`` (and ``component``) of segment ``index``
+    when it is the segment's last one, else ``None``."""
+    elements = document[index].elements
+    if element != len(elements):
+        return None
+    value = elements[element - 1]
+    if component is None:
+        return value if isinstance(value, bytes) else None
+    if isinstance(value, list):
+        return value[component - 1] if component == len(value) else None
+    return value if component == 1 else None
+
+
+def _segment_of(document, anchors, row, own, bound):
+    """The index of the segment a column reads for ``row``: the anchor
+    segment, or the first segment named ``own`` after it and before the next
+    row's anchor."""
+    start = anchors[row]
+    if own is None or document[start].id == own:
+        return start
+    for index in range(start + 1, bound):
+        if document[index].id == own:
+            return index
+    return None
+
+
+def unpad(document, arrow, tables):
+    """edi-835-parser strips each segment, so blanks before the terminator
+    never reach its last element. A binary cell that ends in blanks is
+    stripped when it is its segment's last element, and a decimal cell that
+    the spec could not read because of them is read from the stripped text.
+    Only cells that end in blanks, or decimal cells that are null, are
+    looked up in the document."""
+    import pyarrow as pa
+
+    for name, columns in PATCH["tables"].items():
+        if columns is None or name not in tables:
+            continue
+        rows = tables[name]
+        anchors = rows.get("segment")
+        if anchors is None:
+            continue
+        anchored = columns.get("segment")
+        ordered = sorted(a for a in anchors if a is not None)
+        for column, source in columns["columns"].items():
+            element = source.get("element")
+            if element is None or "group_element" in source:
+                continue
+            kind = arrow[name].schema.field(column).type
+            decimal = pa.types.is_decimal(kind)
+            values = rows[column]
+            own = None if anchored else source["segment"].encode()
+            for row, value in enumerate(values):
+                if value is None:
+                    if not decimal:
+                        continue
+                elif not isinstance(value, bytes) or value == value.rstrip(STRIPPED):
+                    continue
+                if anchors[row] is None:
+                    continue
+                at = bisect.bisect_right(ordered, anchors[row])
+                bound = ordered[at] if at < len(ordered) else len(document)
+                index = _segment_of(document, anchors, row, own, bound)
+                if index is None:
+                    continue
+                raw = _last(document, index, element, source.get("component"))
+                if raw is None:
+                    continue
+                stripped = raw.rstrip(STRIPPED)
+                if value is None:
+                    if stripped != raw:
+                        try:
+                            values[row] = decimal_module.Decimal(stripped.decode())
+                        except (ValueError, decimal_module.InvalidOperation):
+                            pass
+                else:
+                    values[row] = stripped
 
 
 def load(data):
@@ -113,7 +195,9 @@ def load(data):
         if not bom and bytes(view[:len(trigger)]) == trigger:
             raise
         return None, [{name: Rows.empty() for name in TABLES}]
-    tables = {name: pa.table(result.tables[name]).to_pydict() for name in result.tables}
+    arrow = {name: pa.table(result.tables[name]) for name in result.tables}
+    tables = {name: table.to_pydict() for name, table in arrow.items()}
+    unpad(result.document, arrow, tables)
     payments = tables["rows_payments"]
     if not payments["row"]:
         return result.document, [{

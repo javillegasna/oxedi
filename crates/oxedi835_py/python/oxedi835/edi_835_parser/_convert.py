@@ -10,6 +10,10 @@ import locale
 ENCODING = locale.getpreferredencoding(False)
 
 
+# ASCII bytes that ``str.strip`` removes.
+STRIPPED = bytes(byte for byte in range(128) if chr(byte).isspace())
+
+
 def readable(data):
     """Decodes ``data`` as the library's ``open()`` does, so a byte that the
     encoding cannot read fails here, before parsing, as it does in the library."""
@@ -52,6 +56,8 @@ def date(value, document, index, element):
     if element > len(elements):
         return None
     raw = elements[element - 1]
+    if element == len(elements) and isinstance(raw, bytes):
+        raw = raw.rstrip(STRIPPED)
     return library_date(raw.decode(ENCODING) if isinstance(raw, bytes) else "")
 
 

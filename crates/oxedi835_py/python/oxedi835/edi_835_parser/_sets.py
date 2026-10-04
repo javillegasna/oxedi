@@ -150,7 +150,9 @@ class TransactionSet:
 
     def to_dataframe(self, extended: bool = False):
         """One row per service, as edi-835-parser builds it; with ``extended``,
-        also the rows and ``x_`` columns that frame leaves out."""
+        also the rows and ``x_`` columns that frame leaves out (claim-only and
+        provider-adjustment rows can widen strict columns' dtypes: ``int`` to
+        ``float``, ``bool`` to ``object``)."""
         import pandas as pd
 
         if extended:
@@ -186,7 +188,9 @@ class TransactionSets:
         """Every transaction's rows, with the numbered columns sorted last.
         The frames are concatenated one at a time onto an empty frame, as the
         library does, so empty transactions give the same dtypes. With
-        ``extended``, also the rows and ``x_`` columns the frame leaves out."""
+        ``extended``, also the rows and ``x_`` columns the frame leaves out
+        (claim-only and provider-adjustment rows can widen strict columns'
+        dtypes: ``int`` to ``float``, ``bool`` to ``object``)."""
         import pandas as pd
 
         if extended:

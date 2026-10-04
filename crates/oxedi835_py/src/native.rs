@@ -73,7 +73,8 @@ pub fn sum_payments(tables: &Tables) -> PyResult<String> {
         if let Some(Cell::Decimal128(value)) = amounts.get(row) {
             sum = sum.checked_add(value).ok_or_else(|| {
                 PyValueError::new_err(format!(
-                    "Result.sum_payments: the sum of \"total_payment_amount\" overflows a 128-bit decimal at row {row}"
+                    "Result.sum_payments: the sum of \"total_payment_amount\" in the table \"payments\" overflows a 128-bit decimal at row {row} (amount {})",
+                    fixed_point(value, scale)
                 ))
             })?;
         }

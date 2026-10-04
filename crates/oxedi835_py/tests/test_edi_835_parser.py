@@ -523,3 +523,50 @@ def test_cell_types_equal_edi_835_parser(sample):
             assert [type(v) for v in actual[column]] == [type(v) for v in expected[column]], column
     for name, kind in (("count_claims", int), ("count_patients", int), ("sum_payments", float)):
         assert type(getattr(actual_sets, name)()) is type(getattr(expected_sets, name)()) is kind, name
+
+
+def plb_only():
+    return (
+        SERVICELESS.split("LX*1~")[0]
+        + "PLB*1234567893*20231231*L6:ABC*-5.00~SE*9*0001~GE*1*1~IEA*1*000000001~"
+    ).encode()
+
+
+@pytest.mark.parametrize("plb_first", [True, False])
+def test_extended_keeps_the_strict_columns_first_whichever_file_comes_first(tmp_path, plb_first):
+    plb, normal = plb_only(), path_of(SAMPLES[2]).read_bytes()
+    items = [plb, normal] if plb_first else [normal, plb]
+    strict = compat.parse_many(items).to_dataframe()
+    extended = compat.parse_many(items).to_dataframe(extended=True)
+    width = len(strict.columns)
+    assert list(extended.columns[:width]) == list(strict.columns)
+    assert all(c.startswith("x_") for c in extended.columns[width:])
+    assert (extended.x_row_kind == "provider_adjustment").sum() == 1
+
+
+def test_the_extended_column_order_is_the_library_s():
+    from oxedi835.edi_835_parser._extended import LIBRARY_COLUMNS
+
+    strict = compat.parse(path_of(SAMPLES[0])).to_dataframe()
+    assert list(LIBRARY_COLUMNS) == [c for c in strict.columns if not c.startswith(("adj_", "ref_", "rem_"))]
+
+
+def test_trailing_blanks_before_the_terminator_are_stripped_as_the_library_does(tmp_path):
+    import re
+
+    text = path_of(SAMPLES[2]).read_bytes().decode()
+    for segment in ("CLP", "DTM", "AMT", "N4", "NM1", "BPR", "CAS", "SVC", "REF", "TRN", "N1"):
+        text = re.sub(rf"({segment}\*[^~]*)~", r"\1  ~", text)
+    path = tmp_path / "blanks.txt"
+    path.write_text(text)
+    assert "  ~" in text
+    expected, actual = old(path), compat.parse(path)
+    pd.testing.assert_frame_equal(actual.to_dataframe(), expected.to_dataframe(), check_exact=True)
+    (e,), (a,) = list(expected), list(actual)
+    assert organization(a.payer) == organization(e.payer)
+    assert organization(a.payee) == organization(e.payee)
+    fields = ("amount_paid", "payment_method", "routing_number", "transaction_date")
+    assert [getattr(a.financial_information, f) for f in fields] == [
+        getattr(e.financial_information, f) for f in fields]
+    assert [c.claim.icn for c in a.claims] == [c.claim.icn for c in e.claims]
+    assert all(not c.claim.icn.endswith(" ") for c in a.claims)

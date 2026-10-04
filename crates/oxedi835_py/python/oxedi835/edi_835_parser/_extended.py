@@ -91,8 +91,9 @@ def records(transaction_set):
 
 
 def frame(transaction_sets):
-    """The library's columns in its order, then ``x_row_kind`` and
-    ``x_claim``, then the other ``x_`` columns by name."""
+    """The library's columns in its order whichever transaction comes first,
+    then ``x_row_kind`` and ``x_claim``, then the other ``x_`` columns by name.
+    Rows without a service value widen some library columns' dtypes."""
     import pandas as pd
 
     from ._sets import TransactionSets
@@ -104,5 +105,7 @@ def frame(transaction_sets):
         return data
     fixed = ("x_row_kind", "x_claim")
     added = sorted(c for c in data.columns if c.startswith("x_") and c not in fixed)
-    library = TransactionSets.sort_columns(data[[c for c in data.columns if not c.startswith("x_")]])
+    strict = [c for c in LIBRARY_COLUMNS if c in data.columns]
+    strict += [c for c in data.columns if not c.startswith("x_") and c not in LIBRARY_COLUMNS]
+    library = TransactionSets.sort_columns(data[strict])
     return pd.concat([library, data[[*fixed, *added]]], axis=1)

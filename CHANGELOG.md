@@ -6,9 +6,9 @@ versioning; while the version is `0.x`, a minor release may break the API.
 
 ## [Unreleased]
 
-## [0.1.0rc1] - 2026-10-04
+## [0.1.0] - 2026-10-04
 
-First release candidate of 0.1.0, the first usable version.
+First usable version of oxedi835.
 
 ### Added
 - Lossless parsing of EDI 835 files: every input byte lands in exactly one segment, so
@@ -27,6 +27,12 @@ First release candidate of 0.1.0, the first usable version.
 - One `abi3` wheel per platform for Python 3.11 and later: Linux x86_64 and aarch64
   (manylinux 2.28), Linux x86_64 (musllinux 1.2), macOS x86_64 and arm64, and Windows x86_64;
   plus the source distribution.
+- A README and PyPI page covering installation, usage and local development, and a guide for migrating from `edi-835-parser` (`docs/migrating-from-edi-835-parser.md`).
 
-[Unreleased]: https://github.com/javillegasna/oxedi835/compare/v0.1.0rc1...HEAD
+## [0.1.0rc1] - 2026-10-04
+
+Release candidate of 0.1.0, published to TestPyPI only. Same code as 0.1.0.
+
+[Unreleased]: https://github.com/javillegasna/oxedi835/compare/v0.1.0...HEAD
+[0.1.0]: https://github.com/javillegasna/oxedi835/releases/tag/v0.1.0
 [0.1.0rc1]: https://github.com/javillegasna/oxedi835/releases/tag/v0.1.0rc1

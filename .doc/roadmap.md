@@ -7,6 +7,8 @@ when a stage changes state.
 
 ## Status
 
+Order after Stage 5b (owner, 2026-10-04): backlog sprint 2 → **Stage 6 → `0.1.0` on PyPI** → 5c → 7 → 8 → 9. Stage 6 moved ahead of 5c because 5c changes no public API and the first usable release needs the multi-platform wheels; #55 (compat speed) lands in the sprint so the first release is not slower than the library it replaces.
+
 | Stage | Delivers | State | Where |
 |-------|----------|-------|-------|
 | 0 · Scaffolding | Workspace, CI gates, test/property/bench harness | **Done** 2026-10-02 | commits up to `0e1b827` |
@@ -16,8 +18,8 @@ when a stage changes state.
 | 4 · Projection + validation | `segments` and `tables` in the spec, Arrow-layout columns, SNIP 1–2 diagnostics with full location (P10), closes #7 #17 #18 #19 | **Done** 2026-10-03 (4a PR #30, 4b PR #38, backlog sprint PR #43) | findings closed by #43; open: #28, #39–#42; SNIP 3 → D11 |
 | 5 · Python binding | PyO3/maturin `abi3` (Python ≥ 3.11), GIL released, `parse`/`stream`/`Spec`, Arrow by PyCapsule, D8 measured | **Done** 2026-10-03 (PR #50; 112 pytest; D8 → T24) | findings #47–#49 |
 | 5b · Compatibility oracle | (1) A `tables` spec whose DataFrame equals `edi-835-parser`'s `to_dataframe()` row for row on the originals (shim for its `int(N104)` limitation, #46); (2) find what that library drops (claim-level adjustments, `PLB`, unmapped `REF`/`AMT`) and prove `oxedi835` keeps it on the same files; (3) a compatible Python API as the subpackage `oxedi835.edi_835_parser` behind the extra `oxedi835[edi-835-parser]` (one subpackage per imitated library, named after it; survey other Python 835 parsers first), covering that library's whole public surface (`parse(path\|dir)`, `TransactionSets` with iteration, `len`, `count_claims`, `count_patients`, `sum_payments`, `sort_columns`, `to_dataframe`; `TransactionSet` with `payer`, `payee`, `to_dataframe`, `serialize_service` and its loop objects) so its users migrate without code changes; (4) native counterparts on the Arrow/Polars API (`Result.count_claims/count_patients/sum_payments/payer/payee`, `to_polars()`, optional `to_pandas()`) plus an old→new migration table, so the quick path (extra) and the final path (native) both exist | **In PR** 2026-10-04 (parity cell for cell; 240 pytest) | branch `stage-5b-edi835parser`; follow-ups #55–#62 |
-| 5c · Module layout | Split the large source files into navigable submodules with short files and a one-glance discovery path; no behaviour change | Not started (after 5, D13) | — |
-| 6 · Distribution | crates.io, PyPI wheels (manylinux/macOS/Windows), release CI with trusted publishing; `0.1.0` after 5b | Name reserved on PyPI with `0.0.1a1` (2026-10-03) | — |
+| 5c · Module layout | Split the large source files into navigable submodules with short files and a one-glance discovery path; no behaviour change | Not started; **after Stage 6** (owner, 2026-10-04: internal refactor, does not block `0.1.0`) | — |
+| 6 · Distribution | crates.io, PyPI wheels (manylinux/macOS/Windows), release CI with trusted publishing; `0.1.0` after 5b | Name reserved on PyPI with `0.0.1a1` (2026-10-03); **next after backlog sprint 2, before 5c** (owner, 2026-10-04); publishes `0.1.0` | — |
 | 7 · Writer | Tables (our schema, `Tables` or Arrow) → loops → segments → bytes with the same spec inverted; derived fields computed; diagnostics before writing; DuckDB connectors feed it from relational databases outside the core; round-trip and `pyx12` validation as gate (also through a SQLite export with an optional lossless `segments` layer, an internal dev tool first); D11 (order, cardinality, balancing) resolved inside | Scheduled after 5b and 6 (D7, 2026-10-03) | — |
 | 8 · Durable documentation | Human-readable book of the ideas, concepts and patterns that govern the project (no code snippets, no line references, nothing that rots); user guides for the Python library and the CLI | Not started (after the roadmap closes, D14) | — |
 | 9 · X12 family toolkit | The engine, spec format, projection and CLI serve other transaction sets of the same family (837 first: same loop logic, different segment definitions); 835 becomes one spec among several. Includes the `pyx12` map cross-check and spec generator (D16, part 1) | Not started (D15, D16) | — |
@@ -26,7 +28,7 @@ when a stage changes state.
 ## What each stage unlocks
 
 ```
-0 ──► 1 ──► 2 ──► 3 ──► 4 ──► 5 ──► 5b ──► 5c ──► 6 ──► 7 ──► 8 ──► 9 (──► 9b optional)
+0 ──► 1 ──► 2 ──► 3 ──► 4 ──► 5 ──► 5b ──► 6 (0.1.0) ──► 5c ──► 7 ──► 8 ──► 9 (──► 9b optional)
             │     │     │           │                   │
             │     │     │           │                   └─ writer: tables → .RMT (D7, D11)
             │     │     │           └─ edi-835-parser parity and compatible API (D12)

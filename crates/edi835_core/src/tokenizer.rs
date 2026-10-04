@@ -6,7 +6,7 @@
 //! id means. Between two calls to `next` the tokenizer is simply paused.
 
 use crate::delimiters::{Delimiters, IsaError};
-use crate::frame::{first_frame, leading_trivia, next_frame};
+use crate::frame::{first_frame, next_frame};
 use crate::segment::Segment;
 
 /// Iterator of segments over `input`.
@@ -24,8 +24,7 @@ impl<'a> Tokenizer<'a> {
     /// `release` is never read from the file. To use one, read the delimiters
     /// with [`Delimiters::from_isa`], add it, and call [`Tokenizer::with_delimiters`].
     pub fn new(input: &'a [u8]) -> Result<Self, IsaError> {
-        let rest = input.get(leading_trivia(input)..).unwrap_or_default();
-        let delims = Delimiters::from_isa(rest)?;
+        let delims = Delimiters::from_isa_after_leading_trivia(input)?;
         Ok(Self::with_delimiters(input, delims))
     }
 
@@ -208,16 +207,45 @@ mod tests {
     }
 
     #[test]
+    fn new_names_the_trivia_it_skipped_when_no_isa_follows() {
+        let message = |input: &[u8]| Tokenizer::new(input).err().map(|error| error.to_string());
+        assert_eq!(
+            message(b"\xEF\xBB\xBF").as_deref(),
+            Some(
+                "input does not start with an ISA segment (input holds only a UTF-8 byte order mark)"
+            )
+        );
+        assert_eq!(
+            message(b"\n\r\n ").as_deref(),
+            Some(
+                "input does not start with an ISA segment (input holds only 4 bytes of whitespace)"
+            )
+        );
+        assert_eq!(
+            message(b"\xEF\xBB\xBFGS*HP~").as_deref(),
+            Some(
+                "input does not start with an ISA segment (found bytes [47 53 2a 48 50 7e] after skipping a UTF-8 byte order mark)"
+            )
+        );
+    }
+
+    #[test]
     fn new_fails_without_an_isa() {
         assert_eq!(
             Tokenizer::new(b"ST*835~").err(),
             Some(IsaError::NotIsa {
-                found: b"ST*835~".to_vec()
+                found: b"ST*835~".to_vec(),
+                byte_order_mark: false,
+                whitespace: 0,
             })
         );
         assert_eq!(
             Tokenizer::new(b"").err(),
-            Some(IsaError::NotIsa { found: Vec::new() })
+            Some(IsaError::NotIsa {
+                found: Vec::new(),
+                byte_order_mark: false,
+                whitespace: 0,
+            })
         );
     }
 

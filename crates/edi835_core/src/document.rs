@@ -9,7 +9,7 @@ use std::borrow::Cow;
 use std::ops::Range;
 
 use crate::delimiters::{Delimiters, IsaError};
-use crate::frame::{Frame, first_frame, leading_trivia, next_frame};
+use crate::frame::{Frame, first_frame, next_frame};
 use crate::segment::Segment;
 
 /// Where one segment lives inside [`Document::as_bytes`].
@@ -40,8 +40,7 @@ impl<'a> Document<'a> {
     /// first segment's span). Accepts a borrowed slice or an owned `Vec<u8>`.
     pub fn parse(bytes: impl Into<Cow<'a, [u8]>>) -> Result<Self, IsaError> {
         let bytes = bytes.into();
-        let rest = bytes.get(leading_trivia(&bytes)..).unwrap_or_default();
-        let delims = Delimiters::from_isa(rest)?;
+        let delims = Delimiters::from_isa_after_leading_trivia(&bytes)?;
         Ok(Self::with_delimiters(bytes, delims))
     }
 
@@ -295,16 +294,45 @@ mod tests {
     }
 
     #[test]
+    fn parse_names_the_trivia_it_skipped_when_no_isa_follows() {
+        let message = |input: &[u8]| Document::parse(input).err().map(|error| error.to_string());
+        assert_eq!(
+            message(b"\xEF\xBB\xBF").as_deref(),
+            Some(
+                "input does not start with an ISA segment (input holds only a UTF-8 byte order mark)"
+            )
+        );
+        assert_eq!(
+            message(b"\n\r\n ").as_deref(),
+            Some(
+                "input does not start with an ISA segment (input holds only 4 bytes of whitespace)"
+            )
+        );
+        assert_eq!(
+            message(b"\xEF\xBB\xBFGS*HP~").as_deref(),
+            Some(
+                "input does not start with an ISA segment (found bytes [47 53 2a 48 50 7e] after skipping a UTF-8 byte order mark)"
+            )
+        );
+    }
+
+    #[test]
     fn parse_fails_without_an_isa() {
         assert_eq!(
             Document::parse(&b"ST*835~"[..]).err(),
             Some(IsaError::NotIsa {
-                found: b"ST*835~".to_vec()
+                found: b"ST*835~".to_vec(),
+                byte_order_mark: false,
+                whitespace: 0,
             })
         );
         assert_eq!(
             Document::parse(&b""[..]).err(),
-            Some(IsaError::NotIsa { found: Vec::new() })
+            Some(IsaError::NotIsa {
+                found: Vec::new(),
+                byte_order_mark: false,
+                whitespace: 0,
+            })
         );
     }
 

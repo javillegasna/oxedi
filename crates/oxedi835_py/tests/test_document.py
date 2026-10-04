@@ -88,6 +88,15 @@ def test_input_without_an_isa_raises_parse_error_with_the_core_message():
     )
 
 
+def test_input_with_only_leading_trivia_names_what_it_holds():
+    with pytest.raises(oxedi835.ParseError) as info:
+        oxedi835.parse(b"\xef\xbb\xbf\r\n")
+    assert str(info.value) == (
+        "input does not start with an ISA segment "
+        "(input holds only a UTF-8 byte order mark and 2 bytes of whitespace)"
+    )
+
+
 def test_a_delimiter_must_be_one_byte():
     with pytest.raises(ValueError) as info:
         oxedi835.Delimiters(element=b"**")

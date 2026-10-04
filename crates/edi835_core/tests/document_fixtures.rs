@@ -63,7 +63,9 @@ fn fragment_without_isa_needs_caller_delimiters() {
     assert_eq!(
         Document::parse(&bytes[..]).err(),
         Some(IsaError::NotIsa {
-            found: b"ST*835*1".to_vec()
+            found: b"ST*835*1".to_vec(),
+            byte_order_mark: false,
+            whitespace: 0,
         })
     );
     let delims = Delimiters::new(b'*', b':', b'~');

@@ -8,6 +8,8 @@
 
 use std::fmt;
 
+use crate::frame::{BYTE_ORDER_MARK, leading_trivia};
+
 /// The five delimiters of an interchange. Only `release` is never read from the
 /// file: X12 defines no release character, so it is opt-in by the caller.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -29,8 +31,13 @@ pub struct Delimiters {
 pub enum IsaError {
     /// The input does not start with the bytes `ISA`.
     NotIsa {
-        /// The first bytes of the input, at most [`IsaError::FOUND_LEN`].
+        /// The first bytes after the skipped leading bytes, at most
+        /// [`IsaError::FOUND_LEN`]. Empty when nothing follows them.
         found: Vec<u8>,
+        /// `true` when a UTF-8 byte order mark at the start was skipped.
+        byte_order_mark: bool,
+        /// Whitespace bytes skipped after the mark (or from the start).
+        whitespace: usize,
     },
     /// The input ends before the 16 separators, ISA16 and the terminator.
     Truncated {
@@ -49,21 +56,34 @@ impl IsaError {
 impl fmt::Display for IsaError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            IsaError::NotIsa { found } if found.is_empty() => {
-                write!(
-                    f,
-                    "input does not start with an ISA segment (input is empty)"
-                )
-            }
-            IsaError::NotIsa { found } => {
-                write!(f, "input does not start with an ISA segment (found bytes [")?;
+            IsaError::NotIsa {
+                found,
+                byte_order_mark,
+                whitespace,
+            } => {
+                let skipped = Skipped {
+                    byte_order_mark: *byte_order_mark,
+                    whitespace: *whitespace,
+                };
+                write!(f, "input does not start with an ISA segment (")?;
+                if found.is_empty() {
+                    if skipped.is_empty() {
+                        return write!(f, "input is empty)");
+                    }
+                    return write!(f, "input holds only {skipped})");
+                }
+                write!(f, "found bytes [")?;
                 for (i, byte) in found.iter().enumerate() {
                     if i > 0 {
                         write!(f, " ")?;
                     }
                     write!(f, "{byte:02x}")?;
                 }
-                write!(f, "])")
+                write!(f, "]")?;
+                if !skipped.is_empty() {
+                    write!(f, " after skipping {skipped}")?;
+                }
+                write!(f, ")")
             }
             IsaError::Truncated {
                 len,
@@ -84,6 +104,34 @@ impl fmt::Display for IsaError {
 }
 
 impl std::error::Error for IsaError {}
+
+/// The leading bytes skipped before looking for the ISA, as written in
+/// [`IsaError::NotIsa`] messages.
+struct Skipped {
+    byte_order_mark: bool,
+    whitespace: usize,
+}
+
+impl Skipped {
+    const fn is_empty(&self) -> bool {
+        !self.byte_order_mark && self.whitespace == 0
+    }
+}
+
+impl fmt::Display for Skipped {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let unit = if self.whitespace == 1 {
+            "byte"
+        } else {
+            "bytes"
+        };
+        match (self.byte_order_mark, self.whitespace) {
+            (true, 0) => write!(f, "a UTF-8 byte order mark"),
+            (true, n) => write!(f, "a UTF-8 byte order mark and {n} {unit} of whitespace"),
+            (false, n) => write!(f, "{n} {unit} of whitespace"),
+        }
+    }
+}
 
 /// Number of element separators in an ISA segment (ISA01 through ISA16).
 const ISA_SEPARATORS: usize = 16;
@@ -122,7 +170,11 @@ impl Delimiters {
     pub fn from_isa(input: &[u8]) -> Result<Self, IsaError> {
         if !input.starts_with(b"ISA") {
             let found = input.iter().take(IsaError::FOUND_LEN).copied().collect();
-            return Err(IsaError::NotIsa { found });
+            return Err(IsaError::NotIsa {
+                found,
+                byte_order_mark: false,
+                whitespace: 0,
+            });
         }
         let truncated = |separators_found| IsaError::Truncated {
             len: input.len(),
@@ -162,6 +214,28 @@ impl Delimiters {
             segment,
             repetition,
             release: None,
+        })
+    }
+
+    /// Reads the delimiters from the ISA segment that follows the input's
+    /// leading trivia: a UTF-8 byte order mark at the very start, then
+    /// whitespace. A [`IsaError::NotIsa`] names what was skipped.
+    pub fn from_isa_after_leading_trivia(input: &[u8]) -> Result<Self, IsaError> {
+        let skipped = leading_trivia(input);
+        let byte_order_mark = input.starts_with(BYTE_ORDER_MARK);
+        let whitespace = if byte_order_mark {
+            skipped.saturating_sub(BYTE_ORDER_MARK.len())
+        } else {
+            skipped
+        };
+        let rest = input.get(skipped..).unwrap_or_default();
+        Self::from_isa(rest).map_err(|error| match error {
+            IsaError::NotIsa { found, .. } => IsaError::NotIsa {
+                found,
+                byte_order_mark,
+                whitespace,
+            },
+            truncated @ IsaError::Truncated { .. } => truncated,
         })
     }
 
@@ -227,18 +301,26 @@ mod tests {
         assert_eq!(
             Delimiters::from_isa(b"ST*835*1234~"),
             Err(IsaError::NotIsa {
-                found: b"ST*835*1".to_vec()
+                found: b"ST*835*1".to_vec(),
+                byte_order_mark: false,
+                whitespace: 0,
             })
         );
         assert_eq!(
             Delimiters::from_isa(b"GS"),
             Err(IsaError::NotIsa {
-                found: b"GS".to_vec()
+                found: b"GS".to_vec(),
+                byte_order_mark: false,
+                whitespace: 0,
             })
         );
         assert_eq!(
             Delimiters::from_isa(b""),
-            Err(IsaError::NotIsa { found: Vec::new() })
+            Err(IsaError::NotIsa {
+                found: Vec::new(),
+                byte_order_mark: false,
+                whitespace: 0,
+            })
         );
     }
 
@@ -290,14 +372,104 @@ mod tests {
     fn not_isa_displays_the_leading_bytes_in_hex() {
         assert_eq!(
             IsaError::NotIsa {
-                found: b"\xEF\xBB\xBFISA*0".to_vec()
+                found: b"\xEF\xBB\xBFISA*0".to_vec(),
+                byte_order_mark: false,
+                whitespace: 0,
             }
             .to_string(),
             "input does not start with an ISA segment (found bytes [ef bb bf 49 53 41 2a 30])"
         );
         assert_eq!(
-            IsaError::NotIsa { found: Vec::new() }.to_string(),
+            IsaError::NotIsa {
+                found: Vec::new(),
+                byte_order_mark: false,
+                whitespace: 0,
+            }
+            .to_string(),
             "input does not start with an ISA segment (input is empty)"
+        );
+    }
+
+    #[test]
+    fn not_isa_displays_what_was_skipped_before_the_found_bytes() {
+        let not_isa = |found: &[u8], byte_order_mark, whitespace| IsaError::NotIsa {
+            found: found.to_vec(),
+            byte_order_mark,
+            whitespace,
+        };
+        assert_eq!(
+            not_isa(b"", true, 0).to_string(),
+            "input does not start with an ISA segment (input holds only a UTF-8 byte order mark)"
+        );
+        assert_eq!(
+            not_isa(b"", true, 1).to_string(),
+            "input does not start with an ISA segment (input holds only a UTF-8 byte order mark and 1 byte of whitespace)"
+        );
+        assert_eq!(
+            not_isa(b"", false, 4).to_string(),
+            "input does not start with an ISA segment (input holds only 4 bytes of whitespace)"
+        );
+        assert_eq!(
+            not_isa(b"GS*HP~", true, 0).to_string(),
+            "input does not start with an ISA segment (found bytes [47 53 2a 48 50 7e] after skipping a UTF-8 byte order mark)"
+        );
+        assert_eq!(
+            not_isa(b"GS", true, 2).to_string(),
+            "input does not start with an ISA segment (found bytes [47 53] after skipping a UTF-8 byte order mark and 2 bytes of whitespace)"
+        );
+        assert_eq!(
+            not_isa(b"GS", false, 1).to_string(),
+            "input does not start with an ISA segment (found bytes [47 53] after skipping 1 byte of whitespace)"
+        );
+    }
+
+    #[test]
+    fn from_isa_after_leading_trivia_names_the_skipped_bytes() {
+        let read = |input: &[u8]| {
+            Delimiters::from_isa_after_leading_trivia(input)
+                .err()
+                .map(|error| error.to_string())
+        };
+        assert_eq!(
+            read(b"\xEF\xBB\xBF").as_deref(),
+            Some(
+                "input does not start with an ISA segment (input holds only a UTF-8 byte order mark)"
+            )
+        );
+        assert_eq!(
+            read(b" \r\n\t").as_deref(),
+            Some(
+                "input does not start with an ISA segment (input holds only 4 bytes of whitespace)"
+            )
+        );
+        assert_eq!(
+            read(b"\xEF\xBB\xBF\r\n").as_deref(),
+            Some(
+                "input does not start with an ISA segment (input holds only a UTF-8 byte order mark and 2 bytes of whitespace)"
+            )
+        );
+        assert_eq!(
+            read(b"\xEF\xBB\xBFGS*HP*X~").as_deref(),
+            Some(
+                "input does not start with an ISA segment (found bytes [47 53 2a 48 50 2a 58 7e] after skipping a UTF-8 byte order mark)"
+            )
+        );
+        assert_eq!(
+            read(b"").as_deref(),
+            Some("input does not start with an ISA segment (input is empty)")
+        );
+        let mut input = b"\xEF\xBB\xBF\n".to_vec();
+        input.extend_from_slice(ISA_5010);
+        assert_eq!(
+            Delimiters::from_isa_after_leading_trivia(&input),
+            Delimiters::from_isa(ISA_5010)
+        );
+        assert_eq!(
+            Delimiters::from_isa_after_leading_trivia(b"\nISA*00*"),
+            Err(IsaError::Truncated {
+                len: 7,
+                separators_found: 2
+            })
         );
     }
 

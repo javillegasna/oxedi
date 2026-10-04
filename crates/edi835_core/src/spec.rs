@@ -683,6 +683,22 @@ pub enum SpecError {
         /// `2 members`); empty for `null`.
         value: String,
     },
+    /// An object holds a key its schema does not define.
+    UnknownKey {
+        /// Where the object sits, keys joined by `.` as written (e.g.
+        /// `segments.CLP.elements.3`); empty for the top level.
+        path: String,
+        /// The key as written.
+        key: String,
+    },
+    /// An object lacks a key its schema requires.
+    MissingKey {
+        /// Where the object sits, keys joined by `.` as written (e.g.
+        /// `loops.env.control`); empty for the top level.
+        path: String,
+        /// The required key.
+        key: &'static str,
+    },
     /// A segment definition does not match the schema.
     SegmentSchema {
         /// The segment id as written.
@@ -792,6 +808,18 @@ impl fmt::Display for SpecError {
                 f,
                 "spec: the value at {path} must be {expected}; found {found} ({value})"
             ),
+            SpecError::UnknownKey { path, key } if path.is_empty() => {
+                write!(f, "spec: unknown key {key:?} at the top level")
+            }
+            SpecError::UnknownKey { path, key } => {
+                write!(f, "spec: unknown key {key:?} at {path}")
+            }
+            SpecError::MissingKey { path, key } if path.is_empty() => {
+                write!(f, "spec: missing required key {key:?} at the top level")
+            }
+            SpecError::MissingKey { path, key } => {
+                write!(f, "spec: missing required key {key:?} at {path}")
+            }
             SpecError::Patch { source } => write!(f, "applying patch: {source}"),
             SpecError::UnknownParent { loop_name, parent } => {
                 write!(f, "loop {loop_name:?} names unknown parent {parent:?}")
@@ -2096,30 +2124,68 @@ fn check_member_texts(
     Ok(())
 }
 
-/// Requires an object everywhere the schema has one, and the scalar kind
-/// everywhere the schema has a scalar, before serde sees the value: serde
-/// would accept an array in place of a struct, and its messages for the wrong
-/// kind of value name neither the key nor, for objects, that an object was
-/// expected. Missing and unknown keys are left to the schema.
+/// Requires every key of `map` to be one of `known`, then every key of
+/// `required` to be present; the first unknown key in key order fails first.
+fn check_keys(
+    map: &serde_json::Map<String, Value>,
+    at: &str,
+    known: &[&str],
+    required: &[&'static str],
+) -> Result<(), SpecError> {
+    if let Some(key) = map.keys().find(|key| !known.contains(&key.as_str())) {
+        return Err(SpecError::UnknownKey {
+            path: at.to_string(),
+            key: key.clone(),
+        });
+    }
+    match required.iter().find(|key| !map.contains_key(**key)) {
+        Some(key) => Err(SpecError::MissingKey {
+            path: at.to_string(),
+            key,
+        }),
+        None => Ok(()),
+    }
+}
+
+/// Requires an object everywhere the schema has one, only the keys the schema
+/// defines and every key it requires, and the scalar kind everywhere the
+/// schema has a scalar, before serde sees the value: serde would accept an
+/// array in place of a struct, and its messages name neither the key path
+/// nor, for objects, that an object was expected.
 fn check_shape(source: &Value) -> Result<(), SpecError> {
     let root = object_at(source, "")?;
+    check_keys(
+        root,
+        "",
+        &["name", "loops", "segments", "tables"],
+        &["name", "loops"],
+    )?;
     check_member(root, "", "name", Leaf::Text, false)?;
     if let Some(loops) = root.get("loops") {
         for (name, def) in object_at(loops, "loops")? {
             let at = child("loops", name);
             let def = object_at(def, &at)?;
+            check_keys(
+                def,
+                &at,
+                &["parent", "trigger", "segments", "end", "control"],
+                &["trigger"],
+            )?;
             check_member(def, &at, "parent", Leaf::Text, true)?;
             check_member(def, &at, "end", Leaf::Text, true)?;
             check_member_texts(def, &at, "segments")?;
             if let Some(trigger) = def.get("trigger") {
                 let at = child(&at, "trigger");
                 let trigger = object_at(trigger, &at)?;
+                check_keys(trigger, &at, &["segment", "where"], &["segment"])?;
                 check_member(trigger, &at, "segment", Leaf::Text, false)?;
                 check_member_map(trigger, &at, "where", Leaf::Text)?;
             }
             if let Some(control) = def.get("control") {
                 let at = child(&at, "control");
                 let control = object_at(control, &at)?;
+                let keys = ["opener_element", "closer_element", "count_element", "count"];
+                check_keys(control, &at, &keys, &keys)?;
                 for key in ["opener_element", "closer_element", "count_element"] {
                     check_member(control, &at, key, Leaf::Count, false)?;
                 }
@@ -2131,12 +2197,19 @@ fn check_shape(source: &Value) -> Result<(), SpecError> {
         for (name, def) in object_at(tables, "tables")? {
             let at = child("tables", name);
             let def = object_at(def, &at)?;
+            check_keys(
+                def,
+                &at,
+                &["loops", "ref", "segment", "repeat", "columns"],
+                &["loops"],
+            )?;
             check_member_texts(def, &at, "loops")?;
             check_member(def, &at, "ref", Leaf::Text, true)?;
             check_member(def, &at, "segment", Leaf::Text, true)?;
             if let Some(repeat) = def.get("repeat") {
                 let at = child(&at, "repeat");
                 let repeat = object_at(repeat, &at)?;
+                check_keys(repeat, &at, &["from", "step"], &["from", "step"])?;
                 check_member(repeat, &at, "from", Leaf::Count, false)?;
                 check_member(repeat, &at, "step", Leaf::Count, false)?;
             }
@@ -2145,6 +2218,20 @@ fn check_shape(source: &Value) -> Result<(), SpecError> {
                 for (column, def) in object_at(columns, &at)? {
                     let at = child(&at, column);
                     let def = object_at(def, &at)?;
+                    check_keys(
+                        def,
+                        &at,
+                        &[
+                            "loop",
+                            "segment",
+                            "where",
+                            "element",
+                            "component",
+                            "group_element",
+                            "segment_index",
+                        ],
+                        &[],
+                    )?;
                     check_member(def, &at, "loop", Leaf::Text, true)?;
                     check_member(def, &at, "segment", Leaf::Text, true)?;
                     check_member_map(def, &at, "where", Leaf::Text)?;
@@ -2160,6 +2247,7 @@ fn check_shape(source: &Value) -> Result<(), SpecError> {
         for (id, def) in object_at(segments, "segments")? {
             let at = child("segments", id);
             let def = object_at(def, &at)?;
+            check_keys(def, &at, &["elements"], &[])?;
             if let Some(elements) = def.get("elements") {
                 check_elements_shape(elements, &child(&at, "elements"))?;
             }
@@ -2174,6 +2262,20 @@ fn check_elements_shape(elements: &Value, at: &str) -> Result<(), SpecError> {
     for (position, def) in object_at(elements, at)? {
         let at = child(at, position);
         let def = object_at(def, &at)?;
+        check_keys(
+            def,
+            &at,
+            &[
+                "name",
+                "type",
+                "required",
+                "min",
+                "max",
+                "scale",
+                "composite",
+            ],
+            &["name", "type"],
+        )?;
         check_member(def, &at, "name", Leaf::Text, false)?;
         check_member(def, &at, "type", Leaf::Text, false)?;
         check_member(def, &at, "required", Leaf::Flag, false)?;
@@ -2504,14 +2606,102 @@ mod tests {
     }
 
     #[test]
-    fn unknown_fields_are_rejected() {
-        let err =
-            Spec::from_json(r#"{"name":"t","loops":{"a":{"trigger":{"segment":"AA"},"typo":1}}}"#)
-                .unwrap_err();
-        assert!(
-            matches!(&err, SpecError::Schema { loop_name: Some(name), .. } if name == "a"),
-            "{err}"
-        );
+    fn an_unknown_key_is_rejected_with_its_key_path() {
+        let loop_json = |loop_def: &str| format!(r#"{{"name":"t","loops":{{"env":{loop_def}}}}}"#);
+        let cases = [
+            (
+                r#"{"name":"t","loops":{"a":{"trigger":{"segment":"AA"}}},"tabels":{}}"#
+                    .to_string(),
+                "spec: unknown key \"tabels\" at the top level",
+            ),
+            (
+                loop_json(r#"{"trigger":{"segment":"AA"},"typo":1}"#),
+                "spec: unknown key \"typo\" at loops.env",
+            ),
+            (
+                loop_json(r#"{"trigger":{"segment":"AA","wher":{}}}"#),
+                "spec: unknown key \"wher\" at loops.env.trigger",
+            ),
+            (
+                loop_json(
+                    r#"{"trigger":{"segment":"HD"},"end":"TR","control":{"opener_element":2,"closer_element":2,"count_element":1,"count":"segments","extra":0}}"#,
+                ),
+                "spec: unknown key \"extra\" at loops.env.control",
+            ),
+        ];
+        for (json, expected) in cases {
+            let err = Spec::from_json(&json).unwrap_err();
+            assert!(
+                matches!(&err, SpecError::UnknownKey { .. }),
+                "{json}: {err:?}"
+            );
+            assert_eq!(err.to_string(), expected, "{json}");
+        }
+    }
+
+    #[test]
+    fn a_missing_required_key_is_rejected_with_its_key_path() {
+        let loop_json = |loop_def: &str| format!(r#"{{"name":"t","loops":{{"env":{loop_def}}}}}"#);
+        let cases = [
+            (
+                r#"{"loops":{"a":{"trigger":{"segment":"AA"}}}}"#.to_string(),
+                "spec: missing required key \"name\" at the top level",
+            ),
+            (
+                loop_json(r#"{"segments":["AA"]}"#),
+                "spec: missing required key \"trigger\" at loops.env",
+            ),
+            (
+                loop_json(r#"{"trigger":{"where":{"1":"X"}}}"#),
+                "spec: missing required key \"segment\" at loops.env.trigger",
+            ),
+        ];
+        for (json, expected) in cases {
+            let err = Spec::from_json(&json).unwrap_err();
+            assert!(
+                matches!(&err, SpecError::MissingKey { .. }),
+                "{json}: {err:?}"
+            );
+            assert_eq!(err.to_string(), expected, "{json}");
+        }
+    }
+
+    #[test]
+    fn unknown_and_missing_keys_display_the_key_and_the_path() {
+        let cases = [
+            (
+                SpecError::UnknownKey {
+                    path: "segments.CLP.elements.3".into(),
+                    key: "lenght".into(),
+                },
+                "spec: unknown key \"lenght\" at segments.CLP.elements.3",
+            ),
+            (
+                SpecError::UnknownKey {
+                    path: String::new(),
+                    key: "tabels".into(),
+                },
+                "spec: unknown key \"tabels\" at the top level",
+            ),
+            (
+                SpecError::MissingKey {
+                    path: "loops.env.control".into(),
+                    key: "count_element",
+                },
+                "spec: missing required key \"count_element\" at loops.env.control",
+            ),
+            (
+                SpecError::MissingKey {
+                    path: String::new(),
+                    key: "loops",
+                },
+                "spec: missing required key \"loops\" at the top level",
+            ),
+        ];
+        for (err, expected) in cases {
+            assert_eq!(err.to_string(), expected);
+            assert!(std::error::Error::source(&err).is_none());
+        }
     }
 
     #[test]
@@ -2569,7 +2759,7 @@ mod tests {
     }
 
     #[test]
-    fn a_schema_error_names_the_loop() {
+    fn a_misspelt_loop_key_is_named_with_the_loop() {
         let err = Spec::from_json(
             r#"{"name":"t","loops":{
                 "2000":{"trigger":{"segment":"LX"}},
@@ -2577,37 +2767,23 @@ mod tests {
             }}"#,
         )
         .unwrap_err();
-        assert!(
-            matches!(&err, SpecError::Schema { loop_name: Some(name), .. } if name == "2100"),
-            "{err:?}"
+        assert_eq!(
+            err.to_string(),
+            "spec: unknown key \"segmnts\" at loops.2100"
         );
-        assert!(
-            err.to_string()
-                .starts_with("loop \"2100\" does not match the schema: "),
-            "{err}"
-        );
-        assert!(err.to_string().contains("segmnts"), "{err}");
     }
 
     #[test]
-    fn a_malformed_top_level_is_a_schema_error_without_a_loop() {
+    fn a_top_level_without_loops_names_the_missing_key() {
         let err = Spec::from_json(r#"{"name":"t"}"#).unwrap_err();
         assert!(
-            matches!(
-                &err,
-                SpecError::Schema {
-                    loop_name: None,
-                    ..
-                }
-            ),
+            matches!(&err, SpecError::MissingKey { path, key: "loops" } if path.is_empty()),
             "{err:?}"
         );
-        let message = err.to_string();
-        assert!(
-            message.starts_with("spec does not match the schema: "),
-            "{message}"
+        assert_eq!(
+            err.to_string(),
+            "spec: missing required key \"loops\" at the top level"
         );
-        assert!(!message.contains("RawSpec"), "{message}");
     }
 
     #[test]
@@ -3346,21 +3522,43 @@ mod tests {
     }
 
     #[test]
-    fn a_segment_definition_that_breaks_the_schema_names_the_segment() {
-        let err = Spec::from_json(
-            r#"{"name":"t","loops":{"a":{"trigger":{"segment":"AA"}}},"segments":{"AA":{"elements":{"1":{"name":"a","type":"AN","lenght":3}}}}}"#,
-        )
-        .unwrap_err();
-        assert!(
-            matches!(&err, SpecError::SegmentSchema { segment, .. } if segment == "AA"),
-            "{err:?}"
-        );
-        assert!(
-            err.to_string()
-                .starts_with("segment \"AA\" does not match the schema: "),
-            "{err}"
-        );
-        assert!(err.to_string().contains("lenght"), "{err}");
+    fn a_segment_key_the_schema_does_not_define_is_named_with_its_path() {
+        let cases = [
+            (
+                r#"{"AA":{"elements":{"3":{"name":"a","type":"AN","lenght":3}}}}"#,
+                "spec: unknown key \"lenght\" at segments.AA.elements.3",
+            ),
+            (
+                r#"{"AA":{"elemnts":{}}}"#,
+                "spec: unknown key \"elemnts\" at segments.AA",
+            ),
+            (
+                r#"{"AA":{"elements":{"1":{"name":"c","type":"AN","composite":{"2":{"name":"x","typ":"AN"}}}}}}"#,
+                "spec: unknown key \"typ\" at segments.AA.elements.1.composite.2",
+            ),
+            (
+                r#"{"AA":{"elements":{"3":{"name":"a"}}}}"#,
+                "spec: missing required key \"type\" at segments.AA.elements.3",
+            ),
+            (
+                r#"{"AA":{"elements":{"1":{"name":"c","type":"AN","composite":{"2":{"type":"AN"}}}}}}"#,
+                "spec: missing required key \"name\" at segments.AA.elements.1.composite.2",
+            ),
+        ];
+        for (segments, expected) in cases {
+            let json = format!(
+                r#"{{"name":"t","loops":{{"a":{{"trigger":{{"segment":"AA"}}}}}},"segments":{segments}}}"#
+            );
+            let err = Spec::from_json(&json).unwrap_err();
+            assert!(
+                matches!(
+                    &err,
+                    SpecError::UnknownKey { .. } | SpecError::MissingKey { .. }
+                ),
+                "{segments}: {err:?}"
+            );
+            assert_eq!(err.to_string(), expected, "{segments}");
+        }
     }
 
     #[test]
@@ -4050,19 +4248,40 @@ mod tests {
     }
 
     #[test]
-    fn a_table_that_breaks_the_schema_names_the_table_and_the_column() {
-        let err = table_error(r#"{"t":{"loops":["A"],"anchor":"x"}}"#);
-        assert!(
-            matches!(&err, SpecError::TableSchema { table, column: None, .. } if table == "t"),
-            "{err:?}"
-        );
-        assert!(err.to_string().contains("anchor"), "{err}");
-        let err = table_error(r#"{"t":{"loops":["A"],"columns":{"c":{"elemnt":1}}}}"#);
-        assert!(
-            matches!(&err, SpecError::TableSchema { table, column: Some(column), .. } if table == "t" && column == "c"),
-            "{err:?}"
-        );
-        assert!(err.to_string().contains("elemnt"), "{err}");
+    fn a_table_key_the_schema_does_not_define_or_requires_is_named_with_its_path() {
+        let cases = [
+            (
+                r#"{"t":{"loops":["A"],"anchor":"x"}}"#,
+                "spec: unknown key \"anchor\" at tables.t",
+            ),
+            (
+                r#"{"t":{"loops":["A"],"columns":{"c":{"elemnt":1}}}}"#,
+                "spec: unknown key \"elemnt\" at tables.t.columns.c",
+            ),
+            (
+                r#"{"t":{"loops":["A"],"repeat":{"from":1,"step":2,"to":3}}}"#,
+                "spec: unknown key \"to\" at tables.t.repeat",
+            ),
+            (
+                r#"{"t":{"segment":"AA"}}"#,
+                "spec: missing required key \"loops\" at tables.t",
+            ),
+            (
+                r#"{"t":{"loops":["A"],"repeat":{"from":1}}}"#,
+                "spec: missing required key \"step\" at tables.t.repeat",
+            ),
+        ];
+        for (tables, expected) in cases {
+            let err = table_error(tables);
+            assert!(
+                matches!(
+                    &err,
+                    SpecError::UnknownKey { .. } | SpecError::MissingKey { .. }
+                ),
+                "{tables}: {err:?}"
+            );
+            assert_eq!(err.to_string(), expected, "{tables}");
+        }
     }
 
     #[test]
@@ -4401,8 +4620,12 @@ mod tests {
         );
         let err = control_error(r#"{"opener_element":2,"closer_element":2,"count":"segments"}"#);
         assert!(
-            matches!(&err, SpecError::Schema { loop_name: Some(name), .. } if name == "env"),
+            matches!(&err, SpecError::MissingKey { path, key: "count_element" } if path == "loops.env.control"),
             "{err:?}"
+        );
+        assert_eq!(
+            err.to_string(),
+            "spec: missing required key \"count_element\" at loops.env.control"
         );
     }
 

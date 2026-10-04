@@ -17,6 +17,8 @@ interface without copying.
 
 ## Python
 
+`make help` lists the developer targets (Rust gates, `py-dev`, `py-test`, `dist`, `smoke`, publishing).
+
 From a clone (publishing to PyPI comes later):
 
 ```bash

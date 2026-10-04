@@ -10,6 +10,8 @@ MATURIN     := $(if $(wildcard $(VENV)/bin/maturin),$(VENV)/bin/maturin,maturin)
 PYTEST      := $(if $(wildcard $(VENV)/bin/pytest),$(VENV)/bin/pytest,$(PYTHON) -m pytest)
 WHEELS      := target/wheels
 # The workspace version is Cargo's form (0.1.0-rc.1); maturin publishes it as PEP 440 (0.1.0rc1).
+# Only the -a.N, -b.N, -rc.N and -dev.N pre-release forms are mapped; any other suffix
+# (-alpha, -beta) leaves a version that release-check rejects against the tag.
 CARGO_VERSION := $(shell sed -n 's/^version = "\(.*\)"/\1/p' Cargo.toml | head -n 1)
 VERSION     := $(shell echo '$(CARGO_VERSION)' | sed -E 's/-(a|b|rc)\.?/\1/; s/-dev\.?/.dev/')
 
@@ -103,7 +105,7 @@ publish-test-verify: ## install the TestPyPI pre-release into .venv and import i
 	$(PYTHON) -c "import oxedi835, importlib.metadata as m; print(m.version('oxedi835'), oxedi835.Spec.builtin())"
 
 publish: sdist-check ## upload the built artifacts to PyPI (irreversible)
-	@test -n "$(VERSION)" || (echo "no version in pyproject.toml" && exit 1)
+	@test -n "$(VERSION)" || (echo "no version in Cargo.toml" && exit 1)
 	@echo "about to publish oxedi835 $(VERSION) to PyPI"; read -p "type the version to confirm: " v && test "$$v" = "$(VERSION)"
 	$(MATURIN) upload -r pypi $(WHEELS)/oxedi835-$(VERSION)*
 

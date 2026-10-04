@@ -1,7 +1,7 @@
 name: Release
 
-# A pushed v* tag builds, verifies and publishes. A manual dispatch runs the same builds and
-# verification and never publishes.
+# A pushed v* tag builds, verifies and publishes. A manual dispatch (on a branch or a tag) runs
+# the same builds and verification and never checks the tag or publishes.
 on:
   push:
     tags: ["v*"]
@@ -17,18 +17,28 @@ jobs:
   # The tag must equal v<version> from Cargo.toml and the changelog must have the section.
   check:
     name: Check tag
-    if: github.ref_type == 'tag'
+    if: github.event_name == 'push' && github.ref_type == 'tag'
     runs-on: ubuntu-latest
     outputs:
       prerelease: ${{ steps.kind.outputs.prerelease }}
+      version: ${{ steps.kind.outputs.version }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+      # Releases are cut from master only.
+      - name: Tag is on master
+        run: git merge-base --is-ancestor "$GITHUB_SHA" origin/master
       - name: Tag, version, changelog
-        run: make release-check TAG=${{ github.ref_name }}
+        env:
+          TAG: ${{ github.ref_name }}
+        run: make release-check TAG="$TAG"
+      # a/b/rc/dev versions go to TestPyPI, final versions to PyPI.
       - name: Pre-release suffix
         id: kind
         run: |
-          if [[ "${GITHUB_REF_NAME}" =~ [0-9](a|b|rc)[0-9]+$ ]]; then
+          echo "version=${GITHUB_REF_NAME#v}" >> "$GITHUB_OUTPUT"
+          if [[ "${GITHUB_REF_NAME}" =~ [0-9](a|b|rc)[0-9]+$ || "${GITHUB_REF_NAME}" =~ \.dev[0-9]+$ ]]; then
             echo "prerelease=true" >> "$GITHUB_OUTPUT"
           else
             echo "prerelease=false" >> "$GITHUB_OUTPUT"
@@ -137,7 +147,7 @@ jobs:
   publish-testpypi:
     name: Publish to TestPyPI
     needs: [check, sdist, verify, verify-musl]
-    if: github.ref_type == 'tag' && needs.check.outputs.prerelease == 'true'
+    if: github.event_name == 'push' && github.ref_type == 'tag' && needs.check.outputs.prerelease == 'true'
     runs-on: ubuntu-latest
     environment:
       name: testpypi
@@ -153,11 +163,62 @@ jobs:
       - uses: pypa/gh-action-pypi-publish@dc37677b2e1c63e2034f94d8a5b11f265b73ba33 # v1.14.2
         with:
           repository-url: https://test.pypi.org/legacy/
+          skip-existing: true
+
+  # The pre-release is installed from TestPyPI on each platform; the index can lag a publish,
+  # so the install is retried.
+  verify-testpypi:
+    name: Install from TestPyPI on ${{ matrix.os }}
+    needs: [check, publish-testpypi]
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: "3.13"
+      - name: Install the published version
+        shell: bash
+        env:
+          VERSION: ${{ needs.check.outputs.version }}
+        run: |
+          python -m venv "$RUNNER_TEMP/venv"
+          py="$RUNNER_TEMP/venv/bin/python"
+          [ -x "$py" ] || py="$RUNNER_TEMP/venv/Scripts/python.exe"
+          for attempt in 1 2 3 4 5 6 7 8 9 10; do
+            if "$py" -m pip install --pre --no-deps --index-url https://test.pypi.org/simple/ "oxedi835==$VERSION"; then
+              exit_code=0
+              break
+            fi
+            exit_code=1
+            echo "attempt $attempt failed; waiting for the index"
+            sleep 30
+          done
+          echo "py=$py" >> "$GITHUB_ENV"
+          exit "$exit_code"
+      - name: Import and parse a fixture
+        shell: bash
+        env:
+          VERSION: ${{ needs.check.outputs.version }}
+        working-directory: ${{ runner.temp }}
+        run: |
+          "$py" - <<'PY'
+          import importlib.metadata as m, os, oxedi835
+          expected = os.environ["VERSION"]
+          assert m.version("oxedi835") == expected, (m.version("oxedi835"), expected)
+          path = os.path.join(os.environ["GITHUB_WORKSPACE"], "crates", "edi835_core", "tests", "fixtures", "multi_claim_sample.txt")
+          result = oxedi835.parse_file(path)
+          assert result.count_claims() > 0
+          print("testpypi:", m.version("oxedi835"), result.count_claims(), "claims")
+          PY
 
   publish-pypi:
     name: Publish to PyPI
     needs: [check, sdist, verify, verify-musl]
-    if: github.ref_type == 'tag' && needs.check.outputs.prerelease == 'false'
+    if: github.event_name == 'push' && github.ref_type == 'tag' && needs.check.outputs.prerelease == 'false'
     runs-on: ubuntu-latest
     environment:
       name: pypi
@@ -171,13 +232,16 @@ jobs:
           merge-multiple: true
           path: dist
       - uses: pypa/gh-action-pypi-publish@dc37677b2e1c63e2034f94d8a5b11f265b73ba33 # v1.14.2
+        with:
+          skip-existing: true
 
   github-release:
     name: GitHub release
-    needs: [check, publish-testpypi, publish-pypi]
+    needs: [check, publish-testpypi, verify-testpypi, publish-pypi]
     if: >-
-      always() && github.ref_type == 'tag' &&
-      (needs.publish-testpypi.result == 'success' || needs.publish-pypi.result == 'success')
+      always() && github.event_name == 'push' && github.ref_type == 'tag' &&
+      (needs.publish-pypi.result == 'success' ||
+      (needs.publish-testpypi.result == 'success' && needs.verify-testpypi.result == 'success'))
     runs-on: ubuntu-latest
     permissions:
       contents: write
@@ -202,7 +266,13 @@ jobs:
           GH_TOKEN: ${{ github.token }}
           PRERELEASE: ${{ needs.check.outputs.prerelease }}
         run: |
-          flags=()
-          if [ "$PRERELEASE" = "true" ]; then flags+=(--prerelease); fi
-          gh release create "$GITHUB_REF_NAME" dist/* --title "oxedi835 ${GITHUB_REF_NAME#v}" \
-            --notes-file notes.md --verify-tag "${flags[@]}"
+          # A re-run updates the release it finds instead of failing on it.
+          if gh release view "$GITHUB_REF_NAME" > /dev/null 2>&1; then
+            gh release upload "$GITHUB_REF_NAME" dist/* --clobber
+            gh release edit "$GITHUB_REF_NAME" --notes-file notes.md
+          else
+            flags=()
+            if [ "$PRERELEASE" = "true" ]; then flags+=(--prerelease); fi
+            gh release create "$GITHUB_REF_NAME" dist/* --title "oxedi835 ${GITHUB_REF_NAME#v}" \
+              --notes-file notes.md --verify-tag "${flags[@]}"
+          fi

@@ -1,4 +1,4 @@
-# State — 2026-10-03 (Stage 5 merged, PyPI reserved)
+# State — 2026-10-04 (Stage 6 merged, release candidate next)
 
 Snapshot for picking the project up cold. Update when a stage changes state.
 
@@ -90,6 +90,19 @@ built column-wise (united 82 ms vs the library's ~320 ms), sdist without tests, 
 `Rule::kind` and the table renderer in the core, a UTF-8 BOM accepted losslessly
 (`Rule::ByteOrderMark`, SNIP 1 by owner ruling), trivia-only input reported as such, patient ids
 counted as text. 361 cargo + 268 pytest. Open board after it: #39, #45, #53 (design) and #64.
+
+Stage 6 is merged (PR #67, 2026-10-04): `.github/workflows/release.yml` builds the sdist and six
+abi3 wheels (manylinux_2_28 x86_64/aarch64, musllinux_1_2 x86_64, macOS x86_64/arm64, win_amd64),
+runs pytest on each platform, publishes by trusted publishing (pre-releases to TestPyPI, finals to
+PyPI, environments `testpypi`/`pypi` behind the owner's approval), checks the published version from
+TestPyPI and creates the GitHub release from the changelog section. Only a `push` of a `v*` tag on a
+commit of `master` publishes; re-runs are idempotent. Deferred: #66. Ledger `analysis/stage-6-ledger.md`.
+The README was rewritten for users and contributors (owner's request); the PyPI page carries the
+user-facing part and the edi-835-parser migration guide lives in `docs/`.
+
+Release path: `make release-check TAG=v0.1.0rc1 && make tag` → approve `testpypi` → bump to `0.1.0`
+and date the changelog → tag `v0.1.0` → approve `pypi` → revoke the account-wide tokens, delete the
+secrets `PYPI_API_TOKEN` and `pypi_test_api_token`, remove `~/.pypirc`.
 
 Next (owner moved Stage 6 ahead of 5c on 2026-10-04): Stage 6 (wheel matrix, trusted publishing,
 release workflow; build the sdist on Linux because the LICENSE symlinks do not survive a Windows

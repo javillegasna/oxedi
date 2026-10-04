@@ -895,6 +895,17 @@ fn civil_from_days(days: i32) -> (i32, i32, i32) {
 /// year `0000` is refused (so is the all-zero date some payers write for "no
 /// date"): it is not a meaningful `CCYY`.
 pub fn parse_dt(text: &[u8]) -> Option<i32> {
+    let (year, month, day) = civil_date(text)?;
+    Some(days_from_civil(year, month, day))
+}
+
+/// Whether [`parse_dt`] accepts `text`, without counting the days.
+pub(crate) fn is_dt(text: &[u8]) -> bool {
+    civil_date(text).is_some()
+}
+
+/// The year, month and day of a `DT` value, checked as [`parse_dt`] describes.
+fn civil_date(text: &[u8]) -> Option<(i32, i32, i32)> {
     let (year, month_day) = match text.len() {
         8 => (small_number(text.get(..4)?)?, text.get(4..)?),
         6 => {
@@ -909,7 +920,7 @@ pub fn parse_dt(text: &[u8]) -> Option<i32> {
     if year < 1 || !(1..=12).contains(&month) || day < 1 || day > days_in_month(year, month) {
         return None;
     }
-    Some(days_from_civil(year, month, day))
+    Some((year, month, day))
 }
 
 /// A `TM` value as seconds since midnight: `HHMM`, `HHMMSS`, or `HHMMSS`

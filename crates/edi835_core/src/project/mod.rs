@@ -47,6 +47,8 @@ mod fill;
 mod plan;
 #[cfg(test)]
 mod tests;
+#[cfg(test)]
+mod unread_tests;
 
 use crate::column::{Cell, ColumnType, Table, Tables};
 use crate::delimiters::Delimiters;
@@ -185,6 +187,7 @@ impl<'s> Projector<'s> {
                     }
                 }
             }
+            plans.mark_columns(def);
             tables.push(TableState {
                 kinds,
                 next: 0,

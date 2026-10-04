@@ -620,3 +620,18 @@ proptest! {
         }
     }
 }
+
+proptest! {
+    #[test]
+    fn is_dt_accepts_exactly_what_parse_dt_parses(
+        text in proptest::collection::vec(proptest::sample::select(b"0123459-".to_vec()), 0..10),
+    ) {
+        prop_assert_eq!(is_dt(&text), parse_dt(&text).is_some());
+    }
+
+    #[test]
+    fn is_dt_accepts_every_valid_date(year in 1i32..=9999, month in 1i32..=12, day in 1i32..=31) {
+        let text = format!("{year:04}{month:02}{day:02}");
+        prop_assert_eq!(is_dt(text.as_bytes()), parse_dt(text.as_bytes()).is_some());
+    }
+}

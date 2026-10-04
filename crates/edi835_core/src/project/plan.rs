@@ -15,8 +15,12 @@ pub(super) struct ElementPlan<'s> {
     /// Highest component position the definition declares (0 for a simple
     /// element).
     pub(super) declared: usize,
-    /// The components by position, with their column types.
-    pub(super) components: Vec<(usize, &'s ElementDef, ColumnType)>,
+    /// The components by position, with their column types and whether a
+    /// column reads them.
+    pub(super) components: Vec<(usize, &'s ElementDef, ColumnType, bool)>,
+    /// Whether a column reads the element as a whole. An element or
+    /// component no column reads is validated without keeping its value.
+    pub(super) read: bool,
 }
 
 impl<'s> ElementPlan<'s> {
@@ -29,8 +33,22 @@ impl<'s> ElementPlan<'s> {
             components: def
                 .composite
                 .iter()
-                .map(|(&at, part)| (at, part, ColumnType::of(Some(part.kind))))
+                .map(|(&at, part)| (at, part, ColumnType::of(Some(part.kind)), false))
                 .collect(),
+            read: false,
+        }
+    }
+
+    /// Records that a column reads this element (`component` `None`) or one
+    /// of its declared components.
+    fn mark_read(&mut self, component: Option<usize>) {
+        match component {
+            None => self.read = true,
+            Some(wanted) => self
+                .components
+                .iter_mut()
+                .filter(|(at, ..)| *at == wanted)
+                .for_each(|(.., read)| *read = true),
         }
     }
 }
@@ -67,6 +85,61 @@ impl<'s> Plans<'s> {
         match Self::key(id) {
             Some(key) => self.short.get(&key),
             None => self.long.get(id),
+        }
+    }
+
+    /// Records that a column reads `element` (or its `component`) of the
+    /// segments with `id`, when the spec defines that element.
+    fn mark_read(&mut self, id: &[u8], element: usize, component: Option<usize>) {
+        let plan = match Self::key(id) {
+            Some(key) => self.short.get_mut(&key),
+            None => self.long.get_mut(id),
+        };
+        plan.into_iter()
+            .flat_map(|plan| plan.elements.iter_mut())
+            .filter(|plan| plan.position == element)
+            .for_each(|plan| plan.mark_read(component));
+    }
+
+    /// Marks every element and component some column of `table` can read.
+    /// A column of a table anchored on a segment reads that segment too, and
+    /// a group column reads its offset in every group the segment can hold.
+    pub(super) fn mark_columns(&mut self, table: &TableDef) {
+        for (_, source) in &table.columns {
+            match source {
+                ColumnSource::Element {
+                    segment,
+                    element,
+                    component,
+                    ..
+                } => {
+                    self.mark_read(segment, *element, *component);
+                    if let Some(anchor) = &table.segment {
+                        self.mark_read(anchor, *element, *component);
+                    }
+                }
+                ColumnSource::GroupElement { offset, component } => {
+                    let (Some(anchor), Some(repeat)) = (&table.segment, table.repeat) else {
+                        continue;
+                    };
+                    let Some(first) = repeat.from.checked_add(*offset) else {
+                        continue;
+                    };
+                    let positions: Vec<usize> = self
+                        .get(anchor)
+                        .map(|plan| plan.elements.iter().map(|e| e.position).collect())
+                        .unwrap_or_default();
+                    for position in positions {
+                        let in_group = position
+                            .checked_sub(first)
+                            .is_some_and(|gap| gap.checked_rem(repeat.step).unwrap_or(gap) == 0);
+                        if in_group {
+                            self.mark_read(anchor, position, *component);
+                        }
+                    }
+                }
+                ColumnSource::SegmentIndex { .. } => {}
+            }
         }
     }
 

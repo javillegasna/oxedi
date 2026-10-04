@@ -11,7 +11,7 @@ PYTEST      := $(if $(wildcard $(VENV)/bin/pytest),$(VENV)/bin/pytest,$(PYTHON) 
 WHEELS      := target/wheels
 VERSION     := $(shell sed -n 's/^version = "\(.*\)"/\1/p' crates/oxedi835_py/pyproject.toml)
 
-.PHONY: help gates test clippy fmt fmt-check bench-check doc venv py-dev py-test compat-oracle dist smoke publish-test publish-test-verify publish tag clean-dist
+.PHONY: help sdist-check gates test clippy fmt fmt-check bench-check doc venv py-dev py-test compat-oracle dist smoke publish-test publish-test-verify publish tag clean-dist
 
 help: ## list targets
 	@grep -E '^[a-z][a-z-]*:.*##' $(MAKEFILE_LIST) | sed 's/:.*## /\t/'
@@ -55,7 +55,15 @@ compat-oracle: ## compare with edi-835-parser on DIR (outside the repo); prints 
 dist: clean-dist ## build the sdist and the release wheel into target/wheels
 	$(MATURIN) sdist --manifest-path $(PY_MANIFEST) -o $(WHEELS)
 	$(MATURIN) build --release --manifest-path $(PY_MANIFEST) -o $(WHEELS)
+	@$(MAKE) --no-print-directory sdist-check
 	@ls -l $(WHEELS)
+
+sdist-check: ## fail if the sdist holds the core's test trees or lacks what the build needs
+	@sdist=$$(ls $(WHEELS)/oxedi835-*.tar.gz) && listing=$$(tar tzf "$$sdist") && \
+	  if echo "$$listing" | grep -E 'edi835_core/tests/'; then echo "sdist-check: $$sdist holds the core's tests/ tree (samples, golden, fixtures)"; exit 1; fi && \
+	  for need in crates/edi835_core/src/lib.rs crates/edi835_core/specs/835.json crates/edi835_core/Cargo.toml pyproject.toml; do \
+	    echo "$$listing" | grep -q "$$need" || { echo "sdist-check: $$sdist lacks $$need"; exit 1; }; \
+	  done && echo "sdist-check: ok ($$(echo "$$listing" | wc -l) files)"
 
 smoke: ## install the built wheel in a clean venv outside the repo and run the suite
 	scripts/smoke_wheel.sh

@@ -34,6 +34,7 @@ test = ["pytest>=8", "polars>=1.0", "pyarrow>=14", "pandas>=2.0.3,<3", "edi-835-
 [tool.maturin]
 module-name = "oxedi835._core"
 python-source = "python"
+exclude = [{ path = "**/edi835_core/tests/**", format = "sdist" }]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

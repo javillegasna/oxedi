@@ -189,13 +189,13 @@ jobs:
           py="$RUNNER_TEMP/venv/bin/python"
           [ -x "$py" ] || py="$RUNNER_TEMP/venv/Scripts/python.exe"
           for attempt in 1 2 3 4 5 6 7 8 9 10; do
-            if "$py" -m pip install --pre --no-deps --index-url https://test.pypi.org/simple/ "oxedi835==$VERSION"; then
+            if "$py" -m pip install --pre --no-deps --only-binary=:all: --index-url https://test.pypi.org/simple/ "oxedi835==$VERSION"; then
               exit_code=0
               break
             fi
             exit_code=1
             echo "attempt $attempt failed; waiting for the index"
-            sleep 30
+            if [ "$attempt" -lt 10 ]; then sleep 30; fi
           done
           echo "py=$py" >> "$GITHUB_ENV"
           exit "$exit_code"
@@ -239,7 +239,7 @@ jobs:
     name: GitHub release
     needs: [check, publish-testpypi, verify-testpypi, publish-pypi]
     if: >-
-      always() && github.event_name == 'push' && github.ref_type == 'tag' &&
+      !cancelled() && github.event_name == 'push' && github.ref_type == 'tag' &&
       (needs.publish-pypi.result == 'success' ||
       (needs.publish-testpypi.result == 'success' && needs.verify-testpypi.result == 'success'))
     runs-on: ubuntu-latest
@@ -269,7 +269,11 @@ jobs:
           # A re-run updates the release it finds instead of failing on it.
           if gh release view "$GITHUB_REF_NAME" > /dev/null 2>&1; then
             gh release upload "$GITHUB_REF_NAME" dist/* --clobber
-            gh release edit "$GITHUB_REF_NAME" --notes-file notes.md
+            if [ "$PRERELEASE" = "true" ]; then
+              gh release edit "$GITHUB_REF_NAME" --notes-file notes.md --prerelease
+            else
+              gh release edit "$GITHUB_REF_NAME" --notes-file notes.md --prerelease=false
+            fi
           else
             flags=()
             if [ "$PRERELEASE" = "true" ]; then flags+=(--prerelease); fi

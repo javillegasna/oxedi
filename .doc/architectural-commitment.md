@@ -322,6 +322,18 @@ carga su prueba de costura con la capa inferior (N7).
   `Document` y `LoopTree`. Las piezas 2 y 3 viven en el subpaquete `oxedi835.pyx12` tras el
   extra `oxedi835[pyx12]`, siguiendo la regla de nombres de D12; el script de la pieza 1 vive
   en `scripts/`.
+  **Adelantada por el dueño (2026-10-04)** al Stage 5e, antes de la extensión de DuckDB y del
+  escritor: nuestra spec no es completa y hace falta una forma fiable de extenderla y validarla,
+  y de validar tanto lo que se lee como lo que se escriba. Entran en 5e la pieza 1 para el 835
+  (cotejo de `specs/835.json` contra los mapas `835.4010.X091.A1.xml` y `835.5010.X221.A1.xml`
+  más `dataele.xml` y `codes.xml`, y parches que cierren los huecos) y la pieza 2 (`validate`).
+  El generador para la 837 sigue en el Stage 9 y `ContextReader` en 9b. Verificado: no existe un
+  equivalente de `pyx12` en Rust (ningún crate valida contra las guías HIPAA ni por niveles SNIP;
+  `x12-types` solo modela parte de la forma), y los mapas de `pyx12` (BSD 3 cláusulas) son la única
+  fuente abierta con uso, longitudes, tipos y códigos del 835. `pyx12` 4.0.0 pide Python ≥ 3.11,
+  como nosotros; valida `edi835_test_united.rmt` sin errores en unos 3,6 s y falla al generar su
+  999 (`Cannot create AK2: err_st.vriic was not set`), un fallo suyo que no afecta a la
+  validación.
 - **D17 · Bindings para otros lenguajes** (anotada 2026-10-04, abierta). Idea del dueño: además
   de Python, bindings para Node/TypeScript, C y Go sobre el mismo núcleo. La dirección encaja con
   el núcleo sans-IO, pero se decide **después** del Stage 7, del nombre neutro de D15 (los nombres
@@ -392,6 +404,28 @@ carga su prueba de costura con la capa inferior (N7).
   `allow_unsigned_extensions`). Se soporta la versión estable de DuckDB y la anterior. Coste: CI
   solo en Linux por nuestra parte y un PR por versión de DuckDB (unas cuatro o cinco al año), que
   desaparece con la vía estable.
+  **Escritura desde DuckDB** (2026-10-04). Con el writer del Stage 7 en el núcleo (sans-IO:
+  produce bytes; la extensión decide dónde escribirlos), la extensión puede exponer la escritura:
+  (a) una función que recibe varias tablas, `write_835('x.rmt', payments := ..., claims := ...)`,
+  que encaja con el esquema de tablas con referencias al padre que devuelve `read_835()`; (b) un
+  formato de `COPY (...) TO 'x.rmt' (FORMAT edi835)` como los de Parquet y JSON, limitado a una
+  consulta y por tanto a casos aplanados. Habilita el ciclo leer → transformar en SQL → emitir
+  desde cualquier lenguaje, 835 sintéticos sin PHI para pruebas, y el caso original de D7 (de una
+  base relacional al `.RMT`, con DuckDB leyendo Postgres, MySQL o SQLite) sin conectores propios.
+  El spike comprueba si la API C de extensiones expone funciones de copia y si una función puede
+  leer tablas pasadas por nombre.
+  **Resultado del spike** (2026-10-04, `.doc/spikes/duckdb-extension.md`; prototipo en la rama
+  `spike-duckdb-prototype`): viable. En DuckDB v1.5.6 la parte inestable de la API C de
+  extensiones está vacía (las 546 entradas son estables o deprecadas), así que la plantilla de
+  Rust con `USE_UNSTABLE_C_API=0` produce un binario que carga sin recompilar en 1.5.6 y en 2.0-dev;
+  la vía C fina sobre una staticlib de Rust, con objetivo v1.2.0, carga además en 1.4.5. Los dos
+  prototipos de `read_835` devuelven las mismas filas y el mismo md5 que `oxedi835.parse_file` en
+  las 30 tablas (6 samples × 5 tablas); el parseo domina el tiempo (unos 16 ms en united) y la
+  extensión ahorra unos 2 ms frente a Python más `from_arrow`. Todo lo necesario es estable:
+  funciones de tabla, nuestros tipos, validez, Arrow, funciones de copia y consultas desde la
+  extensión. Escritura: el formato de `COPY` funciona completo y ve tablas temporales y objetos
+  del cliente; una función que lee tablas por nombre solo ve tablas persistentes confirmadas. Vía
+  recomendada: plantilla de Rust con ABI estable; riesgos y esquema de §7 en el documento.
 - **D7 · Stage 7, Escritor** → programado el 2026-10-03, tras 5b y Stage 6, con un caso real:
   generar un 835 (`.RMT`) a partir de datos en bases relacionales. Contrato acordado: la
   entrada es nuestro esquema de tablas (`Tables` del core o Arrow por el mismo protocolo

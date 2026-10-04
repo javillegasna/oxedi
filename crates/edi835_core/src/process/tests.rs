@@ -84,7 +84,7 @@ fn finishing_reports_what_is_left_open_and_appends_its_rows() {
 fn run_over_a_document_is_feeding_every_segment_then_finishing() {
     let spec = Spec::builtin_835();
     let input = interchange(&[CLAIM, "BPR*I*1*C*CHK~TRN*1*2~ZZZ~"]);
-    let document = Document::with_delimiters(input.as_bytes(), delimiters());
+    let document = Document::with_delimiters(input.as_bytes(), delimiters()).unwrap();
     let (tables, diagnostics) = Processor::run(&spec, &document);
     let mut processor = Processor::new(&spec, &delimiters());
     let mut by_hand = Vec::new();
@@ -116,7 +116,7 @@ fn tables_drained_after_each_transaction_add_up_to_one_run() {
     }
     processor.finish();
     drained.push(processor.take_tables());
-    let document = Document::with_delimiters(input.as_bytes(), delimiters());
+    let document = Document::with_delimiters(input.as_bytes(), delimiters()).unwrap();
     let (whole, _) = Processor::run(&spec, &document);
     for table in &whole {
         let rows = |tables: &Tables| -> Vec<String> {

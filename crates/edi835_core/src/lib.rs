@@ -48,7 +48,7 @@ pub use column::{
 };
 pub use delimiters::{Delimiters, IsaError};
 pub use diagnostic::{Diagnostic, LoopRef, Rule, SnipLevel};
-pub use document::{Document, Segments, Span};
+pub use document::{Document, DocumentError, Segments, SizeError, Span, Spans};
 pub use element::{Element, Value};
 pub use engine::{Event, LoopEngine};
 pub use frame::{Frame, next_frame};

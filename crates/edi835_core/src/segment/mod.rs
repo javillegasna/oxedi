@@ -8,7 +8,7 @@ use std::fmt;
 use std::io;
 
 use crate::delimiters::Delimiters;
-use crate::element::{Element, split_raw};
+use crate::element::{Element, Pieces};
 use crate::frame::Frame;
 
 /// One segment of the input. Everything borrows from the buffer except
@@ -30,18 +30,43 @@ pub struct Segment<'a> {
 impl<'a> Segment<'a> {
     /// Parses a frame's body into id and elements.
     pub fn parse(index: usize, frame: Frame<'a>, delims: &Delimiters) -> Self {
-        let mut pieces = split_raw(frame.body, delims.element, delims.release).into_iter();
-        let id = pieces.next().unwrap_or_default();
-        let elements = pieces
-            .map(|piece| Element::parse(piece, delims.component, delims.release))
-            .collect();
+        let mut segment = Segment::empty();
+        segment.reparse(index, frame, delims);
+        segment
+    }
+
+    /// A segment with no id, no elements and no bytes, to be filled by
+    /// [`Segment::reparse`].
+    pub(crate) const fn empty() -> Self {
         Self {
-            index,
-            raw: frame.raw,
-            id,
-            elements,
-            terminated: frame.terminated,
+            index: 0,
+            raw: &[],
+            id: &[],
+            elements: Vec::new(),
+            terminated: false,
         }
+    }
+
+    /// Overwrites this segment with the parse of `frame`, reusing the element
+    /// vector and the composite vectors already in it. Every field is
+    /// replaced, and elements past the new count are dropped.
+    pub(crate) fn reparse(&mut self, index: usize, frame: Frame<'a>, delims: &Delimiters) {
+        let mut pieces = Pieces::new(frame.body, delims.element, delims.release);
+        self.index = index;
+        self.raw = frame.raw;
+        self.id = pieces.next().unwrap_or_default();
+        self.terminated = frame.terminated;
+        let mut count = 0;
+        for piece in pieces {
+            match self.elements.get_mut(count) {
+                Some(slot) => slot.reparse(piece, delims.component, delims.release),
+                None => self
+                    .elements
+                    .push(Element::parse(piece, delims.component, delims.release)),
+            }
+            count += 1;
+        }
+        self.elements.truncate(count);
     }
 
     /// `true` when the frame had no content: `~~`, or trailing trivia.

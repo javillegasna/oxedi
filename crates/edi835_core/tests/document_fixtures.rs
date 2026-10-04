@@ -3,7 +3,7 @@
 
 mod common;
 
-use edi835_core::{Delimiters, Document, IsaError, Tokenizer};
+use edi835_core::{Delimiters, Document, DocumentError, IsaError, Tokenizer};
 
 const ENVELOPED: &[&str] = &[
     "emedny_sample.txt",
@@ -26,8 +26,7 @@ fn assert_matches_tokenizer(doc: &Document<'_>, bytes: &[u8], delims: Delimiters
     );
     let rebuilt: Vec<u8> = doc
         .spans()
-        .iter()
-        .flat_map(|s| bytes[s.raw.clone()].iter().copied())
+        .flat_map(|s| bytes[s.raw].iter().copied())
         .collect();
     assert_eq!(rebuilt, bytes, "{name}: spans must rebuild the file");
 }
@@ -62,14 +61,14 @@ fn fragment_without_isa_needs_caller_delimiters() {
     let bytes = common::load_fixture("blue_cross_nc_sample.txt");
     assert_eq!(
         Document::parse(&bytes[..]).err(),
-        Some(IsaError::NotIsa {
+        Some(DocumentError::Isa(IsaError::NotIsa {
             found: b"ST*835*1".to_vec(),
             byte_order_mark: false,
             whitespace: 0,
-        })
+        }))
     );
     let delims = Delimiters::new(b'*', b':', b'~');
-    let doc = Document::with_delimiters(&bytes[..], delims);
+    let doc = Document::with_delimiters(&bytes[..], delims).unwrap();
     assert_eq!(doc.segment(0).unwrap().id, b"ST");
     assert_matches_tokenizer(&doc, &bytes, delims, "blue_cross_nc_sample.txt");
 }

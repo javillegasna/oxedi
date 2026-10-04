@@ -24,8 +24,11 @@ mod by_module {
     use edi835_core::diagnostic::Rule;
     use edi835_core::diagnostic::SnipLevel;
     use edi835_core::document::Document;
+    use edi835_core::document::DocumentError;
     use edi835_core::document::Segments;
+    use edi835_core::document::SizeError;
     use edi835_core::document::Span;
+    use edi835_core::document::Spans;
     use edi835_core::element::Element;
     use edi835_core::element::Value;
     use edi835_core::element::split_raw;
@@ -86,7 +89,7 @@ use edi835_core::{
 };
 use edi835_core::{Delimiters, IsaError};
 use edi835_core::{Diagnostic, LoopRef, Rule, SnipLevel};
-use edi835_core::{Document, Segments, Span};
+use edi835_core::{Document, DocumentError, Segments, SizeError, Span, Spans};
 use edi835_core::{Element, Value};
 use edi835_core::{Event, LoopEngine};
 use edi835_core::{Frame, next_frame};

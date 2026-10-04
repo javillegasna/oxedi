@@ -1,6 +1,6 @@
 //! Element checks: the values a segment's elements parse to, and the diagnostics they raise.
 
-use crate::column::{ColumnType, parse_dt, parse_n, parse_r, parse_tm};
+use crate::column::{ColumnType, is_dt, parse_dt, parse_n, parse_r, parse_tm};
 use crate::diagnostic::Rule;
 use crate::element::Element;
 use crate::segment::Segment;
@@ -32,6 +32,19 @@ pub(super) struct Checked {
     pub(super) value: Parsed,
 }
 
+/// Whether a non-empty text is a value of the column type, as [`parse`]
+/// decides, without keeping the value: text is always valid and a date skips
+/// the day count.
+fn is_valid(kind: ColumnType, text: &[u8]) -> bool {
+    match kind {
+        ColumnType::Binary => true,
+        ColumnType::Int64 { .. } => parse_n(text).is_some(),
+        ColumnType::Decimal128 { scale, .. } => parse_r(text, scale).is_some(),
+        ColumnType::Date32 => is_dt(text),
+        ColumnType::Time32 => parse_tm(text).is_some(),
+    }
+}
+
 /// A non-empty text as a value of the column type; `None` when it does not parse.
 pub(super) fn parse(kind: ColumnType, text: &[u8]) -> Option<Parsed> {
     Some(match kind {
@@ -45,7 +58,7 @@ pub(super) fn parse(kind: ColumnType, text: &[u8]) -> Option<Parsed> {
 
 impl<'s> Projector<'s> {
     /// Checks every element the spec defines for the segment and keeps the
-    /// parsed values for the columns that read them.
+    /// parsed values of the ones a column reads.
     pub(super) fn check(
         &mut self,
         elements: &[ElementPlan<'_>],
@@ -57,13 +70,15 @@ impl<'s> Projector<'s> {
             let (position, element) = (plan.position, plan.def);
             if plan.components.is_empty() {
                 let text = leaf_text(segment, position, None, self.separator, joined);
-                let value = self.check_value(segment, position, None, element, text);
-                self.checked.push(Checked {
-                    element: position,
-                    component: None,
-                    kind: plan.kind,
-                    value,
-                });
+                let value = self.check_value(segment, position, None, element, text, plan.read);
+                if plan.read {
+                    self.checked.push(Checked {
+                        element: position,
+                        component: None,
+                        kind: plan.kind,
+                        value,
+                    });
+                }
                 continue;
             }
             let parts: &[std::borrow::Cow<'_, [u8]>] = match segment.element(position) {
@@ -105,24 +120,28 @@ impl<'s> Projector<'s> {
                     extra,
                 );
             }
-            for &(component, def, kind) in &plan.components {
+            for &(component, def, kind, read) in &plan.components {
                 let text = component
                     .checked_sub(1)
                     .and_then(|at| parts.get(at))
                     .map_or(&[][..], |part| part.as_ref());
-                let value = self.check_value(segment, position, Some(component), def, text);
-                self.checked.push(Checked {
-                    element: position,
-                    component: Some(component),
-                    kind,
-                    value,
-                });
+                let value = self.check_value(segment, position, Some(component), def, text, read);
+                if read {
+                    self.checked.push(Checked {
+                        element: position,
+                        component: Some(component),
+                        kind,
+                        value,
+                    });
+                }
             }
         }
     }
 
     /// Checks one value against its definition, reports what fails, and
     /// returns the parsed value (null when missing or of the wrong type).
+    /// When no column reads it (`keep` false) the value is only validated
+    /// and null is returned; the diagnostics are the same.
     fn check_value(
         &mut self,
         segment: &Segment<'_>,
@@ -130,6 +149,7 @@ impl<'s> Projector<'s> {
         component: Option<usize>,
         def: &ElementDef,
         text: &[u8],
+        keep: bool,
     ) -> Parsed {
         if text.is_empty() {
             if def.required {
@@ -148,7 +168,13 @@ impl<'s> Projector<'s> {
             }
             return Parsed::Null;
         }
-        let Some(value) = parse(ColumnType::of(Some(def.kind)), text) else {
+        let kind = ColumnType::of(Some(def.kind));
+        let value = if keep {
+            parse(kind, text)
+        } else {
+            is_valid(kind, text).then_some(Parsed::Null)
+        };
+        let Some(value) = value else {
             self.report(
                 Rule::TypeMismatch {
                     segment_id: segment.id.to_vec(),

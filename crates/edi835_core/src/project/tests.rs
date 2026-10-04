@@ -2,7 +2,7 @@ use super::*;
 use crate::{LoopEngine, Tokenizer};
 use proptest::prelude::*;
 
-const SPEC: &str = r#"{"name":"t",
+pub(super) const SPEC: &str = r#"{"name":"t",
     "loops":{
         "head":{"trigger":{"segment":"HD"},"segments":["ZZ"],"end":"TR"},
         "note":{"parent":"head","trigger":{"segment":"NM","where":{"1":"P"}}},
@@ -61,16 +61,16 @@ const SPEC: &str = r#"{"name":"t",
     }
 }"#;
 
-fn spec() -> Spec {
+pub(super) fn spec() -> Spec {
     Spec::from_json(SPEC).unwrap()
 }
 
-fn delimiters() -> Delimiters {
+pub(super) fn delimiters() -> Delimiters {
     Delimiters::new(b'*', b':', b'~')
 }
 
 /// Runs the engine and a projector over `input`, `finish` included.
-fn project(spec: &Spec, input: &str) -> (Tables, Vec<Diagnostic>) {
+pub(super) fn project(spec: &Spec, input: &str) -> (Tables, Vec<Diagnostic>) {
     let mut engine = LoopEngine::new(spec);
     let mut projector = Projector::new(spec, &delimiters());
     let mut diagnostics = Vec::new();
@@ -104,7 +104,7 @@ fn rows(tables: &Tables, name: &str) -> Vec<String> {
         .collect()
 }
 
-fn rendered(diagnostics: &[Diagnostic]) -> Vec<String> {
+pub(super) fn rendered(diagnostics: &[Diagnostic]) -> Vec<String> {
     diagnostics.iter().map(ToString::to_string).collect()
 }
 

@@ -300,13 +300,13 @@ carga su prueba de costura con la capa inferior (N7).
   ideas, los conceptos y los patrones que rigen el proyecto (lossless por construcción,
   motor genérico y estándar como datos, pull, sans-IO, errores que se explican solos,
   columnas con disposición Arrow), sin fragmentos de código ni referencias a líneas, para
-  que no exija mantenimiento continuo; más guías de uso de la librería Python y del binario.
+  que no exija mantenimiento continuo; más guías de uso de la librería Python y de la extensión de DuckDB.
   Lo que sí cambia con el código (firmas, ejemplos) se queda en rustdoc y en los planes.
 - **D15 · Toolkit para la familia X12** (835 primero, 837 después): el motor, el formato
-  de spec, la proyección y el binario no saben nada del 835 más allá de la spec built-in, así
+  de spec, la proyección no saben nada del 835 más allá de la spec built-in, así
   que otro conjunto de transacciones con la misma lógica de loops y otras definiciones de
-  segmentos debería entrar como una spec más. A decidir: nombres (crate y binario dejan de
-  ser "835"), una spec por conjunto de transacciones, qué expone el CLI, y qué suposiciones
+  segmentos debería entrar como una spec más. A decidir: nombres (el crate deja de
+  ser "835"), una spec por conjunto de transacciones, y qué suposiciones
   del 835 se colaron en código (auditar antes de abrir la 837).
 - **D16 · Interoperabilidad con `pyx12`** (acordada 2026-10-03). `pyx12` es el validador
   HIPAA X12 de referencia en Python (BSD, activo), con mapas XML por guía de implementación
@@ -322,6 +322,76 @@ carga su prueba de costura con la capa inferior (N7).
   `Document` y `LoopTree`. Las piezas 2 y 3 viven en el subpaquete `oxedi835.pyx12` tras el
   extra `oxedi835[pyx12]`, siguiendo la regla de nombres de D12; el script de la pieza 1 vive
   en `scripts/`.
+- **D17 · Bindings para otros lenguajes** (anotada 2026-10-04, abierta). Idea del dueño: además
+  de Python, bindings para Node/TypeScript, C y Go sobre el mismo núcleo. La dirección encaja con
+  el núcleo sans-IO, pero se decide **después** del Stage 7, del nombre neutro de D15 (los nombres
+  en npm y las rutas de módulos Go son casi permanentes) y de que la API cumpla el criterio de 1.0;
+  cada binding multiplica el coste de un cambio que rompe y añade un pipeline de release. Primer
+  paso cuando toque: un solo artefacto que desbloquee varios lenguajes, a elegir con trade-offs:
+  (a) una API C que exporte las tablas por el Arrow C Data Interface (Go con `arrow-go`, Node con
+  `apache-arrow`, sin conversión fila a fila), o (b) un build WASM del núcleo (Go con `wazero`
+  sin CGO y con `go get` simple; Node y navegador con un artefacto). NAPI-RS para Node y un módulo
+  Go dedicado solo si hay demanda. Descartados: binarios precompilados dentro del repo y renombrar
+  `oxedi835_py`.
+  Comparación (2026-10-04): la **API C con el Arrow C Data Interface** es la que más integraciones
+  libera sin penalizar el rendimiento: casi todo lenguaje llama a C (Go, Java por Panama, C# por
+  P/Invoke, Ruby, PHP, Dart, Julia, R, Swift, Zig; Node con un wrapper fino), el núcleo corre
+  nativo y la frontera se cruza una vez por archivo; las tablas salen sin copia por el mismo ABI
+  que leen `arrow-go`, Arrow Java y C#, R, Julia, DuckDB y Polars (el mecanismo es el del
+  PyCapsule de Python), y los diagnósticos pueden salir también como tabla Arrow, de modo que la
+  API queda en parsear, exportar y liberar. Coste: `unsafe` y contrato de propiedad de punteros
+  confinados al crate C, y un binario por plataforma reutilizando la matriz de release. JS
+  (`apache-arrow`) no lee el C Data Interface, así que la API C entrega también Arrow IPC.
+  **WASM** llega a más sitios (un binario para todas las plataformas, sandbox, navegador, Go sin
+  CGO) pero corre por debajo de nativo (cuánto depende del runtime y del SIMD; se mide) y las
+  tablas salen de la memoria lineal copiadas o serializadas. Recomendación: primero la API C
+  (C Data Interface más Arrow IPC); Go y Node como envoltorios delgados sobre ella bajo demanda;
+  WASM como segundo artefacto solo si aparece un caso de navegador o sandbox.
+  **Decisión del dueño (2026-10-04): entrar por DuckDB.** El proyecto nació porque la única
+  opción era `edi-835-parser`, atada a Python, y se quedó corta: ignoraba en silencio los
+  segmentos que no sabía manejar. La investigación de otros lenguajes
+  (`.superpowers/835-parsers-other-languages-survey.md`) confirma el hueco: ningún lenguaje está
+  bien servido; Java, .NET y Ruby tienen motores X12 genéricos (StAEDI, EdiFabric, stupidedi)
+  pero ninguno entrega el 835 como tablas; la única salida tabular es Ember de Databricks, atada a
+  Spark y con licencia no abierta; R, Snowflake y dbt no tienen nada; nadie garantiza salida sin
+  pérdidas ni publica benchmarks. Primer artefacto: una **extensión de DuckDB** con una función de
+  tabla (`read_835(...)`, una por tabla o con parámetro) y los diagnósticos como tabla; los
+  clientes de DuckDB (Python, R, Java, Node, Go, .NET, Rust) la llevan a cada lenguaje sin que
+  mantengamos bindings, y `COPY ... TO 'x.parquet'` desde el CLI de DuckDB cubre la exportación a
+  archivos. Antes del §7, un spike confirma que una extensión escrita en Rust es viable
+  (API C de extensiones, repositorio de extensiones comunitarias, plataformas y versiones de
+  DuckDB soportadas). La API C con Arrow queda para casos en proceso que DuckDB no cubra; WASM,
+  para navegador o sandbox. **Descartado un CLI propio**: el de DuckDB hace la conversión.
+  **Adopción de DuckDB** (2026-10-04, `.superpowers/duckdb-adoption-survey.md`): Python 54,4 M
+  descargas/mes (a la par de polars, 50,7 M), Node 6,7 M/mes más 2,4 M del paquete antiguo y
+  1,9 M de WASM, Rust 1,7 M en 90 días, .NET entre 0,9 y 4,1 M en total, R 104 K/mes, Go unos
+  130–160 importadores, Java sin cifra fiable; 41,9 K estrellas, `dbt-duckdb` 1,9 M/mes; en salud
+  solo hay proyectos personales. El repositorio comunitario tiene 358 extensiones, unas 60 en Rust
+  (`rusty_sheet` ofrece `read_sheet()`, análogo a `read_835()`).
+  **Estabilidad.** DuckDB tiene tres vías: la API interna de C++ (atada a la versión exacta), el
+  subconjunto estable de su API C de extensiones (compatible hacia delante: un build vale para
+  versiones siguientes; la plantilla en C lo activa con `USE_UNSTABLE_C_API=0`) y las funciones
+  inestables de esa API (atadas a una versión). La plantilla oficial de Rust es experimental y usa
+  la parte inestable porque `duckdb-rs` depende de ella (hoy fijada a v1.5.6), así que cada versión
+  de DuckDB pide recompilar; el CI del repositorio comunitario recompila solo (versión estable,
+  LTS anterior y `main`), y lo nuestro es mantener el código al día. Las extensiones en Rust se
+  publican sin WASM ni musl. La estabilidad depende de qué funciones de DuckDB llama la extensión,
+  no del lenguaje: (1) extensión fina en C con la API estable de DuckDB, enlazando el núcleo como
+  librería estática a través de nuestra API C, que se reutiliza para los demás lenguajes; (2)
+  extensión en Rust contra el encabezado estable sin `duckdb-rs` (más `unsafe`); (3) la plantilla
+  de Rust en la parte inestable, con precedente y mantenimiento por versión. Preferencia: (1) si
+  el subconjunto estable cubre lo que `read_835()` necesita (registrar una función de tabla,
+  declarar tipos de columna, llenar lotes, idealmente entregar Arrow); si no, (3) y migrar cuando
+  DuckDB lo estabilice. Esa cobertura es la primera pregunta del spike.
+  **Pipeline.** Un crate `crates/oxedi835_duckdb` (o la extensión en C sobre la API C) fuera del
+  núcleo; un job de CI en Linux que compila la extensión y corre tests SQL sobre los samples con
+  las tablas de Python como oráculo; un workflow que vigila las versiones de DuckDB (calendario o
+  Renovate/Dependabot), sube la versión, compila, prueba y abre un PR; en cada release nuestra, un
+  PR al repositorio comunitario que actualiza el commit. La matriz de plataformas y la firma las
+  pone el CI de DuckDB; no se publican builds propios sin firmar (obligarían a
+  `allow_unsigned_extensions`). Se soporta la versión estable de DuckDB y la anterior. Coste: CI
+  solo en Linux por nuestra parte y un PR por versión de DuckDB (unas cuatro o cinco al año), que
+  desaparece con la vía estable.
 - **D7 · Stage 7, Escritor** → programado el 2026-10-03, tras 5b y Stage 6, con un caso real:
   generar un 835 (`.RMT`) a partir de datos en bases relacionales. Contrato acordado: la
   entrada es nuestro esquema de tablas (`Tables` del core o Arrow por el mismo protocolo
@@ -1150,3 +1220,61 @@ por sus tests (`column.rs`: 199 líneas de código y 1.361 de tests).
 **Fuera de alcance.** Cambios de API o de comportamiento (salvo #71); la capa Python y el
 binding (T43); rendimiento del proyector y memoria de los spans (#39 y #45, después de este
 stage); documentación de arquitectura para humanos (Stage 8).
+
+### Stage 5d · Rendimiento del pipeline — APROBADO 2026-10-04
+
+El stage que lleva el pase completo (motor, chequeo y proyector) de unos 33 MiB/s a 50 MiB/s y
+reduce el índice de un documento a una fracción de sus bytes, sin cambiar ninguna salida. Resuelve
+#39 y #45. Medido el 2026-10-04 sobre `edi835_test_united.rmt` y `edi835_test_versant.RMT`: motor
+87–92 MiB/s, chequeo 84–89 MiB/s, pase completo 33 MiB/s; el perfil de #39 atribuye unos 10 de los
+17 ms por pase al proyector y 4,2 al tokenizer. Cada `Span` ocupa 40 bytes por segmento, el doble de
+los bytes del archivo en united.
+
+**Decisiones de diseño (cada una con la alternativa descartada).**
+- **T46 · Meta y regla de parada.** Gate: `process` ≥ 50 MiB/s en united y versant (criterion,
+  máquina local, mediana). Los candidatos se aplican en el orden de T48–T49 y el stage para al
+  alcanzar la meta; los que no se apliquen quedan como issues. Descartado mejorar sin meta: sin
+  número no hay criterio para parar.
+- **T47 · Spans compactos.** `Document` guarda por segmento solo el inicio y el fin del cuerpo en
+  `u32` (8 bytes). El resto se deriva: el `raw` de un segmento empieza donde acaba el anterior
+  (cada byte cae en un solo `raw`), el terminador ocupa un byte, y solo el último segmento puede
+  carecer de él (lo está si su cuerpo acaba antes del final de la entrada). `Span` sigue siendo
+  público y se calcula al pedirlo; `Document::spans() -> &[Span]` se sustituye por un acceso por
+  índice y un iterador de `Span`. Una entrada de 4 GiB o más se rechaza con un error que nombra la
+  regla, el tamaño y el límite. Descartados `u32` sin derivar (20 bytes, la mitad de ganancia) y
+  dejarlo como está.
+- **T48 · Segmentos sin asignaciones por segmento en el pase interno.** El `Processor` reutiliza
+  los buffers de elementos y componentes de un segmento al siguiente; el `Tokenizer` público sigue
+  entregando `Segment`s propios y su API no cambia. Descartado un `Segment` perezoso con los
+  elementos como vista: cambia la API pública que usan el motor, el chequeo, el proyector, el
+  binding y los tests; solo se reconsidera si el gate no se alcanza.
+- **T49 · Camino de datos del proyector, interno.** En este orden: (1) validar sin construir el
+  valor parseado los elementos que ninguna columna lee, emitiendo los mismos diagnósticos de nivel
+  2; (2) escribir el texto directo en el buffer de la columna, sin el vector de celdas por fila ni
+  la copia; (3) anexar por columna y tipo en una sola pasada. `Table`, `Column` y `ColumnData`
+  conservan su forma pública: de ella depende la exportación Arrow sin copia. Descartado
+  rediseñar las tablas.
+- **T50 · Medición.** Un candidato por tarea, medido con criterion contra una línea base
+  guardada de `master` (`--save-baseline` / `--baseline`); los goldens son el oráculo y no
+  cambian. Un candidato que no gane al menos un 3% en `process` se revierte y se anota. Para T47,
+  un test fija el tamaño del span compacto y el commit lleva la memoria del índice antes y después
+  en los samples grandes.
+- **T51 · Etiqueta.** Es un stage (5d) y no un sprint de backlog: cambia representaciones
+  internas y una API pública (`spans()`), con §7, plan, revisión por lotes y triaje final.
+
+**Entregable / contrato.**
+- `Document` con spans compactos y su nuevo acceso; error de tamaño con `Display` probado.
+- Pase interno del `Processor` sin asignaciones por segmento; proyector con el camino de datos
+  de T49 hasta donde haga falta para el gate.
+- Benchmarks de memoria del índice (test de tamaño y cifras en el commit); números de criterion
+  por candidato en los mensajes de commit.
+
+**Gate de verificación (salida del Stage 5d).**
+- `process` ≥ 50 MiB/s en united y versant, o, si los candidatos se agotan antes, el stage
+  cierra con la cifra alcanzada y el siguiente paso escrito como issue.
+- Índice de `Document` ≤ 8 bytes por segmento; ninguna salida cambia (goldens, tests de cargo y
+  pytest, paridad de la capa `edi_835_parser`).
+- `make gates` y `make py-test` en verde.
+
+**Fuera de alcance.** `Segment` perezoso (T48); rediseño de las tablas (T49); paralelismo dentro
+de un archivo; LTO o perfiles de compilación (decisión de distribución, no de código).

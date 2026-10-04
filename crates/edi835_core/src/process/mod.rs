@@ -106,8 +106,13 @@ impl<'s> Processor<'s> {
     pub fn run(spec: &Spec, document: &Document<'_>) -> (Tables, Vec<Diagnostic>) {
         let mut processor = Processor::new(spec, document.delimiters());
         let mut diagnostics = Vec::new();
-        for segment in document.segments() {
+        // One segment buffer for the whole pass: each segment is parsed into
+        // the previous one's element and composite vectors.
+        let mut segment = Segment::empty();
+        let mut index = 0;
+        while document.segment_into(index, &mut segment) {
             diagnostics.extend_from_slice(processor.feed(&segment).diagnostics());
+            index += 1;
         }
         diagnostics.extend_from_slice(processor.finish().diagnostics());
         (processor.take_tables(), diagnostics)

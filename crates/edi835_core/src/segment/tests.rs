@@ -219,3 +219,75 @@ fn write_to_rejects_an_id_containing_a_delimiter_or_release_byte() {
         })
     ));
 }
+
+#[test]
+fn reparse_into_one_buffer_equals_a_fresh_parse_of_each_frame() {
+    let delims = Delimiters::new(b'*', b':', b'~').with_release(b'?');
+    // Long, then short, then composite, then simple at the composite's
+    // position, then a composite with fewer components after a longer one,
+    // an escaped value, an empty frame, and an unterminated last frame.
+    let bodies: [&[u8]; 9] = [
+        b"CLP*1*2*100*80**12*CLM*11*1*X*Y*Z",
+        b"LX*1",
+        b"SVC*HC:99213:25:59*100*80**1*HC:99214",
+        b"SVC*99213*100",
+        b"SVC*HC:99213:25:59:XU*1",
+        b"SVC*AD:1",
+        b"NM1*QC*1*O?*NEIL*A?:B",
+        b"",
+        b"SE*3*0001",
+    ];
+    let mut buffer = Segment::empty();
+    for (index, body) in bodies.iter().enumerate() {
+        let frame = Frame {
+            raw: body,
+            body,
+            terminated: index + 1 < bodies.len(),
+        };
+        buffer.reparse(index, frame, &delims);
+        assert_eq!(
+            buffer,
+            Segment::parse(index, frame, &delims),
+            "frame {index}"
+        );
+    }
+}
+
+#[test]
+fn reparse_overwrites_a_composite_slot_with_a_simple_value_and_back() {
+    let delims = Delimiters::new(b'*', b':', b'~');
+    let mut buffer = Segment::empty();
+    buffer.reparse(0, frame(b"SVC*HC:1:2:3"), &delims);
+    buffer.reparse(1, frame(b"SVC*HC"), &delims);
+    assert_eq!(buffer.elements, vec![Element::Simple(Cow::Borrowed(b"HC"))]);
+    buffer.reparse(2, frame(b"SVC*AD:9"), &delims);
+    assert_eq!(
+        buffer.elements,
+        vec![Element::Composite(vec![
+            Cow::Borrowed(&b"AD"[..]),
+            Cow::Borrowed(&b"9"[..])
+        ])]
+    );
+}
+
+proptest::proptest! {
+    #[test]
+    fn reparse_of_any_frame_sequence_equals_fresh_parses(
+        bodies in proptest::collection::vec(
+            proptest::collection::vec(proptest::sample::select(b"AB1*:?".to_vec()), 0..24),
+            1..12,
+        ),
+        release in proptest::bool::ANY,
+    ) {
+        let delims = if release {
+            Delimiters::new(b'*', b':', b'~').with_release(b'?')
+        } else {
+            Delimiters::new(b'*', b':', b'~')
+        };
+        let mut buffer = Segment::empty();
+        for (index, body) in bodies.iter().enumerate() {
+            buffer.reparse(index, frame(body), &delims);
+            proptest::prop_assert_eq!(&buffer, &Segment::parse(index, frame(body), &delims));
+        }
+    }
+}

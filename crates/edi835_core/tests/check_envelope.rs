@@ -72,7 +72,7 @@ fn the_known_anomalies_are_reported_exactly_and_nothing_else() {
 fn every_diagnostic_is_level_one_and_points_at_a_segment_holding_its_datum() {
     let spec = Spec::builtin_835();
     for (name, bytes, delims) in common::all_files() {
-        let document = Document::with_delimiters(&bytes[..], delims);
+        let document = Document::with_delimiters(&bytes[..], delims).unwrap();
         for diagnostic in common::diagnostics_of(&spec, &bytes, delims) {
             assert_eq!(diagnostic.level, SnipLevel::L1, "{name}: {diagnostic}");
             let span = diagnostic

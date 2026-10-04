@@ -39,7 +39,7 @@ fn tables_and_diagnostics_match_the_golden_files() {
     let spec = Spec::builtin_835();
     let mut outputs = Vec::new();
     for (name, bytes, delims) in common::all_files() {
-        let document = Document::with_delimiters(&bytes[..], delims);
+        let document = Document::with_delimiters(&bytes[..], delims).unwrap();
         let (tables, diagnostics) = Processor::run(&spec, &document);
         outputs.push(if common::SUMMARY_ONLY.contains(&name.as_str()) {
             (
@@ -69,7 +69,7 @@ fn edi_835_parser_tables_match_the_golden_files() {
     let dir = golden_dir().join("edi_835_parser");
     let mut outputs = Vec::new();
     for (name, bytes, delims) in common::all_files() {
-        let document = Document::with_delimiters(&bytes[..], delims);
+        let document = Document::with_delimiters(&bytes[..], delims).unwrap();
         let (tables, _) = Processor::run(&spec, &document);
         outputs.push(if common::SUMMARY_ONLY.contains(&name.as_str()) {
             (

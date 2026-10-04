@@ -264,9 +264,9 @@ fn columns_have_equal_lengths_and_arrow_buffers() {
     }
 }
 
-/// The element findings over the eleven files, each under the built-in spec
-/// of the version it declares. The 4010 spec still holds the 5010 version
-/// codes, which every 4010 file fails once in ISA12 and once in GS08.
+/// Each file under the built-in spec of the version it declares: the element
+/// findings over the eleven files are all defects of the synthetic fixtures;
+/// the six anonymized payer files raise none.
 #[test]
 fn only_the_synthetic_fixtures_raise_element_findings() {
     let (five, four) = common::builtins();
@@ -287,13 +287,8 @@ fn only_the_synthetic_fixtures_raise_element_findings() {
         found,
         BTreeMap::from([
             ("blue_cross_nc_sample.txt".to_string(), 4),
-            ("edi835_test_davisvision.RMT".to_string(), 2),
-            ("edi835_test_eyemed.RMT".to_string(), 2),
-            ("edi835_test_file.RMT".to_string(), 2),
-            ("edi835_test_not_available_claim_id.RMT".to_string(), 2),
-            ("edi835_test_versant.RMT".to_string(), 2),
-            ("multi_claim_sample.txt".to_string(), 19),
-            ("trizetto_sample.rmt".to_string(), 7),
+            ("multi_claim_sample.txt".to_string(), 17),
+            ("trizetto_sample.rmt".to_string(), 5),
         ])
     );
 }

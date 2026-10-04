@@ -1,7 +1,5 @@
 SNIP 2 · element ISA06 (interchange_sender_id) has length 13; the spec allows 15 to 15 · segment #0, element 6 · at interchange#1 · datum "SENDER       "
 SNIP 2 · element ISA08 (interchange_receiver_id) has length 13; the spec allows 15 to 15 · segment #0, element 8 · at interchange#1 · datum "RECEIVER     "
-SNIP 2 · element ISA12 (interchange_control_version_number) is not the one code the spec lists for it · segment #0, element 12 · at interchange#1 · datum "00401"
-SNIP 2 · element GS08 (version_release_industry_identifier_code) is not the one code the spec lists for it · segment #1, element 8 · at interchange#1/group#1 · datum "004010"
 SNIP 1 · segment "XX" is not part of the structure: no open loop holds it and it opens no loop · segment #7 · at interchange#1/group#1/transaction#1/1000A#1 · datum "XX"
 SNIP 2 · element NM108 (identification_code_qualifier) has length 10; the spec allows 1 to 2 · segment #14, element 8 · at interchange#1/group#1/transaction#1/2000#1/2100#1 · datum "666666666A"
 SNIP 2 · element SVC01-1 (product_or_service_id_qualifier) has length 8; the spec allows 2 to 2 · segment #17, element 1, component 1 · at interchange#1/group#1/transaction#1/2000#1/2100#1/2110#1 · datum "HC:99213"

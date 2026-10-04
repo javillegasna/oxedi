@@ -1,6 +1,4 @@
 SNIP 2 · element ISA06 (interchange_sender_id) has length 14; the spec allows 15 to 15 · segment #0, element 6 · at interchange#1 · datum "RUSHMORE      "
-SNIP 2 · element ISA12 (interchange_control_version_number) is not the one code the spec lists for it · segment #0, element 12 · at interchange#1 · datum "00401"
-SNIP 2 · element GS08 (version_release_industry_identifier_code) is not the one code the spec lists for it · segment #1, element 8 · at interchange#1/group#1 · datum "004010"
 SNIP 2 · element BPR10 (originating_company_identifier) has length 9; the spec allows 10 to 10 · segment #3, element 10 · at interchange#1/group#1/transaction#1 · datum "111333555"
 SNIP 2 · required element BPR16 (check_issue_or_eft_effective_date) is missing or empty · segment #3, element 16 · at interchange#1/group#1/transaction#1 · datum ""
 SNIP 2 · element BPR17 (business_function_code) has length 8; the spec allows 1 to 3 · segment #3, element 17 · at interchange#1/group#1/transaction#1 · datum "20190316"

@@ -1,3 +1,1 @@
-SNIP 2 · element ISA12 (interchange_control_version_number) is not the one code the spec lists for it · segment #0, element 12 · at interchange#1 · datum "00401"
-SNIP 2 · element GS08 (version_release_industry_identifier_code) is not the one code the spec lists for it · segment #1, element 8 · at interchange#1/group#1 · datum "004010X091A1"
 SNIP 1 · SE01 declares "302" but the count is 255 · segment #256, element 1 · at interchange#1/group#1/transaction#1 · datum "302"

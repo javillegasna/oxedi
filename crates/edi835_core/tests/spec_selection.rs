@@ -46,3 +46,23 @@ fn fixtures_get_the_spec_of_their_declared_version() {
         assert_eq!(selected(common::load_fixture(name)), expected, "{name}");
     }
 }
+
+#[test]
+fn the_4010_spec_carries_the_4010_codes_and_structure() {
+    let five = Spec::builtin_835();
+    let four = Spec::builtin_835_4010();
+    let codes = |spec: &Spec, segment: &[u8], element| {
+        spec.element_def(segment, element, None)
+            .unwrap()
+            .codes
+            .clone()
+    };
+    assert_eq!(codes(&five, b"ISA", 12), vec!["00501"]);
+    assert_eq!(codes(&four, b"ISA", 12), vec!["00401"]);
+    assert_eq!(
+        codes(&four, b"GS", 8),
+        vec!["004010", "004010X091", "004010X091A1"]
+    );
+    assert!(five.segment(b"RDM").is_some());
+    assert!(four.segment(b"RDM").is_none());
+}

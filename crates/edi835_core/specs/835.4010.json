@@ -1,3 +1,86 @@
 {
-  "version": {"values": ["004010X091A1", "004010X091", "004010"]}
+  "version": {"values": ["004010X091A1", "004010X091", "004010"]},
+  "loops": {
+    "1000B": {"segments": ["N3", "N4", "REF"]}
+  },
+  "segments": {
+    "ISA": { "elements": {
+      "11": {"type": "ID", "codes": ["U"]},
+      "12": {"codes": ["00401"]}
+    } },
+    "GS": { "elements": {
+      "8": {"codes": ["004010X091A1", "004010X091", "004010"]}
+    } },
+    "ST": { "elements": {
+      "3": null
+    } },
+    "REF": { "elements": {
+      "1": {"codes": ["0B", "1A", "1B", "1C", "1D", "1E", "1F", "1G", "1H", "1J", "1L", "1S", "1W", "2U", "6R", "9A", "9C", "A6", "BB", "CE", "D3", "E9", "EA", "EO", "EV", "F2", "F8", "G1", "G2", "G3", "HI", "HPI", "IG", "LU", "N5", "NF", "PQ", "RB", "SY", "TJ"]}
+    } },
+    "N1": { "elements": {
+      "2": {"required": false}
+    } },
+    "N4": { "elements": {
+      "2": {"required": true},
+      "3": {"required": true},
+      "7": null
+    } },
+    "PER": { "elements": {
+      "1": {"codes": ["CX"]},
+      "3": {"codes": ["EM", "FX", "TE"]},
+      "5": {"codes": ["EM", "EX", "FX", "TE"]},
+      "7": {"codes": ["EX"]}
+    } },
+    "RDM": null,
+    "TS3": { "elements": {
+      "6": {"name": "total_covered_charge_amount", "type": "R", "min": 1, "max": 18},
+      "7": {"name": "total_noncovered_charge_amount", "type": "R", "min": 1, "max": 18},
+      "8": {"name": "total_denied_charge_amount", "type": "R", "min": 1, "max": 18},
+      "9": {"name": "total_provider_payment_amount", "type": "R", "min": 1, "max": 18},
+      "10": {"name": "total_interest_amount", "type": "R", "min": 1, "max": 18},
+      "11": {"name": "total_contractual_adjustment_amount", "type": "R", "min": 1, "max": 18},
+      "12": {"name": "total_gramm_rudman_reduction_amount", "type": "R", "min": 1, "max": 18},
+      "14": {"name": "total_blood_deductible_amount", "type": "R", "min": 1, "max": 18},
+      "16": {"name": "total_coinsurance_amount", "type": "R", "min": 1, "max": 18},
+      "19": {"name": "total_deductible_amount", "type": "R", "min": 1, "max": 18}
+    } },
+    "CLP": { "elements": {
+      "2": {"codes": null},
+      "6": {"codes": ["12", "13", "14", "15", "16", "AM", "CH", "DS", "HM", "LM", "MA", "MB", "MC", "OF", "TV", "VA", "WC", "ZZ"]},
+      "7": {"required": false},
+      "9": {"codes": ["0", "1", "2", "3", "4", "5", "6", "7", "8", "9", "A", "B", "C", "D", "E", "F", "G", "H", "I", "J", "K", "L", "M", "N", "O", "X", "Y", "Z"]},
+      "14": null
+    } },
+    "CAS": { "elements": {
+      "1": {"codes": ["CO", "CR", "OA", "PI", "PR"]}
+    } },
+    "NM1": { "elements": {
+      "1": {"codes": ["74", "82", "IL", "PR", "QC", "TT"]},
+      "12": null
+    } },
+    "MIA": { "elements": {
+      "2": {"max": 15}
+    } },
+    "AMT": { "elements": {
+      "1": {"codes": ["AU", "B6", "D8", "DY", "F5", "I", "KH", "NE", "NL", "T", "T2", "ZK", "ZL", "ZM", "ZN", "ZO", "ZZ"]}
+    } },
+    "QTY": { "elements": {
+      "1": {"codes": ["CA", "CD", "LA", "LE", "NA", "NE", "NR", "OU", "PS", "VS", "ZK", "ZL", "ZM", "ZN", "ZO"]}
+    } },
+    "SVC": { "elements": {
+      "1": {"composite": {
+        "1": {"codes": ["AD", "ER", "HC", "ID", "IV", "N4", "NU", "RB", "ZZ"]},
+        "8": null
+      }},
+      "6": {"composite": {
+        "1": {"codes": ["AD", "ER", "HC", "ID", "IV", "N4", "NU", "RB", "ZZ"]},
+        "8": null
+      }}
+    } },
+    "PLB": { "elements": {
+      "3": {"composite": {
+        "1": {"codes": null}
+      }}
+    } }
+  }
 }

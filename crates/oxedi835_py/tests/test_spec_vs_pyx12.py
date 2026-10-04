@@ -235,7 +235,7 @@ def test_real_draft_patches_load_over_the_compared_spec(tmp_path, version):
     spec.patch(patch.read_text())
 
 
-@pytest.mark.parametrize("version", ["5010"])
+@pytest.mark.parametrize("version", ["5010", "4010"])
 def test_real_spec_agrees_with_the_map(version, capsys):
     pytest.importorskip("pyx12")
     assert load_script().main(["--check", "--version", version]) == 0, capsys.readouterr().err

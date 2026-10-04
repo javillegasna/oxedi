@@ -140,7 +140,8 @@ fn organization<'py>(
 
 /// Parses a whole file: indexes every segment, runs the loop engine, the
 /// envelope checker and the projector, and returns the document, the
-/// tables and every diagnostic.
+/// tables and every diagnostic. Without `spec`, the built-in spec of the
+/// version the file declares is used, else the default one.
 #[pyfunction]
 #[pyo3(signature = (data, spec = None, delimiters = None))]
 pub fn parse(
@@ -150,10 +151,11 @@ pub fn parse(
     delimiters: Option<&Bound<'_, PyDelimiters>>,
 ) -> PyResult<PyParseResult> {
     let bytes = copy_input("parse", data)?;
-    let spec = spec::or_builtin(spec);
+    let given = spec::given(spec);
     let delimiters = delimiters.map(|d| d.get().inner);
     let (document, tables, diagnostics) = py.detach(|| -> PyResult<_> {
         let document = document::index(bytes, delimiters)?;
+        let spec = spec::given_or_selected(given, document.segments());
         let (tables, diagnostics) = Processor::run(&spec, &document);
         Ok((document, tables, diagnostics))
     })?;

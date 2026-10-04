@@ -52,15 +52,17 @@ pub fn first_frame<'a>(input: &'a [u8], delims: &Delimiters) -> Option<(Frame<'a
         return next_frame(input, delims);
     };
     let Some((frame, rest)) = next_frame(after, delims) else {
-        let (raw, rest) = input.split_at(input.len());
+        let rest = after.get(after.len()..).unwrap_or_default();
         let frame = Frame {
-            raw,
+            raw: input,
             body: rest,
             terminated: false,
         };
         return Some((frame, rest));
     };
-    let (raw, _) = input.split_at(BYTE_ORDER_MARK.len() + frame.raw.len());
+    let Some(raw) = input.get(..BYTE_ORDER_MARK.len() + frame.raw.len()) else {
+        return next_frame(input, delims);
+    };
     let frame = Frame {
         raw,
         body: frame.body,

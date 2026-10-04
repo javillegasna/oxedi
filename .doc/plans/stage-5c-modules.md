@@ -97,6 +97,16 @@ Line ranges are against `master` at 948a94b. Each new file opens with a one-line
 
 ## Batch C (Sonnet → Opus review): split `project.rs`, bench files
 
+### Task 4a: One module, one folder (T41, approved 2026-10-04)
+- For each of the twelve modules with a sibling `tests.rs`, move `src/<m>.rs` to
+  `src/<m>/mod.rs` with `git mv`. Contents stay unchanged.
+- Enable `self_named_module_files = "deny"` under `[lints.clippy]` in
+  `crates/edi835_core/Cargo.toml`, and check that clippy now fails if a `x.rs` is placed next
+  to a `x/` folder.
+- Fix the `expect` message in `spec/mod.rs` so it names the test at its current path,
+  `spec::tests::loading::builtin_835_loads` (a parked minor from the batch B review).
+- Commit: `refactor: one folder per core module`.
+
 ### Task 4: `project/` by responsibility
 Line ranges are against 948a94b. `impl Projector` blocks may live in several child files,
 because a child module sees its parent's private fields.

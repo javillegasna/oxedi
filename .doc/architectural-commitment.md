@@ -1112,6 +1112,11 @@ por sus tests (`column.rs`: 199 líneas de código y 1.361 de tests).
   `mod.rs` nuevo abre con un `//!` corto que dice qué contiene cada uno de sus archivos.
   Descartado un mapa aparte: la documentación de arquitectura para humanos es el Stage 8 y un
   mapa duplicado se desactualiza.
+  Un módulo es una carpeta (decidido 2026-10-04, tras partir `spec`): todo módulo del core es
+  `x/mod.rs` con sus tests en `x/tests.rs` o `x/tests/`, y el lint de clippy
+  `self_named_module_files` impide volver a la forma `x.rs` junto a `x/`. Descartada la forma
+  `x.rs` + `x/` que recomienda la guía de Rust: los exploradores listan las carpetas antes que los
+  archivos y separan el módulo de su carpeta.
 - **T42 · Sin cambio de comportamiento, demostrado.** El mismo número de tests antes y
   después, los goldens intactos sin `UPDATE_GOLDEN`, rustdoc limpio y los benchmarks dentro del
   ruido. Un commit por archivo partido, para revisar por partes; `git blame` del contenido

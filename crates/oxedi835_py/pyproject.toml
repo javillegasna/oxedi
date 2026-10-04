@@ -4,15 +4,26 @@ build-backend = "maturin"
 
 [project]
 name = "oxedi835"
-version = "0.0.0"
+version = "0.0.1a1"
 description = "Lossless, fast, data-driven EDI 835 parser"
 requires-python = ">=3.11"
 license = "MIT"
 readme = "README.md"
 classifiers = [
+    "Development Status :: 2 - Pre-Alpha",
     "Programming Language :: Rust",
     "Programming Language :: Python :: Implementation :: CPython",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: POSIX :: Linux",
+    "Topic :: Office/Business :: Financial",
 ]
+
+[project.urls]
+Repository = "https://github.com/javillegasna/oxedi835"
+Issues = "https://github.com/javillegasna/oxedi835/issues"
 
 [project.optional-dependencies]
 test = ["pytest>=8", "polars>=1.0", "pyarrow>=14"]

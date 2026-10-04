@@ -122,6 +122,7 @@ def _isolated_logging(capture: logging.Handler):
     saved = [(lg, lg.level, lg.disabled) for lg in loggers]
     propagate = root.propagate
     disabled_below = logging.root.manager.disable
+    # process-wide for the duration of the call (a global switch); restored on exit
     logging.disable(logging.NOTSET)
     for lg in loggers:
         lg.disabled = False
@@ -240,15 +241,21 @@ def _translate(tree: dict[str, Any], messages: list[str], positions: _Positions)
 
 
 def _failure(
-    reason: str, track: list[int], positions: _Positions, document: Any
+    reason: str, track: list[int], positions: _Positions, document: Any, started: bool = True
 ) -> Pyx12Diagnostic:
-    segment, span = positions.locate(track[-1] if track else None)
-    datum = bytes(document[segment].id) if segment is not None else b""
-    where = (
-        f"the last segment it reached is #{segment}"
-        if segment is not None
-        else "it reached no segment"
-    )
+    """One failure finding. ``track`` holds the segment numbers pyx12 finished;
+    the segment it was working on when it failed is the one after the last."""
+    current = (track[-1] + 1 if track else 1) if started else None
+    segment, span = positions.locate(current)
+    if segment is None:
+        where = "it reached no segment"
+        datum = b""
+    else:
+        datum = bytes(document[segment].id)
+        done, _ = positions.locate(track[-1]) if track else (None, None)
+        where = f"it was processing segment #{segment}" + (
+            f"; the last it completed is #{done}" if done is not None else ""
+        )
     return Pyx12Diagnostic(
         kind="Pyx12Failure",
         rule=f"pyx12 could not finish validating: {reason}; {where}",
@@ -256,6 +263,19 @@ def _failure(
         span=span,
         datum=datum,
     )
+
+
+def _rejection(text: str, fallback: str) -> str:
+    """The reason pyx12 refuses to read ``text`` as X12, which it logs without the
+    exception text."""
+    import pyx12.errors
+    import pyx12.rawx12file
+
+    try:
+        pyx12.rawx12file.RawX12File(io.StringIO(text))
+    except pyx12.errors.X12Error as err:
+        return f"X12Error: {str(err).strip()}"
+    return fallback
 
 
 def validate(source: Source) -> list[Pyx12Diagnostic]:
@@ -280,6 +300,12 @@ def validate(source: Source) -> list[Pyx12Diagnostic]:
     if failure is not None:
         return [_failure(f"{type(failure).__name__}: {failure}", track, positions, document)]
     if tree is None:
+        if ok:
+            return []
         detail = _OBJECT_REPR.sub("the input", messages[-1]) if messages else "no reason given"
-        return [_failure(detail, track, positions, document)] if not ok else []
-    return _translate(tree, messages, positions)
+        return [_failure(_rejection(text, detail), track, positions, document, started=False)]
+    try:
+        return _translate(tree, messages, positions)
+    except Exception as err:  # pyx12's JSON shape is not ours: report it, do not raise
+        reason = f"its report could not be translated ({type(err).__name__}: {err})"
+        return [_failure(reason, track, positions, document, started=False)]

@@ -58,9 +58,6 @@
       "1": {"codes": ["74", "82", "IL", "PR", "QC", "TT"]},
       "12": null
     } },
-    "MIA": { "elements": {
-      "2": {"max": 15}
-    } },
     "AMT": { "elements": {
       "1": {"codes": ["AU", "B6", "D8", "DY", "F5", "I", "KH", "NE", "NL", "T", "T2", "ZK", "ZL", "ZM", "ZN", "ZO", "ZZ"]}
     } },

@@ -64,7 +64,7 @@ Snapshot for picking the project up cold. Update when a stage changes state.
   fixtures; engine on the three largest samples measured in bytes/s and events/s
   (commit acc465e message).
 
-## Stage 5d · Pipeline performance — in PR (2026-10-04)
+## Stage 5d · Pipeline performance — merged (PR #78, 2026-10-04)
 
 Branch `stage-5d-performance`. Gate (`process` >= 50 MiB/s on united and versant) NOT met; the
 stage closes with the figure reached and issue #76 (§7 allows it).

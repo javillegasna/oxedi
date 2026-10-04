@@ -81,7 +81,7 @@ impl Spec {
         Spec::builtin_835()
             .merge_patch(Self::BUILTIN_835_4010_PATCH)
             .expect(
-                "the built-in 4010 patch is valid; spec::tests::version::the_builtins_declare_5010_and_4010_on_gs08 checks it",
+                "the built-in 4010 patch is valid and merges into the built-in 835 as a valid spec",
             )
     }
 

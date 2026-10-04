@@ -28,10 +28,10 @@ def test_a_finding_displays_origin_rule_code_place_and_datum():
     assert (d.origin, d.level, d.path) == ("pyx12", None, "")
 
 
-def test_a_failure_without_a_segment_displays_the_end_of_stream():
+def test_a_failure_without_a_segment_displays_no_segment():
     d = Pyx12Diagnostic(kind="Pyx12Failure", rule="pyx12 could not finish validating: boom")
     assert str(d) == (
-        "pyx12 · pyx12 could not finish validating: boom · end of stream · datum \"\""
+        "pyx12 · pyx12 could not finish validating: boom · no segment · datum \"\""
     )
 
 

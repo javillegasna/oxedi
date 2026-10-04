@@ -141,8 +141,29 @@ def test_a_file_pyx12_cannot_read_gives_one_failure():
         None,
     )
     assert failure.rule == (
-        "pyx12 could not finish validating: the input does not look like an X12 data file;"
-        " it reached no segment"
+        "pyx12 could not finish validating: X12Error: ISA Interchange Control Version Number"
+        " is unknown: 0401* for ISA*00*          *00*          *ZZ*RUSHMORE      *ZZ*ACME_MED"
+        "       *190316*1615*U*00401*000001234*0*P*>~; it reached no segment"
+    )
+
+
+def test_a_report_pyx12_shape_change_becomes_one_failure(monkeypatch):
+    import oxedi835.pyx12._validate as module
+
+    real = json.loads
+
+    def reshaped(text):
+        tree = real(text)
+        tree["interchanges"] = [{"groups": []}]
+        return tree
+
+    monkeypatch.setattr(module.json, "loads", reshaped)
+    (failure,) = validate(read(EYEMED))
+    assert failure.kind == "Pyx12Failure"
+    assert failure.segment is None
+    assert failure.rule == (
+        "pyx12 could not finish validating: its report could not be translated"
+        " (KeyError: 'errors'); it reached no segment"
     )
 
 
@@ -171,12 +192,12 @@ def test_an_exception_inside_pyx12_becomes_one_failure(monkeypatch):
     assert failure.kind == "Pyx12Failure"
     assert failure.rule == (
         "pyx12 could not finish validating: RuntimeError: map exploded;"
-        " the last segment it reached is #4"
+        " it was processing segment #5; the last it completed is #4"
     )
-    assert failure.segment == 4
+    assert failure.segment == 5
     document = oxedi835.parse(data).document
-    assert data[failure.span[0] : failure.span[1]] == document[4].raw
-    assert failure.datum == bytes(document[4].id)
+    assert data[failure.span[0] : failure.span[1]] == document[5].raw
+    assert failure.datum == bytes(document[5].id)
 
 
 def logger_state():
@@ -220,7 +241,7 @@ def test_results_do_not_depend_on_the_callers_logging_configuration(config):
         logging.disable(logging.NOTSET)
         logger.setLevel(before[0][0])
         child.disabled = before[1][1]
-    assert any("not look like an X12" in e[3] for e in expected)
+    assert any("X12Error: ISA Interchange Control Version Number is unknown" in e[3] for e in expected)
 
 
 def test_the_logger_is_restored_after_an_exception(monkeypatch):

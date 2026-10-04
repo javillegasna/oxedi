@@ -4,6 +4,11 @@
       "key": "codes:GS08",
       "map": "835.4010.X091.A1.xml",
       "reason": "The 4010 spec lists the GS08 values its version declaration selects: pyx12's 004010X091A1 plus 004010X091 and bare 004010, which 4010 files without the addenda (and two fixtures) declare. Narrower than the declaration, they would select the 4010 spec and then reject its own GS08."
+    },
+    {
+      "key": "lengths:MIA02:max",
+      "map": "835.4010.X091.A1.xml",
+      "reason": "pyx12's 4010 map gives MIA02 (PPS Operating Outlier Amount) data element 380, a Quantity with maximum length 15; an amount is data element 782 (maximum 18), as the 5010 map has it. The spec keeps 18 on purpose."
     }
   ]
 }

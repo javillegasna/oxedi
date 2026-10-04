@@ -132,7 +132,7 @@ for finding in validate(data):    # bytes, a path or a binary file object
     print(finding)                # origin, rule, code, segment, byte range, element, datum
 ```
 
-Each finding carries the segment index and byte range in your file. An exception inside pyx12
+Each finding carries the segment index and byte range in your file, except a failure that names no segment. An exception inside pyx12
 comes back as one `Pyx12Failure` finding instead of a traceback.
 
 ## Coming from another library

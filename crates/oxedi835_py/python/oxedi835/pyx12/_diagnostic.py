@@ -43,7 +43,7 @@ class Pyx12Diagnostic:
         parts = [f"{self.origin} · {self.rule}"]
         if self.code is not None:
             parts[0] += f" (code {self.code})"
-        place = "end of stream" if self.segment is None else f"segment #{self.segment}"
+        place = "no segment" if self.segment is None else f"segment #{self.segment}"
         if self.span is not None:
             place += f", bytes {self.span[0]}..{self.span[1]}"
         if self.element is not None:

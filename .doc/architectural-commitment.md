@@ -943,7 +943,15 @@ con ids `XV` alfanuméricos (#46).
   y `Service` (`service`, `dates`, `references`, `remarks`, `amount`, `adjustments`) como
   vistas de solo lectura sobre nuestro `Document` y nuestras tablas, sin reinterpretar bytes.
   El extra declara `pandas` y `pyarrow`; el paquete base no gana dependencias. Descartado el
-  nombre genérico "compat".
+  nombre genérico "compat". **Extensión acordada el 2026-10-04: lectura desde bytes**, la
+  carencia que más sufren sus usuarios (la librería solo acepta rutas y obliga a escribir a
+  disco lo que llega de S3, de una API o de una base de datos). `parse` acepta además
+  `bytes`/`bytearray`/`memoryview` y objetos de archivo binarios (`read()`), y hay métodos
+  explícitos `parse_bytes(data, file_path=None)` y `parse_file_obj(f, file_path=None)`, más
+  `parse_many(items)` para una lista de bytes o de archivos; `file_path` rellena el atributo
+  que la librería guarda en cada `TransactionSet` (por defecto `"<bytes>"`). Todo cae en el
+  mismo `oxedi835.parse` con el GIL liberado; leer de ruta o de bytes da el mismo
+  DataFrame, y un test lo comprueba.
 - **T28 · Equivalentes nativos sin pandas.** En `oxedi835.Result`: `count_claims()`,
   `count_patients()`, `sum_payments() -> Decimal`, `payer`, `payee`; en `Tables`/`Table`:
   `to_polars()` y `to_pandas()` con importación perezosa y error que nombra el extra
@@ -973,7 +981,8 @@ con ids `XV` alfanuméricos (#46).
 
 **Gate de verificación (salida del Stage 5b).**
 - CI: `assert_frame_equal` entre `edi_835_parser.parse(...).to_dataframe()` y
-  `oxedi835.edi_835_parser.parse(...).to_dataframe()` en los seis samples; `count_claims`,
+  `oxedi835.edi_835_parser.parse(...).to_dataframe()` en los seis samples, leyendo tanto de
+  ruta como de bytes y de archivo abierto (las tres entradas dan el mismo DataFrame); `count_claims`,
   `count_patients`, `sum_payments` iguales; `payer`/`payee` con los mismos campos.
 - `extended=True` añade filas y columnas solo con prefijo `x_`, y un test enumera, por
   archivo, lo recuperado (claims sin servicios, ajustes de claim, `PLB`).

@@ -273,7 +273,12 @@ carga su prueba de costura con la capa inferior (N7).
   nuestros y sin `pandas`: en `Result`, `count_claims()`, `count_patients()`,
   `sum_payments()`, `payer` y `payee` (desde las tablas `payments`/`claims`, con `Decimal`
   exacto para los importes), y en `Tables`/`Table`, `to_polars()` y `to_pandas()` como
-  conveniencias (esta última solo si `pandas` está instalado). Así hay dos caminos de
+  conveniencias. Dependencias: el wheel base de `oxedi835` no declara ninguna dependencia
+  Python (Arrow sale por PyCapsule); `polars`, `pandas` (+ `pyarrow`, que pandas necesita como
+  puente) y `edi-835-parser` (que arrastra `pandas` por su contrato) se declaran solo como
+  extras (`oxedi835[polars]`, `oxedi835[pandas]`, `oxedi835[edi-835-parser]`); `to_polars()` y
+  `to_pandas()` importan la librería al llamarse y, si falta, lanzan un error que nombra el
+  extra a instalar (P10). Nunca como dependencia directa ni transitiva del paquete base. Así hay dos caminos de
   migración: el rápido, instalar `oxedi835[edi-835-parser]` y cambiar un `import`; y el
   definitivo, pasar con tiempo a los métodos nativos, con una tabla "método viejo → método
   nuevo" en la documentación (Stage 8).

@@ -1150,3 +1150,61 @@ por sus tests (`column.rs`: 199 líneas de código y 1.361 de tests).
 **Fuera de alcance.** Cambios de API o de comportamiento (salvo #71); la capa Python y el
 binding (T43); rendimiento del proyector y memoria de los spans (#39 y #45, después de este
 stage); documentación de arquitectura para humanos (Stage 8).
+
+### Stage 5d · Rendimiento del pipeline — APROBADO 2026-10-04
+
+El stage que lleva el pase completo (motor, chequeo y proyector) de unos 33 MiB/s a 50 MiB/s y
+reduce el índice de un documento a una fracción de sus bytes, sin cambiar ninguna salida. Resuelve
+#39 y #45. Medido el 2026-10-04 sobre `edi835_test_united.rmt` y `edi835_test_versant.RMT`: motor
+87–92 MiB/s, chequeo 84–89 MiB/s, pase completo 33 MiB/s; el perfil de #39 atribuye unos 10 de los
+17 ms por pase al proyector y 4,2 al tokenizer. Cada `Span` ocupa 40 bytes por segmento, el doble de
+los bytes del archivo en united.
+
+**Decisiones de diseño (cada una con la alternativa descartada).**
+- **T46 · Meta y regla de parada.** Gate: `process` ≥ 50 MiB/s en united y versant (criterion,
+  máquina local, mediana). Los candidatos se aplican en el orden de T48–T49 y el stage para al
+  alcanzar la meta; los que no se apliquen quedan como issues. Descartado mejorar sin meta: sin
+  número no hay criterio para parar.
+- **T47 · Spans compactos.** `Document` guarda por segmento solo el inicio y el fin del cuerpo en
+  `u32` (8 bytes). El resto se deriva: el `raw` de un segmento empieza donde acaba el anterior
+  (cada byte cae en un solo `raw`), el terminador ocupa un byte, y solo el último segmento puede
+  carecer de él (lo está si su cuerpo acaba antes del final de la entrada). `Span` sigue siendo
+  público y se calcula al pedirlo; `Document::spans() -> &[Span]` se sustituye por un acceso por
+  índice y un iterador de `Span`. Una entrada de 4 GiB o más se rechaza con un error que nombra la
+  regla, el tamaño y el límite. Descartados `u32` sin derivar (20 bytes, la mitad de ganancia) y
+  dejarlo como está.
+- **T48 · Segmentos sin asignaciones por segmento en el pase interno.** El `Processor` reutiliza
+  los buffers de elementos y componentes de un segmento al siguiente; el `Tokenizer` público sigue
+  entregando `Segment`s propios y su API no cambia. Descartado un `Segment` perezoso con los
+  elementos como vista: cambia la API pública que usan el motor, el chequeo, el proyector, el
+  binding y los tests; solo se reconsidera si el gate no se alcanza.
+- **T49 · Camino de datos del proyector, interno.** En este orden: (1) validar sin construir el
+  valor parseado los elementos que ninguna columna lee, emitiendo los mismos diagnósticos de nivel
+  2; (2) escribir el texto directo en el buffer de la columna, sin el vector de celdas por fila ni
+  la copia; (3) anexar por columna y tipo en una sola pasada. `Table`, `Column` y `ColumnData`
+  conservan su forma pública: de ella depende la exportación Arrow sin copia. Descartado
+  rediseñar las tablas.
+- **T50 · Medición.** Un candidato por tarea, medido con criterion contra una línea base
+  guardada de `master` (`--save-baseline` / `--baseline`); los goldens son el oráculo y no
+  cambian. Un candidato que no gane al menos un 3% en `process` se revierte y se anota. Para T47,
+  un test fija el tamaño del span compacto y el commit lleva la memoria del índice antes y después
+  en los samples grandes.
+- **T51 · Etiqueta.** Es un stage (5d) y no un sprint de backlog: cambia representaciones
+  internas y una API pública (`spans()`), con §7, plan, revisión por lotes y triaje final.
+
+**Entregable / contrato.**
+- `Document` con spans compactos y su nuevo acceso; error de tamaño con `Display` probado.
+- Pase interno del `Processor` sin asignaciones por segmento; proyector con el camino de datos
+  de T49 hasta donde haga falta para el gate.
+- Benchmarks de memoria del índice (test de tamaño y cifras en el commit); números de criterion
+  por candidato en los mensajes de commit.
+
+**Gate de verificación (salida del Stage 5d).**
+- `process` ≥ 50 MiB/s en united y versant, o, si los candidatos se agotan antes, el stage
+  cierra con la cifra alcanzada y el siguiente paso escrito como issue.
+- Índice de `Document` ≤ 8 bytes por segmento; ninguna salida cambia (goldens, tests de cargo y
+  pytest, paridad de la capa `edi_835_parser`).
+- `make gates` y `make py-test` en verde.
+
+**Fuera de alcance.** `Segment` perezoso (T48); rediseño de las tablas (T49); paralelismo dentro
+de un archivo; LTO o perfiles de compilación (decisión de distribución, no de código).

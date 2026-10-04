@@ -322,6 +322,17 @@ carga su prueba de costura con la capa inferior (N7).
   `Document` y `LoopTree`. Las piezas 2 y 3 viven en el subpaquete `oxedi835.pyx12` tras el
   extra `oxedi835[pyx12]`, siguiendo la regla de nombres de D12; el script de la pieza 1 vive
   en `scripts/`.
+- **D17 · Bindings para otros lenguajes** (anotada 2026-10-04, abierta). Idea del dueño: además
+  de Python, bindings para Node/TypeScript, C y Go sobre el mismo núcleo. La dirección encaja con
+  el núcleo sans-IO, pero se decide **después** del Stage 7, del nombre neutro de D15 (los nombres
+  en npm y las rutas de módulos Go son casi permanentes) y de que la API cumpla el criterio de 1.0;
+  cada binding multiplica el coste de un cambio que rompe y añade un pipeline de release. Primer
+  paso cuando toque: un solo artefacto que desbloquee varios lenguajes, a elegir con trade-offs:
+  (a) una API C que exporte las tablas por el Arrow C Data Interface (Go con `arrow-go`, Node con
+  `apache-arrow`, sin conversión fila a fila), o (b) un build WASM del núcleo (Go con `wazero`
+  sin CGO y con `go get` simple; Node y navegador con un artefacto). NAPI-RS para Node y un módulo
+  Go dedicado solo si hay demanda. Descartados: binarios precompilados dentro del repo y renombrar
+  `oxedi835_py`.
 - **D7 · Stage 7, Escritor** → programado el 2026-10-03, tras 5b y Stage 6, con un caso real:
   generar un 835 (`.RMT`) a partir de datos en bases relacionales. Contrato acordado: la
   entrada es nuestro esquema de tablas (`Tables` del core o Arrow por el mismo protocolo

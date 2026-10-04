@@ -73,9 +73,10 @@ Decisions taken 2026-10-03 after the merge (all in §6.2 and the roadmap):
   derived fields, diagnostics before writing, DuckDB connectors as ingestion adapter outside
   the core, round-trip + `pyx12` gate; D11 is its prerequisite.
 
-Next: §7 of 5b (pending the owner's ok on four detail decisions: DataFrame built by spec,
-strict parity by default with `to_dataframe(extended=True)`, oracle script on the originals +
-CI on samples, API objects as views), then its plan and batches; then 5c (D13), Stage 6
+Current: §7 of 5b approved 2026-10-04 (T25–T29: spec `edi_835_parser` with long tables
+pivoted to the dynamic `adj_<n>`/`ref_<n>` columns; strict parity + `extended=True` with `x_`
+columns; full surface in `oxedi835.edi_835_parser`; native counterparts; two oracles) on
+branch `stage-5b-edi835parser`; next its plan (lean planner) and batches; then 5c (D13), Stage 6
 (wheel matrix, trusted publishing, `0.1.0`), Stage 7 (writer), 8 (durable docs), 9 (X12
 family + `pyx12` maps).
 

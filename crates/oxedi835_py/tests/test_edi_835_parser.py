@@ -626,3 +626,41 @@ def test_trailing_blanks_before_the_terminator_are_stripped_as_the_library_does(
         getattr(e.financial_information, f) for f in fields]
     assert [c.claim.icn for c in a.claims] == [c.claim.icn for c in e.claims]
     assert all(not c.claim.icn.endswith(" ") for c in a.claims)
+
+
+def oracle():
+    import importlib.util
+
+    script = CORE_TESTS.parents[2] / "scripts" / "compat_oracle.py"
+    if not script.exists():
+        pytest.skip("the compat oracle script is not next to the tests")
+    spec = importlib.util.spec_from_file_location("compat_oracle", script)
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module
+
+
+def test_the_oracle_reports_every_file_with_counts_and_exception_types_only(tmp_path):
+    folder = tmp_path / "files"
+    folder.mkdir()
+    (folder / "a.835").write_bytes(synthetic())
+    (folder / "b.835").write_bytes(BOM + b"\r\n" + synthetic())
+    no_patient = SERVICELESS.replace("NM1*QC*1*ROE*RICK****MI*M2~", "").replace("SE*17", "SE*16")
+    (folder / "c.835").write_bytes(no_patient.encode())
+    (folder / "d.txt").write_bytes(b"hello, this is not an 835")
+    report = tmp_path / "report.txt"
+    oracle().main([str(folder), "--out", str(report)])
+    assert report.read_text().splitlines() == [
+        "file 1/4",
+        "  shape edi-835-parser (1, 21) oxedi835 (1, 21)",
+        "  equal",
+        "file 2/4",
+        "  shape edi-835-parser (1, 21) oxedi835 (1, 21)",
+        "  equal",
+        "file 3/4",
+        "  shape edi-835-parser (1, 21) oxedi835 (1, 21)",
+        "  count_patients: edi-835-parser raised AssertionError",
+        "file 4/4",
+        "  skipped: the compat layer does not read it as an 835",
+    ]
+

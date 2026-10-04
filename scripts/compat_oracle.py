@@ -2,9 +2,12 @@
 
 Not a gate. Meant for files that must not enter the repository: the report
 names files by their position in the sorted listing and prints only shapes,
-column names, counts and verdicts, never a value read from a file. The N104
-shim of the test suite is applied so the library reads alphanumeric payer
-ids. Usage: python scripts/compat_oracle.py DIR [--out REPORT]
+column names, dtypes, counts verdicts and exception type names, never a
+value read from a file. A file is compared when the compat layer reads it as
+an 835: it starts with the spec's interchange segment, optionally after a
+UTF-8 byte order mark and ASCII whitespace. The N104 shim of the test suite
+is applied so the library reads alphanumeric payer ids.
+Usage: python scripts/compat_oracle.py DIR [--out REPORT]
 """
 
 from __future__ import annotations
@@ -15,12 +18,36 @@ import warnings
 from pathlib import Path
 
 TESTS = Path(__file__).resolve().parents[1] / "crates" / "oxedi835_py" / "tests"
+COUNTS = ("count_claims", "count_patients", "sum_payments")
+
+
+def is_835(data):
+    """Whether the compat layer reads ``data`` as an 835: the interchange's
+    opening segment, after an optional UTF-8 byte order mark and optional
+    ASCII whitespace."""
+    from oxedi835.edi_835_parser._convert import STRIPPED
+    from oxedi835.edi_835_parser._tables import BOM, interchange_trigger
+
+    if data.startswith(BOM):
+        data = data[len(BOM):]
+    return data.lstrip(STRIPPED).startswith(interchange_trigger())
+
+
+def counted(transaction_sets):
+    """Each count's value, or the type name of the exception it raised."""
+    out = {}
+    for name in COUNTS:
+        try:
+            out[name] = getattr(transaction_sets, name)()
+        except Exception as error:
+            out[name] = type(error).__name__
+    return out
 
 
 def compare(path, old, new):
     """One report block for one file: a list of lines."""
-    if path.read_bytes()[:3] != b"ISA":
-        return ["skipped: does not start with ISA"]
+    if not is_835(path.read_bytes()):
+        return ["skipped: the compat layer does not read it as an 835"]
     try:
         expected_sets = old.parse(str(path))
         expected = expected_sets.to_dataframe()
@@ -46,9 +73,14 @@ def compare(path, old, new):
             differs = ~((left == right) | (left.isna() & right.isna()))
             if int(differs.sum()):
                 lines.append(f"{column}: {int(differs.sum())} cells differ")
-    for name in ("count_claims", "count_patients", "sum_payments"):
-        a, b = getattr(expected_sets, name)(), getattr(actual_sets, name)()
-        if abs(a - b) > 0.005:
+    theirs, ours = counted(expected_sets), counted(actual_sets)
+    for name in COUNTS:
+        a, b = theirs[name], ours[name]
+        if isinstance(a, str) or isinstance(b, str):
+            raised = [f"{who} raised {kind}" for who, kind in (("edi-835-parser", a), ("oxedi835", b))
+                      if isinstance(kind, str)]
+            lines.append(f"{name}: {', '.join(raised)}")
+        elif abs(a - b) > 0.005:
             lines.append(f"{name} differs")
     if len(lines) == 1:
         lines.append("equal")
@@ -70,12 +102,17 @@ def main(argv=None):
     from oxedi835 import edi_835_parser as new
 
     n104_shim.apply()
-    warnings.simplefilter("ignore")
     files = sorted(p for p in args.directory.iterdir() if p.is_file())
     report = []
-    for number, path in enumerate(files, 1):
-        report.append(f"file {number}/{len(files)}")
-        report.extend(f"  {line}" for line in compare(path, old, new))
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore")
+        for number, path in enumerate(files, 1):
+            report.append(f"file {number}/{len(files)}")
+            try:
+                lines = compare(path, old, new)
+            except Exception as error:
+                lines = [f"comparison failed: {type(error).__name__}"]
+            report.extend(f"  {line}" for line in lines)
     text = "\n".join(report) + "\n"
     if args.out:
         args.out.write_text(text)

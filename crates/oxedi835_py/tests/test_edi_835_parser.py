@@ -492,6 +492,46 @@ def test_extended_keeps_the_frame_and_adds_only_x_columns(sample):
     )
 
 
+def numbered_cells(row, prefix, suffixes):
+    """The numbered ``prefix_n_suffix`` cells of a frame row, n from 0 while
+    the row has them."""
+    out, n = [], 0
+    while f"{prefix}_{n}_{suffixes[0]}" in row.index and pd.notna(row[f"{prefix}_{n}_{suffixes[0]}"]):
+        out.append(tuple(row[f"{prefix}_{n}_{suffix}"] for suffix in suffixes))
+        n += 1
+    return out
+
+
+def last_amount(row, prefix):
+    """The last numbered amount of a row, its qualifier described as the
+    library describes it, as the library keeps only the last AMT."""
+    amounts = numbered_cells(row, prefix, ("qual", "amount"))
+    if not amounts:
+        return None
+    qualifier, amount = amounts[-1]
+    return _codes.AMOUNT_QUALIFIERS.get(qualifier, qualifier), amount
+
+
+def test_extended_recovers_what_the_library_objects_hold(sample):
+    claims = [claim for transaction_set in old(path_of(sample)) for claim in transaction_set.claims]
+    extended = compat.parse(path_of(sample)).to_dataframe(extended=True)
+    per_claim = extended[extended.x_row_kind != "provider_adjustment"].drop_duplicates("x_claim")
+    assert len(per_claim) == len(claims)
+    for (_, row), claim in zip(per_claim.iterrows(), claims):
+        assert row.marker == claim.claim.marker
+        assert numbered_cells(row, "x_claim_ref", ("qual", "value")) == [
+            (reference.qualifier.code, reference.value) for reference in claim.references]
+        assert last_amount(row, "x_claim_amt") == (
+            (claim.amount.qualifier, claim.amount.amount) if claim.amount else None)
+        assert (row.x_row_kind == "claim") == (not claim.services)
+    services = [service for claim in claims for service in claim.services]
+    rows = extended[extended.x_row_kind == "service"]
+    assert len(rows) == len(services)
+    for (_, row), service in zip(rows.iterrows(), services):
+        assert last_amount(row, "x_svc_amt") == (
+            (service.amount.qualifier, service.amount.amount) if service.amount else None)
+
+
 def test_extended_recovers_what_the_frame_leaves_out(sample):
     extended = compat.parse(path_of(sample)).to_dataframe(extended=True)
     per_claim = extended[extended.x_row_kind != "provider_adjustment"].drop_duplicates("x_claim")

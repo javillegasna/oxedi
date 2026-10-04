@@ -45,6 +45,10 @@ pub enum IsaError {
         len: usize,
         /// Element separators seen before the input ended, `0..=16`.
         separators_found: usize,
+        /// `true` when a UTF-8 byte order mark at the start was skipped.
+        byte_order_mark: bool,
+        /// Whitespace bytes skipped after the mark (or from the start).
+        whitespace: usize,
     },
 }
 
@@ -88,17 +92,26 @@ impl fmt::Display for IsaError {
             IsaError::Truncated {
                 len,
                 separators_found,
-            } if *separators_found >= ISA_SEPARATORS => write!(
-                f,
-                "ISA segment truncated after {len} bytes: ISA16 or the terminator is missing"
-            ),
-            IsaError::Truncated {
-                len,
-                separators_found,
-            } => write!(
-                f,
-                "ISA segment truncated after {len} bytes: found {separators_found} of {ISA_SEPARATORS} element separators"
-            ),
+                byte_order_mark,
+                whitespace,
+            } => {
+                let skipped = Skipped {
+                    byte_order_mark: *byte_order_mark,
+                    whitespace: *whitespace,
+                };
+                write!(f, "ISA segment truncated after {len} bytes")?;
+                if !skipped.is_empty() {
+                    write!(f, " (counted after skipping {skipped})")?;
+                }
+                if *separators_found >= ISA_SEPARATORS {
+                    write!(f, ": ISA16 or the terminator is missing")
+                } else {
+                    write!(
+                        f,
+                        ": found {separators_found} of {ISA_SEPARATORS} element separators"
+                    )
+                }
+            }
         }
     }
 }
@@ -179,6 +192,8 @@ impl Delimiters {
         let truncated = |separators_found| IsaError::Truncated {
             len: input.len(),
             separators_found,
+            byte_order_mark: false,
+            whitespace: 0,
         };
         let element = *input.get(3).ok_or_else(|| truncated(0))?;
 
@@ -235,7 +250,16 @@ impl Delimiters {
                 byte_order_mark,
                 whitespace,
             },
-            truncated @ IsaError::Truncated { .. } => truncated,
+            IsaError::Truncated {
+                len,
+                separators_found,
+                ..
+            } => IsaError::Truncated {
+                len,
+                separators_found,
+                byte_order_mark,
+                whitespace,
+            },
         })
     }
 

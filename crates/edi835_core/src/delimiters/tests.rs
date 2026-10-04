@@ -76,14 +76,18 @@ fn from_isa_reports_truncated_isa() {
         Delimiters::from_isa(b"ISA"),
         Err(IsaError::Truncated {
             len: 3,
-            separators_found: 0
+            separators_found: 0,
+            byte_order_mark: false,
+            whitespace: 0
         })
     );
     assert_eq!(
         Delimiters::from_isa(b"ISA*00*"),
         Err(IsaError::Truncated {
             len: 7,
-            separators_found: 2
+            separators_found: 2,
+            byte_order_mark: false,
+            whitespace: 0
         })
     );
     let cut = &ISA_5010[..ISA_5010.len() - 1]; // terminator missing
@@ -91,7 +95,9 @@ fn from_isa_reports_truncated_isa() {
         Delimiters::from_isa(cut),
         Err(IsaError::Truncated {
             len: 105,
-            separators_found: 16
+            separators_found: 16,
+            byte_order_mark: false,
+            whitespace: 0
         })
     );
     let cut = &ISA_5010[..ISA_5010.len() - 2]; // ISA16 and terminator missing
@@ -99,7 +105,9 @@ fn from_isa_reports_truncated_isa() {
         Delimiters::from_isa(cut),
         Err(IsaError::Truncated {
             len: 104,
-            separators_found: 16
+            separators_found: 16,
+            byte_order_mark: false,
+            whitespace: 0
         })
     );
 }
@@ -210,8 +218,60 @@ fn from_isa_after_leading_trivia_names_the_skipped_bytes() {
         Delimiters::from_isa_after_leading_trivia(b"\nISA*00*"),
         Err(IsaError::Truncated {
             len: 7,
-            separators_found: 2
+            separators_found: 2,
+            byte_order_mark: false,
+            whitespace: 1
         })
+    );
+    assert_eq!(
+        Delimiters::from_isa_after_leading_trivia(b"\xEF\xBB\xBF ISA*00*"),
+        Err(IsaError::Truncated {
+            len: 7,
+            separators_found: 2,
+            byte_order_mark: true,
+            whitespace: 1
+        })
+    );
+}
+
+#[test]
+fn truncated_displays_the_skipped_leading_bytes() {
+    let message = |input: &[u8]| {
+        Delimiters::from_isa_after_leading_trivia(input)
+            .err()
+            .map(|error| error.to_string())
+    };
+    assert_eq!(
+        message(b"\xEF\xBB\xBFISA*00*").as_deref(),
+        Some(
+            "ISA segment truncated after 7 bytes (counted after skipping a UTF-8 byte order mark): found 2 of 16 element separators"
+        )
+    );
+    assert_eq!(
+        message(b"\n\n ISA*00*").as_deref(),
+        Some(
+            "ISA segment truncated after 7 bytes (counted after skipping 3 bytes of whitespace): found 2 of 16 element separators"
+        )
+    );
+    assert_eq!(
+        message(b" ISA*00*").as_deref(),
+        Some(
+            "ISA segment truncated after 7 bytes (counted after skipping 1 byte of whitespace): found 2 of 16 element separators"
+        )
+    );
+    assert_eq!(
+        message(b"\xEF\xBB\xBF\r\nISA").as_deref(),
+        Some(
+            "ISA segment truncated after 3 bytes (counted after skipping a UTF-8 byte order mark and 2 bytes of whitespace): found 0 of 16 element separators"
+        )
+    );
+    let mut cut = b"\xEF\xBB\xBF".to_vec();
+    cut.extend_from_slice(&ISA_5010[..ISA_5010.len() - 1]);
+    assert_eq!(
+        message(&cut).as_deref(),
+        Some(
+            "ISA segment truncated after 105 bytes (counted after skipping a UTF-8 byte order mark): ISA16 or the terminator is missing"
+        )
     );
 }
 
@@ -220,7 +280,9 @@ fn truncated_displays_how_many_separators_were_found() {
     assert_eq!(
         IsaError::Truncated {
             len: 7,
-            separators_found: 2
+            separators_found: 2,
+            byte_order_mark: false,
+            whitespace: 0
         }
         .to_string(),
         "ISA segment truncated after 7 bytes: found 2 of 16 element separators"
@@ -228,7 +290,9 @@ fn truncated_displays_how_many_separators_were_found() {
     assert_eq!(
         IsaError::Truncated {
             len: 105,
-            separators_found: 16
+            separators_found: 16,
+            byte_order_mark: false,
+            whitespace: 0
         }
         .to_string(),
         "ISA segment truncated after 105 bytes: ISA16 or the terminator is missing"

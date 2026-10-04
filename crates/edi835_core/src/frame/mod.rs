@@ -52,17 +52,17 @@ pub fn first_frame<'a>(input: &'a [u8], delims: &Delimiters) -> Option<(Frame<'a
         return next_frame(input, delims);
     };
     let Some((frame, rest)) = next_frame(after, delims) else {
-        let rest = after.get(after.len()..).unwrap_or_default();
+        // `next_frame` returns `None` only for empty input: the input is the mark alone.
         let frame = Frame {
             raw: input,
-            body: rest,
+            body: after,
             terminated: false,
         };
-        return Some((frame, rest));
+        return Some((frame, after));
     };
-    let Some(raw) = input.get(..BYTE_ORDER_MARK.len() + frame.raw.len()) else {
-        return next_frame(input, delims);
-    };
+    // `frame.raw` is a prefix of `after`, which is `input` past the mark, so the
+    // end index is at most `input.len()`.
+    let raw = &input[..BYTE_ORDER_MARK.len() + frame.raw.len()];
     let frame = Frame {
         raw,
         body: frame.body,
@@ -84,6 +84,9 @@ pub fn next_frame<'a>(input: &'a [u8], delims: &Delimiters) -> Option<(Frame<'a>
         .iter()
         .position(|&byte| !is_trivia(byte))
         .unwrap_or(input.len());
+    // `body_start <= input.len()` by construction of `position`/`unwrap_or`, and
+    // `terminator_at < input.len()` because `offset` indexes into `input[body_start..]`,
+    // so every slice and split below is in range.
     match find_unescaped(&input[body_start..], delims.segment, delims.release) {
         Some(offset) => {
             let terminator_at = body_start + offset;

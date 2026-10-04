@@ -177,3 +177,71 @@ def test_an_exception_inside_pyx12_becomes_one_failure(monkeypatch):
     document = oxedi835.parse(data).document
     assert data[failure.span[0] : failure.span[1]] == document[4].raw
     assert failure.datum == bytes(document[4].id)
+
+
+def logger_state():
+    import logging
+
+    logger = logging.getLogger("pyx12")
+    child = logging.getLogger("pyx12.error_handler")
+    return [
+        (lg.level, lg.disabled, lg.propagate, list(lg.handlers))
+        for lg in (logger, child)
+    ] + [logging.root.manager.disable]
+
+
+def reference():
+    return [
+        (f.kind, f.segment, f.span, f.rule) for f in validate(read(LEGACY) + b"")
+    ] + [
+        (f.kind, f.segment, f.span, f.rule) for f in validate(read("multi_claim_sample.txt"))
+    ]
+
+
+@pytest.mark.parametrize("config", ["critical", "disable", "child_off"])
+def test_results_do_not_depend_on_the_callers_logging_configuration(config):
+    import logging
+
+    expected = reference()
+    logger = logging.getLogger("pyx12")
+    child = logging.getLogger("pyx12.error_handler")
+    before = logger_state()
+    try:
+        if config == "critical":
+            logger.setLevel(logging.CRITICAL)
+        elif config == "disable":
+            logging.disable(logging.CRITICAL)
+        else:
+            child.disabled = True
+        state = logger_state()
+        assert reference() == expected
+        assert logger_state() == state
+    finally:
+        logging.disable(logging.NOTSET)
+        logger.setLevel(before[0][0])
+        child.disabled = before[1][1]
+    assert any("not look like an X12" in e[3] for e in expected)
+
+
+def test_the_logger_is_restored_after_an_exception(monkeypatch):
+    import pyx12.x12n_document
+
+    before = logger_state()
+
+    def breaks(*args):
+        raise RuntimeError("boom")
+
+    monkeypatch.setattr(pyx12.x12n_document, "apply_segment_errors", breaks)
+    (failure,) = validate(read(EYEMED))
+    assert "RuntimeError: boom" in failure.rule
+    assert logger_state() == before
+
+
+def test_overlapping_validations_do_not_mix_their_findings():
+    from concurrent.futures import ThreadPoolExecutor
+
+    expected = reference()
+    with ThreadPoolExecutor(4) as pool:
+        results = list(pool.map(lambda _: reference(), range(8)))
+    assert all(r == expected for r in results)
+    assert logger_state()[0][2] is True

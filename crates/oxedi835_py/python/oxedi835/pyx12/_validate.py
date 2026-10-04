@@ -2,11 +2,13 @@
 
 from __future__ import annotations
 
+import contextlib
 import io
 import json
 import logging
 import os
 import re
+import threading
 from bisect import bisect_right
 from collections import defaultdict, deque
 from typing import Any, BinaryIO, Union
@@ -103,6 +105,41 @@ class _LogCapture(logging.Handler):
         self.messages.append(record.getMessage())
 
 
+_LOCK = threading.Lock()
+
+
+def _pyx12_loggers() -> list[logging.Logger]:
+    names = [n for n in list(logging.root.manager.loggerDict) if n == "pyx12" or n.startswith("pyx12.")]
+    return [logging.getLogger(n) for n in names if isinstance(logging.root.manager.loggerDict[n], logging.Logger)]
+
+
+@contextlib.contextmanager
+def _isolated_logging(capture: logging.Handler):
+    """Routes pyx12's error records to ``capture`` whatever the caller's logging
+    configuration, and restores that configuration on exit. Callers hold ``_LOCK``."""
+    root = logging.getLogger("pyx12")
+    loggers = _pyx12_loggers()
+    saved = [(lg, lg.level, lg.disabled) for lg in loggers]
+    propagate = root.propagate
+    disabled_below = logging.root.manager.disable
+    logging.disable(logging.NOTSET)
+    for lg in loggers:
+        lg.disabled = False
+        lg.setLevel(logging.NOTSET)
+    root.setLevel(logging.ERROR)
+    root.propagate = False
+    root.addHandler(capture)
+    try:
+        yield
+    finally:
+        root.removeHandler(capture)
+        root.propagate = propagate
+        for lg, level, disabled in saved:
+            lg.setLevel(level)
+            lg.disabled = disabled
+        logging.disable(disabled_below)
+
+
 def _run(text: str, track: list[int]) -> tuple[bool, Any, list[str], BaseException | None]:
     import pyx12.params
     import pyx12.x12n_document
@@ -111,27 +148,21 @@ def _run(text: str, track: list[int]) -> tuple[bool, Any, list[str], BaseExcepti
         track.append(src.get_cur_line())
 
     capture = _LogCapture()
-    logger = logging.getLogger("pyx12")
-    previous = logger.propagate
-    logger.addHandler(capture)
-    logger.propagate = False
     errors = io.StringIO()
     failure: BaseException | None = None
     ok = False
-    try:
-        ok = pyx12.x12n_document.x12n_document(
-            param=pyx12.params.params(),
-            src_file=io.StringIO(text),
-            fd_997=None,
-            fd_html=None,
-            fd_json=errors,
-            callback=callback,
-        )
-    except Exception as err:  # pyx12 is third-party: any failure is a finding
-        failure = err
-    finally:
-        logger.removeHandler(capture)
-        logger.propagate = previous
+    with _LOCK, _isolated_logging(capture):
+        try:
+            ok = pyx12.x12n_document.x12n_document(
+                param=pyx12.params.params(),
+                src_file=io.StringIO(text),
+                fd_997=None,
+                fd_html=None,
+                fd_json=errors,
+                callback=callback,
+            )
+        except Exception as err:  # pyx12 is third-party: any failure is a finding
+            failure = err
     tree = None
     if failure is None and errors.getvalue():
         try:

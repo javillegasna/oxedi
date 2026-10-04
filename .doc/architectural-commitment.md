@@ -1334,11 +1334,15 @@ intercambio, grupo, transacción y segmento, y falla al generar su 999
   mapas se desalinean en lo que la spec ya cubre, nombrando loop, segmento, elemento y dato.
   Descartado generar la spec entera desde los mapas: perdería lo propio de la spec (nombres de
   columna, tablas, controles).
-- **T53 · La spec sigue la 5010 y tolera la 4010.** Los valores de la spec (uso, longitudes,
-  códigos) son los de 005010X221A1; los archivos 4010 se siguen parseando como hoy, sin
-  diagnósticos nuevos por diferencias propias de la 4010, que valida `pyx12` con su mapa 4010.
-  Descartado un spec por versión elegido por el GS08: obliga a seleccionar spec por versión en el
-  núcleo, que es otro stage.
+- **T53 · Una spec por versión, con la 5010 por defecto** (revisada por el dueño el
+  2026-10-04, siguiendo el patrón de la capa `edi_835_parser`). `specs/835.json` es la 5010 y
+  sigue siendo la spec por defecto; la 4010 vive en `specs/835.4010.json` como parche RFC 7386
+  sobre la 5010 (como `edi_835_parser.json`), con los valores de `835.4010.X091.A1.xml`. Cada spec
+  declara qué versión cubre como dato (segmento, elemento y valor, p. ej. GS08 = `005010X221A1`),
+  de modo que el núcleo puede elegir entre specs candidatas leyendo el sobre sin nombrar ningún
+  segmento en el código; si ninguna coincide se usa la de por defecto. Descartados una spec única
+  que tolere la 4010 (los códigos y usos propios de la 4010 darían diagnósticos falsos) y dos
+  archivos completos (duplicación).
 - **T54 · Listas de códigos en la spec y en el núcleo.** El formato de la spec admite, por
   elemento, una lista de valores permitidos (`codes`), validada al cargar la spec (lista no
   vacía, valores dentro de la longitud del elemento) con errores P10. La lista se puebla desde
@@ -1364,8 +1368,9 @@ intercambio, grupo, transacción y segmento, y falla al generar su 999
 **Entregable / contrato.**
 - `scripts/spec_vs_pyx12.py` con su informe y borrador de parche; la spec 835 corregida con los
   parches revisados; test de desalineación en el CI de Python.
-- Formato de spec con `codes`, su validación al cargar y la regla de diagnóstico nueva en el
-  núcleo, con test de `Display` de texto completo.
+- Formato de spec con `codes` y con la versión declarada, su validación al cargar y la regla de
+  diagnóstico nueva en el núcleo, con test de `Display` de texto completo; `specs/835.4010.json`
+  y la selección de spec por versión.
 - `oxedi835.pyx12.validate` con su traducción a `Diagnostic` y tests sobre los samples.
 - `THIRD_PARTY_NOTICES` con la atribución de `pyx12`.
 
@@ -1378,6 +1383,6 @@ intercambio, grupo, transacción y segmento, y falla al generar su 999
   correctos.
 - `make gates` y `make py-test` en verde, también con el extra instalado.
 
-**Fuera de alcance.** Spec por versión (T53); códigos externos (T54); generador de specs para la
+**Fuera de alcance.** Versiones del 835 distintas de 4010 y 5010; códigos externos (T54); generador de specs para la
 837 (Stage 9); `ContextReader` (9b); validación SNIP 3 o superior nativa en el núcleo (D11 y
 después).

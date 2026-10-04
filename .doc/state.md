@@ -57,7 +57,8 @@ the API holds for two or three releases and the Stage 8 documentation exists. To
 `~/.pypirc` (local) and as GitHub secrets, never in the repo.
 
 Next: 5b (D12, three parts: DataFrame parity by spec, what the old library drops and we
-keep, a compatible `TransactionSets` API covering its whole surface), then 5c (D13 module
+keep, a compatible `TransactionSets` API covering its whole surface; native counterparts
+  on the Arrow/Polars API as the long-term migration path), then 5c (D13 module
 layout), then Stage 6. Trade-offs for 5b in chat first.
 
 Stage 4 decisions, settled in §7 (kept for reference):

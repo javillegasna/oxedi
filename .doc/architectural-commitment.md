@@ -267,7 +267,16 @@ carga su prueba de costura con la capa inferior (N7).
   librerías seguirían el mismo patrón (`oxedi835.<nombre>`, extra `oxedi835[<nombre>]`), cada
   una con su spec de `tables` y sus vistas; antes de abrir 5b se hace un sondeo de los parsers
   835 en Python existentes y de lo que exponen, para decidir con datos si alguna otra merece
-  una capa.
+  una capa (hecho el 2026-10-03: solo `edi-835-parser` la merece). (4) **Equivalentes nativos
+  en la API propia** (acordado 2026-10-03): la API nativa de `oxedi835` (sobre Arrow y Polars)
+  ofrece sus propios métodos para los mismos conceptos que esa librería expone, con nombres
+  nuestros y sin `pandas`: en `Result`, `count_claims()`, `count_patients()`,
+  `sum_payments()`, `payer` y `payee` (desde las tablas `payments`/`claims`, con `Decimal`
+  exacto para los importes), y en `Tables`/`Table`, `to_polars()` y `to_pandas()` como
+  conveniencias (esta última solo si `pandas` está instalado). Así hay dos caminos de
+  migración: el rápido, instalar `oxedi835[edi-835-parser]` y cambiar un `import`; y el
+  definitivo, pasar con tiempo a los métodos nativos, con una tabla "método viejo → método
+  nuevo" en la documentación (Stage 8).
 - **D13 · Estructura de módulos**: `spec.rs` supera las 2.500 líneas tras el Stage 4a y
   `diagnostic.rs`, `engine.rs` y `check.rs` crecen. Tras el Stage 5, planificar la división
   en submódulos (por ejemplo `spec/{load,shape,segments,tables,control,patch}.rs`) con

@@ -20,7 +20,8 @@ when a stage changes state.
 | 6 · Distribution | crates.io, PyPI wheels (manylinux/macOS/Windows), release CI with trusted publishing; `0.1.0` after 5b | Name reserved on PyPI with `0.0.1a1` (2026-10-03) | — |
 | 7 · Writer | Data → loops → bytes, same spec | Deferred (D7) | — |
 | 8 · Durable documentation | Human-readable book of the ideas, concepts and patterns that govern the project (no code snippets, no line references, nothing that rots); user guides for the Python library and the CLI | Not started (after the roadmap closes, D14) | — |
-| 9 · X12 family toolkit | The engine, spec format, projection and CLI serve other transaction sets of the same family (837 first: same loop logic, different segment definitions); 835 becomes one spec among several | Not started (D15) | — |
+| 9 · X12 family toolkit | The engine, spec format, projection and CLI serve other transaction sets of the same family (837 first: same loop logic, different segment definitions); 835 becomes one spec among several. Includes the `pyx12` map cross-check and spec generator (D16, part 1) | Not started (D15, D16) | — |
+| 9b · `pyx12` interop (optional) | `oxedi835.pyx12.validate` merging `pyx12`'s SNIP 3–7 findings into our `Diagnostic` list; `oxedi835.pyx12.ContextReader` as a read-only `X12ContextReader`-shaped view, only on demand; behind the extra `oxedi835[pyx12]` | Optional (D16, parts 2–3) | — |
 
 ## What each stage unlocks
 
@@ -42,7 +43,9 @@ when a stage changes state.
 - After **8**: a reader learns why the project is shaped this way without opening the code,
   and a user of the Python library or the CLI has a guide that does not go stale.
 - After **9**: adding a transaction set is writing a spec, the toolkit's promise made good
-  beyond the 835.
+  beyond the 835; `pyx12`'s maps cross-check our specs and seed the new ones.
+- After **9b** (optional): a single diagnostics list covers SNIP 1–7 by delegating 3–7 to
+  `pyx12`; code written against its context reader runs on our document.
 - After **5c**: every module is short enough to read in one sitting and findable from
   `lib.rs` without grepping; a prerequisite for crates.io docs and outside contributors.
 
@@ -60,6 +63,7 @@ when a stage changes state.
 | D12 · Compatibility with `edi-835-parser` | 5b | Can a data-only `tables` spec reproduce its DataFrame exactly? Measures N3 and gives a migration path for its users |
 | D14 · Durable documentation | 8 | What belongs in the book (ideas, patterns, concepts, guides) vs. what stays in rustdoc and the plans (code, signatures); format and where it lives |
 | D15 · X12 family toolkit (837…) | 9 | Naming (crate and binary no longer 835-specific), one spec per transaction set, what the CLI exposes, which 835 assumptions leaked into code |
+| D16 · `pyx12` interop | 9 (maps as oracle/generator) and 9b (validate, ContextReader, optional) | Complement, not imitate: their maps and validation, our speed and tables |
 | D13 · Module layout | 5c | `spec.rs` is 2.5k lines after Stage 4a; decide the submodule split and the discovery rules (file length, one noun per file, index in `lib.rs`) |
 | D3 · WASM/Extism extensions | never, unless data patches prove insufficient | — |
 

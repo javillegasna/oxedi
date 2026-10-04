@@ -286,6 +286,20 @@ carga su prueba de costura con la capa inferior (N7).
   segmentos debería entrar como una spec más. A decidir: nombres (crate y binario dejan de
   ser "835"), una spec por conjunto de transacciones, qué expone el CLI, y qué suposiciones
   del 835 se colaron en código (auditar antes de abrir la 837).
+- **D16 · Interoperabilidad con `pyx12`** (acordada 2026-10-03). `pyx12` es el validador
+  HIPAA X12 de referencia en Python (BSD, activo), con mapas XML por guía de implementación
+  para toda la familia. Tres piezas: (1) **parte del Stage 9**: usar sus mapas como oráculo y
+  generador de nuestras specs, con un script que coteje el mapa del 835 contra
+  `specs/835.json` (segmentos, obligatoriedad, códigos) y que genere el borrador de la spec de
+  la 837 y siguientes, respetando la atribución BSD al derivar datos; (2) **opcional**:
+  `oxedi835.pyx12.validate(data)` que corre la validación de `pyx12` sobre los mismos bytes y
+  traduce sus errores a `Diagnostic` (índice, elemento, ruta, dato), una sola lista con los
+  dos orígenes marcados, para cubrir los niveles SNIP 3–7 sin escribirlos; (3) **opcional,
+  bajo demanda**: `oxedi835.pyx12.ContextReader(document)`, vista de solo lectura con la forma
+  de `X12ContextReader` (`iter_segments`, `select`, `get_value`, `exists`) sobre nuestro
+  `Document` y `LoopTree`. Las piezas 2 y 3 viven en el subpaquete `oxedi835.pyx12` tras el
+  extra `oxedi835[pyx12]`, siguiendo la regla de nombres de D12; el script de la pieza 1 vive
+  en `scripts/`.
 - **D7 · Stage 7, Escritor**: ver §5. YAGNI hasta que haya un caso de generación. La mitad
   del trabajo ya la paga el round-trip de Stage 1 (serializar segmentos con escape) y la
   otra mitad la paga T4. Lo propio del escritor: campos derivados y builder desde dominio.

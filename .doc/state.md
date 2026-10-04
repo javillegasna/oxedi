@@ -75,7 +75,8 @@ The decisions that were open, now settled in §7:
 - After Stage 5 (owner's request 2026-10-03): 5b compatibility oracle against
   `edi-835-parser` (D12, three parts: same DataFrame via a spec; prove what that library
   drops and we keep; a compatible `TransactionSets`/`to_dataframe()` API) and 5c module
-  layout plan (D13); see roadmap.
+  layout plan (D13); see roadmap. `pyx12` interop (D16): map cross-check/generator is part of
+  Stage 9; `validate` and `ContextReader` are optional (9b), behind `oxedi835[pyx12]`.
 - After the roadmap (owner's request 2026-10-03): Stage 8 durable human documentation
   (ideas, patterns, concepts, no code; Python and CLI guides; D14) and Stage 9 X12 family
   toolkit starting with the 837 (D15).

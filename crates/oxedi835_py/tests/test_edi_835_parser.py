@@ -259,6 +259,17 @@ def test_each_transaction_of_a_file_has_only_its_own_rows():
     assert list(compat.parse_bytes(two_transactions()).to_dataframe(extended=True).x_claim) == [0, 1]
 
 
+def test_an_empty_address_and_location_are_kept_as_in_the_library(tmp_path):
+    path = tmp_path / "a.835"
+    path.write_bytes(synthetic().replace(b"N3*1 MAIN ST~", b"N3*~").replace(b"N4*SPRINGFIELD*NY*12345~", b"N4***~"))
+    (expected,), (actual,) = list(old(path)), list(compat.parse(path))
+    assert organization(actual.payer) == organization(expected.payer) == (
+        "payer", "ACME INSURANCE", None, "", ("", "", ""))
+    assert organization(actual.payee) == organization(expected.payee)
+    assert (actual.payee.address, actual.payee.location) == (None, None)
+    pd.testing.assert_frame_equal(compat.parse(path).to_dataframe(), old(path).to_dataframe(), check_exact=True)
+
+
 def test_availity_and_zirmed_are_named_as_the_library_names_them(tmp_path):
     path = tmp_path / "a.835"
     path.write_bytes(synthetic(sender="AV09311993", receiver="ZIRMED"))

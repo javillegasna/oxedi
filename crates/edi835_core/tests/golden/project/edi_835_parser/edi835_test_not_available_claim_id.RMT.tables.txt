@@ -228,9 +228,9 @@ row: int64 | segment: int64 | authorization_information_qualifier: binary | rece
 0 | 0 | 00 | 7V59            | 660645696069414 | 2024-04-27 | 03:04:00
 
 ## rows_organizations (rows: 2)
-row: int64 | segment: int64 | interchange: int64 | payment: int64 | address: binary | city: binary | identification_code: binary | name: binary | state: binary | type: binary | zip_code: binary
-0 | 7 | 0 | 0 | 8776 PINE AVE | SPRINGFIELD | INSTAMED | BLUE RIDGE WELLNESS ASSOCIATES LLC | NY | PR | 35644
-1 | 10 | 0 | 0 | 8391 OAK WAY | SALEM | 479864355 | MERIDIAN WELLNESS ASSOCIATES | NY | PE | 354904856
+row: int64 | segment: int64 | interchange: int64 | payment: int64 | address: binary | address_segment: int64 | city: binary | identification_code: binary | location_segment: int64 | name: binary | state: binary | type: binary | zip_code: binary
+0 | 7 | 0 | 0 | 8776 PINE AVE | 8 | SPRINGFIELD | INSTAMED | 9 | BLUE RIDGE WELLNESS ASSOCIATES LLC | NY | PR | 35644
+1 | 10 | 0 | 0 | 8391 OAK WAY | 11 | SALEM | 479864355 | 12 | MERIDIAN WELLNESS ASSOCIATES | NY | PE | 354904856
 
 ## rows_payments (rows: 1)
 row: int64 | segment: int64 | interchange: int64 | amount_paid: decimal128(38, 2) | bpr_segment: int64 | payee_segment: int64 | payer_segment: int64 | payment_method: binary | routing_number: binary | transaction_date: date32

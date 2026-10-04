@@ -21,6 +21,8 @@ from ._views import (
 _SUFFIXES = (".txt", ".835", ".DAT")
 TRANSACTION_DATE, _ = position("rows_payments", "transaction_date")
 ORGANIZATION_ID = position("rows_organizations", "identification_code")
+ADDRESS = position("rows_organizations", "address")
+LOCATION = {k: position("rows_organizations", k) for k in ("city", "state", "zip_code")}
 
 
 class TransactionSet:
@@ -60,13 +62,19 @@ class TransactionSet:
 
     @functools.cached_property
     def organizations(self) -> List[Organization]:
-        t = self._t["rows_organizations"]
+        """The N1 loops, with an address and a location when the loop has an
+        N3 or N4 segment; an element the segment holds empty reads ``""``,
+        as in the library."""
+        t, d = self._t["rows_organizations"], self._d
         out = []
         for i in range(len(t)):
-            location = None
-            if any(t[k][i] is not None for k in ("city", "state", "zip_code")):
-                location = Location(text(t["city"][i]), text(t["state"][i]), text(t["zip_code"][i]))
-            address = None if t["address"][i] is None else Address(text(t["address"][i]))
+            location = address = None
+            at = t["location_segment"][i]
+            if at is not None:
+                location = Location(*(written(text(t[k][i]), d, at, *LOCATION[k]) for k in LOCATION))
+            at = t["address_segment"][i]
+            if at is not None:
+                address = Address(written(text(t["address"][i]), d, at, *ADDRESS))
             identification_code = written(integer(t["identification_code"][i]), self._d,
                                           t["segment"][i], *ORGANIZATION_ID)
             out.append(Organization(

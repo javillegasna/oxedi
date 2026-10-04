@@ -33,9 +33,11 @@
       "name": {"segment": "N1", "element": 2},
       "identification_code": {"segment": "N1", "element": 4},
       "address": {"segment": "N3", "element": 1},
+      "address_segment": {"segment": "N3", "segment_index": true},
       "city": {"segment": "N4", "element": 1},
       "state": {"segment": "N4", "element": 2},
-      "zip_code": {"segment": "N4", "element": 3}
+      "zip_code": {"segment": "N4", "element": 3},
+      "location_segment": {"segment": "N4", "segment_index": true}
     } },
     "rows_provider_adjustments": { "loops": ["transaction"], "segment": "PLB", "repeat": {"from": 3, "step": 2}, "columns": {
       "provider_id": {"element": 1},

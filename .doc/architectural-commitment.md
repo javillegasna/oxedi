@@ -362,6 +362,36 @@ carga su prueba de costura con la capa inferior (N7).
   (API C de extensiones, repositorio de extensiones comunitarias, plataformas y versiones de
   DuckDB soportadas). La API C con Arrow queda para casos en proceso que DuckDB no cubra; WASM,
   para navegador o sandbox. **Descartado un CLI propio**: el de DuckDB hace la conversión.
+  **Adopción de DuckDB** (2026-10-04, `.superpowers/duckdb-adoption-survey.md`): Python 54,4 M
+  descargas/mes (a la par de polars, 50,7 M), Node 6,7 M/mes más 2,4 M del paquete antiguo y
+  1,9 M de WASM, Rust 1,7 M en 90 días, .NET entre 0,9 y 4,1 M en total, R 104 K/mes, Go unos
+  130–160 importadores, Java sin cifra fiable; 41,9 K estrellas, `dbt-duckdb` 1,9 M/mes; en salud
+  solo hay proyectos personales. El repositorio comunitario tiene 358 extensiones, unas 60 en Rust
+  (`rusty_sheet` ofrece `read_sheet()`, análogo a `read_835()`).
+  **Estabilidad.** DuckDB tiene tres vías: la API interna de C++ (atada a la versión exacta), el
+  subconjunto estable de su API C de extensiones (compatible hacia delante: un build vale para
+  versiones siguientes; la plantilla en C lo activa con `USE_UNSTABLE_C_API=0`) y las funciones
+  inestables de esa API (atadas a una versión). La plantilla oficial de Rust es experimental y usa
+  la parte inestable porque `duckdb-rs` depende de ella (hoy fijada a v1.5.6), así que cada versión
+  de DuckDB pide recompilar; el CI del repositorio comunitario recompila solo (versión estable,
+  LTS anterior y `main`), y lo nuestro es mantener el código al día. Las extensiones en Rust se
+  publican sin WASM ni musl. La estabilidad depende de qué funciones de DuckDB llama la extensión,
+  no del lenguaje: (1) extensión fina en C con la API estable de DuckDB, enlazando el núcleo como
+  librería estática a través de nuestra API C, que se reutiliza para los demás lenguajes; (2)
+  extensión en Rust contra el encabezado estable sin `duckdb-rs` (más `unsafe`); (3) la plantilla
+  de Rust en la parte inestable, con precedente y mantenimiento por versión. Preferencia: (1) si
+  el subconjunto estable cubre lo que `read_835()` necesita (registrar una función de tabla,
+  declarar tipos de columna, llenar lotes, idealmente entregar Arrow); si no, (3) y migrar cuando
+  DuckDB lo estabilice. Esa cobertura es la primera pregunta del spike.
+  **Pipeline.** Un crate `crates/oxedi835_duckdb` (o la extensión en C sobre la API C) fuera del
+  núcleo; un job de CI en Linux que compila la extensión y corre tests SQL sobre los samples con
+  las tablas de Python como oráculo; un workflow que vigila las versiones de DuckDB (calendario o
+  Renovate/Dependabot), sube la versión, compila, prueba y abre un PR; en cada release nuestra, un
+  PR al repositorio comunitario que actualiza el commit. La matriz de plataformas y la firma las
+  pone el CI de DuckDB; no se publican builds propios sin firmar (obligarían a
+  `allow_unsigned_extensions`). Se soporta la versión estable de DuckDB y la anterior. Coste: CI
+  solo en Linux por nuestra parte y un PR por versión de DuckDB (unas cuatro o cinco al año), que
+  desaparece con la vía estable.
 - **D7 · Stage 7, Escritor** → programado el 2026-10-03, tras 5b y Stage 6, con un caso real:
   generar un 835 (`.RMT`) a partir de datos en bases relacionales. Contrato acordado: la
   entrada es nuestro esquema de tablas (`Tables` del core o Arrow por el mismo protocolo

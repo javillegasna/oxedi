@@ -632,6 +632,35 @@ def test_rows_the_frame_leaves_out_have_no_payer_without_a_payer_loop():
     assert extended.payer.tolist() == [None, None]
 
 
+def test_a_date_the_library_rejects_raises_naming_segment_element_and_text(tmp_path):
+    claim_only = SERVICELESS.replace(
+        "SVC*HC:99213*150*100**1~DTM*472*20240101~CAS*CO*45*50~", "").replace("DTM*232*20240102", "DTM*232*2024AB02")
+    path = tmp_path / "bad_date.txt"
+    path.write_text(claim_only)
+    with pytest.raises(ValueError):
+        old(path)
+    expected = ('segment #15 DTM02: "2024AB02" is not a CCYYMMDD date, '
+                "which edi-835-parser's date parser requires of 8 characters")
+    transaction_sets = compat.parse(path)
+    for extended in (False, True):
+        with pytest.raises(ValueError) as info:
+            transaction_sets.to_dataframe(extended=extended)
+        assert str(info.value) == expected
+        assert isinstance(info.value.__cause__, ValueError)
+    with pytest.raises(ValueError) as info:
+        list(transaction_sets)[0].claims[1].dates
+    assert str(info.value) == expected
+    service = SERVICELESS.replace("DTM*472*20240101", "DTM*472*2401011299").encode()
+    expected = ('segment #13 DTM02: "2401011299" is not a YYMMDDHHMM date, '
+                "which edi-835-parser's date parser requires of 10 characters")
+    with pytest.raises(ValueError) as info:
+        compat.parse_bytes(service).to_dataframe()
+    assert str(info.value) == expected
+    with pytest.raises(ValueError) as info:
+        list(compat.parse_bytes(service))[0].claims[0].services[0].dates
+    assert str(info.value) == expected
+
+
 def test_without_a_payer_loop_the_extended_frame_raises_as_the_frame_does():
     transaction_sets = compat.parse_bytes(without_payer(SERVICELESS.encode()))
     with pytest.raises(ValueError) as strict:

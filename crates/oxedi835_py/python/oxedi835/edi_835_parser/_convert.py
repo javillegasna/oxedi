@@ -53,19 +53,37 @@ def library_date(raw):
     return raw
 
 
+DATE_FORMS = {10: "YYMMDDHHMM", 8: "CCYYMMDD"}
+
+
+def element_date(segment, index, element):
+    """The library's date parser on element ``element`` of ``segment``, the
+    segment at ``index``. Text of a date's length that is not a date raises
+    a ``ValueError`` naming the segment, the element and the text."""
+    elements = segment.elements
+    if element > len(elements):
+        return None
+    raw = elements[element - 1]
+    if element == len(elements) and isinstance(raw, bytes):
+        raw = unpadded(raw)
+    value = raw.decode(ENCODING) if isinstance(raw, bytes) else ""
+    try:
+        return library_date(value)
+    except ValueError as error:
+        name = f"{segment.id.decode(ENCODING)}{element:02d}"
+        raise ValueError(
+            f'segment #{index} {name}: "{value}" is not a {DATE_FORMS[len(value)]} date, '
+            f"which edi-835-parser's date parser requires of {len(value)} characters"
+        ) from error
+
+
 def date(value, document, index, element):
     """Date cell as ``datetime``. A null cell whose element is written holds
     text the date type rejects (an empty date, say), which the library keeps
     as text, so it is read from the element with the library's parser."""
     if value is not None or index is None:
         return moment(value)
-    elements = document[index].elements
-    if element > len(elements):
-        return None
-    raw = elements[element - 1]
-    if element == len(elements) and isinstance(raw, bytes):
-        raw = unpadded(raw)
-    return library_date(raw.decode(ENCODING) if isinstance(raw, bytes) else "")
+    return element_date(document[index], index, element)
 
 
 def integer(value):

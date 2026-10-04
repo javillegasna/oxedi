@@ -20,7 +20,7 @@ import functools
 import numpy as np
 
 from . import _codes
-from ._convert import ENCODING, has, library_date, unpadded
+from ._convert import ENCODING, element_date, has
 from ._tables import ints, position
 
 UTF8 = codecs.lookup(ENCODING).name == "utf-8"
@@ -231,13 +231,6 @@ class Transaction:
         self.tables = transaction_set._t
         self.document = transaction_set._d
         self._dates = {}
-        self._elements = {}
-
-    def elements(self, segment):
-        """The elements of segment ``segment``, read once."""
-        if segment not in self._elements:
-            self._elements[segment] = self.document[segment].elements
-        return self._elements[segment]
 
     def table(self, name):
         return self.tables[name].table
@@ -273,7 +266,8 @@ class Transaction:
 
     def dates(self, name, element):
         """A date table's values: a midnight ``datetime``, or for a date the
-        spec could not read, the library's reading of the element text."""
+        spec could not read, the library's reading of the element text,
+        which raises for text of a date's length that is not a date."""
         if name not in self._dates:
             self._dates[name] = self._read_dates(name, element)
         return self._dates[name]
@@ -286,13 +280,7 @@ class Transaction:
         for row in np.flatnonzero(column.is_null().to_numpy(zero_copy_only=False)).tolist():
             if segments[row] is None:
                 continue
-            elements = self.elements(segments[row])
-            if element > len(elements):
-                continue
-            raw = elements[element - 1]
-            if element == len(elements) and isinstance(raw, bytes):
-                raw = unpadded(raw)
-            values[row] = library_date(raw.decode(ENCODING) if isinstance(raw, bytes) else "")
+            values[row] = element_date(self.document[segments[row]], segments[row], element)
         return values
 
     def date_at(self, name, element, segments):
@@ -458,10 +446,14 @@ class Transaction:
         return columns, counts
 
     def strict(self):
-        """The library's frame of this transaction set."""
+        """The library's frame of this transaction set. A claim's dates are
+        read even when no service gives it a row, so a date the library's
+        parser rejects raises with or without services."""
         import pandas as pd
 
         if not len(self.tables["rows_claims"]) or not len(self.order):
+            if len(self.tables["rows_claims"]):
+                self.dates("rows_claim_dates", CLAIM_DATE)
             return pd.DataFrame([])
         financial_information, payer = self.set.financial_information, self.set.payer
         columns = self.library(financial_information.transaction_date, payer.organization.name)

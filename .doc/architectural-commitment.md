@@ -1018,3 +1018,64 @@ API de compatibilidad como vistas sin copia.
 **Fuera de alcance.** Capas para otras librerías (el sondeo no lo justifica; `pyx12` va por
 D16); escribir 835 (Stage 7); corregir `edi-835-parser` (se ofrece el parche de `N104` aguas
 arriba, fuera del repo).
+
+### Stage 6 · Distribución — APROBADO 2026-10-04
+
+El stage que convierte el binding en un paquete instalable con `pip install oxedi835` en
+Linux, macOS y Windows sin compilar nada, publicado sin secretos guardados y verificado en cada
+plataforma antes de salir. Cierra con `0.1.0`, la primera versión usable.
+
+**Decisiones de diseño (cada una con la alternativa descartada).**
+- **T30 · Matriz de wheels `abi3` (Python ≥ 3.11), un wheel por plataforma.** Linux
+  `manylinux_2_28` x86_64 y aarch64, Linux `musllinux_1_2` x86_64, macOS x86_64 y arm64 por
+  separado, Windows x86_64; el sdist se construye solo en Linux. Descartados `universal2`
+  (dobla el tamaño sin ganancia) y Windows ARM (sin demanda).
+- **T31 · `PyO3/maturin-action`**, partiendo de lo que genera `maturin generate-ci github`;
+  resuelve los contenedores manylinux/musllinux y la compilación cruzada a aarch64.
+  Descartado un build a mano con `cibuildwheel` (más piezas para el mismo resultado con PyO3).
+- **T32 · Publicación por *trusted publishing* (OIDC)**, sin tokens: el workflow publica con
+  `pypa/gh-action-pypi-publish` desde los *environments* de GitHub `pypi` y `testpypi`, ambos
+  con aprobación manual del dueño. Las versiones con sufijo `a`/`b`/`rc` van solo a TestPyPI; las
+  finales, a PyPI. Cuando funcione, se revocan los tokens de `~/.pypirc` y de los secrets.
+  Descartado publicar con token (secreto de larga vida en el repo).
+- **T33 · Una sola fuente de versión y release por tag.** La versión vive en
+  `[workspace.package] version` del `Cargo.toml` raíz; los crates la heredan y `pyproject.toml`
+  la declara `dynamic` para que maturin la lea de Cargo. El workflow de release se dispara con
+  un tag `v*` en `master` y falla si el tag no coincide con esa versión (traducida a PEP 440).
+  Descartado mantener la versión en dos sitios.
+- **T34 · crates.io diferido.** El crate se llama `edi835_core`, un nombre atado al 835 que
+  chocaría con el kit de la familia X12 (D15); `0.1.0` sale solo en PyPI y crates.io se decide
+  con el nombre neutro en el Stage 9 (reservando `oxedi835` allí cuando toque).
+- **T35 · Verificación en cada plataforma antes de publicar.** Cada wheel se instala en su
+  sistema, en Python 3.11 y 3.13, y pasa la suite pytest completa (no solo un import), con el
+  mismo esquema que `scripts/smoke_wheel.sh`; el job de publicación depende de todos ellos. En
+  Windows el checkout activa `core.symlinks` para que `LICENSE` y `THIRD_PARTY_NOTICES` sean
+  archivos reales, y `make sdist-check` vale también para los wheels (licencias presentes y
+  idénticas a la raíz).
+- **T36 · Notas de versión.** `CHANGELOG.md` en formato "Keep a Changelog", escrito a mano en
+  cada release; la release de GitHub lleva ese texto y los artefactos; versionado semántico
+  `0.x`, en el que una minor puede romper la API (el README lo dice).
+
+**Entregable / contrato.**
+- `.github/workflows/release.yml` (build sdist, matriz de wheels, verificación por plataforma,
+  publicación a TestPyPI o PyPI según el sufijo, release de GitHub) y el `ci.yml` actual sin
+  cambios de comportamiento.
+- Versión única en el workspace; `pyproject.toml` con `dynamic = ["version"]`; `CHANGELOG.md`.
+- `Makefile`: objetivos `version` (imprime la versión) y `release-check` (comprueba tag,
+  versión y changelog en local antes de etiquetar).
+- Pasos del dueño (no automatizables desde el repo): registrar el *trusted publisher* en PyPI y
+  TestPyPI (proyecto `oxedi835`, repo `javillegasna/oxedi835`, workflow `release.yml`,
+  environments `pypi`/`testpypi`); el controlador crea los environments en GitHub con la
+  aprobación manual.
+
+**Gate de verificación (salida del Stage 6).**
+- `v0.1.0rc1` sale por el workflow a TestPyPI con todos los wheels verificados en su sistema;
+  `pip install --pre oxedi835` desde TestPyPI funciona en Linux, macOS y Windows (lo comprueba el
+  propio workflow).
+- `v0.1.0` sale a PyPI por el mismo camino tras la aprobación manual; la release de GitHub
+  existe con el changelog; los tokens antiguos están revocados.
+- Gates del repo (`make gates`, `make py-test`, `make dist`) en verde.
+
+**Fuera de alcance.** crates.io (T34); Windows ARM y `universal2` (T30); documentación de
+usuario perdurable (Stage 8); firma de artefactos con Sigstore más allá de la atestación que
+`gh-action-pypi-publish` añade por defecto.

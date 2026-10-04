@@ -922,9 +922,13 @@ con ids `XV` alfanuméricos (#46).
 - **T25 · El DataFrame compatible sale de una spec, y lo dinámico se resuelve con una tabla
   larga y un pivote.** Una spec `edi_835_parser` (parche sobre la built-in, en
   `specs/edi_835_parser.json`) declara una tabla `rows` anclada en `2110` con las columnas
-  fijas de esa librería y dos tablas largas, `rows_adjustments` (grupos `CAS` del servicio) y
-  `rows_references` (`REF` del servicio), con su ordinal dentro del servicio. La capa Python
-  pivota las largas a `adj_<n>_*` / `ref_<n>_*` en el mismo orden que la librería. Toda la
+  fijas de esa librería y tres tablas largas, `rows_adjustments` (grupos `CAS` del servicio),
+  `rows_references` (`REF` del servicio) y `rows_remarks` (`LQ` del servicio), con su ordinal
+  dentro del servicio. La capa Python pivota las largas a `adj_<n>_*` / `ref_<n>_*` /
+  `rem_<n>_*` en el mismo orden que la librería. Lo que el formato `tables` aún no expresa
+  (leer un loop que envuelve, distinguir ausente de vacío, elegir la última coincidencia) se
+  calcula en Python con una línea de justificación cada uno y queda en una issue para
+  extender el formato antes del escritor. Toda la
   semántica del 835 (qué segmento, qué cualificador, qué elemento) es dato; el código solo
   pivota y convierte tipos. Descartado reconstruir las 26 columnas con joins en Python sobre
   nuestras tablas nativas: escondería en código lo que la spec debe probar.

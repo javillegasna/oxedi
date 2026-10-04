@@ -222,6 +222,16 @@ def synthetic(sender="SENDER", receiver="RECEIVER", payer=True, payee_name="CLIN
     return "~".join(segments).encode("latin-1") + b"~"
 
 
+def test_a_whitespace_element_separator_in_the_leading_trivia_is_not_counted_as_an_element():
+    plain = synthetic().replace(b"NM1*QC*1*DOE*JANE****MI*M1", b"NM1*QC*1*DOE")
+    tabbed = plain.replace(b"*", b"\t").replace(b"~", b"~\t")
+    assert compat.parse_bytes(tabbed).to_dataframe().patient.tolist() == ["None Doe"]
+    for extended in (False, True):
+        pd.testing.assert_frame_equal(
+            compat.parse_bytes(tabbed).to_dataframe(extended=extended),
+            compat.parse_bytes(plain).to_dataframe(extended=extended), check_exact=True)
+
+
 def recorded(call):
     with warnings.catch_warnings(record=True) as caught:
         warnings.simplefilter("always")

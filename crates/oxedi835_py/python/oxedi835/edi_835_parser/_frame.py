@@ -24,6 +24,8 @@ from ._convert import ENCODING, element_date, has
 from ._tables import ints, position
 
 UTF8 = codecs.lookup(ENCODING).name == "utf-8"
+# Bytes a segment's leading trivia can hold.
+WHITESPACE = b" \t\r\n"
 LIBRARY_COLUMNS = (
     "marker", "patient", "code", "modifier", "qualifier", "allowed_units", "billed_units",
     "transaction_date", "icn", "charge_amount", "allowed_amount", "paid_amount", "payer",
@@ -158,12 +160,14 @@ def holds(document, segments, raw, element, component=None):
     """For each segment (``raw`` its bytes), whether it holds the element
     (and component), even empty: counted from the separators in the raw
     bytes, or read from the parsed elements when a release character can
-    escape a separator."""
+    escape a separator or when a separator is a whitespace byte, which the
+    raw bytes' leading trivia can also hold."""
     import pyarrow as pa
     import pyarrow.compute as pc
 
     delimiters = document.delimiters
-    if delimiters.release is not None:
+    if (delimiters.release is not None or delimiters.element in WHITESPACE
+            or delimiters.component in WHITESPACE):
         return np.array([has(document, segment, element, component) for segment in segments.tolist()],
                         dtype=bool)
     found = pc.count_substring(raw, pattern=delimiters.element).to_numpy(zero_copy_only=False) >= element

@@ -259,7 +259,15 @@ carga su prueba de costura con la capa inferior (N7).
   `to_dataframe()` y `serialize_service(...)`, con los objetos que expone (`interchange`,
   `financial_information`, `claims`, `organizations` y los loops `Claim`/`Service` con sus
   segmentos), con la misma forma de columnas y los mismos tipos. Así un usuario de la
-  librería vieja migra sin tocar su código y gana lo que aquella pierde.
+  librería vieja migra sin tocar su código y gana lo que aquella pierde. Forma acordada el
+  2026-10-03: la capa vive dentro del paquete `oxedi835` como subpaquete con el nombre de
+  importación de la librería que imita (`oxedi835.edi_835_parser`), activada por un extra de
+  pip igual de explícito (`oxedi835[edi-835-parser]`, que arrastra `pandas` solo para quien lo
+  pide); el nombre genérico "compat" se descarta porque no dice con qué es compatible. Otras
+  librerías seguirían el mismo patrón (`oxedi835.<nombre>`, extra `oxedi835[<nombre>]`), cada
+  una con su spec de `tables` y sus vistas; antes de abrir 5b se hace un sondeo de los parsers
+  835 en Python existentes y de lo que exponen, para decidir con datos si alguna otra merece
+  una capa.
 - **D13 · Estructura de módulos**: `spec.rs` supera las 2.500 líneas tras el Stage 4a y
   `diagnostic.rs`, `engine.rs` y `check.rs` crecen. Tras el Stage 5, planificar la división
   en submódulos (por ejemplo `spec/{load,shape,segments,tables,control,patch}.rs`) con

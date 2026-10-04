@@ -1,133 +1,142 @@
 # oxedi835
 
-Lossless, fast, data-driven EDI 835 parser core, written in Rust 🦀.
+A fast EDI 835 (electronic remittance advice) parser for Python, written in Rust.
 
-`oxedi835` = oxidación + edi835. Greenfield reboot of the `fast_edi835` POC.
+- **Lossless.** Every byte of the file is kept, so `write()` returns the file exactly as it
+  was read.
+- **Ready-made tables.** Payments, claims, service lines and adjustments come out as typed
+  tables that open in Polars, pandas, pyarrow or DuckDB without copying the data.
+- **Problems are reported, not raised.** A file that is valid EDI but has questionable data
+  still parses; each issue is returned as a diagnostic that names the rule, the position and
+  the value.
+- **Large files.** `stream` yields one transaction at a time, so memory stays bounded.
+- **Extensible.** Add segments or table columns with a small JSON patch, without touching
+  the code.
 
-See [`.doc/architectural-commitment.md`](.doc/architectural-commitment.md) for the north star and roadmap.
-
-## Status
-
-**Stage 5 — Python binding.** Building from source (`maturin develop`) produces one `abi3` wheel for
-Python 3.11 and later. `oxedi835.parse` reads a whole file with the GIL released and
-returns the lossless document, the typed tables and every diagnostic as a value;
-`oxedi835.stream` yields the tables one transaction (or any loop) at a time with memory
-bounded by that loop. Tables reach Polars, pyarrow or DuckDB through the Arrow PyCapsule
-interface without copying.
-
-## Python
-
-`make help` lists the developer targets (Rust gates, `py-dev`, `py-test`, `dist`, `smoke`, publishing).
-
-### Install
+## Install
 
 ```bash
-pip install oxedi835                  # the parser and the Arrow tables, no Python dependencies
-pip install "oxedi835[polars]"        # or [pandas], or [edi-835-parser] for the compatibility layer
+pip install oxedi835               # no Python dependencies
+pip install "oxedi835[polars]"     # with Polars
+pip install "oxedi835[pandas]"     # with pandas and pyarrow
 ```
 
-Wheels are `abi3` (Python 3.11 and later) for Linux x86_64 and aarch64 (glibc, and musl on
-x86_64), macOS x86_64 and arm64, and Windows x86_64. The project follows semantic
-versioning; while the version is `0.x`, a minor release may break the API. See
-[`CHANGELOG.md`](CHANGELOG.md).
+Requires Python 3.11 or later. Wheels are available for Linux (x86_64 and aarch64, plus
+musl on x86_64), macOS (Intel and Apple silicon) and Windows (x86_64).
 
-From a clone:
-
-```bash
-uv venv && source .venv/bin/activate
-uv pip install maturin && maturin develop --uv --release --manifest-path crates/oxedi835_py/Cargo.toml
-```
+## Quick start
 
 ```python
-import oxedi835, polars as pl
-from pathlib import Path
+import oxedi835
 
 result = oxedi835.parse_file("remittance.835")
-claims = pl.DataFrame(result.tables["claims"])                # zero-copy, through Arrow
-problems = [str(d) for d in result.diagnostics]               # values, never raised
-for batch in oxedi835.stream(Path("big.835").read_bytes()):   # one transaction at a time
-    services = pl.DataFrame(batch.tables["services"])
+
+claims = result.tables["claims"].to_polars()      # or .to_pandas()
+services = result.tables["services"].to_polars()
+
+print(result.count_claims(), result.sum_payments())  # sum_payments() is a Decimal
+print(result.payer["name"], result.payee["name"])
+
+for diagnostic in result.diagnostics:
+    print(diagnostic)
 ```
 
-`Spec.builtin().patch({...})` extends the structure with the same JSON patches as below;
-`parse(data, spec=...)` and `stream(data, spec=..., by="2100")` take the result.
+`oxedi835.parse(data)` does the same from `bytes`. A file that is not an 835 at all (for
+example, one that does not start with an `ISA` segment) raises `oxedi835.ParseError`.
 
-## Coming from edi-835-parser
+### Tables
 
-Two paths. **Change the import** and keep your code:
+| Table | One row per | Linked by |
+|---|---|---|
+| `payments` | payment (transaction) | — |
+| `claims` | claim | `payment` |
+| `services` | service line | `payment`, `claim` |
+| `adjustments` | claim or service adjustment | `payment`, `claim`, `service` |
+| `provider_adjustments` | provider-level adjustment | `payment` |
+
+`result.tables.keys()` lists them and `table.columns` lists a table's columns. Amounts are
+decimals, dates are dates, and text fields are kept as the raw bytes from the file (Arrow
+`binary`), so nothing is lost to an encoding guess. Tables follow
+the Arrow PyCapsule interface, so any Arrow-aware library reads them directly:
 
 ```python
-# before: from edi_835_parser import parse
-from oxedi835.edi_835_parser import parse      # pip install "oxedi835[edi-835-parser]"
+import duckdb, polars as pl
 
-frame = parse("remittances/").to_dataframe()    # same rows, columns, order and dtypes
-# parse_bytes(data, file_path=...), parse_file_obj(f), parse_many([...]) read from memory
-extra = parse("remittances/").to_dataframe(extended=True)  # + claims without services, claim
-                                                # adjustments, PLB, unmapped REF/AMT (x_ columns)
+claims = result.tables["claims"]
+duckdb.sql("select claim_status, sum(payment_amount) from claims group by 1")
+pl.DataFrame(result.tables["services"])
 ```
 
-The frame equals edi-835-parser 1.8.0's cell for cell on our test files; payer ids that
-are not numbers (`N104` with qualifier `XV`) work. `extended=True` keeps those columns in
-the same order and only adds columns that start with `x_` and the rows the library drops;
-when claim-only or provider-adjustment rows exist, some strict columns widen their dtype
-(`int` to `float`, `bool` to `object`, and an `object` column holding only `None` to
-`float64` with NaN). Differences from the library:
+### Large files
 
-- One `TransactionSet` per `ST`, not per file; the separators come from the ISA instead of
-  being guessed per element; an unknown claim status gives `"unknown"` instead of an error.
-- A second `NM1*QC`, `NM1*82` or `DTM*232`/`233` in a claim: the library raises
-  `AssertionError`, we take the first. A claim without `NM1*QC`: the library raises
-  `AssertionError`, we give `patient` as `None` and count it once in `count_patients`.
-- `parse` also accepts path-like objects (`pathlib.Path`), where the library raises
-  `TypeError`; `""` gives `FileNotFoundError` instead of `IndexError`.
-- Arbitrary non-whitespace bytes before the ISA (other than a UTF-8 BOM followed by ASCII
-  whitespace), a doubled BOM, or non-ASCII whitespace after a BOM give an empty result where
-  the library reads the segments after the first.
-- A vertical tab or form feed before the ISA without a BOM gives an empty result.
-- Without a BOM, an unreadable ISA preceded by a newline gives an empty result where the
-  library raises `IndexError`.
-- The `ParseError` for a single path names the file.
-- The native API (`oxedi835.parse`) is strict and raises `ParseError` for all of these.
-  It does read a file that starts with a UTF-8 BOM (then optional spaces, tabs or line
-  breaks) before the ISA: the mark stays in the first segment's `raw`, `write()` gives the
-  file back unchanged, and a `ByteOrderMark` diagnostic says it was there. The
-  compatibility layer keeps the library's reading (no `interchange` for such a file).
+```python
+from pathlib import Path
 
-**Or move to the native API**, which needs no pandas:
+for batch in oxedi835.stream(Path("big.835").read_bytes()):
+    services = batch.tables["services"].to_polars()
+```
 
-| edi-835-parser | oxedi835 |
-|---|---|
-| `parse(path)` | `oxedi835.parse_file(path)` returning a `Result` |
-| `.to_dataframe()` | `result.tables["services"].to_polars()` / `.to_pandas()` (`pip install "oxedi835[polars]"` or `"oxedi835[pandas]"`), joined to `claims` on `claim` and to `payments` on `payment` |
-| `.count_claims()` | `result.count_claims()` |
-| `.count_patients()` | `result.count_patients()` (a null id is not a patient; ids are text, so `0123` and `123` are different patients, unlike edi-835-parser) |
-| `.sum_payments()` (float) | `result.sum_payments()` (`Decimal`) |
-| `transaction_set.payer` / `.payee` | `result.payer` / `result.payee` (dict of text values: `name`, `identification_code`, `address`, `city`, `state`, `zip_code`; `ValueError` when `payments` has more than one row) |
-| none | SQL: `duckdb.sql("select ... from claims")` with `claims = result.tables["claims"]` |
+Each batch holds the tables and diagnostics of one transaction. Pass `by="2100"` (or any
+other loop id) to get one batch per claim instead. Parsing releases the GIL, so several
+files can be parsed in parallel from threads.
 
-The extras pin pandas differently: `oxedi835[pandas]` asks for `pandas>=2` and so allows
-pandas 3, while `oxedi835[edi-835-parser]` pins `pandas>=2.0.3,<3`, the range the
-compatibility layer's parity with edi-835-parser 1.8.0 is tested on.
+### Writing the file back
 
-## Extending the 835 spec
+```python
+data = Path("remittance.835").read_bytes()
+assert oxedi835.parse(data).document.write() == data
+```
 
-Patches use JSON Merge Patch (RFC 7386). A patch replaces arrays wholesale: to add a
-segment to a loop, list the loop's full `segments`; objects merge key by key, so
-changing a `trigger` or `end` does not touch `segments`.
+## Extending the spec
+
+The structure of the 835 and the columns of each table are defined by a JSON spec. A patch
+in JSON Merge Patch format (RFC 7386) adapts it to a payer's variations:
+
+```python
+spec = oxedi835.Spec.builtin().patch({
+    "tables": {"claims": {"columns": {
+        "contract_class": {"segment": "REF", "where": {"1": "CE"}, "element": 2}
+    }}}
+})
+result = oxedi835.parse(data, spec=spec)   # claims now has a contract_class column
+```
+
+Objects merge key by key, while arrays are replaced whole: to allow an extra segment in a
+loop, list the loop's full `segments`:
 
 ```json
-{
-  "loops": {
-    "1000A": { "segments": ["N3", "N4", "REF", "PER", "XX"] }
-  }
-}
+{"loops": {"1000A": {"segments": ["N3", "N4", "REF", "PER", "XX"]}}}
 ```
 
-A `tables` patch adds a column the same way. This one reads a payer's `REF*CE`
-reference, and the projected `claims` table gains a `contract_class` column:
+`parse` and `stream` both accept `spec=`.
 
-```json
-{"tables":{"claims":{"columns":{
-  "contract_class":{"segment":"REF","where":{"1":"CE"},"element":2}
-}}}}
+## Coming from another library
+
+Coming from edi-835-parser? See the [migration guide](docs/migrating-from-edi-835-parser.md).
+
+## Versioning
+
+The project follows semantic versioning. While the version is `0.x`, a minor release may change the API. See [`CHANGELOG.md`](CHANGELOG.md).
+
+## Contributing
+
+Prerequisites: the Rust toolchain pinned in `rust-toolchain.toml` (installed by
+`rustup`), Python 3.11 or later, and [uv](https://docs.astral.sh/uv/). `make venv`
+creates `.venv` with maturin and the test tools.
+
+```bash
+make help       # list every target
+make venv       # create .venv with the dev tools
+make py-dev     # build the extension into .venv (debug)
+make gates      # format, clippy, Rust tests, benches compile, docs
+make py-test    # build and run the Python test suite
+make dist       # build the sdist and the release wheel into target/wheels
+make smoke      # install the built wheel in a clean venv and run the suite
 ```
+
+The files under `crates/edi835_core/tests/fixtures/` and `crates/edi835_core/tests/samples/`
+are never edited.
+
+## License
+
+MIT. See [`LICENSE`](https://github.com/javillegasna/oxedi835/blob/master/LICENSE) and [`THIRD_PARTY_NOTICES`](https://github.com/javillegasna/oxedi835/blob/master/THIRD_PARTY_NOTICES).

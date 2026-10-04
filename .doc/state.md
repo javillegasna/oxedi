@@ -1,4 +1,4 @@
-# State — 2026-10-04 (Stage 5c merged; Stage 5d approved)
+# State — 2026-10-04 (Stage 5c merged; Stage 5d in PR)
 
 Snapshot for picking the project up cold. Update when a stage changes state.
 
@@ -26,6 +26,19 @@ Snapshot for picking the project up cold. Update when a stage changes state.
 - Baselines (local, release): tokenize ~180 MiB/s, index ~1.1 GiB/s, engine ~110 MiB/s on
   fixtures; engine on the three largest samples measured in bytes/s and events/s
   (commit acc465e message).
+
+## Stage 5d · Pipeline performance — in PR (2026-10-04)
+
+Branch `stage-5d-performance`. Gate (`process` >= 50 MiB/s on united and versant) NOT met; the
+stage closes with the figure reached and issue #76 (§7 allows it).
+- `process`: united ~33 -> 37.1 MiB/s (runs 36.4-38.2), versant ~33 -> 37.8 (38.8-39.3), eyemed
+  31.9. Engine 89 / 98 / 102 MiB/s.
+- `Document` index: 40 -> 8 bytes per segment (1.93x -> 0.39x the file on united), proven by test.
+- Kept: compact spans (T47), segment buffer reuse (T48), validation of unread elements without
+  building values (T49-1). Reverted with numbers: direct column writes and single-pass append.
+  Upper bound: removing every row append still tops united at ~44.8 MiB/s.
+- Next: #76 (lazy `Segment`, cheaper bitmap push, capacity reuse, a real profile). #45 closes
+  with the PR; #39 is superseded by #76 and closes with it.
 
 ## Open items
 

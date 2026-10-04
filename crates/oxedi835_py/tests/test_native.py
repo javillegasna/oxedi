@@ -5,18 +5,17 @@ from decimal import Decimal
 import pytest
 
 import oxedi835
+from conftest import LARGEST, SAMPLES, parse_named, path_of, read
 from oxedi835 import Spec
-
-edi_835_parser = pytest.importorskip("edi_835_parser")
-pl = pytest.importorskip("polars")
-
-import n104_shim  # noqa: E402
-from conftest import LARGEST, SAMPLES, parse_named, path_of, read  # noqa: E402
-
-n104_shim.apply()
 
 
 def old(name):
+    """edi-835-parser's reading of a sample (the test is skipped when the
+    library is not installed), with the N104 shim applied."""
+    edi_835_parser = pytest.importorskip("edi_835_parser")
+    import n104_shim
+
+    n104_shim.apply()
     with warnings.catch_warnings():
         warnings.simplefilter("ignore")
         return edi_835_parser.parse(str(path_of(name)))
@@ -30,6 +29,23 @@ def test_native_counts_equal_edi_835_parser(sample):
     assert result.count_patients() == expected.count_patients()
     assert isinstance(result.sum_payments(), Decimal)
     assert abs(float(result.sum_payments()) - expected.sum_payments()) < 0.005
+
+
+def test_patient_ids_are_counted_as_text_so_leading_zeros_make_a_different_patient():
+    isa = ("ISA*00*          *00*          *ZZ*SENDER         *ZZ*RECEIVER       "
+           "*240101*1200*^*00501*000000001*0*P*:")
+    claims = []
+    for number, patient in enumerate(["0123", "123", "0123"], start=1):
+        claims += [f"CLP*C{number}*1*100*80**MC*ICN{number}", f"NM1*QC*1*DOE*JANE****MI*{patient}"]
+    segments = [isa, "GS*HP*S*R*20240101*1200*1*X*005010X221A1", "ST*835*0001",
+                "BPR*I*100*C*CHK************20240102", "TRN*1*12345*1512345678",
+                "N1*PR*PAYER", "N1*PE*CLINIC*XX*1234567890", "LX*1", *claims]
+    segments += [f"SE*{len(segments) - 1}*0001", "GE*1*1", "IEA*1*000000001"]
+    result = oxedi835.parse("~".join(segments).encode() + b"~")
+    rows = [row for row in result.tables["claims"].render().splitlines()[2:] if row]
+    assert [row.count("| 0123 |") + row.count("| 123 |") for row in rows] == [1, 1, 1]
+    assert result.count_claims() == 3
+    assert result.count_patients() == 2
 
 
 def test_the_largest_sum_keeps_the_column_scale():
@@ -112,6 +128,7 @@ def test_payee_reads_one_transaction():
 
 
 def test_a_table_reaches_polars_and_pandas():
+    pl = pytest.importorskip("polars")
     pytest.importorskip("pandas")
     tables = parse_named(LARGEST).tables
     frame = tables["claims"].to_polars()

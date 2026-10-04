@@ -13,6 +13,7 @@ use crate::delimiters::Delimiters;
 use crate::diagnostic::{Diagnostic, LoopRef, Rule};
 use crate::element::Element;
 use crate::engine::Event;
+use crate::frame::BYTE_ORDER_MARK;
 use crate::segment::Segment;
 use crate::spec::{ControlCount, LoopId, Spec, render_trigger};
 
@@ -63,9 +64,14 @@ impl<'s> EnvelopeChecker<'s> {
     }
 
     /// Consumes the events the engine returned for `segment` and returns the
-    /// diagnostics they raise. The slice is valid until the next call.
+    /// diagnostics they raise. The slice is valid until the next call. The
+    /// first segment of a stream whose `raw` starts with a UTF-8 byte order
+    /// mark also raises [`Rule::ByteOrderMark`], before anything else.
     pub fn on(&mut self, segment: &Segment<'_>, events: &[Event]) -> &[Diagnostic] {
         self.diagnostics.clear();
+        if segment.index == 0 && segment.raw.starts_with(BYTE_ORDER_MARK) {
+            self.report(Rule::ByteOrderMark, Some(0), None, BYTE_ORDER_MARK.to_vec());
+        }
         for &event in events {
             match event {
                 Event::LoopOpened {
@@ -354,6 +360,24 @@ mod tests {
         format!(
             "{ISA}GS*HP*SENDER*RECEIVER*20240101*1200*7*X*005010X221A1~ST*835*0001~{body}SE*{se01}*0001~GE*1*7~IEA*1*000000001~"
         )
+    }
+
+    #[test]
+    fn a_byte_order_mark_is_reported_once_and_changes_nothing_else() {
+        let spec = Spec::builtin_835();
+        let input = interchange("BPR*I*1*C*CHK~TRN*1*1~", "4");
+        assert_eq!(
+            rendered(&spec, &format!("\u{feff}{input}")),
+            vec![
+                "SNIP 1 · the input starts with a UTF-8 byte order mark, kept as leading trivia of the first segment · segment #0 · at the root · datum \"\\u{feff}\""
+            ]
+        );
+        let broken = interchange("BPR*I*1*C*CHK~", "9");
+        let mut marked = check(&spec, &format!("\u{feff}\r\n{broken}"));
+        let mark = marked.remove(0);
+        assert_eq!(mark.rule, Rule::ByteOrderMark);
+        assert_eq!(marked, check(&spec, &format!("\r\n{broken}")));
+        assert!(!marked.is_empty());
     }
 
     #[test]

@@ -13,6 +13,7 @@
 
 use std::fmt;
 
+use crate::diagnostic::Quoted;
 use crate::spec::ElementType;
 
 /// Precision of every `Decimal128` column: the most digits an `i128` holds in full.
@@ -226,14 +227,36 @@ pub enum Cell<'a> {
 
 impl Cell<'_> {
     /// The cell's value as text for an error message: numbers as stored,
-    /// bytes quoted on one line and cut at 32 bytes.
+    /// bytes quoted on one line with `\xNN` for invalid bytes, cut at 32
+    /// bytes without splitting a character.
     fn raw_text(&self) -> String {
         const CUT: usize = 32;
         match self {
             Cell::Null => "null".to_string(),
             Cell::Binary(bytes) => {
-                let shown = bytes.get(..CUT).unwrap_or(bytes);
-                let text = format!("{:?}", String::from_utf8_lossy(shown));
+                let mut end = CUT.min(bytes.len());
+                // A continuation byte at the cut may belong to a character
+                // that began up to three bytes earlier; step back to its lead
+                // byte. Without a lead byte in reach the cut stays.
+                if bytes.get(end).is_some_and(|byte| byte & 0xC0 == 0x80) {
+                    for back in 1..=3 {
+                        let Some(at) = end.checked_sub(back) else {
+                            break;
+                        };
+                        match bytes.get(at) {
+                            Some(byte) if byte & 0xC0 == 0x80 => {}
+                            Some(byte) => {
+                                if *byte >= 0xC0 {
+                                    end = at;
+                                }
+                                break;
+                            }
+                            None => break,
+                        }
+                    }
+                }
+                let shown = bytes.get(..end).unwrap_or(bytes);
+                let text = Quoted(shown).to_string();
                 if shown.len() < bytes.len() {
                     format!("{text}...")
                 } else {
@@ -269,7 +292,8 @@ pub enum CellError {
         cell: &'static str,
         /// The cell's value: integers as written, a decimal as its scaled
         /// integer, dates as days and times as seconds, bytes as a quoted
-        /// string cut at 32 bytes.
+        /// string (`\xNN` for invalid bytes) cut at 32 bytes on a character
+        /// boundary.
         value: String,
     },
     /// The bytes would take a binary column past what `i32` offsets address.
@@ -392,8 +416,9 @@ impl ColumnData {
     /// Row `row` as text: bytes as UTF-8 (invalid sequences replaced),
     /// integers as digits, decimals in fixed point with the column's scale,
     /// dates as `YYYY-MM-DD`, times as `HH:MM:SS` and a null as `∅`; `None`
-    /// past the end. A date too far from 1970 to convert and a negative time
-    /// render as their raw number, `date32(2147483647)` or `time32(-1)`.
+    /// past the end. A date too far from 1970 to convert and a time outside
+    /// one day render as their raw number, `date32(2147483647)` or
+    /// `time32(90000)`.
     pub fn render(&self, row: usize) -> Option<String> {
         Some(match self.get(row)? {
             Cell::Null => "∅".to_string(),
@@ -420,7 +445,9 @@ impl ColumnData {
                 let (year, month, day) = civil_from_days(days);
                 format!("{year:04}-{month:02}-{day:02}")
             }
-            Cell::Time32(seconds) if seconds < 0 => format!("time32({seconds})"),
+            Cell::Time32(seconds) if !(0..86_400).contains(&seconds) => {
+                format!("time32({seconds})")
+            }
             Cell::Time32(seconds) => format!(
                 "{:02}:{:02}:{:02}",
                 seconds / 3600,
@@ -631,6 +658,30 @@ impl Table {
         Ok(())
     }
 
+    /// The header line: every column as `name: type`, separated by ` | `.
+    pub fn header(&self) -> String {
+        self.columns
+            .iter()
+            .map(|(name, column)| format!("{name}: {}", column.kind()))
+            .collect::<Vec<_>>()
+            .join(" | ")
+    }
+
+    /// Row `row` as one line, each cell rendered by [`ColumnData::render`]
+    /// and separated by ` | `; `None` past the end.
+    pub fn render_row(&self, row: usize) -> Option<String> {
+        if row >= self.rows {
+            return None;
+        }
+        Some(
+            self.columns
+                .iter()
+                .map(|(_, column)| column.render(row).unwrap_or_default())
+                .collect::<Vec<_>>()
+                .join(" | "),
+        )
+    }
+
     /// Moves the rows out into a new table and leaves this one empty, with
     /// the same columns and types.
     pub fn take_rows(&mut self) -> Table {
@@ -647,6 +698,19 @@ impl Table {
             columns,
             rows: std::mem::take(&mut self.rows),
         }
+    }
+}
+
+/// The table as text: `## <name> (rows: <n>)`, the [`Table::header`], one
+/// [`Table::render_row`] line per row, then an empty line.
+impl fmt::Display for Table {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        writeln!(f, "## {} (rows: {})", self.name, self.rows)?;
+        writeln!(f, "{}", self.header())?;
+        for row in 0..self.rows {
+            writeln!(f, "{}", self.render_row(row).unwrap_or_default())?;
+        }
+        writeln!(f)
     }
 }
 
@@ -681,6 +745,15 @@ impl Tables {
     /// `true` when there are no tables.
     pub fn is_empty(&self) -> bool {
         self.tables.is_empty()
+    }
+}
+
+/// Every table as [`Table`] displays it, in order.
+impl fmt::Display for Tables {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        self.tables
+            .iter()
+            .try_for_each(|table| write!(f, "{table}"))
     }
 }
 
@@ -1041,12 +1114,16 @@ mod tests {
         assert_eq!(dates.render(2).as_deref(), Some("5879610-09-08"));
         assert_eq!(dates.render(3).as_deref(), Some("1970-01-01"));
         let mut times = ColumnData::new(ColumnType::Time32);
-        for seconds in [-1, i32::MIN, 0] {
+        for seconds in [-1, i32::MIN, 0, 86_399, 86_400, 90_000, i32::MAX] {
             times.push(Cell::Time32(seconds)).unwrap();
         }
         assert_eq!(times.render(0).as_deref(), Some("time32(-1)"));
         assert_eq!(times.render(1).as_deref(), Some("time32(-2147483648)"));
         assert_eq!(times.render(2).as_deref(), Some("00:00:00"));
+        assert_eq!(times.render(3).as_deref(), Some("23:59:59"));
+        assert_eq!(times.render(4).as_deref(), Some("time32(86400)"));
+        assert_eq!(times.render(5).as_deref(), Some("time32(90000)"));
+        assert_eq!(times.render(6).as_deref(), Some("time32(2147483647)"));
     }
 
     #[test]
@@ -1058,6 +1135,51 @@ mod tests {
             format!(
                 "a date32 column cannot hold a binary value (\"{}\"...)",
                 "x".repeat(32)
+            )
+        );
+    }
+
+    #[test]
+    fn a_refused_text_value_escapes_invalid_bytes_and_cuts_on_a_character() {
+        let mut column = ColumnData::new(ColumnType::Date32);
+        assert_eq!(
+            column
+                .push(Cell::Binary(b"a\xE9\"b"))
+                .unwrap_err()
+                .to_string(),
+            "a date32 column cannot hold a binary value (\"a\\xE9\\\"b\")"
+        );
+        let mut text = vec![b'x'; 31];
+        text.extend_from_slice("\u{e9}tail".as_bytes());
+        assert_eq!(
+            column.push(Cell::Binary(&text)).unwrap_err().to_string(),
+            format!(
+                "a date32 column cannot hold a binary value (\"{}\"...)",
+                "x".repeat(31)
+            )
+        );
+        let mut exact = vec![b'x'; 30];
+        exact.extend_from_slice("\u{e9}tail".as_bytes());
+        assert_eq!(
+            column.push(Cell::Binary(&exact)).unwrap_err().to_string(),
+            format!(
+                "a date32 column cannot hold a binary value (\"{}\u{e9}\"...)",
+                "x".repeat(30)
+            )
+        );
+    }
+
+    #[test]
+    fn a_refused_run_of_stray_continuation_bytes_keeps_its_cut_at_32_bytes() {
+        let mut column = ColumnData::new(ColumnType::Date32);
+        assert_eq!(
+            column
+                .push(Cell::Binary(&[0x80; 40]))
+                .unwrap_err()
+                .to_string(),
+            format!(
+                "a date32 column cannot hold a binary value (\"{}\"...)",
+                "\\x80".repeat(32)
             )
         );
     }
@@ -1174,6 +1296,43 @@ mod tests {
             "table \"claims\" column \"charge\": a decimal128(38, 2) column cannot hold a binary value (\"ab\")"
         );
         assert!(std::error::Error::source(&cell).is_some());
+    }
+
+    #[test]
+    fn a_table_renders_its_title_header_and_rows() {
+        let mut claims = Table::new(
+            "claims",
+            [
+                ("id".to_string(), ColumnType::Binary),
+                (
+                    "charge".to_string(),
+                    ColumnType::Decimal128 {
+                        precision: 38,
+                        scale: 2,
+                    },
+                ),
+            ],
+        );
+        claims
+            .push_row(&[Cell::Binary(b"A1"), Cell::Decimal128(-1250)])
+            .unwrap();
+        claims.push_row(&[Cell::Null, Cell::Null]).unwrap();
+        assert_eq!(claims.header(), "id: binary | charge: decimal128(38, 2)");
+        assert_eq!(claims.render_row(0).as_deref(), Some("A1 | -12.50"));
+        assert_eq!(claims.render_row(1).as_deref(), Some("∅ | ∅"));
+        assert_eq!(claims.render_row(2), None);
+        assert_eq!(
+            claims.to_string(),
+            "## claims (rows: 2)\nid: binary | charge: decimal128(38, 2)\nA1 | -12.50\n∅ | ∅\n\n"
+        );
+        let empty = Table::new("adjustments", [("n".to_string(), ColumnType::Date32)]);
+        assert_eq!(empty.render_row(0), None);
+        assert_eq!(
+            Tables::new(vec![claims, empty]).to_string(),
+            "## adjustments (rows: 0)\nn: date32\n\n\
+             ## claims (rows: 2)\nid: binary | charge: decimal128(38, 2)\nA1 | -12.50\n∅ | ∅\n\n"
+        );
+        assert_eq!(Tables::default().to_string(), "");
     }
 
     #[test]

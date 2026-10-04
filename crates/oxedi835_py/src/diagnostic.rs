@@ -1,6 +1,6 @@
 //! `Diagnostic`: one finding about a file's data, as Python attributes.
 
-use edi835_core::{Diagnostic, Rule, SnipLevel};
+use edi835_core::{Diagnostic, SnipLevel};
 use pyo3::prelude::*;
 use pyo3::types::{PyBytes, PyList};
 
@@ -13,24 +13,6 @@ pub struct PyDiagnostic {
 impl From<Diagnostic> for PyDiagnostic {
     fn from(inner: Diagnostic) -> Self {
         Self { inner }
-    }
-}
-
-/// The name of a rule's variant, so a caller can filter without parsing
-/// messages.
-fn kind_of(rule: &Rule) -> &'static str {
-    match rule {
-        Rule::UnknownSegment { .. } => "UnknownSegment",
-        Rule::ImplicitLoop { .. } => "ImplicitLoop",
-        Rule::UnterminatedLoop { .. } => "UnterminatedLoop",
-        Rule::ControlCountMismatch { .. } => "ControlCountMismatch",
-        Rule::ControlElementMissing { .. } => "ControlElementMissing",
-        Rule::ControlNumberMismatch { .. } => "ControlNumberMismatch",
-        Rule::RequiredElementMissing { .. } => "RequiredElementMissing",
-        Rule::TypeMismatch { .. } => "TypeMismatch",
-        Rule::LengthOutOfRange { .. } => "LengthOutOfRange",
-        Rule::ValueDropped { .. } => "ValueDropped",
-        Rule::CompositeShape { .. } => "CompositeShape",
     }
 }
 
@@ -53,7 +35,7 @@ impl PyDiagnostic {
     /// The name of the rule that failed, e.g. `RequiredElementMissing`.
     #[getter]
     fn kind(&self) -> &'static str {
-        kind_of(&self.inner.rule)
+        self.inner.rule.kind()
     }
 
     /// The rule that failed, as a sentence with its values.

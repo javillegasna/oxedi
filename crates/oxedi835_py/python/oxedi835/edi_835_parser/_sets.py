@@ -11,6 +11,7 @@ from typing import Iterator, List, Optional
 from .. import ParseError
 from . import _codes
 from ._convert import date, integer, money, readable, text, written
+from ._frame import strict
 from ._tables import load, position
 from ._views import (
     Address, Claim, FinancialInformation, Interchange, Location, Organization,
@@ -20,6 +21,8 @@ from ._views import (
 _SUFFIXES = (".txt", ".835", ".DAT")
 TRANSACTION_DATE, _ = position("rows_payments", "transaction_date")
 ORGANIZATION_ID = position("rows_organizations", "identification_code")
+ADDRESS = position("rows_organizations", "address")
+LOCATION = {k: position("rows_organizations", k) for k in ("city", "state", "zip_code")}
 
 
 class TransactionSet:
@@ -59,13 +62,19 @@ class TransactionSet:
 
     @functools.cached_property
     def organizations(self) -> List[Organization]:
-        t = self._t["rows_organizations"]
+        """The N1 loops, with an address and a location when the loop has an
+        N3 or N4 segment; an element the segment holds empty reads ``""``,
+        as in the library."""
+        t, d = self._t["rows_organizations"], self._d
         out = []
         for i in range(len(t)):
-            location = None
-            if any(t[k][i] is not None for k in ("city", "state", "zip_code")):
-                location = Location(text(t["city"][i]), text(t["state"][i]), text(t["zip_code"][i]))
-            address = None if t["address"][i] is None else Address(text(t["address"][i]))
+            location = address = None
+            at = t["location_segment"][i]
+            if at is not None:
+                location = Location(*(written(text(t[k][i]), d, at, *LOCATION[k]) for k in LOCATION))
+            at = t["address_segment"][i]
+            if at is not None:
+                address = Address(written(text(t["address"][i]), d, at, *ADDRESS))
             identification_code = written(integer(t["identification_code"][i]), self._d,
                                           t["segment"][i], *ORGANIZATION_ID)
             out.append(Organization(
@@ -131,42 +140,17 @@ class TransactionSet:
             "was_forwarded": status.was_forwarded,
         }
 
-    @classmethod
-    def service_record(cls, financial_information, payer, claim, service) -> dict:
-        """One row of ``to_dataframe``: the serialized service and its
-        adjustments, references and remarks numbered from 0."""
-        datum = cls.serialize_service(financial_information, payer, claim, service)
-        for n, adjustment in enumerate(service.adjustments):
-            datum[f"adj_{n}_group"] = adjustment.group_code.code
-            datum[f"adj_{n}_code"] = adjustment.reason_code.code
-            datum[f"adj_{n}_amount"] = adjustment.amount
-        for n, reference in enumerate(service.references):
-            datum[f"ref_{n}_qual"] = reference.qualifier.code
-            datum[f"ref_{n}_value"] = reference.value
-        for n, remark in enumerate(service.remarks):
-            datum[f"rem_{n}_qual"] = remark.qualifier.code
-            datum[f"rem_{n}_code"] = remark.code.code
-        return datum
-
     def to_dataframe(self, extended: bool = False):
         """One row per service, as edi-835-parser builds it; with ``extended``,
         also the rows and ``x_`` columns that frame leaves out (claim-only and
         provider-adjustment rows can widen strict columns' dtypes: ``int`` to
-        ``float``, ``bool`` to ``object``)."""
-        import pandas as pd
-
+        ``float``, ``bool`` to ``object``, and an ``object`` column holding
+        only ``None`` to ``float`` with NaN)."""
         if extended:
             from ._extended import frame
 
             return frame([self])
-        services = [(claim, service) for claim in self.claims for service in claim.services]
-        if not services:
-            return pd.DataFrame([])
-        financial_information, payer = self.financial_information, self.payer
-        return pd.DataFrame([
-            self.service_record(financial_information, payer, claim, service)
-            for claim, service in services
-        ])
+        return strict(self)
 
 
 class TransactionSets:
@@ -190,7 +174,8 @@ class TransactionSets:
         library does, so empty transactions give the same dtypes. With
         ``extended``, also the rows and ``x_`` columns the frame leaves out
         (claim-only and provider-adjustment rows can widen strict columns'
-        dtypes: ``int`` to ``float``, ``bool`` to ``object``)."""
+        dtypes: ``int`` to ``float``, ``bool`` to ``object``, and an
+        ``object`` column holding only ``None`` to ``float`` with NaN)."""
         import pandas as pd
 
         if extended:

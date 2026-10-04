@@ -63,9 +63,9 @@ row: int64 | segment: int64 | authorization_information_qualifier: binary | rece
 0 | 0 | 00 | ACME_MED        | RUSHMORE       | 2019-03-16 | 16:15:00
 
 ## rows_organizations (rows: 2)
-row: int64 | segment: int64 | interchange: int64 | payment: int64 | address: binary | city: binary | identification_code: binary | name: binary | state: binary | type: binary | zip_code: binary
-0 | 7 | 0 | 0 | P O BOX 1234 | MOUNT_RUSHMORE | 935665544 | RUSHMORE LIFE INSURANCE | SD | PR | 57751
-1 | 11 | 0 | 0 | P O BOX 9999 | DURHAM | 5544667733 | ACME MEDICAL CENTER | NC | PE | 27701
+row: int64 | segment: int64 | interchange: int64 | payment: int64 | address: binary | address_segment: int64 | city: binary | identification_code: binary | location_segment: int64 | name: binary | state: binary | type: binary | zip_code: binary
+0 | 7 | 0 | 0 | P O BOX 1234 | 8 | MOUNT_RUSHMORE | 935665544 | 9 | RUSHMORE LIFE INSURANCE | SD | PR | 57751
+1 | 11 | 0 | 0 | P O BOX 9999 | 12 | DURHAM | 5544667733 | 13 | ACME MEDICAL CENTER | NC | PE | 27701
 
 ## rows_payments (rows: 1)
 row: int64 | segment: int64 | interchange: int64 | amount_paid: decimal128(38, 2) | bpr_segment: int64 | payee_segment: int64 | payer_segment: int64 | payment_method: binary | routing_number: binary | transaction_date: date32

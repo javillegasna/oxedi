@@ -2,6 +2,7 @@ import json
 import os
 import subprocess
 import sys
+import threading
 import time
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
@@ -102,9 +103,14 @@ def test_streaming_holds_one_transaction_not_the_file():
     assert parse_beyond > 5 * max(stream_beyond, mib), (parse, stream)
 
 
-@pytest.mark.skipif(
-    (os.cpu_count() or 1) < 2, reason="needs at least two CPUs to run in parallel"
-)
+def usable_cpus() -> int:
+    """The CPUs this process may run on; the host count where affinity is unknown."""
+    if hasattr(os, "sched_getaffinity"):
+        return len(os.sched_getaffinity(0))
+    return os.cpu_count() or 1
+
+
+@pytest.mark.skipif(usable_cpus() < 2, reason="needs at least two usable CPUs to run in parallel")
 def test_two_threads_parse_faster_than_one_after_the_other():
     inputs = [repeated(LARGEST, 4), repeated("edi835_test_versant.RMT", 12)]
     for data in inputs:
@@ -125,6 +131,43 @@ def test_two_threads_parse_faster_than_one_after_the_other():
     sequential = min(sequential_run() for _ in range(3))
     threaded = min(threaded_run() for _ in range(3))
     assert threaded < 0.8 * sequential, (threaded, sequential)
+
+
+def test_a_stream_advanced_from_two_threads_names_the_rule():
+    data = repeated(LARGEST, 10)
+    expected = sum(1 for _ in oxedi835.stream(data, by="2100"))
+    stream = oxedi835.stream(data, by="2100")
+    barrier = threading.Barrier(2)
+    messages = []
+    unexpected = []
+    batches = []
+
+    def advance():
+        barrier.wait()
+        try:
+            while True:
+                try:
+                    batches.append(next(stream))
+                except StopIteration:
+                    return
+        except RuntimeError as err:
+            messages.append(str(err))
+        except BaseException as err:
+            unexpected.append(err)
+
+    threads = [threading.Thread(target=advance) for _ in range(2)]
+    for thread in threads:
+        thread.start()
+    for thread in threads:
+        thread.join()
+    assert not unexpected, unexpected
+    assert messages
+    assert set(messages) == {
+        "Stream.__next__: this stream is already being advanced by another thread; "
+        "a stream is advanced from one thread at a time"
+    }
+    # A thread that stopped on the error left the rest to the other one.
+    assert len(batches) == expected
 
 
 def test_batches_concatenated_in_polars_equal_the_parsed_table():

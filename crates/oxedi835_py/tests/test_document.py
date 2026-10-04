@@ -52,6 +52,32 @@ def test_the_delimiters_are_read_from_the_isa():
     assert delimiters.repetition == b"^"
 
 
+def test_a_byte_order_mark_is_kept_in_the_first_segment_and_reported(file_name):
+    data = read(file_name)
+    if not data.lstrip().startswith(b"ISA"):
+        pytest.skip("the file has no ISA to read the delimiters from")
+    mark = b"\xef\xbb\xbf"
+    plain, marked = oxedi835.parse(data), oxedi835.parse(mark + data)
+    assert marked.document.write() == mark + data
+    assert marked.document[0].raw == mark + plain.document[0].raw
+    assert marked.document[0].id == b"ISA"
+    assert len(marked.document) == len(plain.document)
+    assert marked.tables.render() == plain.tables.render()
+    first, *rest = marked.diagnostics
+    assert (first.level, first.kind, first.segment, first.path, first.datum) == (
+        1,
+        "ByteOrderMark",
+        0,
+        "",
+        mark,
+    )
+    assert str(first) == (
+        "SNIP 1 · the input starts with a UTF-8 byte order mark, kept as leading "
+        "trivia of the first segment · segment #0 · at the root · datum \"\\u{feff}\""
+    )
+    assert [str(d) for d in rest] == [str(d) for d in plain.diagnostics]
+
+
 def test_input_without_an_isa_raises_parse_error_with_the_core_message():
     with pytest.raises(oxedi835.ParseError) as info:
         oxedi835.parse(b"ST*835*0001~")
@@ -59,6 +85,15 @@ def test_input_without_an_isa_raises_parse_error_with_the_core_message():
     assert str(info.value) == (
         "input does not start with an ISA segment "
         "(found bytes [53 54 2a 38 33 35 2a 30])"
+    )
+
+
+def test_input_with_only_leading_trivia_names_what_it_holds():
+    with pytest.raises(oxedi835.ParseError) as info:
+        oxedi835.parse(b"\xef\xbb\xbf\r\n")
+    assert str(info.value) == (
+        "input does not start with an ISA segment "
+        "(input holds only a UTF-8 byte order mark and 2 bytes of whitespace)"
     )
 
 

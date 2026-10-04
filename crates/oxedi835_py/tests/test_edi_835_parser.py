@@ -222,6 +222,16 @@ def synthetic(sender="SENDER", receiver="RECEIVER", payer=True, payee_name="CLIN
     return "~".join(segments).encode("latin-1") + b"~"
 
 
+def test_a_whitespace_element_separator_in_the_leading_trivia_is_not_counted_as_an_element():
+    plain = synthetic().replace(b"NM1*QC*1*DOE*JANE****MI*M1", b"NM1*QC*1*DOE")
+    tabbed = plain.replace(b"*", b"\t").replace(b"~", b"~\t")
+    assert compat.parse_bytes(tabbed).to_dataframe().patient.tolist() == ["None Doe"]
+    for extended in (False, True):
+        pd.testing.assert_frame_equal(
+            compat.parse_bytes(tabbed).to_dataframe(extended=extended),
+            compat.parse_bytes(plain).to_dataframe(extended=extended), check_exact=True)
+
+
 def recorded(call):
     with warnings.catch_warnings(record=True) as caught:
         warnings.simplefilter("always")
@@ -235,6 +245,39 @@ def test_a_synthetic_file_equals_the_library(tmp_path):
     path.write_bytes(synthetic())
     pd.testing.assert_frame_equal(
         compat.parse(path).to_dataframe(), old(path).to_dataframe(), check_exact=True)
+
+
+def two_transactions():
+    """One interchange holding the transactions of ``synthetic(payee_name="FIRST")``
+    and ``synthetic(payee_name="SECOND")``."""
+    first, second = (synthetic(payee_name=name).decode("latin-1").split("~")[:-1] for name in ("FIRST", "SECOND"))
+    body = [s.replace("ST*835*0001", "ST*835*0002").replace("SE*13*0001", "SE*13*0002") for s in second[2:-2]]
+    segments = first[:-2] + body + ["GE*2*1", "IEA*1*000000001"]
+    return "~".join(segments).encode("latin-1") + b"~"
+
+
+def test_each_transaction_of_a_file_has_only_its_own_rows():
+    sets = list(compat.parse_bytes(two_transactions()))
+    assert [t.payee.organization.name for t in sets] == ["FIRST", "SECOND"]
+    for transaction_set, name in zip(sets, ("FIRST", "SECOND")):
+        (alone,) = list(compat.parse_bytes(synthetic(payee_name=name)))
+        pd.testing.assert_frame_equal(transaction_set.to_dataframe(), alone.to_dataframe(), check_exact=True)
+        pd.testing.assert_frame_equal(
+            transaction_set.to_dataframe(extended=True).drop(columns="x_claim"),
+            alone.to_dataframe(extended=True).drop(columns="x_claim"), check_exact=True)
+        assert [c.claim.icn for c in transaction_set.claims] == ["ICN1"]
+    assert list(compat.parse_bytes(two_transactions()).to_dataframe(extended=True).x_claim) == [0, 1]
+
+
+def test_an_empty_address_and_location_are_kept_as_in_the_library(tmp_path):
+    path = tmp_path / "a.835"
+    path.write_bytes(synthetic().replace(b"N3*1 MAIN ST~", b"N3*~").replace(b"N4*SPRINGFIELD*NY*12345~", b"N4***~"))
+    (expected,), (actual,) = list(old(path)), list(compat.parse(path))
+    assert organization(actual.payer) == organization(expected.payer) == (
+        "payer", "ACME INSURANCE", None, "", ("", "", ""))
+    assert organization(actual.payee) == organization(expected.payee)
+    assert (actual.payee.address, actual.payee.location) == (None, None)
+    pd.testing.assert_frame_equal(compat.parse(path).to_dataframe(), old(path).to_dataframe(), check_exact=True)
 
 
 def test_availity_and_zirmed_are_named_as_the_library_names_them(tmp_path):
@@ -397,11 +440,14 @@ def test_a_byte_order_mark_loses_only_the_interchange_as_in_the_library(tmp_path
     pd.testing.assert_frame_equal(actual_dir.to_dataframe(), expected_dir.to_dataframe(), check_exact=True)
 
 
-def test_the_native_parse_still_rejects_a_byte_order_mark():
+def test_the_native_parse_reads_a_byte_order_mark_while_the_compat_layer_mirrors_the_library():
     import oxedi835
 
-    with pytest.raises(ParseError):
-        oxedi835.parse(BOM + synthetic())
+    marked, plain = oxedi835.parse(BOM + synthetic()), oxedi835.parse(synthetic())
+    assert marked.document.write() == BOM + synthetic()
+    assert [d.kind for d in marked.diagnostics] == ["ByteOrderMark"] + [d.kind for d in plain.diagnostics]
+    assert marked.tables.render() == plain.tables.render()
+    assert [t.interchange for t in compat.parse_bytes(BOM + synthetic())] == [None]
 
 
 PREFIXES = [b"   \r\n", b"\n", b"\t\t", BOM, BOM + b"\n", BOM + b"  \r\n"]
@@ -470,6 +516,46 @@ def test_extended_keeps_the_frame_and_adds_only_x_columns(sample):
     )
 
 
+def numbered_cells(row, prefix, suffixes):
+    """The numbered ``prefix_n_suffix`` cells of a frame row, n from 0 while
+    the row has them."""
+    out, n = [], 0
+    while f"{prefix}_{n}_{suffixes[0]}" in row.index and pd.notna(row[f"{prefix}_{n}_{suffixes[0]}"]):
+        out.append(tuple(row[f"{prefix}_{n}_{suffix}"] for suffix in suffixes))
+        n += 1
+    return out
+
+
+def last_amount(row, prefix):
+    """The last numbered amount of a row, its qualifier described as the
+    library describes it, as the library keeps only the last AMT."""
+    amounts = numbered_cells(row, prefix, ("qual", "amount"))
+    if not amounts:
+        return None
+    qualifier, amount = amounts[-1]
+    return _codes.AMOUNT_QUALIFIERS.get(qualifier, qualifier), amount
+
+
+def test_extended_recovers_what_the_library_objects_hold(sample):
+    claims = [claim for transaction_set in old(path_of(sample)) for claim in transaction_set.claims]
+    extended = compat.parse(path_of(sample)).to_dataframe(extended=True)
+    per_claim = extended[extended.x_row_kind != "provider_adjustment"].drop_duplicates("x_claim")
+    assert len(per_claim) == len(claims)
+    for (_, row), claim in zip(per_claim.iterrows(), claims):
+        assert row.marker == claim.claim.marker
+        assert numbered_cells(row, "x_claim_ref", ("qual", "value")) == [
+            (reference.qualifier.code, reference.value) for reference in claim.references]
+        assert last_amount(row, "x_claim_amt") == (
+            (claim.amount.qualifier, claim.amount.amount) if claim.amount else None)
+        assert (row.x_row_kind == "claim") == (not claim.services)
+    services = [service for claim in claims for service in claim.services]
+    rows = extended[extended.x_row_kind == "service"]
+    assert len(rows) == len(services)
+    for (_, row), service in zip(rows.iterrows(), services):
+        assert last_amount(row, "x_svc_amt") == (
+            (service.amount.qualifier, service.amount.amount) if service.amount else None)
+
+
 def test_extended_recovers_what_the_frame_leaves_out(sample):
     extended = compat.parse(path_of(sample)).to_dataframe(extended=True)
     per_claim = extended[extended.x_row_kind != "provider_adjustment"].drop_duplicates("x_claim")
@@ -532,6 +618,69 @@ def plb_only():
     ).encode()
 
 
+PAYER_LOOP = "N1*PR*PAYER~N3*1 MAIN ST~N4*TOWN*ST*12345~"
+
+
+def without_payer(data):
+    assert PAYER_LOOP.encode() in data
+    return data.replace(PAYER_LOOP.encode(), b"")
+
+
+def test_rows_the_frame_leaves_out_have_no_payer_without_a_payer_loop():
+    plb = compat.parse_bytes(without_payer(plb_only()))
+    assert plb.to_dataframe().shape == (0, 0)
+    extended = plb.to_dataframe(extended=True)
+    assert list(extended.x_row_kind) == ["provider_adjustment"]
+    assert extended.payer.tolist() == [None]
+    assert extended.x_plb_amount.tolist() == [-5.0]
+    serviceless = SERVICELESS.replace(
+        "SVC*HC:99213*150*100**1~DTM*472*20240101~CAS*CO*45*50~", "").encode()
+    claims = compat.parse_bytes(without_payer(serviceless))
+    assert claims.to_dataframe().shape == (0, 0)
+    extended = claims.to_dataframe(extended=True)
+    assert list(extended.x_row_kind) == ["claim", "claim"]
+    assert extended.payer.tolist() == [None, None]
+
+
+def test_a_date_the_library_rejects_raises_naming_segment_element_and_text(tmp_path):
+    claim_only = SERVICELESS.replace(
+        "SVC*HC:99213*150*100**1~DTM*472*20240101~CAS*CO*45*50~", "").replace("DTM*232*20240102", "DTM*232*2024AB02")
+    path = tmp_path / "bad_date.txt"
+    path.write_text(claim_only)
+    with pytest.raises(ValueError):
+        old(path)
+    expected = ('segment #15 DTM02: "2024AB02" is not a CCYYMMDD date, '
+                "which edi-835-parser's date parser requires of 8 characters")
+    transaction_sets = compat.parse(path)
+    for extended in (False, True):
+        with pytest.raises(ValueError) as info:
+            transaction_sets.to_dataframe(extended=extended)
+        assert str(info.value) == expected
+        assert isinstance(info.value.__cause__, ValueError)
+    with pytest.raises(ValueError) as info:
+        list(transaction_sets)[0].claims[1].dates
+    assert str(info.value) == expected
+    service = SERVICELESS.replace("DTM*472*20240101", "DTM*472*2401011299").encode()
+    expected = ('segment #13 DTM02: "2401011299" is not a YYMMDDHHMM date, '
+                "which edi-835-parser's date parser requires of 10 characters")
+    with pytest.raises(ValueError) as info:
+        compat.parse_bytes(service).to_dataframe()
+    assert str(info.value) == expected
+    with pytest.raises(ValueError) as info:
+        list(compat.parse_bytes(service))[0].claims[0].services[0].dates
+    assert str(info.value) == expected
+
+
+def test_without_a_payer_loop_the_extended_frame_raises_as_the_frame_does():
+    transaction_sets = compat.parse_bytes(without_payer(SERVICELESS.encode()))
+    with pytest.raises(ValueError) as strict:
+        transaction_sets.to_dataframe()
+    with pytest.raises(ValueError) as extended:
+        transaction_sets.to_dataframe(extended=True)
+    assert str(extended.value) == str(strict.value) == (
+        "<bytes>: the transaction at segment 2 has no payer loop (N1)")
+
+
 @pytest.mark.parametrize("plb_first", [True, False])
 def test_extended_keeps_the_strict_columns_first_whichever_file_comes_first(tmp_path, plb_first):
     plb, normal = plb_only(), path_of(SAMPLES[2]).read_bytes()
@@ -570,3 +719,83 @@ def test_trailing_blanks_before_the_terminator_are_stripped_as_the_library_does(
         getattr(e.financial_information, f) for f in fields]
     assert [c.claim.icn for c in a.claims] == [c.claim.icn for c in e.claims]
     assert all(not c.claim.icn.endswith(" ") for c in a.claims)
+
+
+UNICODE_BLANKS = ["\u00a0", " \u2003", "\u0085", "\u3000 "]
+
+
+def test_unicode_whitespace_before_the_terminator_is_stripped_as_the_library_does(tmp_path):
+    import re
+
+    text = path_of(SAMPLES[2]).read_bytes().decode()
+    for at, segment in enumerate(("CLP", "DTM", "AMT", "N4", "NM1", "BPR", "CAS", "SVC", "REF", "TRN", "N1")):
+        blank = UNICODE_BLANKS[at % len(UNICODE_BLANKS)]
+        text = re.sub(rf"({segment}\*[^~]*)~", lambda m: m.group(1) + blank + "~", text)
+    try:
+        data = text.encode(ENCODING)
+    except UnicodeEncodeError:
+        pytest.skip("the locale encoding cannot write these characters")
+    path = tmp_path / "unicode.txt"
+    path.write_bytes(data)
+    expected, actual = old(path), compat.parse(path)
+    pd.testing.assert_frame_equal(actual.to_dataframe(), expected.to_dataframe(), check_exact=True)
+    (e,), (a,) = list(expected), list(actual)
+    assert organization(a.payer) == organization(e.payer)
+    assert organization(a.payee) == organization(e.payee)
+    fields = ("amount_paid", "payment_method", "routing_number", "transaction_date")
+    assert [getattr(a.financial_information, f) for f in fields] == [
+        getattr(e.financial_information, f) for f in fields]
+    assert [c.claim.icn for c in a.claims] == [c.claim.icn for c in e.claims]
+
+
+def test_repeated_groups_strip_trailing_blanks_as_the_strict_columns_do():
+    padded = (SERVICELESS.replace("CAS*CO*45*50~", "CAS*CO*45*50  ~")
+              .replace("CAS*CO*29*80~", "CAS*CO*29*80  ~")
+              .replace("SE*17*0001~", "PLB*1234567893*20231231*L6:ABC*-5.00  ~SE*18*0001~"))
+    transaction_sets = compat.parse_bytes(padded.encode())
+    strict = transaction_sets.to_dataframe()
+    extended = transaction_sets.to_dataframe(extended=True)
+    assert strict.adj_0_amount.tolist() == [50.0]
+    service, claim, plb = (extended[extended.x_row_kind == kind].iloc[0]
+                           for kind in ("service", "claim", "provider_adjustment"))
+    assert (service.adj_0_amount, service.x_svc_adj_0_amount) == (50.0, 50.0)
+    assert claim.x_claim_adj_0_amount == 80.0
+    assert plb.x_plb_amount == -5.0
+
+
+def oracle():
+    import importlib.util
+
+    script = CORE_TESTS.parents[2] / "scripts" / "compat_oracle.py"
+    if not script.exists():
+        pytest.skip("the compat oracle script is not next to the tests")
+    spec = importlib.util.spec_from_file_location("compat_oracle", script)
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module
+
+
+def test_the_oracle_reports_every_file_with_counts_and_exception_types_only(tmp_path):
+    folder = tmp_path / "files"
+    folder.mkdir()
+    (folder / "a.835").write_bytes(synthetic())
+    (folder / "b.835").write_bytes(BOM + b"\r\n" + synthetic())
+    no_patient = SERVICELESS.replace("NM1*QC*1*ROE*RICK****MI*M2~", "").replace("SE*17", "SE*16")
+    (folder / "c.835").write_bytes(no_patient.encode())
+    (folder / "d.txt").write_bytes(b"hello, this is not an 835")
+    report = tmp_path / "report.txt"
+    oracle().main([str(folder), "--out", str(report)])
+    assert report.read_text().splitlines() == [
+        "file 1/4",
+        "  shape edi-835-parser (1, 21) oxedi835 (1, 21)",
+        "  equal",
+        "file 2/4",
+        "  shape edi-835-parser (1, 21) oxedi835 (1, 21)",
+        "  equal",
+        "file 3/4",
+        "  shape edi-835-parser (1, 21) oxedi835 (1, 21)",
+        "  count_patients: edi-835-parser raised AssertionError",
+        "file 4/4",
+        "  skipped: the compat layer does not read it as an 835",
+    ]
+

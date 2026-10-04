@@ -249,7 +249,7 @@ class Service:
 
     @property
     def allowed_amount(self):
-        if self.amount and self.amount.qualifier == "allowed - actual":
+        if self.amount and self.amount.qualifier == _codes.ALLOWED_ACTUAL:
             return self.amount.amount
         return None
 

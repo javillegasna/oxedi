@@ -11,7 +11,7 @@ PYTEST      := $(if $(wildcard $(VENV)/bin/pytest),$(VENV)/bin/pytest,$(PYTHON) 
 WHEELS      := target/wheels
 VERSION     := $(shell sed -n 's/^version = "\(.*\)"/\1/p' crates/oxedi835_py/pyproject.toml)
 
-.PHONY: help gates test clippy fmt fmt-check bench-check doc venv py-dev py-test compat-oracle dist smoke publish-test publish-test-verify publish tag clean-dist
+.PHONY: help sdist-check gates test clippy fmt fmt-check bench-check doc venv py-dev py-test compat-oracle dist smoke publish-test publish-test-verify publish tag clean-dist
 
 help: ## list targets
 	@grep -E '^[a-z][a-z-]*:.*##' $(MAKEFILE_LIST) | sed 's/:.*## /\t/'
@@ -54,8 +54,25 @@ compat-oracle: ## compare with edi-835-parser on DIR (outside the repo); prints 
 
 dist: clean-dist ## build the sdist and the release wheel into target/wheels
 	$(MATURIN) sdist --manifest-path $(PY_MANIFEST) -o $(WHEELS)
+	@$(MAKE) --no-print-directory sdist-check
 	$(MATURIN) build --release --manifest-path $(PY_MANIFEST) -o $(WHEELS)
 	@ls -l $(WHEELS)
+
+# Paths are matched exactly against the archive's listing, under its single top directory.
+SDIST_REQUIRED := crates/edi835_core/src/lib.rs crates/edi835_core/specs/835.json crates/edi835_core/specs/edi_835_parser.json crates/edi835_core/Cargo.toml crates/oxedi835_py/src/lib.rs pyproject.toml LICENSE THIRD_PARTY_NOTICES
+
+sdist-check: ## fail if the sdist holds the core's test trees or lacks what the build needs
+	@sdist=$$(ls $(WHEELS)/oxedi835-*.tar.gz 2>/dev/null | head -n 1); \
+	  test -n "$$sdist" || { echo "sdist-check: no oxedi835-*.tar.gz in $(WHEELS); run make dist first"; exit 1; }; \
+	  listing=$$(tar tzf "$$sdist" | sed 's|^[^/]*/||') || exit 1; \
+	  if echo "$$listing" | grep -E '(^|/)edi835_core/tests/'; then echo "sdist-check: $$sdist holds the core's tests/ tree (samples, golden, fixtures)"; exit 1; fi; \
+	  for need in $(SDIST_REQUIRED); do \
+	    echo "$$listing" | grep -qxF "$$need" || { echo "sdist-check: $$sdist lacks $$need"; exit 1; }; \
+	  done; \
+	  top=$$(tar tzf "$$sdist" | head -n 1 | cut -d/ -f1); \
+	  for f in LICENSE THIRD_PARTY_NOTICES; do \
+	    tar xzOf "$$sdist" "$$top/$$f" | cmp -s - "$$f" || { echo "sdist-check: $$f in $$sdist differs from the repository's $$f"; exit 1; }; \
+	  done; echo "sdist-check: ok ($$(echo "$$listing" | wc -l) entries)"
 
 smoke: ## install the built wheel in a clean venv outside the repo and run the suite
 	scripts/smoke_wheel.sh
@@ -64,14 +81,14 @@ clean-dist:
 	rm -rf $(WHEELS)
 
 # ---- Publishing (credentials come from ~/.pypirc; never from the repo) ----
-publish-test: ## upload the built artifacts to TestPyPI
+publish-test: sdist-check ## upload the built artifacts to TestPyPI
 	$(MATURIN) upload -r testpypi $(WHEELS)/oxedi835-$(VERSION)*
 
 publish-test-verify: ## install the TestPyPI pre-release into .venv and import it
 	uv pip install --python $(PYTHON) --index-url https://test.pypi.org/simple/ --pre --no-deps --reinstall oxedi835==$(VERSION)
 	$(PYTHON) -c "import oxedi835, importlib.metadata as m; print(m.version('oxedi835'), oxedi835.Spec.builtin())"
 
-publish: ## upload the built artifacts to PyPI (irreversible)
+publish: sdist-check ## upload the built artifacts to PyPI (irreversible)
 	@test -n "$(VERSION)" || (echo "no version in pyproject.toml" && exit 1)
 	@echo "about to publish oxedi835 $(VERSION) to PyPI"; read -p "type the version to confirm: " v && test "$$v" = "$(VERSION)"
 	$(MATURIN) upload -r pypi $(WHEELS)/oxedi835-$(VERSION)*

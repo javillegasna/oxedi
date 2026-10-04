@@ -52,6 +52,9 @@ impl fmt::Display for LoopRef {
 /// The rule a diagnostic reports, with the values its message needs.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Rule {
+    /// The input starts with a UTF-8 byte order mark, read as leading trivia
+    /// of the first segment. Informational: nothing else changes.
+    ByteOrderMark,
     /// No open loop holds the segment and it opens no loop.
     UnknownSegment {
         /// The segment id.
@@ -181,7 +184,8 @@ impl Rule {
     /// The SNIP level the rule belongs to.
     pub fn level(&self) -> SnipLevel {
         match self {
-            Rule::UnknownSegment { .. }
+            Rule::ByteOrderMark
+            | Rule::UnknownSegment { .. }
             | Rule::ImplicitLoop { .. }
             | Rule::UnterminatedLoop { .. }
             | Rule::ControlCountMismatch { .. }
@@ -194,11 +198,30 @@ impl Rule {
             | Rule::ValueDropped { .. } => SnipLevel::L2,
         }
     }
+
+    /// The name of the rule's variant, e.g. `RequiredElementMissing`, so a
+    /// caller can filter findings without parsing messages.
+    pub fn kind(&self) -> &'static str {
+        match self {
+            Rule::ByteOrderMark => "ByteOrderMark",
+            Rule::UnknownSegment { .. } => "UnknownSegment",
+            Rule::ImplicitLoop { .. } => "ImplicitLoop",
+            Rule::UnterminatedLoop { .. } => "UnterminatedLoop",
+            Rule::ControlCountMismatch { .. } => "ControlCountMismatch",
+            Rule::ControlElementMissing { .. } => "ControlElementMissing",
+            Rule::ControlNumberMismatch { .. } => "ControlNumberMismatch",
+            Rule::RequiredElementMissing { .. } => "RequiredElementMissing",
+            Rule::TypeMismatch { .. } => "TypeMismatch",
+            Rule::LengthOutOfRange { .. } => "LengthOutOfRange",
+            Rule::ValueDropped { .. } => "ValueDropped",
+            Rule::CompositeShape { .. } => "CompositeShape",
+        }
+    }
 }
 
 /// Bytes from the file, quoted on one line: valid text is escaped as a Rust
 /// string literal is, and each invalid byte is written as `\xNN`.
-struct Quoted<'a>(&'a [u8]);
+pub(crate) struct Quoted<'a>(pub(crate) &'a [u8]);
 
 impl fmt::Display for Quoted<'_> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
@@ -243,6 +266,10 @@ impl fmt::Display for ElementRef<'_> {
 impl fmt::Display for Rule {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
+            Rule::ByteOrderMark => write!(
+                f,
+                "the input starts with a UTF-8 byte order mark, kept as leading trivia of the first segment"
+            ),
             Rule::UnknownSegment { id } => write!(
                 f,
                 "segment {} is not part of the structure: no open loop holds it and it opens no loop",
@@ -502,6 +529,112 @@ mod tests {
     const TRANSACTION: &[(&str, usize)] = &[("interchange", 1), ("group", 1), ("transaction", 1)];
 
     #[test]
+    fn every_rule_names_its_variant() {
+        let id = || b"SE".to_vec();
+        let rules = [
+            (Rule::ByteOrderMark, "ByteOrderMark"),
+            (Rule::UnknownSegment { id: id() }, "UnknownSegment"),
+            (
+                Rule::ImplicitLoop {
+                    loop_name: "group".into(),
+                    expected_trigger: "\"GS\" with no conditions".into(),
+                    caused_by: b"ST".to_vec(),
+                },
+                "ImplicitLoop",
+            ),
+            (
+                Rule::UnterminatedLoop {
+                    loop_name: "transaction".into(),
+                    expected_end: id(),
+                    opened_at: None,
+                },
+                "UnterminatedLoop",
+            ),
+            (
+                Rule::ControlCountMismatch {
+                    segment_id: id(),
+                    element: 1,
+                    expected: 2,
+                    found: b"3".to_vec(),
+                },
+                "ControlCountMismatch",
+            ),
+            (
+                Rule::ControlElementMissing {
+                    segment_id: id(),
+                    element: 1,
+                },
+                "ControlElementMissing",
+            ),
+            (
+                Rule::ControlNumberMismatch {
+                    opener: b"ST".to_vec(),
+                    opener_element: 2,
+                    closer: id(),
+                    closer_element: 2,
+                    opener_value: b"1".to_vec(),
+                    closer_value: b"2".to_vec(),
+                    opened_at: Some(0),
+                },
+                "ControlNumberMismatch",
+            ),
+            (
+                Rule::RequiredElementMissing {
+                    segment_id: id(),
+                    element: 1,
+                    component: None,
+                    name: "n".into(),
+                },
+                "RequiredElementMissing",
+            ),
+            (
+                Rule::TypeMismatch {
+                    segment_id: id(),
+                    element: 1,
+                    component: None,
+                    name: "n".into(),
+                    expected: ElementType::N(0),
+                },
+                "TypeMismatch",
+            ),
+            (
+                Rule::LengthOutOfRange {
+                    segment_id: id(),
+                    element: 1,
+                    component: None,
+                    name: "n".into(),
+                    min: Some(1),
+                    max: Some(2),
+                    length: 3,
+                },
+                "LengthOutOfRange",
+            ),
+            (
+                Rule::ValueDropped {
+                    table: "t".into(),
+                    column: "c".into(),
+                    bytes: 1,
+                },
+                "ValueDropped",
+            ),
+            (
+                Rule::CompositeShape {
+                    segment_id: id(),
+                    element: 1,
+                    name: "n".into(),
+                    declared: 1,
+                    found: 2,
+                },
+                "CompositeShape",
+            ),
+        ];
+        for (rule, kind) in rules {
+            assert_eq!(rule.kind(), kind);
+            assert!(format!("{rule:?}").starts_with(kind), "{rule:?}");
+        }
+    }
+
+    #[test]
     fn levels_display_as_snip_numbers() {
         assert_eq!(SnipLevel::L1.to_string(), "SNIP 1");
         assert_eq!(SnipLevel::L2.to_string(), "SNIP 2");
@@ -529,6 +662,23 @@ mod tests {
             ordinal: 1,
         };
         assert_eq!(at.to_string(), "\"x#2\"#1");
+    }
+
+    #[test]
+    fn byte_order_mark_displays_the_first_segment_and_the_mark() {
+        let diagnostic = Diagnostic::new(
+            Rule::ByteOrderMark,
+            Some(0),
+            None,
+            None,
+            Vec::new(),
+            b"\xEF\xBB\xBF".to_vec(),
+        );
+        assert_eq!(diagnostic.level, SnipLevel::L1);
+        assert_eq!(
+            diagnostic.to_string(),
+            "SNIP 1 · the input starts with a UTF-8 byte order mark, kept as leading trivia of the first segment · segment #0 · at the root · datum \"\\u{feff}\""
+        );
     }
 
     #[test]

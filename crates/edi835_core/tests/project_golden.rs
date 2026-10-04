@@ -17,20 +17,6 @@ fn golden_dir() -> PathBuf {
     PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("tests/golden/project")
 }
 
-/// Every table: a title with its row count, the header, one line per row.
-fn all_rows(tables: &Tables) -> String {
-    let mut out = String::new();
-    for table in tables {
-        let _ = writeln!(out, "## {} (rows: {})", table.name(), table.len());
-        let _ = writeln!(out, "{}", common::table_header(table));
-        for row in common::table_rows(table) {
-            let _ = writeln!(out, "{row}");
-        }
-        out.push('\n');
-    }
-    out
-}
-
 /// One line per table with its row count.
 fn row_counts(tables: &Tables) -> String {
     tables.iter().fold(String::new(), |mut out, table| {
@@ -63,7 +49,7 @@ fn tables_and_diagnostics_match_the_golden_files() {
         } else {
             (
                 golden_dir().join(format!("{name}.tables.txt")),
-                all_rows(&tables),
+                tables.to_string(),
             )
         });
         outputs.push((
@@ -91,7 +77,7 @@ fn edi_835_parser_tables_match_the_golden_files() {
                 row_counts(&tables),
             )
         } else {
-            (dir.join(format!("{name}.tables.txt")), all_rows(&tables))
+            (dir.join(format!("{name}.tables.txt")), tables.to_string())
         });
     }
     let failures = common::compare_goldens(&dir, &outputs, &[]);

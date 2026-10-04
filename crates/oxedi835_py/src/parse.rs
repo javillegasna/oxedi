@@ -84,7 +84,9 @@ impl PyParseResult {
         native::count_claims(self.tables.bind(py).get().tables())
     }
 
-    /// The distinct non-null values of `claims.patient_id`.
+    /// The distinct non-null values of `claims.patient_id`. Ids are text:
+    /// `0123` and `123` are two patients, where edi-835-parser reads both as
+    /// the number 123 and counts one.
     fn count_patients(&self, py: Python<'_>) -> PyResult<usize> {
         native::count_patients(self.tables.bind(py).get().tables())
     }

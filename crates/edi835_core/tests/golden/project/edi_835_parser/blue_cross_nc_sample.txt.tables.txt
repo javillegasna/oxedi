@@ -42,9 +42,9 @@ row: int64 | segment: int64 | authorization_information_qualifier: binary | rece
 0 | 0 | ∅ | ∅ | ∅ | ∅ | ∅
 
 ## rows_organizations (rows: 2)
-row: int64 | segment: int64 | interchange: int64 | payment: int64 | address: binary | city: binary | identification_code: binary | name: binary | state: binary | type: binary | zip_code: binary
-0 | 5 | 0 | 0 | P O BOX 2291 | DURHAM | ∅ | BLUE CROSS AND BLUE SHIELD OF NORTH CAROLINA | NC | PR | 27702
-1 | 9 | 0 | 0 | P O BOX XYZ | CHARLOTTE | 0987654321 | XYZ HEALTHCARE CORPORATION | NC | PE | 28234
+row: int64 | segment: int64 | interchange: int64 | payment: int64 | address: binary | address_segment: int64 | city: binary | identification_code: binary | location_segment: int64 | name: binary | state: binary | type: binary | zip_code: binary
+0 | 5 | 0 | 0 | P O BOX 2291 | 6 | DURHAM | ∅ | 7 | BLUE CROSS AND BLUE SHIELD OF NORTH CAROLINA | NC | PR | 27702
+1 | 9 | 0 | 0 | P O BOX XYZ | 10 | CHARLOTTE | 0987654321 | 11 | XYZ HEALTHCARE CORPORATION | NC | PE | 28234
 
 ## rows_payments (rows: 1)
 row: int64 | segment: int64 | interchange: int64 | amount_paid: decimal128(38, 2) | bpr_segment: int64 | payee_segment: int64 | payer_segment: int64 | payment_method: binary | routing_number: binary | transaction_date: date32

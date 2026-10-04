@@ -6,7 +6,7 @@
 //! id means. Between two calls to `next` the tokenizer is simply paused.
 
 use crate::delimiters::{Delimiters, IsaError};
-use crate::frame::{is_trivia, next_frame};
+use crate::frame::{first_frame, next_frame};
 use crate::segment::Segment;
 
 /// Iterator of segments over `input`.
@@ -18,16 +18,13 @@ pub struct Tokenizer<'a> {
 }
 
 impl<'a> Tokenizer<'a> {
-    /// Reads the delimiters from the ISA segment, which may be preceded by trivia.
+    /// Reads the delimiters from the ISA segment, which may be preceded by a
+    /// UTF-8 byte order mark and trivia; both stay in the first segment's `raw`.
     ///
     /// `release` is never read from the file. To use one, read the delimiters
     /// with [`Delimiters::from_isa`], add it, and call [`Tokenizer::with_delimiters`].
     pub fn new(input: &'a [u8]) -> Result<Self, IsaError> {
-        let start = input
-            .iter()
-            .position(|&byte| !is_trivia(byte))
-            .unwrap_or(input.len());
-        let delims = Delimiters::from_isa(&input[start..])?;
+        let delims = Delimiters::from_isa_after_leading_trivia(input)?;
         Ok(Self::with_delimiters(input, delims))
     }
 
@@ -51,7 +48,11 @@ impl<'a> Iterator for Tokenizer<'a> {
     type Item = Segment<'a>;
 
     fn next(&mut self) -> Option<Self::Item> {
-        let (frame, rest) = next_frame(self.rest, &self.delims)?;
+        let (frame, rest) = if self.next_index == 0 {
+            first_frame(self.rest, &self.delims)?
+        } else {
+            next_frame(self.rest, &self.delims)?
+        };
         self.rest = rest;
         let segment = Segment::parse(self.next_index, frame, &self.delims);
         self.next_index += 1;
@@ -192,16 +193,59 @@ mod tests {
     }
 
     #[test]
+    fn new_reads_past_a_byte_order_mark_and_keeps_it_in_the_first_raw() {
+        let mut input = b"\xEF\xBB\xBF\n".to_vec();
+        input.extend_from_slice(ISA);
+        input.extend_from_slice(b"GS*HP~");
+        let segments: Vec<_> = Tokenizer::new(&input).unwrap().collect();
+        assert_eq!(segments.len(), 2);
+        assert_eq!(segments[0].id, b"ISA");
+        assert_eq!(segments[0].index, 0);
+        assert!(segments[0].raw.starts_with(b"\xEF\xBB\xBF\nISA"));
+        assert_eq!(segments[1].id, b"GS");
+        assert_eq!(concat_raw(&segments), input);
+    }
+
+    #[test]
+    fn new_names_the_trivia_it_skipped_when_no_isa_follows() {
+        let message = |input: &[u8]| Tokenizer::new(input).err().map(|error| error.to_string());
+        assert_eq!(
+            message(b"\xEF\xBB\xBF").as_deref(),
+            Some(
+                "input does not start with an ISA segment (input holds only a UTF-8 byte order mark)"
+            )
+        );
+        assert_eq!(
+            message(b"\n\r\n ").as_deref(),
+            Some(
+                "input does not start with an ISA segment (input holds only 4 bytes of whitespace)"
+            )
+        );
+        assert_eq!(
+            message(b"\xEF\xBB\xBFGS*HP~").as_deref(),
+            Some(
+                "input does not start with an ISA segment (found bytes [47 53 2a 48 50 7e] after skipping a UTF-8 byte order mark)"
+            )
+        );
+    }
+
+    #[test]
     fn new_fails_without_an_isa() {
         assert_eq!(
             Tokenizer::new(b"ST*835~").err(),
             Some(IsaError::NotIsa {
-                found: b"ST*835~".to_vec()
+                found: b"ST*835~".to_vec(),
+                byte_order_mark: false,
+                whitespace: 0,
             })
         );
         assert_eq!(
             Tokenizer::new(b"").err(),
-            Some(IsaError::NotIsa { found: Vec::new() })
+            Some(IsaError::NotIsa {
+                found: Vec::new(),
+                byte_order_mark: false,
+                whitespace: 0,
+            })
         );
     }
 

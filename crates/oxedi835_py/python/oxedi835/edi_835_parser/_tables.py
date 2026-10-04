@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import bisect
 import decimal as decimal_module
 import functools
 import json
@@ -10,7 +9,7 @@ from collections import defaultdict
 
 from .. import ParseError, Spec, parse
 from .._core import EDI_835_PARSER_PATCH
-from ._convert import STRIPPED
+from ._convert import ENCODING, STRIPPED, unpadded
 
 PATCH = json.loads(EDI_835_PARSER_PATCH)
 TABLES = sorted(name for name, table in PATCH["tables"].items() if table is not None)
@@ -36,34 +35,43 @@ def position(table, column):
 
 
 class Rows:
-    """One table's rows, as columns of Python values."""
+    """One table's rows of one transaction: an Arrow table, read as columns of
+    Python values on demand."""
 
-    def __init__(self, columns, keep):
-        self.columns = {key: [v for v, k in zip(values, keep) if k] for key, values in columns.items()}
+    def __init__(self, table):
+        self.table = table
+        self._columns = {}
         self._groups = {}
 
     @classmethod
     def empty(cls):
         """A table with no rows, whose every column reads as empty."""
-        rows = cls({}, [])
-        rows.columns = defaultdict(list)
-        return rows
+        return cls(None)
 
     def __len__(self):
-        return len(self.columns["row"])
+        return 0 if self.table is None else self.table.num_rows
 
     def __getitem__(self, column):
-        return self.columns[column]
+        if column not in self._columns:
+            self._columns[column] = [] if self.table is None else self.table.column(column).to_pylist()
+        return self._columns[column]
 
     def under(self, parent, key):
         """Positions of the rows whose ``parent`` column is ``key``, in file
         order: the join from one loop level's table to the level it nests in."""
         if parent not in self._groups:
             groups = defaultdict(list)
-            for at, value in enumerate(self.columns[parent]):
+            for at, value in enumerate(self[parent]):
                 groups[value].append(at)
             self._groups[parent] = groups
         return self._groups[parent].get(key, [])
+
+
+def ints(column):
+    """An integer column as a NumPy array, with -1 for null."""
+    import pyarrow.compute as pc
+
+    return pc.fill_null(column, -1).to_numpy()
 
 
 BOM = b"\xef\xbb\xbf"
@@ -100,7 +108,7 @@ def _segment_of(document, anchors, row, own, bound):
     """The index of the segment a column reads for ``row``: the anchor
     segment, or the first segment named ``own`` after it and before the next
     row's anchor."""
-    start = anchors[row]
+    start = int(anchors[row])
     if own is None or document[start].id == own:
         return start
     for index in range(start + 1, bound):
@@ -109,65 +117,195 @@ def _segment_of(document, anchors, row, own, bound):
     return None
 
 
-def unpad(document, arrow, tables):
-    """edi-835-parser strips each segment, so blanks before the terminator
-    never reach its last element. A binary cell that ends in blanks is
-    stripped when it is its segment's last element, and a decimal cell that
-    the spec could not read because of them is read from the stripped text.
-    Only cells that end in blanks, or decimal cells that are null, are
-    looked up in the document."""
+def _group_last(document, index, source, repeat):
+    """The raw text a repeated group's column reads from segment ``index``
+    when that is the segment's last element (and component), else ``None``:
+    the group whose element ``group_element`` is the last one."""
+    elements = document[index].elements
+    offset = len(elements) - repeat["from"] - source["group_element"]
+    if offset < 0 or offset % repeat["step"]:
+        return None
+    return _last(document, index, len(elements), source.get("component"))
+
+
+def _replace(table, column, changes, kind):
+    """``table`` with the cells of ``column`` at the positions of ``changes``
+    set to their values."""
     import pyarrow as pa
 
-    for name, columns in PATCH["tables"].items():
-        if columns is None or name not in tables:
+    values = table.column(column).to_pylist()
+    for row, value in changes.items():
+        values[row] = value
+    at = table.schema.get_field_index(column)
+    return table.set_column(at, table.schema.field(at), pa.array(values, kind))
+
+
+@functools.cache
+def _endings():
+    """The bytes that may end whitespace: the ASCII bytes ``str.strip``
+    removes and every non-ASCII byte (the last byte of a multi-byte
+    character)."""
+    import numpy as np
+
+    table = np.zeros(256, dtype=bool)
+    table[list(STRIPPED)] = True
+    table[0x80:] = True
+    return table
+
+
+def _padded(view, delimiters):
+    """Whether any segment may end in whitespace: a byte that may end
+    whitespace right before a segment terminator, or at the end of an input
+    whose last segment has no terminator. Always true when a release
+    character can escape a terminator."""
+    import numpy as np
+
+    if delimiters.release is not None or len(delimiters.segment) != 1:
+        return True
+    data = np.frombuffer(view, dtype=np.uint8)
+    ends = np.flatnonzero(data == delimiters.segment[0])
+    if _endings()[data[ends[ends > 0] - 1]].any():
+        return True
+    tail = data[ends[-1] + 1:] if len(ends) else data
+    blank = np.zeros(256, dtype=bool)
+    blank[list(STRIPPED)] = True
+    return bool(len(tail) and not blank[tail].all() and _endings()[tail[-1]])
+
+
+def _ending_in_blanks(column):
+    """Positions of the binary cells whose last byte may end whitespace."""
+    import numpy as np
+    import pyarrow as pa
+    import pyarrow.compute as pc
+
+    last = pc.binary_slice(column, -1).cast(pa.binary())
+    ends = np.zeros(len(column), dtype=np.int64) - 1
+    present = ~last.is_null().to_numpy(zero_copy_only=False)
+    lengths = pc.fill_null(pc.binary_length(last), 0).to_numpy(zero_copy_only=False)
+    rows = np.flatnonzero(present & (lengths > 0))
+    if not len(rows):
+        return rows
+    flat = np.frombuffer(b"".join(last.take(pa.array(rows)).to_pylist()), dtype=np.uint8)
+    ends[rows] = flat
+    return rows[_endings()[ends[rows]]]
+
+
+def unpad(document, diagnostics, arrow, padded=True):
+    """edi-835-parser strips each segment, so whitespace before the
+    terminator never reaches its last element. A binary cell that ends in
+    whitespace is stripped when it reads its segment's last element, and a
+    decimal cell (a float column here) that the spec could not read because
+    of it is read from the stripped text. Only those cells are looked up in
+    the document: binary cells whose last byte may end whitespace, and null
+    decimal cells in a segment the parser reported (a decimal it could not
+    read always is; in a repeated group, only the segment's last group).
+    When no segment can end in whitespace (``padded`` false), binary cells
+    are not looked at. Returns the tables with those cells replaced."""
+    import numpy as np
+    import pyarrow as pa
+
+    reported = [d.segment for d in diagnostics if d.segment is not None]
+    diagnosed = np.unique(np.array(reported, dtype=np.int64))
+    if not padded and not len(diagnosed):
+        return arrow
+    for name, config in PATCH["tables"].items():
+        if config is None or name not in arrow:
             continue
-        rows = tables[name]
-        anchors = rows.get("segment")
-        if anchors is None:
+        table = arrow[name]
+        if "segment" not in table.column_names:
             continue
-        anchored = columns.get("segment")
-        ordered = sorted(a for a in anchors if a is not None)
-        for column, source in columns["columns"].items():
-            element = source.get("element")
-            if element is None or "group_element" in source:
+        anchors = ints(table.column("segment"))
+        ordered = np.sort(anchors[anchors >= 0])
+        anchored = config.get("segment")
+        repeat = config.get("repeat")
+        last_of_segment = np.r_[anchors[1:] != anchors[:-1], True] if len(anchors) else anchors.astype(bool)
+        # A row can read a cell the parser flagged only when a flagged
+        # segment lies between its anchor and the next row's anchor.
+        at = np.searchsorted(ordered, anchors, side="right")
+        following = ordered[np.minimum(at, len(ordered) - 1)] if len(ordered) else 0
+        bounds = np.where(at < len(ordered), following, len(document))
+        flagged = (np.searchsorted(diagnosed, bounds) > np.searchsorted(diagnosed, anchors)) & (anchors >= 0)
+        for column, source in config["columns"].items():
+            grouped = "group_element" in source
+            if source.get("element") is None and not grouped:
                 continue
-            kind = arrow[name].schema.field(column).type
-            decimal = pa.types.is_decimal(kind)
-            values = rows[column]
+            kind = table.schema.field(column).type
+            if pa.types.is_binary(kind):
+                if not padded:
+                    continue
+                candidates = _ending_in_blanks(table.column(column))
+            elif pa.types.is_floating(kind):
+                nulls = table.column(column).is_null().to_numpy(zero_copy_only=False) & flagged
+                candidates = np.flatnonzero(nulls & last_of_segment) if grouped else np.flatnonzero(nulls)
+            else:
+                continue
             own = None if anchored else source["segment"].encode()
-            for row, value in enumerate(values):
-                if value is None:
-                    if not decimal:
+            changes = {}
+            for row in candidates:
+                if anchors[row] < 0:
+                    continue
+                if grouped:
+                    if not last_of_segment[row]:
                         continue
-                elif not isinstance(value, bytes) or value == value.rstrip(STRIPPED):
-                    continue
-                if anchors[row] is None:
-                    continue
-                at = bisect.bisect_right(ordered, anchors[row])
-                bound = ordered[at] if at < len(ordered) else len(document)
-                index = _segment_of(document, anchors, row, own, bound)
-                if index is None:
-                    continue
-                raw = _last(document, index, element, source.get("component"))
+                    raw = _group_last(document, int(anchors[row]), source, repeat)
+                else:
+                    at = int(np.searchsorted(ordered, anchors[row], side="right"))
+                    bound = int(ordered[at]) if at < len(ordered) else len(document)
+                    index = _segment_of(document, anchors, row, own, bound)
+                    if index is None:
+                        continue
+                    raw = _last(document, index, source["element"], source.get("component"))
                 if raw is None:
                     continue
-                stripped = raw.rstrip(STRIPPED)
-                if value is None:
-                    if stripped != raw:
-                        try:
-                            values[row] = decimal_module.Decimal(stripped.decode())
-                        except (ValueError, decimal_module.InvalidOperation):
-                            pass
+                stripped = unpadded(raw)
+                if stripped == raw:
+                    continue
+                if pa.types.is_binary(kind):
+                    changes[int(row)] = stripped
                 else:
-                    values[row] = stripped
+                    try:
+                        changes[int(row)] = float(decimal_module.Decimal(stripped.decode(ENCODING)))
+                    except (ValueError, decimal_module.InvalidOperation):
+                        pass
+            if changes:
+                table = _replace(table, column, changes, kind)
+        arrow[name] = table
+    return arrow
+
+
+def _floats(table):
+    """``table`` with its decimal columns as float64, the library's ``float``
+    of each value: the decimal's exact text read as the nearest double."""
+    import pyarrow as pa
+
+    for at, field in enumerate(table.schema):
+        if pa.types.is_decimal(field.type):
+            column = table.column(at).cast(pa.string()).cast(pa.float64())
+            table = table.set_column(at, pa.field(field.name, pa.float64(), field.nullable), column)
+    return table
+
+
+def _split(table, column, keys):
+    """For each key, the slice of ``table`` whose ``column`` equals it; rows
+    are in file order, so each transaction's rows are contiguous."""
+    import numpy as np
+    import pyarrow as pa
+
+    ids = ints(table.column(column))
+    if len(ids) and np.any(ids[1:] < ids[:-1]):
+        return [table.filter(pa.array(ids == key)) for key in keys]
+    starts = np.searchsorted(ids, keys, side="left")
+    ends = np.searchsorted(ids, keys, side="right")
+    return [table.slice(int(a), int(b - a)) for a, b in zip(starts, ends)]
 
 
 def load(data):
     """Parses ``data`` (bytes or any buffer) with the compat spec, with the GIL
     released, and returns the document and, per transaction, the tables
-    limited to its rows. A table column cannot read a value from an enclosing
-    loop, so each loop level is its own table, gathered through the parent-row
-    columns (``payment``, ``claim``, ``service``).
+    limited to its rows (split in one pass over each table). A table column
+    cannot read a value from an enclosing loop, so each loop level is its own
+    table, gathered through the parent-row columns (``payment``, ``claim``,
+    ``service``).
 
     The library builds one transaction set from any file, reading whatever
     segments it recognises:
@@ -195,25 +333,26 @@ def load(data):
         if not bom and bytes(view[:len(trigger)]) == trigger:
             raise
         return None, [{name: Rows.empty() for name in TABLES}]
-    arrow = {name: pa.table(result.tables[name]) for name in result.tables}
-    tables = {name: table.to_pydict() for name, table in arrow.items()}
-    unpad(result.document, arrow, tables)
-    payments = tables["rows_payments"]
-    if not payments["row"]:
+    tables = {name: _floats(pa.table(result.tables[name])) for name in result.tables}
+    padded = _padded(view[start:] if bom else view, result.document.delimiters)
+    arrow = unpad(result.document, result.diagnostics, tables, padded)
+    payments = arrow["rows_payments"]
+    interchanges = arrow["rows_interchanges"]
+    if not payments.num_rows:
         return result.document, [{
-            name: Rows(columns, [name == "rows_interchanges" and not bom] * len(columns["row"]))
-            for name, columns in tables.items()
+            name: Rows(table if name == "rows_interchanges" and not bom else table.slice(0, 0))
+            for name, table in arrow.items()
         }]
+    keys = ints(payments.column("row"))
+    split = {
+        name: _split(table, "row" if name == "rows_payments" else "payment", keys)
+        for name, table in arrow.items() if name != "rows_interchanges"
+    }
+    rows = ints(interchanges.column("row"))
     parts = []
-    for payment, interchange in zip(payments["row"], payments["interchange"]):
-        part = {}
-        for name, columns in tables.items():
-            if name == "rows_interchanges":
-                keep = [row == interchange and not bom for row in columns["row"]]
-            elif name == "rows_payments":
-                keep = [row == payment for row in columns["row"]]
-            else:
-                keep = [owner == payment for owner in columns["payment"]]
-            part[name] = Rows(columns, keep)
+    for at, interchange in enumerate(ints(payments.column("interchange"))):
+        part = {name: Rows(tables[at]) for name, tables in split.items()}
+        own = interchanges.slice(0, 0) if bom else interchanges.filter(pa.array(rows == interchange))
+        part["rows_interchanges"] = Rows(own)
         parts.append(part)
     return result.document, parts

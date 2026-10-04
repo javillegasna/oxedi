@@ -38,9 +38,9 @@ row: int64 | segment: int64 | authorization_information_qualifier: binary | rece
 0 | 0 | 00 | RECEIVER      | SENDER        | 2024-04-16 | 09:30:00
 
 ## rows_organizations (rows: 2)
-row: int64 | segment: int64 | interchange: int64 | payment: int64 | address: binary | city: binary | identification_code: binary | name: binary | state: binary | type: binary | zip_code: binary
-0 | 6 | 0 | 0 | 1 MAIN STREET | TIMBUCKTU | ∅ | INSURANCE COMPANY OF AMERICA | AK | PR | 89111
-1 | 10 | 0 | 0 | ∅ | ∅ | 6543210903 | REGIONAL HOPE HOSPITAL | ∅ | PE | ∅
+row: int64 | segment: int64 | interchange: int64 | payment: int64 | address: binary | address_segment: int64 | city: binary | identification_code: binary | location_segment: int64 | name: binary | state: binary | type: binary | zip_code: binary
+0 | 6 | 0 | 0 | 1 MAIN STREET | 8 | TIMBUCKTU | ∅ | 9 | INSURANCE COMPANY OF AMERICA | AK | PR | 89111
+1 | 10 | 0 | 0 | ∅ | ∅ | ∅ | 6543210903 | ∅ | REGIONAL HOPE HOSPITAL | ∅ | PE | ∅
 
 ## rows_payments (rows: 1)
 row: int64 | segment: int64 | interchange: int64 | amount_paid: decimal128(38, 2) | bpr_segment: int64 | payee_segment: int64 | payer_segment: int64 | payment_method: binary | routing_number: binary | transaction_date: date32

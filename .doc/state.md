@@ -73,10 +73,17 @@ Decisions taken 2026-10-03 after the merge (all in §6.2 and the roadmap):
   derived fields, diagnostics before writing, DuckDB connectors as ingestion adapter outside
   the core, round-trip + `pyx12` gate; D11 is its prerequisite.
 
-Current: §7 of 5b approved 2026-10-04 (T25–T29: spec `edi_835_parser` with long tables
-pivoted to the dynamic `adj_<n>`/`ref_<n>` columns; strict parity + `extended=True` with `x_`
-columns; full surface in `oxedi835.edi_835_parser`; native counterparts; two oracles) on
-branch `stage-5b-edi835parser`; next its plan (lean planner) and batches; then 5c (D13), Stage 6
+Stage 5b is implemented on branch `stage-5b-edi835parser` and in PR (2026-10-04): the
+layer `oxedi835.edi_835_parser` reproduces `edi-835-parser` 1.8.0's DataFrame cell for cell
+(dtypes and per-cell Python types included) on the six samples through path, bytes, memoryview,
+file and directory; `parse` is a strict drop-in, memory via `parse_bytes`/`parse_file_obj`/
+`parse_many`; `extended=True` recovers claims without services, claim adjustments, PLB and
+unmapped REF/AMT; native `count_claims`/`count_patients`/`sum_payments` (Decimal)/`payer`/
+`payee`, `to_polars`/`to_pandas` behind extras; CI parity with the real library, DuckDB test,
+`scripts/compat_oracle.py` for the originals. 338 cargo + 240 pytest. Known: compat is
+0.76–0.93x the library's speed (#55, profile: per-row Python object layer, native parse 19.5 ms
+on united); documented divergences in the README. Ledger `analysis/stage-5b-ledger.md`. Next:
+backlog sprint 2 (16 issues, briefs in `.superpowers/sdd/backlog-sprint-2/`), then 5c, 6, 7…; then 5c (D13), Stage 6
 (wheel matrix, trusted publishing, `0.1.0`), Stage 7 (writer), 8 (durable docs), 9 (X12
 family + `pyx12` maps).
 

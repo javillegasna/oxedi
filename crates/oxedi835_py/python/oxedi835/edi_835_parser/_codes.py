@@ -4,8 +4,9 @@ The tables are copied verbatim from edi-835-parser 1.8.0, by
 keiron-stoddart / Senscio Systems
 (https://github.com/keironstoddart/edi-835-parser), so the objects of this
 package carry the same descriptions; its claim status registry, a list of
-``Status`` objects there, is the dict ``STATUSES`` here with the same entries. They are used under that project's MIT
-License, reproduced below as its LICENSE file reads.
+``Status`` objects there, is the dict ``STATUSES`` here with the same
+entries. They are used under that project's MIT License, reproduced below as
+its LICENSE file reads.
 
 edi-835-parser, MIT License:
 

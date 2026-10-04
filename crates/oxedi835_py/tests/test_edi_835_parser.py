@@ -1,3 +1,4 @@
+import datetime
 import inspect
 import os
 import shutil
@@ -359,3 +360,42 @@ def test_only_the_compat_layer_reads_input_without_an_isa_as_the_library_does():
         oxedi835.parse(b"junk")
     assert str(info.value) == "input does not start with an ISA segment (found bytes [6a 75 6e 6b])"
     assert broken(compat.parse_bytes(b"junk")) == (None, None, [], [], (0, 0))
+
+
+BOM = b"\xef\xbb\xbf"
+
+
+def fields(transaction_sets):
+    """The parts of each set a byte order mark can change in the library."""
+    return [(t.interchange and (t.interchange.sender, t.interchange.receiver, t.interchange.transmission_date),
+             t.financial_information.amount_paid,
+             t.financial_information.transaction_date, len(t.claims)) for t in transaction_sets]
+
+
+def test_a_byte_order_mark_loses_only_the_interchange_as_in_the_library(tmp_path):
+    path = tmp_path / "bom.835"
+    path.write_bytes(BOM + synthetic())
+    expected = old(path)
+    assert fields(expected) == [(None, 100.0, datetime.datetime(2024, 1, 2), 1)]
+    with open(path, "rb") as handle:
+        routes = [compat.parse(path), compat.parse_bytes(BOM + synthetic()), compat.parse_file_obj(handle)]
+    for actual in routes:
+        assert fields(actual) == fields(expected)
+        pd.testing.assert_frame_equal(actual.to_dataframe(), expected.to_dataframe(), check_exact=True)
+    plain = tmp_path / "plain"
+    plain.mkdir()
+    (plain / "a.835").write_bytes(synthetic())
+    pd.testing.assert_frame_equal(
+        compat.parse(path).to_dataframe(), old(plain / "a.835").to_dataframe(), check_exact=True)
+    (tmp_path / "other.txt").write_bytes(synthetic(payee_name="OTHER CLINIC"))
+    expected_dir, actual_dir = old(tmp_path), compat.parse(tmp_path)
+    assert fields(actual_dir) == fields(expected_dir)
+    pd.testing.assert_frame_equal(actual_dir.to_dataframe(), expected_dir.to_dataframe(), check_exact=True)
+
+
+def test_the_native_parse_still_rejects_a_byte_order_mark():
+    import oxedi835
+
+    with pytest.raises(ParseError):
+        oxedi835.parse(BOM + synthetic())
+

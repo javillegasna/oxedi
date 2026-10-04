@@ -56,7 +56,9 @@ def date(value, document, index, element):
 
 
 def integer(value):
-    """Text cell as ``int`` when it reads as one, else the text."""
+    """Text cell as ``int`` when it reads as one, else the text, as the
+    library's ``int()`` with its fallback; a decimal column cannot give this
+    back, since it reads ``"1.0"`` and ``"1"`` as the same number."""
     if value is None:
         return None
     value = text(value)

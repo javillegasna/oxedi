@@ -30,7 +30,7 @@ class TransactionSet:
 
     @functools.cached_property
     def interchange(self):
-        """The file's last ISA, the one the library keeps."""
+        """This transaction's ISA (the last one when the file has no transaction)."""
         t = self._t["rows_interchanges"]
         if not len(t):
             return None

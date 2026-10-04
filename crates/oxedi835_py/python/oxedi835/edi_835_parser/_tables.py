@@ -53,7 +53,8 @@ class Rows:
         return self.columns[column]
 
     def under(self, parent, key):
-        """Positions of the rows whose ``parent`` column is ``key``, in file order."""
+        """Positions of the rows whose ``parent`` column is ``key``, in file
+        order: the join from one loop level's table to the level it nests in."""
         if parent not in self._groups:
             groups = defaultdict(list)
             for at, value in enumerate(self.columns[parent]):
@@ -62,31 +63,43 @@ class Rows:
         return self._groups[parent].get(key, [])
 
 
+BOM = b"\xef\xbb\xbf"
+
+
 def load(data):
     """Parses ``data`` (bytes or any buffer) with the compat spec, with the GIL
     released, and returns the document and, per transaction, the tables
-    limited to its rows.
+    limited to its rows. A table column cannot read a value from an enclosing
+    loop, so each loop level is its own table, gathered through the parent-row
+    columns (``payment``, ``claim``, ``service``).
 
     The library builds one transaction set from any file, reading whatever
-    segments it recognises, so input that does not start with the
-    interchange's opening segment gives
-    one part with every table empty and no document, and an interchange
-    without transactions gives one part with only its interchange rows. Any
-    other ``ParseError`` (an ISA that cannot be read) propagates."""
+    segments it recognises:
+    - input that does not start with the interchange's opening segment gives
+      one part with every table empty and no document;
+    - a UTF-8 byte order mark before that segment stays glued to it in the
+      library, which then misses only the interchange, so what follows the
+      mark is parsed and the interchange rows are left out;
+    - an interchange without transactions gives one part with only its
+      interchange rows.
+    Any other ``ParseError`` (an opening segment that cannot be read)
+    propagates."""
     import pyarrow as pa
 
+    view = memoryview(data)
+    trigger = interchange_trigger()
+    marked = bytes(view[:len(BOM) + len(trigger)]) == BOM + trigger
     try:
-        result = parse(data, spec=spec())
+        result = parse(view[len(BOM):] if marked else data, spec=spec())
     except ParseError:
-        trigger = interchange_trigger()
-        if bytes(memoryview(data)[:len(trigger)]) == trigger:
+        if marked or bytes(view[:len(trigger)]) == trigger:
             raise
         return None, [{name: Rows.empty() for name in TABLES}]
     tables = {name: pa.table(result.tables[name]).to_pydict() for name in result.tables}
     payments = tables["rows_payments"]
     if not payments["row"]:
         return result.document, [{
-            name: Rows(columns, [name == "rows_interchanges"] * len(columns["row"]))
+            name: Rows(columns, [name == "rows_interchanges" and not marked] * len(columns["row"]))
             for name, columns in tables.items()
         }]
     parts = []
@@ -94,7 +107,7 @@ def load(data):
         part = {}
         for name, columns in tables.items():
             if name == "rows_interchanges":
-                keep = [row == interchange for row in columns["row"]]
+                keep = [row == interchange and not marked for row in columns["row"]]
             elif name == "rows_payments":
                 keep = [row == payment for row in columns["row"]]
             else:

@@ -12,6 +12,7 @@ use pyo3::prelude::*;
 mod arrow;
 mod diagnostic;
 mod document;
+mod native;
 mod parse;
 mod spec;
 mod stream;

@@ -1,4 +1,4 @@
-# State — 2026-10-03 (Stage 5 in PR)
+# State — 2026-10-03 (Stage 5 merged)
 
 Snapshot for picking the project up cold. Update when a stage changes state.
 
@@ -38,7 +38,7 @@ Snapshot for picking the project up cold. Update when a stage changes state.
 - Older plans (`stage-1`, `stage-2`) show pre-P10 error shapes; they are historical records,
   not to be edited.
 
-## Current stage: 5 · Python binding — implemented, in PR
+## Stage 5 · Python binding — merged (PR #50)
 
 Stage 4 is done (4a PR #30, 4b PR #38, backlog sprint PR #43). §7 Stage 5 (T18–T24) and
 plan `plans/stage-5-python.md` were approved 2026-10-03; the branch `stage-5-python` holds
@@ -48,8 +48,13 @@ export by PyCapsule, CI job on 3.11 and 3.13, clean-venv wheel smoke script, com
 script against `edi-835-parser`), the D8 example and docs. Core `src/` unchanged. Suite:
 337 cargo tests, 112 pytest; the 22 goldens are reproduced from Python; `stream` holds ~14×
 less memory than `parse`; two threads run in ~0.5× the sequential time; 16–24× faster than
-`edi-835-parser`. D8 closed as T24 (keep `Cow`). Deferred findings: #47–#49. Awaits the
-owner's merge; PR #44 (#28, `isa11`) also awaits merge.
+`edi-835-parser`. D8 closed as T24 (keep `Cow`). Deferred findings: #47–#49. PR #44 (#28,
+`isa11`) merged too.
+
+PyPI: the name `oxedi835` is being reserved with a `0.0.1a1` pre-release built from master
+(branch `release-0.0.1a1`); `0.1.0` comes after 5b and the Stage 6 wheel matrix; `1.0` once
+the API holds for two or three releases and the Stage 8 documentation exists. Tokens live in
+`~/.pypirc` (local) and as GitHub secrets, never in the repo.
 
 Next: 5b (D12, three parts: DataFrame parity by spec, what the old library drops and we
 keep, a compatible `TransactionSets` API covering its whole surface), then 5c (D13 module

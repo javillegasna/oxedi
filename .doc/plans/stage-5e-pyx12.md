@@ -8,7 +8,9 @@
 per version (5010 default, 4010 as a patch) and code lists validated natively; Python users can
 run `pyx12` validation and get our `Diagnostic`s back.
 
-**Spec:** `.doc/architectural-commitment.md` §7 "Stage 5e" (T52–T57); D16.
+**Spec:** `.doc/architectural-commitment.md` §7 "Stage 5e" (T52–T57); D16. Plan approved by the
+owner 2026-10-04; execution not started (ledger: `.superpowers/sdd/stage-5e/progress.md`, create it
+at the first dispatch).
 
 ## Global Constraints
 - Core rules from `CLAUDE.md`: sans-IO, only `serde`/`serde_json`; no `unwrap`/`expect`/`panic!`
@@ -78,7 +80,7 @@ run `pyx12` validation and get our `Diagnostic`s back.
 - Built-ins: `Spec::builtin_835()` stays the 5010 default; add an accessor for the 4010 spec
   (the 5010 spec merge-patched with `specs/835.4010.json`, which in this task holds only the
   version declaration; Task 4 fills it).
-- **Default selection (decide with this plan):** recommended — Python `parse`/`parse_file`/
+- **Default selection (approved by the owner with this plan, 2026-10-04):** Python `parse`/`parse_file`/
   `stream` without an explicit `spec=` pick the built-in matching the document's declared version,
   else the 5010 default; an explicit `spec=` is always used as given. Rust keeps explicit choice
   (`Processor::run(spec, …)` unchanged) plus the selection helper.

@@ -2,6 +2,36 @@
 
 Snapshot for picking the project up cold. Update when a stage changes state.
 
+## Pick up here (2026-10-04, end of session)
+
+- **Now:** Stage 5e on branch `stage-5e-pyx12`. §7 (T52–T57, T53 revised by the owner: one spec
+  per version, 5010 default in `specs/835.json`, 4010 as patch `specs/835.4010.json`) and plan
+  `plans/stage-5e-pyx12.md` are approved, including automatic spec selection by version in Python
+  when no `spec=` is passed. Next action: create the ledger and dispatch batch A (Opus: tasks 1–2).
+- **Merged today:** Stage 6 (PR #67) and `0.1.0` on PyPI by trusted publishing (rc1 on TestPyPI
+  only); README for users (#68); flaky GIL test replaced (#72); Stage 5c module layout (#75);
+  Stage 5d performance (#78: index 8 B/segment, `process` 33 → 37 MiB/s, gate 50 not met → #76);
+  DuckDB spike and roadmap order (#79).
+- **Order after 5e:** 5f DuckDB extension (read; D15 naming before publishing) → 7 D11 + writer in
+  core and Python with `pyx12` as gate → 7b DuckDB write through `COPY` → 8 → 9.
+- **Key facts for 5e:** `pyx12` 4.0.0 needs Python ≥ 3.11 and bundles `835.4010.X091.A1.xml`,
+  `835.5010.X221.A1.xml`, `dataele.xml`, `codes.xml`; validates united clean in ~3.6 s; its 999
+  writer crashes (`Cannot create AK2: err_st.vriic was not set`), so use its validation API only;
+  `x12valid -J` writes nested JSON (interchange → group → transaction → segments, `cur_line`).
+  Five samples are 4010, united is 5010. The spec defines 29 segments (name, type, required,
+  min, max), no code lists. No Rust crate validates X12 against HIPAA guides.
+- **Research files (git-ignored, local):** `.superpowers/835-parsers-other-languages-survey.md`,
+  `.superpowers/duckdb-adoption-survey.md`, `.superpowers/x12-validators-rust-survey.md`;
+  spike findings are committed in `.doc/spikes/duckdb-extension.md`; prototype branch
+  `spike-duckdb-prototype` (not to merge).
+- **Open board (Project #8):** #53 (tables format, with D11), #66 (TestPyPI check coverage), #73
+  (type stubs), #74 (Changelog URL), #76 (next performance step, lazy `Segment`), #77 (unread
+  property-test coverage).
+- **Credentials:** GitHub token secrets deleted; `~/.pypirc` kept by the owner for now (remove
+  later); releases go through trusted publishing (`make release-check TAG=… && make tag`, owner
+  approves the environment).
+- **Analysis notes** (`.doc/analysis/`) are current at 7f4f8cf (after 5d); update after 5e.
+
 ## Where we are
 
 - Stages 0–3 are merged on `master` (PRs #1 #2 #3 #5 #6), plus the test-hygiene sprint

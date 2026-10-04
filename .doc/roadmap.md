@@ -22,8 +22,8 @@ Order after Stage 5b (owner, 2026-10-04): backlog sprint 2 → **Stage 6 → `0.
 | 5d · Pipeline performance | `process` from ~33 to ≥ 50 MiB/s and a compact `Document` index (8 bytes per segment); no output change; resolves #39 and #45 | **§7 approved** 2026-10-04 (T46–T51) | branch `stage-5d-performance` |
 | 6 · Distribution | crates.io, PyPI wheels (manylinux/macOS/Windows), release CI with trusted publishing; `0.1.0` after 5b | **Merged** 2026-10-04 (PR #67; T30–T36: abi3 wheel matrix, maturin-action, trusted publishing, one version source, crates.io deferred, per-platform verification, changelog). Next: tag `v0.1.0rc1` → TestPyPI, then `v0.1.0` → PyPI. Deferred: #66 | `plans/stage-6-distribution.md`, ledger `analysis/stage-6-ledger.md` |
 | 7 · Writer | Tables (our schema, `Tables` or Arrow) → loops → segments → bytes with the same spec inverted; derived fields computed; diagnostics before writing; DuckDB connectors feed it from relational databases outside the core; round-trip and `pyx12` validation as gate (also through a SQLite export with an optional lossless `segments` layer, an internal dev tool first); D11 (order, cardinality, balancing) resolved inside | Scheduled after 5b and 6 (D7, 2026-10-03) | — |
-| 8 · Durable documentation | Human-readable book of the ideas, concepts and patterns that govern the project (no code snippets, no line references, nothing that rots); user guides for the Python library and the CLI | Not started (after the roadmap closes, D14) | — |
-| 9 · X12 family toolkit | The engine, spec format, projection and CLI serve other transaction sets of the same family (837 first: same loop logic, different segment definitions); 835 becomes one spec among several. Includes the `pyx12` map cross-check and spec generator (D16, part 1) | Not started (D15, D16) | — |
+| 8 · Durable documentation | Human-readable book of the ideas, concepts and patterns that govern the project (no code snippets, no line references, nothing that rots); user guides for the Python library and the DuckDB extension | Not started (after the roadmap closes, D14) | — |
+| 9 · X12 family toolkit | The engine, spec format and projection serve other transaction sets of the same family (837 first: same loop logic, different segment definitions); 835 becomes one spec among several. Includes the `pyx12` map cross-check and spec generator (D16, part 1) | Not started (D15, D16) | — |
 | 9b · `pyx12` interop (optional) | `oxedi835.pyx12.validate` merging `pyx12`'s SNIP 3–7 findings into our `Diagnostic` list; `oxedi835.pyx12.ContextReader` as a read-only `X12ContextReader`-shaped view, only on demand; behind the extra `oxedi835[pyx12]` | Optional (D16, parts 2–3) | — |
 
 ## What each stage unlocks
@@ -46,7 +46,7 @@ Order after Stage 5b (owner, 2026-10-04): backlog sprint 2 → **Stage 6 → `0.
   rewrite; the row-for-row diff is a public, reproducible compatibility test, and the data
   that library drops is shown recovered on the same files.
 - After **8**: a reader learns why the project is shaped this way without opening the code,
-  and a user of the Python library or the CLI has a guide that does not go stale.
+  and a user of the Python library or the DuckDB extension has a guide that does not go stale.
 - After **9**: adding a transaction set is writing a spec, the toolkit's promise made good
   beyond the 835; `pyx12`'s maps cross-check our specs and seed the new ones.
 - After **7**: a payer or a clearinghouse writes an 835 from its database with one SQL per
@@ -69,9 +69,9 @@ Order after Stage 5b (owner, 2026-10-04): backlog sprint 2 → **Stage 6 → `0.
 | D7 · Writer | 7 (scheduled 2026-10-03) | Case: generate `.RMT` from relational data; input is our table schema via Arrow; DuckDB as the ingestion adapter outside the core |
 | D12 · Compatibility with `edi-835-parser` | 5b | Can a data-only `tables` spec reproduce its DataFrame exactly? Measures N3 and gives a migration path for its users |
 | D14 · Durable documentation | 8 | What belongs in the book (ideas, patterns, concepts, guides) vs. what stays in rustdoc and the plans (code, signatures); format and where it lives |
-| D15 · X12 family toolkit (837…) | 9 | Naming (crate and binary no longer 835-specific), one spec per transaction set, what the CLI exposes, which 835 assumptions leaked into code |
+| D15 · X12 family toolkit (837…) | 9 | Naming (crate no longer 835-specific), one spec per transaction set, which 835 assumptions leaked into code |
 | D16 · `pyx12` interop | 9 (maps as oracle/generator) and 9b (validate, ContextReader, optional) | Complement, not imitate: their maps and validation, our speed and tables |
-| D17 · Bindings for other languages | After Stage 7, D15 naming and API stability (1.0 criteria) | Recommended first artifact: a C API that exports tables and diagnostics through the Arrow C Data Interface (native speed, zero-copy, reaches nearly every language with a C FFI), plus Arrow IPC for JS; Go and Node as thin wrappers on demand; WASM second, only for browser or sandbox cases (slower than native, tables copied out); no precompiled binaries in git |
+| D17 · Bindings for other languages | After Stage 7, D15 naming and API stability (1.0 criteria) | Owner's choice (2026-10-04): first a **DuckDB extension** (`read_835(...)` as a table function; DuckDB's clients in Python, R, Java, Node, Go, .NET and Rust carry it to every language, and `COPY ... TO 'x.parquet'` covers file export), after a spike that confirms Rust extensions are viable; a C API with the Arrow C Data Interface only for in-process cases DuckDB does not reach; WASM only for browser or sandbox. A standalone CLI is dropped: DuckDB's own CLI does the conversion. Survey: `.superpowers/835-parsers-other-languages-survey.md` |
 | D13 · Module layout | 5c | Resolved by T37–T44 (2026-10-04) |
 | D3 · WASM/Extism extensions | never, unless data patches prove insufficient | — |
 

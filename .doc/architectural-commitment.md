@@ -300,13 +300,13 @@ carga su prueba de costura con la capa inferior (N7).
   ideas, los conceptos y los patrones que rigen el proyecto (lossless por construcción,
   motor genérico y estándar como datos, pull, sans-IO, errores que se explican solos,
   columnas con disposición Arrow), sin fragmentos de código ni referencias a líneas, para
-  que no exija mantenimiento continuo; más guías de uso de la librería Python y del binario.
+  que no exija mantenimiento continuo; más guías de uso de la librería Python y de la extensión de DuckDB.
   Lo que sí cambia con el código (firmas, ejemplos) se queda en rustdoc y en los planes.
 - **D15 · Toolkit para la familia X12** (835 primero, 837 después): el motor, el formato
-  de spec, la proyección y el binario no saben nada del 835 más allá de la spec built-in, así
+  de spec, la proyección no saben nada del 835 más allá de la spec built-in, así
   que otro conjunto de transacciones con la misma lógica de loops y otras definiciones de
-  segmentos debería entrar como una spec más. A decidir: nombres (crate y binario dejan de
-  ser "835"), una spec por conjunto de transacciones, qué expone el CLI, y qué suposiciones
+  segmentos debería entrar como una spec más. A decidir: nombres (el crate deja de
+  ser "835"), una spec por conjunto de transacciones, y qué suposiciones
   del 835 se colaron en código (auditar antes de abrir la 837).
 - **D16 · Interoperabilidad con `pyx12`** (acordada 2026-10-03). `pyx12` es el validador
   HIPAA X12 de referencia en Python (BSD, activo), con mapas XML por guía de implementación
@@ -347,6 +347,21 @@ carga su prueba de costura con la capa inferior (N7).
   tablas salen de la memoria lineal copiadas o serializadas. Recomendación: primero la API C
   (C Data Interface más Arrow IPC); Go y Node como envoltorios delgados sobre ella bajo demanda;
   WASM como segundo artefacto solo si aparece un caso de navegador o sandbox.
+  **Decisión del dueño (2026-10-04): entrar por DuckDB.** El proyecto nació porque la única
+  opción era `edi-835-parser`, atada a Python, y se quedó corta: ignoraba en silencio los
+  segmentos que no sabía manejar. La investigación de otros lenguajes
+  (`.superpowers/835-parsers-other-languages-survey.md`) confirma el hueco: ningún lenguaje está
+  bien servido; Java, .NET y Ruby tienen motores X12 genéricos (StAEDI, EdiFabric, stupidedi)
+  pero ninguno entrega el 835 como tablas; la única salida tabular es Ember de Databricks, atada a
+  Spark y con licencia no abierta; R, Snowflake y dbt no tienen nada; nadie garantiza salida sin
+  pérdidas ni publica benchmarks. Primer artefacto: una **extensión de DuckDB** con una función de
+  tabla (`read_835(...)`, una por tabla o con parámetro) y los diagnósticos como tabla; los
+  clientes de DuckDB (Python, R, Java, Node, Go, .NET, Rust) la llevan a cada lenguaje sin que
+  mantengamos bindings, y `COPY ... TO 'x.parquet'` desde el CLI de DuckDB cubre la exportación a
+  archivos. Antes del §7, un spike confirma que una extensión escrita en Rust es viable
+  (API C de extensiones, repositorio de extensiones comunitarias, plataformas y versiones de
+  DuckDB soportadas). La API C con Arrow queda para casos en proceso que DuckDB no cubra; WASM,
+  para navegador o sandbox. **Descartado un CLI propio**: el de DuckDB hace la conversión.
 - **D7 · Stage 7, Escritor** → programado el 2026-10-03, tras 5b y Stage 6, con un caso real:
   generar un 835 (`.RMT`) a partir de datos en bases relacionales. Contrato acordado: la
   entrada es nuestro esquema de tablas (`Tables` del core o Arrow por el mismo protocolo

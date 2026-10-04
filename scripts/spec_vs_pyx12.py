@@ -117,7 +117,11 @@ def _element(node):
     codes = None
     if codes_node is not None:
         external = codes_node.get("external")
-        listed = tuple(code.text or "" for code in codes_node.findall("code"))
+        # An empty <code/> names no value; a list of only empty codes is open.
+        listed = tuple(
+            text for text in ((code.text or "").strip() for code in codes_node.findall("code"))
+            if text
+        )
         if external is None and listed:
             codes = listed
     element = MapElement(
@@ -427,6 +431,10 @@ class Comparison:
             if loop.xid in LOOP_MAP:
                 for seg in loop.segments:
                     uses.setdefault(seg.id, []).append(seg)
+        for seg_id in sorted(set(spec_segments) - set(uses)):
+            self.add("segments", "differs", f"segments:{seg_id}", "-",
+                     f"segment {seg_id} is defined in the spec; no mapped pyx12 loop holds it",
+                     seg_id, None, defined=True)
         for seg_id, places in uses.items():
             merged = aggregate(places)
             ours = spec_segments.get(seg_id)
@@ -439,6 +447,7 @@ class Comparison:
                 continue
             elements = ours.get("elements", {})
             names = {d.get("name") for d in elements.values()}
+            self.spec_only(seg_id, elements, merged, places)
             for (position, component), agg in merged.items():
                 if component is not None:
                     continue
@@ -451,6 +460,29 @@ class Comparison:
                         if pos == position and comp is not None:
                             self.compare_element(seg_id, position, comp, cagg,
                                                  comps.get(str(comp)), comp_names, merged)
+
+    def spec_only(self, seg_id, elements, merged, places):
+        """Elements and components the spec defines at positions the map
+        never lists for the segment."""
+        loops = ",".join(sorted({LOOP_MAP[use.loop] for use in places}))
+        for key, spec_def in elements.items():
+            position = int(key)
+            if (position, None) not in merged:
+                ref = _ref(seg_id, position)
+                self.add("usage", "differs", f"usage:{ref}", loops,
+                         f"{ref} is defined in the spec; pyx12 lists no such position",
+                         spec_def.get("name"), None, defined=True)
+                continue
+            if not merged[(position, None)].used:
+                # pyx12 does not detail the components of an unused composite;
+                # the element itself is reported as a note.
+                continue
+            for comp_key, comp_def in (spec_def.get("composite") or {}).items():
+                if (position, int(comp_key)) not in merged:
+                    ref = _ref(seg_id, position, int(comp_key))
+                    self.add("usage", "differs", f"usage:{ref}", loops,
+                             f"{ref} is defined in the spec; pyx12 lists no such position",
+                             comp_def.get("name"), None, defined=True)
 
     def draft(self, merged, position=None):
         """Element definitions for every used element (or, with ``position``,
@@ -477,6 +509,7 @@ class Comparison:
         if agg.composite:
             return {"name": name, "type": "AN", **({"required": True} if agg.required else {}),
                     "composite": self.draft(merged, position)}
+        # Without a dataele entry the type is a guess and no lengths are set.
         kind, low, high = self.dataele.get(agg.data_ele, ("AN", None, None))
         out = {"name": name, "type": kind}
         if agg.required:
@@ -517,10 +550,15 @@ class Comparison:
             else:
                 self.add("types", "match", f"types:{ref}", loops, "composite")
             return
-        kind, low, high = self.dataele.get(agg.data_ele, (None, None, None))
-        self.check("types", ref, loops, path + ["type"], "type", spec_def.get("type"), kind)
-        self.check("lengths", ref, loops, path + ["min"], "min", spec_def.get("min"), low)
-        self.check("lengths", ref, loops, path + ["max"], "max", spec_def.get("max"), high)
+        if agg.data_ele in self.dataele:
+            kind, low, high = self.dataele[agg.data_ele]
+            self.check("types", ref, loops, path + ["type"], "type", spec_def.get("type"), kind)
+            self.check("lengths", ref, loops, path + ["min"], "min", spec_def.get("min"), low)
+            self.check("lengths", ref, loops, path + ["max"], "max", spec_def.get("max"), high)
+        else:
+            self.add("types", "note", f"types:{ref}", loops,
+                     f"{ref}: data element {agg.data_ele!r} is not in dataele.xml; type and "
+                     "lengths are not compared")
         spec_codes = spec_def.get("codes")
         map_codes = list(agg.codes) if agg.codes is not None else None
         if spec_codes is None and map_codes is None:

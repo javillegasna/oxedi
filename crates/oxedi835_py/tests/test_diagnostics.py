@@ -4,8 +4,17 @@ from conftest import parse_named, read
 PATH = "interchange#1/group#1/transaction#1/2000#1/2100#1/2110#1"
 
 
+def first(name, kind):
+    """The first diagnostic of ``kind`` on the named file."""
+    return next(d for d in parse_named(name).diagnostics if d.kind == kind)
+
+
 def test_a_diagnostic_carries_level_rule_location_and_datum():
-    d = parse_named("multi_claim_sample.txt").diagnostics[8]
+    d = next(
+        d
+        for d in parse_named("multi_claim_sample.txt").diagnostics
+        if d.kind == "RequiredElementMissing" and d.component == 2
+    )
     assert (d.level, d.kind, d.segment, d.element, d.component) == (
         2,
         "RequiredElementMissing",
@@ -27,7 +36,7 @@ def test_a_diagnostic_carries_level_rule_location_and_datum():
 
 
 def test_an_unknown_segment_has_its_id_as_datum():
-    d = parse_named("multi_claim_sample.txt").diagnostics[4]
+    d = first("multi_claim_sample.txt", "UnknownSegment")
     assert (d.level, d.kind, d.segment, d.element, d.datum) == (
         1,
         "UnknownSegment",

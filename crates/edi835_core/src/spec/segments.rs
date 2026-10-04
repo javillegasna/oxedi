@@ -200,6 +200,13 @@ pub enum ElementDefError {
     /// `codes` was given on an element that declares a `composite`, whose
     /// value is checked component by component.
     CodesOnComposite,
+    /// `codes` was given on a numeric type (`N0` to `N9`, `R`), whose values
+    /// are numbers: `1`, `01` and `1.0` are one value written three ways, so
+    /// a list compared byte for byte would reject some of them.
+    CodesOnNumeric {
+        /// The type code as written.
+        kind: String,
+    },
 }
 
 impl fmt::Display for ElementDefError {
@@ -274,6 +281,10 @@ impl fmt::Display for ElementDefError {
                 f,
                 "\"codes\" applies to a simple element or a component; this element declares a \"composite\""
             ),
+            ElementDefError::CodesOnNumeric { kind } => write!(
+                f,
+                "\"codes\" applies to non-numeric types; type {kind:?} holds numbers, which one value can write several ways (1, 01, 1.0)"
+            ),
         }
     }
 }
@@ -341,6 +352,11 @@ pub(super) fn compile_elements(
         }
         if def.codes.is_some() && !def.composite.is_empty() {
             return Err(fail(ElementDefError::CodesOnComposite));
+        }
+        if def.codes.is_some() && matches!(kind, ElementType::N(_) | ElementType::R { .. }) {
+            return Err(fail(ElementDefError::CodesOnNumeric {
+                kind: def.kind.clone(),
+            }));
         }
         let codes = match &def.codes {
             None => Vec::new(),

@@ -23,13 +23,13 @@ fn interchange(transactions: &[&str]) -> String {
     text
 }
 
-const CLAIM: &str = "BPR*I*10*C*CHK~TRN*1*1~LX*1~CLP*C1*1*10*10~SVC*HC:99213*10*10~";
+const CLAIM: &str = "BPR*I*10*C*CHK************20240101~TRN*1*1*1234567890~LX*1~CLP*C1*1*10*10**MC*X1~SVC*HC:99213*10*10~";
 
 #[test]
 fn one_feed_returns_the_events_and_every_diagnostic_of_its_segment() {
     let spec = Spec::builtin_835();
     let mut processor = Processor::new(&spec, &delimiters());
-    let input = "ST*835*0001~CLP*C1*1*12A*0~";
+    let input = "ST*835*0001~CLP*C1*1*12A*0**MC*X1~";
     let segments: Vec<_> = Tokenizer::with_delimiters(input.as_bytes(), delimiters()).collect();
     processor.feed(&segments[0]);
     let output = processor.feed(&segments[1]);
@@ -83,7 +83,10 @@ fn finishing_reports_what_is_left_open_and_appends_its_rows() {
 #[test]
 fn run_over_a_document_is_feeding_every_segment_then_finishing() {
     let spec = Spec::builtin_835();
-    let input = interchange(&[CLAIM, "BPR*I*1*C*CHK~TRN*1*2~ZZZ~"]);
+    let input = interchange(&[
+        CLAIM,
+        "BPR*I*1*C*CHK************20240101~TRN*1*2*1234567890~ZZZ~",
+    ]);
     let document = Document::with_delimiters(input.as_bytes(), delimiters()).unwrap();
     let (tables, diagnostics) = Processor::run(&spec, &document);
     let mut processor = Processor::new(&spec, &delimiters());

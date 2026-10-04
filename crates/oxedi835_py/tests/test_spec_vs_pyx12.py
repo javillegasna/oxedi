@@ -175,6 +175,39 @@ def test_ignore_entries_need_a_reason(tiny):
         load_script().main(args(tiny, "--check"))
 
 
+def test_check_reports_what_only_the_spec_defines(tiny, capsys):
+    spec = json.loads(tiny["spec"].read_text())
+    spec["segments"]["REF"]["elements"]["3"] = {"name": "extra", "type": "AN"}
+    spec["segments"]["ZZZ"] = {"elements": {"1": {"name": "z", "type": "AN"}}}
+    tiny["spec"].write_text(json.dumps(spec))
+    assert load_script().main(args(tiny, "--check")) == 1
+    err = capsys.readouterr().err
+    assert ("usage:REF03: loop 2100,2110: REF03 is defined in the spec; pyx12 lists no "
+            "such position") in err
+    assert ("segments:ZZZ: loop -: segment ZZZ is defined in the spec; no mapped pyx12 "
+            "loop holds it") in err
+    assert "4 disagreement(s)" in err
+
+
+def test_draft_drops_empty_codes_and_keeps_types_without_a_data_element(tiny, tmp_path):
+    tiny["map.xml"].write_text(
+        MAP.replace("<code>EA</code>", "<code>EA</code><code/>", 1)
+        .replace("<data_ele>127</data_ele><name>Value</name><usage>R</usage>",
+                 "<data_ele>9999</data_ele><name>Value</name><usage>R</usage>", 1)
+    )
+    script = load_script()
+    report, patch = tmp_path / "report.md", tmp_path / "patch.json"
+    assert script.main(args(tiny, "--report", str(report), "--patch", str(patch))) == 0
+    draft = json.loads(patch.read_text())
+    ref = draft["segments"]["REF"]["elements"]
+    assert ref["1"]["codes"] == ["6R", "EA"]
+    # REF02's first place names a data element dataele.xml lacks: its type and
+    # lengths are not compared, so the patch never writes null over them.
+    assert "type" not in ref.get("2", {})
+    assert ("`types:REF02` [2100,2110] REF02: data element '9999' is not in dataele.xml; "
+            "type and lengths are not compared") in report.read_text()
+
+
 def test_real_maps_cover_every_loop(tmp_path):
     pytest.importorskip("pyx12")
     script = load_script()
@@ -200,3 +233,9 @@ def test_real_draft_patches_load_over_the_compared_spec(tmp_path, version):
     # The draft carries code lists, lengths and new definitions in the
     # spec format; the core loads every one of them.
     spec.patch(patch.read_text())
+
+
+@pytest.mark.parametrize("version", ["5010"])
+def test_real_spec_agrees_with_the_map(version, capsys):
+    pytest.importorskip("pyx12")
+    assert load_script().main(["--check", "--version", version]) == 0, capsys.readouterr().err

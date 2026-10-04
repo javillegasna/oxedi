@@ -12,7 +12,7 @@ fn codes_load_sorted_on_elements_and_components() {
             "3":{"name":"pair","type":"AN","composite":{
                 "1":{"name":"kind","type":"ID","codes":["HC","AD","N4"]}
             }},
-            "4":{"name":"count","type":"N0","max":2,"codes":["-12","7"]}
+            "4":{"name":"stamp","type":"TM","min":4,"max":4,"codes":["1200","0000"]}
         }}}}"#,
     )
     .unwrap();
@@ -25,8 +25,7 @@ fn codes_load_sorted_on_elements_and_components() {
     assert_eq!(codes(1, None), vec!["PE", "PR"]);
     assert!(codes(2, None).is_empty());
     assert_eq!(codes(3, Some(1)), vec!["AD", "HC", "N4"]);
-    // Numeric lengths count digits only, as the element check does.
-    assert_eq!(codes(4, None), vec!["-12", "7"]);
+    assert_eq!(codes(4, None), vec!["0000", "1200"]);
 }
 
 #[test]
@@ -65,15 +64,14 @@ fn every_code_list_fault_names_the_position_and_the_code() {
             },
         ),
         (
-            r#"{"1":{"name":"a","type":"N0","max":2,"codes":["-123"]}}"#,
+            r#"{"1":{"name":"a","type":"N0","max":2,"codes":["1"]}}"#,
             "1",
-            ElementDefError::CodeLength {
-                index: 0,
-                code: "-123".into(),
-                length: 3,
-                min: None,
-                max: Some(2),
-            },
+            ElementDefError::CodesOnNumeric { kind: "N0".into() },
+        ),
+        (
+            r#"{"1":{"name":"a","type":"AN","composite":{"3":{"name":"b","type":"R","codes":["1.0"]}}}}"#,
+            "1.composite.3",
+            ElementDefError::CodesOnNumeric { kind: "R".into() },
         ),
         (
             r#"{"1":{"name":"a","type":"ID","codes":["AB","CD","AB"]}}"#,
@@ -149,6 +147,10 @@ fn code_list_faults_display_segment_position_and_code() {
     assert_eq!(
         at("4", ElementDefError::CodesOnComposite),
         "segment \"N1\" element \"4\": \"codes\" applies to a simple element or a component; this element declares a \"composite\""
+    );
+    assert_eq!(
+        at("2", ElementDefError::CodesOnNumeric { kind: "N0".into() }),
+        "segment \"N1\" element \"2\": \"codes\" applies to non-numeric types; type \"N0\" holds numbers, which one value can write several ways (1, 01, 1.0)"
     );
 }
 

@@ -382,7 +382,7 @@ proptest! {
     }
 }
 
-/// Code lists on a required element, an optional one, a numeric one and a
+/// Code lists on a required element, an optional one, a time and a
 /// component; each segment has a table that reads every element.
 const CODED_SPEC: &str = r#"{"name":"coded",
     "loops":{"head":{"trigger":{"segment":"HD"},"segments":["CD","PX"],"end":"TR"}},
@@ -390,7 +390,7 @@ const CODED_SPEC: &str = r#"{"name":"coded",
         "CD":{"elements":{
             "1":{"name":"qualifier","type":"ID","required":true,"min":2,"max":3,"codes":["PE","PR"]},
             "2":{"name":"optional_code","type":"ID","min":1,"max":2,"codes":["A"]},
-            "3":{"name":"count","type":"N0","max":2,"codes":["1","12"]},
+            "3":{"name":"stamp","type":"TM","min":4,"max":4,"codes":["0000","1200"]},
             "4":{"name":"free","type":"AN"}
         }},
         "PX":{"elements":{
@@ -403,7 +403,7 @@ const CODED_SPEC: &str = r#"{"name":"coded",
     "tables":{
         "cd":{"loops":["head"],"segment":"CD","columns":{
             "qualifier":{"element":1},"optional_code":{"element":2},
-            "count":{"element":3},"free":{"element":4}
+            "stamp":{"element":3},"free":{"element":4}
         }},
         "px":{"loops":["head"],"segment":"PX","columns":{
             "kind":{"element":1,"component":1},"code":{"element":1,"component":2}
@@ -424,9 +424,9 @@ fn coded_parity(input: &str) -> Vec<Diagnostic> {
 #[test]
 fn values_outside_their_code_list_raise_the_same_diagnostic_read_or_unread() {
     let input = "HD~\
-        CD*PR*A*12*anything~\
-        CD*PE**1~\
-        CD*XX*B*7~\
+        CD*PR*A*1200*anything~\
+        CD*PE**0000~\
+        CD*XX*B*0700~\
         PX*HC:99213~\
         PX*ZZ:99213~\
         PX*AD~\
@@ -437,7 +437,7 @@ fn values_outside_their_code_list_raise_the_same_diagnostic_read_or_unread() {
         vec![
             "SNIP 2 · element CD01 (qualifier) is not one of the 2 codes the spec lists for it · segment #3, element 1 · at head#1 · datum \"XX\"",
             "SNIP 2 · element CD02 (optional_code) is not the one code the spec lists for it · segment #3, element 2 · at head#1 · datum \"B\"",
-            "SNIP 2 · element CD03 (count) is not one of the 2 codes the spec lists for it · segment #3, element 3 · at head#1 · datum \"7\"",
+            "SNIP 2 · element CD03 (stamp) is not one of the 2 codes the spec lists for it · segment #3, element 3 · at head#1 · datum \"0700\"",
             "SNIP 2 · element PX01-1 (kind) is not one of the 2 codes the spec lists for it · segment #5, element 1, component 1 · at head#1 · datum \"ZZ\"",
         ]
     );
@@ -448,8 +448,8 @@ fn a_value_that_fails_its_type_or_length_is_not_also_reported_against_its_codes(
     // Empty optional values and empty composites raise nothing; an empty
     // required value is reported as missing, never as a code.
     let input = "HD~\
-        CD*PRXX*ABC*123~\
-        CD*P*A*X~\
+        CD*PRXX*ABC*120000~\
+        CD*P*A*2599~\
         CD*~\
         PX*~\
         PX*:1~\
@@ -476,7 +476,7 @@ proptest! {
     fn code_diagnostics_do_not_depend_on_what_columns_read(
         values in proptest::collection::vec(
             proptest::collection::vec(
-                proptest::sample::select(b"PERAHCD127:".to_vec()),
+                proptest::sample::select(b"PERAHCD1207:".to_vec()),
                 0..4,
             ),
             5,

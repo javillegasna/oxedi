@@ -82,12 +82,19 @@ unmapped REF/AMT; native `count_claims`/`count_patients`/`sum_payments` (Decimal
 `payee`, `to_polars`/`to_pandas` behind extras; CI parity with the real library, DuckDB test,
 `scripts/compat_oracle.py` for the originals. 338 cargo + 240 pytest. Known: compat is
 0.76–0.93x the library's speed (#55, profile: per-row Python object layer, native parse 19.5 ms
-on united); documented divergences in the README. Ledger `analysis/stage-5b-ledger.md`. Next:
-backlog sprint 2 (16 issues, briefs in `.superpowers/sdd/backlog-sprint-2/`), then Stage 6
-(wheel matrix, trusted publishing, release workflow) and `0.1.0` on PyPI, then 5c, 7, 8, 9
-(owner moved Stage 6 ahead of 5c on 2026-10-04); then Stage 6 (wheel matrix,
-trusted publishing, `0.1.0`), 5c (D13), Stage 7 (writer), 8 (durable docs), 9 (X12
-family + `pyx12` maps).
+on united); documented divergences in the README. Ledger `analysis/stage-5b-ledger.md`.
+
+Backlog sprint 2 (16 issues; ledger `analysis/backlog-sprint-2-ledger.md`) is in PR: compat frame
+built column-wise (united 82 ms vs the library's ~320 ms), sdist without tests, MIT `LICENSE` and
+`THIRD_PARTY_NOTICES` shipped in sdist and wheel, key paths for unknown and missing spec keys,
+`Rule::kind` and the table renderer in the core, a UTF-8 BOM accepted losslessly
+(`Rule::ByteOrderMark`, SNIP 1 by owner ruling), trivia-only input reported as such, patient ids
+counted as text. 361 cargo + 268 pytest. Open board after it: #39, #45, #53 (design) and #64.
+
+Next (owner moved Stage 6 ahead of 5c on 2026-10-04): Stage 6 (wheel matrix, trusted publishing,
+release workflow; build the sdist on Linux because the LICENSE symlinks do not survive a Windows
+checkout) and `0.1.0` on PyPI, then 5c (D13), Stage 7 (writer), 8 (durable docs), 9 (X12 family
++ `pyx12` maps).
 
 Stage 4 decisions, settled in §7 (kept for reference):
 The decisions that were open, now settled in §7:

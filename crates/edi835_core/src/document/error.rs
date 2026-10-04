@@ -17,7 +17,7 @@ impl SizeError {
     pub const LIMIT: usize = u32::MAX as usize;
 
     /// `Ok` when an input of `len` bytes can be indexed.
-    pub(crate) const fn check(len: usize) -> Result<(), SizeError> {
+    pub(super) const fn check(len: usize) -> Result<(), SizeError> {
         if len > Self::LIMIT {
             Err(SizeError { len })
         } else {

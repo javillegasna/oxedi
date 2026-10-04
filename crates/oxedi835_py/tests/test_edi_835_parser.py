@@ -237,6 +237,28 @@ def test_a_synthetic_file_equals_the_library(tmp_path):
         compat.parse(path).to_dataframe(), old(path).to_dataframe(), check_exact=True)
 
 
+def two_transactions():
+    """One interchange holding the transactions of ``synthetic(payee_name="FIRST")``
+    and ``synthetic(payee_name="SECOND")``."""
+    first, second = (synthetic(payee_name=name).decode("latin-1").split("~")[:-1] for name in ("FIRST", "SECOND"))
+    body = [s.replace("ST*835*0001", "ST*835*0002").replace("SE*13*0001", "SE*13*0002") for s in second[2:-2]]
+    segments = first[:-2] + body + ["GE*2*1", "IEA*1*000000001"]
+    return "~".join(segments).encode("latin-1") + b"~"
+
+
+def test_each_transaction_of_a_file_has_only_its_own_rows():
+    sets = list(compat.parse_bytes(two_transactions()))
+    assert [t.payee.organization.name for t in sets] == ["FIRST", "SECOND"]
+    for transaction_set, name in zip(sets, ("FIRST", "SECOND")):
+        (alone,) = list(compat.parse_bytes(synthetic(payee_name=name)))
+        pd.testing.assert_frame_equal(transaction_set.to_dataframe(), alone.to_dataframe(), check_exact=True)
+        pd.testing.assert_frame_equal(
+            transaction_set.to_dataframe(extended=True).drop(columns="x_claim"),
+            alone.to_dataframe(extended=True).drop(columns="x_claim"), check_exact=True)
+        assert [c.claim.icn for c in transaction_set.claims] == ["ICN1"]
+    assert list(compat.parse_bytes(two_transactions()).to_dataframe(extended=True).x_claim) == [0, 1]
+
+
 def test_availity_and_zirmed_are_named_as_the_library_names_them(tmp_path):
     path = tmp_path / "a.835"
     path.write_bytes(synthetic(sender="AV09311993", receiver="ZIRMED"))

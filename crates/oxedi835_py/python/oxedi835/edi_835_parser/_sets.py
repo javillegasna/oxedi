@@ -11,6 +11,7 @@ from typing import Iterator, List, Optional
 from .. import ParseError
 from . import _codes
 from ._convert import date, integer, money, readable, text, written
+from ._frame import strict
 from ._tables import load, position
 from ._views import (
     Address, Claim, FinancialInformation, Interchange, Location, Organization,
@@ -131,42 +132,16 @@ class TransactionSet:
             "was_forwarded": status.was_forwarded,
         }
 
-    @classmethod
-    def service_record(cls, financial_information, payer, claim, service) -> dict:
-        """One row of ``to_dataframe``: the serialized service and its
-        adjustments, references and remarks numbered from 0."""
-        datum = cls.serialize_service(financial_information, payer, claim, service)
-        for n, adjustment in enumerate(service.adjustments):
-            datum[f"adj_{n}_group"] = adjustment.group_code.code
-            datum[f"adj_{n}_code"] = adjustment.reason_code.code
-            datum[f"adj_{n}_amount"] = adjustment.amount
-        for n, reference in enumerate(service.references):
-            datum[f"ref_{n}_qual"] = reference.qualifier.code
-            datum[f"ref_{n}_value"] = reference.value
-        for n, remark in enumerate(service.remarks):
-            datum[f"rem_{n}_qual"] = remark.qualifier.code
-            datum[f"rem_{n}_code"] = remark.code.code
-        return datum
-
     def to_dataframe(self, extended: bool = False):
         """One row per service, as edi-835-parser builds it; with ``extended``,
         also the rows and ``x_`` columns that frame leaves out (claim-only and
         provider-adjustment rows can widen strict columns' dtypes: ``int`` to
         ``float``, ``bool`` to ``object``)."""
-        import pandas as pd
-
         if extended:
             from ._extended import frame
 
             return frame([self])
-        services = [(claim, service) for claim in self.claims for service in claim.services]
-        if not services:
-            return pd.DataFrame([])
-        financial_information, payer = self.financial_information, self.payer
-        return pd.DataFrame([
-            self.service_record(financial_information, payer, claim, service)
-            for claim, service in services
-        ])
+        return strict(self)
 
 
 class TransactionSets:

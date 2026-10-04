@@ -14,6 +14,12 @@ ENCODING = locale.getpreferredencoding(False)
 STRIPPED = bytes(byte for byte in range(128) if chr(byte).isspace())
 
 
+def unpadded(raw):
+    """``raw`` without the trailing ASCII whitespace that ``str.strip``
+    removes, as the library strips each segment before splitting it."""
+    return raw.rstrip(STRIPPED)
+
+
 def readable(data):
     """Decodes ``data`` as the library's ``open()`` does, so a byte that the
     encoding cannot read fails here, before parsing, as it does in the library."""
@@ -57,7 +63,7 @@ def date(value, document, index, element):
         return None
     raw = elements[element - 1]
     if element == len(elements) and isinstance(raw, bytes):
-        raw = raw.rstrip(STRIPPED)
+        raw = unpadded(raw)
     return library_date(raw.decode(ENCODING) if isinstance(raw, bytes) else "")
 
 

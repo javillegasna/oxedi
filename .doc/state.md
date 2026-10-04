@@ -1,4 +1,4 @@
-# State — 2026-10-04 (0.1.0 published on PyPI)
+# State — 2026-10-04 (0.1.0 on PyPI; Stage 5c in PR)
 
 Snapshot for picking the project up cold. Update when a stage changes state.
 
@@ -104,6 +104,14 @@ user-facing part and the edi-835-parser migration guide lives in `docs/`.
 (7 files, GitHub release with the changelog notes). The first `v0.1.0` attempt failed a flaky
 GIL timing test on musllinux; re-running the failed jobs passed, and the test was replaced by a
 thread-progress check (#70). Open after the release: #66, #71 (`__version__`), token clean-up.
+
+Stage 5c is in PR (2026-10-04, branch `stage-5c-modules`): the core is one folder per module
+(`x/mod.rs`, unit tests in `x/tests.rs` or `x/tests/` by topic; clippy `self_named_module_files`
+denies the `x.rs` + `x/` form); `spec` and `project` are split by responsibility; a test names
+every public item by its module path; benches are one file per layer with unchanged group ids.
+No behaviour change: same tests (lib 300, pytest 270), goldens untouched, rustdoc pages
+identical, bench within +3.3% of master. Closes #64 and #71 (`oxedi835.__version__`); new board
+items #73 (type stubs) and #74 (Changelog link). Next: #39 and #45 together, then Stage 7.
 
 Release path: `make release-check TAG=v0.1.0rc1 && make tag` → approve `testpypi` → bump to `0.1.0`
 and date the changelog → tag `v0.1.0` → approve `pypi` → revoke the account-wide tokens, delete the

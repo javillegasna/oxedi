@@ -71,7 +71,7 @@ Order after Stage 5b (owner, 2026-10-04): backlog sprint 2 → **Stage 6 → `0.
 | D14 · Durable documentation | 8 | What belongs in the book (ideas, patterns, concepts, guides) vs. what stays in rustdoc and the plans (code, signatures); format and where it lives |
 | D15 · X12 family toolkit (837…) | 9 | Naming (crate and binary no longer 835-specific), one spec per transaction set, what the CLI exposes, which 835 assumptions leaked into code |
 | D16 · `pyx12` interop | 9 (maps as oracle/generator) and 9b (validate, ContextReader, optional) | Complement, not imitate: their maps and validation, our speed and tables |
-| D17 · Bindings for other languages | After Stage 7, D15 naming and API stability (1.0 criteria) | One artifact that unlocks several languages first: a C API exporting tables through the Arrow C Data Interface, or a WASM build (Go via `wazero` without CGO, Node and the browser); NAPI-RS for Node and a Go module only on demand; no precompiled binaries in git |
+| D17 · Bindings for other languages | After Stage 7, D15 naming and API stability (1.0 criteria) | Recommended first artifact: a C API that exports tables and diagnostics through the Arrow C Data Interface (native speed, zero-copy, reaches nearly every language with a C FFI), plus Arrow IPC for JS; Go and Node as thin wrappers on demand; WASM second, only for browser or sandbox cases (slower than native, tables copied out); no precompiled binaries in git |
 | D13 · Module layout | 5c | Resolved by T37–T44 (2026-10-04) |
 | D3 · WASM/Extism extensions | never, unless data patches prove insufficient | — |
 

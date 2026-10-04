@@ -333,6 +333,20 @@ carga su prueba de costura con la capa inferior (N7).
   sin CGO y con `go get` simple; Node y navegador con un artefacto). NAPI-RS para Node y un módulo
   Go dedicado solo si hay demanda. Descartados: binarios precompilados dentro del repo y renombrar
   `oxedi835_py`.
+  Comparación (2026-10-04): la **API C con el Arrow C Data Interface** es la que más integraciones
+  libera sin penalizar el rendimiento: casi todo lenguaje llama a C (Go, Java por Panama, C# por
+  P/Invoke, Ruby, PHP, Dart, Julia, R, Swift, Zig; Node con un wrapper fino), el núcleo corre
+  nativo y la frontera se cruza una vez por archivo; las tablas salen sin copia por el mismo ABI
+  que leen `arrow-go`, Arrow Java y C#, R, Julia, DuckDB y Polars (el mecanismo es el del
+  PyCapsule de Python), y los diagnósticos pueden salir también como tabla Arrow, de modo que la
+  API queda en parsear, exportar y liberar. Coste: `unsafe` y contrato de propiedad de punteros
+  confinados al crate C, y un binario por plataforma reutilizando la matriz de release. JS
+  (`apache-arrow`) no lee el C Data Interface, así que la API C entrega también Arrow IPC.
+  **WASM** llega a más sitios (un binario para todas las plataformas, sandbox, navegador, Go sin
+  CGO) pero corre por debajo de nativo (cuánto depende del runtime y del SIMD; se mide) y las
+  tablas salen de la memoria lineal copiadas o serializadas. Recomendación: primero la API C
+  (C Data Interface más Arrow IPC); Go y Node como envoltorios delgados sobre ella bajo demanda;
+  WASM como segundo artefacto solo si aparece un caso de navegador o sandbox.
 - **D7 · Stage 7, Escritor** → programado el 2026-10-03, tras 5b y Stage 6, con un caso real:
   generar un 835 (`.RMT`) a partir de datos en bases relacionales. Contrato acordado: la
   entrada es nuestro esquema de tablas (`Tables` del core o Arrow por el mismo protocolo

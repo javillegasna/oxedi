@@ -9,7 +9,7 @@ trap 'rm -rf "$work"' EXIT
 
 maturin build --release --manifest-path "$repo/crates/oxedi835_py/Cargo.toml" --out "$work/dist"
 uv venv --quiet --python "$(command -v python)" "$work/venv"
-VIRTUAL_ENV="$work/venv" uv pip install --quiet "$work"/dist/oxedi835-*.whl pytest polars pyarrow
+VIRTUAL_ENV="$work/venv" uv pip install --quiet "$work"/dist/oxedi835-*.whl pytest polars pyarrow pandas "edi-835-parser==1.8.0" duckdb
 cp -r "$repo/crates/oxedi835_py/tests" "$work/tests"
 
 cd "$work"

@@ -339,7 +339,18 @@ carga su prueba de costura con la capa inferior (N7).
   diagnósticos, y `pyx12` (D16) valida lo generado contra la guía. Prerrequisito dentro del
   mismo stage: D11 (orden y cardinalidad de segmentos por loop, reglas de cuadre), porque la
   lectura toma "el primer segmento que cumple `where`" y la escritura necesita orden y número
-  de repeticiones; y elegir versión (4010 o 5010) por salida, fijando `ISA12`/`GS08`. La mitad
+  de repeticiones; y elegir versión (4010 o 5010) por salida, fijando `ISA12`/`GS08`.
+  **Exportación a SQLite (acordada el 2026-10-04).** Una función que vuelca un resultado a una
+  base SQLite con `sqlite3` de la biblioteca estándar (sin dependencias nuevas): las cinco
+  tablas con claves foráneas por los ordinales de padre, importes como decimal exacto en `TEXT`
+  (nunca `REAL`), fechas ISO 8601, versión del esquema en `PRAGMA user_version`; y, con
+  `include_raw=True`, una tabla `files` (delimitadores, versión, nombre) y una tabla `segments`
+  con cada segmento crudo, su índice, su loop y su archivo, de modo que la base conserva el
+  archivo sin pérdida. Su valor hoy es interno: oráculo de ida y vuelta del escritor (archivos
+  → SQLite → adaptador → `.RMT` → `parse` → mismas tablas y cero diagnósticos; con la capa
+  cruda, idéntico byte a byte) y forma cómoda de explorar los samples con SQL. Nace como
+  herramienta de desarrollo dentro del Stage 7 (o antes si la queremos para análisis) y solo
+  pasa a API pública documentada si aparece demanda de usuarios. La mitad
   del trabajo ya la paga el round-trip de Stage 1 (serializar segmentos con escape) y la otra
   mitad T4.
 
@@ -898,3 +909,112 @@ no supuesto; errores Rust a excepciones Python conservando el texto.
 
 **Fuera de alcance.** Publicar en PyPI y la matriz manylinux/macOS/Windows (Stage 6);
 `asyncio`; API orientada a objetos del 835 (5b); escritor (D7); tokenizer por trozos (D6).
+
+### Stage 5b · Compatibilidad con `edi-835-parser` — APROBADO 2026-10-04
+
+Oráculo de compatibilidad frente a la única librería Python específica del 835 con usuarios
+reales (sondeo del 2026-10-03), y camino de migración en dos velocidades. Resuelve D12.
+
+**Propósito.** Demostrar sobre archivos reales que la spec-dato reproduce el resultado de una
+librería escrita a mano (N3), mostrar con los mismos archivos lo que esa librería pierde y
+nosotros conservamos (N1), y ofrecer a sus usuarios un cambio de `import` hoy y una migración
+a nuestra API nativa mañana.
+
+**Hechos de partida** (`edi-835-parser` 1.8.0, medidos el 2026-10-04 sobre `united`).
+`to_dataframe()` devuelve una fila por servicio (6.192); los claims sin servicios no aparecen.
+26 columnas, de las que `adj_<n>_{group,code,amount}` y `ref_<n>_{qual,value}` son
+dinámicas: hay tantas como repeticiones máximas tenga el archivo. Importes en `float64`,
+fechas en `datetime64`, `was_forwarded` booleano. `count_claims()` 1.332, `count_patients()`
+1.212, `sum_payments()` 173.305,0 (float). `payer`/`payee` son objetos con `name`,
+`identification_code`, `address`, `location`. La librería hace `int()` sobre `N104` y falla
+con ids `XV` alfanuméricos (#46).
+
+**Decisiones de diseño (cada una con la alternativa descartada).**
+- **T25 · El DataFrame compatible sale de una spec, y lo dinámico se resuelve con una tabla
+  larga y un pivote.** Una spec `edi_835_parser` (parche sobre la built-in, en
+  `specs/edi_835_parser.json`) declara una tabla `rows` anclada en `2110` con las columnas
+  fijas de esa librería y tres tablas largas, `rows_adjustments` (grupos `CAS` del servicio),
+  `rows_references` (`REF` del servicio) y `rows_remarks` (`LQ` del servicio), con su ordinal
+  dentro del servicio. La capa Python pivota las largas a `adj_<n>_*` / `ref_<n>_*` /
+  `rem_<n>_*` en el mismo orden que la librería. Lo que el formato `tables` aún no expresa
+  (leer un loop que envuelve, distinguir ausente de vacío, elegir la última coincidencia) se
+  calcula en Python con una línea de justificación cada uno y queda en una issue para
+  extender el formato antes del escritor. Toda la
+  semántica del 835 (qué segmento, qué cualificador, qué elemento) es dato; el código solo
+  pivota y convierte tipos. Descartado reconstruir las 26 columnas con joins en Python sobre
+  nuestras tablas nativas: escondería en código lo que la spec debe probar.
+- **T26 · Paridad estricta por defecto; lo recuperado, a petición.** `to_dataframe()` devuelve
+  exactamente lo que devuelve la librería (mismas filas, columnas, orden y tipos: `float64`,
+  `datetime64`, `bool`); `to_dataframe(extended=True)` añade los claims sin servicios, los
+  ajustes a nivel de claim, `PLB` y los `REF`/`AMT` que la librería no mapea, cada columna
+  añadida con prefijo `x_` para que nunca choque. El diff entre ambos es la demostración de
+  la parte 2. Descartado devolver siempre más: rompería a quien migra.
+- **T27 · Superficie completa en `oxedi835.edi_835_parser`, tras el extra
+  `oxedi835[edi-835-parser]`.** `parse(path | dir) -> TransactionSets`; `TransactionSets` con
+  `__iter__`, `__len__`, `__repr__`, `count_claims`, `count_patients`, `sum_payments`,
+  `sort_columns`, `to_dataframe`; `TransactionSet` con `payer`, `payee`, `to_dataframe`,
+  `serialize_service`, y los objetos `interchange`, `financial_information`, `claims`,
+  `organizations`, `Claim` (`claim`, `entities`, `services`, `references`, `dates`, `amount`)
+  y `Service` (`service`, `dates`, `references`, `remarks`, `amount`, `adjustments`) como
+  vistas de solo lectura sobre nuestro `Document` y nuestras tablas, sin reinterpretar bytes.
+  El extra declara `pandas` y `pyarrow`; el paquete base no gana dependencias. Descartado el
+  nombre genérico "compat". **Extensión acordada el 2026-10-04: lectura desde bytes**, la
+  carencia que más sufren sus usuarios (la librería solo acepta rutas y obliga a escribir a
+  disco lo que llega de S3, de una API o de una base de datos). `parse(path, debug=False)` es
+  un reemplazo directo: misma firma y mismo comportamiento que el original (ruta o
+  directorio, nada más); la lectura desde memoria se añade con métodos propios,
+  `parse_bytes(data, file_path=None)` (`bytes`/`bytearray`/`memoryview`),
+  `parse_file_obj(f, file_path=None)` (objetos binarios con `read()`) y `parse_many(items)`
+  para una lista de bytes o de archivos; `file_path` rellena el atributo
+  que la librería guarda en cada `TransactionSet` (por defecto `"<bytes>"`). Todo cae en el
+  mismo `oxedi835.parse` con el GIL liberado; leer de ruta o de bytes da el mismo
+  DataFrame, y un test lo comprueba. Ante archivos vacíos o que no son 835, la capa imita a
+  la librería (devuelve un conjunto con `interchange` vacío y sigue); esa tolerancia vive solo
+  en `oxedi835.edi_835_parser`: la API nativa mantiene el `ParseError` estricto (P10).
+- **T28 · Equivalentes nativos sin pandas.** En `oxedi835.Result`: `count_claims()`,
+  `count_patients()`, `sum_payments() -> Decimal`, `payer`, `payee`; en `Tables`/`Table`:
+  `to_polars()` y `to_pandas()` con importación perezosa y error que nombra el extra
+  (`oxedi835[polars]`, `oxedi835[pandas]`). Se calculan sobre las tablas Arrow, no sobre
+  pandas. La tabla "método viejo → método nuevo" va en el README ahora y en el libro de
+  Stage 8.
+- **T29 · Dos oráculos.** (a) `scripts/compat_oracle.py` lee un directorio fuera del repo (los
+  originales), corre ambas librerías con el shim de `N104` y escribe un informe de
+  diferencias por archivo y columna sin volcar datos; no es un gate. (b) En CI, el mismo
+  cotejo sobre los seis samples anonimizados con `edi-835-parser` instalado como dependencia
+  de desarrollo y el shim aplicado: `to_dataframe()` igual celda a celda (`pandas.testing.
+  assert_frame_equal`), y `count_*`/`sum_payments` iguales. Los goldens de la tabla `rows` se
+  generan como los demás. Además, un test con `duckdb` (dependencia de desarrollo) consulta
+  las tablas por PyCapsule.
+
+**Entregable / contrato.**
+- `specs/edi_835_parser.json` (parche sobre la built-in) con las tablas `rows`,
+  `rows_adjustments`, `rows_references` y, para `extended`, las tablas que recuperan lo que la
+  librería pierde. Si alguna columna exige algo que la sección `tables` no expresa, se anota
+  como límite del formato y se decide en el plan si se extiende el formato o se calcula en la
+  capa Python con una línea de justificación.
+- `crates/oxedi835_py/python/oxedi835/edi_835_parser/` (paquete Python puro sobre el binding)
+  y los métodos nativos de T28 en el binding o en Python, delegando en el core.
+- `pyproject.toml`: extras `edi-835-parser`, `pandas`, `polars`; dependencias de desarrollo
+  `edi-835-parser`, `duckdb`.
+- README: sección "Coming from edi-835-parser" con los dos caminos y la tabla de métodos.
+
+**Gate de verificación (salida del Stage 5b).**
+- CI: `assert_frame_equal` entre `edi_835_parser.parse(...).to_dataframe()` y
+  `oxedi835.edi_835_parser.parse(...).to_dataframe()` en los seis samples, leyendo tanto de
+  ruta como de bytes y de archivo abierto (las tres entradas dan el mismo DataFrame); `count_claims`,
+  `count_patients`, `sum_payments` iguales; `payer`/`payee` con los mismos campos.
+- `extended=True` añade filas y columnas solo con prefijo `x_`, y un test enumera, por
+  archivo, lo recuperado (claims sin servicios, ajustes de claim, `PLB`).
+- Informe de `compat_oracle.py` sobre los originales sin diferencias fuera de las
+  documentadas (el shim de `N104`).
+- Métodos nativos de T28 iguales a sus equivalentes viejos en los seis samples (`Decimal`
+  frente a `float` comparado con tolerancia de redondeo de céntimo).
+- Test DuckDB; suites Rust y Python en verde; el paquete base sigue sin dependencias Python.
+
+**Rust que exprimes.** Poco Rust: la prueba de N3 es dato. Lo que se aprende es de diseño:
+expresar una salida ajena como proyección declarativa, tablas largas frente a anchas, y una
+API de compatibilidad como vistas sin copia.
+
+**Fuera de alcance.** Capas para otras librerías (el sondeo no lo justifica; `pyx12` va por
+D16); escribir 835 (Stage 7); corregir `edi-835-parser` (se ofrece el parche de `N104` aguas
+arriba, fuera del repo).

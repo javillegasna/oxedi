@@ -2,6 +2,8 @@ import json
 
 import pytest
 
+import oxedi835
+from conftest import LARGEST, read
 from oxedi835 import Spec, SpecError
 
 PATCH = {"loops": {"ZZ": {"parent": "2100", "trigger": {"segment": "ZZ1"}}}}
@@ -63,3 +65,22 @@ def test_a_dict_that_json_cannot_write_raises_type_error():
 
 def test_the_spec_repr():
     assert repr(Spec.builtin()) == "Spec(name='835', loops=8, tables=5)"
+
+
+COMPAT_TABLES = [
+    "rows", "rows_adjustment_groups", "rows_adjustments", "rows_claim_adjustments",
+    "rows_claim_amounts", "rows_claim_dates", "rows_claim_entities", "rows_claim_references",
+    "rows_claims", "rows_interchanges", "rows_organizations", "rows_payments",
+    "rows_provider_adjustments", "rows_references", "rows_remarks", "rows_service_amounts",
+    "rows_service_dates",
+]
+
+
+def test_the_edi_835_parser_patch_loads_with_its_tables():
+    from oxedi835._core import EDI_835_PARSER_PATCH
+
+    spec = Spec.builtin().patch(EDI_835_PARSER_PATCH)
+    assert repr(spec) == "Spec(name='edi_835_parser', loops=8, tables=17)"
+    result = oxedi835.parse(read(LARGEST), spec=spec)
+    assert result.tables.keys() == COMPAT_TABLES
+    assert (len(result.tables["rows"]), len(result.tables["rows_claims"]), len(result.diagnostics)) == (6192, 1332, 0)

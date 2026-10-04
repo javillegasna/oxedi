@@ -9,8 +9,8 @@ row: int64 | segment: int64 | payment: int64 | charge_amount: decimal128(38, 2) 
 0 | 14 | 0 | 2100.00 | 200200964A52 | 1 | ∅ | ∅ | ∅ | ∅ | ∅ | 15 | ∅ | ∅ | Mary |  YPB123456789001 | Dough | 142.54 | 94151100100 | 1922.86 | ∅ | ∅ | ∅ | ∅
 
 ## payments (rows: 1)
-row: int64 | segment: int64 | credit_debit_flag: binary | handling_code: binary | payee_id: binary | payee_name: binary | payer_identifier: binary | payer_name: binary | payment_date: date32 | payment_format: binary | payment_method: binary | production_date: date32 | receiver_id: binary | total_payment_amount: decimal128(38, 2) | trace_number: binary
-0 | 0 | C | I | 0987654321 | XYZ HEALTHCARE CORPORATION | 560894904 | BLUE CROSS AND BLUE SHIELD OF NORTH CAROLINA | 2011-01-08 | ∅ | CHK | 2011-01-04 | ∅ | 1922.86 | 02790758
+row: int64 | segment: int64 | credit_debit_flag: binary | handling_code: binary | payee_address: binary | payee_city: binary | payee_id: binary | payee_name: binary | payee_state: binary | payee_zip: binary | payer_address: binary | payer_city: binary | payer_id: binary | payer_identifier: binary | payer_name: binary | payer_state: binary | payer_zip: binary | payment_date: date32 | payment_format: binary | payment_method: binary | production_date: date32 | receiver_id: binary | total_payment_amount: decimal128(38, 2) | trace_number: binary
+0 | 0 | C | I | P O BOX XYZ | CHARLOTTE | 0987654321 | XYZ HEALTHCARE CORPORATION | NC | 28234 | P O BOX 2291 | DURHAM | ∅ | 560894904 | BLUE CROSS AND BLUE SHIELD OF NORTH CAROLINA | NC | 27702 | 2011-01-08 | ∅ | CHK | 2011-01-04 | ∅ | 1922.86 | 02790758
 
 ## provider_adjustments (rows: 0)
 row: int64 | segment: int64 | payment: int64 | amount: decimal128(38, 2) | fiscal_period_date: date32 | provider_id: binary | reason_code: binary | reference_id: binary

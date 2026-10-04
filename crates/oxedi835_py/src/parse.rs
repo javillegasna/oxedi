@@ -4,10 +4,11 @@ use edi835_core::Processor;
 use pyo3::buffer::PyBuffer;
 use pyo3::exceptions::PyTypeError;
 use pyo3::prelude::*;
-use pyo3::types::{PyList, PyString};
+use pyo3::types::{PyDict, PyList, PyString};
 
 use crate::diagnostic;
 use crate::document::{self, PyDelimiters, PyDocument};
+use crate::native::{self, Role};
 use crate::spec::{self, PySpec};
 use crate::tables::PyTables;
 
@@ -78,6 +79,37 @@ impl PyParseResult {
         self.diagnostics.clone_ref(py)
     }
 
+    /// The rows of `claims`.
+    fn count_claims(&self, py: Python<'_>) -> PyResult<usize> {
+        native::count_claims(self.tables.bind(py).get().tables())
+    }
+
+    /// The distinct non-null values of `claims.patient_id`.
+    fn count_patients(&self, py: Python<'_>) -> PyResult<usize> {
+        native::count_patients(self.tables.bind(py).get().tables())
+    }
+
+    /// The sum of `payments.total_payment_amount`, as a `Decimal` at the
+    /// column's scale.
+    fn sum_payments<'py>(&self, py: Python<'py>) -> PyResult<Bound<'py, PyAny>> {
+        let sum = native::sum_payments(self.tables.bind(py).get().tables())?;
+        py.import("decimal")?.getattr("Decimal")?.call1((sum,))
+    }
+
+    /// The payer organization from the `payer_*` columns of `payments`, or
+    /// `None` when the file has none.
+    #[getter]
+    fn payer<'py>(&self, py: Python<'py>) -> PyResult<Option<Bound<'py, PyDict>>> {
+        organization(py, self.tables.bind(py).get().tables(), Role::Payer)
+    }
+
+    /// The payee organization from the `payee_*` columns of `payments`, or
+    /// `None` when the file has none.
+    #[getter]
+    fn payee<'py>(&self, py: Python<'py>) -> PyResult<Option<Bound<'py, PyDict>>> {
+        organization(py, self.tables.bind(py).get().tables(), Role::Payee)
+    }
+
     fn __repr__(&self, py: Python<'_>) -> String {
         format!(
             "Result(segments={}, tables={}, diagnostics={})",
@@ -86,6 +118,22 @@ impl PyParseResult {
             self.diagnostics.bind(py).len()
         )
     }
+}
+
+/// The organization as a dict, or `None`.
+fn organization<'py>(
+    py: Python<'py>,
+    tables: &edi835_core::Tables,
+    role: Role,
+) -> PyResult<Option<Bound<'py, PyDict>>> {
+    let Some(fields) = native::organization(tables, role)? else {
+        return Ok(None);
+    };
+    let dict = PyDict::new(py);
+    for (key, value) in fields {
+        dict.set_item(key, value)?;
+    }
+    Ok(Some(dict))
 }
 
 /// Parses a whole file: indexes every segment, runs the loop engine, the

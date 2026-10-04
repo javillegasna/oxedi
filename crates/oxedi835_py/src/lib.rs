@@ -3,13 +3,16 @@
 //! Every class delegates to the core. The only logic of its own is the bridge
 //! from the core's columns to Arrow record batches (module `arrow`) and the
 //! conversion of diagnostics to Python attributes (module `diagnostic`).
-//! Parsing, streaming and exporting run with the GIL released.
+//! Parsing, streaming and exporting run with the GIL released. It also carries
+//! the text of the core's `edi_835_parser.json` patch, so the Python layer that
+//! reproduces edi-835-parser applies the same file the core's goldens test.
 
 use pyo3::prelude::*;
 
 mod arrow;
 mod diagnostic;
 mod document;
+mod native;
 mod parse;
 mod spec;
 mod stream;
@@ -34,5 +37,9 @@ fn core_module(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_class::<tables::PyTables>()?;
     m.add_function(wrap_pyfunction!(parse::parse, m)?)?;
     m.add_function(wrap_pyfunction!(stream::stream, m)?)?;
+    m.add(
+        "EDI_835_PARSER_PATCH",
+        include_str!("../../edi835_core/specs/edi_835_parser.json"),
+    )?;
     Ok(())
 }

@@ -1,0 +1,75 @@
+## rows (rows: 3)
+row: int64 | segment: int64 | interchange: int64 | payment: int64 | claim: int64 | allowed_units: binary | billed_units: binary | charge_amount: decimal128(38, 2) | code: binary | modifier: binary | paid_amount: decimal128(38, 2) | qualifier: binary | service_date_segment: int64 | service_period_end_segment: int64 | service_period_start_segment: int64
+0 | 17 | 0 | 0 | 0 | 1 | ∅ | 1210.00 | 59430 | ∅ | 1057.86 | HC | 18 | ∅ | ∅
+1 | 23 | 0 | 0 | 0 | 1 | ∅ | 890.00 | 59440 | ∅ | 865.00 | HC | 24 | ∅ | ∅
+2 | 27 | 0 | 0 | 0 | ∅ | 742 | ∅ | 59426 | ∅ | ∅ | HC | 28 | ∅ | ∅
+
+## rows_adjustment_groups (rows: 3)
+row: int64 | segment: int64 | interchange: int64 | payment: int64 | claim: int64 | service: int64 | amount: decimal128(38, 2) | code: binary | group: binary | quantity: decimal128(38, 2)
+0 | 19 | 0 | 0 | 0 | 0 | 34.60 | 42 | CO | ∅
+1 | 20 | 0 | 0 | 0 | 0 | 117.54 | 2 | PR | ∅
+2 | 25 | 0 | 0 | 0 | 1 | 25.00 | 3 | PR | ∅
+
+## rows_adjustments (rows: 3)
+row: int64 | segment: int64 | interchange: int64 | payment: int64 | claim: int64 | service: int64 | amount: decimal128(38, 2) | code: binary | group: binary
+0 | 19 | 0 | 0 | 0 | 0 | 34.60 | 42 | CO
+1 | 20 | 0 | 0 | 0 | 0 | 117.54 | 2 | PR
+2 | 25 | 0 | 0 | 0 | 1 | 25.00 | 3 | PR
+
+## rows_claim_adjustments (rows: 0)
+row: int64 | segment: int64 | interchange: int64 | payment: int64 | claim: int64 | amount: decimal128(38, 2) | code: binary | group: binary | quantity: decimal128(38, 2)
+
+## rows_claim_amounts (rows: 0)
+row: int64 | segment: int64 | interchange: int64 | payment: int64 | claim: int64 | amount: decimal128(38, 2) | qualifier: binary
+
+## rows_claim_dates (rows: 1)
+row: int64 | segment: int64 | interchange: int64 | payment: int64 | claim: int64 | date: date32 | qualifier: binary
+0 | 16 | 0 | 0 | 0 | 2011-01-03 | 050
+
+## rows_claim_entities (rows: 1)
+row: int64 | segment: int64 | interchange: int64 | payment: int64 | claim: int64 | entity: binary | first_name: binary | identification_code: binary | identification_code_qualifier: binary | last_name: binary | type: binary
+0 | 15 | 0 | 0 | 0 | QC | Mary |  YPB123456789001 | MI | Dough | 1
+
+## rows_claim_references (rows: 0)
+row: int64 | segment: int64 | interchange: int64 | payment: int64 | claim: int64 | qualifier: binary | value: binary
+
+## rows_claims (rows: 1)
+row: int64 | segment: int64 | interchange: int64 | payment: int64 | charge_amount: decimal128(38, 2) | claim_type: binary | icn: binary | marker: binary | paid_amount: decimal128(38, 2) | patient_segment: int64 | rendering_provider_segment: int64 | statement_period_end_segment: int64 | statement_period_start_segment: int64 | status: binary
+0 | 14 | 0 | 0 | 2100.00 | 15 | 94151100100 | 200200964A52 | 1922.86 | 15 | ∅ | ∅ | ∅ | 1
+
+## rows_interchanges (rows: 1)
+row: int64 | segment: int64 | authorization_information_qualifier: binary | receiver: binary | sender: binary | transmission_date: date32 | transmission_time: time32 (seconds)
+0 | 0 | ∅ | ∅ | ∅ | ∅ | ∅
+
+## rows_organizations (rows: 2)
+row: int64 | segment: int64 | interchange: int64 | payment: int64 | address: binary | city: binary | identification_code: binary | name: binary | state: binary | type: binary | zip_code: binary
+0 | 5 | 0 | 0 | P O BOX 2291 | DURHAM | ∅ | BLUE CROSS AND BLUE SHIELD OF NORTH CAROLINA | NC | PR | 27702
+1 | 9 | 0 | 0 | P O BOX XYZ | CHARLOTTE | 0987654321 | XYZ HEALTHCARE CORPORATION | NC | PE | 28234
+
+## rows_payments (rows: 1)
+row: int64 | segment: int64 | interchange: int64 | amount_paid: decimal128(38, 2) | bpr_segment: int64 | payee_segment: int64 | payer_segment: int64 | payment_method: binary | routing_number: binary | transaction_date: date32
+0 | 0 | 0 | 1922.86 | 1 | 9 | 5 | CHK | ∅ | 2011-01-08
+
+## rows_provider_adjustments (rows: 0)
+row: int64 | segment: int64 | interchange: int64 | payment: int64 | amount: decimal128(38, 2) | fiscal_period_date: date32 | provider_id: binary | reason_code: binary | reference_id: binary
+
+## rows_references (rows: 3)
+row: int64 | segment: int64 | interchange: int64 | payment: int64 | claim: int64 | service: int64 | qual: binary | value: binary
+0 | 21 | 0 | 0 | 0 | 0 | 6R | 0001
+1 | 26 | 0 | 0 | 0 | 1 | 6R | 0002
+2 | 29 | 0 | 0 | 0 | 2 | 6R | 0003
+
+## rows_remarks (rows: 0)
+row: int64 | segment: int64 | interchange: int64 | payment: int64 | claim: int64 | service: int64 | code: binary | qual: binary
+
+## rows_service_amounts (rows: 2)
+row: int64 | segment: int64 | interchange: int64 | payment: int64 | claim: int64 | service: int64 | amount: decimal128(38, 2) | qualifier: binary
+0 | 22 | 0 | 0 | 0 | 0 | 1175.40 | B6
+1 | 30 | 0 | 0 | 0 | 2 | 742.00 | B6
+
+## rows_service_dates (rows: 3)
+row: int64 | segment: int64 | interchange: int64 | payment: int64 | claim: int64 | service: int64 | date: date32 | qualifier: binary
+0 | 18 | 0 | 0 | 0 | 0 | 2010-12-31 | 472
+1 | 24 | 0 | 0 | 0 | 1 | 2010-12-31 | 472
+2 | 28 | 0 | 0 | 0 | 2 | 2010-12-31 | 472
+

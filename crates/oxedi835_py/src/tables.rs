@@ -4,9 +4,9 @@ use std::fmt::Write as _;
 use std::sync::Arc;
 
 use edi835_core::{Table, Tables};
-use pyo3::exceptions::{PyKeyError, PyRuntimeError};
+use pyo3::exceptions::{PyImportError, PyKeyError, PyRuntimeError};
 use pyo3::prelude::*;
-use pyo3::types::{PyCapsule, PyIterator, PyTuple};
+use pyo3::types::{PyCapsule, PyDict, PyIterator, PyTuple};
 
 use crate::arrow;
 
@@ -33,6 +33,48 @@ fn render_table(table: &Table, out: &mut String) {
     out.push('\n');
 }
 
+/// Imports `module`, or raises an `ImportError` that names the method, the
+/// module and the extra that provides it, with the original error as cause.
+fn extra<'py>(
+    py: Python<'py>,
+    owner: &str,
+    method: &str,
+    module: &str,
+    extra: &str,
+) -> PyResult<Bound<'py, PyModule>> {
+    py.import(module).map_err(|original| {
+        let error = PyImportError::new_err(format!(
+            "{owner}.{method} needs {module}, which is not installed; install it with: pip install \"oxedi835[{extra}]\""
+        ));
+        error.set_cause(py, Some(original));
+        error
+    })
+}
+
+/// A table as a polars frame; `owner` names the class in the error.
+fn to_polars<'py>(
+    py: Python<'py>,
+    owner: &str,
+    table: Bound<'py, PyTable>,
+) -> PyResult<Bound<'py, PyAny>> {
+    extra(py, owner, "to_polars", "polars", "polars")?
+        .getattr("DataFrame")?
+        .call1((table,))
+}
+
+/// A table as a pandas frame, through Arrow; `owner` names the class in the error.
+fn to_pandas<'py>(
+    py: Python<'py>,
+    owner: &str,
+    table: Bound<'py, PyTable>,
+) -> PyResult<Bound<'py, PyAny>> {
+    extra(py, owner, "to_pandas", "pandas", "pandas")?;
+    extra(py, owner, "to_pandas", "pyarrow", "pandas")?
+        .getattr("table")?
+        .call1((table,))?
+        .call_method0("to_pandas")
+}
+
 /// The tables of one parse or one batch, by name. Shared, never copied.
 #[pyclass(name = "Tables", module = "oxedi835", frozen, mapping)]
 pub struct PyTables {
@@ -51,6 +93,18 @@ impl PyTables {
     /// The number of tables.
     pub fn count(&self) -> usize {
         self.tables.len()
+    }
+
+    /// The tables themselves.
+    pub fn tables(&self) -> &Arc<Tables> {
+        &self.tables
+    }
+
+    fn table_at(&self, index: usize) -> PyTable {
+        PyTable {
+            tables: Arc::clone(&self.tables),
+            index,
+        }
     }
 
     fn names(&self) -> Vec<String> {
@@ -105,6 +159,28 @@ impl PyTables {
         })
     }
 
+    /// Every table as a polars `DataFrame`, by name, in table order.
+    fn to_polars<'py>(slf: &Bound<'py, Self>) -> PyResult<Bound<'py, PyDict>> {
+        let frames = PyDict::new(slf.py());
+        for index in 0..slf.get().count() {
+            let table = Bound::new(slf.py(), slf.get().table_at(index))?;
+            let name = table.get().name()?;
+            frames.set_item(name, to_polars(slf.py(), "Tables", table)?)?;
+        }
+        Ok(frames)
+    }
+
+    /// Every table as a pandas `DataFrame`, by name, in table order.
+    fn to_pandas<'py>(slf: &Bound<'py, Self>) -> PyResult<Bound<'py, PyDict>> {
+        let frames = PyDict::new(slf.py());
+        for index in 0..slf.get().count() {
+            let table = Bound::new(slf.py(), slf.get().table_at(index))?;
+            let name = table.get().name()?;
+            frames.set_item(name, to_pandas(slf.py(), "Tables", table)?)?;
+        }
+        Ok(frames)
+    }
+
     fn __repr__(&self) -> String {
         let parts = self
             .tables
@@ -153,6 +229,16 @@ impl PyTable {
 
     fn __len__(&self) -> PyResult<usize> {
         Ok(self.table()?.len())
+    }
+
+    /// The table as a polars `DataFrame`, through the Arrow capsule.
+    fn to_polars<'py>(slf: &Bound<'py, Self>) -> PyResult<Bound<'py, PyAny>> {
+        to_polars(slf.py(), "Table", slf.clone())
+    }
+
+    /// The table as a pandas `DataFrame`, through `pyarrow`.
+    fn to_pandas<'py>(slf: &Bound<'py, Self>) -> PyResult<Bound<'py, PyAny>> {
+        to_pandas(slf.py(), "Table", slf.clone())
     }
 
     /// The table as text: title, header and one line per row.

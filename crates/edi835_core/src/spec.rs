@@ -2371,7 +2371,7 @@ mod tests {
         assert_eq!(plb.segment.as_deref(), Some(&b"PLB"[..]));
         assert_eq!(plb.repeat, Some(Repeat { from: 3, step: 2 }));
         let counts: Vec<usize> = spec.tables().iter().map(|t| t.columns.len()).collect();
-        assert_eq!(counts, vec![4, 21, 13, 5, 9]);
+        assert_eq!(counts, vec![4, 21, 22, 5, 9]);
     }
 
     #[test]
@@ -4604,11 +4604,11 @@ mod tests {
     #[test]
     fn patch_replaces_arrays_wholesale() {
         let spec = Spec::builtin_835()
-            .merge_patch(r#"{"loops":{"1000A":{"segments":["N3"]}}}"#)
+            .merge_patch(r#"{"loops":{"1000A":{"segments":["N3","N4"]}}}"#)
             .unwrap();
         assert_eq!(
             spec.get(spec.loop_id("1000A").unwrap()).segments,
-            vec![b"N3".to_vec()]
+            vec![b"N3".to_vec(), b"N4".to_vec()]
         );
     }
 

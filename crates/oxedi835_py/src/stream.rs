@@ -5,10 +5,10 @@
 //! it moves the rows appended so far out of the projector. What it holds at
 //! any time is the input, the open loops and the rows of one batch.
 
-use std::sync::Arc;
+use std::sync::{Arc, Mutex, TryLockError};
 
 use edi835_core::{Delimiters, Diagnostic, Event, LoopId, Processor, Spec, Tables, Tokenizer};
-use pyo3::exceptions::PyValueError;
+use pyo3::exceptions::{PyRuntimeError, PyValueError};
 use pyo3::prelude::*;
 use pyo3::types::PyList;
 use self_cell::self_cell;
@@ -77,11 +77,12 @@ impl State {
 
 /// Iterates the batches of a file. Each step runs with the GIL released.
 ///
-/// A stream must be advanced from one thread at a time: a concurrent `next()`
-/// raises a `RuntimeError`; unlike a generator, it does not raise `ValueError`.
-#[pyclass(name = "Stream", module = "oxedi835")]
+/// A stream must be advanced from one thread at a time: a `next()` that finds
+/// another thread inside a step raises a `RuntimeError` naming the stream;
+/// unlike a generator, it does not raise `ValueError`.
+#[pyclass(name = "Stream", module = "oxedi835", frozen)]
 pub struct PyStream {
-    state: State,
+    state: Mutex<State>,
 }
 
 /// The tables and diagnostics of one closed loop instance (or of the end
@@ -121,9 +122,18 @@ impl PyStream {
         slf
     }
 
-    fn __next__(&mut self, py: Python<'_>) -> PyResult<Option<PyBatch>> {
-        let state = &mut self.state;
-        let Some((tables, diagnostics)) = py.detach(|| state.step()) else {
+    fn __next__(&self, py: Python<'_>) -> PyResult<Option<PyBatch>> {
+        let stepped = py.detach(|| match self.state.try_lock() {
+            Ok(mut state) => Ok(state.step()),
+            Err(TryLockError::WouldBlock) => Err(
+                "Stream.__next__: this stream is already being advanced by another thread; \
+                 a stream is advanced from one thread at a time",
+            ),
+            Err(TryLockError::Poisoned(_)) => Err(
+                "Stream.__next__: a previous step of this stream panicked, so it cannot be advanced",
+            ),
+        });
+        let Some((tables, diagnostics)) = stepped.map_err(PyRuntimeError::new_err)? else {
             return Ok(None);
         };
         let diagnostics = diagnostic::to_list(py, diagnostics)?;
@@ -172,10 +182,10 @@ pub fn stream(
         })
     });
     Ok(PyStream {
-        state: State {
+        state: Mutex::new(State {
             walk,
             by,
             done: false,
-        },
+        }),
     })
 }

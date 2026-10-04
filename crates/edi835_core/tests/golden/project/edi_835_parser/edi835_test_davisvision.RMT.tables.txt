@@ -1,0 +1,72 @@
+## rows (rows: 2)
+row: int64 | segment: int64 | interchange: int64 | payment: int64 | claim: int64 | allowed_units: binary | billed_units: binary | charge_amount: decimal128(38, 2) | code: binary | modifier: binary | paid_amount: decimal128(38, 2) | qualifier: binary | service_date_segment: int64 | service_period_end_segment: int64 | service_period_start_segment: int64
+0 | 21 | 0 | 0 | 0 | ∅ | ∅ | 145.00 | V2020 | ∅ | -170.00 | HC | 22 | ∅ | ∅
+1 | 25 | 0 | 0 | 0 | ∅ | ∅ | -200.00 | V2781 | ∅ | 0.00 | HC | 26 | ∅ | ∅
+
+## rows_adjustment_groups (rows: 2)
+row: int64 | segment: int64 | interchange: int64 | payment: int64 | claim: int64 | service: int64 | amount: decimal128(38, 2) | code: binary | group: binary | quantity: decimal128(38, 2)
+0 | 23 | 0 | 0 | 0 | 0 | 315.00 | 45 | CO | ∅
+1 | 27 | 0 | 0 | 0 | 1 | -200.00 | 45 | CO | ∅
+
+## rows_adjustments (rows: 2)
+row: int64 | segment: int64 | interchange: int64 | payment: int64 | claim: int64 | service: int64 | amount: decimal128(38, 2) | code: binary | group: binary
+0 | 23 | 0 | 0 | 0 | 0 | 315.00 | 45 | CO
+1 | 27 | 0 | 0 | 0 | 1 | -200.00 | 45 | CO
+
+## rows_claim_adjustments (rows: 0)
+row: int64 | segment: int64 | interchange: int64 | payment: int64 | claim: int64 | amount: decimal128(38, 2) | code: binary | group: binary | quantity: decimal128(38, 2)
+
+## rows_claim_amounts (rows: 1)
+row: int64 | segment: int64 | interchange: int64 | payment: int64 | claim: int64 | amount: decimal128(38, 2) | qualifier: binary
+0 | 20 | 0 | 0 | 0 | -170.00 | AU
+
+## rows_claim_dates (rows: 1)
+row: int64 | segment: int64 | interchange: int64 | payment: int64 | claim: int64 | date: date32 | qualifier: binary
+0 | 19 | 0 | 0 | 0 | 2023-11-24 | 232
+
+## rows_claim_entities (rows: 1)
+row: int64 | segment: int64 | interchange: int64 | payment: int64 | claim: int64 | entity: binary | first_name: binary | identification_code: binary | identification_code_qualifier: binary | last_name: binary | type: binary
+0 | 16 | 0 | 0 | 0 | QC | CARLA | KVVRK4284 | MI | OCHOA | 1
+
+## rows_claim_references (rows: 2)
+row: int64 | segment: int64 | interchange: int64 | payment: int64 | claim: int64 | qualifier: binary | value: binary
+0 | 17 | 0 | 0 | 0 | CE | WB
+1 | 18 | 0 | 0 | 0 | 1L | 39523
+
+## rows_claims (rows: 1)
+row: int64 | segment: int64 | interchange: int64 | payment: int64 | charge_amount: decimal128(38, 2) | claim_type: binary | icn: binary | marker: binary | paid_amount: decimal128(38, 2) | patient_segment: int64 | rendering_provider_segment: int64 | statement_period_end_segment: int64 | statement_period_start_segment: int64 | status: binary
+0 | 15 | 0 | 0 | -55.00 | HM | DRN28407545.1 | 9051716610428903704 | -170.00 | 16 | ∅ | ∅ | 19 | 1
+
+## rows_interchanges (rows: 1)
+row: int64 | segment: int64 | authorization_information_qualifier: binary | receiver: binary | sender: binary | transmission_date: date32 | transmission_time: time32 (seconds)
+0 | 0 | 00 | 7V59            | 660645696069414 | 2024-01-03 | 05:01:00
+
+## rows_organizations (rows: 2)
+row: int64 | segment: int64 | interchange: int64 | payment: int64 | address: binary | city: binary | identification_code: binary | name: binary | state: binary | type: binary | zip_code: binary
+0 | 7 | 0 | 0 | 8776 PINE AVE | SPRINGFIELD | INSTAMED | SILVER OAK VISION CENTER | NY | PR | 35644
+1 | 10 | 0 | 0 | 9054 SUNSET RD | SALEM | 479864355 | MERIDIAN WELLNESS ASSOCIATES | NY | PE | 101292963
+
+## rows_payments (rows: 1)
+row: int64 | segment: int64 | interchange: int64 | amount_paid: decimal128(38, 2) | bpr_segment: int64 | payee_segment: int64 | payer_segment: int64 | payment_method: binary | routing_number: binary | transaction_date: date32
+0 | 2 | 0 | 0.00 | 3 | 10 | 7 | NON | ∅ | 2024-01-03
+
+## rows_provider_adjustments (rows: 1)
+row: int64 | segment: int64 | interchange: int64 | payment: int64 | amount: decimal128(38, 2) | fiscal_period_date: date32 | provider_id: binary | reason_code: binary | reference_id: binary
+0 | 29 | 0 | 0 | -170.00 | 2024-01-01 | 878324429 | FB | YMUTWU 04459 VUQ URE 8.61 NJX
+
+## rows_references (rows: 0)
+row: int64 | segment: int64 | interchange: int64 | payment: int64 | claim: int64 | service: int64 | qual: binary | value: binary
+
+## rows_remarks (rows: 2)
+row: int64 | segment: int64 | interchange: int64 | payment: int64 | claim: int64 | service: int64 | code: binary | qual: binary
+0 | 24 | 0 | 0 | 0 | 0 | N442 | HE
+1 | 28 | 0 | 0 | 0 | 1 | N442 | HE
+
+## rows_service_amounts (rows: 0)
+row: int64 | segment: int64 | interchange: int64 | payment: int64 | claim: int64 | service: int64 | amount: decimal128(38, 2) | qualifier: binary
+
+## rows_service_dates (rows: 2)
+row: int64 | segment: int64 | interchange: int64 | payment: int64 | claim: int64 | service: int64 | date: date32 | qualifier: binary
+0 | 22 | 0 | 0 | 0 | 0 | 2023-11-24 | 472
+1 | 26 | 0 | 0 | 0 | 1 | 2023-11-24 | 472
+

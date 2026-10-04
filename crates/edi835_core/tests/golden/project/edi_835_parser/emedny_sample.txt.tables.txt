@@ -1,0 +1,111 @@
+## rows (rows: 10)
+row: int64 | segment: int64 | interchange: int64 | payment: int64 | claim: int64 | allowed_units: binary | billed_units: binary | charge_amount: decimal128(38, 2) | code: binary | modifier: binary | paid_amount: decimal128(38, 2) | qualifier: binary | service_date_segment: int64 | service_period_end_segment: int64 | service_period_start_segment: int64
+0 | 21 | 0 | 0 | 0 | 1 | ∅ | 6.00 | V2020 | RB | 6.00 | HC | 22 | ∅ | ∅
+1 | 24 | 0 | 0 | 0 | 1 | ∅ | 2.75 | V2700 | RB | 2.75 | HC | 25 | ∅ | ∅
+2 | 27 | 0 | 0 | 0 | 1 | ∅ | 5.50 | V2103 | RB | 5.50 | HC | 28 | ∅ | ∅
+3 | 30 | 0 | 0 | 0 | 2 | ∅ | 20.00 | S0580 | ∅ | 20.00 | HC | 31 | ∅ | ∅
+4 | 39 | 0 | 0 | 1 | 0 | ∅ | 12.00 | V2020 | ∅ | 0.00 | HC | 40 | ∅ | ∅
+5 | 42 | 0 | 0 | 1 | 0 | ∅ | 22.00 | V2103 | ∅ | 0.00 | HC | 43 | ∅ | ∅
+6 | 52 | 0 | 0 | 2 | 1 | ∅ | 6.00 | V2020 | RB | 6.00 | HC | 53 | ∅ | ∅
+7 | 55 | 0 | 0 | 2 | 1 | ∅ | 5.50 | V2103 | RB | 5.50 | HC | 56 | ∅ | ∅
+8 | 58 | 0 | 0 | 2 | 0 | ∅ | 2.75 | V2700 | RB | 0.00 | HC | 59 | ∅ | ∅
+9 | 62 | 0 | 0 | 2 | 0 | ∅ | 20.00 | S0580 | ∅ | 0.00 | HC | 63 | ∅ | ∅
+
+## rows_adjustment_groups (rows: 4)
+row: int64 | segment: int64 | interchange: int64 | payment: int64 | claim: int64 | service: int64 | amount: decimal128(38, 2) | code: binary | group: binary | quantity: decimal128(38, 2)
+0 | 41 | 0 | 0 | 1 | 4 | 12.00 | 29 | CO | ∅
+1 | 44 | 0 | 0 | 1 | 5 | 22.00 | 29 | CO | ∅
+2 | 60 | 0 | 0 | 2 | 8 | 2.75 | 251 | CO | ∅
+3 | 64 | 0 | 0 | 2 | 9 | 20.00 | 251 | CO | ∅
+
+## rows_adjustments (rows: 4)
+row: int64 | segment: int64 | interchange: int64 | payment: int64 | claim: int64 | service: int64 | amount: decimal128(38, 2) | code: binary | group: binary
+0 | 41 | 0 | 0 | 1 | 4 | 12.00 | 29 | CO
+1 | 44 | 0 | 0 | 1 | 5 | 22.00 | 29 | CO
+2 | 60 | 0 | 0 | 2 | 8 | 2.75 | 251 | CO
+3 | 64 | 0 | 0 | 2 | 9 | 20.00 | 251 | CO
+
+## rows_claim_adjustments (rows: 0)
+row: int64 | segment: int64 | interchange: int64 | payment: int64 | claim: int64 | amount: decimal128(38, 2) | code: binary | group: binary | quantity: decimal128(38, 2)
+
+## rows_claim_amounts (rows: 2)
+row: int64 | segment: int64 | interchange: int64 | payment: int64 | claim: int64 | amount: decimal128(38, 2) | qualifier: binary
+0 | 20 | 0 | 0 | 0 | 34.25 | AU
+1 | 51 | 0 | 0 | 2 | 11.50 | AU
+
+## rows_claim_dates (rows: 6)
+row: int64 | segment: int64 | interchange: int64 | payment: int64 | claim: int64 | date: date32 | qualifier: binary
+0 | 18 | 0 | 0 | 0 | 2010-01-01 | 232
+1 | 19 | 0 | 0 | 0 | 2010-01-01 | 233
+2 | 37 | 0 | 0 | 1 | 2010-01-01 | 232
+3 | 38 | 0 | 0 | 1 | 2010-01-01 | 233
+4 | 49 | 0 | 0 | 2 | 2010-01-01 | 232
+5 | 50 | 0 | 0 | 2 | 2010-01-01 | 233
+
+## rows_claim_entities (rows: 6)
+row: int64 | segment: int64 | interchange: int64 | payment: int64 | claim: int64 | entity: binary | first_name: binary | identification_code: binary | identification_code_qualifier: binary | last_name: binary | type: binary
+0 | 15 | 0 | 0 | 0 | QC | SUBMITTED FIRST | LL99999L | MI | SUBMITTED LAST | 1
+1 | 16 | 0 | 0 | 0 | 74 | CORRECTED FIRST | ∅ | ∅ | CORRECTED LAST | 1
+2 | 34 | 0 | 0 | 1 | QC | SUBMITTED FIRST | LL88888L | MI | SUBMITTED LAST | 1
+3 | 35 | 0 | 0 | 1 | 74 | CORRECTED FIRST | ∅ | ∅ | CORRECTED LAST | 1
+4 | 46 | 0 | 0 | 2 | QC | SUBMITTED FIRST | LL77777L | MI | SUBMITTED LAST | 1
+5 | 47 | 0 | 0 | 2 | 74 | CORRECTED FIRST | ∅ | ∅ | CORRECTED LAST | 1
+
+## rows_claim_references (rows: 3)
+row: int64 | segment: int64 | interchange: int64 | payment: int64 | claim: int64 | qualifier: binary | value: binary
+0 | 17 | 0 | 0 | 0 | EA | PATIENT ACCOUNT NUMBER
+1 | 36 | 0 | 0 | 1 | EA | PATIENT ACCOUNT NUMBER
+2 | 48 | 0 | 0 | 2 | EA | PATIENT ACCOUNT NUMBER
+
+## rows_claims (rows: 3)
+row: int64 | segment: int64 | interchange: int64 | payment: int64 | charge_amount: decimal128(38, 2) | claim_type: binary | icn: binary | marker: binary | paid_amount: decimal128(38, 2) | patient_segment: int64 | rendering_provider_segment: int64 | statement_period_end_segment: int64 | statement_period_start_segment: int64 | status: binary
+0 | 14 | 0 | 0 | 34.25 | MC | 1000210000000030 | PATIENT ACCOUNT NUMBER | 34.25 | 15 | ∅ | 19 | 18 | 1
+1 | 33 | 0 | 0 | 34.00 | MC | 1000220000000020 | PATIENT ACCOUNT NUMBER | 0.00 | 34 | ∅ | 38 | 37 | 2
+2 | 45 | 0 | 0 | 34.25 | MC | 1000230000000020 | PATIENT ACCOUNT NUMBER | 11.50 | 46 | ∅ | 50 | 49 | 2
+
+## rows_interchanges (rows: 1)
+row: int64 | segment: int64 | authorization_information_qualifier: binary | receiver: binary | sender: binary | transmission_date: date32 | transmission_time: time32 (seconds)
+0 | 0 | 00 | ETIN            | EMEDNYBAT       | 2010-01-01 | 10:00:00
+
+## rows_organizations (rows: 2)
+row: int64 | segment: int64 | interchange: int64 | payment: int64 | address: binary | city: binary | identification_code: binary | name: binary | state: binary | type: binary | zip_code: binary
+0 | 7 | 0 | 0 | OFFICE OF HEALTH INSURANCE PROGRAMS | ALBANY | ∅ | NYSDOH | NY | PR | 122370080
+1 | 11 | 0 | 0 | ∅ | ∅ | 9999999995 | MAJOR MEDICAL PROVIDER | ∅ | PE | ∅
+
+## rows_payments (rows: 1)
+row: int64 | segment: int64 | interchange: int64 | amount_paid: decimal128(38, 2) | bpr_segment: int64 | payee_segment: int64 | payer_segment: int64 | payment_method: binary | routing_number: binary | transaction_date: date32
+0 | 2 | 0 | 45.75 | 3 | 11 | 7 | ACH | 111 | 2010-01-01
+
+## rows_provider_adjustments (rows: 0)
+row: int64 | segment: int64 | interchange: int64 | payment: int64 | amount: decimal128(38, 2) | fiscal_period_date: date32 | provider_id: binary | reason_code: binary | reference_id: binary
+
+## rows_references (rows: 0)
+row: int64 | segment: int64 | interchange: int64 | payment: int64 | claim: int64 | service: int64 | qual: binary | value: binary
+
+## rows_remarks (rows: 2)
+row: int64 | segment: int64 | interchange: int64 | payment: int64 | claim: int64 | service: int64 | code: binary | qual: binary
+0 | 61 | 0 | 0 | 2 | 8 | N206 | HE
+1 | 65 | 0 | 0 | 2 | 9 | N206 | HE
+
+## rows_service_amounts (rows: 6)
+row: int64 | segment: int64 | interchange: int64 | payment: int64 | claim: int64 | service: int64 | amount: decimal128(38, 2) | qualifier: binary
+0 | 23 | 0 | 0 | 0 | 0 | 6.00 | B6
+1 | 26 | 0 | 0 | 0 | 1 | 2.75 | B6
+2 | 29 | 0 | 0 | 0 | 2 | 5.50 | B6
+3 | 32 | 0 | 0 | 0 | 3 | 20.00 | B6
+4 | 54 | 0 | 0 | 2 | 6 | 6.00 | B6
+5 | 57 | 0 | 0 | 2 | 7 | 5.50 | B6
+
+## rows_service_dates (rows: 10)
+row: int64 | segment: int64 | interchange: int64 | payment: int64 | claim: int64 | service: int64 | date: date32 | qualifier: binary
+0 | 22 | 0 | 0 | 0 | 0 | 2010-01-01 | 472
+1 | 25 | 0 | 0 | 0 | 1 | 2010-01-01 | 472
+2 | 28 | 0 | 0 | 0 | 2 | 2010-01-01 | 472
+3 | 31 | 0 | 0 | 0 | 3 | 2010-01-01 | 472
+4 | 40 | 0 | 0 | 1 | 4 | 2010-01-01 | 472
+5 | 43 | 0 | 0 | 1 | 5 | 2010-01-01 | 472
+6 | 53 | 0 | 0 | 2 | 6 | 2010-01-01 | 472
+7 | 56 | 0 | 0 | 2 | 7 | 2013-09-17 | 472
+8 | 59 | 0 | 0 | 2 | 8 | 2010-01-01 | 472
+9 | 63 | 0 | 0 | 2 | 9 | 2010-01-01 | 472
+

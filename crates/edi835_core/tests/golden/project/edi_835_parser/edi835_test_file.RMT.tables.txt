@@ -1,0 +1,123 @@
+## rows (rows: 23)
+row: int64 | segment: int64 | interchange: int64 | payment: int64 | claim: int64 | allowed_units: binary | billed_units: binary | charge_amount: decimal128(38, 2) | code: binary | modifier: binary | paid_amount: decimal128(38, 2) | qualifier: binary | service_date_segment: int64 | service_period_end_segment: int64 | service_period_start_segment: int64
+0 | 20 | 0 | 0 | 0 | ∅ | ∅ | 95.00 | V2020 | ∅ | 71.00 | HC | ∅ | ∅ | ∅
+1 | 23 | 0 | 0 | 0 | ∅ | ∅ | 0.00 | V2750 | ∅ | 0.00 | HC | ∅ | ∅ | ∅
+2 | 24 | 0 | 0 | 0 | ∅ | ∅ | 0.00 | V2755 | ∅ | 0.00 | HC | ∅ | ∅ | ∅
+3 | 25 | 0 | 0 | 0 | ∅ | ∅ | 300.00 | V2781 | TG | 65.00 | HC | ∅ | ∅ | ∅
+4 | 28 | 0 | 0 | 0 | ∅ | ∅ | 0.00 | V2784 | ∅ | 0.00 | HC | ∅ | ∅ | ∅
+5 | 35 | 0 | 0 | 1 | ∅ | ∅ | 55.00 | V2020 | ∅ | 0.00 | HC | ∅ | ∅ | ∅
+6 | 37 | 0 | 0 | 1 | ∅ | ∅ | 40.00 | V2100 | ∅ | 0.00 | HC | ∅ | ∅ | ∅
+7 | 39 | 0 | 0 | 1 | ∅ | ∅ | 0.00 | V2750 | ∅ | 0.00 | HC | ∅ | ∅ | ∅
+8 | 40 | 0 | 0 | 1 | ∅ | ∅ | 0.00 | V2755 | ∅ | 0.00 | HC | ∅ | ∅ | ∅
+9 | 41 | 0 | 0 | 1 | ∅ | ∅ | 0.00 | V2784 | ∅ | 0.00 | HC | ∅ | ∅ | ∅
+10 | 42 | 0 | 0 | 1 | ∅ | ∅ | 50.00 | V2799 | ∅ | 0.00 | HC | ∅ | ∅ | ∅
+11 | 44 | 0 | 0 | 1 | ∅ | ∅ | 100.00 | V2799 | ∅ | 0.00 | HC | ∅ | ∅ | ∅
+12 | 52 | 0 | 0 | 2 | ∅ | ∅ | 63.00 | V2020 | ∅ | 63.00 | HC | ∅ | ∅ | ∅
+13 | 54 | 0 | 0 | 2 | ∅ | ∅ | 32.00 | V2100 | ∅ | 32.00 | HC | ∅ | ∅ | ∅
+14 | 56 | 0 | 0 | 2 | ∅ | ∅ | 0.00 | V2750 | ∅ | 0.00 | HC | ∅ | ∅ | ∅
+15 | 57 | 0 | 0 | 2 | ∅ | ∅ | 0.00 | V2755 | ∅ | 0.00 | HC | ∅ | ∅ | ∅
+16 | 58 | 0 | 0 | 2 | ∅ | ∅ | 0.00 | V2784 | ∅ | 0.00 | HC | ∅ | ∅ | ∅
+17 | 59 | 0 | 0 | 2 | ∅ | ∅ | 50.00 | V2799 | ∅ | 0.00 | HC | ∅ | ∅ | ∅
+18 | 68 | 0 | 0 | 3 | ∅ | ∅ | 95.00 | V2020 | ∅ | 83.00 | HC | ∅ | ∅ | ∅
+19 | 71 | 0 | 0 | 3 | ∅ | ∅ | 0.00 | V2750 | ∅ | 0.00 | HC | ∅ | ∅ | ∅
+20 | 72 | 0 | 0 | 3 | ∅ | ∅ | 0.00 | V2755 | ∅ | 0.00 | HC | ∅ | ∅ | ∅
+21 | 73 | 0 | 0 | 3 | ∅ | ∅ | 200.00 | V2781 | ∅ | 55.00 | HC | ∅ | ∅ | ∅
+22 | 76 | 0 | 0 | 3 | ∅ | ∅ | 0.00 | V2784 | ∅ | 0.00 | HC | ∅ | ∅ | ∅
+
+## rows_adjustment_groups (rows: 9)
+row: int64 | segment: int64 | interchange: int64 | payment: int64 | claim: int64 | service: int64 | amount: decimal128(38, 2) | code: binary | group: binary | quantity: decimal128(38, 2)
+0 | 21 | 0 | 0 | 0 | 0 | 24.00 | 3 | PR | ∅
+1 | 26 | 0 | 0 | 0 | 3 | 235.00 | 3 | PR | ∅
+2 | 36 | 0 | 0 | 1 | 5 | 55.00 | 3 | PR | ∅
+3 | 38 | 0 | 0 | 1 | 6 | 40.00 | 3 | PR | ∅
+4 | 43 | 0 | 0 | 1 | 10 | 50.00 | 3 | PR | ∅
+5 | 45 | 0 | 0 | 1 | 11 | 100.00 | 3 | PR | ∅
+6 | 60 | 0 | 0 | 2 | 17 | 50.00 | 3 | PR | ∅
+7 | 69 | 0 | 0 | 3 | 18 | 12.00 | 3 | PR | ∅
+8 | 74 | 0 | 0 | 3 | 21 | 145.00 | 3 | PR | ∅
+
+## rows_adjustments (rows: 9)
+row: int64 | segment: int64 | interchange: int64 | payment: int64 | claim: int64 | service: int64 | amount: decimal128(38, 2) | code: binary | group: binary
+0 | 21 | 0 | 0 | 0 | 0 | 24.00 | 3 | PR
+1 | 26 | 0 | 0 | 0 | 3 | 235.00 | 3 | PR
+2 | 36 | 0 | 0 | 1 | 5 | 55.00 | 3 | PR
+3 | 38 | 0 | 0 | 1 | 6 | 40.00 | 3 | PR
+4 | 43 | 0 | 0 | 1 | 10 | 50.00 | 3 | PR
+5 | 45 | 0 | 0 | 1 | 11 | 100.00 | 3 | PR
+6 | 60 | 0 | 0 | 2 | 17 | 50.00 | 3 | PR
+7 | 69 | 0 | 0 | 3 | 18 | 12.00 | 3 | PR
+8 | 74 | 0 | 0 | 3 | 21 | 145.00 | 3 | PR
+
+## rows_claim_adjustments (rows: 0)
+row: int64 | segment: int64 | interchange: int64 | payment: int64 | claim: int64 | amount: decimal128(38, 2) | code: binary | group: binary | quantity: decimal128(38, 2)
+
+## rows_claim_amounts (rows: 3)
+row: int64 | segment: int64 | interchange: int64 | payment: int64 | claim: int64 | amount: decimal128(38, 2) | qualifier: binary
+0 | 19 | 0 | 0 | 0 | 136.00 | AU
+1 | 51 | 0 | 0 | 2 | 95.00 | AU
+2 | 67 | 0 | 0 | 3 | 138.00 | AU
+
+## rows_claim_dates (rows: 8)
+row: int64 | segment: int64 | interchange: int64 | payment: int64 | claim: int64 | date: date32 | qualifier: binary
+0 | 17 | 0 | 0 | 0 | 2024-01-05 | 232
+1 | 18 | 0 | 0 | 0 | 2024-01-05 | 050
+2 | 33 | 0 | 0 | 1 | 2023-12-28 | 232
+3 | 34 | 0 | 0 | 1 | 2024-01-02 | 050
+4 | 49 | 0 | 0 | 2 | 2024-01-05 | 232
+5 | 50 | 0 | 0 | 2 | 2024-01-05 | 050
+6 | 65 | 0 | 0 | 3 | 2023-12-30 | 232
+7 | 66 | 0 | 0 | 3 | 2024-01-02 | 050
+
+## rows_claim_entities (rows: 6)
+row: int64 | segment: int64 | interchange: int64 | payment: int64 | claim: int64 | entity: binary | first_name: binary | identification_code: binary | identification_code_qualifier: binary | last_name: binary | type: binary
+0 | 16 | 0 | 0 | 0 | QC | DIEGO | 72150837822 | MI | IBARRA | 1
+1 | 31 | 0 | 0 | 1 | QC | GRETA | N9870290850 | MI | WEBER | 1
+2 | 32 | 0 | 0 | 1 | IL | PABLO | M6126132291 | MI | WEBER | 1
+3 | 48 | 0 | 0 | 2 | QC | GABRIEL | 33289090414 | MI | ZAMORA | 1
+4 | 63 | 0 | 0 | 3 | QC | GRETA | 43936922186 | MI | JIMENEZ | 1
+5 | 64 | 0 | 0 | 3 | IL | EMILIO | 04057441822 | MI | JIMENEZ | 1
+
+## rows_claim_references (rows: 0)
+row: int64 | segment: int64 | interchange: int64 | payment: int64 | claim: int64 | qualifier: binary | value: binary
+
+## rows_claims (rows: 4)
+row: int64 | segment: int64 | interchange: int64 | payment: int64 | charge_amount: decimal128(38, 2) | claim_type: binary | icn: binary | marker: binary | paid_amount: decimal128(38, 2) | patient_segment: int64 | rendering_provider_segment: int64 | statement_period_end_segment: int64 | statement_period_start_segment: int64 | status: binary
+0 | 15 | 0 | 0 | 395.00 | OF | 260624793497 | 5074220218633018656 | 136.00 | 16 | ∅ | ∅ | 17 | 1
+1 | 30 | 0 | 0 | 245.00 | OF | 195964685029 | 1334641708262394415 | 0.00 | 31 | ∅ | ∅ | 33 | 4
+2 | 47 | 0 | 0 | 145.00 | OF | 720064709295 | 4253683308588867011 | 95.00 | 48 | ∅ | ∅ | 49 | 1
+3 | 62 | 0 | 0 | 295.00 | OF | 637821988020 | 0992561922035121326 | 138.00 | 63 | ∅ | ∅ | 65 | 1
+
+## rows_interchanges (rows: 1)
+row: int64 | segment: int64 | authorization_information_qualifier: binary | receiver: binary | sender: binary | transmission_date: date32 | transmission_time: time32 (seconds)
+0 | 0 | 00 | 7V59            | 660645696069414 | 2024-01-11 | 05:01:00
+
+## rows_organizations (rows: 2)
+row: int64 | segment: int64 | interchange: int64 | payment: int64 | address: binary | city: binary | identification_code: binary | name: binary | state: binary | type: binary | zip_code: binary
+0 | 7 | 0 | 0 | 618 RIVER BLVD | SPRINGFIELD | EYEMED | COASTAL BENEFITS CO | OH | PR | 81226
+1 | 10 | 0 | 0 | 8377 MAPLE AVE | SALEM | 479864355 | COASTAL MEDICAL GROUP LLC | NY | PE | 24835
+
+## rows_payments (rows: 1)
+row: int64 | segment: int64 | interchange: int64 | amount_paid: decimal128(38, 2) | bpr_segment: int64 | payee_segment: int64 | payer_segment: int64 | payment_method: binary | routing_number: binary | transaction_date: date32
+0 | 2 | 0 | 8982.00 | 3 | 10 | 7 | ACH | 135175277 | 2024-01-08
+
+## rows_provider_adjustments (rows: 0)
+row: int64 | segment: int64 | interchange: int64 | payment: int64 | amount: decimal128(38, 2) | fiscal_period_date: date32 | provider_id: binary | reason_code: binary | reference_id: binary
+
+## rows_references (rows: 0)
+row: int64 | segment: int64 | interchange: int64 | payment: int64 | claim: int64 | service: int64 | qual: binary | value: binary
+
+## rows_remarks (rows: 0)
+row: int64 | segment: int64 | interchange: int64 | payment: int64 | claim: int64 | service: int64 | code: binary | qual: binary
+
+## rows_service_amounts (rows: 6)
+row: int64 | segment: int64 | interchange: int64 | payment: int64 | claim: int64 | service: int64 | amount: decimal128(38, 2) | qualifier: binary
+0 | 22 | 0 | 0 | 0 | 0 | 71.00 | B6
+1 | 27 | 0 | 0 | 0 | 3 | 65.00 | B6
+2 | 53 | 0 | 0 | 2 | 12 | 63.00 | B6
+3 | 55 | 0 | 0 | 2 | 13 | 32.00 | B6
+4 | 70 | 0 | 0 | 3 | 18 | 83.00 | B6
+5 | 75 | 0 | 0 | 3 | 21 | 55.00 | B6
+
+## rows_service_dates (rows: 0)
+row: int64 | segment: int64 | interchange: int64 | payment: int64 | claim: int64 | service: int64 | date: date32 | qualifier: binary
+

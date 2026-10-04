@@ -1,0 +1,17 @@
+rows rows: 6192
+rows_adjustment_groups rows: 2370
+rows_adjustments rows: 2370
+rows_claim_adjustments rows: 0
+rows_claim_amounts rows: 1247
+rows_claim_dates rows: 1332
+rows_claim_entities rows: 3107
+rows_claim_references rows: 40
+rows_claims rows: 1332
+rows_interchanges rows: 1
+rows_organizations rows: 2
+rows_payments rows: 1
+rows_provider_adjustments rows: 0
+rows_references rows: 5830
+rows_remarks rows: 0
+rows_service_amounts rows: 2540
+rows_service_dates rows: 6192

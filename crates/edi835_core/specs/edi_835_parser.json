@@ -1,0 +1,116 @@
+{
+  "name": "edi_835_parser",
+  "segments": {
+    "SVC": { "elements": {
+      "5": {"name": "units_of_service_paid_count", "type": "AN", "min": 1, "max": 15},
+      "7": {"name": "original_units_of_service_count", "type": "AN", "min": 1, "max": 15}
+    } }
+  },
+  "tables": {
+    "payments": null,
+    "claims": null,
+    "services": null,
+    "adjustments": null,
+    "provider_adjustments": null,
+    "rows_interchanges": { "loops": ["interchange"], "ref": "interchange", "columns": {
+      "authorization_information_qualifier": {"segment": "ISA", "element": 1},
+      "sender": {"segment": "ISA", "element": 6},
+      "receiver": {"segment": "ISA", "element": 8},
+      "transmission_date": {"segment": "ISA", "element": 9},
+      "transmission_time": {"segment": "ISA", "element": 10}
+    } },
+    "rows_payments": { "loops": ["transaction"], "ref": "payment", "columns": {
+      "amount_paid": {"segment": "BPR", "element": 2},
+      "bpr_segment": {"segment": "BPR", "segment_index": true},
+      "payer_segment": {"loop": "1000A", "segment": "N1", "segment_index": true},
+      "payee_segment": {"loop": "1000B", "segment": "N1", "segment_index": true},
+      "payment_method": {"segment": "BPR", "element": 4},
+      "routing_number": {"segment": "BPR", "element": 13},
+      "transaction_date": {"segment": "BPR", "element": 16}
+    } },
+    "rows_organizations": { "loops": ["1000A", "1000B"], "ref": "organization", "columns": {
+      "type": {"segment": "N1", "element": 1},
+      "name": {"segment": "N1", "element": 2},
+      "identification_code": {"segment": "N1", "element": 4},
+      "address": {"segment": "N3", "element": 1},
+      "city": {"segment": "N4", "element": 1},
+      "state": {"segment": "N4", "element": 2},
+      "zip_code": {"segment": "N4", "element": 3}
+    } },
+    "rows_provider_adjustments": { "loops": ["transaction"], "segment": "PLB", "repeat": {"from": 3, "step": 2}, "columns": {
+      "provider_id": {"element": 1},
+      "fiscal_period_date": {"element": 2},
+      "reason_code": {"group_element": 0, "component": 1},
+      "reference_id": {"group_element": 0, "component": 2},
+      "amount": {"group_element": 1}
+    } },
+    "rows_claims": { "loops": ["2100"], "ref": "claim", "columns": {
+      "marker": {"segment": "CLP", "element": 1},
+      "status": {"segment": "CLP", "element": 2},
+      "charge_amount": {"segment": "CLP", "element": 3},
+      "paid_amount": {"segment": "CLP", "element": 4},
+      "claim_type": {"segment": "CLP", "element": 6},
+      "icn": {"segment": "CLP", "element": 7},
+      "patient_segment": {"segment": "NM1", "where": {"1": "QC"}, "segment_index": true},
+      "rendering_provider_segment": {"segment": "NM1", "where": {"1": "82"}, "segment_index": true},
+      "statement_period_start_segment": {"segment": "DTM", "where": {"1": "232"}, "segment_index": true},
+      "statement_period_end_segment": {"segment": "DTM", "where": {"1": "233"}, "segment_index": true}
+    } },
+    "rows_claim_entities": { "loops": ["2100"], "segment": "NM1", "columns": {
+      "entity": {"element": 1},
+      "type": {"element": 2},
+      "last_name": {"element": 3},
+      "first_name": {"element": 4},
+      "identification_code_qualifier": {"element": 8},
+      "identification_code": {"element": 9}
+    } },
+    "rows_claim_references": { "loops": ["2100"], "segment": "REF", "columns": {
+      "qualifier": {"element": 1}, "value": {"element": 2}
+    } },
+    "rows_claim_dates": { "loops": ["2100"], "segment": "DTM", "columns": {
+      "qualifier": {"element": 1}, "date": {"element": 2}
+    } },
+    "rows_claim_amounts": { "loops": ["2100"], "segment": "AMT", "columns": {
+      "qualifier": {"element": 1}, "amount": {"element": 2}
+    } },
+    "rows_claim_adjustments": { "loops": ["2100"], "segment": "CAS", "repeat": {"from": 2, "step": 3}, "columns": {
+      "group": {"element": 1},
+      "code": {"group_element": 0},
+      "amount": {"group_element": 1},
+      "quantity": {"group_element": 2}
+    } },
+    "rows": { "loops": ["2110"], "ref": "service", "columns": {
+      "qualifier": {"segment": "SVC", "element": 1, "component": 1},
+      "code": {"segment": "SVC", "element": 1, "component": 2},
+      "modifier": {"segment": "SVC", "element": 1, "component": 3},
+      "charge_amount": {"segment": "SVC", "element": 2},
+      "paid_amount": {"segment": "SVC", "element": 3},
+      "allowed_units": {"segment": "SVC", "element": 5},
+      "billed_units": {"segment": "SVC", "element": 7},
+      "service_date_segment": {"segment": "DTM", "where": {"1": "472"}, "segment_index": true},
+      "service_period_start_segment": {"segment": "DTM", "where": {"1": "150"}, "segment_index": true},
+      "service_period_end_segment": {"segment": "DTM", "where": {"1": "151"}, "segment_index": true}
+    } },
+    "rows_service_dates": { "loops": ["2110"], "segment": "DTM", "columns": {
+      "qualifier": {"element": 1}, "date": {"element": 2}
+    } },
+    "rows_service_amounts": { "loops": ["2110"], "segment": "AMT", "columns": {
+      "qualifier": {"element": 1}, "amount": {"element": 2}
+    } },
+    "rows_adjustments": { "loops": ["2110"], "segment": "CAS", "columns": {
+      "group": {"element": 1}, "code": {"element": 2}, "amount": {"element": 3}
+    } },
+    "rows_adjustment_groups": { "loops": ["2110"], "segment": "CAS", "repeat": {"from": 2, "step": 3}, "columns": {
+      "group": {"element": 1},
+      "code": {"group_element": 0},
+      "amount": {"group_element": 1},
+      "quantity": {"group_element": 2}
+    } },
+    "rows_references": { "loops": ["2110"], "segment": "REF", "columns": {
+      "qual": {"element": 1}, "value": {"element": 2}
+    } },
+    "rows_remarks": { "loops": ["2110"], "segment": "LQ", "columns": {
+      "qual": {"element": 1}, "code": {"element": 2}
+    } }
+  }
+}

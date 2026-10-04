@@ -3,7 +3,8 @@
 //! two large samples keep a row count per table. Every file keeps its whole
 //! diagnostic list, one `Display` line each. Regenerate with
 //! `UPDATE_GOLDEN=1 cargo test --test project_golden`, inspect the diff,
-//! commit.
+//! commit. The tables of the `edi_835_parser.json` patch have their own
+//! goldens in `tests/golden/project/edi_835_parser/`, in the same two formats.
 
 mod common;
 
@@ -70,6 +71,29 @@ fn tables_and_diagnostics_match_the_golden_files() {
             diagnostic_lines(&diagnostics),
         ));
     }
-    let failures = common::compare_goldens(&golden_dir(), &outputs, &[]);
+    let failures = common::compare_goldens(&golden_dir(), &outputs, &["edi_835_parser"]);
+    assert!(failures.is_empty(), "{failures:#?}");
+}
+
+#[test]
+fn edi_835_parser_tables_match_the_golden_files() {
+    let spec = Spec::builtin_835()
+        .merge_patch(include_str!("../specs/edi_835_parser.json"))
+        .unwrap();
+    let dir = golden_dir().join("edi_835_parser");
+    let mut outputs = Vec::new();
+    for (name, bytes, delims) in common::all_files() {
+        let document = Document::with_delimiters(&bytes[..], delims);
+        let (tables, _) = Processor::run(&spec, &document);
+        outputs.push(if common::SUMMARY_ONLY.contains(&name.as_str()) {
+            (
+                dir.join(format!("{name}.tables.summary.txt")),
+                row_counts(&tables),
+            )
+        } else {
+            (dir.join(format!("{name}.tables.txt")), all_rows(&tables))
+        });
+    }
+    let failures = common::compare_goldens(&dir, &outputs, &[]);
     assert!(failures.is_empty(), "{failures:#?}");
 }

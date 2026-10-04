@@ -17,8 +17,8 @@ row: int64 | segment: int64 | payment: int64 | charge_amount: decimal128(38, 2) 
 1 | 31 | 0 | 1200.00 | 44455666610 | 1 | ∅ | ∅ | 397 | 0.7309 | 11 | 15 | 1 | ∅ | SUSAN | 44455666610 | SETTLE | ∅ | 8765432112 | 600.00 | ∅ | ∅ | 2019-03-05 | 2019-03-08
 
 ## payments (rows: 1)
-row: int64 | segment: int64 | credit_debit_flag: binary | handling_code: binary | payee_id: binary | payee_name: binary | payer_identifier: binary | payer_name: binary | payment_date: date32 | payment_format: binary | payment_method: binary | production_date: date32 | receiver_id: binary | total_payment_amount: decimal128(38, 2) | trace_number: binary
-0 | 2 | C | I | 5544667733 | ACME MEDICAL CENTER | 1203174593 | RUSHMORE LIFE INSURANCE | ∅ | CCP | ACH | 2019-03-16 | ∅ | 1100.00 | 0927974940
+row: int64 | segment: int64 | credit_debit_flag: binary | handling_code: binary | payee_address: binary | payee_city: binary | payee_id: binary | payee_name: binary | payee_state: binary | payee_zip: binary | payer_address: binary | payer_city: binary | payer_id: binary | payer_identifier: binary | payer_name: binary | payer_state: binary | payer_zip: binary | payment_date: date32 | payment_format: binary | payment_method: binary | production_date: date32 | receiver_id: binary | total_payment_amount: decimal128(38, 2) | trace_number: binary
+0 | 2 | C | I | P O BOX 9999 | DURHAM | 5544667733 | ACME MEDICAL CENTER | NC | 27701 | P O BOX 1234 | MOUNT_RUSHMORE | 935665544 | 1203174593 | RUSHMORE LIFE INSURANCE | SD | 57751 | ∅ | CCP | ACH | 2019-03-16 | ∅ | 1100.00 | 0927974940
 
 ## provider_adjustments (rows: 0)
 row: int64 | segment: int64 | payment: int64 | amount: decimal128(38, 2) | fiscal_period_date: date32 | provider_id: binary | reason_code: binary | reference_id: binary

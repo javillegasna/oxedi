@@ -1,0 +1,88 @@
+## rows (rows: 5)
+row: int64 | segment: int64 | interchange: int64 | payment: int64 | claim: int64 | allowed_units: binary | billed_units: binary | charge_amount: decimal128(38, 2) | code: binary | modifier: binary | paid_amount: decimal128(38, 2) | qualifier: binary | service_date_segment: int64 | service_period_end_segment: int64 | service_period_start_segment: int64
+0 | 25 | 0 | 0 | 0 | 1 | ∅ | 500.00 | ∅ | ∅ | 350.00 | HC:99213 | ∅ | ∅ | ∅
+1 | 27 | 0 | 0 | 0 | 1 | ∅ | 300.00 | ∅ | ∅ | 150.00 | HC:99214 | ∅ | ∅ | ∅
+2 | 40 | 0 | 0 | 1 | 1 | ∅ | 600.00 | ∅ | ∅ | 400.00 | HC:99213 | ∅ | ∅ | ∅
+3 | 43 | 0 | 0 | 1 | 1 | ∅ | 400.00 | ∅ | ∅ | 100.00 | HC:99214 | ∅ | ∅ | ∅
+4 | 46 | 0 | 0 | 1 | 1 | ∅ | 200.00 | ∅ | ∅ | 100.00 | HC:99215 | ∅ | ∅ | ∅
+
+## rows_adjustment_groups (rows: 8)
+row: int64 | segment: int64 | interchange: int64 | payment: int64 | claim: int64 | service: int64 | amount: decimal128(38, 2) | code: binary | group: binary | quantity: decimal128(38, 2)
+0 | 26 | 0 | 0 | 0 | 0 | 150.00 | 45 | CO | 150.00
+1 | 28 | 0 | 0 | 0 | 1 | 75.00 | 3 | PR | 75.00
+2 | 29 | 0 | 0 | 0 | 1 | 75.00 | 45 | CO | 75.00
+3 | 41 | 0 | 0 | 1 | 2 | 100.00 | 2 | PR | 100.00
+4 | 42 | 0 | 0 | 1 | 2 | 100.00 | 45 | CO | 100.00
+5 | 44 | 0 | 0 | 1 | 3 | 150.00 | 3 | PR | 150.00
+6 | 45 | 0 | 0 | 1 | 3 | 150.00 | 45 | CO | 150.00
+7 | 47 | 0 | 0 | 1 | 4 | 100.00 | 45 | CO | 100.00
+
+## rows_adjustments (rows: 8)
+row: int64 | segment: int64 | interchange: int64 | payment: int64 | claim: int64 | service: int64 | amount: decimal128(38, 2) | code: binary | group: binary
+0 | 26 | 0 | 0 | 0 | 0 | 150.00 | 45 | CO
+1 | 28 | 0 | 0 | 0 | 1 | 75.00 | 3 | PR
+2 | 29 | 0 | 0 | 0 | 1 | 75.00 | 45 | CO
+3 | 41 | 0 | 0 | 1 | 2 | 100.00 | 2 | PR
+4 | 42 | 0 | 0 | 1 | 2 | 100.00 | 45 | CO
+5 | 44 | 0 | 0 | 1 | 3 | 150.00 | 3 | PR
+6 | 45 | 0 | 0 | 1 | 3 | 150.00 | 45 | CO
+7 | 47 | 0 | 0 | 1 | 4 | 100.00 | 45 | CO
+
+## rows_claim_adjustments (rows: 2)
+row: int64 | segment: int64 | interchange: int64 | payment: int64 | claim: int64 | amount: decimal128(38, 2) | code: binary | group: binary | quantity: decimal128(38, 2)
+0 | 17 | 0 | 0 | 0 | -300.00 | 94 | CO | ∅
+1 | 32 | 0 | 0 | 1 | -600.00 | 94 | CO | ∅
+
+## rows_claim_amounts (rows: 0)
+row: int64 | segment: int64 | interchange: int64 | payment: int64 | claim: int64 | amount: decimal128(38, 2) | qualifier: binary
+
+## rows_claim_dates (rows: 6)
+row: int64 | segment: int64 | interchange: int64 | payment: int64 | claim: int64 | date: date32 | qualifier: binary
+0 | 22 | 0 | 0 | 0 | 2019-03-07 | 232
+1 | 23 | 0 | 0 | 0 | 2019-03-10 | 233
+2 | 24 | 0 | 0 | 0 | 2019-03-18 | 50
+3 | 37 | 0 | 0 | 1 | 2019-03-05 | 232
+4 | 38 | 0 | 0 | 1 | 2019-03-08 | 233
+5 | 39 | 0 | 0 | 1 | 2019-03-18 | 50
+
+## rows_claim_entities (rows: 2)
+row: int64 | segment: int64 | interchange: int64 | payment: int64 | claim: int64 | entity: binary | first_name: binary | identification_code: binary | identification_code_qualifier: binary | last_name: binary | type: binary
+0 | 18 | 0 | 0 | 0 | QC | WILLIAM | 33344555510 | MI | BUDD | 1
+1 | 33 | 0 | 0 | 1 | QC | SUSAN | 44455666610 | MI | SETTLE | 1
+
+## rows_claim_references (rows: 0)
+row: int64 | segment: int64 | interchange: int64 | payment: int64 | claim: int64 | qualifier: binary | value: binary
+
+## rows_claims (rows: 2)
+row: int64 | segment: int64 | interchange: int64 | payment: int64 | charge_amount: decimal128(38, 2) | claim_type: binary | icn: binary | marker: binary | paid_amount: decimal128(38, 2) | patient_segment: int64 | rendering_provider_segment: int64 | statement_period_end_segment: int64 | statement_period_start_segment: int64 | status: binary
+0 | 16 | 0 | 0 | 800.00 | 15 | 5554555444 | 33344555510 | 500.00 | 18 | ∅ | 23 | 22 | 1
+1 | 31 | 0 | 0 | 1200.00 | 15 | 8765432112 | 44455666610 | 600.00 | 33 | ∅ | 38 | 37 | 1
+
+## rows_interchanges (rows: 1)
+row: int64 | segment: int64 | authorization_information_qualifier: binary | receiver: binary | sender: binary | transmission_date: date32 | transmission_time: time32 (seconds)
+0 | 0 | 00 | ACME_MED        | RUSHMORE       | 2019-03-16 | 16:15:00
+
+## rows_organizations (rows: 2)
+row: int64 | segment: int64 | interchange: int64 | payment: int64 | address: binary | city: binary | identification_code: binary | name: binary | state: binary | type: binary | zip_code: binary
+0 | 7 | 0 | 0 | P O BOX 1234 | MOUNT_RUSHMORE | 935665544 | RUSHMORE LIFE INSURANCE | SD | PR | 57751
+1 | 11 | 0 | 0 | P O BOX 9999 | DURHAM | 5544667733 | ACME MEDICAL CENTER | NC | PE | 27701
+
+## rows_payments (rows: 1)
+row: int64 | segment: int64 | interchange: int64 | amount_paid: decimal128(38, 2) | bpr_segment: int64 | payee_segment: int64 | payer_segment: int64 | payment_method: binary | routing_number: binary | transaction_date: date32
+0 | 2 | 0 | 1100.00 | 3 | 11 | 7 | ACH | 144444 | ∅
+
+## rows_provider_adjustments (rows: 0)
+row: int64 | segment: int64 | interchange: int64 | payment: int64 | amount: decimal128(38, 2) | fiscal_period_date: date32 | provider_id: binary | reason_code: binary | reference_id: binary
+
+## rows_references (rows: 0)
+row: int64 | segment: int64 | interchange: int64 | payment: int64 | claim: int64 | service: int64 | qual: binary | value: binary
+
+## rows_remarks (rows: 0)
+row: int64 | segment: int64 | interchange: int64 | payment: int64 | claim: int64 | service: int64 | code: binary | qual: binary
+
+## rows_service_amounts (rows: 0)
+row: int64 | segment: int64 | interchange: int64 | payment: int64 | claim: int64 | service: int64 | amount: decimal128(38, 2) | qualifier: binary
+
+## rows_service_dates (rows: 0)
+row: int64 | segment: int64 | interchange: int64 | payment: int64 | claim: int64 | service: int64 | date: date32 | qualifier: binary
+

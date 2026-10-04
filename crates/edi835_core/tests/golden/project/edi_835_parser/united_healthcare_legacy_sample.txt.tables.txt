@@ -1,0 +1,106 @@
+## rows (rows: 5)
+row: int64 | segment: int64 | interchange: int64 | payment: int64 | claim: int64 | allowed_units: binary | billed_units: binary | charge_amount: decimal128(38, 2) | code: binary | modifier: binary | paid_amount: decimal128(38, 2) | qualifier: binary | service_date_segment: int64 | service_period_end_segment: int64 | service_period_start_segment: int64
+0 | 27 | 0 | 0 | 0 | 234 | ∅ | 156.42 | B4152 | ∅ | 88.92 | HC | 28 | ∅ | ∅
+1 | 32 | 0 | 0 | 0 | 277 | ∅ | 184.86 | B4152 | ∅ | 0.00 | HC | 33 | ∅ | ∅
+2 | 47 | 0 | 0 | 1 | 249 | ∅ | 459.90 | B4154 | ∅ | 204.18 | HC | 48 | ∅ | ∅
+3 | 52 | 0 | 0 | 1 | 12 | ∅ | 27.84 | B4034 | ∅ | 27.84 | HC | 53 | ∅ | ∅
+4 | 56 | 0 | 0 | 1 | 178 | ∅ | 328.50 | B4154 | ∅ | 29.05 | HC | 57 | ∅ | ∅
+
+## rows_adjustment_groups (rows: 7)
+row: int64 | segment: int64 | interchange: int64 | payment: int64 | claim: int64 | service: int64 | amount: decimal128(38, 2) | code: binary | group: binary | quantity: decimal128(38, 2)
+0 | 29 | 0 | 0 | 0 | 0 | 67.50 | 45 | CO | ∅
+1 | 34 | 0 | 0 | 0 | 1 | 105.26 | 1 | PR | ∅
+2 | 35 | 0 | 0 | 0 | 1 | 79.60 | 45 | CO | ∅
+3 | 49 | 0 | 0 | 1 | 2 | 255.72 | 45 | CO | ∅
+4 | 58 | 0 | 0 | 1 | 4 | 5.13 | 2 | PR | ∅
+5 | 58 | 0 | 0 | 1 | 4 | 110.00 | 1 | PR | ∅
+6 | 59 | 0 | 0 | 1 | 4 | 184.32 | 45 | CO | ∅
+
+## rows_adjustments (rows: 6)
+row: int64 | segment: int64 | interchange: int64 | payment: int64 | claim: int64 | service: int64 | amount: decimal128(38, 2) | code: binary | group: binary
+0 | 29 | 0 | 0 | 0 | 0 | 67.50 | 45 | CO
+1 | 34 | 0 | 0 | 0 | 1 | 105.26 | 1 | PR
+2 | 35 | 0 | 0 | 0 | 1 | 79.60 | 45 | CO
+3 | 49 | 0 | 0 | 1 | 2 | 255.72 | 45 | CO
+4 | 58 | 0 | 0 | 1 | 4 | 5.13 | 2 | PR
+5 | 59 | 0 | 0 | 1 | 4 | 184.32 | 45 | CO
+
+## rows_claim_adjustments (rows: 0)
+row: int64 | segment: int64 | interchange: int64 | payment: int64 | claim: int64 | amount: decimal128(38, 2) | code: binary | group: binary | quantity: decimal128(38, 2)
+
+## rows_claim_amounts (rows: 2)
+row: int64 | segment: int64 | interchange: int64 | payment: int64 | claim: int64 | amount: decimal128(38, 2) | qualifier: binary
+0 | 26 | 0 | 0 | 0 | 194.18 | AU
+1 | 46 | 0 | 0 | 1 | 376.20 | AU
+
+## rows_claim_dates (rows: 6)
+row: int64 | segment: int64 | interchange: int64 | payment: int64 | claim: int64 | date: date32 | qualifier: binary
+0 | 23 | 0 | 0 | 0 | 2020-12-21 | 232
+1 | 24 | 0 | 0 | 0 | 2021-01-13 | 233
+2 | 25 | 0 | 0 | 0 | 2021-01-14 | 050
+3 | 43 | 0 | 0 | 1 | 2020-12-18 | 232
+4 | 44 | 0 | 0 | 1 | 2021-01-10 | 233
+5 | 45 | 0 | 0 | 1 | 2021-01-14 | 050
+
+## rows_claim_entities (rows: 4)
+row: int64 | segment: int64 | interchange: int64 | payment: int64 | claim: int64 | entity: binary | first_name: binary | identification_code: binary | identification_code_qualifier: binary | last_name: binary | type: binary
+0 | 19 | 0 | 0 | 0 | QC | COOL | 123456789 | MI | MR | 1
+1 | 20 | 0 | 0 | 0 | 74 | ∅ | ∅ | ∅ | ∅ | 1
+2 | 39 | 0 | 0 | 1 | QC | COOL | 234567890 | MI | MR | 1
+3 | 40 | 0 | 0 | 1 | 74 | ∅ | ∅ | ∅ | ∅ | 1
+
+## rows_claim_references (rows: 4)
+row: int64 | segment: int64 | interchange: int64 | payment: int64 | claim: int64 | qualifier: binary | value: binary
+0 | 21 | 0 | 0 | 0 | 1L | 12345
+1 | 22 | 0 | 0 | 0 | CE | ILLINOIS DEPARTMENT OF CMS
+2 | 41 | 0 | 0 | 1 | 1L | 12345
+3 | 42 | 0 | 0 | 1 | CE | ILLINOIS DEPARTMENT OF CMS
+
+## rows_claims (rows: 2)
+row: int64 | segment: int64 | interchange: int64 | payment: int64 | charge_amount: decimal128(38, 2) | claim_type: binary | icn: binary | marker: binary | paid_amount: decimal128(38, 2) | patient_segment: int64 | rendering_provider_segment: int64 | statement_period_end_segment: int64 | statement_period_start_segment: int64 | status: binary
+0 | 18 | 0 | 0 | 341.28 | 16 | ATL2819897200 | 001-18573-358 | 88.92 | 19 | ∅ | 24 | 23 | 1
+1 | 38 | 0 | 0 | 816.24 | 16 | ATL2819897800 | 001-18604-358 | 261.07 | 39 | ∅ | 44 | 43 | 1
+
+## rows_interchanges (rows: 1)
+row: int64 | segment: int64 | authorization_information_qualifier: binary | receiver: binary | sender: binary | transmission_date: date32 | transmission_time: time32 (seconds)
+0 | 0 | 00 | GATE0110        | ENS_EDI         | 2021-02-03 | 03:30:00
+
+## rows_organizations (rows: 2)
+row: int64 | segment: int64 | interchange: int64 | payment: int64 | address: binary | city: binary | identification_code: binary | name: binary | state: binary | type: binary | zip_code: binary
+0 | 7 | 0 | 0 | 9900 BREN ROAD | MINNETONKA | 87726 | UNITED HEALTHCARE INSURANCE COMPANY | MN | PR | 553439664
+1 | 13 | 0 | 0 | NORTH POLE | NORTH POLE | 1922164458 | KLAUS MEDICAL CENTER | NP | PE | 00000
+
+## rows_payments (rows: 1)
+row: int64 | segment: int64 | interchange: int64 | amount_paid: decimal128(38, 2) | bpr_segment: int64 | payee_segment: int64 | payer_segment: int64 | payment_method: binary | routing_number: binary | transaction_date: date32
+0 | 2 | 0 | 349.99 | 3 | 13 | 7 | ACH | 071000013 | 2021-02-04
+
+## rows_provider_adjustments (rows: 0)
+row: int64 | segment: int64 | interchange: int64 | payment: int64 | amount: decimal128(38, 2) | fiscal_period_date: date32 | provider_id: binary | reason_code: binary | reference_id: binary
+
+## rows_references (rows: 5)
+row: int64 | segment: int64 | interchange: int64 | payment: int64 | claim: int64 | service: int64 | qual: binary | value: binary
+0 | 30 | 0 | 0 | 0 | 0 | 6R | 800941258001
+1 | 36 | 0 | 0 | 0 | 1 | 6R | 800941258002
+2 | 50 | 0 | 0 | 1 | 2 | 6R | 123456789012
+3 | 54 | 0 | 0 | 1 | 3 | 6R | 123456789013
+4 | 60 | 0 | 0 | 1 | 4 | 6R | 123456789014
+
+## rows_remarks (rows: 0)
+row: int64 | segment: int64 | interchange: int64 | payment: int64 | claim: int64 | service: int64 | code: binary | qual: binary
+
+## rows_service_amounts (rows: 5)
+row: int64 | segment: int64 | interchange: int64 | payment: int64 | claim: int64 | service: int64 | amount: decimal128(38, 2) | qualifier: binary
+0 | 31 | 0 | 0 | 0 | 0 | 88.92 | B6
+1 | 37 | 0 | 0 | 0 | 1 | 105.26 | B6
+2 | 51 | 0 | 0 | 1 | 2 | 204.18 | B6
+3 | 55 | 0 | 0 | 1 | 3 | 27.84 | B6
+4 | 61 | 0 | 0 | 1 | 4 | 144.18 | B6
+
+## rows_service_dates (rows: 5)
+row: int64 | segment: int64 | interchange: int64 | payment: int64 | claim: int64 | service: int64 | date: date32 | qualifier: binary
+0 | 28 | 0 | 0 | 0 | 0 | 2020-12-21 | 472
+1 | 33 | 0 | 0 | 0 | 1 | 2021-01-01 | 472
+2 | 48 | 0 | 0 | 1 | 2 | 2020-12-18 | 472
+3 | 53 | 0 | 0 | 1 | 3 | 2020-12-18 | 472
+4 | 57 | 0 | 0 | 1 | 4 | 2021-01-01 | 472
+

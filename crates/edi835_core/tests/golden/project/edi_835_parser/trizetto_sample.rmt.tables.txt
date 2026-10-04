@@ -1,0 +1,63 @@
+## rows (rows: 1)
+row: int64 | segment: int64 | interchange: int64 | payment: int64 | claim: int64 | allowed_units: binary | billed_units: binary | charge_amount: decimal128(38, 2) | code: binary | modifier: binary | paid_amount: decimal128(38, 2) | qualifier: binary | service_date_segment: int64 | service_period_end_segment: int64 | service_period_start_segment: int64
+0 | 17 | 0 | 0 | 0 | 1 | ∅ | 1500.00 | ∅ | ∅ | 1000.00 | HC:99213 | ∅ | ∅ | ∅
+
+## rows_adjustment_groups (rows: 1)
+row: int64 | segment: int64 | interchange: int64 | payment: int64 | claim: int64 | service: int64 | amount: decimal128(38, 2) | code: binary | group: binary | quantity: decimal128(38, 2)
+0 | 18 | 0 | 0 | 0 | 0 | 500.00 | 45 | CO | 500.00
+
+## rows_adjustments (rows: 1)
+row: int64 | segment: int64 | interchange: int64 | payment: int64 | claim: int64 | service: int64 | amount: decimal128(38, 2) | code: binary | group: binary
+0 | 18 | 0 | 0 | 0 | 0 | 500.00 | 45 | CO
+
+## rows_claim_adjustments (rows: 1)
+row: int64 | segment: int64 | interchange: int64 | payment: int64 | claim: int64 | amount: decimal128(38, 2) | code: binary | group: binary | quantity: decimal128(38, 2)
+0 | 13 | 0 | 0 | 0 | 733.48 | 45 | CO | ∅
+
+## rows_claim_amounts (rows: 0)
+row: int64 | segment: int64 | interchange: int64 | payment: int64 | claim: int64 | amount: decimal128(38, 2) | qualifier: binary
+
+## rows_claim_dates (rows: 2)
+row: int64 | segment: int64 | interchange: int64 | payment: int64 | claim: int64 | date: date32 | qualifier: binary
+0 | 15 | 0 | 0 | 0 | 2024-08-16 | 232
+1 | 16 | 0 | 0 | 0 | 2024-08-24 | 233
+
+## rows_claim_entities (rows: 1)
+row: int64 | segment: int64 | interchange: int64 | payment: int64 | claim: int64 | entity: binary | first_name: binary | identification_code: binary | identification_code_qualifier: binary | last_name: binary | type: binary
+0 | 14 | 0 | 0 | 0 | QC | SAM | ∅ | 666666666A | JONES | 1
+
+## rows_claim_references (rows: 0)
+row: int64 | segment: int64 | interchange: int64 | payment: int64 | claim: int64 | qualifier: binary | value: binary
+
+## rows_claims (rows: 1)
+row: int64 | segment: int64 | interchange: int64 | payment: int64 | charge_amount: decimal128(38, 2) | claim_type: binary | icn: binary | marker: binary | paid_amount: decimal128(38, 2) | patient_segment: int64 | rendering_provider_segment: int64 | statement_period_end_segment: int64 | statement_period_start_segment: int64 | status: binary
+0 | 12 | 0 | 0 | 2113.66 | MA | 1999999444444 | 666123 | 1380.18 | 14 | ∅ | 16 | 15 | 1
+
+## rows_interchanges (rows: 1)
+row: int64 | segment: int64 | authorization_information_qualifier: binary | receiver: binary | sender: binary | transmission_date: date32 | transmission_time: time32 (seconds)
+0 | 0 | 00 | RECEIVER      | SENDER        | 2024-04-16 | 09:30:00
+
+## rows_organizations (rows: 2)
+row: int64 | segment: int64 | interchange: int64 | payment: int64 | address: binary | city: binary | identification_code: binary | name: binary | state: binary | type: binary | zip_code: binary
+0 | 6 | 0 | 0 | 1 MAIN STREET | TIMBUCKTU | ∅ | INSURANCE COMPANY OF AMERICA | AK | PR | 89111
+1 | 10 | 0 | 0 | ∅ | ∅ | 6543210903 | REGIONAL HOPE HOSPITAL | ∅ | PE | ∅
+
+## rows_payments (rows: 1)
+row: int64 | segment: int64 | interchange: int64 | amount_paid: decimal128(38, 2) | bpr_segment: int64 | payee_segment: int64 | payer_segment: int64 | payment_method: binary | routing_number: binary | transaction_date: date32
+0 | 2 | 0 | 1500.00 | 3 | 10 | 6 | ACH | 999988880 | 2024-04-13
+
+## rows_provider_adjustments (rows: 0)
+row: int64 | segment: int64 | interchange: int64 | payment: int64 | amount: decimal128(38, 2) | fiscal_period_date: date32 | provider_id: binary | reason_code: binary | reference_id: binary
+
+## rows_references (rows: 0)
+row: int64 | segment: int64 | interchange: int64 | payment: int64 | claim: int64 | service: int64 | qual: binary | value: binary
+
+## rows_remarks (rows: 0)
+row: int64 | segment: int64 | interchange: int64 | payment: int64 | claim: int64 | service: int64 | code: binary | qual: binary
+
+## rows_service_amounts (rows: 0)
+row: int64 | segment: int64 | interchange: int64 | payment: int64 | claim: int64 | service: int64 | amount: decimal128(38, 2) | qualifier: binary
+
+## rows_service_dates (rows: 0)
+row: int64 | segment: int64 | interchange: int64 | payment: int64 | claim: int64 | service: int64 | date: date32 | qualifier: binary
+

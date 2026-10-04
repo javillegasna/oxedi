@@ -12,8 +12,8 @@ row: int64 | segment: int64 | payment: int64 | charge_amount: decimal128(38, 2) 
 2 | 45 | 0 | 34.25 | PATIENT ACCOUNT NUMBER | 2 | 11.50 | ∅ | ∅ | ∅ | 11 | MC | ∅ | ∅ | SUBMITTED FIRST | LL77777L | SUBMITTED LAST | ∅ | 1000230000000020 | 11.50 | ∅ | ∅ | 2010-01-01 | 2010-01-01
 
 ## payments (rows: 1)
-row: int64 | segment: int64 | credit_debit_flag: binary | handling_code: binary | payee_id: binary | payee_name: binary | payer_identifier: binary | payer_name: binary | payment_date: date32 | payment_format: binary | payment_method: binary | production_date: date32 | receiver_id: binary | total_payment_amount: decimal128(38, 2) | trace_number: binary
-0 | 2 | C | I | 9999999995 | MAJOR MEDICAL PROVIDER | 1000000000 | NYSDOH | 2010-01-01 | CCP | ACH | 2010-01-01 | ETIN | 45.75 | 10100000000
+row: int64 | segment: int64 | credit_debit_flag: binary | handling_code: binary | payee_address: binary | payee_city: binary | payee_id: binary | payee_name: binary | payee_state: binary | payee_zip: binary | payer_address: binary | payer_city: binary | payer_id: binary | payer_identifier: binary | payer_name: binary | payer_state: binary | payer_zip: binary | payment_date: date32 | payment_format: binary | payment_method: binary | production_date: date32 | receiver_id: binary | total_payment_amount: decimal128(38, 2) | trace_number: binary
+0 | 2 | C | I | ∅ | ∅ | 9999999995 | MAJOR MEDICAL PROVIDER | ∅ | ∅ | OFFICE OF HEALTH INSURANCE PROGRAMS | ALBANY | ∅ | 1000000000 | NYSDOH | NY | 122370080 | 2010-01-01 | CCP | ACH | 2010-01-01 | ETIN | 45.75 | 10100000000
 
 ## provider_adjustments (rows: 0)
 row: int64 | segment: int64 | payment: int64 | amount: decimal128(38, 2) | fiscal_period_date: date32 | provider_id: binary | reason_code: binary | reference_id: binary

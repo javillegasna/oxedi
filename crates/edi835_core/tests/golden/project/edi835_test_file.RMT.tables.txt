@@ -18,8 +18,8 @@ row: int64 | segment: int64 | payment: int64 | charge_amount: decimal128(38, 2) 
 3 | 62 | 0 | 295.00 | 0992561922035121326 | 1 | 138.00 | ∅ | ∅ | ∅ | ∅ | OF | ∅ | ∅ | GRETA | 43936922186 | JIMENEZ | 157.00 | 637821988020 | 138.00 | ∅ | ∅ | 2023-12-30 | ∅
 
 ## payments (rows: 1)
-row: int64 | segment: int64 | credit_debit_flag: binary | handling_code: binary | payee_id: binary | payee_name: binary | payer_identifier: binary | payer_name: binary | payment_date: date32 | payment_format: binary | payment_method: binary | production_date: date32 | receiver_id: binary | total_payment_amount: decimal128(38, 2) | trace_number: binary
-0 | 2 | C | I | 479864355 | COASTAL MEDICAL GROUP LLC | 7027617678 | COASTAL BENEFITS CO | 2024-01-08 | CCP | ACH | 2024-01-08 | ∅ | 8982.00 | 51621440131398625793
+row: int64 | segment: int64 | credit_debit_flag: binary | handling_code: binary | payee_address: binary | payee_city: binary | payee_id: binary | payee_name: binary | payee_state: binary | payee_zip: binary | payer_address: binary | payer_city: binary | payer_id: binary | payer_identifier: binary | payer_name: binary | payer_state: binary | payer_zip: binary | payment_date: date32 | payment_format: binary | payment_method: binary | production_date: date32 | receiver_id: binary | total_payment_amount: decimal128(38, 2) | trace_number: binary
+0 | 2 | C | I | 8377 MAPLE AVE | SALEM | 479864355 | COASTAL MEDICAL GROUP LLC | NY | 24835 | 618 RIVER BLVD | SPRINGFIELD | EYEMED | 7027617678 | COASTAL BENEFITS CO | OH | 81226 | 2024-01-08 | CCP | ACH | 2024-01-08 | ∅ | 8982.00 | 51621440131398625793
 
 ## provider_adjustments (rows: 0)
 row: int64 | segment: int64 | payment: int64 | amount: decimal128(38, 2) | fiscal_period_date: date32 | provider_id: binary | reason_code: binary | reference_id: binary

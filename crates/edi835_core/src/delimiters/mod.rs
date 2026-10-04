@@ -119,7 +119,7 @@ impl fmt::Display for IsaError {
 impl std::error::Error for IsaError {}
 
 /// The leading bytes skipped before looking for the ISA, as written in
-/// [`IsaError::NotIsa`] messages.
+/// [`IsaError::NotIsa`] and [`IsaError::Truncated`] messages.
 struct Skipped {
     byte_order_mark: bool,
     whitespace: usize,
@@ -234,7 +234,7 @@ impl Delimiters {
 
     /// Reads the delimiters from the ISA segment that follows the input's
     /// leading trivia: a UTF-8 byte order mark at the very start, then
-    /// whitespace. A [`IsaError::NotIsa`] names what was skipped.
+    /// whitespace. A [`IsaError::NotIsa`] or [`IsaError::Truncated`] names what was skipped.
     pub fn from_isa_after_leading_trivia(input: &[u8]) -> Result<Self, IsaError> {
         let skipped = leading_trivia(input);
         let byte_order_mark = input.starts_with(BYTE_ORDER_MARK);

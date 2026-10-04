@@ -36,7 +36,9 @@ pub fn leading_trivia(input: &[u8]) -> usize {
     } else {
         0
     };
-    let rest = input.get(skipped..).unwrap_or_default();
+    // `skipped` is either 0 or the length of a byte order mark that `starts_with`
+    // just matched, so it is within `input`.
+    let rest = &input[skipped..];
     skipped
         + rest
             .iter()

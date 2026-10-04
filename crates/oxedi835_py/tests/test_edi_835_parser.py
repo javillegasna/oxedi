@@ -677,6 +677,17 @@ def test_a_date_the_library_rejects_raises_naming_segment_element_and_text(tmp_p
     assert str(info.value) == expected
 
 
+def test_invalid_bpr_transaction_date_error():
+    bad_bpr_date = SERVICELESS.replace("BPR*I*100*C*ACH*CCP*01*999999999*DA*1*1234567890**01*999999999*DA*2*20240103",
+                                       "BPR*I*100*C*ACH*CCP*01*999999999*DA*1*1234567890**01*999999999*DA*2*20261399").encode()
+    transaction_sets = compat.parse_bytes(bad_bpr_date)
+    with pytest.raises(ValueError) as info:
+        list(transaction_sets)[0].financial_information
+    expected = ('<bytes>: segment 3 BPR16: "20261399" is not a CCYYMMDD date, '
+                "which edi-835-parser's date parser requires of 8 characters")
+    assert str(info.value) == expected
+
+
 def test_without_a_payer_loop_the_extended_frame_raises_as_the_frame_does():
     transaction_sets = compat.parse_bytes(without_payer(SERVICELESS.encode()))
     with pytest.raises(ValueError) as strict:

@@ -117,6 +117,17 @@ def _segment_of(document, anchors, row, own, bound):
     return None
 
 
+def _group_last(document, index, source, repeat):
+    """The raw text a repeated group's column reads from segment ``index``
+    when that is the segment's last element (and component), else ``None``:
+    the group whose element ``group_element`` is the last one."""
+    elements = document[index].elements
+    offset = len(elements) - repeat["from"] - source["group_element"]
+    if offset < 0 or offset % repeat["step"]:
+        return None
+    return _last(document, index, len(elements), source.get("component"))
+
+
 def _replace(table, column, changes, kind):
     """``table`` with the cells of ``column`` at the positions of ``changes``
     set to their values."""
@@ -132,11 +143,13 @@ def _replace(table, column, changes, kind):
 @functools.cache
 def _endings():
     """The bytes that may end whitespace: the ASCII bytes ``str.strip``
-    removes."""
+    removes and every non-ASCII byte (the last byte of a multi-byte
+    character)."""
     import numpy as np
 
     table = np.zeros(256, dtype=bool)
     table[list(STRIPPED)] = True
+    table[0x80:] = True
     return table
 
 
@@ -185,7 +198,7 @@ def unpad(document, diagnostics, arrow, padded=True):
     of it is read from the stripped text. Only those cells are looked up in
     the document: binary cells whose last byte may end whitespace, and null
     decimal cells in a segment the parser reported (a decimal it could not
-    read always is).
+    read always is; in a repeated group, only the segment's last group).
     When no segment can end in whitespace (``padded`` false), binary cells
     are not looked at. Returns the tables with those cells replaced."""
     import numpy as np
@@ -204,6 +217,8 @@ def unpad(document, diagnostics, arrow, padded=True):
         anchors = ints(table.column("segment"))
         ordered = np.sort(anchors[anchors >= 0])
         anchored = config.get("segment")
+        repeat = config.get("repeat")
+        last_of_segment = np.r_[anchors[1:] != anchors[:-1], True] if len(anchors) else anchors.astype(bool)
         # A row can read a cell the parser flagged only when a flagged
         # segment lies between its anchor and the next row's anchor.
         at = np.searchsorted(ordered, anchors, side="right")
@@ -211,7 +226,8 @@ def unpad(document, diagnostics, arrow, padded=True):
         bounds = np.where(at < len(ordered), following, len(document))
         flagged = (np.searchsorted(diagnosed, bounds) > np.searchsorted(diagnosed, anchors)) & (anchors >= 0)
         for column, source in config["columns"].items():
-            if source.get("element") is None or "group_element" in source:
+            grouped = "group_element" in source
+            if source.get("element") is None and not grouped:
                 continue
             kind = table.schema.field(column).type
             if pa.types.is_binary(kind):
@@ -220,7 +236,7 @@ def unpad(document, diagnostics, arrow, padded=True):
                 candidates = _ending_in_blanks(table.column(column))
             elif pa.types.is_floating(kind):
                 nulls = table.column(column).is_null().to_numpy(zero_copy_only=False) & flagged
-                candidates = np.flatnonzero(nulls)
+                candidates = np.flatnonzero(nulls & last_of_segment) if grouped else np.flatnonzero(nulls)
             else:
                 continue
             own = None if anchored else source["segment"].encode()
@@ -228,12 +244,17 @@ def unpad(document, diagnostics, arrow, padded=True):
             for row in candidates:
                 if anchors[row] < 0:
                     continue
-                at = int(np.searchsorted(ordered, anchors[row], side="right"))
-                bound = int(ordered[at]) if at < len(ordered) else len(document)
-                index = _segment_of(document, anchors, row, own, bound)
-                if index is None:
-                    continue
-                raw = _last(document, index, source["element"], source.get("component"))
+                if grouped:
+                    if not last_of_segment[row]:
+                        continue
+                    raw = _group_last(document, int(anchors[row]), source, repeat)
+                else:
+                    at = int(np.searchsorted(ordered, anchors[row], side="right"))
+                    bound = int(ordered[at]) if at < len(ordered) else len(document)
+                    index = _segment_of(document, anchors, row, own, bound)
+                    if index is None:
+                        continue
+                    raw = _last(document, index, source["element"], source.get("component"))
                 if raw is None:
                     continue
                 stripped = unpadded(raw)

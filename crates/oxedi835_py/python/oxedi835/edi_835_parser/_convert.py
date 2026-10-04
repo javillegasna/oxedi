@@ -15,9 +15,10 @@ STRIPPED = bytes(byte for byte in range(128) if chr(byte).isspace())
 
 
 def unpadded(raw):
-    """``raw`` without the trailing ASCII whitespace that ``str.strip``
-    removes, as the library strips each segment before splitting it."""
-    return raw.rstrip(STRIPPED)
+    """``raw`` without the trailing whitespace that ``str.strip`` removes from
+    its text (Unicode whitespace such as U+00A0 or U+0085 included), as the
+    library strips each segment before splitting it."""
+    return raw.decode(ENCODING, "surrogateescape").rstrip().encode(ENCODING, "surrogateescape")
 
 
 def readable(data):

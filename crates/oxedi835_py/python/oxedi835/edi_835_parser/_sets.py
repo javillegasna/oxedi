@@ -144,7 +144,8 @@ class TransactionSet:
         """One row per service, as edi-835-parser builds it; with ``extended``,
         also the rows and ``x_`` columns that frame leaves out (claim-only and
         provider-adjustment rows can widen strict columns' dtypes: ``int`` to
-        ``float``, ``bool`` to ``object``)."""
+        ``float``, ``bool`` to ``object``, and an ``object`` column holding
+        only ``None`` to ``float`` with NaN)."""
         if extended:
             from ._extended import frame
 
@@ -173,7 +174,8 @@ class TransactionSets:
         library does, so empty transactions give the same dtypes. With
         ``extended``, also the rows and ``x_`` columns the frame leaves out
         (claim-only and provider-adjustment rows can widen strict columns'
-        dtypes: ``int`` to ``float``, ``bool`` to ``object``)."""
+        dtypes: ``int`` to ``float``, ``bool`` to ``object``, and an
+        ``object`` column holding only ``None`` to ``float`` with NaN)."""
         import pandas as pd
 
         if extended:

@@ -679,6 +679,48 @@ def test_trailing_blanks_before_the_terminator_are_stripped_as_the_library_does(
     assert all(not c.claim.icn.endswith(" ") for c in a.claims)
 
 
+UNICODE_BLANKS = ["\u00a0", " \u2003", "\u0085", "\u3000 "]
+
+
+def test_unicode_whitespace_before_the_terminator_is_stripped_as_the_library_does(tmp_path):
+    import re
+
+    text = path_of(SAMPLES[2]).read_bytes().decode()
+    for at, segment in enumerate(("CLP", "DTM", "AMT", "N4", "NM1", "BPR", "CAS", "SVC", "REF", "TRN", "N1")):
+        blank = UNICODE_BLANKS[at % len(UNICODE_BLANKS)]
+        text = re.sub(rf"({segment}\*[^~]*)~", lambda m: m.group(1) + blank + "~", text)
+    try:
+        data = text.encode(ENCODING)
+    except UnicodeEncodeError:
+        pytest.skip("the locale encoding cannot write these characters")
+    path = tmp_path / "unicode.txt"
+    path.write_bytes(data)
+    expected, actual = old(path), compat.parse(path)
+    pd.testing.assert_frame_equal(actual.to_dataframe(), expected.to_dataframe(), check_exact=True)
+    (e,), (a,) = list(expected), list(actual)
+    assert organization(a.payer) == organization(e.payer)
+    assert organization(a.payee) == organization(e.payee)
+    fields = ("amount_paid", "payment_method", "routing_number", "transaction_date")
+    assert [getattr(a.financial_information, f) for f in fields] == [
+        getattr(e.financial_information, f) for f in fields]
+    assert [c.claim.icn for c in a.claims] == [c.claim.icn for c in e.claims]
+
+
+def test_repeated_groups_strip_trailing_blanks_as_the_strict_columns_do():
+    padded = (SERVICELESS.replace("CAS*CO*45*50~", "CAS*CO*45*50  ~")
+              .replace("CAS*CO*29*80~", "CAS*CO*29*80  ~")
+              .replace("SE*17*0001~", "PLB*1234567893*20231231*L6:ABC*-5.00  ~SE*18*0001~"))
+    transaction_sets = compat.parse_bytes(padded.encode())
+    strict = transaction_sets.to_dataframe()
+    extended = transaction_sets.to_dataframe(extended=True)
+    assert strict.adj_0_amount.tolist() == [50.0]
+    service, claim, plb = (extended[extended.x_row_kind == kind].iloc[0]
+                           for kind in ("service", "claim", "provider_adjustment"))
+    assert (service.adj_0_amount, service.x_svc_adj_0_amount) == (50.0, 50.0)
+    assert claim.x_claim_adj_0_amount == 80.0
+    assert plb.x_plb_amount == -5.0
+
+
 def oracle():
     import importlib.util
 

@@ -13,7 +13,9 @@ def frame(transaction_sets):
     """The library's columns in its order whichever transaction comes first,
     then ``x_row_kind`` and ``x_claim`` (absent when no row has a claim),
     then the other ``x_`` columns by name.
-    Rows without a service value widen some library columns' dtypes."""
+    Rows without a service value widen some library columns' dtypes: ``int``
+    to ``float``, ``bool`` to ``object``, and an ``object`` column holding
+    only ``None`` to ``float`` with NaN."""
     import pandas as pd
 
     from ._sets import TransactionSets

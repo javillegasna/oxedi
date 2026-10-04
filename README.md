@@ -58,7 +58,8 @@ The frame equals edi-835-parser 1.8.0's cell for cell on our test files; payer i
 are not numbers (`N104` with qualifier `XV`) work. `extended=True` keeps those columns in
 the same order and only adds columns that start with `x_` and the rows the library drops;
 when claim-only or provider-adjustment rows exist, some strict columns widen their dtype
-(`int` to `float`, `bool` to `object`). Differences from the library:
+(`int` to `float`, `bool` to `object`, and an `object` column holding only `None` to
+`float64` with NaN). Differences from the library:
 
 - One `TransactionSet` per `ST`, not per file; the separators come from the ISA instead of
   being guessed per element; an unknown claim status gives `"unknown"` instead of an error.

@@ -35,6 +35,12 @@
 //! level-2 diagnostic names the table, the column, the row's anchor segment
 //! and the byte total. Draining the tables per transaction keeps columns far
 //! below the limit.
+//!
+//! The module is split by responsibility: `plan` holds the per-table plans
+//! built from the spec; `check` the element check and the parsed values it
+//! hands to the columns; `fill` the row filling, the diagnostic helpers and
+//! the text read of an element. This file holds the projector, its event
+//! handlers and the row and slot state.
 
 mod check;
 mod fill;
@@ -52,6 +58,7 @@ use crate::spec::{ColumnSource, LoopId, ROW_COLUMN, SEGMENT_COLUMN, Spec};
 use check::Checked;
 use fill::append;
 use plan::{ElementPlan, Plans, column_type};
+
 /// A column value of a row being collected.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 enum Slot {

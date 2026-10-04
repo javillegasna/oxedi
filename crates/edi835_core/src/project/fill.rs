@@ -1,4 +1,5 @@
-//! Row filling: columns read from captured segments, and the rows appended to the tables.
+//! Row filling: columns read from captured segments, the rows appended to the
+//! tables, the diagnostic helpers and the text read of an element.
 
 use crate::column::{Cell, CellError, ColumnType, RowError, Table};
 use crate::diagnostic::{Diagnostic, LoopRef, Rule};
@@ -8,6 +9,7 @@ use crate::spec::{ColumnSource, LoopId};
 
 use super::check::{Checked, Parsed, parse};
 use super::{Projector, Row, Slot};
+
 impl<'s> Projector<'s> {
     /// Fills the open rows whose columns read this segment and have no value yet.
     pub(super) fn fill(
@@ -258,7 +260,7 @@ pub(super) fn leaf_text<'a>(
 
 /// Where a column reads inside a segment, and as what.
 #[derive(Debug, Clone, Copy)]
-pub(super) struct Place {
+struct Place {
     element: usize,
     component: Option<usize>,
     kind: ColumnType,

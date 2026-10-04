@@ -478,9 +478,7 @@ impl Diagnostic {
     /// Where the segment at fault lives in `document`; `None` when the
     /// diagnostic names no segment or the document has no such segment.
     pub fn span(&self, document: &Document<'_>) -> Option<Span> {
-        self.segment
-            .and_then(|index| document.spans().get(index))
-            .cloned()
+        self.segment.and_then(|index| document.span(index))
     }
 }
 

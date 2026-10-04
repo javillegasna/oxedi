@@ -498,7 +498,8 @@ fn invalid_utf8_in_a_datum_is_shown_as_hex_escapes() {
 
 #[test]
 fn span_resolves_the_segment_bytes_from_the_document() {
-    let document = Document::with_delimiters(&b"AA*1~BB*2~"[..], Delimiters::new(b'*', b':', b'~'));
+    let document =
+        Document::with_delimiters(&b"AA*1~BB*2~"[..], Delimiters::new(b'*', b':', b'~')).unwrap();
     let at = |segment| {
         Diagnostic::new(
             Rule::UnknownSegment { id: b"BB".to_vec() },

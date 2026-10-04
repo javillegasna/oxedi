@@ -17,7 +17,7 @@ fn draining_after_each_transaction_adds_up_to_one_run_over_the_document() {
     let spec = Spec::builtin_835();
     let transaction = spec.loop_id("transaction").unwrap();
     for (name, bytes, delims) in common::all_files() {
-        let document = Document::with_delimiters(&bytes[..], delims);
+        let document = Document::with_delimiters(&bytes[..], delims).unwrap();
         let (whole, diagnostics) = Processor::run(&spec, &document);
 
         let mut processor = Processor::new(&spec, &delims);
@@ -87,7 +87,7 @@ fn row_counts_follow_the_segments_of_each_file() {
     let spec = Spec::builtin_835();
     for (name, bytes, delims) in common::all_files() {
         let segments: Vec<Segment<'_>> = Tokenizer::with_delimiters(&bytes, delims).collect();
-        let document = Document::with_delimiters(&bytes[..], delims);
+        let document = Document::with_delimiters(&bytes[..], delims).unwrap();
         let (tables, _) = Processor::run(&spec, &document);
         let rows = |table: &str| tables.get(table).unwrap().len();
         let of = |id: &'static [u8]| segments.iter().filter(move |segment| segment.id == id);
@@ -130,7 +130,7 @@ fn a_fragment_that_opens_its_anchor_loops_implicitly_passes_the_same_invariants(
         &b"CLP*C1*1*100*80*20*12*R1*11*1~SVC*HC:99213*100*80~CAS*CO*45*20~"[..],
         &b"SVC*HC:99213*100*80~CAS*CO*45*20~"[..],
     ] {
-        let document = Document::with_delimiters(fragment, delims);
+        let document = Document::with_delimiters(fragment, delims).unwrap();
         let (tables, _) = Processor::run(&spec, &document);
         assert!(
             tables.iter().any(|table| !table.is_empty()),
@@ -165,7 +165,7 @@ fn assert_rows_point_at_their_anchors(
         }
         None
     };
-    let document = Document::with_delimiters(bytes, delims);
+    let document = Document::with_delimiters(bytes, delims).unwrap();
     let (tables, _) = Processor::run(spec, &document);
     for def in spec.tables() {
         let table = tables.get(&def.name).unwrap();
@@ -225,7 +225,7 @@ fn assert_rows_point_at_their_anchors(
 fn columns_have_equal_lengths_and_arrow_buffers() {
     let spec = Spec::builtin_835();
     for (name, bytes, delims) in common::all_files() {
-        let document = Document::with_delimiters(&bytes[..], delims);
+        let document = Document::with_delimiters(&bytes[..], delims).unwrap();
         let (tables, _) = Processor::run(&spec, &document);
         for table in &tables {
             let rows = table.len();
@@ -271,7 +271,7 @@ fn only_the_synthetic_fixtures_raise_element_findings() {
     let spec = Spec::builtin_835();
     let mut found = BTreeMap::new();
     for (name, bytes, delims) in common::all_files() {
-        let document = Document::with_delimiters(&bytes[..], delims);
+        let document = Document::with_delimiters(&bytes[..], delims).unwrap();
         let (_, diagnostics) = Processor::run(&spec, &document);
         let level_two = diagnostics
             .iter()

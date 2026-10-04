@@ -10,7 +10,7 @@ create_exception!(
     oxedi835,
     ParseError,
     PyValueError,
-    "Input whose delimiters cannot be read; the message says what was found and where."
+    "Input that cannot be indexed: its delimiters cannot be read or it exceeds the size limit; the message says what was found and where."
 );
 
 /// The five delimiters of an interchange.
@@ -255,7 +255,8 @@ impl PySegment {
 /// ones given.
 pub fn index(bytes: Vec<u8>, delimiters: Option<Delimiters>) -> PyResult<Document<'static>> {
     match delimiters {
-        Some(delimiters) => Ok(Document::with_delimiters(bytes, delimiters)),
+        Some(delimiters) => Document::with_delimiters(bytes, delimiters)
+            .map_err(|err| ParseError::new_err(err.to_string())),
         None => Document::parse(bytes).map_err(|err| ParseError::new_err(err.to_string())),
     }
 }

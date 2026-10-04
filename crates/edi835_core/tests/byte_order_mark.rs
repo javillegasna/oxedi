@@ -112,8 +112,8 @@ fn every_file_with_a_byte_order_mark_round_trips_and_processes_as_without_it() {
         let (marked, plain) = match Document::parse(&bytes[..]) {
             Ok(plain) => (Document::parse(&marked_bytes[..]).expect(&name), plain),
             Err(_) => (
-                Document::with_delimiters(&marked_bytes[..], delims),
-                Document::with_delimiters(&bytes[..], delims),
+                Document::with_delimiters(&marked_bytes[..], delims).unwrap(),
+                Document::with_delimiters(&bytes[..], delims).unwrap(),
             ),
         };
         assert_eq!(marked.delimiters(), plain.delimiters(), "{name}");
@@ -187,8 +187,8 @@ proptest! {
         let spec = Spec::builtin_835();
         let delims = Delimiters::new(b'*', b':', b'~');
         let marked_bytes = prefixed(&bytes);
-        let marked = Document::with_delimiters(&marked_bytes[..], delims);
-        let plain = Document::with_delimiters(&bytes[..], delims);
+        let marked = Document::with_delimiters(&marked_bytes[..], delims).unwrap();
+        let plain = Document::with_delimiters(&bytes[..], delims).unwrap();
         assert_same_segments(&marked, &plain)?;
         assert_same_processing(&spec, &marked, &plain)?;
     }

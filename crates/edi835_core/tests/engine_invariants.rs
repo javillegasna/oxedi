@@ -163,7 +163,7 @@ fn feeding_from_a_document_or_a_tokenizer_gives_the_same_events() {
     use edi835_core::Document;
     let spec = Spec::builtin_835();
     for (name, bytes, delims) in common::all_files() {
-        let doc = Document::with_delimiters(&bytes[..], delims);
+        let doc = Document::with_delimiters(&bytes[..], delims).unwrap();
         let a = common::run_engine(&spec, &doc);
         let b = common::events_of(&spec, &bytes, delims);
         assert_eq!(a, b, "{name}");

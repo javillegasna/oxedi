@@ -401,8 +401,9 @@ impl ColumnData {
     /// Row `row` as text: bytes as UTF-8 (invalid sequences replaced),
     /// integers as digits, decimals in fixed point with the column's scale,
     /// dates as `YYYY-MM-DD`, times as `HH:MM:SS` and a null as `∅`; `None`
-    /// past the end. A date too far from 1970 to convert and a negative time
-    /// render as their raw number, `date32(2147483647)` or `time32(-1)`.
+    /// past the end. A date too far from 1970 to convert and a time outside
+    /// one day render as their raw number, `date32(2147483647)` or
+    /// `time32(90000)`.
     pub fn render(&self, row: usize) -> Option<String> {
         Some(match self.get(row)? {
             Cell::Null => "∅".to_string(),
@@ -429,7 +430,9 @@ impl ColumnData {
                 let (year, month, day) = civil_from_days(days);
                 format!("{year:04}-{month:02}-{day:02}")
             }
-            Cell::Time32(seconds) if seconds < 0 => format!("time32({seconds})"),
+            Cell::Time32(seconds) if !(0..86_400).contains(&seconds) => {
+                format!("time32({seconds})")
+            }
             Cell::Time32(seconds) => format!(
                 "{:02}:{:02}:{:02}",
                 seconds / 3600,
@@ -1050,12 +1053,16 @@ mod tests {
         assert_eq!(dates.render(2).as_deref(), Some("5879610-09-08"));
         assert_eq!(dates.render(3).as_deref(), Some("1970-01-01"));
         let mut times = ColumnData::new(ColumnType::Time32);
-        for seconds in [-1, i32::MIN, 0] {
+        for seconds in [-1, i32::MIN, 0, 86_399, 86_400, 90_000, i32::MAX] {
             times.push(Cell::Time32(seconds)).unwrap();
         }
         assert_eq!(times.render(0).as_deref(), Some("time32(-1)"));
         assert_eq!(times.render(1).as_deref(), Some("time32(-2147483648)"));
         assert_eq!(times.render(2).as_deref(), Some("00:00:00"));
+        assert_eq!(times.render(3).as_deref(), Some("23:59:59"));
+        assert_eq!(times.render(4).as_deref(), Some("time32(86400)"));
+        assert_eq!(times.render(5).as_deref(), Some("time32(90000)"));
+        assert_eq!(times.render(6).as_deref(), Some("time32(2147483647)"));
     }
 
     #[test]

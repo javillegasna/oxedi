@@ -1,6 +1,43 @@
-# State — 2026-10-04 (Stage 5c merged; Stage 5d in PR)
+# State — 2026-10-04 (Stage 5d merged; Stage 5e in PR)
 
 Snapshot for picking the project up cold. Update when a stage changes state.
+
+## Pick up here (2026-10-04, end of session)
+
+- **Now:** Stage 5e is executed on branch `stage-5e-pyx12` and ready for the final review. Built:
+  `scripts/spec_vs_pyx12.py` (report, draft patch, `--check`; exclusions with reasons in
+  `scripts/spec_vs_pyx12.ignore.json`); `codes` and `version` in the spec format with their
+  load-time validation and diagnostic; the 5010 spec completed from the maps (12 `required`
+  flips, TA1, 42 code lists); `specs/835.4010.json` as a patch; Python `parse`/`parse_file`/
+  `stream` pick the spec by declared version and `Spec.builtin(version=)`;
+  `oxedi835.pyx12.validate` behind `oxedi835[pyx12]`; `pyx12` BSD notice; CI runs the
+  cross-check for both versions. Golden changes: BPR16 on multi_claim and SVC03 on blue_cross,
+  both real data issues. Next: whole-branch review on Opus (P10 focus), one fix wave, PR against
+  `master` (Intent / Verification), owner merges; then deferred minors to Project #8 and
+  update `.doc/analysis/` (current at 7f4f8cf).
+- **Merged today:** Stage 6 (PR #67) and `0.1.0` on PyPI by trusted publishing (rc1 on TestPyPI
+  only); README for users (#68); flaky GIL test replaced (#72); Stage 5c module layout (#75);
+  Stage 5d performance (#78: index 8 B/segment, `process` 33 → 37 MiB/s, gate 50 not met → #76);
+  DuckDB spike and roadmap order (#79).
+- **Order after 5e:** 5f DuckDB extension (read; D15 naming before publishing) → 7 D11 + writer in
+  core and Python with `pyx12` as gate → 7b DuckDB write through `COPY` → 8 → 9.
+- **Key facts for 5e:** `pyx12` 4.0.0 needs Python ≥ 3.11 and bundles `835.4010.X091.A1.xml`,
+  `835.5010.X221.A1.xml`, `dataele.xml`, `codes.xml`; validates united clean in ~3.6 s; its 999
+  writer crashes (`Cannot create AK2: err_st.vriic was not set`), so use its validation API only;
+  `x12valid -J` writes nested JSON (interchange → group → transaction → segments, `cur_line`).
+  Five samples are 4010, united is 5010. The spec defines 29 segments (name, type, required,
+  min, max), no code lists. No Rust crate validates X12 against HIPAA guides.
+- **Research files (git-ignored, local):** `.superpowers/835-parsers-other-languages-survey.md`,
+  `.superpowers/duckdb-adoption-survey.md`, `.superpowers/x12-validators-rust-survey.md`;
+  spike findings are committed in `.doc/spikes/duckdb-extension.md`; prototype branch
+  `spike-duckdb-prototype` (not to merge).
+- **Open board (Project #8):** #53 (tables format, with D11), #66 (TestPyPI check coverage), #73
+  (type stubs), #74 (Changelog URL), #76 (next performance step, lazy `Segment`), #77 (unread
+  property-test coverage).
+- **Credentials:** GitHub token secrets deleted; `~/.pypirc` kept by the owner for now (remove
+  later); releases go through trusted publishing (`make release-check TAG=… && make tag`, owner
+  approves the environment).
+- **Analysis notes** (`.doc/analysis/`) are current at 7f4f8cf (after 5d); update after 5e.
 
 ## Where we are
 
@@ -27,7 +64,7 @@ Snapshot for picking the project up cold. Update when a stage changes state.
   fixtures; engine on the three largest samples measured in bytes/s and events/s
   (commit acc465e message).
 
-## Stage 5d · Pipeline performance — in PR (2026-10-04)
+## Stage 5d · Pipeline performance — merged (PR #78, 2026-10-04)
 
 Branch `stage-5d-performance`. Gate (`process` >= 50 MiB/s on united and versant) NOT met; the
 stage closes with the figure reached and issue #76 (§7 allows it).

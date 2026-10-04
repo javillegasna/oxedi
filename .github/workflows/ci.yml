@@ -48,9 +48,13 @@ jobs:
           echo "VIRTUAL_ENV=$PWD/.venv" >> "$GITHUB_ENV"
           echo "$PWD/.venv/bin" >> "$GITHUB_PATH"
       - name: Tools
-        run: uv pip install "maturin>=1.9.4,<2" pytest polars pyarrow pandas "edi-835-parser==1.8.0" duckdb
+        run: uv pip install "maturin>=1.9.4,<2" pytest polars pyarrow pandas "edi-835-parser==1.8.0" duckdb "pyx12>=4.0,<5"
       - name: Build
         run: maturin develop --uv --release --manifest-path crates/oxedi835_py/Cargo.toml
+      - name: Spec against pyx12's maps
+        run: |
+          python scripts/spec_vs_pyx12.py --check
+          python scripts/spec_vs_pyx12.py --check --version 4010
       - name: Test
         run: pytest crates/oxedi835_py/tests
       - name: Wheel in a clean environment

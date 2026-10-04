@@ -112,6 +112,16 @@ fn every_rule_names_its_variant() {
             },
             "CompositeShape",
         ),
+        (
+            Rule::CodeNotInList {
+                segment_id: id(),
+                element: 1,
+                component: None,
+                name: "n".into(),
+                codes: 2,
+            },
+            "CodeNotInList",
+        ),
     ];
     for (rule, kind) in rules {
         assert_eq!(rule.kind(), kind);
@@ -427,6 +437,34 @@ fn length_out_of_range_displays_the_length_and_the_bounds() {
             .ends_with("allows at most 38")
     );
     assert!(rule(None, None).to_string().ends_with("allows any length"));
+}
+
+#[test]
+fn code_not_in_list_displays_the_element_the_list_size_and_the_value() {
+    let rule = |component, codes| Rule::CodeNotInList {
+        segment_id: b"SVC".to_vec(),
+        element: 1,
+        component,
+        name: "product_or_service_id_qualifier".into(),
+        codes,
+    };
+    let diagnostic = Diagnostic::new(
+        rule(Some(1), 10),
+        Some(17),
+        Some(1),
+        Some(1),
+        path(&[("2110", 3)]),
+        b"ZZ".to_vec(),
+    );
+    assert_eq!(diagnostic.level, SnipLevel::L2);
+    assert_eq!(
+        diagnostic.to_string(),
+        "SNIP 2 · element SVC01-1 (product_or_service_id_qualifier) is not one of the 10 codes the spec lists for it · segment #17, element 1, component 1 · at 2110#3 · datum \"ZZ\""
+    );
+    assert_eq!(
+        rule(None, 1).to_string(),
+        "element SVC01 (product_or_service_id_qualifier) is not the one code the spec lists for it"
+    );
 }
 
 #[test]

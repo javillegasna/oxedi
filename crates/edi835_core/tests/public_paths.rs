@@ -52,6 +52,7 @@ mod by_module {
     use edi835_core::spec::Control;
     use edi835_core::spec::ControlCount;
     use edi835_core::spec::ControlError;
+    use edi835_core::spec::DeclaredVersion;
     use edi835_core::spec::ElementDef;
     use edi835_core::spec::ElementDefError;
     use edi835_core::spec::ElementType;
@@ -66,6 +67,7 @@ mod by_module {
     use edi835_core::spec::TableDef;
     use edi835_core::spec::TableDefError;
     use edi835_core::spec::Trigger;
+    use edi835_core::spec::VersionError;
     use edi835_core::spec::merge_patch;
     use edi835_core::tokenizer::Tokenizer;
     use edi835_core::tree::LoopTree;
@@ -79,9 +81,9 @@ use edi835_core::EnvelopeChecker;
 use edi835_core::Projector;
 use edi835_core::Tokenizer;
 use edi835_core::{
-    AnchorChains, ColumnSource, Control, ControlCount, ControlError, ElementDef, ElementDefError,
-    ElementType, LoopDef, LoopId, Repeat, SegmentDef, Spec, SpecError, TableDef, TableDefError,
-    Trigger, merge_patch,
+    AnchorChains, ColumnSource, Control, ControlCount, ControlError, DeclaredVersion, ElementDef,
+    ElementDefError, ElementType, LoopDef, LoopId, Repeat, SegmentDef, Spec, SpecError, TableDef,
+    TableDefError, Trigger, VersionError, merge_patch,
 };
 use edi835_core::{
     Bitmap, Cell, CellError, Column, ColumnData, ColumnType, RowError, Table, Tables, parse_dt,
@@ -99,3 +101,12 @@ use edi835_core::{Segment, WriteError};
 
 #[test]
 fn every_public_path_resolves() {}
+
+// Associated items added to `Spec`, named so the build fails if one disappears.
+#[allow(dead_code)]
+fn spec_items(spec: &Spec) {
+    let _: &str = Spec::BUILTIN_835_4010_PATCH;
+    let _: fn() -> Spec = Spec::builtin_835_4010;
+    let _: for<'a> fn(&'a Spec) -> Option<&'a DeclaredVersion> = Spec::version;
+    let _: &Spec = Spec::select(&[spec], spec, Vec::<Segment<'static>>::new());
+}

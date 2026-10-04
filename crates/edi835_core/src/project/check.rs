@@ -4,7 +4,7 @@ use crate::column::{ColumnType, is_dt, parse_dt, parse_n, parse_r, parse_tm};
 use crate::diagnostic::Rule;
 use crate::element::Element;
 use crate::segment::Segment;
-use crate::spec::{ElementDef, ElementType};
+use crate::spec::ElementDef;
 
 use super::Projector;
 use super::fill::leaf_text;
@@ -191,12 +191,7 @@ impl<'s> Projector<'s> {
             return Parsed::Null;
         };
         // Numeric lengths count digits only, as X12 does: no sign, no point.
-        let length = match def.kind {
-            ElementType::N(_) | ElementType::R { .. } => {
-                text.iter().filter(|byte| byte.is_ascii_digit()).count()
-            }
-            _ => text.len(),
-        };
+        let length = def.kind.length_of(text);
         if def.min.is_some_and(|min| length < min) || def.max.is_some_and(|max| length > max) {
             self.report(
                 Rule::LengthOutOfRange {
@@ -207,6 +202,22 @@ impl<'s> Projector<'s> {
                     min: def.min,
                     max: def.max,
                     length,
+                },
+                segment.index,
+                element,
+                component,
+                text,
+            );
+        } else if def.rejects_code(text) {
+            // Every code fits the element's lengths, so a value of the wrong
+            // length is reported once, as a length.
+            self.report(
+                Rule::CodeNotInList {
+                    segment_id: segment.id.to_vec(),
+                    element,
+                    component,
+                    name: def.name.clone(),
+                    codes: def.codes.len(),
                 },
                 segment.index,
                 element,

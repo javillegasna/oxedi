@@ -13,6 +13,7 @@ use super::raw::{RawControl, RawLoop, RawSegment, RawSpec};
 use super::render::render_trigger;
 use super::segments::{SegmentDef, compile_elements, parse_position};
 use super::shape::{check_shape, section};
+use super::version::compile_version;
 
 impl Spec {
     pub(crate) fn from_value(source: Value) -> Result<Spec, SpecError> {
@@ -124,12 +125,14 @@ impl Spec {
             segments.insert(id.as_bytes().to_vec(), SegmentDef { elements });
         }
 
+        let version = raw.version.as_ref().map(compile_version).transpose()?;
         let mut spec = Spec {
             name: raw.name,
             loops,
             roots,
             segments,
             tables: Vec::new(),
+            version,
             source,
         };
         spec.check_ambiguity()?;

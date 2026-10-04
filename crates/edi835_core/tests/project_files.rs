@@ -264,15 +264,17 @@ fn columns_have_equal_lengths_and_arrow_buffers() {
     }
 }
 
-/// The element findings over the eleven files are all defects of the
-/// synthetic fixtures; the six anonymized payer files raise none.
+/// Each file under the built-in spec of the version it declares: the element
+/// findings over the eleven files are all defects of the synthetic fixtures;
+/// the six anonymized payer files raise none.
 #[test]
 fn only_the_synthetic_fixtures_raise_element_findings() {
-    let spec = Spec::builtin_835();
+    let (five, four) = common::builtins();
     let mut found = BTreeMap::new();
     for (name, bytes, delims) in common::all_files() {
+        let spec = common::select(&five, &four, &bytes, delims);
         let document = Document::with_delimiters(&bytes[..], delims).unwrap();
-        let (_, diagnostics) = Processor::run(&spec, &document);
+        let (_, diagnostics) = Processor::run(spec, &document);
         let level_two = diagnostics
             .iter()
             .filter(|diagnostic| diagnostic.level == SnipLevel::L2)
@@ -284,8 +286,8 @@ fn only_the_synthetic_fixtures_raise_element_findings() {
     assert_eq!(
         found,
         BTreeMap::from([
-            ("blue_cross_nc_sample.txt".to_string(), 3),
-            ("multi_claim_sample.txt".to_string(), 16),
+            ("blue_cross_nc_sample.txt".to_string(), 4),
+            ("multi_claim_sample.txt".to_string(), 17),
             ("trizetto_sample.rmt".to_string(), 5),
         ])
     );

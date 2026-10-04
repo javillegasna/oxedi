@@ -31,6 +31,7 @@ Issues = "https://github.com/javillegasna/oxedi835/issues"
 edi-835-parser = ["pandas>=2.0.3,<3", "pyarrow>=14"]
 pandas = ["pandas>=2", "pyarrow>=14"]
 polars = ["polars>=1.0"]
+pyx12 = ["pyx12>=4.0,<5"]
 test = ["pytest>=8", "polars>=1.0", "pyarrow>=14", "pandas>=2.0.3,<3", "edi-835-parser==1.8.0", "duckdb>=1.1"]
 
 [tool.maturin]

@@ -84,3 +84,48 @@ def test_the_edi_835_parser_patch_loads_with_its_tables():
     result = oxedi835.parse(read(LARGEST), spec=spec)
     assert result.tables.keys() == COMPAT_TABLES
     assert (len(result.tables["rows"]), len(result.tables["rows_claims"]), len(result.diagnostics)) == (6192, 1332, 0)
+
+
+def test_the_builtins_by_version():
+    five, four = Spec.builtin(version="5010"), Spec.builtin(version="4010")
+    assert five.to_json() == Spec.builtin().to_json()
+    assert json.loads(four.to_json())["version"]["values"][0] == "004010X091A1"
+    assert json.loads(five.to_json())["version"]["values"] == ["005010X221A1"]
+
+
+def test_an_unknown_builtin_version_names_the_versions_there_are():
+    with pytest.raises(ValueError) as info:
+        Spec.builtin(version="6020")
+    assert str(info.value) == (
+        'Spec.builtin(version="6020"): no built-in spec for that version; '
+        'the built-ins are "5010" and "4010"'
+    )
+
+
+def lines(diagnostics):
+    return [str(d) for d in diagnostics]
+
+
+@pytest.mark.parametrize(
+    "name, version",
+    [("edi835_test_davisvision.RMT", "4010"), (LARGEST, "5010")],
+)
+def test_without_a_spec_the_file_gets_the_builtin_of_its_version(name, version, tmp_path):
+    data = read(name)
+    chosen = Spec.builtin(version=version)
+    expected = lines(oxedi835.parse(data, spec=chosen).diagnostics)
+    assert lines(oxedi835.parse(data).diagnostics) == expected
+    path = tmp_path / name
+    path.write_bytes(data)
+    assert lines(oxedi835.parse_file(path).diagnostics) == expected
+    streamed = [d for batch in oxedi835.stream(data) for d in batch.diagnostics]
+    assert lines(streamed) == expected
+
+
+def test_a_given_spec_is_used_as_given():
+    data = read("edi835_test_davisvision.RMT")
+    kinds = [d.kind for d in oxedi835.parse(data, spec=Spec.builtin()).diagnostics]
+    assert kinds.count("CodeNotInList") == 2
+    assert "CodeNotInList" not in [d.kind for d in oxedi835.parse(data).diagnostics]
+    streamed = [d.kind for b in oxedi835.stream(data, spec=Spec.builtin()) for d in b.diagnostics]
+    assert streamed.count("CodeNotInList") == 2

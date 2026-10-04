@@ -1312,3 +1312,77 @@ los bytes del archivo en united.
 
 **Fuera de alcance.** `Segment` perezoso (T48); rediseño de las tablas (T49); paralelismo dentro
 de un archivo; LTO o perfiles de compilación (decisión de distribución, no de código).
+
+### Stage 5e · Completitud de la spec y validación con `pyx12` — APROBADO 2026-10-04
+
+El stage que convierte `pyx12` en el oráculo de nuestra spec y en un validador accesible desde
+Python. Nuestra spec no es completa: define 29 segmentos con nombre, tipo, obligatoriedad y
+longitudes, sin listas de códigos, y no hay forma fiable de saber qué le falta. Los mapas de
+`pyx12` (BSD 3 cláusulas) son la única fuente abierta con loops, uso, tipos, longitudes y códigos
+del 835 (ninguna librería de Rust valida contra las guías HIPAA). Resuelve la parte 835 de D16.
+Medido el 2026-10-04 con `pyx12` 4.0.0 (Python ≥ 3.11): valida `edi835_test_united.rmt` sin
+errores en unos 3,6 s (nosotros parseamos en unos 17 ms), entrega sus hallazgos en JSON por
+intercambio, grupo, transacción y segmento, y falla al generar su 999
+(`Cannot create AK2: err_st.vriic was not set`) sin afectar a la validación.
+
+**Decisiones de diseño (cada una con la alternativa descartada).**
+- **T52 · Cotejo revisado, no spec generada.** Un script (`scripts/spec_vs_pyx12.py`) compara
+  `specs/835.json` con `835.5010.X221.A1.xml`, `835.4010.X091.A1.xml`, `dataele.xml` y
+  `codes.xml` y produce un informe de diferencias (segmentos y loops que faltan, uso, tipos,
+  longitudes, códigos) y un borrador de parche RFC 7386. Una persona revisa el parche y lo aplica a
+  la spec. Un test del CI de Python, que corre solo con `pyx12` instalado, falla si la spec y los
+  mapas se desalinean en lo que la spec ya cubre, nombrando loop, segmento, elemento y dato.
+  Descartado generar la spec entera desde los mapas: perdería lo propio de la spec (nombres de
+  columna, tablas, controles).
+- **T53 · Una spec por versión, con la 5010 por defecto** (revisada por el dueño el
+  2026-10-04, siguiendo el patrón de la capa `edi_835_parser`). `specs/835.json` es la 5010 y
+  sigue siendo la spec por defecto; la 4010 vive en `specs/835.4010.json` como parche RFC 7386
+  sobre la 5010 (como `edi_835_parser.json`), con los valores de `835.4010.X091.A1.xml`. Cada spec
+  declara qué versión cubre como dato (segmento, elemento y valor, p. ej. GS08 = `005010X221A1`),
+  de modo que el núcleo puede elegir entre specs candidatas leyendo el sobre sin nombrar ningún
+  segmento en el código; si ninguna coincide se usa la de por defecto. Descartados una spec única
+  que tolere la 4010 (los códigos y usos propios de la 4010 darían diagnósticos falsos) y dos
+  archivos completos (duplicación).
+- **T54 · Listas de códigos en la spec y en el núcleo.** El formato de la spec admite, por
+  elemento, una lista de valores permitidos (`codes`), validada al cargar la spec (lista no
+  vacía, valores dentro de la longitud del elemento) con errores P10. La lista se puebla desde
+  `codes.xml` y los mapas. El proyector comprueba cada valor contra su lista y emite un
+  diagnóstico de nivel 2 nuevo que nombra la regla, el segmento, la posición del elemento y el
+  valor. Quedan fuera los conjuntos de códigos externos (CARC, RARC y similares): no vienen en los
+  mapas y cambian varias veces al año. Descartado dejar los códigos solo a `pyx12`: es la
+  validación de más valor y a nuestra velocidad cuesta poco.
+- **T55 · `oxedi835.pyx12.validate`.** Recibe bytes, ruta o archivo, como `parse`, y devuelve una
+  lista de nuestros `Diagnostic` con un origen que los marca como de `pyx12`; el número de
+  segmento de `pyx12` se traduce a nuestro índice de segmento y rango de bytes, y la posición de
+  elemento y el dato se conservan. `parse` no llama nunca a `pyx12`: validar con él es una
+  decisión explícita del usuario. Vive en el subpaquete `oxedi835.pyx12` tras el extra
+  `oxedi835[pyx12]` (regla de nombres de D12); el wheel base sigue sin dependencias.
+- **T56 · Robustez frente a `pyx12`.** Se usa su API de validación, nunca la generación del 999;
+  el extra acota la versión de `pyx12` a la serie probada. Una excepción de `pyx12` se convierte en
+  un diagnóstico que nombra el fallo, la excepción y el último segmento procesado, en lugar de
+  propagarse.
+- **T57 · Licencia.** Los datos derivados de los mapas (uso, longitudes, códigos) llevan la nota
+  BSD de `pyx12` en `THIRD_PARTY_NOTICES`, que viaja en el sdist y en los wheels como la de
+  `edi-835-parser`.
+
+**Entregable / contrato.**
+- `scripts/spec_vs_pyx12.py` con su informe y borrador de parche; la spec 835 corregida con los
+  parches revisados; test de desalineación en el CI de Python.
+- Formato de spec con `codes` y con la versión declarada, su validación al cargar y la regla de
+  diagnóstico nueva en el núcleo, con test de `Display` de texto completo; `specs/835.4010.json`
+  y la selección de spec por versión.
+- `oxedi835.pyx12.validate` con su traducción a `Diagnostic` y tests sobre los samples.
+- `THIRD_PARTY_NOTICES` con la atribución de `pyx12`.
+
+**Gate de verificación (salida del Stage 5e).**
+- El informe de cotejo no muestra diferencias pendientes en lo que la spec cubre; lo que la spec
+  no cubra a propósito queda listado con su razón.
+- Los seis samples y los fixtures parsean como hoy salvo los diagnósticos nuevos de códigos, cada
+  uno revisado y explicado; ningún golden cambia sin esa revisión.
+- `validate` corre sobre los seis samples y sus diagnósticos apuntan al segmento y bytes
+  correctos.
+- `make gates` y `make py-test` en verde, también con el extra instalado.
+
+**Fuera de alcance.** Versiones del 835 distintas de 4010 y 5010; códigos externos (T54); generador de specs para la
+837 (Stage 9); `ContextReader` (9b); validación SNIP 3 o superior nativa en el núcleo (D11 y
+después).

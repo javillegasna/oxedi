@@ -1,4 +1,5 @@
-//! Event streams compared against committed golden files. Small files keep
+//! Event streams compared against committed golden files, each file under
+//! the built-in spec of the version it declares. Small files keep
 //! the full stream; the two large samples keep a count summary. Regenerate
 //! with `UPDATE_GOLDEN=1 cargo test --test engine_golden`, inspect the diff,
 //! commit. Goldens of other suites live in subdirectories, which this one
@@ -81,18 +82,19 @@ fn summary(spec: &Spec, bytes: &[u8], delims: edi835_core::Delimiters) -> String
 
 #[test]
 fn event_streams_match_the_golden_files() {
-    let spec = Spec::builtin_835();
+    let (five, four) = common::builtins();
     let mut outputs = Vec::new();
     for (name, bytes, delims) in common::all_files() {
+        let spec = common::select(&five, &four, &bytes, delims);
         outputs.push(if common::SUMMARY_ONLY.contains(&name.as_str()) {
             (
                 golden_dir().join(format!("{name}.summary.txt")),
-                summary(&spec, &bytes, delims),
+                summary(spec, &bytes, delims),
             )
         } else {
             (
                 golden_dir().join(format!("{name}.events.txt")),
-                full_stream(&spec, &bytes, delims),
+                full_stream(spec, &bytes, delims),
             )
         });
     }

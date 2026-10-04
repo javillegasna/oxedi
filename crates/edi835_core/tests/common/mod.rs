@@ -71,6 +71,29 @@ pub fn all_files() -> Vec<(String, Vec<u8>, edi835_core::Delimiters)> {
     files
 }
 
+/// The 5010 and 4010 built-in specs, as candidates for [`select`].
+pub fn builtins() -> (edi835_core::Spec, edi835_core::Spec) {
+    (
+        edi835_core::Spec::builtin_835(),
+        edi835_core::Spec::builtin_835_4010(),
+    )
+}
+
+/// The built-in spec of the version the file declares, 5010 when it
+/// declares none of theirs: what a caller that passes no spec gets.
+pub fn select<'a>(
+    five: &'a edi835_core::Spec,
+    four: &'a edi835_core::Spec,
+    bytes: &[u8],
+    delims: edi835_core::Delimiters,
+) -> &'a edi835_core::Spec {
+    edi835_core::Spec::select(
+        &[five, four],
+        five,
+        edi835_core::Tokenizer::with_delimiters(bytes, delims),
+    )
+}
+
 /// Feed every segment to a fresh engine, then `finish`, and return every event and the engine.
 pub fn run_engine_keeping<'s, 'a>(
     spec: &'s edi835_core::Spec,

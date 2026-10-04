@@ -144,8 +144,21 @@ impl PyStream {
     }
 }
 
+/// The loop of `spec` named `by`, or an error naming the loops it has.
+fn loop_of(spec: &Spec, by: &str) -> PyResult<LoopId> {
+    spec.loop_id(by).ok_or_else(|| {
+        let names: Vec<&str> = spec.loops().iter().map(|l| l.name.as_str()).collect();
+        PyValueError::new_err(format!(
+            "stream by {by:?}: the spec has no such loop; its loops are {}",
+            names.join(", ")
+        ))
+    })
+}
+
 /// Walks a file and yields a batch each time an instance of loop `by`
-/// closes, and one more at the end when anything is left.
+/// closes, and one more at the end when anything is left. Without `spec`,
+/// the built-in spec of the version the file declares is used, else the
+/// default one.
 #[pyfunction]
 #[pyo3(signature = (data, spec = None, by = "transaction", delimiters = None))]
 pub fn stream(
@@ -156,20 +169,18 @@ pub fn stream(
     delimiters: Option<&Bound<'_, PyDelimiters>>,
 ) -> PyResult<PyStream> {
     let bytes = copy_input("stream", data)?;
-    let spec = spec::or_builtin(spec);
-    let Some(by) = spec.loop_id(by) else {
-        let names: Vec<&str> = spec.loops().iter().map(|l| l.name.as_str()).collect();
-        return Err(PyValueError::new_err(format!(
-            "stream by {by:?}: the spec has no such loop; its loops are {}",
-            names.join(", ")
-        )));
-    };
+    let given = spec::given(spec);
+    // The loop is checked before the input is read, against the given spec
+    // or the default built-in; every built-in has the same loops.
+    loop_of(given.as_deref().unwrap_or(&spec::builtin()), by)?;
     let delimiters = match delimiters {
         Some(delimiters) => delimiters.get().inner,
         None => *Tokenizer::new(&bytes)
             .map_err(|err| ParseError::new_err(err.to_string()))?
             .delimiters(),
     };
+    let spec = spec::given_or_selected(given, Tokenizer::with_delimiters(&bytes, delimiters));
+    let by = loop_of(&spec, by)?;
     let source = Source {
         spec,
         bytes,

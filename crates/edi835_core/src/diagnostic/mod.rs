@@ -178,6 +178,19 @@ pub enum Rule {
         /// Components found in the file.
         found: usize,
     },
+    /// A value is not in its element's code list.
+    CodeNotInList {
+        /// The segment id.
+        segment_id: Vec<u8>,
+        /// 1-based element position.
+        element: usize,
+        /// 1-based component position, when the definition is a component.
+        component: Option<usize>,
+        /// The element's name in the spec.
+        name: String,
+        /// How many codes the list holds.
+        codes: usize,
+    },
 }
 
 impl Rule {
@@ -195,6 +208,7 @@ impl Rule {
             | Rule::TypeMismatch { .. }
             | Rule::LengthOutOfRange { .. }
             | Rule::CompositeShape { .. }
+            | Rule::CodeNotInList { .. }
             | Rule::ValueDropped { .. } => SnipLevel::L2,
         }
     }
@@ -215,6 +229,7 @@ impl Rule {
             Rule::LengthOutOfRange { .. } => "LengthOutOfRange",
             Rule::ValueDropped { .. } => "ValueDropped",
             Rule::CompositeShape { .. } => "CompositeShape",
+            Rule::CodeNotInList { .. } => "CodeNotInList",
         }
     }
 }
@@ -430,6 +445,29 @@ impl fmt::Display for Rule {
                     component: None
                 }
             ),
+            Rule::CodeNotInList {
+                segment_id,
+                element,
+                component,
+                name,
+                codes,
+            } => {
+                let at = ElementRef {
+                    segment_id,
+                    element: *element,
+                    component: *component,
+                };
+                match codes {
+                    1 => write!(
+                        f,
+                        "element {at} ({name}) is not the one code the spec lists for it"
+                    ),
+                    _ => write!(
+                        f,
+                        "element {at} ({name}) is not one of the {codes} codes the spec lists for it"
+                    ),
+                }
+            }
         }
     }
 }

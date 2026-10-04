@@ -189,6 +189,13 @@ def test_input_without_an_isa_raises_parse_error():
     )
 
 
+def test_an_unknown_loop_is_reported_before_the_input_is_read():
+    with pytest.raises(ValueError) as info:
+        oxedi835.stream(b"ST*835~", by="claim")
+    assert not isinstance(info.value, oxedi835.ParseError)
+    assert str(info.value).startswith('stream by "claim": the spec has no such loop')
+
+
 def test_the_batch_repr():
     (batch,) = list(oxedi835.stream(read("emedny_sample.txt")))
     assert repr(batch) == (

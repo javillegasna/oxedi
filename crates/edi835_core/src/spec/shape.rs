@@ -187,10 +187,18 @@ pub(super) fn check_shape(source: &Value) -> Result<(), SpecError> {
     check_keys(
         root,
         "",
-        &["name", "loops", "segments", "tables"],
+        &["name", "loops", "segments", "tables", "version"],
         &["name", "loops"],
     )?;
     check_member(root, "", "name", Leaf::Text, false)?;
+    if let Some(version) = root.get("version") {
+        let keys = ["segment", "element", "values"];
+        let version = object_at(version, "version")?;
+        check_keys(version, "version", &keys, &keys)?;
+        check_member(version, "version", "segment", Leaf::Text, false)?;
+        check_member(version, "version", "element", Leaf::Count, false)?;
+        check_member_texts(version, "version", "values")?;
+    }
     if let Some(loops) = root.get("loops") {
         for (name, def) in object_at(loops, "loops")? {
             let at = child("loops", name);
@@ -302,10 +310,12 @@ fn check_elements_shape(elements: &Value, at: &str) -> Result<(), SpecError> {
                 "min",
                 "max",
                 "scale",
+                "codes",
                 "composite",
             ],
             &["name", "type"],
         )?;
+        check_member_texts(def, &at, "codes")?;
         check_member(def, &at, "name", Leaf::Text, false)?;
         check_member(def, &at, "type", Leaf::Text, false)?;
         check_member(def, &at, "required", Leaf::Flag, false)?;

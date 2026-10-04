@@ -50,7 +50,7 @@ fn builtin_835_defines_every_segment_its_loops_name() {
         vec![
             "AMT", "BPR", "CAS", "CLP", "CUR", "DTM", "GE", "GS", "IEA", "ISA", "LQ", "LX", "MIA",
             "MOA", "N1", "N3", "N4", "NM1", "PER", "PLB", "QTY", "RDM", "REF", "SE", "ST", "SVC",
-            "TRN", "TS2", "TS3"
+            "TA1", "TRN", "TS2", "TS3"
         ]
     );
 }

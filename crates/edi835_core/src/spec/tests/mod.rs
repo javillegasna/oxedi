@@ -1,5 +1,6 @@
 //! Unit tests of the spec module, one file per topic.
 
+mod codes;
 mod controls;
 mod display;
 mod loading;
@@ -8,6 +9,7 @@ mod segments;
 mod shape;
 mod tables;
 mod triggers;
+mod version;
 
 use crate::segment::Segment;
 use crate::spec::{Spec, SpecError};

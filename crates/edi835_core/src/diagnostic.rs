@@ -52,6 +52,9 @@ impl fmt::Display for LoopRef {
 /// The rule a diagnostic reports, with the values its message needs.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Rule {
+    /// The input starts with a UTF-8 byte order mark, read as leading trivia
+    /// of the first segment. Informational: nothing else changes.
+    ByteOrderMark,
     /// No open loop holds the segment and it opens no loop.
     UnknownSegment {
         /// The segment id.
@@ -181,7 +184,8 @@ impl Rule {
     /// The SNIP level the rule belongs to.
     pub fn level(&self) -> SnipLevel {
         match self {
-            Rule::UnknownSegment { .. }
+            Rule::ByteOrderMark
+            | Rule::UnknownSegment { .. }
             | Rule::ImplicitLoop { .. }
             | Rule::UnterminatedLoop { .. }
             | Rule::ControlCountMismatch { .. }
@@ -199,6 +203,7 @@ impl Rule {
     /// caller can filter findings without parsing messages.
     pub fn kind(&self) -> &'static str {
         match self {
+            Rule::ByteOrderMark => "ByteOrderMark",
             Rule::UnknownSegment { .. } => "UnknownSegment",
             Rule::ImplicitLoop { .. } => "ImplicitLoop",
             Rule::UnterminatedLoop { .. } => "UnterminatedLoop",
@@ -261,6 +266,10 @@ impl fmt::Display for ElementRef<'_> {
 impl fmt::Display for Rule {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
+            Rule::ByteOrderMark => write!(
+                f,
+                "the input starts with a UTF-8 byte order mark, kept as leading trivia of the first segment"
+            ),
             Rule::UnknownSegment { id } => write!(
                 f,
                 "segment {} is not part of the structure: no open loop holds it and it opens no loop",
@@ -523,6 +532,7 @@ mod tests {
     fn every_rule_names_its_variant() {
         let id = || b"SE".to_vec();
         let rules = [
+            (Rule::ByteOrderMark, "ByteOrderMark"),
             (Rule::UnknownSegment { id: id() }, "UnknownSegment"),
             (
                 Rule::ImplicitLoop {
@@ -652,6 +662,23 @@ mod tests {
             ordinal: 1,
         };
         assert_eq!(at.to_string(), "\"x#2\"#1");
+    }
+
+    #[test]
+    fn byte_order_mark_displays_the_first_segment_and_the_mark() {
+        let diagnostic = Diagnostic::new(
+            Rule::ByteOrderMark,
+            Some(0),
+            None,
+            None,
+            Vec::new(),
+            b"\xEF\xBB\xBF".to_vec(),
+        );
+        assert_eq!(diagnostic.level, SnipLevel::L1);
+        assert_eq!(
+            diagnostic.to_string(),
+            "SNIP 1 · the input starts with a UTF-8 byte order mark, kept as leading trivia of the first segment · segment #0 · at the root · datum \"\\u{feff}\""
+        );
     }
 
     #[test]

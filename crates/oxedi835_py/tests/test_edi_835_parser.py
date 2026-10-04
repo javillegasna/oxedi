@@ -430,11 +430,14 @@ def test_a_byte_order_mark_loses_only_the_interchange_as_in_the_library(tmp_path
     pd.testing.assert_frame_equal(actual_dir.to_dataframe(), expected_dir.to_dataframe(), check_exact=True)
 
 
-def test_the_native_parse_still_rejects_a_byte_order_mark():
+def test_the_native_parse_reads_a_byte_order_mark_while_the_compat_layer_mirrors_the_library():
     import oxedi835
 
-    with pytest.raises(ParseError):
-        oxedi835.parse(BOM + synthetic())
+    marked, plain = oxedi835.parse(BOM + synthetic()), oxedi835.parse(synthetic())
+    assert marked.document.write() == BOM + synthetic()
+    assert [d.kind for d in marked.diagnostics] == ["ByteOrderMark"] + [d.kind for d in plain.diagnostics]
+    assert marked.tables.render() == plain.tables.render()
+    assert [t.interchange for t in compat.parse_bytes(BOM + synthetic())] == [None]
 
 
 PREFIXES = [b"   \r\n", b"\n", b"\t\t", BOM, BOM + b"\n", BOM + b"  \r\n"]

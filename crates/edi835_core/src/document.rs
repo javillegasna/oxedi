@@ -9,7 +9,7 @@ use std::borrow::Cow;
 use std::ops::Range;
 
 use crate::delimiters::{Delimiters, IsaError};
-use crate::frame::{Frame, is_trivia, next_frame};
+use crate::frame::{Frame, first_frame, leading_trivia, next_frame};
 use crate::segment::Segment;
 
 /// Where one segment lives inside [`Document::as_bytes`].
@@ -36,14 +36,12 @@ pub struct Document<'a> {
 
 impl<'a> Document<'a> {
     /// Indexes `bytes`, reading the delimiters from the ISA segment (which may
-    /// be preceded by trivia). Accepts a borrowed slice or an owned `Vec<u8>`.
+    /// be preceded by a UTF-8 byte order mark and trivia, both kept in the
+    /// first segment's span). Accepts a borrowed slice or an owned `Vec<u8>`.
     pub fn parse(bytes: impl Into<Cow<'a, [u8]>>) -> Result<Self, IsaError> {
         let bytes = bytes.into();
-        let start = bytes
-            .iter()
-            .position(|&byte| !is_trivia(byte))
-            .unwrap_or(bytes.len());
-        let delims = Delimiters::from_isa(&bytes[start..])?;
+        let rest = bytes.get(leading_trivia(&bytes)..).unwrap_or_default();
+        let delims = Delimiters::from_isa(rest)?;
         Ok(Self::with_delimiters(bytes, delims))
     }
 
@@ -153,7 +151,15 @@ fn index(bytes: &[u8], delims: &Delimiters) -> Vec<Span> {
     let mut spans = Vec::new();
     let mut rest = bytes;
     let mut offset = 0;
-    while let Some((frame, next)) = next_frame(rest, delims) {
+    loop {
+        let split = if offset == 0 {
+            first_frame(rest, delims)
+        } else {
+            next_frame(rest, delims)
+        };
+        let Some((frame, next)) = split else {
+            break;
+        };
         // raw = trivia + body + terminator, so the body offset is what is left
         // after removing the body and the (0 or 1 byte) terminator from raw.
         let trivia = frame.raw.len() - frame.body.len() - usize::from(frame.terminated);
@@ -264,6 +270,28 @@ mod tests {
             doc.segment(1).unwrap().element(1).and_then(|e| e.simple()),
             None
         );
+    }
+
+    #[test]
+    fn parse_keeps_a_byte_order_mark_in_the_first_span() {
+        let mut input = b"\xEF\xBB\xBF".to_vec();
+        input.extend_from_slice(ISA);
+        input.extend_from_slice(b"GS*HP~");
+        let doc = Document::parse(&input[..]).unwrap();
+        assert_eq!(doc.len(), 2);
+        assert_eq!(
+            doc.spans()[0],
+            Span {
+                raw: 0..3 + ISA.len(),
+                body: 3..3 + ISA.len() - 1,
+                terminated: true
+            }
+        );
+        assert_eq!(doc.segment(0).unwrap().id, b"ISA");
+        assert_eq!(doc.segment(1).unwrap().id, b"GS");
+        assert_eq!(doc.as_bytes(), &input[..]);
+        let expected: Vec<_> = Tokenizer::new(&input).unwrap().collect();
+        assert_eq!(doc.segments().collect::<Vec<_>>(), expected);
     }
 
     #[test]

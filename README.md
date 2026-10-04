@@ -76,6 +76,10 @@ when claim-only or provider-adjustment rows exist, some strict columns widen the
   library raises `IndexError`.
 - The `ParseError` for a single path names the file.
 - The native API (`oxedi835.parse`) is strict and raises `ParseError` for all of these.
+  It does read a file that starts with a UTF-8 BOM (then optional spaces, tabs or line
+  breaks) before the ISA: the mark stays in the first segment's `raw`, `write()` gives the
+  file back unchanged, and a `ByteOrderMark` diagnostic says it was there. The
+  compatibility layer keeps the library's reading (no `interchange` for such a file).
 
 **Or move to the native API**, which needs no pandas:
 

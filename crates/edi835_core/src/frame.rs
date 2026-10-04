@@ -2,7 +2,9 @@
 //!
 //! Pure and allocation-free. It does not know what a segment means; it only
 //! knows where one ends. Every byte of the input is accounted for by exactly
-//! one [`Frame::raw`], which is what makes the tokenizer lossless.
+//! one [`Frame::raw`], which is what makes the tokenizer lossless. A UTF-8
+//! byte order mark at the very start of the input is leading trivia of the
+//! first frame ([`first_frame`]); anywhere else it is data.
 
 use crate::delimiters::Delimiters;
 
@@ -21,6 +23,50 @@ pub struct Frame<'a> {
 /// Bytes tolerated between a terminator and the next segment.
 pub const fn is_trivia(byte: u8) -> bool {
     matches!(byte, b' ' | b'\t' | b'\r' | b'\n')
+}
+
+/// The UTF-8 byte order mark some editors write at the start of a file.
+pub const BYTE_ORDER_MARK: &[u8] = b"\xEF\xBB\xBF";
+
+/// How many bytes precede the first segment's text: a leading byte order
+/// mark, then any trivia.
+pub fn leading_trivia(input: &[u8]) -> usize {
+    let skipped = if input.starts_with(BYTE_ORDER_MARK) {
+        BYTE_ORDER_MARK.len()
+    } else {
+        0
+    };
+    let rest = input.get(skipped..).unwrap_or_default();
+    skipped
+        + rest
+            .iter()
+            .position(|&byte| !is_trivia(byte))
+            .unwrap_or(rest.len())
+}
+
+/// Splits the first frame off the front of a whole input: as [`next_frame`],
+/// except that a UTF-8 byte order mark at the very start is leading trivia,
+/// kept in the frame's `raw` before the body.
+pub fn first_frame<'a>(input: &'a [u8], delims: &Delimiters) -> Option<(Frame<'a>, &'a [u8])> {
+    let Some(after) = input.strip_prefix(BYTE_ORDER_MARK) else {
+        return next_frame(input, delims);
+    };
+    let Some((frame, rest)) = next_frame(after, delims) else {
+        let (raw, rest) = input.split_at(input.len());
+        let frame = Frame {
+            raw,
+            body: rest,
+            terminated: false,
+        };
+        return Some((frame, rest));
+    };
+    let (raw, _) = input.split_at(BYTE_ORDER_MARK.len() + frame.raw.len());
+    let frame = Frame {
+        raw,
+        body: frame.body,
+        terminated: frame.terminated,
+    };
+    Some((frame, rest))
 }
 
 /// Splits the next frame off the front of `input`.
@@ -155,6 +201,49 @@ mod tests {
         assert_eq!(frame.body, b"N1*A?");
         assert!(!frame.terminated);
         assert_eq!(rest, b"");
+    }
+
+    #[test]
+    fn a_leading_byte_order_mark_is_trivia_of_the_first_frame() {
+        let (frame, rest) = first_frame(b"\xEF\xBB\xBF\r\nISA*00~GS~", &plain()).unwrap();
+        assert_eq!(frame.raw, b"\xEF\xBB\xBF\r\nISA*00~");
+        assert_eq!(frame.body, b"ISA*00");
+        assert!(frame.terminated);
+        assert_eq!(rest, b"GS~");
+    }
+
+    #[test]
+    fn a_byte_order_mark_alone_is_a_trivia_only_frame() {
+        let (frame, rest) = first_frame(b"\xEF\xBB\xBF", &plain()).unwrap();
+        assert_eq!(frame.raw, b"\xEF\xBB\xBF");
+        assert_eq!(frame.body, b"");
+        assert!(!frame.terminated);
+        assert_eq!(rest, b"");
+    }
+
+    #[test]
+    fn without_a_byte_order_mark_the_first_frame_is_the_next_frame() {
+        let input = b"\nST*835~SE~";
+        assert_eq!(first_frame(input, &plain()), next_frame(input, &plain()));
+        assert_eq!(first_frame(b"", &plain()), None);
+    }
+
+    #[test]
+    fn a_byte_order_mark_after_the_first_frame_is_data() {
+        let (frame, _) = next_frame(b"\xEF\xBB\xBFST~", &plain()).unwrap();
+        assert_eq!(frame.body, b"\xEF\xBB\xBFST");
+        let (frame, _) = first_frame(b"\xEF\xBB\xBF\xEF\xBB\xBFST~", &plain()).unwrap();
+        assert_eq!(frame.body, b"\xEF\xBB\xBFST");
+    }
+
+    #[test]
+    fn leading_trivia_counts_a_byte_order_mark_and_whitespace() {
+        assert_eq!(leading_trivia(b"\xEF\xBB\xBF \r\nISA"), 6);
+        assert_eq!(leading_trivia(b"\r\nISA"), 2);
+        assert_eq!(leading_trivia(b"ISA"), 0);
+        assert_eq!(leading_trivia(b" \xEF\xBB\xBFISA"), 1);
+        assert_eq!(leading_trivia(b"\xEF\xBB\xBF"), 3);
+        assert_eq!(leading_trivia(b""), 0);
     }
 
     #[test]

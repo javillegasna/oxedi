@@ -198,7 +198,7 @@ impl Rule {
 
 /// Bytes from the file, quoted on one line: valid text is escaped as a Rust
 /// string literal is, and each invalid byte is written as `\xNN`.
-struct Quoted<'a>(&'a [u8]);
+pub(crate) struct Quoted<'a>(pub(crate) &'a [u8]);
 
 impl fmt::Display for Quoted<'_> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {

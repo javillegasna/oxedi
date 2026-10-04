@@ -13,6 +13,7 @@
 
 use std::fmt;
 
+use crate::diagnostic::Quoted;
 use crate::spec::ElementType;
 
 /// Precision of every `Decimal128` column: the most digits an `i128` holds in full.
@@ -226,14 +227,21 @@ pub enum Cell<'a> {
 
 impl Cell<'_> {
     /// The cell's value as text for an error message: numbers as stored,
-    /// bytes quoted on one line and cut at 32 bytes.
+    /// bytes quoted on one line with `\xNN` for invalid bytes, cut at 32
+    /// bytes without splitting a character.
     fn raw_text(&self) -> String {
         const CUT: usize = 32;
         match self {
             Cell::Null => "null".to_string(),
             Cell::Binary(bytes) => {
-                let shown = bytes.get(..CUT).unwrap_or(bytes);
-                let text = format!("{:?}", String::from_utf8_lossy(shown));
+                let mut end = CUT.min(bytes.len());
+                // A continuation byte at the cut belongs to a character that
+                // began before it; step back to where that character starts.
+                while end > 0 && bytes.get(end).is_some_and(|byte| byte & 0xC0 == 0x80) {
+                    end -= 1;
+                }
+                let shown = bytes.get(..end).unwrap_or(bytes);
+                let text = Quoted(shown).to_string();
                 if shown.len() < bytes.len() {
                     format!("{text}...")
                 } else {
@@ -269,7 +277,8 @@ pub enum CellError {
         cell: &'static str,
         /// The cell's value: integers as written, a decimal as its scaled
         /// integer, dates as days and times as seconds, bytes as a quoted
-        /// string cut at 32 bytes.
+        /// string (`\xNN` for invalid bytes) cut at 32 bytes on a character
+        /// boundary.
         value: String,
     },
     /// The bytes would take a binary column past what `i32` offsets address.
@@ -1058,6 +1067,36 @@ mod tests {
             format!(
                 "a date32 column cannot hold a binary value (\"{}\"...)",
                 "x".repeat(32)
+            )
+        );
+    }
+
+    #[test]
+    fn a_refused_text_value_escapes_invalid_bytes_and_cuts_on_a_character() {
+        let mut column = ColumnData::new(ColumnType::Date32);
+        assert_eq!(
+            column
+                .push(Cell::Binary(b"a\xE9\"b"))
+                .unwrap_err()
+                .to_string(),
+            "a date32 column cannot hold a binary value (\"a\\xE9\\\"b\")"
+        );
+        let mut text = vec![b'x'; 31];
+        text.extend_from_slice("\u{e9}tail".as_bytes());
+        assert_eq!(
+            column.push(Cell::Binary(&text)).unwrap_err().to_string(),
+            format!(
+                "a date32 column cannot hold a binary value (\"{}\"...)",
+                "x".repeat(31)
+            )
+        );
+        let mut exact = vec![b'x'; 30];
+        exact.extend_from_slice("\u{e9}tail".as_bytes());
+        assert_eq!(
+            column.push(Cell::Binary(&exact)).unwrap_err().to_string(),
+            format!(
+                "a date32 column cannot hold a binary value (\"{}\u{e9}\"...)",
+                "x".repeat(30)
             )
         );
     }

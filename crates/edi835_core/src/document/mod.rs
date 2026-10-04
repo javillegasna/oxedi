@@ -125,13 +125,29 @@ impl<'a> Document<'a> {
 
     /// The segment at `index` (0-based, same as [`Segment::index`]), parsed on demand.
     pub fn segment(&self, index: usize) -> Option<Segment<'_>> {
+        Some(Segment::parse(index, self.frame(index)?, &self.delims))
+    }
+
+    /// Parses the segment at `index` into `segment`, reusing its buffers.
+    /// Returns `false`, leaving `segment` untouched, past the last segment.
+    pub(crate) fn segment_into<'d>(&'d self, index: usize, segment: &mut Segment<'d>) -> bool {
+        match self.frame(index) {
+            Some(frame) => {
+                segment.reparse(index, frame, &self.delims);
+                true
+            }
+            None => false,
+        }
+    }
+
+    /// The frame of the segment at `index`; `None` past the last segment.
+    fn frame(&self, index: usize) -> Option<Frame<'_>> {
         let span = self.span(index)?;
-        let frame = Frame {
+        Some(Frame {
             raw: self.bytes.get(span.raw)?,
             body: self.bytes.get(span.body)?,
             terminated: span.terminated,
-        };
-        Some(Segment::parse(index, frame, &self.delims))
+        })
     }
 
     /// Iterates every segment in order, parsing each on demand.

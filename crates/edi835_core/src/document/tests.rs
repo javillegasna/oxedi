@@ -301,3 +301,21 @@ fn document_error_shows_the_size_error_and_chains_it() {
         Some(error.to_string())
     );
 }
+
+#[test]
+fn segment_into_one_buffer_equals_segment_and_stops_past_the_end() {
+    let input = &b"ISA*00~\r\nCLP*1*2*3*4*5*6~SVC*HC:99213:25*100**12~SVC*X~~LX*1"[..];
+    let doc = Document::with_delimiters(input, plain()).unwrap();
+    let mut buffer = Segment::empty();
+    for index in 0..doc.len() {
+        assert!(doc.segment_into(index, &mut buffer));
+        assert_eq!(
+            doc.segment(index).as_ref(),
+            Some(&buffer),
+            "segment {index}"
+        );
+    }
+    let last = buffer.clone();
+    assert!(!doc.segment_into(doc.len(), &mut buffer));
+    assert_eq!(buffer, last, "a miss leaves the buffer untouched");
+}

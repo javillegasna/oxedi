@@ -23,14 +23,32 @@ pub enum Element<'a> {
 impl<'a> Element<'a> {
     /// Parses one raw element (the bytes between two element separators).
     pub fn parse(raw: &'a [u8], component: u8, release: Option<u8>) -> Self {
-        if find_unescaped(raw, component, release).is_some() {
-            let values = split_raw(raw, component, release)
-                .into_iter()
-                .map(|piece| unescape(piece, release))
-                .collect();
-            Element::Composite(values)
-        } else {
-            Element::Simple(unescape(raw, release))
+        let mut element = Element::Simple(Value::Borrowed(&[]));
+        element.reparse(raw, component, release);
+        element
+    }
+
+    /// Overwrites this element with the parse of `raw`, keeping the
+    /// allocation of a composite when the new value is a composite too.
+    pub(crate) fn reparse(&mut self, raw: &'a [u8], component: u8, release: Option<u8>) {
+        let mut pieces = Pieces::new(raw, component, release);
+        let first = pieces.next().unwrap_or_default();
+        if pieces.is_done() {
+            *self = Element::Simple(unescape(first, release));
+            return;
+        }
+        let values = pieces.map(|piece| unescape(piece, release));
+        match self {
+            Element::Composite(old) => {
+                old.clear();
+                old.push(unescape(first, release));
+                old.extend(values);
+            }
+            Element::Simple(_) => {
+                let mut new = vec![unescape(first, release)];
+                new.extend(values);
+                *self = Element::Composite(new);
+            }
         }
     }
 
@@ -45,14 +63,52 @@ impl<'a> Element<'a> {
 
 /// Splits `raw` on every unescaped `sep`. Pieces are not unescaped. Always
 /// returns at least one piece, so the caller can take the first as an id.
-pub fn split_raw(mut raw: &[u8], sep: u8, release: Option<u8>) -> Vec<&[u8]> {
-    let mut pieces = Vec::new();
-    while let Some(at) = find_unescaped(raw, sep, release) {
-        pieces.push(&raw[..at]);
-        raw = &raw[at + 1..];
+pub fn split_raw(raw: &[u8], sep: u8, release: Option<u8>) -> Vec<&[u8]> {
+    Pieces::new(raw, sep, release).collect()
+}
+
+/// The pieces [`split_raw`] returns, yielded one at a time without a buffer.
+#[derive(Debug, Clone)]
+pub(crate) struct Pieces<'a> {
+    /// What is left to split; `None` once the last piece was yielded.
+    rest: Option<&'a [u8]>,
+    sep: u8,
+    release: Option<u8>,
+}
+
+impl<'a> Pieces<'a> {
+    pub(crate) const fn new(raw: &'a [u8], sep: u8, release: Option<u8>) -> Self {
+        Self {
+            rest: Some(raw),
+            sep,
+            release,
+        }
     }
-    pieces.push(raw);
-    pieces
+
+    /// `true` once every piece was yielded.
+    pub(crate) const fn is_done(&self) -> bool {
+        self.rest.is_none()
+    }
+}
+
+impl<'a> Iterator for Pieces<'a> {
+    type Item = &'a [u8];
+
+    fn next(&mut self) -> Option<Self::Item> {
+        let raw = self.rest?;
+        match find_unescaped(raw, self.sep, self.release) {
+            Some(at) => {
+                // `at` is the position of a byte inside `raw`, so both ranges
+                // are in bounds and the separator is the byte between them.
+                self.rest = raw.get(at + 1..);
+                raw.get(..at)
+            }
+            None => {
+                self.rest = None;
+                Some(raw)
+            }
+        }
+    }
 }
 
 /// Removes release bytes, keeping the byte each one protects. Borrows when

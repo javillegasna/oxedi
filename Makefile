@@ -11,7 +11,7 @@ PYTEST      := $(if $(wildcard $(VENV)/bin/pytest),$(VENV)/bin/pytest,$(PYTHON) 
 WHEELS      := target/wheels
 VERSION     := $(shell sed -n 's/^version = "\(.*\)"/\1/p' crates/oxedi835_py/pyproject.toml)
 
-.PHONY: help gates test clippy fmt fmt-check bench-check doc venv py-dev py-test dist smoke publish-test publish-test-verify publish tag clean-dist
+.PHONY: help gates test clippy fmt fmt-check bench-check doc venv py-dev py-test compat-oracle dist smoke publish-test publish-test-verify publish tag clean-dist
 
 help: ## list targets
 	@grep -E '^[a-z][a-z-]*:.*##' $(MAKEFILE_LIST) | sed 's/:.*## /\t/'
@@ -40,13 +40,17 @@ doc: ## rustdoc with warnings as errors
 # ---- Python binding ----
 venv: ## create .venv with uv and the dev tools
 	uv venv $(VENV) --python 3.13
-	uv pip install --python $(PYTHON) maturin pytest polars pyarrow
+	uv pip install --python $(PYTHON) maturin pytest polars pyarrow pandas "edi-835-parser==1.8.0" duckdb
 
 py-dev: ## build the extension into .venv (debug)
 	$(MATURIN) develop --uv --manifest-path $(PY_MANIFEST)
 
 py-test: py-dev ## build and run the Python suite
 	$(PYTEST) -q $(PY_TESTS)
+
+compat-oracle: ## compare with edi-835-parser on DIR (outside the repo); prints counts and verdicts only
+	@test -n "$(DIR)" || (echo "usage: make compat-oracle DIR=/path/outside/the/repo [OUT=report.txt]" && exit 1)
+	$(PYTHON) scripts/compat_oracle.py "$(DIR)" $(if $(OUT),--out "$(OUT)")
 
 dist: clean-dist ## build the sdist and the release wheel into target/wheels
 	$(MATURIN) sdist --manifest-path $(PY_MANIFEST) -o $(WHEELS)

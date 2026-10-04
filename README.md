@@ -40,6 +40,50 @@ for batch in oxedi835.stream(Path("big.835").read_bytes()):   # one transaction 
 `Spec.builtin().patch({...})` extends the structure with the same JSON patches as below;
 `parse(data, spec=...)` and `stream(data, spec=..., by="2100")` take the result.
 
+## Coming from edi-835-parser
+
+Two paths. **Change the import** and keep your code:
+
+```python
+# before: from edi_835_parser import parse
+from oxedi835.edi_835_parser import parse      # pip install "oxedi835[edi-835-parser]"
+
+frame = parse("remittances/").to_dataframe()    # same rows, columns, order and dtypes
+# parse_bytes(data, file_path=...), parse_file_obj(f), parse_many([...]) read from memory
+extra = parse("remittances/").to_dataframe(extended=True)  # + claims without services, claim
+                                                # adjustments, PLB, unmapped REF/AMT (x_ columns)
+```
+
+The frame equals edi-835-parser 1.8.0's cell for cell on our test files; payer ids that
+are not numbers (`N104` with qualifier `XV`) work. `extended=True` keeps those columns in
+the same order and only adds columns that start with `x_` and the rows the library drops.
+Differences from the library, all on input it rejects or misreads:
+
+- One `TransactionSet` per `ST`, not per file; the separators come from the ISA instead of
+  being guessed per element; an unknown claim status gives `"unknown"` instead of an error.
+- `parse` also accepts path-like objects (`pathlib.Path`), where the library raises
+  `TypeError`; `""` gives `FileNotFoundError` instead of `IndexError`.
+- Arbitrary non-whitespace bytes before the ISA (other than a UTF-8 BOM followed by ASCII
+  whitespace), a doubled BOM, or non-ASCII whitespace after a BOM give an empty result where
+  the library reads the segments after the first.
+- A vertical tab or form feed before the ISA without a BOM gives an empty result.
+- Without a BOM, an unreadable ISA preceded by a newline gives an empty result where the
+  library raises `IndexError`.
+- The `ParseError` for a single path names the file.
+- The native API (`oxedi835.parse`) is strict and raises `ParseError` for all of these.
+
+**Or move to the native API**, which needs no pandas:
+
+| edi-835-parser | oxedi835 |
+|---|---|
+| `parse(path)` | `oxedi835.parse_file(path)` returning a `Result` |
+| `.to_dataframe()` | `result.tables["services"].to_polars()` / `.to_pandas()` (`pip install "oxedi835[polars]"` or `"oxedi835[pandas]"`), joined to `claims` on `claim` and to `payments` on `payment` |
+| `.count_claims()` | `result.count_claims()` |
+| `.count_patients()` | `result.count_patients()` (a null id is not a patient) |
+| `.sum_payments()` (float) | `result.sum_payments()` (`Decimal`) |
+| `transaction_set.payer` / `.payee` | `result.payer` / `result.payee` (dict: `name`, `identification_code`, `address`, `city`, `state`, `zip_code`) |
+| none | SQL: `duckdb.sql("select ... from claims")` with `claims = result.tables["claims"]` |
+
 ## Extending the 835 spec
 
 Patches use JSON Merge Patch (RFC 7386). A patch replaces arrays wholesale: to add a

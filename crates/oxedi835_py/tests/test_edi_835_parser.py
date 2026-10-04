@@ -150,6 +150,10 @@ def test_claim_and_service_objects_equal_edi_835_parser(sample):
             assert [(str(r.qualifier), str(r.code)) for r in s.remarks] == [(str(r.qualifier), str(r.code)) for r in t.remarks]
             assert [str(r) for r in s.references] == [str(r) for r in t.references]
             assert s.allowed_amount == t.allowed_amount
+            assert (s.service.charge_amount, s.service.paid_amount) == (
+                t.service.charge_amount, t.service.paid_amount)
+            assert [(x.amount.qualifier, x.amount.amount) if x.amount else None for x in (s,)] == [
+                (x.amount.qualifier, x.amount.amount) if x.amount else None for x in (t,)]
 
 
 def test_a_directory_reads_the_same_files_in_the_same_order(tmp_path):
@@ -507,3 +511,15 @@ def test_a_claim_without_services_is_left_out_and_recovered(tmp_path):
     assert (claim.marker, claim.x_claim_adj_0_group, claim.x_claim_adj_0_code, claim.x_claim_adj_0_amount) == (
         "A2", "CO", "29", 80.0)
     assert pd.isna(claim.code) and claim.start_date == pd.Timestamp("2024-01-02")
+
+
+def test_cell_types_equal_edi_835_parser(sample):
+    expected_sets, actual_sets = old(path_of(sample)), compat.parse(path_of(sample))
+    expected, actual = expected_sets.to_dataframe(), actual_sets.to_dataframe()
+    assert list(actual.columns) == list(expected.columns)
+    for column in expected.columns:
+        assert actual[column].dtype == expected[column].dtype, column
+        if expected[column].dtype == object:
+            assert [type(v) for v in actual[column]] == [type(v) for v in expected[column]], column
+    for name, kind in (("count_claims", int), ("count_patients", int), ("sum_payments", float)):
+        assert type(getattr(actual_sets, name)()) is type(getattr(expected_sets, name)()) is kind, name

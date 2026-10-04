@@ -110,6 +110,31 @@ loop, list the loop's full `segments`:
 
 `parse` and `stream` both accept `spec=`.
 
+## Spec versions
+
+`parse`, `parse_file` and `stream` read the version a file declares (ISA12 and GS08) and use
+the matching built-in spec: 5010 (`005010X221A1`) by default, 4010 (`004010X091A1`) for 4010
+files. Pass `spec=` to override, or pick one yourself:
+
+```python
+spec = oxedi835.Spec.builtin(version="4010")
+```
+
+## Validating with pyx12
+
+`pip install "oxedi835[pyx12]"` adds [pyx12](https://github.com/azoner/pyx12)'s
+implementation-guide validation. `parse` never calls it; `validate` does, on demand:
+
+```python
+from oxedi835.pyx12 import validate
+
+for finding in validate(data):    # bytes, a path or a binary file object
+    print(finding)                # origin, rule, code, segment, byte range, element, datum
+```
+
+Each finding carries the segment index and byte range in your file. An exception inside pyx12
+comes back as one `Pyx12Failure` finding instead of a traceback.
+
 ## Coming from another library
 
 Coming from edi-835-parser? See the [migration guide](https://github.com/javillegasna/oxedi835/blob/master/docs/migrating-from-edi-835-parser.md).

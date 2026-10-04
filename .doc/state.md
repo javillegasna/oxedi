@@ -1,13 +1,20 @@
-# State — 2026-10-04 (Stage 5c merged; Stage 5d in PR)
+# State — 2026-10-04 (Stage 5d merged; Stage 5e in PR)
 
 Snapshot for picking the project up cold. Update when a stage changes state.
 
 ## Pick up here (2026-10-04, end of session)
 
-- **Now:** Stage 5e on branch `stage-5e-pyx12`. §7 (T52–T57, T53 revised by the owner: one spec
-  per version, 5010 default in `specs/835.json`, 4010 as patch `specs/835.4010.json`) and plan
-  `plans/stage-5e-pyx12.md` are approved, including automatic spec selection by version in Python
-  when no `spec=` is passed. Next action: create the ledger and dispatch batch A (Opus: tasks 1–2).
+- **Now:** Stage 5e is executed on branch `stage-5e-pyx12` and ready for the final review. Built:
+  `scripts/spec_vs_pyx12.py` (report, draft patch, `--check`; exclusions with reasons in
+  `scripts/spec_vs_pyx12.ignore.json`); `codes` and `version` in the spec format with their
+  load-time validation and diagnostic; the 5010 spec completed from the maps (12 `required`
+  flips, TA1, 42 code lists); `specs/835.4010.json` as a patch; Python `parse`/`parse_file`/
+  `stream` pick the spec by declared version and `Spec.builtin(version=)`;
+  `oxedi835.pyx12.validate` behind `oxedi835[pyx12]`; `pyx12` BSD notice; CI runs the
+  cross-check for both versions. Golden changes: BPR16 on multi_claim and SVC03 on blue_cross,
+  both real data issues. Next: whole-branch review on Opus (P10 focus), one fix wave, PR against
+  `master` (Intent / Verification), owner merges; then deferred minors to Project #8 and
+  update `.doc/analysis/` (current at 7f4f8cf).
 - **Merged today:** Stage 6 (PR #67) and `0.1.0` on PyPI by trusted publishing (rc1 on TestPyPI
   only); README for users (#68); flaky GIL test replaced (#72); Stage 5c module layout (#75);
   Stage 5d performance (#78: index 8 B/segment, `process` 33 → 37 MiB/s, gate 50 not met → #76);

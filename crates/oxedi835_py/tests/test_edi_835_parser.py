@@ -2,6 +2,7 @@ import datetime
 import inspect
 import os
 import shutil
+import sys
 import warnings
 
 import pytest
@@ -175,11 +176,16 @@ def test_parse_has_the_library_signature():
 
 
 def test_parse_fails_on_bytes_as_the_library_does():
-    with pytest.raises(FileNotFoundError) as expected:
+    # The operating system decides the error for a bytes path: not found on POSIX, invalid
+    # argument on Windows. Both readers must raise whatever open() raises.
+    with pytest.raises(OSError) as expected:
         edi_835_parser.parse(b"ISA*00*")
-    with pytest.raises(FileNotFoundError) as actual:
+    with pytest.raises(OSError) as actual:
         compat.parse(b"ISA*00*")
-    assert str(actual.value) == str(expected.value) == "[Errno 2] No such file or directory: b'ISA*00*'"
+    assert type(actual.value) is type(expected.value)
+    assert str(actual.value) == str(expected.value)
+    if sys.platform != "win32":
+        assert str(actual.value) == "[Errno 2] No such file or directory: b'ISA*00*'"
 
 
 MIT_GRANT = "Permission is hereby granted, free of charge, to any person obtaining a copy"

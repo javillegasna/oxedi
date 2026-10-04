@@ -9,9 +9,13 @@ PYTHON      := $(VENV)/bin/python
 MATURIN     := $(if $(wildcard $(VENV)/bin/maturin),$(VENV)/bin/maturin,maturin)
 PYTEST      := $(if $(wildcard $(VENV)/bin/pytest),$(VENV)/bin/pytest,$(PYTHON) -m pytest)
 WHEELS      := target/wheels
-VERSION     := $(shell sed -n 's/^version = "\(.*\)"/\1/p' crates/oxedi835_py/pyproject.toml)
+# The workspace version is Cargo's form (0.1.0-rc.1); maturin publishes it as PEP 440 (0.1.0rc1).
+# Only the -a.N, -b.N, -rc.N and -dev.N pre-release forms are mapped; any other suffix
+# (-alpha, -beta) leaves a version that release-check rejects against the tag.
+CARGO_VERSION := $(shell sed -n 's/^version = "\(.*\)"/\1/p' Cargo.toml | head -n 1)
+VERSION     := $(shell echo '$(CARGO_VERSION)' | sed -E 's/-(a|b|rc)\.?/\1/; s/-dev\.?/.dev/')
 
-.PHONY: help sdist-check gates test clippy fmt fmt-check bench-check doc venv py-dev py-test compat-oracle dist smoke publish-test publish-test-verify publish tag clean-dist
+.PHONY: help version release-check sdist-check gates test clippy fmt fmt-check bench-check doc venv py-dev py-test compat-oracle dist smoke publish-test publish-test-verify publish tag clean-dist
 
 help: ## list targets
 	@grep -E '^[a-z][a-z-]*:.*##' $(MAKEFILE_LIST) | sed 's/:.*## /\t/'
@@ -80,6 +84,18 @@ smoke: ## install the built wheel in a clean venv outside the repo and run the s
 clean-dist:
 	rm -rf $(WHEELS)
 
+# ---- Release ----
+version: ## print the PEP 440 version published by maturin
+	@echo $(VERSION)
+
+release-check: ## fail unless TAG is v<version>, the tree is clean and CHANGELOG.md has the version
+	@test -n "$(TAG)" || { echo "usage: make release-check TAG=v<version>"; exit 1; }
+	@test -n "$(VERSION)" || { echo "release-check: no version in Cargo.toml [workspace.package]"; exit 1; }
+	@test "$(TAG)" = "v$(VERSION)" || { echo "release-check: tag $(TAG) differs from v$(VERSION) (Cargo.toml version $(CARGO_VERSION))"; exit 1; }
+	@test -z "$$(git status --porcelain)" || { echo "release-check: the working tree is not clean"; git status --short; exit 1; }
+	@grep -qE '^## \[$(subst .,\.,$(VERSION))\]' CHANGELOG.md || { echo "release-check: CHANGELOG.md has no '## [$(VERSION)]' section"; exit 1; }
+	@echo "release-check: ok ($(TAG))"
+
 # ---- Publishing (credentials come from ~/.pypirc; never from the repo) ----
 publish-test: sdist-check ## upload the built artifacts to TestPyPI
 	$(MATURIN) upload -r testpypi $(WHEELS)/oxedi835-$(VERSION)*
@@ -89,7 +105,7 @@ publish-test-verify: ## install the TestPyPI pre-release into .venv and import i
 	$(PYTHON) -c "import oxedi835, importlib.metadata as m; print(m.version('oxedi835'), oxedi835.Spec.builtin())"
 
 publish: sdist-check ## upload the built artifacts to PyPI (irreversible)
-	@test -n "$(VERSION)" || (echo "no version in pyproject.toml" && exit 1)
+	@test -n "$(VERSION)" || (echo "no version in Cargo.toml" && exit 1)
 	@echo "about to publish oxedi835 $(VERSION) to PyPI"; read -p "type the version to confirm: " v && test "$$v" = "$(VERSION)"
 	$(MATURIN) upload -r pypi $(WHEELS)/oxedi835-$(VERSION)*
 

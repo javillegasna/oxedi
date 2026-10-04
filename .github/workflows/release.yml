@@ -1,0 +1,282 @@
+name: Release
+
+# A pushed v* tag builds, verifies and publishes. A manual dispatch (on a branch or a tag) runs
+# the same builds and verification and never checks the tag or publishes.
+on:
+  push:
+    tags: ["v*"]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+env:
+  MANIFEST: crates/oxedi835_py/Cargo.toml
+
+jobs:
+  # The tag must equal v<version> from Cargo.toml and the changelog must have the section.
+  check:
+    name: Check tag
+    if: github.event_name == 'push' && github.ref_type == 'tag'
+    runs-on: ubuntu-latest
+    outputs:
+      prerelease: ${{ steps.kind.outputs.prerelease }}
+      version: ${{ steps.kind.outputs.version }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+      # Releases are cut from master only.
+      - name: Tag is on master
+        run: git merge-base --is-ancestor "$GITHUB_SHA" origin/master
+      - name: Tag, version, changelog
+        env:
+          TAG: ${{ github.ref_name }}
+        run: make release-check TAG="$TAG"
+      # a/b/rc/dev versions go to TestPyPI, final versions to PyPI.
+      - name: Pre-release suffix
+        id: kind
+        run: |
+          echo "version=${GITHUB_REF_NAME#v}" >> "$GITHUB_OUTPUT"
+          if [[ "${GITHUB_REF_NAME}" =~ [0-9](a|b|rc)[0-9]+$ || "${GITHUB_REF_NAME}" =~ \.dev[0-9]+$ ]]; then
+            echo "prerelease=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "prerelease=false" >> "$GITHUB_OUTPUT"
+          fi
+
+  sdist:
+    name: Source distribution
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: Build sdist
+        uses: PyO3/maturin-action@e83996d129638aa358a18fbd1dfb82f0b0fb5d3b # v1.51.0
+        with:
+          command: sdist
+          args: --manifest-path ${{ env.MANIFEST }} -o target/wheels
+      - name: Check sdist contents and licences
+        run: make sdist-check
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: dist-sdist
+          path: target/wheels/*.tar.gz
+          if-no-files-found: error
+
+  wheels:
+    name: Wheel ${{ matrix.name }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { name: linux-x86_64, os: ubuntu-latest, target: x86_64, manylinux: "2_28" }
+          - { name: linux-aarch64, os: ubuntu-latest, target: aarch64, manylinux: "2_28" }
+          - { name: linux-musl-x86_64, os: ubuntu-latest, target: x86_64-unknown-linux-musl, manylinux: musllinux_1_2 }
+          - { name: macos-x86_64, os: macos-15-intel, target: x86_64-apple-darwin, manylinux: auto }
+          - { name: macos-arm64, os: macos-latest, target: aarch64-apple-darwin, manylinux: auto }
+          - { name: windows-x86_64, os: windows-latest, target: x64, manylinux: auto }
+    steps:
+      # LICENSE and THIRD_PARTY_NOTICES are symlinks in the crate; Windows needs this to
+      # check them out as links so the wheel packs the real files.
+      - name: Enable symlinks
+        if: runner.os == 'Windows'
+        run: git config --global core.symlinks true
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: Build wheel
+        uses: PyO3/maturin-action@e83996d129638aa358a18fbd1dfb82f0b0fb5d3b # v1.51.0
+        with:
+          target: ${{ matrix.target }}
+          manylinux: ${{ matrix.manylinux }}
+          args: --release --manifest-path ${{ env.MANIFEST }} -o dist
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: dist-wheel-${{ matrix.name }}
+          path: dist/*.whl
+          if-no-files-found: error
+
+  # Each wheel is installed on its own platform and passes the whole Python suite.
+  verify:
+    name: Verify ${{ matrix.name }} py${{ matrix.python }}
+    needs: wheels
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        name: [linux-x86_64, linux-aarch64, macos-x86_64, macos-arm64, windows-x86_64]
+        python: ["3.11", "3.13"]
+        include:
+          - { name: linux-x86_64, os: ubuntu-latest }
+          - { name: linux-aarch64, os: ubuntu-24.04-arm }
+          - { name: macos-x86_64, os: macos-15-intel }
+          - { name: macos-arm64, os: macos-latest }
+          - { name: windows-x86_64, os: windows-latest }
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: ${{ matrix.python }}
+      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          name: dist-wheel-${{ matrix.name }}
+          path: dist
+      - name: Install the wheel and run the suite
+        shell: bash
+        run: scripts/verify_wheel.sh dist
+
+  # The musl wheel runs inside an Alpine container with the matching Python. DuckDB publishes no
+  # musllinux wheel and building it needs a C++ toolchain, so its tests skip there.
+  verify-musl:
+    name: Verify linux-musl-x86_64 py${{ matrix.python }}
+    needs: wheels
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        python: ["3.11", "3.13"]
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          name: dist-wheel-linux-musl-x86_64
+          path: dist
+      - name: Install the wheel and run the suite in Alpine
+        run: |
+          docker run --rm -e VERIFY_EXCLUDE=duckdb -v "$PWD:/work" -w /work "python:${{ matrix.python }}-alpine" \
+            sh -c "apk add --no-cache bash && scripts/verify_wheel.sh dist"
+
+  publish-testpypi:
+    name: Publish to TestPyPI
+    needs: [check, sdist, verify, verify-musl]
+    if: github.event_name == 'push' && github.ref_type == 'tag' && needs.check.outputs.prerelease == 'true'
+    runs-on: ubuntu-latest
+    environment:
+      name: testpypi
+      url: https://test.pypi.org/project/oxedi835/
+    permissions:
+      id-token: write
+    steps:
+      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          pattern: dist-*
+          merge-multiple: true
+          path: dist
+      - uses: pypa/gh-action-pypi-publish@dc37677b2e1c63e2034f94d8a5b11f265b73ba33 # v1.14.2
+        with:
+          repository-url: https://test.pypi.org/legacy/
+          skip-existing: true
+
+  # The pre-release is installed from TestPyPI on each platform; the index can lag a publish,
+  # so the install is retried.
+  verify-testpypi:
+    name: Install from TestPyPI on ${{ matrix.os }}
+    needs: [check, publish-testpypi]
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: "3.13"
+      - name: Install the published version
+        shell: bash
+        env:
+          VERSION: ${{ needs.check.outputs.version }}
+        run: |
+          python -m venv "$RUNNER_TEMP/venv"
+          py="$RUNNER_TEMP/venv/bin/python"
+          [ -x "$py" ] || py="$RUNNER_TEMP/venv/Scripts/python.exe"
+          for attempt in 1 2 3 4 5 6 7 8 9 10; do
+            if "$py" -m pip install --pre --no-deps --only-binary=:all: --index-url https://test.pypi.org/simple/ "oxedi835==$VERSION"; then
+              exit_code=0
+              break
+            fi
+            exit_code=1
+            echo "attempt $attempt failed; waiting for the index"
+            if [ "$attempt" -lt 10 ]; then sleep 30; fi
+          done
+          echo "py=$py" >> "$GITHUB_ENV"
+          exit "$exit_code"
+      - name: Import and parse a fixture
+        shell: bash
+        env:
+          VERSION: ${{ needs.check.outputs.version }}
+        working-directory: ${{ runner.temp }}
+        run: |
+          "$py" - <<'PY'
+          import importlib.metadata as m, os, oxedi835
+          expected = os.environ["VERSION"]
+          assert m.version("oxedi835") == expected, (m.version("oxedi835"), expected)
+          path = os.path.join(os.environ["GITHUB_WORKSPACE"], "crates", "edi835_core", "tests", "fixtures", "multi_claim_sample.txt")
+          result = oxedi835.parse_file(path)
+          assert result.count_claims() > 0
+          print("testpypi:", m.version("oxedi835"), result.count_claims(), "claims")
+          PY
+
+  publish-pypi:
+    name: Publish to PyPI
+    needs: [check, sdist, verify, verify-musl]
+    if: github.event_name == 'push' && github.ref_type == 'tag' && needs.check.outputs.prerelease == 'false'
+    runs-on: ubuntu-latest
+    environment:
+      name: pypi
+      url: https://pypi.org/project/oxedi835/
+    permissions:
+      id-token: write
+    steps:
+      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          pattern: dist-*
+          merge-multiple: true
+          path: dist
+      - uses: pypa/gh-action-pypi-publish@dc37677b2e1c63e2034f94d8a5b11f265b73ba33 # v1.14.2
+        with:
+          skip-existing: true
+
+  github-release:
+    name: GitHub release
+    needs: [check, publish-testpypi, verify-testpypi, publish-pypi]
+    if: >-
+      !cancelled() && github.event_name == 'push' && github.ref_type == 'tag' &&
+      (needs.publish-pypi.result == 'success' ||
+      (needs.publish-testpypi.result == 'success' && needs.verify-testpypi.result == 'success'))
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          pattern: dist-*
+          merge-multiple: true
+          path: dist
+      - name: Changelog section of this version
+        run: |
+          version="${GITHUB_REF_NAME#v}"
+          awk -v v="$version" '
+            /^## \[/ { printing = (index($0, "## [" v "]") == 1); next }
+            printing && /^\[[^]]+\]: / { exit }
+            printing { print }
+          ' CHANGELOG.md > notes.md
+          test -s notes.md
+      - name: Create the release with the artifacts
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PRERELEASE: ${{ needs.check.outputs.prerelease }}
+        run: |
+          # A re-run updates the release it finds instead of failing on it.
+          if gh release view "$GITHUB_REF_NAME" > /dev/null 2>&1; then
+            gh release upload "$GITHUB_REF_NAME" dist/* --clobber
+            if [ "$PRERELEASE" = "true" ]; then
+              gh release edit "$GITHUB_REF_NAME" --notes-file notes.md --prerelease
+            else
+              gh release edit "$GITHUB_REF_NAME" --notes-file notes.md --prerelease=false
+            fi
+          else
+            flags=()
+            if [ "$PRERELEASE" = "true" ]; then flags+=(--prerelease); fi
+            gh release create "$GITHUB_REF_NAME" dist/* --title "oxedi835 ${GITHUB_REF_NAME#v}" \
+              --notes-file notes.md --verify-tag "${flags[@]}"
+          fi

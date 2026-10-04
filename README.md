@@ -19,7 +19,19 @@ interface without copying.
 
 `make help` lists the developer targets (Rust gates, `py-dev`, `py-test`, `dist`, `smoke`, publishing).
 
-From a clone (publishing to PyPI comes later):
+### Install
+
+```bash
+pip install oxedi835                  # the parser and the Arrow tables, no Python dependencies
+pip install "oxedi835[polars]"        # or [pandas], or [edi-835-parser] for the compatibility layer
+```
+
+Wheels are `abi3` (Python 3.11 and later) for Linux x86_64 and aarch64 (glibc, and musl on
+x86_64), macOS x86_64 and arm64, and Windows x86_64. The project follows semantic
+versioning; while the version is `0.x`, a minor release may break the API. See
+[`CHANGELOG.md`](CHANGELOG.md).
+
+From a clone:
 
 ```bash
 uv venv && source .venv/bin/activate

@@ -945,10 +945,12 @@ con ids `XV` alfanuméricos (#46).
   El extra declara `pandas` y `pyarrow`; el paquete base no gana dependencias. Descartado el
   nombre genérico "compat". **Extensión acordada el 2026-10-04: lectura desde bytes**, la
   carencia que más sufren sus usuarios (la librería solo acepta rutas y obliga a escribir a
-  disco lo que llega de S3, de una API o de una base de datos). `parse` acepta además
-  `bytes`/`bytearray`/`memoryview` y objetos de archivo binarios (`read()`), y hay métodos
-  explícitos `parse_bytes(data, file_path=None)` y `parse_file_obj(f, file_path=None)`, más
-  `parse_many(items)` para una lista de bytes o de archivos; `file_path` rellena el atributo
+  disco lo que llega de S3, de una API o de una base de datos). `parse(path, debug=False)` es
+  un reemplazo directo: misma firma y mismo comportamiento que el original (ruta o
+  directorio, nada más); la lectura desde memoria se añade con métodos propios,
+  `parse_bytes(data, file_path=None)` (`bytes`/`bytearray`/`memoryview`),
+  `parse_file_obj(f, file_path=None)` (objetos binarios con `read()`) y `parse_many(items)`
+  para una lista de bytes o de archivos; `file_path` rellena el atributo
   que la librería guarda en cada `TransactionSet` (por defecto `"<bytes>"`). Todo cae en el
   mismo `oxedi835.parse` con el GIL liberado; leer de ruta o de bytes da el mismo
   DataFrame, y un test lo comprueba.

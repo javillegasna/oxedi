@@ -3,7 +3,8 @@
 The tables are copied verbatim from edi-835-parser 1.8.0, by
 keiron-stoddart / Senscio Systems
 (https://github.com/keironstoddart/edi-835-parser), so the objects of this
-package carry the same descriptions. They are used under that project's MIT
+package carry the same descriptions; its claim status registry, a list of
+``Status`` objects there, is the dict ``STATUSES`` here with the same entries. They are used under that project's MIT
 License, reproduced below as its LICENSE file reads.
 
 edi-835-parser, MIT License:
@@ -104,3 +105,19 @@ REFERENCE_QUALIFIERS = {
     "LU": "location number",
 }
 REMARK_QUALIFIERS = {"HE": "claim payment"}
+ORGANIZATIONS = {
+    "AV09311993": "Availity",
+    "ZIRMED": "Zirmed",
+}
+# Claim status code: (description, payer classification, forwarded to another payer).
+STATUSES = {
+    "1": ("processed as primary", "primary", False),
+    "2": ("processed as secondary", "secondary", False),
+    "3": ("processed as tertiary", "tertiary", False),
+    "4": ("denial", "unspecified", False),
+    "19": ("processed as primary, forwarded to additional payer(s)", "primary", True),
+    "20": ("processed as secondary, forwarded to additional payer(s)", "secondary", True),
+    "21": ("processed as tertiary, forwarded to additional payer(s)", "tertiary", True),
+    "22": ("reversal of previous payment", "unspecified", False),
+}
+UNKNOWN_STATUS = ("uncategorized", "unknown", False)

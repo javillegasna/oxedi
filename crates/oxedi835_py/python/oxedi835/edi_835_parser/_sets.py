@@ -8,15 +8,18 @@ import os
 import warnings
 from typing import Iterator, List, Optional
 
+from .. import ParseError
 from . import _codes
-from ._convert import date, integer, money, text
-from ._tables import load
+from ._convert import date, integer, money, readable, text, written
+from ._tables import load, position
 from ._views import (
     Address, Claim, FinancialInformation, Interchange, Location, Organization,
     OrganizationSegment, at_segment, mapped,
 )
 
 _SUFFIXES = (".txt", ".835", ".DAT")
+TRANSACTION_DATE, _ = position("rows_payments", "transaction_date")
+ORGANIZATION_ID = position("rows_organizations", "identification_code")
 
 
 class TransactionSet:
@@ -27,27 +30,31 @@ class TransactionSet:
 
     @functools.cached_property
     def interchange(self):
+        """The file's last ISA, the one the library keeps."""
         t = self._t["rows_interchanges"]
         if not len(t):
             return None
-        day, clock = t["transmission_date"][0], t["transmission_time"][0]
+        day, clock = t["transmission_date"][-1], t["transmission_time"][-1]
         sent = None if day is None or clock is None else datetime.datetime.combine(day, clock)
-        qualifier = text(t["authorization_information_qualifier"][0])
+        qualifier = text(t["authorization_information_qualifier"][-1])
         return Interchange(
             authorization_information_qualifier=None if qualifier == "00" else qualifier,
-            sender=text(t["sender"][0]).strip(),
-            receiver=text(t["receiver"][0]).strip(),
+            sender=mapped(_codes.ORGANIZATIONS, text(t["sender"][-1]).strip()),
+            receiver=mapped(_codes.ORGANIZATIONS, text(t["receiver"][-1]).strip()),
             transmission_date=sent,
         )
 
     @functools.cached_property
     def financial_information(self):
+        """The BPR fields, or ``None`` without a BPR, as in the library."""
         t = self._t["rows_payments"]
+        if not len(t) or t["bpr_segment"][0] is None:
+            return None
         return FinancialInformation(
             amount_paid=money(t["amount_paid"][0]),
             payment_method=mapped(_codes.PAYMENT_METHODS, text(t["payment_method"][0])),
             routing_number=integer(t["routing_number"][0]),
-            transaction_date=date(t["transaction_date"][0], self._d, t["bpr_segment"][0], 16),
+            transaction_date=date(t["transaction_date"][0], self._d, t["bpr_segment"][0], TRANSACTION_DATE),
         )
 
     @functools.cached_property
@@ -59,9 +66,11 @@ class TransactionSet:
             if any(t[k][i] is not None for k in ("city", "state", "zip_code")):
                 location = Location(text(t["city"][i]), text(t["state"][i]), text(t["zip_code"][i]))
             address = None if t["address"][i] is None else Address(text(t["address"][i]))
+            identification_code = written(integer(t["identification_code"][i]), self._d,
+                                          t["segment"][i], *ORGANIZATION_ID)
             out.append(Organization(
                 OrganizationSegment(mapped(_codes.ORGANIZATION_TYPES, text(t["type"][i])),
-                                    text(t["name"][i]), text(t["identification_code"][i])),
+                                    text(t["name"][i]), identification_code),
                 location, address, t["segment"][i]))
         return out
 
@@ -70,7 +79,10 @@ class TransactionSet:
         return [Claim(self._t, self._d, i) for i in range(len(self._t["rows_claims"]))]
 
     def _organization(self, role):
-        found = at_segment(self.organizations, self._t["rows_payments"][f"{role}_segment"][0])
+        payments = self._t["rows_payments"]
+        if not len(payments):
+            raise ValueError(f"{self.file_path}: the file has no transaction (ST), so no {role} loop (N1)")
+        found = at_segment(self.organizations, payments[f"{role}_segment"][0])
         if found is None:
             raise ValueError(
                 f"{self.file_path}: the transaction at segment "
@@ -140,11 +152,13 @@ class TransactionSet:
         """One row per service, as edi-835-parser builds it."""
         import pandas as pd
 
+        services = [(claim, service) for claim in self.claims for service in claim.services]
+        if not services:
+            return pd.DataFrame([])
         financial_information, payer = self.financial_information, self.payer
         return pd.DataFrame([
             self.service_record(financial_information, payer, claim, service)
-            for claim in self.claims
-            for service in claim.services
+            for claim, service in services
         ])
 
 
@@ -164,13 +178,14 @@ class TransactionSets:
         return "\n".join(str(t) for t in self)
 
     def to_dataframe(self):
-        """Every transaction's rows, with the numbered columns sorted last."""
+        """Every transaction's rows, with the numbered columns sorted last.
+        The frames are concatenated one at a time onto an empty frame, as the
+        library does, so empty transactions give the same dtypes."""
         import pandas as pd
 
-        frames = [t.to_dataframe() for t in self]
-        with warnings.catch_warnings():
-            warnings.simplefilter("ignore", FutureWarning)
-            data = pd.concat(frames) if frames else pd.DataFrame()
+        data = pd.DataFrame()
+        for transaction_set in self:
+            data = pd.concat([data, transaction_set.to_dataframe()])
         return TransactionSets.sort_columns(data)
 
     @staticmethod
@@ -192,6 +207,7 @@ class TransactionSets:
 
 
 def _sets(data, file_path) -> List[TransactionSet]:
+    readable(data)
     document, parts = load(data)
     return [TransactionSet(document, tables, file_path) for tables in parts]
 
@@ -227,10 +243,18 @@ def parse(path: str, debug: bool = False) -> TransactionSets:
     """Parses a file path, or every ``.txt``, ``.835`` and ``.DAT`` file of a
     directory, with the same signature and behaviour as ``edi_835_parser.parse``.
     Data already in memory goes through ``parse_bytes``, ``parse_file_obj`` or
-    ``parse_many``."""
+    ``parse_many``.
+
+    Beyond the library: any path-like (``pathlib.Path``) is accepted, ``""``
+    raises ``FileNotFoundError`` where the library raises ``IndexError``, and a
+    file whose ISA cannot be read raises ``ParseError`` naming the file where
+    the library raises ``IndexError``."""
     path = os.path.expanduser(os.fspath(path))
     if not os.path.isdir(path):
-        return TransactionSets(_path(path))
+        try:
+            return TransactionSets(_path(path))
+        except ParseError as error:
+            raise ParseError(f"{path}: {error}") from error
     sets = []
     for name in os.listdir(path):
         if not name.endswith(_SUFFIXES):

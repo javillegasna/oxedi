@@ -2,11 +2,21 @@
 
 The library converts ``N104`` with ``int()``, which fails on the alphanumeric
 ids that X12 allows (qualifier ``XV``). ``apply`` replaces the segment
-constructor with one that keeps ``N104`` as text; nothing else changes.
+constructor with one that keeps ``N104`` as text only where ``int()`` fails,
+so every file the library reads unpatched gives the same objects.
 """
 
 from edi_835_parser.segments import organization
 from edi_835_parser.segments.utilities import split_segment
+
+ORIGINAL = organization.Organization.__init__
+
+
+def _identification_code(value):
+    try:
+        return int(value)
+    except ValueError:
+        return value
 
 
 def _init(self, segment):
@@ -15,7 +25,7 @@ def _init(self, segment):
     self.identifier = elements[0]
     self.type = elements[1]
     self.name = elements[2]
-    self.identification_code = elements[4] if len(elements) >= 5 else None
+    self.identification_code = _identification_code(elements[4]) if len(elements) >= 5 else None
 
 
 def apply():

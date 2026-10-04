@@ -9,7 +9,8 @@ by keiron-stoddart / Senscio Systems
 https://github.com/keironstoddart/edi-835-parser
 
 Used in: crates/oxedi835_py/python/oxedi835/edi_835_parser/_codes.py (the code
-description tables, copied verbatim).
+description tables, the organization names and the claim status registry,
+copied verbatim).
 
 MIT License
 

@@ -8,9 +8,17 @@ import functools
 from typing import Optional
 
 from . import _codes
-from ._convert import (
-    STATUSES, UNKNOWN_STATUS, date, integer, money, name, text, written,
-)
+from ._convert import date, integer, money, name, text, written
+from ._tables import position
+
+ALLOWED_UNITS = position("rows", "allowed_units")
+BILLED_UNITS = position("rows", "billed_units")
+MODIFIER = position("rows", "modifier")
+FIRST_NAME = position("rows_claim_entities", "first_name")
+ENTITY_ID_QUALIFIER = position("rows_claim_entities", "identification_code_qualifier")
+ENTITY_ID = position("rows_claim_entities", "identification_code")
+SERVICE_DATE, _ = position("rows_service_dates", "date")
+CLAIM_DATE, _ = position("rows_claim_dates", "date")
 
 
 class PayerClassification(enum.Enum):
@@ -42,7 +50,7 @@ class Status:
 
 
 def status(code):
-    description, classification, forwarded = STATUSES.get(code, UNKNOWN_STATUS)
+    description, classification, forwarded = _codes.STATUSES.get(code, _codes.UNKNOWN_STATUS)
     return Status(code, description, PayerClassification[classification.upper()], forwarded)
 
 
@@ -187,17 +195,20 @@ class Service:
 
     @functools.cached_property
     def service(self) -> ServiceSegment:
+        """The SVC fields. Units the segment stops before take the library's
+        defaults (allowed 0 or 1 by the paid amount, billed equal to allowed);
+        units written empty are ``None``, as in the library."""
         rows, at, doc = self._t["rows"], self._at, self._d
         segment = rows["segment"][at]
         paid = money(rows["paid_amount"][at])
-        allowed = written(integer(rows["allowed_units"][at]), doc, segment, 5,
+        allowed = written(integer(rows["allowed_units"][at]), doc, segment, *ALLOWED_UNITS,
                           empty=None, absent=0 if paid == 0 else 1)
-        billed = written(integer(rows["billed_units"][at]), doc, segment, 7,
+        billed = written(integer(rows["billed_units"][at]), doc, segment, *BILLED_UNITS,
                          empty=None, absent=allowed)
         return ServiceSegment(
             code=text(rows["code"][at]),
             qualifier=text(rows["qualifier"][at]),
-            modifier=written(text(rows["modifier"][at]), doc, segment, 1, 3),
+            modifier=written(text(rows["modifier"][at]), doc, segment, *MODIFIER),
             charge_amount=money(rows["charge_amount"][at]),
             paid_amount=paid,
             allowed_units=allowed,
@@ -208,7 +219,7 @@ class Service:
     def dates(self):
         t, ats = self._under("rows_service_dates")
         return [Date(mapped(_codes.DATE_QUALIFIERS, text(t["qualifier"][i])),
-                     date(t["date"][i], self._d, t["segment"][i], 2), t["segment"][i]) for i in ats]
+                     date(t["date"][i], self._d, t["segment"][i], SERVICE_DATE), t["segment"][i]) for i in ats]
 
     @functools.cached_property
     def references(self):
@@ -222,6 +233,8 @@ class Service:
 
     @functools.cached_property
     def amount(self):
+        """The service's last AMT: the library keeps the last one it reads,
+        while a spec column takes the first match."""
         t, ats = self._under("rows_service_amounts")
         if not ats:
             return None
@@ -288,10 +301,10 @@ class Claim:
                 entity=mapped(_codes.ENTITY_CODES, text(t["entity"][i])),
                 type=mapped(_codes.ENTITY_TYPES, text(t["type"][i])),
                 last_name=text(t["last_name"][i]) or "",
-                first_name=written(text(t["first_name"][i]), self._d, segment, 4),
+                first_name=written(text(t["first_name"][i]), self._d, segment, *FIRST_NAME),
                 identification_code_qualifier=mapped(_codes.IDENTIFICATION_QUALIFIERS,
-                                                     written(text(t["identification_code_qualifier"][i]), self._d, segment, 8)),
-                identification_code=written(text(t["identification_code"][i]), self._d, segment, 9),
+                                                     written(text(t["identification_code_qualifier"][i]), self._d, segment, *ENTITY_ID_QUALIFIER)),
+                identification_code=written(text(t["identification_code"][i]), self._d, segment, *ENTITY_ID),
                 index=segment,
             ))
         return out
@@ -310,10 +323,12 @@ class Claim:
     def dates(self):
         t, ats = self._under("rows_claim_dates")
         return [Date(mapped(_codes.DATE_QUALIFIERS, text(t["qualifier"][i])),
-                     date(t["date"][i], self._d, t["segment"][i], 2), t["segment"][i]) for i in ats]
+                     date(t["date"][i], self._d, t["segment"][i], CLAIM_DATE), t["segment"][i]) for i in ats]
 
     @functools.cached_property
     def amount(self):
+        """The claim's last AMT: the library keeps the last one it reads,
+        while a spec column takes the first match."""
         t, ats = self._under("rows_claim_amounts")
         if not ats:
             return None

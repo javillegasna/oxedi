@@ -322,6 +322,18 @@ carga su prueba de costura con la capa inferior (N7).
   `Document` y `LoopTree`. Las piezas 2 y 3 viven en el subpaquete `oxedi835.pyx12` tras el
   extra `oxedi835[pyx12]`, siguiendo la regla de nombres de D12; el script de la pieza 1 vive
   en `scripts/`.
+  **Adelantada por el dueño (2026-10-04)** al Stage 5e, antes de la extensión de DuckDB y del
+  escritor: nuestra spec no es completa y hace falta una forma fiable de extenderla y validarla,
+  y de validar tanto lo que se lee como lo que se escriba. Entran en 5e la pieza 1 para el 835
+  (cotejo de `specs/835.json` contra los mapas `835.4010.X091.A1.xml` y `835.5010.X221.A1.xml`
+  más `dataele.xml` y `codes.xml`, y parches que cierren los huecos) y la pieza 2 (`validate`).
+  El generador para la 837 sigue en el Stage 9 y `ContextReader` en 9b. Verificado: no existe un
+  equivalente de `pyx12` en Rust (ningún crate valida contra las guías HIPAA ni por niveles SNIP;
+  `x12-types` solo modela parte de la forma), y los mapas de `pyx12` (BSD 3 cláusulas) son la única
+  fuente abierta con uso, longitudes, tipos y códigos del 835. `pyx12` 4.0.0 pide Python ≥ 3.11,
+  como nosotros; valida `edi835_test_united.rmt` sin errores en unos 3,6 s y falla al generar su
+  999 (`Cannot create AK2: err_st.vriic was not set`), un fallo suyo que no afecta a la
+  validación.
 - **D17 · Bindings para otros lenguajes** (anotada 2026-10-04, abierta). Idea del dueño: además
   de Python, bindings para Node/TypeScript, C y Go sobre el mismo núcleo. La dirección encaja con
   el núcleo sans-IO, pero se decide **después** del Stage 7, del nombre neutro de D15 (los nombres

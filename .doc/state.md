@@ -124,7 +124,7 @@ denies the `x.rs` + `x/` form); `spec` and `project` are split by responsibility
 every public item by its module path; benches are one file per layer with unchanged group ids.
 No behaviour change: same tests (lib 300, pytest 270), goldens untouched, rustdoc pages
 identical, bench within +3.3% of master. Closes #64 and #71 (`oxedi835.__version__`); new board
-items #73 (type stubs) and #74 (Changelog link). Next: Stage 5d (pipeline performance, resolves #39 and #45; §7 T46–T51), then Stage 7.
+items #73 (type stubs) and #74 (Changelog link). Stage 5d is merged (PR #78): compact index, 37 MiB/s, #76 holds the next performance step. Order decided 2026-10-04: 5e (`pyx12`: spec cross-check and `validate`) → 5f (DuckDB extension, read) → 7 (D11 and the writer, in the core and Python, `pyx12` as gate) → 7b (DuckDB write via `COPY`) → 8 → 9.
 
 Release path: `make release-check TAG=v0.1.0rc1 && make tag` → approve `testpypi` → bump to `0.1.0`
 and date the changelog → tag `v0.1.0` → approve `pypi` → revoke the account-wide tokens, delete the

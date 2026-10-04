@@ -54,7 +54,8 @@ IDENTIFICATION_QUALIFIERS = {
     "PC": "provider commercial number",
     "XX": "national provider id",
 }
-AMOUNT_QUALIFIERS = {"B6": "allowed - actual", "AU": "coverage amount"}
+ALLOWED_ACTUAL = "allowed - actual"
+AMOUNT_QUALIFIERS = {"B6": ALLOWED_ACTUAL, "AU": "coverage amount"}
 ORGANIZATION_TYPES = {"PE": "payee", "PR": "payer"}
 PAYMENT_METHODS = {"ACH": "automatic deposit", "CHK": "check", "NON": "no payment"}
 ADJUSTMENT_REASONS = {

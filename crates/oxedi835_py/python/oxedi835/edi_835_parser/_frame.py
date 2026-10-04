@@ -378,7 +378,7 @@ class Transaction:
         last = np.full(len(self.service_rows), -1)
         np.maximum.at(last, at[at >= 0], np.flatnonzero(at >= 0))
         qualifier = lookup(text(table.column("qualifier")),
-                           lambda q: _codes.AMOUNT_QUALIFIERS.get(q, q) == "allowed - actual")
+                           lambda q: _codes.AMOUNT_QUALIFIERS.get(q, q) == _codes.ALLOWED_ACTUAL)
         amounts = money(table.column("amount"))
         allowed = np.where(np.equal(qualifier, True), amounts, None)
         return take(allowed, last)

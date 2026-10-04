@@ -290,7 +290,7 @@ carga su prueba de costura con la capa inferior (N7).
   migración: el rápido, instalar `oxedi835[edi-835-parser]` y cambiar un `import`; y el
   definitivo, pasar con tiempo a los métodos nativos, con una tabla "método viejo → método
   nuevo" en la documentación (Stage 8).
-- **D13 · Estructura de módulos** → resuelta por T37–T44 (Stage 5c, 2026-10-04): `spec.rs` supera las 2.500 líneas tras el Stage 4a y
+- **D13 · Estructura de módulos** → resuelta por T37–T45 (Stage 5c, 2026-10-04): `spec.rs` supera las 2.500 líneas tras el Stage 4a y
   `diagnostic.rs`, `engine.rs` y `check.rs` crecen. Tras el Stage 5, planificar la división
   en submódulos (por ejemplo `spec/{load,shape,segments,tables,control,patch}.rs`) con
   reglas de descubrimiento: archivos cortos, un sustantivo por archivo, `lib.rs` como índice
@@ -1122,6 +1122,11 @@ por sus tests (`column.rs`: 199 líneas de código y 1.361 de tests).
 - **T44 · Entran #64 y #71.** #64 (detalles de `frame.rs` y dos textos de error) cae en
   archivos que se tocan; #71 expone `oxedi835.__version__` derivado de la fuente única de
   versión, con su test. Son los únicos cambios visibles del stage.
+- **T45 · Un archivo de benchmarks por capa** (aprobado con el plan, 2026-10-04).
+  `benches/tokenize.rs` guarda los ocho grupos de criterion del pipeline; se parte en
+  `tokenize.rs`, `engine.rs`, `check.rs` y `process.rs` con los cargadores en
+  `benches/common/`. Los nombres de grupo y los ids no cambian, para que las líneas base
+  guardadas sigan comparando. Descartado renombrar los grupos.
 
 **Entregable / contrato.**
 - `crates/edi835_core/src/spec/` y `crates/edi835_core/src/project/` con un `mod.rs` que

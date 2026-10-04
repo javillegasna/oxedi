@@ -7,8 +7,7 @@
 module keeps its unit tests in a sibling file, and nothing a caller can see changes except the
 two issues the stage closes (#64, #71).
 
-**Spec:** `.doc/architectural-commitment.md` §7 "Stage 5c · Estructura de módulos" (T37–T44).
-Task 5 (bench files) is proposed as T45 and runs only if the owner approves it with this plan.
+**Spec:** `.doc/architectural-commitment.md` §7 "Stage 5c · Estructura de módulos" (T37–T45; T45 approved with this plan).
 
 ## Global Constraints
 - No behaviour change. Every commit passes `make gates`; batches touching Python also pass
@@ -112,7 +111,7 @@ because a child module sees its parent's private fields.
 - Tests go to `project/tests.rs`, or to `project/tests/` by topic if they pass about 800 lines.
 - Verify as in Task 3. Commit: `refactor: split the projector by responsibility`.
 
-### Task 5 (proposed T45, only if approved): one bench file per layer
+### Task 5 (T45): one bench file per layer
 `benches/tokenize.rs` holds all eight criterion groups. Split it, keeping every group name and
 `BenchmarkId` byte for byte so recorded baselines still compare:
 - `tokenize.rs`: `tokenize`, `index`

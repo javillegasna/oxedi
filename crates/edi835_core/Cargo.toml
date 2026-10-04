@@ -21,3 +21,15 @@ criterion = "0.5"
 [[bench]]
 name = "tokenize"
 harness = false
+
+[[bench]]
+name = "engine"
+harness = false
+
+[[bench]]
+name = "check"
+harness = false
+
+[[bench]]
+name = "process"
+harness = false

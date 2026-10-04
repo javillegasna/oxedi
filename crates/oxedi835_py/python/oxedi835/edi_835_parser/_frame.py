@@ -284,7 +284,8 @@ class Transaction:
         for row in np.flatnonzero(column.is_null().to_numpy(zero_copy_only=False)).tolist():
             if segments[row] is None:
                 continue
-            values[row] = element_date(self.document[segments[row]], segments[row], element)
+            values[row] = element_date(
+                self.document[segments[row]], segments[row], element, self.set.file_path)
         return values
 
     def date_at(self, name, element, segments):

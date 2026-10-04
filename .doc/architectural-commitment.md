@@ -290,7 +290,7 @@ carga su prueba de costura con la capa inferior (N7).
   migración: el rápido, instalar `oxedi835[edi-835-parser]` y cambiar un `import`; y el
   definitivo, pasar con tiempo a los métodos nativos, con una tabla "método viejo → método
   nuevo" en la documentación (Stage 8).
-- **D13 · Estructura de módulos**: `spec.rs` supera las 2.500 líneas tras el Stage 4a y
+- **D13 · Estructura de módulos** → resuelta por T37–T45 (Stage 5c, 2026-10-04): `spec.rs` supera las 2.500 líneas tras el Stage 4a y
   `diagnostic.rs`, `engine.rs` y `check.rs` crecen. Tras el Stage 5, planificar la división
   en submódulos (por ejemplo `spec/{load,shape,segments,tables,control,patch}.rs`) con
   reglas de descubrimiento: archivos cortos, un sustantivo por archivo, `lib.rs` como índice
@@ -1079,3 +1079,74 @@ plataforma antes de salir. Cierra con `0.1.0`, la primera versión usable.
 **Fuera de alcance.** crates.io (T34); Windows ARM y `universal2` (T30); documentación de
 usuario perdurable (Stage 8); firma de artefactos con Sigstore más allá de la atestación que
 `gh-action-pypi-publish` añade por defecto.
+
+### Stage 5c · Estructura de módulos — APROBADO 2026-10-04
+
+El stage que hace el código navegable sin cambiar lo que hace: los dos archivos que esconden
+su código bajo varias responsabilidades se parten en submódulos cortos, los tests unitarios
+salen del archivo que prueban a un archivo hermano, y cada módulo dice en su cabecera qué
+contiene. Resuelve D13. Medido el 2026-10-04: `spec.rs` tiene 4.981 líneas (2.334 de código y
+2.647 de tests) y `project.rs` 1.509 (943 de código); el resto de los archivos grandes lo son
+por sus tests (`column.rs`: 199 líneas de código y 1.361 de tests).
+
+**Decisiones de diseño (cada una con la alternativa descartada).**
+- **T37 · Se parten solo `spec.rs` y `project.rs`.** `spec.rs` pasa a `spec/` con un archivo
+  por responsabilidad (ids y loops con sus controles; segmentos y elementos; tablas y su
+  compilación; `SpecError`; estructuras de deserialización; chequeo de forma; render de claves;
+  merge patch); `project.rs` pasa a `project/` por responsabilidad. La partición exacta la fija
+  el plan. Descartado partir todo archivo que supere un tamaño: movería archivos cuyo código
+  ya cabe en una pantalla, sin ganar legibilidad.
+- **T38 · Tests unitarios en un archivo hermano.** Cada módulo con tests declara
+  `#[cfg(test)] mod tests;` y sus tests viven en `tests.rs` dentro de la carpeta del módulo,
+  con acceso a lo privado como hoy. Vale para todos los módulos del core, también los que no se
+  parten. Descartados dejarlos al final del archivo (archivos de 1.500 líneas con 200 de código)
+  y moverlos a `tests/` como integración (perderían lo privado y forzarían a publicarlo).
+- **T39 · Rutas públicas intactas.** Los submódulos nuevos son privados y el `mod.rs` de cada
+  carpeta reexporta exactamente lo que hoy exporta el archivo; ninguna ruta `edi835_core::…`
+  cambia, ni la que usa el binding. Un test de integración nombra cada ruta pública actual, de
+  modo que falla al compilar si una desaparece. Descartado rediseñar la API en el mismo stage.
+- **T40 · Guía de tamaño, no gate.** Unas 400 líneas de código por archivo, sin contar tests,
+  escrita en `CLAUDE.md`. Descartado un chequeo en CI: forzaría cortes artificiales cuando una
+  pieza coherente pasa del límite.
+- **T41 · Descubrimiento en el código.** `lib.rs` sigue siendo el índice comentado; cada
+  `mod.rs` nuevo abre con un `//!` corto que dice qué contiene cada uno de sus archivos.
+  Descartado un mapa aparte: la documentación de arquitectura para humanos es el Stage 8 y un
+  mapa duplicado se desactualiza.
+  Un módulo es una carpeta (decidido 2026-10-04, tras partir `spec`): todo módulo del core es
+  `x/mod.rs` con sus tests en `x/tests.rs` o `x/tests/`, y el lint de clippy
+  `self_named_module_files` impide volver a la forma `x.rs` junto a `x/`. Descartada la forma
+  `x.rs` + `x/` que recomienda la guía de Rust: los exploradores listan las carpetas antes que los
+  archivos y separan el módulo de su carpeta.
+- **T42 · Sin cambio de comportamiento, demostrado.** El mismo número de tests antes y
+  después, los goldens intactos sin `UPDATE_GOLDEN`, rustdoc limpio y los benchmarks dentro del
+  ruido. Un commit por archivo partido, para revisar por partes; `git blame` del contenido
+  movido queda en el commit de la partición (se acepta).
+- **T43 · La capa Python no se toca.** `_frame.py` (602 líneas) refleja la estructura de la
+  librería que imita y su tamaño es razonable; tampoco el binding de Rust (≤ 266 líneas por
+  archivo). Descartado partirla en el mismo stage: diff mayor sin beneficio claro.
+- **T44 · Entran #64 y #71.** #64 (detalles de `frame.rs` y dos textos de error) cae en
+  archivos que se tocan; #71 expone `oxedi835.__version__` derivado de la fuente única de
+  versión, con su test. Son los únicos cambios visibles del stage.
+- **T45 · Un archivo de benchmarks por capa** (aprobado con el plan, 2026-10-04).
+  `benches/tokenize.rs` guarda los ocho grupos de criterion del pipeline; se parte en
+  `tokenize.rs`, `engine.rs`, `check.rs` y `process.rs` con los cargadores en
+  `benches/common/`. Los nombres de grupo y los ids no cambian, para que las líneas base
+  guardadas sigan comparando. Descartado renombrar los grupos.
+
+**Entregable / contrato.**
+- `crates/edi835_core/src/spec/` y `crates/edi835_core/src/project/` con un `mod.rs` que
+  reexporta la API actual; todos los módulos del core con sus tests en un `tests.rs` hermano.
+- Test de integración de rutas públicas; guía de tamaño en `CLAUDE.md`.
+- #64 y #71 cerrados por el PR.
+
+**Gate de verificación (salida del Stage 5c).**
+- `make gates` y `make py-test` en verde; el recuento de tests de cargo y pytest es el de
+  `master` más los tests nuevos de T39 y T44, nunca menos.
+- Ningún golden cambia; `cargo bench` sin regresiones fuera del ruido en tokenizer, engine y
+  projector.
+- Ningún archivo de código de `spec/` o `project/` supera la guía de T40 sin una razón escrita
+  en el plan.
+
+**Fuera de alcance.** Cambios de API o de comportamiento (salvo #71); la capa Python y el
+binding (T43); rendimiento del proyector y memoria de los spans (#39 y #45, después de este
+stage); documentación de arquitectura para humanos (Stage 8).

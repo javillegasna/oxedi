@@ -1,4 +1,4 @@
-// Validates all 67 public items by their module path (compile-time assertion).
+// Each `use` names a public item by its module path; the build fails if one disappears.
 #![allow(unused_imports)]
 
 mod by_module {

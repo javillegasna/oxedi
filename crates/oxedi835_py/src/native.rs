@@ -38,7 +38,8 @@ pub fn count_claims(tables: &Tables) -> PyResult<usize> {
     Ok(table(tables, "count_claims", "claims")?.len())
 }
 
-/// Distinct non-null `claims.patient_id` values.
+/// Distinct non-null `claims.patient_id` values, compared as text: no
+/// numeric normalization, so `0123` and `123` are two patients.
 pub fn count_patients(tables: &Tables) -> PyResult<usize> {
     let claims = table(tables, "count_patients", "claims")?;
     let ids = column(claims, "count_patients", "patient_id")?;

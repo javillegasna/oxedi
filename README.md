@@ -88,7 +88,7 @@ when claim-only or provider-adjustment rows exist, some strict columns widen the
 | `parse(path)` | `oxedi835.parse_file(path)` returning a `Result` |
 | `.to_dataframe()` | `result.tables["services"].to_polars()` / `.to_pandas()` (`pip install "oxedi835[polars]"` or `"oxedi835[pandas]"`), joined to `claims` on `claim` and to `payments` on `payment` |
 | `.count_claims()` | `result.count_claims()` |
-| `.count_patients()` | `result.count_patients()` (a null id is not a patient) |
+| `.count_patients()` | `result.count_patients()` (a null id is not a patient; ids are text, so `0123` and `123` are different patients, unlike edi-835-parser) |
 | `.sum_payments()` (float) | `result.sum_payments()` (`Decimal`) |
 | `transaction_set.payer` / `.payee` | `result.payer` / `result.payee` (dict of text values: `name`, `identification_code`, `address`, `city`, `state`, `zip_code`; `ValueError` when `payments` has more than one row) |
 | none | SQL: `duckdb.sql("select ... from claims")` with `claims = result.tables["claims"]` |

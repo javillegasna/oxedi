@@ -957,7 +957,9 @@ con ids `XV` alfanuméricos (#46).
   para una lista de bytes o de archivos; `file_path` rellena el atributo
   que la librería guarda en cada `TransactionSet` (por defecto `"<bytes>"`). Todo cae en el
   mismo `oxedi835.parse` con el GIL liberado; leer de ruta o de bytes da el mismo
-  DataFrame, y un test lo comprueba.
+  DataFrame, y un test lo comprueba. Ante archivos vacíos o que no son 835, la capa imita a
+  la librería (devuelve un conjunto con `interchange` vacío y sigue); esa tolerancia vive solo
+  en `oxedi835.edi_835_parser`: la API nativa mantiene el `ParseError` estricto (P10).
 - **T28 · Equivalentes nativos sin pandas.** En `oxedi835.Result`: `count_claims()`,
   `count_patients()`, `sum_payments() -> Decimal`, `payer`, `payee`; en `Tables`/`Table`:
   `to_polars()` y `to_pandas()` con importación perezosa y error que nombra el extra

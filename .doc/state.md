@@ -1,4 +1,4 @@
-# State — 2026-10-03 (Stage 5 merged)
+# State — 2026-10-03 (Stage 5 merged, PyPI reserved)
 
 Snapshot for picking the project up cold. Update when a stage changes state.
 
@@ -51,15 +51,33 @@ less memory than `parse`; two threads run in ~0.5× the sequential time; 16–24
 `edi-835-parser`. D8 closed as T24 (keep `Cow`). Deferred findings: #47–#49. PR #44 (#28,
 `isa11`) merged too.
 
-PyPI: the name `oxedi835` is being reserved with a `0.0.1a1` pre-release built from master
-(branch `release-0.0.1a1`); `0.1.0` comes after 5b and the Stage 6 wheel matrix; `1.0` once
-the API holds for two or three releases and the Stage 8 documentation exists. Tokens live in
-`~/.pypirc` (local) and as GitHub secrets, never in the repo.
+PyPI: `oxedi835 0.0.1a1` is published on TestPyPI and PyPI (2026-10-03; wheel
+`cp311-abi3-manylinux_2_34_x86_64` + sdist; tag `v0.0.1a1` on 5c03a76). PR #51 (pre-release
+metadata, root `Makefile` with gates/py-dev/py-test/dist/smoke/publish via twine/tag) awaits
+merge. `0.1.0` comes after 5b and the Stage 6 wheel matrix; `1.0` once the API holds for two
+or three releases and the Stage 8 documentation exists. Tokens live in `~/.pypirc` (local)
+and as GitHub secrets, never in the repo; the account-wide token should be replaced by a
+project-scoped one.
 
-Next: 5b (D12, three parts: DataFrame parity by spec, what the old library drops and we
-keep, a compatible `TransactionSets` API covering its whole surface; native counterparts
-  on the Arrow/Polars API as the long-term migration path), then 5c (D13 module
-layout), then Stage 6. Trade-offs for 5b in chat first.
+Decisions taken 2026-10-03 after the merge (all in §6.2 and the roadmap):
+- 5b in four parts (D12): DataFrame parity by spec on the originals (shim for the library's
+  `int(N104)`, #46); what `edi-835-parser` drops and we keep; `oxedi835.edi_835_parser`
+  behind the extra `oxedi835[edi-835-parser]` covering its whole surface; native
+  counterparts (`count_claims`, `count_patients`, `sum_payments`, `payer`, `payee`,
+  `to_polars`, `to_pandas`). Base wheel has no Python dependencies; polars/pandas only as
+  extras with lazy imports. DuckDB reads our tables with no dependency (verified); 5b adds a
+  test. Survey of Python 835 parsers: only `edi-835-parser` merits a layer.
+- D16 `pyx12`: maps as spec oracle/generator inside Stage 9; `validate` and `ContextReader`
+  optional (9b) behind `oxedi835[pyx12]`.
+- D7 writer scheduled after 5b and 6: tables (our schema, Arrow) → `.RMT`, spec inverted,
+  derived fields, diagnostics before writing, DuckDB connectors as ingestion adapter outside
+  the core, round-trip + `pyx12` gate; D11 is its prerequisite.
+
+Next: §7 of 5b (pending the owner's ok on four detail decisions: DataFrame built by spec,
+strict parity by default with `to_dataframe(extended=True)`, oracle script on the originals +
+CI on samples, API objects as views), then its plan and batches; then 5c (D13), Stage 6
+(wheel matrix, trusted publishing, `0.1.0`), Stage 7 (writer), 8 (durable docs), 9 (X12
+family + `pyx12` maps).
 
 Stage 4 decisions, settled in §7 (kept for reference):
 The decisions that were open, now settled in §7:

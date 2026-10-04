@@ -156,7 +156,7 @@ carga su prueba de costura con la capa inferior (N7).
 | **4 · Proyección a dominio + validación** | eventos/loop tree → filas de negocio + SNIP, también declarativo; funciona sobre el flujo (claim a claim) y sobre el documento | Fixtures → filas/validación esperadas; proyección incremental == proyección sobre documento | iteradores, `serde_json`, transformaciones |
 | **5 · Binding Python** | PyO3/maturin, libera el GIL, API ergonómica: parse completo + iterador Python de loops/claims (memoria acotada), wheels | pytest sobre las mismas fixtures; benchmark vs. lib Python vieja; test de memoria: iterar un archivo grande no lo materializa | FFI, PyO3, maturin, protocolo de iterador Python |
 | **6 · Distribución** | crates.io + PyPI (manylinux), CI de release, quizá WASM | Instalar desde PyPI en entorno limpio y smoke test | publishing, cross-compile, semver, deploy |
-| **7 · Escritor** *(YAGNI, D8)* | Builder: datos → árbol de loops → segmentos → bytes, dirigido por la misma spec (P6); calcula campos derivados (SE01, GE, IEA, ISA ancho fijo) | Escribir y volver a parsear == original; SNIP sobre lo generado | builder pattern, `fmt::Write` / `io::Write`, `Display`, formato de ancho fijo |
+| **7 · Escritor** *(programado, D7; prerrequisito D11)* | Tablas (nuestro esquema, `Tables` o Arrow) → loops → segmentos → bytes, dirigido por la misma spec invertida (P6); calcula derivados (SE01, GE01, IEA01, controles, ISA ancho fijo, totales BPR); diagnósticos antes de escribir; ingestión desde bases relacionales vía DuckDB fuera del core | Generar y volver a parsear == mismas tablas y cero diagnósticos; `pyx12` valida lo generado | builder pattern, `io::Write`, formato de ancho fijo, inversión de una proyección declarativa |
 
 ---
 
@@ -229,7 +229,11 @@ carga su prueba de costura con la capa inferior (N7).
   completo exige saber qué segmentos son obligatorios y cuántas veces se repiten dentro de
   un loop, y SNIP 3 exige declarar qué columnas se suman contra cuáles. Ambas piden una
   extensión de la spec que Stage 4 no abre; se decide cuando las tablas proyectadas estén
-  en uso y se vea si una regla "suma por grupo" basta.
+  en uso y se vea si una regla "suma por grupo" basta. Desde el 2026-10-03 es prerrequisito
+  del escritor (D7): la escritura necesita orden y cardinalidad por loop y los cuadres
+  (`BPR02` contra claims y `PLB`; `CLP03`−`CLP04` contra `CAS`; `SVC02`−`SVC03` contra `CAS`
+  de servicio) para calcular o comprobar los totales. Las medidas del planificador de 4b (el
+  cuadre de `BPR02` necesita sumas con signos opuestos) acotan el formato de reglas.
 - **D12 · Compatibilidad con `edi-835-parser`** (Python, keiron-stoddart; `parse(path)
   → TransactionSets.to_dataframe()`): tras el Stage 5, escribir una spec de `tables` (y el
   parche que haga falta) cuya salida coincida fila a fila con el DataFrame de esa librería
@@ -278,7 +282,11 @@ carga su prueba de costura con la capa inferior (N7).
   puente) y `edi-835-parser` (que arrastra `pandas` por su contrato) se declaran solo como
   extras (`oxedi835[polars]`, `oxedi835[pandas]`, `oxedi835[edi-835-parser]`); `to_polars()` y
   `to_pandas()` importan la librería al llamarse y, si falta, lanzan un error que nombra el
-  extra a instalar (P10). Nunca como dependencia directa ni transitiva del paquete base. Así hay dos caminos de
+  extra a instalar (P10). Nunca como dependencia directa ni transitiva del paquete base.
+  DuckDB (comprobado el 2026-10-03 con la 1.5.6): consume nuestras tablas por el mismo
+  protocolo sin dependencia alguna (*replacement scan* de la variable Python, `register`,
+  joins por los ordinales de padre, `Decimal128` exacto); 5b añade un test con `duckdb` como
+  dependencia de desarrollo, y no hace falta extra para DuckDB. Así hay dos caminos de
   migración: el rápido, instalar `oxedi835[edi-835-parser]` y cambiar un `import`; y el
   definitivo, pasar con tiempo a los métodos nativos, con una tabla "método viejo → método
   nuevo" en la documentación (Stage 8).
@@ -314,9 +322,26 @@ carga su prueba de costura con la capa inferior (N7).
   `Document` y `LoopTree`. Las piezas 2 y 3 viven en el subpaquete `oxedi835.pyx12` tras el
   extra `oxedi835[pyx12]`, siguiendo la regla de nombres de D12; el script de la pieza 1 vive
   en `scripts/`.
-- **D7 · Stage 7, Escritor**: ver §5. YAGNI hasta que haya un caso de generación. La mitad
-  del trabajo ya la paga el round-trip de Stage 1 (serializar segmentos con escape) y la
-  otra mitad la paga T4. Lo propio del escritor: campos derivados y builder desde dominio.
+- **D7 · Stage 7, Escritor** → programado el 2026-10-03, tras 5b y Stage 6, con un caso real:
+  generar un 835 (`.RMT`) a partir de datos en bases relacionales. Contrato acordado: la
+  entrada es nuestro esquema de tablas (`Tables` del core o Arrow por el mismo protocolo
+  PyCapsule en sentido inverso: `payments`, `claims`, `services`, `adjustments`,
+  `provider_adjustments` con sus ordinales de padre); la spec dirige la escritura invirtiendo
+  la sección `tables` (columna → loop, segmento, elemento) y usando `segments` para saber qué
+  es obligatorio (P6, la spec es bidireccional); el escritor calcula los derivados (`SE01`,
+  `GE01`, `IEA01`, números de control, anchos fijos del `ISA`, totales del `BPR`) y, si falta
+  un elemento obligatorio, emite un `Diagnostic` antes de escribir, con la misma forma que los
+  de lectura (P10 en sentido inverso); el core sigue sans-IO (devuelve bytes o escribe en un
+  `io::Write`); la ingestión desde bases de datos vive fuera del core: DuckDB con sus
+  conectores (`postgres`, `mysql`, `sqlite`, ODBC, Parquet) produce Arrow con nuestras
+  columnas mediante SQL del usuario, y `oxedi835.write(tables, spec=None) -> bytes` en Python.
+  Gate: generar y volver a parsear con nuestro `Processor` devuelve tablas idénticas y cero
+  diagnósticos, y `pyx12` (D16) valida lo generado contra la guía. Prerrequisito dentro del
+  mismo stage: D11 (orden y cardinalidad de segmentos por loop, reglas de cuadre), porque la
+  lectura toma "el primer segmento que cumple `where`" y la escritura necesita orden y número
+  de repeticiones; y elegir versión (4010 o 5010) por salida, fijando `ISA12`/`GS08`. La mitad
+  del trabajo ya la paga el round-trip de Stage 1 (serializar segmentos con escape) y la otra
+  mitad T4.
 
 ---
 

@@ -18,7 +18,7 @@ when a stage changes state.
 | 5b · Compatibility oracle | (1) A `tables` spec whose DataFrame equals `edi-835-parser`'s `to_dataframe()` row for row on the originals (shim for its `int(N104)` limitation, #46); (2) find what that library drops (claim-level adjustments, `PLB`, unmapped `REF`/`AMT`) and prove `oxedi835` keeps it on the same files; (3) a compatible Python API as the subpackage `oxedi835.edi_835_parser` behind the extra `oxedi835[edi-835-parser]` (one subpackage per imitated library, named after it; survey other Python 835 parsers first), covering that library's whole public surface (`parse(path\|dir)`, `TransactionSets` with iteration, `len`, `count_claims`, `count_patients`, `sum_payments`, `sort_columns`, `to_dataframe`; `TransactionSet` with `payer`, `payee`, `to_dataframe`, `serialize_service` and its loop objects) so its users migrate without code changes; (4) native counterparts on the Arrow/Polars API (`Result.count_claims/count_patients/sum_payments/payer/payee`, `to_polars()`, optional `to_pandas()`) plus an old→new migration table, so the quick path (extra) and the final path (native) both exist | Not started (after 5, D12) | — |
 | 5c · Module layout | Split the large source files into navigable submodules with short files and a one-glance discovery path; no behaviour change | Not started (after 5, D13) | — |
 | 6 · Distribution | crates.io, PyPI wheels (manylinux/macOS/Windows), release CI with trusted publishing; `0.1.0` after 5b | Name reserved on PyPI with `0.0.1a1` (2026-10-03) | — |
-| 7 · Writer | Data → loops → bytes, same spec | Deferred (D7) | — |
+| 7 · Writer | Tables (our schema, `Tables` or Arrow) → loops → segments → bytes with the same spec inverted; derived fields computed; diagnostics before writing; DuckDB connectors feed it from relational databases outside the core; round-trip and `pyx12` validation as gate; D11 (order, cardinality, balancing) resolved inside | Scheduled after 5b and 6 (D7, 2026-10-03) | — |
 | 8 · Durable documentation | Human-readable book of the ideas, concepts and patterns that govern the project (no code snippets, no line references, nothing that rots); user guides for the Python library and the CLI | Not started (after the roadmap closes, D14) | — |
 | 9 · X12 family toolkit | The engine, spec format, projection and CLI serve other transaction sets of the same family (837 first: same loop logic, different segment definitions); 835 becomes one spec among several. Includes the `pyx12` map cross-check and spec generator (D16, part 1) | Not started (D15, D16) | — |
 | 9b · `pyx12` interop (optional) | `oxedi835.pyx12.validate` merging `pyx12`'s SNIP 3–7 findings into our `Diagnostic` list; `oxedi835.pyx12.ContextReader` as a read-only `X12ContextReader`-shaped view, only on demand; behind the extra `oxedi835[pyx12]` | Optional (D16, parts 2–3) | — |
@@ -26,11 +26,13 @@ when a stage changes state.
 ## What each stage unlocks
 
 ```
-0 ──► 1 ──► 2 ──► 3 ──► 4 ──► 5 ──► 6
-            │     │     │
-            │     │     └─ tables → Polars/Arrow export (D10, decided in 4/5)
+0 ──► 1 ──► 2 ──► 3 ──► 4 ──► 5 ──► 5b ──► 5c ──► 6 ──► 7 ──► 8 ──► 9 (──► 9b optional)
+            │     │     │           │                   │
+            │     │     │           │                   └─ writer: tables → .RMT (D7, D11)
+            │     │     │           └─ edi-835-parser parity and compatible API (D12)
+            │     │     └─ tables → Arrow by PyCapsule (D10 → T14/T15; Polars, pyarrow, DuckDB)
             │     └─ real files become a business oracle (claims, services, adjustments)
-            └─ random access, owned documents for FFI, Arc measurement (D8)
+            └─ random access, owned documents for FFI, Cow kept (D8 → T24)
 ```
 
 - After **3**: a real 835 is a tree of loops; unknown or proprietary segments are visible
@@ -44,6 +46,8 @@ when a stage changes state.
   and a user of the Python library or the CLI has a guide that does not go stale.
 - After **9**: adding a transaction set is writing a spec, the toolkit's promise made good
   beyond the 835; `pyx12`'s maps cross-check our specs and seed the new ones.
+- After **7**: a payer or a clearinghouse writes an 835 from its database with one SQL per
+  table and the same spec that reads it; the round trip is the proof.
 - After **9b** (optional): a single diagnostics list covers SNIP 1–7 by delegating 3–7 to
   `pyx12`; code written against its context reader runs on our document.
 - After **5c**: every module is short enough to read in one sitting and findable from
@@ -57,9 +61,9 @@ when a stage changes state.
 | D8 · `Cow`+spans vs `Arc`+spans | 5 (closed as T24: keep `Cow`) | Measured on the largest sample: `Arc` builds slower, same retention memory, wins only on clones nobody makes; spans weigh 2× the bytes → #45 |
 | D9 · YAML specs | after 3, when someone writes specs by hand | Second deserializer over the same `Spec` |
 | D10 · Columnar projection / Arrow | 4 (closed as T14–T15) and 5 | Stage 4 emits Arrow-layout columns without the crate; Python exports zero-copy |
-| D11 · Segment cardinality per loop, declarative balancing rules | after 4 | SNIP 2 completion and SNIP 3 need a spec extension; decide once tables are in use |
+| D11 · Segment cardinality per loop, declarative balancing rules | 7 (prerequisite of the writer) | Order and repetition per loop for emission; balancing rules to compute or check totals; SNIP 2 completion and SNIP 3 |
 | D6 · Chunked tokenizer (S3 streaming) | when a file does not fit in memory | Framing is already pure; segments would own or lend |
-| D7 · Writer | when a generation case exists | `write_to` is half of it; spec is already structural |
+| D7 · Writer | 7 (scheduled 2026-10-03) | Case: generate `.RMT` from relational data; input is our table schema via Arrow; DuckDB as the ingestion adapter outside the core |
 | D12 · Compatibility with `edi-835-parser` | 5b | Can a data-only `tables` spec reproduce its DataFrame exactly? Measures N3 and gives a migration path for its users |
 | D14 · Durable documentation | 8 | What belongs in the book (ideas, patterns, concepts, guides) vs. what stays in rustdoc and the plans (code, signatures); format and where it lives |
 | D15 · X12 family toolkit (837…) | 9 | Naming (crate and binary no longer 835-specific), one spec per transaction set, what the CLI exposes, which 835 assumptions leaked into code |

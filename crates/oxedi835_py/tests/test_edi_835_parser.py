@@ -399,3 +399,17 @@ def test_the_native_parse_still_rejects_a_byte_order_mark():
     with pytest.raises(ParseError):
         oxedi835.parse(BOM + synthetic())
 
+
+PREFIXES = [b"   \r\n", b"\n", b"\t\t", BOM, BOM + b"\n", BOM + b"  \r\n"]
+
+
+@pytest.mark.parametrize("prefix", PREFIXES, ids=repr)
+def test_a_prefix_before_the_isa_reads_as_in_the_library(tmp_path, prefix):
+    data = prefix + path_of(SAMPLES[0]).read_bytes()
+    path = tmp_path / "prefixed.835"
+    path.write_bytes(data)
+    expected = old(path)
+    for actual in (compat.parse(path), compat.parse_bytes(data)):
+        pd.testing.assert_frame_equal(actual.to_dataframe(), expected.to_dataframe(), check_exact=True)
+        assert [t.interchange is None for t in actual] == [t.interchange is None for t in expected]
+

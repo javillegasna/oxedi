@@ -64,6 +64,18 @@ class Rows:
 
 
 BOM = b"\xef\xbb\xbf"
+WHITESPACE = b" \t\n\r\x0b\x0c"
+
+
+def marked(view, trigger):
+    """Whether ``view`` is a UTF-8 byte order mark, then optional whitespace,
+    then ``trigger``."""
+    if bytes(view[:len(BOM)]) != BOM:
+        return False
+    at = len(BOM)
+    while at < len(view) and view[at] in WHITESPACE:
+        at += 1
+    return bytes(view[at:at + len(trigger)]) == trigger
 
 
 def load(data):
@@ -77,7 +89,8 @@ def load(data):
     segments it recognises:
     - input that does not start with the interchange's opening segment gives
       one part with every table empty and no document;
-    - a UTF-8 byte order mark before that segment stays glued to it in the
+    - a UTF-8 byte order mark before that segment (with or without
+      whitespace between them) stays glued to the first segment in the
       library, which then misses only the interchange, so what follows the
       mark is parsed and the interchange rows are left out;
     - an interchange without transactions gives one part with only its
@@ -88,18 +101,18 @@ def load(data):
 
     view = memoryview(data)
     trigger = interchange_trigger()
-    marked = bytes(view[:len(BOM) + len(trigger)]) == BOM + trigger
+    bom = marked(view, trigger)
     try:
-        result = parse(view[len(BOM):] if marked else data, spec=spec())
+        result = parse(view[len(BOM):] if bom else data, spec=spec())
     except ParseError:
-        if marked or bytes(view[:len(trigger)]) == trigger:
+        if bom or bytes(view[:len(trigger)]) == trigger:
             raise
         return None, [{name: Rows.empty() for name in TABLES}]
     tables = {name: pa.table(result.tables[name]).to_pydict() for name in result.tables}
     payments = tables["rows_payments"]
     if not payments["row"]:
         return result.document, [{
-            name: Rows(columns, [name == "rows_interchanges" and not marked] * len(columns["row"]))
+            name: Rows(columns, [name == "rows_interchanges" and not bom] * len(columns["row"]))
             for name, columns in tables.items()
         }]
     parts = []
@@ -107,7 +120,7 @@ def load(data):
         part = {}
         for name, columns in tables.items():
             if name == "rows_interchanges":
-                keep = [row == interchange and not marked for row in columns["row"]]
+                keep = [row == interchange and not bom for row in columns["row"]]
             elif name == "rows_payments":
                 keep = [row == payment for row in columns["row"]]
             else:

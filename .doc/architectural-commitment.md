@@ -402,6 +402,18 @@ carga su prueba de costura con la capa inferior (N7).
   base relacional al `.RMT`, con DuckDB leyendo Postgres, MySQL o SQLite) sin conectores propios.
   El spike comprueba si la API C de extensiones expone funciones de copia y si una función puede
   leer tablas pasadas por nombre.
+  **Resultado del spike** (2026-10-04, `.doc/spikes/duckdb-extension.md`; prototipo en la rama
+  `spike-duckdb-prototype`): viable. En DuckDB v1.5.6 la parte inestable de la API C de
+  extensiones está vacía (las 546 entradas son estables o deprecadas), así que la plantilla de
+  Rust con `USE_UNSTABLE_C_API=0` produce un binario que carga sin recompilar en 1.5.6 y en 2.0-dev;
+  la vía C fina sobre una staticlib de Rust, con objetivo v1.2.0, carga además en 1.4.5. Los dos
+  prototipos de `read_835` devuelven las mismas filas y el mismo md5 que `oxedi835.parse_file` en
+  las 30 tablas (6 samples × 5 tablas); el parseo domina el tiempo (unos 16 ms en united) y la
+  extensión ahorra unos 2 ms frente a Python más `from_arrow`. Todo lo necesario es estable:
+  funciones de tabla, nuestros tipos, validez, Arrow, funciones de copia y consultas desde la
+  extensión. Escritura: el formato de `COPY` funciona completo y ve tablas temporales y objetos
+  del cliente; una función que lee tablas por nombre solo ve tablas persistentes confirmadas. Vía
+  recomendada: plantilla de Rust con ABI estable; riesgos y esquema de §7 en el documento.
 - **D7 · Stage 7, Escritor** → programado el 2026-10-03, tras 5b y Stage 6, con un caso real:
   generar un 835 (`.RMT`) a partir de datos en bases relacionales. Contrato acordado: la
   entrada es nuestro esquema de tablas (`Tables` del core o Arrow por el mismo protocolo

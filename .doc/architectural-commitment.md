@@ -392,6 +392,16 @@ carga su prueba de costura con la capa inferior (N7).
   `allow_unsigned_extensions`). Se soporta la versión estable de DuckDB y la anterior. Coste: CI
   solo en Linux por nuestra parte y un PR por versión de DuckDB (unas cuatro o cinco al año), que
   desaparece con la vía estable.
+  **Escritura desde DuckDB** (2026-10-04). Con el writer del Stage 7 en el núcleo (sans-IO:
+  produce bytes; la extensión decide dónde escribirlos), la extensión puede exponer la escritura:
+  (a) una función que recibe varias tablas, `write_835('x.rmt', payments := ..., claims := ...)`,
+  que encaja con el esquema de tablas con referencias al padre que devuelve `read_835()`; (b) un
+  formato de `COPY (...) TO 'x.rmt' (FORMAT edi835)` como los de Parquet y JSON, limitado a una
+  consulta y por tanto a casos aplanados. Habilita el ciclo leer → transformar en SQL → emitir
+  desde cualquier lenguaje, 835 sintéticos sin PHI para pruebas, y el caso original de D7 (de una
+  base relacional al `.RMT`, con DuckDB leyendo Postgres, MySQL o SQLite) sin conectores propios.
+  El spike comprueba si la API C de extensiones expone funciones de copia y si una función puede
+  leer tablas pasadas por nombre.
 - **D7 · Stage 7, Escritor** → programado el 2026-10-03, tras 5b y Stage 6, con un caso real:
   generar un 835 (`.RMT`) a partir de datos en bases relacionales. Contrato acordado: la
   entrada es nuestro esquema de tablas (`Tables` del core o Arrow por el mismo protocolo

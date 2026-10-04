@@ -93,6 +93,10 @@ when claim-only or provider-adjustment rows exist, some strict columns widen the
 | `transaction_set.payer` / `.payee` | `result.payer` / `result.payee` (dict of text values: `name`, `identification_code`, `address`, `city`, `state`, `zip_code`; `ValueError` when `payments` has more than one row) |
 | none | SQL: `duckdb.sql("select ... from claims")` with `claims = result.tables["claims"]` |
 
+The extras pin pandas differently: `oxedi835[pandas]` asks for `pandas>=2` and so allows
+pandas 3, while `oxedi835[edi-835-parser]` pins `pandas>=2.0.3,<3`, the range the
+compatibility layer's parity with edi-835-parser 1.8.0 is tested on.
+
 ## Extending the 835 spec
 
 Patches use JSON Merge Patch (RFC 7386). A patch replaces arrays wholesale: to add a

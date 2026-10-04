@@ -1,0 +1,20 @@
+[package]
+name = "oxedi835_duckdb"
+version = "0.0.0"
+edition = "2024"
+publish = false
+
+# Standalone: not a member of the repository workspace.
+[workspace]
+
+[lib]
+name = "oxedi835"
+crate-type = ["cdylib"]
+
+[profile.release]
+lto = true
+strip = true
+
+[dependencies]
+duckdb = { version = "~1.10506.0", features = ["loadable-extension"] }
+edi835_core = { path = "../../../crates/edi835_core" }

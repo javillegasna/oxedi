@@ -1,0 +1,3 @@
+[submodule "spike/duckdb/extension-ci-tools"]
+	path = spike/duckdb/extension-ci-tools
+	url = https://github.com/duckdb/extension-ci-tools.git

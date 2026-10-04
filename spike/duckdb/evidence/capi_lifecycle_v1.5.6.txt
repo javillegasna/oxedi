@@ -1,0 +1,57 @@
+struct slots by last state: {'stable': 498, 'deprecated': 48}
+duckdb_create_table_function: stable: v0.3.3  IN-STRUCT
+duckdb_table_function_add_parameter: stable: v0.3.3  IN-STRUCT
+duckdb_table_function_add_named_parameter: stable: v0.8.0  IN-STRUCT
+duckdb_table_function_set_bind: stable: v0.3.3  IN-STRUCT
+duckdb_table_function_set_init: stable: v0.3.3  IN-STRUCT
+duckdb_table_function_set_function: stable: v0.3.3  IN-STRUCT
+duckdb_table_function_supports_projection_pushdown: stable: v0.3.3  IN-STRUCT
+duckdb_register_table_function: stable: v0.3.3  IN-STRUCT
+duckdb_bind_add_result_column: stable: v0.3.3  IN-STRUCT
+duckdb_bind_get_parameter: stable: v0.3.3  IN-STRUCT
+duckdb_bind_get_named_parameter: stable: v0.8.0  IN-STRUCT
+duckdb_bind_set_bind_data: stable: v0.3.3  IN-STRUCT
+duckdb_bind_set_cardinality: stable: v0.5.0  IN-STRUCT
+duckdb_bind_set_error: stable: v0.3.3  IN-STRUCT
+duckdb_init_set_init_data: stable: v0.3.3  IN-STRUCT
+duckdb_init_get_column_index: stable: v0.3.3  IN-STRUCT
+duckdb_init_set_max_threads: stable: v0.4.0  IN-STRUCT
+duckdb_function_get_bind_data: stable: v0.3.3  IN-STRUCT
+duckdb_function_get_init_data: stable: v0.3.3  IN-STRUCT
+duckdb_function_set_error: stable: v0.3.3  IN-STRUCT
+duckdb_data_chunk_get_vector: stable: v0.3.3  IN-STRUCT
+duckdb_data_chunk_set_size: stable: v0.3.3  IN-STRUCT
+duckdb_vector_get_data: stable: v0.3.3  IN-STRUCT
+duckdb_vector_assign_string_element_len: stable: v0.3.3  IN-STRUCT
+duckdb_unsafe_vector_assign_string_element_len: unstable: v1.5.0, stable: v1.5.6  IN-STRUCT
+duckdb_vector_ensure_validity_writable: stable: v0.3.3  IN-STRUCT
+duckdb_vector_get_validity: stable: v0.3.3  IN-STRUCT
+duckdb_validity_set_row_invalid: stable: v0.3.3  IN-STRUCT
+duckdb_create_logical_type: stable: v0.3.3  IN-STRUCT
+duckdb_create_decimal_type: stable: v0.3.3  IN-STRUCT
+duckdb_vector_size: stable: v0.3.3  IN-STRUCT
+duckdb_data_chunk_from_arrow: unstable: v1.4.0, stable: v1.5.6  IN-STRUCT
+duckdb_schema_from_arrow: unstable: v1.4.0, stable: v1.5.6  IN-STRUCT
+duckdb_data_chunk_to_arrow: unstable: v1.4.0, stable: v1.5.6  IN-STRUCT
+duckdb_to_arrow_schema: unstable: v1.4.0, stable: v1.5.6  IN-STRUCT
+duckdb_arrow_scan: stable: v0.9.0, deprecated: v1.0.0  IN-STRUCT
+duckdb_arrow_array_scan: stable: v0.9.0, deprecated: v1.0.0  IN-STRUCT
+duckdb_create_copy_function: unstable: v1.5.0, stable: v1.5.6  IN-STRUCT
+duckdb_copy_function_set_bind: unstable: v1.5.0, stable: v1.5.6  IN-STRUCT
+duckdb_copy_function_set_sink: unstable: v1.5.0, stable: v1.5.6  IN-STRUCT
+duckdb_copy_function_set_finalize: unstable: v1.5.0, stable: v1.5.6  IN-STRUCT
+duckdb_copy_function_bind_get_options: unstable: v1.5.0, stable: v1.5.6  IN-STRUCT
+duckdb_copy_function_global_init_get_file_path: unstable: v1.5.0, stable: v1.5.6  IN-STRUCT
+duckdb_copy_function_set_copy_from_function: unstable: v1.5.0, stable: v1.5.6  IN-STRUCT
+duckdb_register_copy_function: unstable: v1.5.0, stable: v1.5.6  IN-STRUCT
+duckdb_connect: stable: v0.1.0  IN-STRUCT
+duckdb_query: stable: v0.1.0  IN-STRUCT
+duckdb_prepare: stable: v0.1.0  IN-STRUCT
+duckdb_fetch_chunk: stable: v1.0.0  IN-STRUCT
+duckdb_table_function_get_client_context: unstable: v1.4.0, stable: v1.5.6  IN-STRUCT
+duckdb_client_context_get_catalog: unstable: v1.5.0, stable: v1.5.6  IN-STRUCT
+duckdb_catalog_get_entry: unstable: v1.5.0, stable: v1.5.6  IN-STRUCT
+duckdb_client_context_get_file_system: unstable: v1.5.0, stable: v1.5.6  IN-STRUCT
+duckdb_file_system_open: unstable: v1.5.0, stable: v1.5.6  IN-STRUCT
+duckdb_file_handle_read: unstable: v1.5.0, stable: v1.5.6  IN-STRUCT
+duckdb_connection_get_client_context: unstable: v1.3.0, stable: v1.5.6  IN-STRUCT

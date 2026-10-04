@@ -1,0 +1,32 @@
+duckdb 1.5.6
+edi835_test_davisvision.RMT              claims                 rows=     1 ext=dea0ef8d47fa py=dea0ef8d47fa OK
+edi835_test_davisvision.RMT              payments               rows=     1 ext=ad555ebaa8c1 py=ad555ebaa8c1 OK
+edi835_test_davisvision.RMT              services               rows=     2 ext=1ef2a32caa33 py=1ef2a32caa33 OK
+edi835_test_davisvision.RMT              adjustments            rows=     2 ext=62a071d5ce18 py=62a071d5ce18 OK
+edi835_test_davisvision.RMT              provider_adjustments   rows=     1 ext=d6aa62e097ce py=d6aa62e097ce OK
+edi835_test_eyemed.RMT                   claims                 rows=    82 ext=c723cb419408 py=c723cb419408 OK
+edi835_test_eyemed.RMT                   payments               rows=     1 ext=1fc1df5222ed py=1fc1df5222ed OK
+edi835_test_eyemed.RMT                   services               rows=   414 ext=6cd7af4b7cd9 py=6cd7af4b7cd9 OK
+edi835_test_eyemed.RMT                   adjustments            rows=   105 ext=86bd7657cf8e py=86bd7657cf8e OK
+edi835_test_eyemed.RMT                   provider_adjustments   rows=     0 ext=None py=None OK
+edi835_test_file.RMT                     claims                 rows=     4 ext=5a9763983cc1 py=5a9763983cc1 OK
+edi835_test_file.RMT                     payments               rows=     1 ext=1fc1df5222ed py=1fc1df5222ed OK
+edi835_test_file.RMT                     services               rows=    23 ext=7c68651747b1 py=7c68651747b1 OK
+edi835_test_file.RMT                     adjustments            rows=     9 ext=2d365c979772 py=2d365c979772 OK
+edi835_test_file.RMT                     provider_adjustments   rows=     0 ext=None py=None OK
+edi835_test_not_available_claim_id.RMT   claims                 rows=    18 ext=f77241a42c6c py=f77241a42c6c OK
+edi835_test_not_available_claim_id.RMT   payments               rows=     1 ext=3af427f319fb py=3af427f319fb OK
+edi835_test_not_available_claim_id.RMT   services               rows=    26 ext=a54651779af8 py=a54651779af8 OK
+edi835_test_not_available_claim_id.RMT   adjustments            rows=    24 ext=3f5646eefd03 py=3f5646eefd03 OK
+edi835_test_not_available_claim_id.RMT   provider_adjustments   rows=     0 ext=None py=None OK
+edi835_test_united.rmt                   claims                 rows=  1332 ext=ac6f194173ae py=ac6f194173ae OK
+edi835_test_united.rmt                   payments               rows=     1 ext=7104373aa2f0 py=7104373aa2f0 OK
+edi835_test_united.rmt                   services               rows=  6192 ext=dfc336b78ea0 py=dfc336b78ea0 OK
+edi835_test_united.rmt                   adjustments            rows=  2370 ext=b6f7d262847e py=b6f7d262847e OK
+edi835_test_united.rmt                   provider_adjustments   rows=     0 ext=None py=None OK
+edi835_test_versant.RMT                  claims                 rows=   648 ext=e5a437fe49e5 py=e5a437fe49e5 OK
+edi835_test_versant.RMT                  payments               rows=     1 ext=9600d93d1df0 py=9600d93d1df0 OK
+edi835_test_versant.RMT                  services               rows=  1778 ext=d6009709d77f py=d6009709d77f OK
+edi835_test_versant.RMT                  adjustments            rows=   783 ext=83992a5ef53f py=83992a5ef53f OK
+edi835_test_versant.RMT                  provider_adjustments   rows=     3 ext=959a49dcd716 py=959a49dcd716 OK
+mismatches: 0

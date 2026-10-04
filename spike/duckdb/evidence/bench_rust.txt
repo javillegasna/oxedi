@@ -1,0 +1,6 @@
+duckdb 1.5.6, median of 50 runs, ms
+read_835 -> count/sum                         16.73
+read_835 -> arrow table                       17.69
+parse_file only                               15.77
+parse_file + from_arrow -> count/sum          18.82
+parse_file + from_arrow -> arrow table        19.79

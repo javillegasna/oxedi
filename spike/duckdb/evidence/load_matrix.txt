@@ -1,0 +1,9 @@
+1.5.6 unstable LOADED (1332, Decimal('252640.00'))
+1.5.6 stable LOADED (1332, Decimal('252640.00'))
+1.4.5 unstable FAILED: Invalid Input Error: Failed to load '/home/javillegasna/.claude/jobs/a03db1ea/tmp/unstable/oxedi835.duckdb_extension', The file was built specifically for DuckDB version 'v1.5.6' and can only be loaded with that version 
+1.4.5 stable FAILED: Invalid Input Error: Failed to load '/home/javillegasna/.claude/jobs/a03db1ea/tmp/stable/oxedi835.duckdb_extension', The file was built for DuckDB C API version 'v1.5.6', but we can only load extensions built for DuckDB 
+2.0.0.dev2610011535 unstable FAILED: Invalid Input Error: Failed to load '/home/javillegasna/.claude/jobs/a03db1ea/tmp/unstable/oxedi835.duckdb_extension', The file was built specifically for DuckDB version 'v1.5.6' and can only be loaded with that version 
+2.0.0.dev2610011535 stable LOADED (1332, Decimal('252640.00'))
+1.5.6 cstable LOADED (1332, Decimal('252640.00'))
+1.4.5 cstable LOADED (1332, Decimal('252640.00'))
+2.0.0.dev2610011535 cstable LOADED (1332, Decimal('252640.00'))

@@ -1,0 +1,25 @@
+# name: test/sql/read_835.test
+# description: read_835 returns the claims table of the samples with the oracle's counts
+# group: [oxedi835]
+
+require oxedi835
+
+query I
+SELECT count(*) FROM read_835('../../../crates/edi835_core/tests/samples/edi835_test_united.rmt');
+----
+1332
+
+query II
+SELECT sum(charge_amount), sum(payment_amount) FROM read_835('../../../crates/edi835_core/tests/samples/edi835_test_united.rmt');
+----
+252640.00	173305.00
+
+query I
+SELECT count(*) FROM read_835('../../../crates/edi835_core/tests/samples/edi835_test_united.rmt', table_name := 'services');
+----
+6192
+
+statement error
+SELECT * FROM read_835('../../../crates/edi835_core/tests/samples/edi835_test_united.rmt', table_name := 'nope');
+----
+no table "nope"

@@ -433,3 +433,77 @@ def test_a_byte_order_mark_never_raises_and_reads_as_in_the_library(tmp_path, pr
         pd.testing.assert_frame_equal(actual.to_dataframe(), expected.to_dataframe(), check_exact=True)
         assert [t.interchange for t in actual] == [None]
 
+
+
+# claims without services, claim adjustment groups, PLB groups, claim REF, claim AMT
+RECOVERED = {
+    "edi835_test_davisvision.RMT": (0, 0, 1, 2, 1),
+    "edi835_test_eyemed.RMT": (0, 0, 0, 0, 81),
+    "edi835_test_file.RMT": (0, 0, 0, 0, 3),
+    "edi835_test_not_available_claim_id.RMT": (0, 0, 0, 36, 18),
+    "edi835_test_united.rmt": (0, 0, 0, 40, 1247),
+    "edi835_test_versant.RMT": (0, 3, 3, 1296, 643),
+}
+
+
+def cells(frame, prefix, suffix):
+    columns = [c for c in frame.columns if c.startswith(prefix) and c.endswith(suffix)]
+    return int(frame[columns].notna().sum().sum())
+
+
+@pytest.mark.filterwarnings("ignore:Mismatched null-like:FutureWarning")
+def test_extended_keeps_the_frame_and_adds_only_x_columns(sample):
+    strict = compat.parse(path_of(sample)).to_dataframe()
+    extended = compat.parse(path_of(sample)).to_dataframe(extended=True)
+    width = len(strict.columns)
+    assert list(extended.columns[:width]) == list(strict.columns)
+    assert all(c.startswith("x_") for c in extended.columns[width:])
+    services = extended[extended.x_row_kind == "service"]
+    pd.testing.assert_frame_equal(
+        services[list(strict.columns)].reset_index(drop=True),
+        strict.reset_index(drop=True),
+        check_dtype=False,
+    )
+
+
+def test_extended_recovers_what_the_frame_leaves_out(sample):
+    extended = compat.parse(path_of(sample)).to_dataframe(extended=True)
+    per_claim = extended[extended.x_row_kind != "provider_adjustment"].drop_duplicates("x_claim")
+    recovered = (
+        int((extended.x_row_kind == "claim").sum()),
+        cells(per_claim, "x_claim_adj_", "_code"),
+        int((extended.x_row_kind == "provider_adjustment").sum()),
+        cells(per_claim, "x_claim_ref_", "_qual"),
+        cells(per_claim, "x_claim_amt_", "_qual"),
+    )
+    assert recovered == RECOVERED[sample]
+
+
+SERVICELESS = (
+    "ISA*00*          *00*          *ZZ*SENDER         *ZZ*RECEIVER       *240103*0501*U*00401*000000001*0*P*:~"
+    "GS*HP*SENDER*RECEIVER*20240103*0501*1*X*004010X091A1~"
+    "ST*835*0001~"
+    "BPR*I*100*C*ACH*CCP*01*999999999*DA*1*1234567890**01*999999999*DA*2*20240103~"
+    "TRN*1*12345*1234567890~"
+    "N1*PR*PAYER~N3*1 MAIN ST~N4*TOWN*ST*12345~"
+    "N1*PE*PAYEE*XX*1234567893~"
+    "LX*1~"
+    "CLP*A1*1*150*100**12*X1~NM1*QC*1*DOE*JANE****MI*M1~"
+    "SVC*HC:99213*150*100**1~DTM*472*20240101~CAS*CO*45*50~"
+    "CLP*A2*4*80*0**12*X2~NM1*QC*1*ROE*RICK****MI*M2~CAS*CO*29*80~DTM*232*20240102~"
+    "SE*17*0001~GE*1*1~IEA*1*000000001~"
+)
+
+
+def test_a_claim_without_services_is_left_out_and_recovered(tmp_path):
+    path = tmp_path / "serviceless.txt"
+    path.write_text(SERVICELESS)
+    strict = compat.parse(path).to_dataframe()
+    pd.testing.assert_frame_equal(strict, old(path).to_dataframe(), check_exact=True)
+    assert compat.parse(path).count_claims() == old(path).count_claims() == 2
+    extended = compat.parse(path).to_dataframe(extended=True)
+    assert list(extended.x_row_kind) == ["service", "claim"]
+    claim = extended.iloc[1]
+    assert (claim.marker, claim.x_claim_adj_0_group, claim.x_claim_adj_0_code, claim.x_claim_adj_0_amount) == (
+        "A2", "CO", "29", 80.0)
+    assert pd.isna(claim.code) and claim.start_date == pd.Timestamp("2024-01-02")

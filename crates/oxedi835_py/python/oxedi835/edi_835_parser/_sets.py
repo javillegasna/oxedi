@@ -148,10 +148,15 @@ class TransactionSet:
             datum[f"rem_{n}_code"] = remark.code.code
         return datum
 
-    def to_dataframe(self):
-        """One row per service, as edi-835-parser builds it."""
+    def to_dataframe(self, extended: bool = False):
+        """One row per service, as edi-835-parser builds it; with ``extended``,
+        also the rows and ``x_`` columns that frame leaves out."""
         import pandas as pd
 
+        if extended:
+            from ._extended import frame
+
+            return frame([self])
         services = [(claim, service) for claim in self.claims for service in claim.services]
         if not services:
             return pd.DataFrame([])
@@ -177,12 +182,17 @@ class TransactionSets:
     def __repr__(self):
         return "\n".join(str(t) for t in self)
 
-    def to_dataframe(self):
+    def to_dataframe(self, extended: bool = False):
         """Every transaction's rows, with the numbered columns sorted last.
         The frames are concatenated one at a time onto an empty frame, as the
-        library does, so empty transactions give the same dtypes."""
+        library does, so empty transactions give the same dtypes. With
+        ``extended``, also the rows and ``x_`` columns the frame leaves out."""
         import pandas as pd
 
+        if extended:
+            from ._extended import frame
+
+            return frame(self.transaction_sets)
         data = pd.DataFrame()
         for transaction_set in self:
             data = pd.concat([data, transaction_set.to_dataframe()])

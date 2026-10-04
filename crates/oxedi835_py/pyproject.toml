@@ -4,7 +4,7 @@ build-backend = "maturin"
 
 [project]
 name = "oxedi835"
-version = "0.0.1a1"
+dynamic = ["version"]
 description = "Lossless, fast, data-driven EDI 835 parser"
 requires-python = ">=3.11"
 license = "MIT"

@@ -186,8 +186,8 @@ def at_segment(items, index):
 class Service:
     """One service line (loop 2110)."""
 
-    def __init__(self, tables, document, at):
-        self._t, self._d, self._at = tables, document, at
+    def __init__(self, tables, document, at, file_path):
+        self._t, self._d, self._at, self._file_path = tables, document, at, file_path
         self._row = tables["rows"]["row"][at]
 
     def _under(self, table):
@@ -219,7 +219,7 @@ class Service:
     def dates(self):
         t, ats = self._under("rows_service_dates")
         return [Date(mapped(_codes.DATE_QUALIFIERS, text(t["qualifier"][i])),
-                     date(t["date"][i], self._d, t["segment"][i], SERVICE_DATE), t["segment"][i]) for i in ats]
+                     date(t["date"][i], self._d, t["segment"][i], SERVICE_DATE, self._file_path), t["segment"][i]) for i in ats]
 
     @functools.cached_property
     def references(self):
@@ -272,8 +272,8 @@ class Service:
 class Claim:
     """One claim (loop 2100) with its services."""
 
-    def __init__(self, tables, document, at):
-        self._t, self._d, self._at = tables, document, at
+    def __init__(self, tables, document, at, file_path):
+        self._t, self._d, self._at, self._file_path = tables, document, at, file_path
         self._row = tables["rows_claims"]["row"][at]
 
     def _under(self, table):
@@ -312,7 +312,7 @@ class Claim:
     @functools.cached_property
     def services(self):
         rows = self._t["rows"]
-        return [Service(self._t, self._d, i) for i in rows.under("claim", self._row)]
+        return [Service(self._t, self._d, i, self._file_path) for i in rows.under("claim", self._row)]
 
     @functools.cached_property
     def references(self):
@@ -323,7 +323,7 @@ class Claim:
     def dates(self):
         t, ats = self._under("rows_claim_dates")
         return [Date(mapped(_codes.DATE_QUALIFIERS, text(t["qualifier"][i])),
-                     date(t["date"][i], self._d, t["segment"][i], CLAIM_DATE), t["segment"][i]) for i in ats]
+                     date(t["date"][i], self._d, t["segment"][i], CLAIM_DATE, self._file_path), t["segment"][i]) for i in ats]
 
     @functools.cached_property
     def amount(self):

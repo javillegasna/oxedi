@@ -57,7 +57,8 @@ class TransactionSet:
             amount_paid=money(t["amount_paid"][0]),
             payment_method=mapped(_codes.PAYMENT_METHODS, text(t["payment_method"][0])),
             routing_number=integer(t["routing_number"][0]),
-            transaction_date=date(t["transaction_date"][0], self._d, t["bpr_segment"][0], TRANSACTION_DATE),
+            transaction_date=date(t["transaction_date"][0], self._d, t["bpr_segment"][0], TRANSACTION_DATE,
+                            self.file_path),
         )
 
     @functools.cached_property
@@ -85,7 +86,7 @@ class TransactionSet:
 
     @functools.cached_property
     def claims(self) -> List[Claim]:
-        return [Claim(self._t, self._d, i) for i in range(len(self._t["rows_claims"]))]
+        return [Claim(self._t, self._d, i, self.file_path) for i in range(len(self._t["rows_claims"]))]
 
     def _organization(self, role):
         payments = self._t["rows_payments"]

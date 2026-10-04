@@ -655,7 +655,7 @@ def test_a_date_the_library_rejects_raises_naming_segment_element_and_text(tmp_p
     path.write_text(claim_only)
     with pytest.raises(ValueError):
         old(path)
-    expected = ('segment #15 DTM02: "2024AB02" is not a CCYYMMDD date, '
+    expected = (f'{path}: segment 15 DTM02: "2024AB02" is not a CCYYMMDD date, '
                 "which edi-835-parser's date parser requires of 8 characters")
     transaction_sets = compat.parse(path)
     for extended in (False, True):
@@ -667,7 +667,7 @@ def test_a_date_the_library_rejects_raises_naming_segment_element_and_text(tmp_p
         list(transaction_sets)[0].claims[1].dates
     assert str(info.value) == expected
     service = SERVICELESS.replace("DTM*472*20240101", "DTM*472*2401011299").encode()
-    expected = ('segment #13 DTM02: "2401011299" is not a YYMMDDHHMM date, '
+    expected = ('<bytes>: segment 13 DTM02: "2401011299" is not a YYMMDDHHMM date, '
                 "which edi-835-parser's date parser requires of 10 characters")
     with pytest.raises(ValueError) as info:
         compat.parse_bytes(service).to_dataframe()

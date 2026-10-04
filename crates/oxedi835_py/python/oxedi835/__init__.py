@@ -8,6 +8,7 @@ or DuckDB read them without copying.
 
 from __future__ import annotations
 
+import importlib.metadata
 import os
 from typing import Optional, Union
 
@@ -28,6 +29,8 @@ from ._core import (
     stream,
 )
 
+__version__ = importlib.metadata.version("oxedi835")
+
 __all__ = [
     "Batch",
     "Delimiters",
@@ -41,6 +44,7 @@ __all__ = [
     "Stream",
     "Table",
     "Tables",
+    "__version__",
     "parse",
     "parse_file",
     "stream",

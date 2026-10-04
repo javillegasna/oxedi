@@ -103,9 +103,14 @@ def test_streaming_holds_one_transaction_not_the_file():
     assert parse_beyond > 5 * max(stream_beyond, mib), (parse, stream)
 
 
-@pytest.mark.skipif(
-    (os.cpu_count() or 1) < 2, reason="needs at least two CPUs to run in parallel"
-)
+def usable_cpus() -> int:
+    """The CPUs this process may run on; the host count where affinity is unknown."""
+    if hasattr(os, "sched_getaffinity"):
+        return len(os.sched_getaffinity(0))
+    return os.cpu_count() or 1
+
+
+@pytest.mark.skipif(usable_cpus() < 2, reason="needs at least two usable CPUs to run in parallel")
 def test_two_threads_parse_faster_than_one_after_the_other():
     inputs = [repeated(LARGEST, 4), repeated("edi835_test_versant.RMT", 12)]
     for data in inputs:

@@ -194,6 +194,24 @@ impl Rule {
             | Rule::ValueDropped { .. } => SnipLevel::L2,
         }
     }
+
+    /// The name of the rule's variant, e.g. `RequiredElementMissing`, so a
+    /// caller can filter findings without parsing messages.
+    pub fn kind(&self) -> &'static str {
+        match self {
+            Rule::UnknownSegment { .. } => "UnknownSegment",
+            Rule::ImplicitLoop { .. } => "ImplicitLoop",
+            Rule::UnterminatedLoop { .. } => "UnterminatedLoop",
+            Rule::ControlCountMismatch { .. } => "ControlCountMismatch",
+            Rule::ControlElementMissing { .. } => "ControlElementMissing",
+            Rule::ControlNumberMismatch { .. } => "ControlNumberMismatch",
+            Rule::RequiredElementMissing { .. } => "RequiredElementMissing",
+            Rule::TypeMismatch { .. } => "TypeMismatch",
+            Rule::LengthOutOfRange { .. } => "LengthOutOfRange",
+            Rule::ValueDropped { .. } => "ValueDropped",
+            Rule::CompositeShape { .. } => "CompositeShape",
+        }
+    }
 }
 
 /// Bytes from the file, quoted on one line: valid text is escaped as a Rust
@@ -500,6 +518,111 @@ mod tests {
     }
 
     const TRANSACTION: &[(&str, usize)] = &[("interchange", 1), ("group", 1), ("transaction", 1)];
+
+    #[test]
+    fn every_rule_names_its_variant() {
+        let id = || b"SE".to_vec();
+        let rules = [
+            (Rule::UnknownSegment { id: id() }, "UnknownSegment"),
+            (
+                Rule::ImplicitLoop {
+                    loop_name: "group".into(),
+                    expected_trigger: "\"GS\" with no conditions".into(),
+                    caused_by: b"ST".to_vec(),
+                },
+                "ImplicitLoop",
+            ),
+            (
+                Rule::UnterminatedLoop {
+                    loop_name: "transaction".into(),
+                    expected_end: id(),
+                    opened_at: None,
+                },
+                "UnterminatedLoop",
+            ),
+            (
+                Rule::ControlCountMismatch {
+                    segment_id: id(),
+                    element: 1,
+                    expected: 2,
+                    found: b"3".to_vec(),
+                },
+                "ControlCountMismatch",
+            ),
+            (
+                Rule::ControlElementMissing {
+                    segment_id: id(),
+                    element: 1,
+                },
+                "ControlElementMissing",
+            ),
+            (
+                Rule::ControlNumberMismatch {
+                    opener: b"ST".to_vec(),
+                    opener_element: 2,
+                    closer: id(),
+                    closer_element: 2,
+                    opener_value: b"1".to_vec(),
+                    closer_value: b"2".to_vec(),
+                    opened_at: Some(0),
+                },
+                "ControlNumberMismatch",
+            ),
+            (
+                Rule::RequiredElementMissing {
+                    segment_id: id(),
+                    element: 1,
+                    component: None,
+                    name: "n".into(),
+                },
+                "RequiredElementMissing",
+            ),
+            (
+                Rule::TypeMismatch {
+                    segment_id: id(),
+                    element: 1,
+                    component: None,
+                    name: "n".into(),
+                    expected: ElementType::N(0),
+                },
+                "TypeMismatch",
+            ),
+            (
+                Rule::LengthOutOfRange {
+                    segment_id: id(),
+                    element: 1,
+                    component: None,
+                    name: "n".into(),
+                    min: Some(1),
+                    max: Some(2),
+                    length: 3,
+                },
+                "LengthOutOfRange",
+            ),
+            (
+                Rule::ValueDropped {
+                    table: "t".into(),
+                    column: "c".into(),
+                    bytes: 1,
+                },
+                "ValueDropped",
+            ),
+            (
+                Rule::CompositeShape {
+                    segment_id: id(),
+                    element: 1,
+                    name: "n".into(),
+                    declared: 1,
+                    found: 2,
+                },
+                "CompositeShape",
+            ),
+        ];
+        for (rule, kind) in rules {
+            assert_eq!(rule.kind(), kind);
+            assert!(format!("{rule:?}").starts_with(kind), "{rule:?}");
+        }
+    }
 
     #[test]
     fn levels_display_as_snip_numbers() {

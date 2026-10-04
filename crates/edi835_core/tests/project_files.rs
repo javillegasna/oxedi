@@ -41,19 +41,21 @@ fn draining_after_each_transaction_adds_up_to_one_run_over_the_document() {
         for table in &whole {
             let pieces: Vec<String> = drained
                 .iter()
-                .flat_map(|tables| common::table_rows(tables.get(table.name()).unwrap()))
+                .flat_map(|tables| rows(tables.get(table.name()).unwrap()))
                 .collect();
-            assert_eq!(
-                pieces,
-                common::table_rows(table),
-                "{name}: {}",
-                table.name()
-            );
+            assert_eq!(pieces, rows(table), "{name}: {}", table.name());
         }
     }
 }
 
 /// The cell of a row-index column as a number; `None` when null.
+/// Every row of a table as one rendered line.
+fn rows(table: &Table) -> Vec<String> {
+    (0..table.len())
+        .filter_map(|row| table.render_row(row))
+        .collect()
+}
+
 fn index_at(table: &Table, column: &str, row: usize) -> Option<usize> {
     match table.column(column).and_then(|data| data.get(row)) {
         Some(Cell::Int64(value)) => usize::try_from(value).ok(),

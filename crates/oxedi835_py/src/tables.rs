@@ -1,6 +1,5 @@
 //! `Tables` and `Table`: the projected tables, readable as text or as Arrow.
 
-use std::fmt::Write as _;
 use std::sync::Arc;
 
 use edi835_core::{Table, Tables};
@@ -9,29 +8,6 @@ use pyo3::prelude::*;
 use pyo3::types::{PyCapsule, PyDict, PyIterator, PyTuple};
 
 use crate::arrow;
-
-/// Writes one table as text: a title with the row count, the header, one
-/// line per row and an empty line.
-fn render_table(table: &Table, out: &mut String) {
-    let _ = writeln!(out, "## {} (rows: {})", table.name(), table.len());
-    let header = table
-        .columns()
-        .iter()
-        .map(|(name, column)| format!("{name}: {}", column.kind()))
-        .collect::<Vec<_>>()
-        .join(" | ");
-    let _ = writeln!(out, "{header}");
-    for row in 0..table.len() {
-        let line = table
-            .columns()
-            .iter()
-            .map(|(_, column)| column.render(row).unwrap_or_default())
-            .collect::<Vec<_>>()
-            .join(" | ");
-        let _ = writeln!(out, "{line}");
-    }
-    out.push('\n');
-}
 
 /// Imports `module`, or raises an `ImportError` that names the method, the
 /// module and the extra that provides it, with the original error as cause.
@@ -150,13 +126,7 @@ impl PyTables {
 
     /// Every table as text: title, header and one line per row.
     fn render(&self, py: Python<'_>) -> String {
-        py.detach(|| {
-            let mut out = String::new();
-            for table in self.tables.iter() {
-                render_table(table, &mut out);
-            }
-            out
-        })
+        py.detach(|| self.tables.to_string())
     }
 
     /// Every table as a polars `DataFrame`, by name, in table order.
@@ -244,11 +214,7 @@ impl PyTable {
     /// The table as text: title, header and one line per row.
     fn render(&self, py: Python<'_>) -> PyResult<String> {
         let table = self.table()?;
-        Ok(py.detach(|| {
-            let mut out = String::new();
-            render_table(table, &mut out);
-            out
-        }))
+        Ok(py.detach(|| table.to_string()))
     }
 
     /// Exports the table as an Arrow stream of one record batch, sharing

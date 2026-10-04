@@ -658,6 +658,30 @@ impl Table {
         Ok(())
     }
 
+    /// The header line: every column as `name: type`, separated by ` | `.
+    pub fn header(&self) -> String {
+        self.columns
+            .iter()
+            .map(|(name, column)| format!("{name}: {}", column.kind()))
+            .collect::<Vec<_>>()
+            .join(" | ")
+    }
+
+    /// Row `row` as one line, each cell rendered by [`ColumnData::render`]
+    /// and separated by ` | `; `None` past the end.
+    pub fn render_row(&self, row: usize) -> Option<String> {
+        if row >= self.rows {
+            return None;
+        }
+        Some(
+            self.columns
+                .iter()
+                .map(|(_, column)| column.render(row).unwrap_or_default())
+                .collect::<Vec<_>>()
+                .join(" | "),
+        )
+    }
+
     /// Moves the rows out into a new table and leaves this one empty, with
     /// the same columns and types.
     pub fn take_rows(&mut self) -> Table {
@@ -674,6 +698,19 @@ impl Table {
             columns,
             rows: std::mem::take(&mut self.rows),
         }
+    }
+}
+
+/// The table as text: `## <name> (rows: <n>)`, the [`Table::header`], one
+/// [`Table::render_row`] line per row, then an empty line.
+impl fmt::Display for Table {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        writeln!(f, "## {} (rows: {})", self.name, self.rows)?;
+        writeln!(f, "{}", self.header())?;
+        for row in 0..self.rows {
+            writeln!(f, "{}", self.render_row(row).unwrap_or_default())?;
+        }
+        writeln!(f)
     }
 }
 
@@ -708,6 +745,15 @@ impl Tables {
     /// `true` when there are no tables.
     pub fn is_empty(&self) -> bool {
         self.tables.is_empty()
+    }
+}
+
+/// Every table as [`Table`] displays it, in order.
+impl fmt::Display for Tables {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        self.tables
+            .iter()
+            .try_for_each(|table| write!(f, "{table}"))
     }
 }
 
@@ -1250,6 +1296,43 @@ mod tests {
             "table \"claims\" column \"charge\": a decimal128(38, 2) column cannot hold a binary value (\"ab\")"
         );
         assert!(std::error::Error::source(&cell).is_some());
+    }
+
+    #[test]
+    fn a_table_renders_its_title_header_and_rows() {
+        let mut claims = Table::new(
+            "claims",
+            [
+                ("id".to_string(), ColumnType::Binary),
+                (
+                    "charge".to_string(),
+                    ColumnType::Decimal128 {
+                        precision: 38,
+                        scale: 2,
+                    },
+                ),
+            ],
+        );
+        claims
+            .push_row(&[Cell::Binary(b"A1"), Cell::Decimal128(-1250)])
+            .unwrap();
+        claims.push_row(&[Cell::Null, Cell::Null]).unwrap();
+        assert_eq!(claims.header(), "id: binary | charge: decimal128(38, 2)");
+        assert_eq!(claims.render_row(0).as_deref(), Some("A1 | -12.50"));
+        assert_eq!(claims.render_row(1).as_deref(), Some("∅ | ∅"));
+        assert_eq!(claims.render_row(2), None);
+        assert_eq!(
+            claims.to_string(),
+            "## claims (rows: 2)\nid: binary | charge: decimal128(38, 2)\nA1 | -12.50\n∅ | ∅\n\n"
+        );
+        let empty = Table::new("adjustments", [("n".to_string(), ColumnType::Date32)]);
+        assert_eq!(empty.render_row(0), None);
+        assert_eq!(
+            Tables::new(vec![claims, empty]).to_string(),
+            "## adjustments (rows: 0)\nn: date32\n\n\
+             ## claims (rows: 2)\nid: binary | charge: decimal128(38, 2)\nA1 | -12.50\n∅ | ∅\n\n"
+        );
+        assert_eq!(Tables::default().to_string(), "");
     }
 
     #[test]

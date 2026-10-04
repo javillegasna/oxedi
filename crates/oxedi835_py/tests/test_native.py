@@ -5,18 +5,17 @@ from decimal import Decimal
 import pytest
 
 import oxedi835
+from conftest import LARGEST, SAMPLES, parse_named, path_of, read
 from oxedi835 import Spec
-
-edi_835_parser = pytest.importorskip("edi_835_parser")
-pl = pytest.importorskip("polars")
-
-import n104_shim  # noqa: E402
-from conftest import LARGEST, SAMPLES, parse_named, path_of, read  # noqa: E402
-
-n104_shim.apply()
 
 
 def old(name):
+    """edi-835-parser's reading of a sample (the test is skipped when the
+    library is not installed), with the N104 shim applied."""
+    edi_835_parser = pytest.importorskip("edi_835_parser")
+    import n104_shim
+
+    n104_shim.apply()
     with warnings.catch_warnings():
         warnings.simplefilter("ignore")
         return edi_835_parser.parse(str(path_of(name)))
@@ -112,6 +111,7 @@ def test_payee_reads_one_transaction():
 
 
 def test_a_table_reaches_polars_and_pandas():
+    pl = pytest.importorskip("polars")
     pytest.importorskip("pandas")
     tables = parse_named(LARGEST).tables
     frame = tables["claims"].to_polars()

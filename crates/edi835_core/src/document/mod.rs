@@ -72,7 +72,7 @@ impl<'a> Document<'a> {
     ) -> Result<Self, SizeError> {
         let bytes = bytes.into();
         SizeError::check(bytes.len())?;
-        let bodies = index(&bytes, &delims);
+        let bodies = index(&bytes, &delims)?;
         Ok(Self {
             bytes,
             delims,
@@ -216,9 +216,10 @@ const fn offset(at: u32) -> usize {
 }
 
 /// Runs the framing pass and records where each frame's body starts and ends.
-/// The caller has checked that `bytes.len()` fits in `u32`, so every offset
-/// below, being at most `bytes.len()`, does too.
-fn index(bytes: &[u8], delims: &Delimiters) -> Vec<Body> {
+/// Every offset is at most `bytes.len()`, so it fits in `u32` whenever the
+/// length does; an offset that does not fails with the length's [`SizeError`].
+fn index(bytes: &[u8], delims: &Delimiters) -> Result<Vec<Body>, SizeError> {
+    let to_u32 = |at: usize| u32::try_from(at).map_err(|_| SizeError { len: bytes.len() });
     let mut bodies = Vec::new();
     let mut rest = bytes;
     let mut raw_start = 0;
@@ -237,13 +238,14 @@ fn index(bytes: &[u8], delims: &Delimiters) -> Vec<Body> {
         let trivia = frame.raw.len() - frame.body.len() - usize::from(frame.terminated);
         let start = raw_start + trivia;
         bodies.push(Body {
-            start: start as u32,
-            end: (start + frame.body.len()) as u32,
+            start: to_u32(start)?,
+            end: to_u32(start + frame.body.len())?,
         });
         raw_start += frame.raw.len();
         rest = next;
     }
-    bodies
+    bodies.shrink_to_fit();
+    Ok(bodies)
 }
 
 #[cfg(test)]

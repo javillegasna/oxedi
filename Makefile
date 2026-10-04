@@ -40,7 +40,7 @@ doc: ## rustdoc with warnings as errors
 # ---- Python binding ----
 venv: ## create .venv with uv and the dev tools
 	uv venv $(VENV) --python 3.13
-	uv pip install --python $(PYTHON) maturin pytest polars pyarrow
+	uv pip install --python $(PYTHON) maturin pytest polars pyarrow twine
 
 py-dev: ## build the extension into .venv (debug)
 	$(MATURIN) develop --uv --manifest-path $(PY_MANIFEST)
@@ -59,9 +59,11 @@ smoke: ## install the built wheel in a clean venv outside the repo and run the s
 clean-dist:
 	rm -rf $(WHEELS)
 
-# ---- Publishing (credentials come from ~/.pypirc; never from the repo) ----
+# ---- Publishing (credentials come from ~/.pypirc; never from the repo). maturin upload is
+# deprecated upstream, so twine does the upload. ----
+TWINE := $(if $(wildcard $(VENV)/bin/twine),$(VENV)/bin/twine,$(PYTHON) -m twine)
 publish-test: ## upload the built artifacts to TestPyPI
-	$(MATURIN) upload -r testpypi $(WHEELS)/oxedi835-$(VERSION)*
+	$(TWINE) upload -r testpypi $(WHEELS)/oxedi835-$(VERSION)*
 
 publish-test-verify: ## install the TestPyPI pre-release into .venv and import it
 	uv pip install --python $(PYTHON) --index-url https://test.pypi.org/simple/ --pre --no-deps --reinstall oxedi835==$(VERSION)
@@ -70,7 +72,7 @@ publish-test-verify: ## install the TestPyPI pre-release into .venv and import i
 publish: ## upload the built artifacts to PyPI (irreversible)
 	@test -n "$(VERSION)" || (echo "no version in pyproject.toml" && exit 1)
 	@echo "about to publish oxedi835 $(VERSION) to PyPI"; read -p "type the version to confirm: " v && test "$$v" = "$(VERSION)"
-	$(MATURIN) upload -r pypi $(WHEELS)/oxedi835-$(VERSION)*
+	$(TWINE) upload -r pypi $(WHEELS)/oxedi835-$(VERSION)*
 
 tag: ## tag the current commit as v<version> and push the tag
 	git tag -a v$(VERSION) -m "oxedi835 $(VERSION)"

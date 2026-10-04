@@ -339,7 +339,18 @@ carga su prueba de costura con la capa inferior (N7).
   diagnósticos, y `pyx12` (D16) valida lo generado contra la guía. Prerrequisito dentro del
   mismo stage: D11 (orden y cardinalidad de segmentos por loop, reglas de cuadre), porque la
   lectura toma "el primer segmento que cumple `where`" y la escritura necesita orden y número
-  de repeticiones; y elegir versión (4010 o 5010) por salida, fijando `ISA12`/`GS08`. La mitad
+  de repeticiones; y elegir versión (4010 o 5010) por salida, fijando `ISA12`/`GS08`.
+  **Exportación a SQLite (acordada el 2026-10-04).** Una función que vuelca un resultado a una
+  base SQLite con `sqlite3` de la biblioteca estándar (sin dependencias nuevas): las cinco
+  tablas con claves foráneas por los ordinales de padre, importes como decimal exacto en `TEXT`
+  (nunca `REAL`), fechas ISO 8601, versión del esquema en `PRAGMA user_version`; y, con
+  `include_raw=True`, una tabla `files` (delimitadores, versión, nombre) y una tabla `segments`
+  con cada segmento crudo, su índice, su loop y su archivo, de modo que la base conserva el
+  archivo sin pérdida. Su valor hoy es interno: oráculo de ida y vuelta del escritor (archivos
+  → SQLite → adaptador → `.RMT` → `parse` → mismas tablas y cero diagnósticos; con la capa
+  cruda, idéntico byte a byte) y forma cómoda de explorar los samples con SQL. Nace como
+  herramienta de desarrollo dentro del Stage 7 (o antes si la queremos para análisis) y solo
+  pasa a API pública documentada si aparece demanda de usuarios. La mitad
   del trabajo ya la paga el round-trip de Stage 1 (serializar segmentos con escape) y la otra
   mitad T4.
 

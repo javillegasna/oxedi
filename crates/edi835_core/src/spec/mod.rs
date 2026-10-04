@@ -63,8 +63,9 @@ impl Spec {
 
     /// The built-in 835 structure.
     pub fn builtin_835() -> Spec {
-        Spec::from_json(Self::BUILTIN_835_JSON)
-            .expect("the built-in 835 spec is valid; spec::tests::builtin_835_loads checks it")
+        Spec::from_json(Self::BUILTIN_835_JSON).expect(
+            "the built-in 835 spec is valid; spec::tests::loading::builtin_835_loads checks it",
+        )
     }
 
     /// Loads and validates a spec from JSON text.

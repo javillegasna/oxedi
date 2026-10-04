@@ -5,6 +5,7 @@ use std::fmt;
 use super::loops::ControlError;
 use super::segments::ElementDefError;
 use super::tables::TableDefError;
+use super::version::VersionError;
 
 /// Why a spec could not be loaded. Each variant names where in the spec the fault is.
 #[derive(Debug)]
@@ -135,6 +136,11 @@ pub enum SpecError {
         column: Option<String>,
         /// What is wrong with it.
         reason: TableDefError,
+    },
+    /// The spec's `version` is invalid.
+    BadVersion {
+        /// What is wrong with it.
+        reason: VersionError,
     },
     /// A loop's `control` is invalid.
     BadControl {
@@ -292,6 +298,9 @@ impl fmt::Display for SpecError {
                 column: Some(column),
                 reason,
             } => write!(f, "table {table:?} column {column:?}: {reason}"),
+            SpecError::BadVersion { reason } => {
+                write!(f, "the spec's \"version\" is invalid: {reason}")
+            }
             SpecError::BadControl { loop_name, reason } => {
                 write!(f, "loop {loop_name:?} has an invalid \"control\": {reason}")
             }

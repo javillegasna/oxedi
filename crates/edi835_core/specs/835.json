@@ -1,5 +1,6 @@
 {
   "name": "835",
+  "version": {"segment": "GS", "element": 8, "values": ["005010X221A1"]},
   "loops": {
     "interchange": {
       "trigger": { "segment": "ISA" },

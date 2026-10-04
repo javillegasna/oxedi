@@ -381,3 +381,118 @@ proptest! {
         prop_assert_eq!(unread, read);
     }
 }
+
+/// Code lists on a required element, an optional one, a numeric one and a
+/// component; each segment has a table that reads every element.
+const CODED_SPEC: &str = r#"{"name":"coded",
+    "loops":{"head":{"trigger":{"segment":"HD"},"segments":["CD","PX"],"end":"TR"}},
+    "segments":{
+        "CD":{"elements":{
+            "1":{"name":"qualifier","type":"ID","required":true,"min":2,"max":3,"codes":["PE","PR"]},
+            "2":{"name":"optional_code","type":"ID","min":1,"max":2,"codes":["A"]},
+            "3":{"name":"count","type":"N0","max":2,"codes":["1","12"]},
+            "4":{"name":"free","type":"AN"}
+        }},
+        "PX":{"elements":{
+            "1":{"name":"procedure","type":"AN","composite":{
+                "1":{"name":"kind","type":"ID","required":true,"codes":["AD","HC"]},
+                "2":{"name":"code","type":"AN"}
+            }}
+        }}
+    },
+    "tables":{
+        "cd":{"loops":["head"],"segment":"CD","columns":{
+            "qualifier":{"element":1},"optional_code":{"element":2},
+            "count":{"element":3},"free":{"element":4}
+        }},
+        "px":{"loops":["head"],"segment":"PX","columns":{
+            "kind":{"element":1,"component":1},"code":{"element":1,"component":2}
+        }}
+    }
+}"#;
+
+fn coded_parity(input: &str) -> Vec<Diagnostic> {
+    let read_spec = Spec::from_json(CODED_SPEC).unwrap();
+    let bare = without_tables(CODED_SPEC);
+    let (_, read) = project(&read_spec, input);
+    let (_, unread) = project(&bare, input);
+    assert_eq!(rendered(&unread), rendered(&read));
+    assert_eq!(unread, read);
+    read
+}
+
+#[test]
+fn values_outside_their_code_list_raise_the_same_diagnostic_read_or_unread() {
+    let input = "HD~\
+        CD*PR*A*12*anything~\
+        CD*PE**1~\
+        CD*XX*B*7~\
+        PX*HC:99213~\
+        PX*ZZ:99213~\
+        PX*AD~\
+        TR~";
+    let diagnostics = coded_parity(input);
+    assert_eq!(
+        rendered(&diagnostics),
+        vec![
+            "SNIP 2 · element CD01 (qualifier) is not one of the 2 codes the spec lists for it · segment #3, element 1 · at head#1 · datum \"XX\"",
+            "SNIP 2 · element CD02 (optional_code) is not the one code the spec lists for it · segment #3, element 2 · at head#1 · datum \"B\"",
+            "SNIP 2 · element CD03 (count) is not one of the 2 codes the spec lists for it · segment #3, element 3 · at head#1 · datum \"7\"",
+            "SNIP 2 · element PX01-1 (kind) is not one of the 2 codes the spec lists for it · segment #5, element 1, component 1 · at head#1 · datum \"ZZ\"",
+        ]
+    );
+}
+
+#[test]
+fn a_value_that_fails_its_type_or_length_is_not_also_reported_against_its_codes() {
+    // Empty optional values and empty composites raise nothing; an empty
+    // required value is reported as missing, never as a code.
+    let input = "HD~\
+        CD*PRXX*ABC*123~\
+        CD*P*A*X~\
+        CD*~\
+        PX*~\
+        PX*:1~\
+        TR~";
+    let diagnostics = coded_parity(input);
+    assert_eq!(
+        kinds(&diagnostics),
+        vec![
+            ("LengthOutOfRange", Some(1), None),
+            ("LengthOutOfRange", Some(2), None),
+            ("LengthOutOfRange", Some(3), None),
+            ("LengthOutOfRange", Some(1), None),
+            ("TypeMismatch", Some(3), None),
+            ("RequiredElementMissing", Some(1), None),
+            ("RequiredElementMissing", Some(1), Some(1)),
+        ],
+        "{:#?}",
+        rendered(&diagnostics)
+    );
+}
+
+proptest! {
+    #[test]
+    fn code_diagnostics_do_not_depend_on_what_columns_read(
+        values in proptest::collection::vec(
+            proptest::collection::vec(
+                proptest::sample::select(b"PERAHCD127:".to_vec()),
+                0..4,
+            ),
+            5,
+        ),
+    ) {
+        let text: Vec<String> = values
+            .iter()
+            .map(|value| String::from_utf8(value.clone()).unwrap())
+            .collect();
+        let input = format!(
+            "HD~CD*{}*{}*{}~PX*{}:{}~TR~",
+            text[0], text[1], text[2], text[3], text[4],
+        );
+        let read_spec = Spec::from_json(CODED_SPEC).unwrap();
+        let (_, read) = project(&read_spec, &input);
+        let (_, unread) = project(&without_tables(CODED_SPEC), &input);
+        prop_assert_eq!(unread, read);
+    }
+}

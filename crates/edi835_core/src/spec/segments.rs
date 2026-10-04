@@ -57,6 +57,17 @@ impl ElementType {
         }
         Ok(kind)
     }
+
+    /// The length of a value as X12 counts it: numeric types count digits
+    /// only (no sign, no point), every other type counts bytes.
+    pub(crate) fn length_of(self, text: &[u8]) -> usize {
+        match self {
+            ElementType::N(_) | ElementType::R { .. } => {
+                text.iter().filter(|byte| byte.is_ascii_digit()).count()
+            }
+            _ => text.len(),
+        }
+    }
 }
 
 impl fmt::Display for ElementType {
@@ -89,6 +100,20 @@ pub struct ElementDef {
     pub max: Option<usize>,
     /// Components by 1-based position; empty for a simple element.
     pub composite: BTreeMap<usize, ElementDef>,
+    /// The values the element may hold, sorted by their bytes; empty when
+    /// any value of its type is accepted.
+    pub codes: Vec<String>,
+}
+
+impl ElementDef {
+    /// `true` when the element has a code list and `value` is not in it.
+    pub(crate) fn rejects_code(&self, value: &[u8]) -> bool {
+        !self.codes.is_empty()
+            && self
+                .codes
+                .binary_search_by(|code| code.as_bytes().cmp(value))
+                .is_err()
+    }
 }
 
 /// The elements of one segment id.
@@ -143,6 +168,38 @@ pub enum ElementDefError {
     },
     /// `max` is 0, so no value could ever be valid.
     ZeroMax,
+    /// `codes` is an empty list.
+    EmptyCodes,
+    /// A code is the empty string.
+    EmptyCode {
+        /// The code's 0-based index in `codes` as written.
+        index: usize,
+    },
+    /// A code's length is outside the element's `min` and `max`.
+    CodeLength {
+        /// The code's 0-based index in `codes` as written.
+        index: usize,
+        /// The code as written.
+        code: String,
+        /// Its length, counted as the element check counts it.
+        length: usize,
+        /// The element's minimum length.
+        min: Option<usize>,
+        /// The element's maximum length.
+        max: Option<usize>,
+    },
+    /// A code is listed more than once.
+    DuplicateCode {
+        /// The code as written.
+        code: String,
+        /// 0-based index of its first listing.
+        first: usize,
+        /// 0-based index of its repeat.
+        second: usize,
+    },
+    /// `codes` was given on an element that declares a `composite`, whose
+    /// value is checked component by component.
+    CodesOnComposite,
 }
 
 impl fmt::Display for ElementDefError {
@@ -180,6 +237,43 @@ impl fmt::Display for ElementDefError {
             ElementDefError::ZeroMax => {
                 write!(f, "\"max\" is 0; an element holds at least one character")
             }
+            ElementDefError::EmptyCodes => write!(
+                f,
+                "\"codes\" is empty; leave the key out to accept any value"
+            ),
+            ElementDefError::EmptyCode { index } => {
+                write!(f, "the code at codes[{index}] is empty")
+            }
+            ElementDefError::CodeLength {
+                index,
+                code,
+                length,
+                min,
+                max,
+            } => {
+                write!(
+                    f,
+                    "code {code:?} at codes[{index}] has length {length}; the element allows "
+                )?;
+                match (min, max) {
+                    (Some(min), Some(max)) => write!(f, "{min} to {max}"),
+                    (Some(min), None) => write!(f, "at least {min}"),
+                    (None, Some(max)) => write!(f, "at most {max}"),
+                    (None, None) => write!(f, "any length"),
+                }
+            }
+            ElementDefError::DuplicateCode {
+                code,
+                first,
+                second,
+            } => write!(
+                f,
+                "code {code:?} is listed twice, at codes[{first}] and codes[{second}]"
+            ),
+            ElementDefError::CodesOnComposite => write!(
+                f,
+                "\"codes\" applies to a simple element or a component; this element declares a \"composite\""
+            ),
         }
     }
 }
@@ -245,6 +339,13 @@ pub(super) fn compile_elements(
         {
             return Err(fail(ElementDefError::MinAboveMax { min, max }));
         }
+        if def.codes.is_some() && !def.composite.is_empty() {
+            return Err(fail(ElementDefError::CodesOnComposite));
+        }
+        let codes = match &def.codes {
+            None => Vec::new(),
+            Some(codes) => compile_codes(codes, kind, def.min, def.max).map_err(fail)?,
+        };
         let composite = if def.composite.is_empty() {
             BTreeMap::new()
         } else if parent.is_some() {
@@ -265,8 +366,46 @@ pub(super) fn compile_elements(
                 min: def.min,
                 max: def.max,
                 composite,
+                codes,
             },
         );
     }
     Ok(elements)
+}
+
+/// Validates a code list against its element's type and lengths and returns
+/// it sorted by bytes, the order the element check searches.
+fn compile_codes(
+    codes: &[String],
+    kind: ElementType,
+    min: Option<usize>,
+    max: Option<usize>,
+) -> Result<Vec<String>, ElementDefError> {
+    if codes.is_empty() {
+        return Err(ElementDefError::EmptyCodes);
+    }
+    let mut seen: BTreeMap<&str, usize> = BTreeMap::new();
+    for (index, code) in codes.iter().enumerate() {
+        if code.is_empty() {
+            return Err(ElementDefError::EmptyCode { index });
+        }
+        let length = kind.length_of(code.as_bytes());
+        if min.is_some_and(|min| length < min) || max.is_some_and(|max| length > max) {
+            return Err(ElementDefError::CodeLength {
+                index,
+                code: code.clone(),
+                length,
+                min,
+                max,
+            });
+        }
+        if let Some(first) = seen.insert(code.as_str(), index) {
+            return Err(ElementDefError::DuplicateCode {
+                code: code.clone(),
+                first,
+                second: index,
+            });
+        }
+    }
+    Ok(seen.into_keys().map(str::to_string).collect())
 }

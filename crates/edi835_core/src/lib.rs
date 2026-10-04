@@ -9,7 +9,9 @@
 //! - [`Spec`] is a JSON loop structure (parents, triggers, held segments, end
 //!   segments, envelope controls), the names and types of each segment's
 //!   elements, and the tables to project, and can be patched with JSON Merge
-//!   Patch; [`Spec::builtin_835`] ships the 835 as such data.
+//!   Patch; [`Spec::builtin_835`] ships the 835 as such data, and
+//!   [`Spec::builtin_835_4010`] its 4010 version. A spec may declare the
+//!   version it covers, and [`Spec::select`] picks among specs by it.
 //! - [`LoopEngine`] interprets a segment stream against a spec and emits
 //!   [`Event`]s (loops opened and closed, segments captured or unmatched);
 //!   [`LoopTree`] collects those events into a tree of loop instances.
@@ -17,7 +19,7 @@
 //!   [`Diagnostic`]s: unknown segments, implicit or unterminated loops, and
 //!   envelope counts or control numbers that do not match.
 //! - [`Projector`] reads the same events too: it checks every element the
-//!   spec defines (required, type, length, components) and fills the spec's
+//!   spec defines (required, type, length, code list, components) and fills the spec's
 //!   tables, typed [`Table`]s of [`ColumnData`] laid out as Apache Arrow
 //!   lays out its arrays, with each row pointing at the rows that enclose it.
 //! - [`Processor`] feeds one segment at a time to the engine, the checker and
@@ -56,9 +58,9 @@ pub use process::{Output, Processor};
 pub use project::Projector;
 pub use segment::{Segment, WriteError};
 pub use spec::{
-    AnchorChains, ColumnSource, Control, ControlCount, ControlError, ElementDef, ElementDefError,
-    ElementType, LoopDef, LoopId, Repeat, SegmentDef, Spec, SpecError, TableDef, TableDefError,
-    Trigger, merge_patch,
+    AnchorChains, ColumnSource, Control, ControlCount, ControlError, DeclaredVersion, ElementDef,
+    ElementDefError, ElementType, LoopDef, LoopId, Repeat, SegmentDef, Spec, SpecError, TableDef,
+    TableDefError, Trigger, VersionError, merge_patch,
 };
 pub use tokenizer::Tokenizer;
 pub use tree::{LoopTree, Node, NodeId, TreeBuilder};

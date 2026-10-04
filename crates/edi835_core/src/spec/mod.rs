@@ -14,7 +14,8 @@
 //! hold the definitions; `raw` the deserialization shapes; `shape` the JSON
 //! shape checks; `build` and `compile` the construction of a [`Spec`];
 //! `error` the load error; `render` the text used in messages; `patch` the
-//! merge patch.
+//! merge patch; `version` the version declaration and the choice of a spec
+//! by it.
 
 mod build;
 mod compile;
@@ -28,6 +29,7 @@ mod shape;
 mod tables;
 #[cfg(test)]
 mod tests;
+mod version;
 
 pub use error::SpecError;
 pub use loops::{Control, ControlCount, ControlError, LoopDef, LoopId, Trigger};
@@ -36,6 +38,7 @@ pub use segments::{
     ElementDef, ElementDefError, ElementType, ROW_COLUMN, SEGMENT_COLUMN, SegmentDef,
 };
 pub use tables::{AnchorChains, ColumnSource, Repeat, TableDef, TableDefError};
+pub use version::{DeclaredVersion, VersionError};
 
 pub(crate) use render::{render_key, render_trigger};
 
@@ -54,6 +57,7 @@ pub struct Spec {
     roots: Vec<LoopId>,
     segments: BTreeMap<Vec<u8>, SegmentDef>,
     tables: Vec<TableDef>,
+    version: Option<DeclaredVersion>,
     source: Value,
 }
 
@@ -66,6 +70,19 @@ impl Spec {
         Spec::from_json(Self::BUILTIN_835_JSON).expect(
             "the built-in 835 spec is valid; spec::tests::loading::builtin_835_loads checks it",
         )
+    }
+
+    /// The merge patch that turns the built-in 835 into its 4010 version.
+    pub const BUILTIN_835_4010_PATCH: &'static str = include_str!("../../specs/835.4010.json");
+
+    /// The built-in 835 for version 4010: [`Spec::builtin_835`] with
+    /// [`Spec::BUILTIN_835_4010_PATCH`] merged over it.
+    pub fn builtin_835_4010() -> Spec {
+        Spec::builtin_835()
+            .merge_patch(Self::BUILTIN_835_4010_PATCH)
+            .expect(
+                "the built-in 4010 patch is valid; spec::tests::version::the_builtins_declare_5010_and_4010_on_gs08 checks it",
+            )
     }
 
     /// Loads and validates a spec from JSON text.

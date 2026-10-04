@@ -20,6 +20,15 @@ pub(super) struct RawSpec {
     pub(super) _segments: BTreeMap<String, IgnoredAny>,
     #[serde(default, rename = "tables")]
     pub(super) _tables: BTreeMap<String, IgnoredAny>,
+    pub(super) version: Option<RawVersion>,
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(deny_unknown_fields, expecting = "a version object")]
+pub(super) struct RawVersion {
+    pub(super) segment: String,
+    pub(super) element: usize,
+    pub(super) values: Vec<String>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -68,6 +77,7 @@ pub(super) struct RawElement {
     pub(super) min: Option<usize>,
     pub(super) max: Option<usize>,
     pub(super) scale: Option<u8>,
+    pub(super) codes: Option<Vec<String>>,
     #[serde(default)]
     pub(super) composite: BTreeMap<String, RawElement>,
 }

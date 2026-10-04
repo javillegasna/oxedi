@@ -183,3 +183,20 @@ def test_real_maps_cover_every_loop(tmp_path):
     text = report.read_text()
     assert "| loops | 16 | 0 | 0 |" in text
     assert "Unmapped pyx12 loops" not in text
+
+
+@pytest.mark.parametrize("version", ["5010", "4010"])
+def test_real_draft_patches_load_over_the_compared_spec(tmp_path, version):
+    pytest.importorskip("pyx12")
+    from oxedi835 import Spec
+
+    script = load_script()
+    report, patch = tmp_path / "report.md", tmp_path / "patch.json"
+    assert script.main(["--version", version, "--report", str(report),
+                        "--patch", str(patch)]) == 0
+    spec = Spec.builtin()
+    for name in script.VERSIONS[version]["patches"]:
+        spec = spec.patch((script.SPECS / name).read_text())
+    # The draft carries code lists, lengths and new definitions in the
+    # spec format; the core loads every one of them.
+    spec.patch(patch.read_text())

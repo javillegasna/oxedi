@@ -4,6 +4,10 @@
 //! segment lives. Segments are parsed on demand and borrow from the document,
 //! so the document can hold either a borrowed slice or an owned buffer without
 //! two representations.
+//!
+//! The module is split by responsibility: `error` and `tests` hold the
+//! definitions and test code. Files of 4 GiB or more cannot be indexed and are
+//! rejected with a size error.
 
 use std::borrow::Cow;
 use std::ops::Range;

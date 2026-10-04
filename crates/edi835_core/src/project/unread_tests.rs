@@ -199,7 +199,7 @@ fn typed_parity(input: &str) -> Vec<Diagnostic> {
     read
 }
 
-/// How many diagnostics of each rule kind, at which element and component.
+/// Each diagnostic's rule kind, element and component position.
 fn kinds(diagnostics: &[Diagnostic]) -> Vec<(&'static str, Option<usize>, Option<usize>)> {
     diagnostics
         .iter()

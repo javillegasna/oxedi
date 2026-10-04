@@ -27,7 +27,8 @@ Spanish; code, commits, PRs and issues are in English.
   exception: `Spec::builtin_835`). Indexing with ids the owner created (`LoopId`, `NodeId`)
   is fine.
 - Core is sans-IO: `[dependencies]` holds only `serde` and `serde_json`; nothing that does
-  I/O, threads or a runtime.
+  I/O, threads or a runtime. The Python binding (`crates/oxedi835_py`) delegates everything to
+  the core, holds the only `arrow-*`/`pyo3` dependencies, and names no 835 segment.
 - Comments and doc comments describe implementation only: no stage numbers, principle
   codes (N1, P3), history or links to planning docs.
 - P10: every error or diagnostic names the rule that failed, where (loop and key as written
@@ -63,10 +64,20 @@ Spanish; code, commits, PRs and issues are in English.
 
 ## Commands
 
+`make help` lists every target. The gates and the Python binding have make targets; the raw
+commands are kept here because CI runs them directly.
+
 ```bash
+make gates            # fmt-check, clippy -D warnings, test, bench --no-run, doc -D warnings
+make py-test          # maturin develop into .venv, then pytest crates/oxedi835_py/tests
+make dist && make smoke   # sdist + release wheel, then install in a clean venv outside the repo
 cargo test --workspace --locked
 cargo clippy --workspace --all-targets --locked -- -D warnings
 cargo fmt --all && cargo fmt --all -- --check
 UPDATE_GOLDEN=1 cargo test -p edi835_core --test engine_golden   # regenerate goldens, then inspect
+UPDATE_GOLDEN=1 cargo test -p edi835_core --test project_golden  # table and diagnostic goldens
 cargo bench --workspace                                           # ~5 min; baselines go in commit messages
 ```
+
+Publishing (`make publish-test`, `make publish`, `make tag`) reads `~/.pypirc`; tokens never
+enter the repo. Python floor 3.11; the base wheel declares no Python dependencies.

@@ -83,8 +83,10 @@ unmapped REF/AMT; native `count_claims`/`count_patients`/`sum_payments` (Decimal
 `scripts/compat_oracle.py` for the originals. 338 cargo + 240 pytest. Known: compat is
 0.76–0.93x the library's speed (#55, profile: per-row Python object layer, native parse 19.5 ms
 on united); documented divergences in the README. Ledger `analysis/stage-5b-ledger.md`. Next:
-backlog sprint 2 (16 issues, briefs in `.superpowers/sdd/backlog-sprint-2/`), then 5c, 6, 7…; then 5c (D13), Stage 6
-(wheel matrix, trusted publishing, `0.1.0`), Stage 7 (writer), 8 (durable docs), 9 (X12
+backlog sprint 2 (16 issues, briefs in `.superpowers/sdd/backlog-sprint-2/`), then Stage 6
+(wheel matrix, trusted publishing, release workflow) and `0.1.0` on PyPI, then 5c, 7, 8, 9
+(owner moved Stage 6 ahead of 5c on 2026-10-04); then Stage 6 (wheel matrix,
+trusted publishing, `0.1.0`), 5c (D13), Stage 7 (writer), 8 (durable docs), 9 (X12
 family + `pyx12` maps).
 
 Stage 4 decisions, settled in §7 (kept for reference):

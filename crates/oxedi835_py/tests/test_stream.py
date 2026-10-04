@@ -1,10 +1,8 @@
 import json
-import os
 import subprocess
 import sys
 import threading
 import time
-from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 
 import pytest
@@ -103,34 +101,35 @@ def test_streaming_holds_one_transaction_not_the_file():
     assert parse_beyond > 5 * max(stream_beyond, mib), (parse, stream)
 
 
-def usable_cpus() -> int:
-    """The CPUs this process may run on; the host count where affinity is unknown."""
-    if hasattr(os, "sched_getaffinity"):
-        return len(os.sched_getaffinity(0))
-    return os.cpu_count() or 1
+def test_parse_lets_other_threads_run():
+    data = repeated(LARGEST, 2)
+    oxedi835.parse(data)
+    parsing = threading.Event()
+    done = threading.Event()
+    duration = []
 
-
-@pytest.mark.skipif(usable_cpus() < 2, reason="needs at least two usable CPUs to run in parallel")
-def test_two_threads_parse_faster_than_one_after_the_other():
-    inputs = [repeated(LARGEST, 4), repeated("edi835_test_versant.RMT", 12)]
-    for data in inputs:
-        oxedi835.parse(data)
-
-    def sequential_run():
+    def worker():
+        parsing.set()
         start = time.perf_counter()
-        for data in inputs:
-            oxedi835.parse(data)
-        return time.perf_counter() - start
+        oxedi835.parse(data)
+        duration.append(time.perf_counter() - start)
+        done.set()
 
-    def threaded_run():
-        with ThreadPoolExecutor(max_workers=2) as pool:
-            start = time.perf_counter()
-            list(pool.map(oxedi835.parse, inputs))
-            return time.perf_counter() - start
-
-    sequential = min(sequential_run() for _ in range(3))
-    threaded = min(threaded_run() for _ in range(3))
-    assert threaded < 0.8 * sequential, (threaded, sequential)
+    thread = threading.Thread(target=worker)
+    thread.start()
+    parsing.wait()
+    iterations = 0
+    last = time.perf_counter()
+    largest_gap = 0.0
+    # A held GIL would stall this loop for the whole parse, so one huge gap exposes it.
+    while not done.is_set():
+        now = time.perf_counter()
+        largest_gap = max(largest_gap, now - last)
+        last = now
+        iterations += 1
+    thread.join()
+    assert iterations > 100, (iterations, duration[0])
+    assert largest_gap < duration[0] / 4, (largest_gap, duration[0])
 
 
 def test_a_stream_advanced_from_two_threads_names_the_rule():

@@ -110,10 +110,12 @@ def test_parse_lets_other_threads_run():
 
     def worker():
         parsing.set()
-        start = time.perf_counter()
-        oxedi835.parse(data)
-        duration.append(time.perf_counter() - start)
-        done.set()
+        try:
+            start = time.perf_counter()
+            oxedi835.parse(data)
+            duration.append(time.perf_counter() - start)
+        finally:
+            done.set()
 
     thread = threading.Thread(target=worker)
     thread.start()
@@ -128,6 +130,7 @@ def test_parse_lets_other_threads_run():
         last = now
         iterations += 1
     thread.join()
+    assert duration, "oxedi835.parse raised in the worker thread"
     assert iterations > 100, (iterations, duration[0])
     assert largest_gap < duration[0] / 4, (largest_gap, duration[0])
 

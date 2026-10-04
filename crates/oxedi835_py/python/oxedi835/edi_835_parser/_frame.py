@@ -474,14 +474,23 @@ class Transaction:
     def extended(self):
         """The extended frame's rows of this transaction set, as columns:
         each claim's services (or the claim alone when it has none), then the
-        provider adjustments."""
+        provider adjustments. Without a payer loop, a transaction with
+        services raises as the library's frame does; its claims without
+        services and its provider adjustments, rows that frame leaves out,
+        take ``None`` as the payer."""
         plb = self.tables["rows_provider_adjustments"]
         claims = len(self.tables["rows_claims"])
         if not claims and not len(plb):
             return 0, {}
         financial_information = self.set.financial_information
-        payer = self.set.payer.organization.name
         has_services = bool(claims) and bool(len(self.order))
+        if has_services:
+            payer = self.set.payer.organization.name
+        else:
+            try:
+                payer = self.set.payer.organization.name
+            except ValueError:
+                payer = None
         transaction_date = financial_information.transaction_date if financial_information else None
         blocks = []
         if claims:

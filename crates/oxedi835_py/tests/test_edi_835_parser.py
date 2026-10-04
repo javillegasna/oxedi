@@ -554,6 +554,40 @@ def plb_only():
     ).encode()
 
 
+PAYER_LOOP = "N1*PR*PAYER~N3*1 MAIN ST~N4*TOWN*ST*12345~"
+
+
+def without_payer(data):
+    assert PAYER_LOOP.encode() in data
+    return data.replace(PAYER_LOOP.encode(), b"")
+
+
+def test_rows_the_frame_leaves_out_have_no_payer_without_a_payer_loop():
+    plb = compat.parse_bytes(without_payer(plb_only()))
+    assert plb.to_dataframe().shape == (0, 0)
+    extended = plb.to_dataframe(extended=True)
+    assert list(extended.x_row_kind) == ["provider_adjustment"]
+    assert extended.payer.tolist() == [None]
+    assert extended.x_plb_amount.tolist() == [-5.0]
+    serviceless = SERVICELESS.replace(
+        "SVC*HC:99213*150*100**1~DTM*472*20240101~CAS*CO*45*50~", "").encode()
+    claims = compat.parse_bytes(without_payer(serviceless))
+    assert claims.to_dataframe().shape == (0, 0)
+    extended = claims.to_dataframe(extended=True)
+    assert list(extended.x_row_kind) == ["claim", "claim"]
+    assert extended.payer.tolist() == [None, None]
+
+
+def test_without_a_payer_loop_the_extended_frame_raises_as_the_frame_does():
+    transaction_sets = compat.parse_bytes(without_payer(SERVICELESS.encode()))
+    with pytest.raises(ValueError) as strict:
+        transaction_sets.to_dataframe()
+    with pytest.raises(ValueError) as extended:
+        transaction_sets.to_dataframe(extended=True)
+    assert str(extended.value) == str(strict.value) == (
+        "<bytes>: the transaction at segment 2 has no payer loop (N1)")
+
+
 @pytest.mark.parametrize("plb_first", [True, False])
 def test_extended_keeps_the_strict_columns_first_whichever_file_comes_first(tmp_path, plb_first):
     plb, normal = plb_only(), path_of(SAMPLES[2]).read_bytes()

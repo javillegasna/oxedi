@@ -11,7 +11,8 @@ __all__ = ["LIBRARY_COLUMNS", "frame"]
 
 def frame(transaction_sets):
     """The library's columns in its order whichever transaction comes first,
-    then ``x_row_kind`` and ``x_claim``, then the other ``x_`` columns by name.
+    then ``x_row_kind`` and ``x_claim`` (absent when no row has a claim),
+    then the other ``x_`` columns by name.
     Rows without a service value widen some library columns' dtypes."""
     import pandas as pd
 
@@ -23,7 +24,7 @@ def frame(transaction_sets):
     with warnings.catch_warnings():
         warnings.simplefilter("ignore", FutureWarning)
         data = columns_frame(columns)
-    fixed = ("x_row_kind", "x_claim")
+    fixed = [c for c in ("x_row_kind", "x_claim") if c in data.columns]
     added = sorted(c for c in data.columns if c.startswith("x_") and c not in fixed)
     strict = [c for c in LIBRARY_COLUMNS if c in data.columns]
     strict += [c for c in data.columns if not c.startswith("x_") and c not in LIBRARY_COLUMNS]

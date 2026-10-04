@@ -1,4 +1,4 @@
-# State — 2026-10-04 (Stage 6 merged, release candidate next)
+# State — 2026-10-04 (0.1.0 published on PyPI)
 
 Snapshot for picking the project up cold. Update when a stage changes state.
 
@@ -99,6 +99,11 @@ TestPyPI and creates the GitHub release from the changelog section. Only a `push
 commit of `master` publishes; re-runs are idempotent. Deferred: #66. Ledger `analysis/stage-6-ledger.md`.
 The README was rewritten for users and contributors (owner's request); the PyPI page carries the
 user-facing part and the edi-835-parser migration guide lives in `docs/`.
+
+`0.1.0` is published (2026-10-04): `v0.1.0rc1` went to TestPyPI only and `v0.1.0` to PyPI
+(7 files, GitHub release with the changelog notes). The first `v0.1.0` attempt failed a flaky
+GIL timing test on musllinux; re-running the failed jobs passed, and the test was replaced by a
+thread-progress check (#70). Open after the release: #66, #71 (`__version__`), token clean-up.
 
 Release path: `make release-check TAG=v0.1.0rc1 && make tag` → approve `testpypi` → bump to `0.1.0`
 and date the changelog → tag `v0.1.0` → approve `pypi` → revoke the account-wide tokens, delete the

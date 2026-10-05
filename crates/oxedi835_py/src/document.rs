@@ -188,14 +188,14 @@ impl PySegment {
             .inner
             .segment(self.index)
             .map(|segment| read(&segment))
-            .ok_or_else(|| {
-                PyIndexError::new_err(format!(
-                    "segment index {} is out of range: the document has {} segments",
-                    self.index,
-                    document.inner.len()
-                ))
-            })
+            .ok_or_else(|| out_of_range(self.index, document.inner.len()))
     }
+}
+
+fn out_of_range(index: usize, len: usize) -> PyErr {
+    PyIndexError::new_err(format!(
+        "segment index {index} is out of range: the document has {len} segments"
+    ))
 }
 
 #[pymethods]
@@ -238,6 +238,18 @@ impl PySegment {
     #[getter]
     fn raw<'py>(&self, py: Python<'py>) -> PyResult<Bound<'py, PyBytes>> {
         self.with(py, |segment| PyBytes::new(py, segment.raw))
+    }
+
+    /// The segment's byte range in the input, `(start, end)` with `end`
+    /// exclusive: leading trivia, body and terminator, as `raw` holds them.
+    #[getter]
+    fn span(&self, py: Python<'_>) -> PyResult<(usize, usize)> {
+        let document = self.document.bind(py).get();
+        document
+            .inner
+            .span(self.index)
+            .map(|span| (span.raw.start, span.raw.end))
+            .ok_or_else(|| out_of_range(self.index, document.inner.len()))
     }
 
     fn __repr__(&self, py: Python<'_>) -> PyResult<String> {

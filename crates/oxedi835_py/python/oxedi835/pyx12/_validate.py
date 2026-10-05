@@ -13,15 +13,21 @@ from bisect import bisect_right
 from collections import defaultdict, deque
 from typing import Any, BinaryIO, Union
 
-from .. import parse
-from ._diagnostic import Pyx12Diagnostic
+from .. import Diagnostic, parse
+from .._core import _external_diagnostic
 
 Source = Union[bytes, bytearray, memoryview, str, "os.PathLike[str]", BinaryIO]
 
 _ISA_LENGTH = 106
 _NODE_LOG = re.compile(r"^Line:(\d+) (ISA|GS|ST):(\S+) - (.*)$", re.DOTALL)
 _OBJECT_REPR = re.compile(r'"<_io\.StringIO object at 0x[0-9a-f]+>"')
-_NODE_KIND = {"ISA": "Pyx12InterchangeError", "GS": "Pyx12GroupError", "ST": "Pyx12TransactionError"}
+_ORIGIN = "pyx12"
+# Levels follow where pyx12 reports a finding, never its error code: envelope
+# findings (interchange, group, transaction) and failures are integrity
+# findings, segment and element findings are requirement findings.
+_ENVELOPE_LEVEL = 1
+_SEGMENT_LEVEL = 2
+_FAILURE_LEVEL = 1
 
 
 def _import_pyx12() -> Any:
@@ -45,7 +51,7 @@ def _read(source: Source) -> bytes:
 
 
 class _Positions:
-    """Maps pyx12's segment numbers to segment indexes and byte ranges of the document.
+    """Maps pyx12's segment numbers to segment indexes of the document.
 
     pyx12 splits its input on the segment terminator and drops the CR and LF
     that follow it, and counts the pieces from the ISA on; the same split is
@@ -82,16 +88,13 @@ class _Positions:
             position = found + 1
         return cls(ends, base, starts)
 
-    def locate(self, line: int | None) -> tuple[int | None, tuple[int, int] | None]:
-        """The segment index and byte range of pyx12's 1-based segment ``line``."""
+    def locate(self, line: int | None) -> int | None:
+        """The segment index of pyx12's 1-based segment ``line``."""
         if line is None or not 1 <= line <= len(self.piece_starts):
-            return None, None
+            return None
         offset = self.base + self.piece_starts[line - 1]
         index = bisect_right(self.ends, offset)
-        if index >= len(self.ends):
-            return None, None
-        start = self.ends[index - 1] if index else 0
-        return index, (start, self.ends[index])
+        return index if index < len(self.ends) else None
 
 
 class _LogCapture(logging.Handler):
@@ -186,20 +189,23 @@ def _node_lines(messages: list[str]) -> dict[tuple[str, str, str], deque[int]]:
     return lines
 
 
-def _translate(tree: dict[str, Any], messages: list[str], positions: _Positions):
+def _finding(message: str, level: int, **place: Any) -> Diagnostic:
+    return _external_diagnostic(_ORIGIN, message, level, **place)
+
+
+def _translate(
+    tree: dict[str, Any], messages: list[str], positions: _Positions
+) -> list[Diagnostic]:
     lines = _node_lines(messages)
-    out: list[Pyx12Diagnostic] = []
+    out: list[Diagnostic] = []
 
     def node(scope: str, entry: dict[str, Any]) -> None:
         for error in entry["errors"]:
             code, text = error["err_cde"], error["err_str"]
             pending = lines.get((scope, code, text))
             line = pending.popleft() if pending else entry["cur_line"]
-            segment, span = positions.locate(line)
             out.append(
-                Pyx12Diagnostic(
-                    kind=_NODE_KIND[scope], rule=text, code=code, segment=segment, span=span
-                )
+                _finding(text, _ENVELOPE_LEVEL, code=code, segment=positions.locate(line))
             )
 
     for isa in tree["interchanges"]:
@@ -209,31 +215,27 @@ def _translate(tree: dict[str, Any], messages: list[str], positions: _Positions)
             for transaction in group["transactions"]:
                 node("ST", transaction)
                 for seg in transaction["segments"]:
-                    segment, span = positions.locate(seg["cur_line"])
+                    segment = positions.locate(seg["cur_line"])
                     for error in seg["errors"]:
                         out.append(
-                            Pyx12Diagnostic(
-                                kind="Pyx12SegmentError",
-                                rule=error["err_str"],
+                            _finding(
+                                error["err_str"],
+                                _SEGMENT_LEVEL,
                                 code=error["err_cde"],
                                 segment=segment,
-                                span=span,
-                                segment_name=seg["name"],
                                 datum=_datum(error["err_val"]),
                             )
                         )
                     for element in seg["elements"]:
                         for error in element["errors"]:
                             out.append(
-                                Pyx12Diagnostic(
-                                    kind="Pyx12ElementError",
-                                    rule=error["err_str"],
+                                _finding(
+                                    error["err_str"],
+                                    _SEGMENT_LEVEL,
                                     code=error["err_cde"],
                                     segment=segment,
-                                    span=span,
                                     element=element["ele_pos"],
                                     component=element["subele_pos"],
-                                    segment_name=seg["name"],
                                     datum=_datum(error["err_val"]),
                                 )
                             )
@@ -242,25 +244,26 @@ def _translate(tree: dict[str, Any], messages: list[str], positions: _Positions)
 
 def _failure(
     reason: str, track: list[int], positions: _Positions, document: Any, started: bool = True
-) -> Pyx12Diagnostic:
-    """One failure finding. ``track`` holds the segment numbers pyx12 finished;
-    the segment it was working on when it failed is the one after the last."""
+) -> Diagnostic:
+    """One failure finding, with no code: pyx12 did not report it, it stopped.
+
+    ``track`` holds the segment numbers pyx12 finished; the segment it was
+    working on when it failed is the one after the last."""
     current = (track[-1] + 1 if track else 1) if started else None
-    segment, span = positions.locate(current)
+    segment = positions.locate(current)
     if segment is None:
         where = "it reached no segment"
         datum = b""
     else:
         datum = bytes(document[segment].id)
-        done, _ = positions.locate(track[-1]) if track else (None, None)
+        done = positions.locate(track[-1]) if track else None
         where = f"it was processing segment #{segment}" + (
             f"; the last it completed is #{done}" if done is not None else ""
         )
-    return Pyx12Diagnostic(
-        kind="Pyx12Failure",
-        rule=f"pyx12 could not finish validating: {reason}; {where}",
+    return _finding(
+        f"could not finish validating: {reason}; {where}",
+        _FAILURE_LEVEL,
         segment=segment,
-        span=span,
         datum=datum,
     )
 
@@ -278,13 +281,25 @@ def _rejection(text: str, fallback: str) -> str:
     return fallback
 
 
-def validate(source: Source) -> list[Pyx12Diagnostic]:
+def validate(source: Source) -> list[Diagnostic]:
     """Validates an 835 file with pyx12 and returns what it finds.
 
     ``source`` is the file's bytes, a path, or a file object open in binary
-    mode. pyx12 picks its map from the file's own version declaration. A
-    finding is a :class:`Pyx12Diagnostic`; a file pyx12 cannot read, or an
-    exception inside pyx12, gives one ``Pyx12Failure`` diagnostic instead of
+    mode. pyx12 picks its map from the file's own version declaration.
+
+    Each finding is an :class:`oxedi835.Diagnostic`, the type ``parse``
+    returns, so both lists mix, sort by ``level`` and filter by ``origin``.
+    A pyx12 finding has ``kind == "External"``, ``origin == "pyx12"`` and
+    ``code`` set to pyx12's own error code; ``rule`` is pyx12's message.
+    ``level`` follows where pyx12 reports it: interchange, group and
+    transaction findings are level 1, segment and element findings level 2.
+    ``segment`` is the index of the segment at fault in the file's document
+    (``None`` when pyx12 names none), and ``document[d.segment].span`` gives
+    its byte range. ``path`` is empty: pyx12 does not report the loop.
+
+    A file pyx12 cannot read, an exception inside pyx12, or a report that
+    cannot be translated gives one level 1 finding with no ``code`` whose
+    ``rule`` starts with ``could not finish validating``, instead of
     raising. A file with no ISA to read the delimiters from raises
     ``oxedi835.ParseError``, as ``oxedi835.parse`` does. Nothing is written to
     disk and no acknowledgement is generated.

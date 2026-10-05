@@ -4,7 +4,6 @@ Needs the ``pyx12`` extra: ``pip install "oxedi835[pyx12]"``. ``parse`` never
 calls pyx12; validating with it is an explicit call to :func:`validate`.
 """
 
-from ._diagnostic import Pyx12Diagnostic
 from ._validate import validate
 
-__all__ = ["Pyx12Diagnostic", "validate"]
+__all__ = ["validate"]

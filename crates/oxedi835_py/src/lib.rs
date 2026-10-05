@@ -35,6 +35,7 @@ fn core_module(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_class::<stream::PyStream>()?;
     m.add_class::<tables::PyTable>()?;
     m.add_class::<tables::PyTables>()?;
+    m.add_function(wrap_pyfunction!(diagnostic::external_diagnostic, m)?)?;
     m.add_function(wrap_pyfunction!(parse::parse, m)?)?;
     m.add_function(wrap_pyfunction!(stream::stream, m)?)?;
     m.add(

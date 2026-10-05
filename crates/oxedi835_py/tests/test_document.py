@@ -170,3 +170,40 @@ def test_parse_file_reads_in_binary_mode(tmp_path):
     target = tmp_path / EMEDNY
     target.write_bytes(read(EMEDNY))
     assert oxedi835.parse_file(target).document.write() == read(EMEDNY)
+
+
+def spans(document):
+    return [document[i].span for i in range(len(document))]
+
+
+def test_a_segment_span_is_its_raw_byte_range_and_the_spans_partition_the_input():
+    data = read("edi835_test_eyemed.RMT")
+    document = oxedi835.parse(data).document
+    ranges = spans(document)
+    for i, (start, end) in enumerate(ranges):
+        assert data[start:end] == document[i].raw
+    assert ranges[0][0] == 0
+    assert ranges[-1][1] == len(data)
+    assert all(left[1] == right[0] for left, right in zip(ranges, ranges[1:]))
+
+
+def test_the_first_span_starts_at_zero_with_a_byte_order_mark():
+    mark = b"\xef\xbb\xbf"
+    data = mark + read(EMEDNY)
+    document = oxedi835.parse(data).document
+    start, end = document[0].span
+    assert start == 0
+    assert data[start:end] == document[0].raw
+    assert data[start:end].startswith(mark + b"ISA")
+
+
+def test_the_last_span_ends_at_the_input_end_without_a_terminator():
+    data = read(EMEDNY).rstrip()
+    assert data.endswith(b"~")
+    data = data[:-1]
+    document = oxedi835.parse(data).document
+    start, end = document[-1].span
+    assert end == len(data)
+    assert data[start:end] == document[-1].raw
+    assert document[-1].id == b"IEA"
+

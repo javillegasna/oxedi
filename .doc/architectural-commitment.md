@@ -1386,3 +1386,56 @@ intercambio, grupo, transacción y segmento, y falla al generar su 999
 **Fuera de alcance.** Versiones del 835 distintas de 4010 y 5010; códigos externos (T54); generador de specs para la
 837 (Stage 9); `ContextReader` (9b); validación SNIP 3 o superior nativa en el núcleo (D11 y
 después).
+
+#### Enmienda al Stage 5e · Un solo tipo de diagnóstico — APROBADO 2026-10-04
+
+La ejecución del 5e dejó `validate` devolviendo `Pyx12Diagnostic`, un dataclass de Python con los
+mismos atributos que `Diagnostic` más `origin`, `code`, `span` y `segment_name`, en lugar de
+nuestro `Diagnostic` como pedía T55. Consecuencia: dos tipos que mantener a la par, `isinstance`
+falla, y una lista que mezcla `parse(...).diagnostics` con `validate(...)` no se puede ordenar por
+nivel ni filtrar por origen. La enmienda cumple T55 sin que el núcleo sepa que `pyx12` existe, y se
+hace en la misma rama antes del merge y de la 0.2.0, para no publicar un tipo que luego se
+reemplaza.
+
+**Decisiones de diseño (cada una con la alternativa descartada).**
+- **T58 · Hallazgos externos como una regla genérica del núcleo.** `Rule` gana el variante
+  `External { origin, code, message, level }` (`origin` y `message` texto, `code` opcional, `level` el
+  que asigna el adaptador según T59, para que `Rule::level` siga siendo total), cuyo `kind`
+  es `External` y cuyo `Display` nombra el origen, el mensaje y el código. El núcleo no conoce
+  ninguna herramienta: `pyx12` es un dato del adaptador, y el variante sirve para cualquier
+  integración futura (837, DuckDB). `Rule` se marca `#[non_exhaustive]` para que futuros variantes
+  no rompan `match` de terceros. Descartados mantener el dataclass (dos tipos en paralelo) y un
+  campo `origin` en todo `Diagnostic` (toca cada construcción del núcleo por un dato derivable).
+- **T59 · Nivel deducido de la estructura, sin tabla de códigos.** El adaptador asigna el nivel por
+  dónde reporta `pyx12` el hallazgo: errores de sobre (intercambio, grupo, transacción) y fallos
+  de `pyx12` (archivo rechazado, excepción, informe intraducible) son nivel 1; errores de segmento
+  y de elemento son nivel 2. Así nada se toca cuando `pyx12` agregue o renumere códigos; su código
+  viaja tal cual en `code`. Descartados una tabla código→nivel (seguiría a cada versión de `pyx12`)
+  y un `level` opcional en el núcleo (cambia un campo público por un caso externo).
+- **T60 · Posición en bytes desde el documento.** `Segment` de Python gana `span`, el rango de
+  bytes `(start, end)` del segmento en la entrada, que el núcleo ya guarda. Sirve a todos los
+  diagnósticos, propios y externos: `document[d.segment].span`. `segment_name` (el nombre del
+  mapa de `pyx12`) se descarta como atributo; si aporta, va en el mensaje. `path` queda vacío en
+  los hallazgos externos porque `pyx12` no informa el loop, y se documenta. Descartado guardar el
+  rango en `Diagnostic` (cambia el tipo del núcleo por algo que el documento ya da).
+- **T61 · Construcción y origen en Python.** Un constructor interno del módulo nativo (no público)
+  permite al adaptador crear un `Diagnostic` con `Rule::External`. `Diagnostic` gana el getter
+  `origin`: `"oxedi835"` para las reglas propias, el `origin` del variante para las externas, y
+  `code` (el del variante, `None` en las propias). `Pyx12Diagnostic` desaparece; nunca se publicó.
+
+**Entregable / contrato.**
+- `Rule::External` con test de `Display` de texto completo y `kind`; `Rule` `#[non_exhaustive]`;
+  `public_paths.rs` al día.
+- `Segment.span`, `Diagnostic.origin` y `Diagnostic.code` en Python, con tests.
+- `oxedi835.pyx12.validate` devuelve `list[oxedi835.Diagnostic]`; los tests del 5e (conteos
+  contra `x12valid -J`, rangos fijados vía `document[segment].span`, BOM/CRLF, excepción forzada,
+  fallo de traducción, ISA rechazado, hilos, logging) siguen pasando con el tipo nuevo.
+- READMEs y docstrings describen un solo tipo.
+
+**Gate de verificación.**
+- Una lista que mezcla diagnósticos de `parse` y de `validate` se ordena por `level` y se filtra
+  por `origin` (test).
+- Ningún golden cambia; `make gates` y `make py-test` en verde, con y sin el extra.
+
+**Fuera de alcance.** Loop path para hallazgos externos; rango de bytes dentro de `Diagnostic`;
+otros validadores externos.

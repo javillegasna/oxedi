@@ -126,14 +126,24 @@ spec = oxedi835.Spec.builtin(version="4010")
 implementation-guide validation. `parse` never calls it; `validate` does, on demand:
 
 ```python
+import oxedi835
 from oxedi835.pyx12 import validate
 
-for finding in validate(data):    # bytes, a path or a binary file object
-    print(finding)                # origin, rule, code, segment, byte range, element, datum
+result = oxedi835.parse(data)
+findings = result.diagnostics + validate(data)    # bytes, a path or a binary file object
+for d in sorted(findings, key=lambda d: d.level):
+    print(d.origin, d.code, d)                    # "oxedi835" or "pyx12"; pyx12's own code
+    if d.segment is not None:
+        start, end = result.document[d.segment].span  # the segment's bytes in your file
 ```
 
-Each finding carries the segment index and byte range in your file, except a failure that names no segment. An exception inside pyx12
-comes back as one `Pyx12Failure` finding instead of a traceback.
+`validate` returns `oxedi835.Diagnostic`, the type `parse` returns, so the two lists mix, sort
+by `level` and filter by `origin`. A pyx12 finding has `kind == "External"`,
+`origin == "pyx12"`, `code` set to pyx12's error code and an empty `path` (pyx12 does not report
+the loop); interchange, group and transaction findings are level 1, segment and element
+findings level 2. A file pyx12 cannot read, or an exception inside pyx12, comes back as one
+level 1 finding with no `code` whose `rule` starts with `could not finish validating`,
+instead of a traceback.
 
 ## Coming from another library
 

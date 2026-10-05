@@ -15,6 +15,9 @@ Snapshot for picking the project up cold. Update when a stage changes state.
   both real data issues. Next: whole-branch review on Opus (P10 focus), one fix wave, PR against
   `master` (Intent / Verification), owner merges; then deferred minors to Project #8 and
   update `.doc/analysis/` (current at 7f4f8cf).
+- **Amendment on the same branch (PR #80):** one diagnostic type (T58–T61): `Rule::External`
+  in the core, `Diagnostic.origin`/`code`, `Segment.span`; `oxedi835.pyx12.validate` returns
+  `oxedi835.Diagnostic` and `Pyx12Diagnostic` is gone (never published).
 - **Merged today:** Stage 6 (PR #67) and `0.1.0` on PyPI by trusted publishing (rc1 on TestPyPI
   only); README for users (#68); flaky GIL test replaced (#72); Stage 5c module layout (#75);
   Stage 5d performance (#78: index 8 B/segment, `process` 33 → 37 MiB/s, gate 50 not met → #76);

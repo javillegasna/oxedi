@@ -51,6 +51,7 @@ impl fmt::Display for LoopRef {
 
 /// The rule a diagnostic reports, with the values its message needs.
 #[derive(Debug, Clone, PartialEq, Eq)]
+#[non_exhaustive]
 pub enum Rule {
     /// The input starts with a UTF-8 byte order mark, read as leading trivia
     /// of the first segment. Informational: nothing else changes.
@@ -191,6 +192,18 @@ pub enum Rule {
         /// How many codes the list holds.
         codes: usize,
     },
+    /// A finding reported by a validator outside this crate, carried as that
+    /// validator states it.
+    External {
+        /// Who reported the finding, e.g. the validator's name.
+        origin: String,
+        /// The validator's own code for the finding, when it gives one.
+        code: Option<String>,
+        /// The validator's description of the finding.
+        message: String,
+        /// The SNIP level the caller assigns to the finding.
+        level: SnipLevel,
+    },
 }
 
 impl Rule {
@@ -210,6 +223,7 @@ impl Rule {
             | Rule::CompositeShape { .. }
             | Rule::CodeNotInList { .. }
             | Rule::ValueDropped { .. } => SnipLevel::L2,
+            Rule::External { level, .. } => *level,
         }
     }
 
@@ -230,6 +244,7 @@ impl Rule {
             Rule::ValueDropped { .. } => "ValueDropped",
             Rule::CompositeShape { .. } => "CompositeShape",
             Rule::CodeNotInList { .. } => "CodeNotInList",
+            Rule::External { .. } => "External",
         }
     }
 }
@@ -468,6 +483,15 @@ impl fmt::Display for Rule {
                     ),
                 }
             }
+            Rule::External {
+                origin,
+                code,
+                message,
+                ..
+            } => match code {
+                Some(code) => write!(f, "{message} (reported by {origin}, code {code})"),
+                None => write!(f, "{message} (reported by {origin})"),
+            },
         }
     }
 }

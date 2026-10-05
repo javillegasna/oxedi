@@ -435,10 +435,10 @@ fn values_outside_their_code_list_raise_the_same_diagnostic_read_or_unread() {
     assert_eq!(
         rendered(&diagnostics),
         vec![
-            "SNIP 2 · element CD01 (qualifier) is not one of the 2 codes the spec lists for it · segment #3, element 1 · at head#1 · datum \"XX\"",
-            "SNIP 2 · element CD02 (optional_code) is not the one code the spec lists for it · segment #3, element 2 · at head#1 · datum \"B\"",
-            "SNIP 2 · element CD03 (stamp) is not one of the 2 codes the spec lists for it · segment #3, element 3 · at head#1 · datum \"0700\"",
-            "SNIP 2 · element PX01-1 (kind) is not one of the 2 codes the spec lists for it · segment #5, element 1, component 1 · at head#1 · datum \"ZZ\"",
+            "SNIP 2 · element CD01 (qualifier) is not one of the 2 codes the spec lists for it (\"PE\", \"PR\") · segment #3, element 1 · at head#1 · datum \"XX\"",
+            "SNIP 2 · element CD02 (optional_code) is not the one code the spec lists for it (\"A\") · segment #3, element 2 · at head#1 · datum \"B\"",
+            "SNIP 2 · element CD03 (stamp) is not one of the 2 codes the spec lists for it (\"0000\", \"1200\") · segment #3, element 3 · at head#1 · datum \"0700\"",
+            "SNIP 2 · element PX01-1 (kind) is not one of the 2 codes the spec lists for it (\"AD\", \"HC\") · segment #5, element 1, component 1 · at head#1 · datum \"ZZ\"",
         ]
     );
 }

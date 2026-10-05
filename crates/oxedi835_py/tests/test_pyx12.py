@@ -338,3 +338,84 @@ def test_a_failure_is_level_1_without_code():
         "External",
     )
     assert failure.rule.startswith("could not finish validating")
+
+
+def test_a_text_mode_file_names_binary_mode():
+    text = io.StringIO(read(EYEMED).decode("latin-1"))
+    with pytest.raises(TypeError, match="opened in binary mode; the file returned str"):
+        validate(text)
+
+
+def renumbered(data, number):
+    """``data`` with its interchange control number (ISA13 and IEA02) replaced."""
+    elements = data.split(b"*")
+    old = elements[13]
+    return data.replace(b"*" + old + b"*", b"*" + number + b"*").replace(
+        b"IEA*1*" + old, b"IEA*1*" + number
+    )
+
+
+def test_a_finding_in_a_second_interchange_maps_to_its_own_segment():
+    first = read("edi835_test_davisvision.RMT")
+    second = renumbered(first, b"%09d" % 987654321)
+    assert second != first
+    bad = second[: second.index(b"BPR*")] + b"ZZZ*1~" + second[second.index(b"BPR*") :]
+    data = first + bad
+    document = oxedi835.parse(data).document
+    assert sum(1 for i in range(len(document)) if document[i].id == b"ISA") == 2
+    assert validate(first + second) == []
+    findings = validate(data)
+    unknown = next(f for f in findings if f.rule.startswith("Segment ZZZ*1 not found"))
+    planted = len(first) + bad.index(b"ZZZ*1~")
+    assert unknown.segment is not None
+    # a segment's raw bytes hold the line break that precedes it
+    start, end = document[unknown.segment].span
+    assert end == planted + len(b"ZZZ*1~")
+    assert start <= planted
+    assert data[start:end].lstrip(b"\r\n") == b"ZZZ*1~"
+    assert document[unknown.segment].raw == data[start:end]
+    assert unknown.segment > len(oxedi835.parse(first).document)
+
+
+def reports_error(node):
+    """True when any nested ``errors`` list in pyx12's JSON report is non-empty."""
+    if isinstance(node, dict):
+        return bool(node.get("errors")) or any(reports_error(v) for v in node.values())
+    if isinstance(node, list):
+        return any(reports_error(v) for v in node)
+    return False
+
+
+def test_user_configuration_does_not_change_the_findings(tmp_path, monkeypatch):
+    import pyx12.params
+
+    # Lowercase text is the probe: basic charset B rejects it, the default
+    # extended charset E accepts it. validate() must report what the defaults
+    # report (nothing here) even though pyx12, given this user's configuration,
+    # would reject the same bytes.
+    data = read("edi835_test_davisvision.RMT").replace(b"SILVER OAK", b"silver oak")
+    monkeypatch.setenv("HOME", str(tmp_path / "empty"))
+    expected = [facts(f) for f in validate(data)]
+    assert expected == []
+    home = tmp_path / "home"
+    home.mkdir()
+    (home / ".pyx12.conf.xml").write_text(
+        '<?xml version="1.0" encoding="utf-8"?>'
+        '<pyx12><param name="charset"><value>B</value><type>string</type></param></pyx12>'
+    )
+    monkeypatch.setenv("HOME", str(home))
+    # the file is read by pyx12 itself, so the test means something
+    assert pyx12.params.params().get("charset") == "B"
+    # pyx12 run with that configuration does reject the probe
+    import pyx12.x12n_document
+
+    errors = io.StringIO()
+    pyx12.x12n_document.x12n_document(
+        param=pyx12.params.params(),
+        src_file=io.StringIO(data.decode("latin-1")),
+        fd_997=None,
+        fd_html=None,
+        fd_json=errors,
+    )
+    assert reports_error(json.loads(errors.getvalue()))
+    assert [facts(f) for f in validate(data)] == expected

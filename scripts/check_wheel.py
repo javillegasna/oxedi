@@ -4,7 +4,7 @@ usage: check_wheel.py WHEEL ROOT
 
 Fails unless the wheel's dist-info/licenses/ holds LICENSE and THIRD_PARTY_NOTICES
 byte-identical to the files in ROOT, and every Requires-Dist is tied to an extra
-(the base install has no Python dependencies).
+(the base install has no Python dependencies), and no __pycache__ or .pyc member is present.
 """
 
 import sys
@@ -23,6 +23,9 @@ def main(wheel: str, root: str) -> int:
                 problems.append(f"{wheel}: expected one dist-info/licenses/{name}, found {members}")
             elif zf.read(members[0]) != (Path(root) / name).read_bytes():
                 problems.append(f"{wheel}: {members[0]} differs from {root}/{name}")
+        for name in names:
+            if "__pycache__" in name.split("/") or name.endswith(".pyc"):
+                problems.append(f"{wheel}: holds compiled bytecode {name}")
         metadata = [n for n in names if n.endswith(".dist-info/METADATA")]
         if len(metadata) != 1:
             problems.append(f"{wheel}: expected one METADATA, found {metadata}")

@@ -70,6 +70,7 @@ sdist-check: ## fail if the sdist holds the core's test trees or lacks what the 
 	  test -n "$$sdist" || { echo "sdist-check: no oxedi835-*.tar.gz in $(WHEELS); run make dist first"; exit 1; }; \
 	  listing=$$(tar tzf "$$sdist" | sed 's|^[^/]*/||') || exit 1; \
 	  if echo "$$listing" | grep -E '(^|/)edi835_core/tests/'; then echo "sdist-check: $$sdist holds the core's tests/ tree (samples, golden, fixtures)"; exit 1; fi; \
+	  if echo "$$listing" | grep -E '(^|/)__pycache__(/|$$)|\.pyc$$'; then echo "sdist-check: $$sdist holds compiled bytecode"; exit 1; fi; \
 	  for need in $(SDIST_REQUIRED); do \
 	    echo "$$listing" | grep -qxF "$$need" || { echo "sdist-check: $$sdist lacks $$need"; exit 1; }; \
 	  done; \

@@ -109,3 +109,16 @@ def test_an_external_finding_without_code_or_position():
 def test_an_external_level_outside_one_to_three_is_refused(level):
     with pytest.raises(ValueError, match=f"^level must be 1, 2 or 3, got {level}$"):
         oxedi835._core._external_diagnostic("pyx12", "msg", level)
+
+
+@pytest.mark.parametrize("argument", ["segment", "element", "component"])
+@pytest.mark.parametrize("value", [-1, 2**64, 10**30])
+def test_external_position_out_of_range_names_the_argument(argument, value):
+    with pytest.raises(ValueError, match=rf"^{argument} must be a non-negative integer, got {value}$"):
+        oxedi835._core._external_diagnostic("pyx12", "msg", 1, **{argument: value})
+
+
+@pytest.mark.parametrize("value", [-(2**63) - 1, 2**63, 99999999999999999999])
+def test_external_level_beyond_i64_is_a_value_error(value):
+    with pytest.raises(ValueError, match=rf"^level must be 1, 2 or 3, got {value}$"):
+        oxedi835._core._external_diagnostic("pyx12", "msg", value)

@@ -47,7 +47,13 @@ def _read(source: Source) -> bytes:
     if isinstance(source, (str, os.PathLike)):
         with open(source, "rb") as handle:
             return handle.read()
-    return source.read()
+    data = source.read()
+    if isinstance(data, str):
+        raise TypeError(
+            "validate needs bytes, a path, or a file opened in binary mode; "
+            "the file returned str"
+        )
+    return data
 
 
 class _Positions:
@@ -157,8 +163,9 @@ def _run(text: str, track: list[int]) -> tuple[bool, Any, list[str], BaseExcepti
     ok = False
     with _LOCK, _isolated_logging(capture):
         try:
+            # the base class holds the defaults and reads no configuration file
             ok = pyx12.x12n_document.x12n_document(
-                param=pyx12.params.params(),
+                param=pyx12.params.ParamsBase(),
                 src_file=io.StringIO(text),
                 fd_997=None,
                 fd_html=None,
@@ -286,6 +293,11 @@ def validate(source: Source) -> list[Diagnostic]:
 
     ``source`` is the file's bytes, a path, or a file object open in binary
     mode. pyx12 picks its map from the file's own version declaration.
+    pyx12's own defaults apply: extended character set (``charset="E"``),
+    no external code lists excluded (``exclude_external_codes=None``),
+    and user/system configuration files (``~/.pyx12.conf.xml``,
+    ``<prefix>/etc/pyx12.conf.xml``) are not read, so findings do not
+    depend on the machine.
 
     Each finding is an :class:`oxedi835.Diagnostic`, the type ``parse``
     returns, so both lists mix, sort by ``level`` and filter by ``origin``.

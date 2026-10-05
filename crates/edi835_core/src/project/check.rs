@@ -217,7 +217,7 @@ impl<'s> Projector<'s> {
                     element,
                     component,
                     name: def.name.clone(),
-                    codes: def.codes.len(),
+                    codes: def.codes.clone(),
                 },
                 segment.index,
                 element,

@@ -79,6 +79,15 @@ fn every_version_fault_is_named() {
             VersionError::EmptyValue { index: 1 },
             "the spec's \"version\" is invalid: \"values[1]\" is empty",
         ),
+        (
+            r#"{"segment":"GS","element":8,"values":["004010","005010","004010"]}"#,
+            VersionError::DuplicateValue {
+                value: "004010".into(),
+                first: 0,
+                second: 2,
+            },
+            "the spec's \"version\" is invalid: value \"004010\" is listed twice, at values[0] and values[2]",
+        ),
     ];
     for (version, expected_reason, expected_text) in cases {
         let err = version_error(version);

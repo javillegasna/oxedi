@@ -319,3 +319,14 @@ fn empty_segment_ids_are_rejected_with_the_loop_and_the_key() {
         );
     }
 }
+
+#[test]
+fn the_builtin_specs_define_the_same_loop_names() {
+    let names = |spec: &Spec| -> std::collections::BTreeSet<String> {
+        spec.loops().iter().map(|l| l.name.clone()).collect()
+    };
+    let five = names(&Spec::builtin_835());
+    let four = names(&Spec::builtin_835_4010());
+    assert!(!five.is_empty());
+    assert_eq!(five, four);
+}

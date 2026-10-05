@@ -1,14 +1,14 @@
-# State — 2026-10-04 (Stage 5e merged; 0.2.0rc1 in preparation)
+# State — 2026-10-04 (0.2.0 on PyPI; 0.2.1 in preparation)
 
 Snapshot for picking the project up cold. Update when a stage changes state.
 
 ## Pick up here (2026-10-04, end of session)
 
-- **Now:** release 0.2.0. Branch `release-0.2.0rc1` sets the workspace version to `0.2.0-rc.1`,
-  adds the changelog section and the PyPI `Changelog` link (#74). Next: owner merges, then
-  `make release-check TAG=v0.2.0rc1 && make tag`, approve `testpypi`, verify the install
-  (`oxedi835[pyx12]` too), then a PR bumping to `0.2.0` (rc entry shortened, as for 0.1.0),
-  tag `v0.2.0`, approve `pypi`.
+- **Now:** release 0.2.1 (branch `release-0.2.1`): type stubs generated with `pyo3-stub-gen`
+  (#102), the quick-wins sprint (#100) and PLB reason codes in every adjustment composite (#104).
+  After merge: `make release-check TAG=v0.2.1 && make tag`, approve `pypi`. 0.2.0 is on PyPI
+  (#99). Next work: 5f DuckDB extension; #82 moved to Stage 7 with D11 and #53; open issues are
+  on Project #8 (#101 stub metadata size, #103 pyright/ty evaluation among them).
 - **Stage 5e merged** (PR #80, 2026-10-04) with its amendment (PR #81: one diagnostic type,
   T58–T61): `scripts/spec_vs_pyx12.py` with `--check` in CI for 5010 and 4010; `codes` and
   `version` in the spec format; 5010 spec completed from pyx12's map (12 `required` flips, TA1,

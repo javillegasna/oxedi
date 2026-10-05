@@ -6,6 +6,10 @@ versioning; while the version is `0.x`, a minor release may break the API.
 
 ## [Unreleased]
 
+## [0.2.1] - 2026-10-04
+
+Type stubs, stricter PLB checks and small fixes.
+
 ### Added
 - Type stubs for the whole native API and a `py.typed` marker, so type checkers (mypy,
   pyright) and IDEs see every signature, parameter name, return type and attribute. The stub
@@ -96,7 +100,8 @@ First usable version of oxedi835.
 
 Release candidate of 0.1.0, published to TestPyPI only. Same code as 0.1.0.
 
-[Unreleased]: https://github.com/javillegasna/oxedi835/compare/v0.2.0...HEAD
+[Unreleased]: https://github.com/javillegasna/oxedi835/compare/v0.2.1...HEAD
+[0.2.1]: https://github.com/javillegasna/oxedi835/releases/tag/v0.2.1
 [0.2.0]: https://github.com/javillegasna/oxedi835/releases/tag/v0.2.0
 [0.2.0rc1]: https://github.com/javillegasna/oxedi835/releases/tag/v0.2.0rc1
 [0.1.0]: https://github.com/javillegasna/oxedi835/releases/tag/v0.1.0

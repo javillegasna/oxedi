@@ -163,8 +163,9 @@ def _run(text: str, track: list[int]) -> tuple[bool, Any, list[str], BaseExcepti
     ok = False
     with _LOCK, _isolated_logging(capture):
         try:
+            # the base class holds the defaults and reads no configuration file
             ok = pyx12.x12n_document.x12n_document(
-                param=pyx12.params.params(),
+                param=pyx12.params.ParamsBase(),
                 src_file=io.StringIO(text),
                 fd_997=None,
                 fd_html=None,
@@ -292,6 +293,9 @@ def validate(source: Source) -> list[Diagnostic]:
 
     ``source`` is the file's bytes, a path, or a file object open in binary
     mode. pyx12 picks its map from the file's own version declaration.
+    pyx12's own defaults apply: its configuration files (``~/.pyx12.conf.xml``
+    and the one under ``sys.prefix``) are not read, so the findings do not
+    depend on the machine.
 
     Each finding is an :class:`oxedi835.Diagnostic`, the type ``parse``
     returns, so both lists mix, sort by ``level`` and filter by ``origin``.

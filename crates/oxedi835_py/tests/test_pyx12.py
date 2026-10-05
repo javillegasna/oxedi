@@ -375,3 +375,21 @@ def test_a_finding_in_a_second_interchange_maps_to_its_own_segment():
     assert data[start:end].lstrip(b"\r\n") == b"ZZZ*1~"
     assert document[unknown.segment].raw == data[start:end]
     assert unknown.segment > len(oxedi835.parse(first).document)
+
+
+def test_user_configuration_does_not_change_the_findings(tmp_path, monkeypatch):
+    import pyx12.params
+
+    data = read("edi835_test_davisvision.RMT").replace(b"SILVER OAK", b"silver oak")
+    monkeypatch.setenv("HOME", str(tmp_path / "empty"))
+    expected = [facts(f) for f in validate(data)]
+    home = tmp_path / "home"
+    home.mkdir()
+    (home / ".pyx12.conf.xml").write_text(
+        '<?xml version="1.0" encoding="utf-8"?>'
+        '<pyx12><param name="charset"><value>B</value><type>string</type></param></pyx12>'
+    )
+    monkeypatch.setenv("HOME", str(home))
+    # the file is read by pyx12 itself, so the test means something
+    assert pyx12.params.params().get("charset") == "B"
+    assert [facts(f) for f in validate(data)] == expected

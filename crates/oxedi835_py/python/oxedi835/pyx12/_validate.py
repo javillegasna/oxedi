@@ -47,7 +47,13 @@ def _read(source: Source) -> bytes:
     if isinstance(source, (str, os.PathLike)):
         with open(source, "rb") as handle:
             return handle.read()
-    return source.read()
+    data = source.read()
+    if isinstance(data, str):
+        raise TypeError(
+            "validate needs bytes, a path, or a file opened in binary mode; "
+            "the file returned str"
+        )
+    return data
 
 
 class _Positions:

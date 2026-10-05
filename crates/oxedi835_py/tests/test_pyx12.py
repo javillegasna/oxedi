@@ -338,3 +338,9 @@ def test_a_failure_is_level_1_without_code():
         "External",
     )
     assert failure.rule.startswith("could not finish validating")
+
+
+def test_a_text_mode_file_names_binary_mode():
+    text = io.StringIO(read(EYEMED).decode("latin-1"))
+    with pytest.raises(TypeError, match="opened in binary mode; the file returned str"):
+        validate(text)

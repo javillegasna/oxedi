@@ -67,11 +67,15 @@ fn the_4010_spec_carries_the_4010_codes_and_structure() {
     assert!(four.segment(b"RDM").is_none());
 }
 
-/// The emedny fixture with one PLB carrying two adjustment composites, the
-/// second with `second_code`, optionally declared as 4010.
-fn with_plb(second_code: &str, declared_4010: bool) -> Vec<u8> {
+/// The emedny fixture with one PLB carrying six adjustment composites, the
+/// first valid and the other five with `code`, optionally declared as 4010.
+fn with_plb(code: &str, declared_4010: bool) -> Vec<u8> {
     let text = String::from_utf8(common::load_fixture("emedny_sample.txt")).unwrap();
-    let plb = format!("PLB*9999999995*20101231*CV:REF1*1.00*{second_code}:REF2*2.00~");
+    let mut plb = String::from("PLB*9999999995*20101231*CV:REF1*1.00");
+    for n in 2..=6 {
+        plb.push_str(&format!("*{code}:REF{n}*{n}.00"));
+    }
+    plb.push('~');
     let mut text = text.replace("SE*", &format!("{plb}SE*"));
     if declared_4010 {
         text = text.replace("005010X221A1", "004010X091A1");
@@ -97,9 +101,13 @@ fn code_findings(bytes: Vec<u8>) -> Vec<Diagnostic> {
 #[test]
 fn a_5010_plb_checks_the_reason_code_of_every_adjustment_composite() {
     let found = code_findings(with_plb("ZZ", false));
-    assert_eq!(found.len(), 1);
-    assert_eq!((found[0].element, found[0].component), (Some(5), Some(1)));
-    assert_eq!(found[0].datum, b"ZZ");
+    let places: Vec<_> = found.iter().map(|d| (d.element, d.component)).collect();
+    let expected: Vec<_> = [5, 7, 9, 11, 13]
+        .into_iter()
+        .map(|e| (Some(e), Some(1)))
+        .collect();
+    assert_eq!(places, expected);
+    assert!(found.iter().all(|d| d.datum == b"ZZ"));
     assert!(code_findings(with_plb("OA", false)).is_empty());
 }
 

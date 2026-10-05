@@ -553,3 +553,31 @@ fn span_resolves_the_segment_bytes_from_the_document() {
     assert_eq!(at(Some(9)).span(&document), None);
     assert_eq!(at(None).span(&document), None);
 }
+
+#[test]
+fn external_displays_the_message_the_origin_and_the_code() {
+    let rule = |code: Option<&str>| Rule::External {
+        origin: "pyx12".into(),
+        code: code.map(Into::into),
+        message: "Mandatory data element missing".into(),
+        level: SnipLevel::L2,
+    };
+    let diagnostic = Diagnostic::new(
+        rule(Some("1")),
+        Some(17),
+        Some(2),
+        None,
+        Vec::new(),
+        b"".to_vec(),
+    );
+    assert_eq!(diagnostic.level, SnipLevel::L2);
+    assert_eq!(diagnostic.rule.kind(), "External");
+    assert_eq!(
+        diagnostic.to_string(),
+        "SNIP 2 · Mandatory data element missing (reported by pyx12, code 1) · segment #17, element 2 · at the root · datum \"\""
+    );
+    assert_eq!(
+        rule(None).to_string(),
+        "Mandatory data element missing (reported by pyx12)"
+    );
+}

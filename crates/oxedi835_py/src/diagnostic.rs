@@ -1,6 +1,7 @@
 //! `Diagnostic`: one finding about a file's data, as Python attributes.
 
-use edi835_core::{Diagnostic, SnipLevel};
+use edi835_core::{Diagnostic, Rule, SnipLevel};
+use pyo3::exceptions::PyValueError;
 use pyo3::prelude::*;
 use pyo3::types::{PyBytes, PyList};
 
@@ -29,6 +30,26 @@ impl PyDiagnostic {
             SnipLevel::L1 => 1,
             SnipLevel::L2 => 2,
             SnipLevel::L3 => 3,
+        }
+    }
+
+    /// Who reported the finding: `"oxedi835"` for the parser's own rules, the
+    /// validator's name for an external finding.
+    #[getter]
+    fn origin(&self) -> &str {
+        match &self.inner.rule {
+            Rule::External { origin, .. } => origin,
+            _ => "oxedi835",
+        }
+    }
+
+    /// The external validator's own code for the finding; `None` for the
+    /// parser's own rules and for external findings without one.
+    #[getter]
+    fn code(&self) -> Option<&str> {
+        match &self.inner.rule {
+            Rule::External { code, .. } => code.as_deref(),
+            _ => None,
         }
     }
 
@@ -85,14 +106,61 @@ impl PyDiagnostic {
 
     fn __repr__(&self) -> String {
         format!(
-            "Diagnostic(level={}, kind='{}', segment={}, element={}, component={})",
+            "Diagnostic(level={}, origin='{}', kind='{}', segment={}, element={}, component={})",
             self.level(),
+            self.origin(),
             self.kind(),
             position(self.inner.segment),
             position(self.inner.element),
             position(self.inner.component)
         )
     }
+}
+
+/// Builds a `Diagnostic` for a finding reported by an external validator.
+///
+/// Internal: adapters to external validators call it; it is not part of the
+/// public API. The finding has no loop path; `level` must be 1, 2 or 3.
+#[pyfunction]
+#[pyo3(
+    name = "_external_diagnostic",
+    signature = (origin, message, level, code=None, segment=None, element=None, component=None, datum=b"".to_vec())
+)]
+#[allow(clippy::too_many_arguments)]
+pub fn external_diagnostic(
+    origin: String,
+    message: String,
+    level: i64,
+    code: Option<String>,
+    segment: Option<usize>,
+    element: Option<usize>,
+    component: Option<usize>,
+    datum: Vec<u8>,
+) -> PyResult<PyDiagnostic> {
+    let level = match level {
+        1 => SnipLevel::L1,
+        2 => SnipLevel::L2,
+        3 => SnipLevel::L3,
+        _ => {
+            return Err(PyValueError::new_err(format!(
+                "level must be 1, 2 or 3, got {level}"
+            )));
+        }
+    };
+    let rule = Rule::External {
+        origin,
+        code,
+        message,
+        level,
+    };
+    Ok(PyDiagnostic::from(Diagnostic::new(
+        rule,
+        segment,
+        element,
+        component,
+        Vec::new(),
+        datum,
+    )))
 }
 
 /// The diagnostics as a Python list of `Diagnostic`.

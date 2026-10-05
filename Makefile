@@ -57,9 +57,10 @@ py-test: py-dev ## build and run the Python suite
 stubs: ## regenerate the native module's type stub from the binding
 	cargo run --locked -p oxedi835_py --bin stub_gen
 
-stubtest: py-dev ## check the stub against the built module and the public API with mypy --strict
+stubtest: py-dev ## check the stub against the built module, the public API with mypy --strict, and the package with mypy
 	$(PYTHON) -m mypy.stubtest oxedi835._core $(if $(wildcard $(STUBTEST_ALLOWLIST)),--allowlist $(STUBTEST_ALLOWLIST))
 	$(PYTHON) -m mypy --strict $(PY_TESTS)/typing/usage.py
+	$(PYTHON) -m mypy --config-file crates/oxedi835_py/pyproject.toml crates/oxedi835_py/python/oxedi835
 
 compat-oracle: ## compare with edi-835-parser on DIR (outside the repo); prints counts and verdicts only
 	@test -n "$(DIR)" || (echo "usage: make compat-oracle DIR=/path/outside/the/repo [OUT=report.txt]" && exit 1)

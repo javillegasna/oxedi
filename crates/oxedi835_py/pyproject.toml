@@ -46,5 +46,10 @@ exclude = [
     { path = "**/*.pyc", format = "wheel" },
 ]
 
+# The package check (`make stubtest`): pyx12 and pyarrow ship no type information.
+[[tool.mypy.overrides]]
+module = ["pyx12", "pyx12.*", "pyarrow", "pyarrow.*"]
+ignore_missing_imports = true
+
 [tool.pytest.ini_options]
 testpaths = ["tests"]

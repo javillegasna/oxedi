@@ -1,3 +1,5 @@
+import inspect
+
 import pytest
 
 import oxedi835
@@ -88,6 +90,45 @@ def test_an_external_finding_is_a_diagnostic_with_its_origin_and_code():
         "Diagnostic(level=2, origin='pyx12', kind='External', segment=3, "
         "element=2, component=None)"
     )
+
+
+def test_external_diagnostic_signature_names_kinds_and_defaults():
+    # The signature is written three times in the binding (`signature =`,
+    # `text_signature` and the stub description); this pins the one Python
+    # reports, and stubtest holds the stub to it.
+    parameters = inspect.signature(oxedi835._core._external_diagnostic).parameters
+    keyword = inspect.Parameter.POSITIONAL_OR_KEYWORD
+    empty = inspect.Parameter.empty
+    assert [(p.name, p.kind, p.default) for p in parameters.values()] == [
+        ("origin", keyword, empty),
+        ("message", keyword, empty),
+        ("level", keyword, empty),
+        ("code", keyword, None),
+        ("segment", keyword, None),
+        ("element", keyword, None),
+        ("component", keyword, None),
+        ("datum", keyword, b""),
+    ]
+
+
+def test_external_diagnostic_takes_every_parameter_by_keyword():
+    d = oxedi835._core._external_diagnostic(
+        origin="pyx12",
+        message="msg",
+        level=3,
+        code="7",
+        segment=4,
+        element=2,
+        component=1,
+        datum=b"Z",
+    )
+    assert (d.origin, d.rule, d.level, d.code) == (
+        "pyx12",
+        "msg (reported by pyx12, code 7)",
+        3,
+        "7",
+    )
+    assert (d.segment, d.element, d.component, d.datum) == (4, 2, 1, b"Z")
 
 
 def test_an_external_finding_without_code_or_position():

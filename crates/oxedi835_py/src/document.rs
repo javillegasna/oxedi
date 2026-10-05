@@ -6,7 +6,8 @@ use pyo3::prelude::*;
 use pyo3::types::{PyBytes, PyList};
 use pyo3_stub_gen::derive::{gen_methods_from_python, gen_stub_pyclass, gen_stub_pymethods};
 use pyo3_stub_gen::type_info::{
-    MethodInfo, MethodType, ParameterDefault, ParameterInfo, ParameterKind, PyMethodsInfo,
+    MemberInfo, MethodInfo, MethodType, ParameterDefault, ParameterInfo, ParameterKind,
+    PyMethodsInfo,
 };
 use pyo3_stub_gen::{PyStubType, TypeInfo};
 
@@ -59,11 +60,26 @@ const fn optional_delimiter(name: &'static str) -> ParameterInfo {
 }
 
 // `Delimiters.__new__` is described by hand: its byte-string defaults have
-// no Python form the derive macros can write.
+// no Python form the derive macros can write. It mirrors `signature =` on
+// `PyDelimiters::new`. `__hash__` is `None`: the class compares by value and
+// is not hashable.
 pyo3_stub_gen::inventory::submit! {
     PyMethodsInfo {
         struct_id: std::any::TypeId::of::<PyDelimiters>,
-        attrs: &[],
+        attrs: &[MemberInfo {
+            name: "__hash__",
+            // Overriding `object.__hash__` with `None` is how typeshed spells an
+            // unhashable class; the ignore keeps type checkers from flagging it.
+            r#type: || {
+                TypeInfo::with_module(
+                    "typing.ClassVar[None]  # type: ignore[assignment]",
+                    "typing".into(),
+                )
+            },
+            doc: "",
+            default: None,
+            deprecated: None,
+        }],
         getters: &[],
         setters: &[],
         methods: &[MethodInfo {
@@ -118,6 +134,7 @@ fn single<'py>(py: Python<'py>, byte: u8) -> Bound<'py, PyBytes> {
 impl PyDelimiters {
     #[new]
     #[gen_stub(skip)]
+    // `text_signature` mirrors `signature =`, as the stub description above does.
     #[pyo3(
         signature = (element = b"*".as_slice(), component = b":".as_slice(), segment = b"~".as_slice(), repetition = None, release = None),
         text_signature = "(element=b'*', component=b':', segment=b'~', repetition=None, release=None)"

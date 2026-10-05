@@ -6,7 +6,7 @@ import datetime
 import functools
 import os
 import warnings
-from typing import IO, TYPE_CHECKING, Dict, Iterable, Iterator, List, Optional, Union
+from typing import IO, TYPE_CHECKING, Dict, Iterable, Iterator, List, Optional, Union, cast
 
 from .. import ParseError
 from . import _codes
@@ -206,7 +206,8 @@ class TransactionSets:
         return data[static + variable]
 
     def sum_payments(self) -> float:
-        return sum((t.financial_information.amount_paid for t in self), 0)
+        # As in the library, a transaction without a BPR or an amount fails here.
+        return sum((t.financial_information.amount_paid for t in self), 0)  # type: ignore[union-attr, misc]
 
     def count_claims(self) -> int:
         return sum(len(t.claims) for t in self)
@@ -239,9 +240,9 @@ def parse_many(items: Iterable[Union[BytesLike, IO[bytes]]]) -> TransactionSets:
     sets = []
     for item in items:
         if hasattr(item, "read"):
-            sets.extend(parse_file_obj(item).transaction_sets)
+            sets.extend(parse_file_obj(cast(IO[bytes], item)).transaction_sets)
         else:
-            sets.extend(parse_bytes(item).transaction_sets)
+            sets.extend(parse_bytes(cast(BytesLike, item)).transaction_sets)
     return TransactionSets(sets)
 
 

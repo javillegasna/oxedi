@@ -6,6 +6,7 @@ import decimal as decimal_module
 import functools
 import json
 from collections import defaultdict
+from typing import Optional, Tuple
 
 from .. import ParseError, Spec, parse
 from .._core import EDI_835_PARSER_PATCH
@@ -27,7 +28,7 @@ def interchange_trigger() -> bytes:
     return json.loads(spec().to_json())["loops"]["interchange"]["trigger"]["segment"].encode()
 
 
-def position(table, column):
+def position(table: str, column: str) -> Tuple[int, Optional[int]]:
     """The element and component (``None`` for a whole element) that the patch
     reads for ``column`` of ``table``."""
     source = PATCH["tables"][table]["columns"][column]

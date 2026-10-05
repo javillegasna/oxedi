@@ -51,6 +51,7 @@ class Delimiters:
     r"""
     The five delimiters of an interchange.
     """
+    __hash__: typing.ClassVar[None]  # type: ignore[assignment]
     @property
     def element(self) -> bytes:
         r"""

@@ -8,7 +8,10 @@
 //! reproduces edi-835-parser applies the same file the core's goldens test.
 //! Every class, function and exception is also described for the stub
 //! generator; the `stub_gen` binary writes the descriptions as
-//! `python/oxedi835/_core.pyi`.
+//! `python/oxedi835/_core.pyi`. stubtest is what guards completeness: a
+//! `#[pymethods]` block or `#[pyfunction]` without its `gen_stub` attribute
+//! leaves the generated stub unchanged, so regenerating it shows no drift,
+//! while stubtest reports the item as missing from the stub.
 
 use pyo3::prelude::*;
 

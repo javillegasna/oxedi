@@ -143,6 +143,7 @@ fn position_arg(name: &str, value: Option<&Bound<'_, PyAny>>) -> PyResult<Option
 ///
 /// Internal: adapters to external validators call it; it is not part of the
 /// public API. The finding has no loop path; `level` must be 1, 2 or 3.
+// `text_signature` mirrors `signature =`, as the stub description below does.
 #[pyfunction]
 #[pyo3(
     name = "_external_diagnostic",
@@ -234,6 +235,7 @@ fn none() -> String {
 // `_external_diagnostic` is described by hand: its positions are read from
 // any Python object to name the argument in the error, and `datum` defaults
 // to an empty byte string, which the derive macros cannot write in Python.
+// It mirrors `signature =` on `external_diagnostic`.
 pyo3_stub_gen::inventory::submit! {
     PyFunctionInfo {
         name: "_external_diagnostic",

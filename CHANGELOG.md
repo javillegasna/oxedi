@@ -7,10 +7,9 @@ versioning; while the version is `0.x`, a minor release may break the API.
 ## [Unreleased]
 
 ### Added
-- Type stubs for the native API and a `py.typed` marker, so type checkers (mypy, pyright)
-  and IDEs see the signatures, parameter names, return types and attributes of `parse`,
-  `stream`, `Spec`, `Result`, `Tables`, `Table`, `Diagnostic`, `Document`, `Segment` and
-  `Delimiters`. The stub is generated from the binding and checked against the runtime in CI.
+- Type stubs for the whole native API and a `py.typed` marker, so type checkers (mypy,
+  pyright) and IDEs see every signature, parameter name, return type and attribute. The stub
+  is generated from the binding and checked against the runtime in CI.
 
 ### Changed
 - `CodeNotInList` messages list the allowed codes when there are five or fewer.

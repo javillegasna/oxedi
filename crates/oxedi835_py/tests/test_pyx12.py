@@ -377,6 +377,15 @@ def test_a_finding_in_a_second_interchange_maps_to_its_own_segment():
     assert unknown.segment > len(oxedi835.parse(first).document)
 
 
+def reports_error(node):
+    """True when any nested ``errors`` list in pyx12's JSON report is non-empty."""
+    if isinstance(node, dict):
+        return bool(node.get("errors")) or any(reports_error(v) for v in node.values())
+    if isinstance(node, list):
+        return any(reports_error(v) for v in node)
+    return False
+
+
 def test_user_configuration_does_not_change_the_findings(tmp_path, monkeypatch):
     import pyx12.params
 
@@ -408,5 +417,5 @@ def test_user_configuration_does_not_change_the_findings(tmp_path, monkeypatch):
         fd_html=None,
         fd_json=errors,
     )
-    assert errors.getvalue()
+    assert reports_error(json.loads(errors.getvalue()))
     assert [facts(f) for f in validate(data)] == expected

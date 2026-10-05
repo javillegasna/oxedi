@@ -344,3 +344,34 @@ def test_a_text_mode_file_names_binary_mode():
     text = io.StringIO(read(EYEMED).decode("latin-1"))
     with pytest.raises(TypeError, match="opened in binary mode; the file returned str"):
         validate(text)
+
+
+def renumbered(data, number):
+    """``data`` with its interchange control number (ISA13 and IEA02) replaced."""
+    elements = data.split(b"*")
+    old = elements[13]
+    return data.replace(b"*" + old + b"*", b"*" + number + b"*").replace(
+        b"IEA*1*" + old, b"IEA*1*" + number
+    )
+
+
+def test_a_finding_in_a_second_interchange_maps_to_its_own_segment():
+    first = read("edi835_test_davisvision.RMT")
+    second = renumbered(first, b"%09d" % 987654321)
+    assert second != first
+    bad = second[: second.index(b"BPR*")] + b"ZZZ*1~" + second[second.index(b"BPR*") :]
+    data = first + bad
+    document = oxedi835.parse(data).document
+    assert sum(1 for i in range(len(document)) if document[i].id == b"ISA") == 2
+    assert validate(first + second) == []
+    findings = validate(data)
+    unknown = next(f for f in findings if f.rule.startswith("Segment ZZZ*1 not found"))
+    planted = len(first) + bad.index(b"ZZZ*1~")
+    assert unknown.segment is not None
+    # a segment's raw bytes hold the line break that precedes it
+    start, end = document[unknown.segment].span
+    assert end == planted + len(b"ZZZ*1~")
+    assert start <= planted
+    assert data[start:end].lstrip(b"\r\n") == b"ZZZ*1~"
+    assert document[unknown.segment].raw == data[start:end]
+    assert unknown.segment > len(oxedi835.parse(first).document)

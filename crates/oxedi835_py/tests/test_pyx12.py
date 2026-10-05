@@ -380,12 +380,14 @@ def test_a_finding_in_a_second_interchange_maps_to_its_own_segment():
 def test_user_configuration_does_not_change_the_findings(tmp_path, monkeypatch):
     import pyx12.params
 
-    # Lowercase text serves as the test probe: basic charset B rejects it,
-    # extended charset E (default) accepts it; the test verifies validate()
-    # ignores the B charset setting in user configuration files.
+    # Lowercase text is the probe: basic charset B rejects it, the default
+    # extended charset E accepts it. validate() must report what the defaults
+    # report (nothing here) even though pyx12, given this user's configuration,
+    # would reject the same bytes.
     data = read("edi835_test_davisvision.RMT").replace(b"SILVER OAK", b"silver oak")
     monkeypatch.setenv("HOME", str(tmp_path / "empty"))
     expected = [facts(f) for f in validate(data)]
+    assert expected == []
     home = tmp_path / "home"
     home.mkdir()
     (home / ".pyx12.conf.xml").write_text(
@@ -395,4 +397,16 @@ def test_user_configuration_does_not_change_the_findings(tmp_path, monkeypatch):
     monkeypatch.setenv("HOME", str(home))
     # the file is read by pyx12 itself, so the test means something
     assert pyx12.params.params().get("charset") == "B"
+    # pyx12 run with that configuration does reject the probe
+    import pyx12.x12n_document
+
+    errors = io.StringIO()
+    pyx12.x12n_document.x12n_document(
+        param=pyx12.params.params(),
+        src_file=io.StringIO(data.decode("latin-1")),
+        fd_997=None,
+        fd_html=None,
+        fd_json=errors,
+    )
+    assert errors.getvalue()
     assert [facts(f) for f in validate(data)] == expected

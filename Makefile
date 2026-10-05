@@ -3,6 +3,8 @@
 
 PY_MANIFEST := crates/oxedi835_py/Cargo.toml
 PY_TESTS    := crates/oxedi835_py/tests
+# stubtest reads an allowlist only when one exists; each entry carries its reason.
+STUBTEST_ALLOWLIST := crates/oxedi835_py/stubtest-allowlist.txt
 VENV        := .venv
 PYTHON      := $(VENV)/bin/python
 # Prefer the venv's tools; fall back to whatever is on PATH (asdf shims, uv tool installs).
@@ -15,7 +17,7 @@ WHEELS      := target/wheels
 CARGO_VERSION := $(shell sed -n 's/^version = "\(.*\)"/\1/p' Cargo.toml | head -n 1)
 VERSION     := $(shell echo '$(CARGO_VERSION)' | sed -E 's/-(a|b|rc)\.?/\1/; s/-dev\.?/.dev/')
 
-.PHONY: help version release-check sdist-check gates test clippy fmt fmt-check bench-check doc venv py-dev py-test compat-oracle dist smoke publish-test publish-test-verify publish tag clean-dist
+.PHONY: help version release-check sdist-check wheel-check gates test clippy fmt fmt-check bench-check doc venv py-dev py-test stubs stubtest compat-oracle dist smoke publish-test publish-test-verify publish tag clean-dist
 
 help: ## list targets
 	@grep -E '^[a-z][a-z-]*:.*##' $(MAKEFILE_LIST) | sed 's/:.*## /\t/'
@@ -44,13 +46,21 @@ doc: ## rustdoc with warnings as errors
 # ---- Python binding ----
 venv: ## create .venv with uv and the dev tools
 	uv venv $(VENV) --python 3.13
-	uv pip install --python $(PYTHON) maturin pytest polars pyarrow pandas "edi-835-parser==1.8.0" duckdb
+	uv pip install --python $(PYTHON) maturin pytest polars pyarrow pandas "edi-835-parser==1.8.0" duckdb mypy pandas-stubs
 
 py-dev: ## build the extension into .venv (debug)
 	$(MATURIN) develop --uv --manifest-path $(PY_MANIFEST)
 
 py-test: py-dev ## build and run the Python suite
 	$(PYTEST) -q $(PY_TESTS)
+
+stubs: ## regenerate the native module's type stub from the binding
+	cargo run --locked -p oxedi835_py --bin stub_gen
+
+stubtest: py-dev ## check the stub against the built module, the public API with mypy --strict, and the package with mypy
+	$(PYTHON) -m mypy.stubtest oxedi835._core $(if $(wildcard $(STUBTEST_ALLOWLIST)),--allowlist $(STUBTEST_ALLOWLIST))
+	$(PYTHON) -m mypy --strict $(PY_TESTS)/typing/usage.py
+	$(PYTHON) -m mypy --config-file crates/oxedi835_py/pyproject.toml crates/oxedi835_py/python/oxedi835
 
 compat-oracle: ## compare with edi-835-parser on DIR (outside the repo); prints counts and verdicts only
 	@test -n "$(DIR)" || (echo "usage: make compat-oracle DIR=/path/outside/the/repo [OUT=report.txt]" && exit 1)
@@ -60,6 +70,7 @@ dist: clean-dist ## build the sdist and the release wheel into target/wheels
 	$(MATURIN) sdist --manifest-path $(PY_MANIFEST) -o $(WHEELS)
 	@$(MAKE) --no-print-directory sdist-check
 	$(MATURIN) build --release --manifest-path $(PY_MANIFEST) -o $(WHEELS)
+	@$(MAKE) --no-print-directory wheel-check
 	@ls -l $(WHEELS)
 
 # Paths are matched exactly against the archive's listing, under its single top directory.
@@ -78,6 +89,11 @@ sdist-check: ## fail if the sdist holds the core's test trees or lacks what the 
 	  for f in LICENSE THIRD_PARTY_NOTICES; do \
 	    tar xzOf "$$sdist" "$$top/$$f" | cmp -s - "$$f" || { echo "sdist-check: $$f in $$sdist differs from the repository's $$f"; exit 1; }; \
 	  done; echo "sdist-check: ok ($$(echo "$$listing" | wc -l) entries)"
+
+wheel-check: ## fail if the built wheel lacks the type stub, py.typed or the licenses, or holds bytecode
+	@wheel=$$(ls $(WHEELS)/oxedi835-*.whl 2>/dev/null | head -n 1); \
+	  test -n "$$wheel" || { echo "wheel-check: no oxedi835-*.whl in $(WHEELS); run make dist first"; exit 1; }; \
+	  $(PYTHON) scripts/check_wheel.py "$$wheel" .
 
 smoke: ## install the built wheel in a clean venv outside the repo and run the suite
 	scripts/smoke_wheel.sh

@@ -6,7 +6,7 @@ import datetime
 import functools
 import os
 import warnings
-from typing import Iterator, List, Optional
+from typing import IO, TYPE_CHECKING, Dict, Iterable, Iterator, List, Optional, Union, cast
 
 from .. import ParseError
 from . import _codes
@@ -15,8 +15,17 @@ from ._frame import strict
 from ._tables import load, position
 from ._views import (
     Address, Claim, FinancialInformation, Interchange, Location, Organization,
-    OrganizationSegment, at_segment, mapped,
+    OrganizationSegment, Service, at_segment, mapped,
 )
+
+if TYPE_CHECKING:
+    import pandas as pd
+
+    from .. import Document
+    from ._tables import Rows
+
+# What ``parse_bytes`` reads: bytes or a buffer of them.
+BytesLike = Union[bytes, bytearray, memoryview]
 
 _SUFFIXES = (".txt", ".835", ".DAT")
 TRANSACTION_DATE, _ = position("rows_payments", "transaction_date")
@@ -28,11 +37,11 @@ LOCATION = {k: position("rows_organizations", k) for k in ("city", "state", "zip
 class TransactionSet:
     """One transaction (ST to SE) of one file."""
 
-    def __init__(self, document, tables, file_path):
+    def __init__(self, document: Optional[Document], tables: Dict[str, Rows], file_path: str) -> None:
         self._d, self._t, self.file_path = document, tables, file_path
 
     @functools.cached_property
-    def interchange(self):
+    def interchange(self) -> Optional[Interchange]:
         """This transaction's ISA (the last one when the file has no transaction)."""
         t = self._t["rows_interchanges"]
         if not len(t):
@@ -48,7 +57,7 @@ class TransactionSet:
         )
 
     @functools.cached_property
-    def financial_information(self):
+    def financial_information(self) -> Optional[FinancialInformation]:
         """The BPR fields, or ``None`` without a BPR, as in the library."""
         t = self._t["rows_payments"]
         if not len(t) or t["bpr_segment"][0] is None:
@@ -108,13 +117,15 @@ class TransactionSet:
     def payee(self) -> Organization:
         return self._organization("payee")
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         return "\n".join(str(item) for item in (
             ("interchange", self.interchange), ("financial_information", self.financial_information),
             ("claims", self.claims), ("organizations", self.organizations), ("file_path", self.file_path)))
 
     @staticmethod
-    def serialize_service(financial_information, payer, claim, service) -> dict:
+    def serialize_service(
+        financial_information: FinancialInformation, payer: Organization, claim: Claim, service: Service,
+    ) -> Dict[str, object]:
         """The library's columns for one service, in its order."""
         start = service.service_period_start or claim.claim_statement_period_start
         end = service.service_period_end or claim.claim_statement_period_end
@@ -141,7 +152,7 @@ class TransactionSet:
             "was_forwarded": status.was_forwarded,
         }
 
-    def to_dataframe(self, extended: bool = False):
+    def to_dataframe(self, extended: bool = False) -> pd.DataFrame:
         """One row per service, as edi-835-parser builds it; with ``extended``,
         also the rows and ``x_`` columns that frame leaves out (claim-only and
         provider-adjustment rows can widen strict columns' dtypes: ``int`` to
@@ -157,7 +168,7 @@ class TransactionSet:
 class TransactionSets:
     """Every transaction of the files parsed."""
 
-    def __init__(self, transaction_sets):
+    def __init__(self, transaction_sets: Iterable[TransactionSet]) -> None:
         self.transaction_sets = list(transaction_sets)
 
     def __iter__(self) -> Iterator[TransactionSet]:
@@ -166,10 +177,10 @@ class TransactionSets:
     def __len__(self) -> int:
         return len(self.transaction_sets)
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         return "\n".join(str(t) for t in self)
 
-    def to_dataframe(self, extended: bool = False):
+    def to_dataframe(self, extended: bool = False) -> pd.DataFrame:
         """Every transaction's rows, with the numbered columns sorted last.
         The frames are concatenated one at a time onto an empty frame, as the
         library does, so empty transactions give the same dtypes. With
@@ -189,13 +200,14 @@ class TransactionSets:
         return TransactionSets.sort_columns(data)
 
     @staticmethod
-    def sort_columns(data):
+    def sort_columns(data: pd.DataFrame) -> pd.DataFrame:
         variable = sorted(c for c in data.columns if any(s in c for s in ("adj", "ref", "rem")))
         static = [c for c in data.columns if c not in variable]
         return data[static + variable]
 
     def sum_payments(self) -> float:
-        return sum((t.financial_information.amount_paid for t in self), 0)
+        # As in the library, a transaction without a BPR or an amount fails here.
+        return sum((t.financial_information.amount_paid for t in self), 0)  # type: ignore[union-attr, misc]
 
     def count_claims(self) -> int:
         return sum(len(t.claims) for t in self)
@@ -212,25 +224,25 @@ def _sets(data, file_path) -> List[TransactionSet]:
     return [TransactionSet(document, tables, file_path) for tables in parts]
 
 
-def parse_bytes(data, file_path: Optional[str] = None) -> TransactionSets:
+def parse_bytes(data: BytesLike, file_path: Optional[str] = None) -> TransactionSets:
     """Parses one file held in ``bytes``, ``bytearray`` or ``memoryview``;
     ``file_path`` is what each ``TransactionSet.file_path`` reports."""
     return TransactionSets(_sets(data, "<bytes>" if file_path is None else file_path))
 
 
-def parse_file_obj(file, file_path: Optional[str] = None) -> TransactionSets:
+def parse_file_obj(file: IO[bytes], file_path: Optional[str] = None) -> TransactionSets:
     """Parses what ``file.read()`` returns (a binary file object)."""
     return parse_bytes(file.read(), file_path)
 
 
-def parse_many(items) -> TransactionSets:
+def parse_many(items: Iterable[Union[BytesLike, IO[bytes]]]) -> TransactionSets:
     """Parses each item (bytes-like or binary file object) in order."""
     sets = []
     for item in items:
         if hasattr(item, "read"):
-            sets.extend(parse_file_obj(item).transaction_sets)
+            sets.extend(parse_file_obj(cast(IO[bytes], item)).transaction_sets)
         else:
-            sets.extend(parse_bytes(item).transaction_sets)
+            sets.extend(parse_bytes(cast(BytesLike, item)).transaction_sets)
     return TransactionSets(sets)
 
 
@@ -239,7 +251,7 @@ def _path(path) -> List[TransactionSet]:
         return _sets(handle.read(), str(path))
 
 
-def parse(path: str, debug: bool = False) -> TransactionSets:
+def parse(path: Union[str, "os.PathLike[str]"], debug: bool = False) -> TransactionSets:
     """Parses a file path, or every ``.txt``, ``.835`` and ``.DAT`` file of a
     directory, with the same signature and behaviour as ``edi_835_parser.parse``.
     Data already in memory goes through ``parse_bytes``, ``parse_file_obj`` or

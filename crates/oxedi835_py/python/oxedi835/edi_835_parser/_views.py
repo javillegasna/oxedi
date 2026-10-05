@@ -5,11 +5,15 @@ from __future__ import annotations
 import dataclasses
 import enum
 import functools
-from typing import Optional
+from typing import TYPE_CHECKING, Dict, List, Optional
 
 from . import _codes
 from ._convert import date, integer, money, name, text, written
 from ._tables import position
+
+if TYPE_CHECKING:
+    from .. import Document
+    from ._tables import Rows
 
 ALLOWED_UNITS = position("rows", "allowed_units")
 BILLED_UNITS = position("rows", "billed_units")
@@ -186,7 +190,7 @@ def at_segment(items, index):
 class Service:
     """One service line (loop 2110)."""
 
-    def __init__(self, tables, document, at, file_path):
+    def __init__(self, tables: Dict[str, Rows], document: Optional[Document], at: int, file_path: str) -> None:
         self._t, self._d, self._at, self._file_path = tables, document, at, file_path
         self._row = tables["rows"]["row"][at]
 
@@ -216,23 +220,23 @@ class Service:
         )
 
     @functools.cached_property
-    def dates(self):
+    def dates(self) -> List[Date]:
         t, ats = self._under("rows_service_dates")
         return [Date(mapped(_codes.DATE_QUALIFIERS, text(t["qualifier"][i])),
                      date(t["date"][i], self._d, t["segment"][i], SERVICE_DATE, self._file_path), t["segment"][i]) for i in ats]
 
     @functools.cached_property
-    def references(self):
+    def references(self) -> List[Reference]:
         t, ats = self._under("rows_references")
         return [Reference(coded(_codes.REFERENCE_QUALIFIERS, text(t["qual"][i])), text(t["value"][i])) for i in ats]
 
     @functools.cached_property
-    def remarks(self):
+    def remarks(self) -> List[Remark]:
         t, ats = self._under("rows_remarks")
         return [Remark(coded(_codes.REMARK_QUALIFIERS, text(t["qual"][i])), coded(_codes.REMARK_CODES, text(t["code"][i]))) for i in ats]
 
     @functools.cached_property
-    def amount(self):
+    def amount(self) -> Optional[Amount]:
         """The service's last AMT: the library keeps the last one it reads,
         while a spec column takes the first match."""
         t, ats = self._under("rows_service_amounts")
@@ -242,13 +246,13 @@ class Service:
         return Amount(mapped(_codes.AMOUNT_QUALIFIERS, text(t["qualifier"][i])), money(t["amount"][i]))
 
     @functools.cached_property
-    def adjustments(self):
+    def adjustments(self) -> List[ServiceAdjustment]:
         t, ats = self._under("rows_adjustments")
         return [ServiceAdjustment(coded(_codes.ADJUSTMENT_GROUPS, text(t["group"][i])),
                                   coded(_codes.ADJUSTMENT_REASONS, text(t["code"][i])), money(t["amount"][i])) for i in ats]
 
     @property
-    def allowed_amount(self):
+    def allowed_amount(self) -> Optional[float]:
         if self.amount and self.amount.qualifier == _codes.ALLOWED_ACTUAL:
             return self.amount.amount
         return None
@@ -257,22 +261,22 @@ class Service:
         return at_segment(self.dates, self._t["rows"][column][self._at])
 
     @property
-    def service_date(self):
+    def service_date(self) -> Optional[Date]:
         return self._date("service_date_segment")
 
     @property
-    def service_period_start(self):
+    def service_period_start(self) -> Optional[Date]:
         return self._date("service_period_start_segment") or self.service_date
 
     @property
-    def service_period_end(self):
+    def service_period_end(self) -> Optional[Date]:
         return self._date("service_period_end_segment") or self.service_date
 
 
 class Claim:
     """One claim (loop 2100) with its services."""
 
-    def __init__(self, tables, document, at, file_path):
+    def __init__(self, tables: Dict[str, Rows], document: Optional[Document], at: int, file_path: str) -> None:
         self._t, self._d, self._at, self._file_path = tables, document, at, file_path
         self._row = tables["rows_claims"]["row"][at]
 
@@ -292,7 +296,7 @@ class Claim:
         )
 
     @functools.cached_property
-    def entities(self):
+    def entities(self) -> List[Entity]:
         t, ats = self._under("rows_claim_entities")
         out = []
         for i in ats:
@@ -310,23 +314,23 @@ class Claim:
         return out
 
     @functools.cached_property
-    def services(self):
+    def services(self) -> List[Service]:
         rows = self._t["rows"]
         return [Service(self._t, self._d, i, self._file_path) for i in rows.under("claim", self._row)]
 
     @functools.cached_property
-    def references(self):
+    def references(self) -> List[Reference]:
         t, ats = self._under("rows_claim_references")
         return [Reference(coded(_codes.REFERENCE_QUALIFIERS, text(t["qualifier"][i])), text(t["value"][i])) for i in ats]
 
     @functools.cached_property
-    def dates(self):
+    def dates(self) -> List[Date]:
         t, ats = self._under("rows_claim_dates")
         return [Date(mapped(_codes.DATE_QUALIFIERS, text(t["qualifier"][i])),
                      date(t["date"][i], self._d, t["segment"][i], CLAIM_DATE, self._file_path), t["segment"][i]) for i in ats]
 
     @functools.cached_property
-    def amount(self):
+    def amount(self) -> Optional[Amount]:
         """The claim's last AMT: the library keeps the last one it reads,
         while a spec column takes the first match."""
         t, ats = self._under("rows_claim_amounts")
@@ -339,17 +343,17 @@ class Claim:
         return at_segment(items, self._t["rows_claims"][column][self._at])
 
     @property
-    def patient(self):
+    def patient(self) -> Optional[Entity]:
         return self._pointer(self.entities, "patient_segment")
 
     @property
-    def rendering_provider(self):
+    def rendering_provider(self) -> Optional[Entity]:
         return self._pointer(self.entities, "rendering_provider_segment")
 
     @property
-    def claim_statement_period_start(self):
+    def claim_statement_period_start(self) -> Optional[Date]:
         return self._pointer(self.dates, "statement_period_start_segment")
 
     @property
-    def claim_statement_period_end(self):
+    def claim_statement_period_end(self) -> Optional[Date]:
         return self._pointer(self.dates, "statement_period_end_segment")

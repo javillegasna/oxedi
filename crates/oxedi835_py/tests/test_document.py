@@ -1,3 +1,4 @@
+import inspect
 import mmap
 from array import array
 
@@ -102,6 +103,37 @@ def test_a_delimiter_must_be_one_byte():
         oxedi835.Delimiters(element=b"**")
     assert str(info.value) == (
         "delimiter element must be exactly one byte, got 2 bytes: b'**'"
+    )
+
+
+def test_delimiters_signature_names_kinds_and_defaults():
+    # The constructor's signature is written three times in the binding
+    # (`signature =`, `text_signature` and the stub description); this pins the
+    # one Python reports, and stubtest holds the stub to it.
+    parameters = inspect.signature(oxedi835.Delimiters).parameters
+    keyword = inspect.Parameter.POSITIONAL_OR_KEYWORD
+    assert [(p.name, p.kind, p.default) for p in parameters.values()] == [
+        ("element", keyword, b"*"),
+        ("component", keyword, b":"),
+        ("segment", keyword, b"~"),
+        ("repetition", keyword, None),
+        ("release", keyword, None),
+    ]
+
+
+def test_delimiters_takes_every_parameter_by_keyword():
+    delimiters = oxedi835.Delimiters(
+        element=b"|", component=b">", segment=b"\n", repetition=b"^", release=b"?"
+    )
+    assert (
+        delimiters.element,
+        delimiters.component,
+        delimiters.segment,
+        delimiters.repetition,
+        delimiters.release,
+    ) == (b"|", b">", b"\n", b"^", b"?")
+    assert oxedi835.Delimiters() == oxedi835.Delimiters(
+        element=b"*", component=b":", segment=b"~", repetition=None, release=None
     )
 
 

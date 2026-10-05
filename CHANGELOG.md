@@ -6,6 +6,26 @@ versioning; while the version is `0.x`, a minor release may break the API.
 
 ## [Unreleased]
 
+### Added
+- Type stubs for the whole native API and a `py.typed` marker, so type checkers (mypy,
+  pyright) and IDEs see every signature, parameter name, return type and attribute. The stub
+  is generated from the binding and checked against the runtime in CI.
+
+### Changed
+- `CodeNotInList` messages list the allowed codes when there are five or fewer.
+- A spec that lists a version value twice is rejected when it loads.
+- `oxedi835.pyx12.validate` ignores `pyx12`'s user and system configuration files.
+- `validate` given a file opened in text mode raises a `TypeError` that names binary mode.
+- The internal external-diagnostic constructor raises a `ValueError` naming the argument
+  for an integer out of range.
+- `help()` and `inspect.signature` show the real defaults of `Delimiters(...)`
+  (`element=b'*'`, `component=b':'`, `segment=b'~'`) instead of `...`.
+- For Rust users of the core: `Rule::CodeNotInList.codes` is the list of codes (it was a
+  count); `VersionError` gains `DuplicateValue` and is now `#[non_exhaustive]`.
+
+### Fixed
+- Wheels and sdists no longer contain `__pycache__` directories or `.pyc` files.
+
 ## [0.2.0] - 2026-10-04
 
 Spec versions, code lists and validation with pyx12.

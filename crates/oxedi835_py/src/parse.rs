@@ -5,6 +5,7 @@ use pyo3::buffer::PyBuffer;
 use pyo3::exceptions::PyTypeError;
 use pyo3::prelude::*;
 use pyo3::types::{PyDict, PyList, PyString};
+use pyo3_stub_gen::derive::{gen_stub_pyclass, gen_stub_pyfunction, gen_stub_pymethods};
 
 use crate::diagnostic;
 use crate::document::{self, PyDelimiters, PyDocument};
@@ -52,6 +53,7 @@ fn found(data: &Bound<'_, PyAny>) -> String {
 }
 
 /// What one parse produced.
+#[gen_stub_pyclass(module = "oxedi835._core")]
 #[pyclass(name = "Result", module = "oxedi835", frozen)]
 pub struct PyParseResult {
     document: Py<PyDocument>,
@@ -59,6 +61,7 @@ pub struct PyParseResult {
     diagnostics: Py<PyList>,
 }
 
+#[gen_stub_pymethods]
 #[pymethods]
 impl PyParseResult {
     /// The file, held losslessly.
@@ -75,6 +78,7 @@ impl PyParseResult {
 
     /// Every diagnostic, in stream order.
     #[getter]
+    #[gen_stub(override_return_type(type_repr = "builtins.list[Diagnostic]", imports = ("builtins",)))]
     fn diagnostics(&self, py: Python<'_>) -> Py<PyList> {
         self.diagnostics.clone_ref(py)
     }
@@ -93,6 +97,7 @@ impl PyParseResult {
 
     /// The sum of `payments.total_payment_amount`, as a `Decimal` at the
     /// column's scale.
+    #[gen_stub(override_return_type(type_repr = "decimal.Decimal", imports = ("decimal",)))]
     fn sum_payments<'py>(&self, py: Python<'py>) -> PyResult<Bound<'py, PyAny>> {
         let sum = native::sum_payments(self.tables.bind(py).get().tables())?;
         py.import("decimal")?.getattr("Decimal")?.call1((sum,))
@@ -101,6 +106,7 @@ impl PyParseResult {
     /// The payer organization from the `payer_*` columns of `payments`, or
     /// `None` when the file has none.
     #[getter]
+    #[gen_stub(override_return_type(type_repr = "builtins.dict[builtins.str, builtins.str | None] | None", imports = ("builtins",)))]
     fn payer<'py>(&self, py: Python<'py>) -> PyResult<Option<Bound<'py, PyDict>>> {
         organization(py, self.tables.bind(py).get().tables(), Role::Payer)
     }
@@ -108,6 +114,7 @@ impl PyParseResult {
     /// The payee organization from the `payee_*` columns of `payments`, or
     /// `None` when the file has none.
     #[getter]
+    #[gen_stub(override_return_type(type_repr = "builtins.dict[builtins.str, builtins.str | None] | None", imports = ("builtins",)))]
     fn payee<'py>(&self, py: Python<'py>) -> PyResult<Option<Bound<'py, PyDict>>> {
         organization(py, self.tables.bind(py).get().tables(), Role::Payee)
     }
@@ -142,10 +149,12 @@ fn organization<'py>(
 /// envelope checker and the projector, and returns the document, the
 /// tables and every diagnostic. Without `spec`, the built-in spec of the
 /// version the file declares is used, else the default one.
+#[gen_stub_pyfunction]
 #[pyfunction]
 #[pyo3(signature = (data, spec = None, delimiters = None))]
 pub fn parse(
     py: Python<'_>,
+    #[gen_stub(override_type(type_repr = "typing_extensions.Buffer", imports = ("typing_extensions",)))]
     data: &Bound<'_, PyAny>,
     spec: Option<&Bound<'_, PySpec>>,
     delimiters: Option<&Bound<'_, PyDelimiters>>,

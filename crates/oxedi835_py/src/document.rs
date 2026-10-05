@@ -1,19 +1,24 @@
 //! `Document`, `Segment` and `Delimiters`: the file held losslessly.
 
 use edi835_core::{Delimiters, Document, Element};
-use pyo3::create_exception;
 use pyo3::exceptions::{PyIndexError, PyValueError};
 use pyo3::prelude::*;
 use pyo3::types::{PyBytes, PyList};
+use pyo3_stub_gen::derive::{gen_methods_from_python, gen_stub_pyclass, gen_stub_pymethods};
+use pyo3_stub_gen::type_info::{
+    MemberInfo, MethodInfo, MethodType, ParameterDefault, ParameterInfo, ParameterKind,
+    PyMethodsInfo,
+};
+use pyo3_stub_gen::{PyStubType, TypeInfo};
 
-create_exception!(
-    oxedi835,
+native_exception!(
     ParseError,
     PyValueError,
     "Input that cannot be indexed: its delimiters cannot be read or it exceeds the size limit; the message says what was found and where."
 );
 
 /// The five delimiters of an interchange.
+#[gen_stub_pyclass(module = "oxedi835._core")]
 #[pyclass(
     name = "Delimiters",
     module = "oxedi835",
@@ -24,6 +29,80 @@ create_exception!(
 #[derive(Clone, PartialEq)]
 pub struct PyDelimiters {
     pub inner: Delimiters,
+}
+
+/// A delimiter parameter of `Delimiters.__new__`: `bytes`, defaulting to
+/// `default` written as a Python literal.
+const fn delimiter(name: &'static str, default: fn() -> String) -> ParameterInfo {
+    ParameterInfo {
+        name,
+        kind: ParameterKind::PositionalOrKeyword,
+        type_info: <Py<PyBytes> as PyStubType>::type_input,
+        default: ParameterDefault::Expr {
+            value: default,
+            source_module: None,
+        },
+    }
+}
+
+/// An optional delimiter parameter of `Delimiters.__new__`: `bytes` or
+/// `None`, defaulting to `None`.
+const fn optional_delimiter(name: &'static str) -> ParameterInfo {
+    ParameterInfo {
+        name,
+        kind: ParameterKind::PositionalOrKeyword,
+        type_info: <Option<Py<PyBytes>> as PyStubType>::type_input,
+        default: ParameterDefault::Expr {
+            value: || "None".to_string(),
+            source_module: None,
+        },
+    }
+}
+
+// `Delimiters.__new__` is described by hand: its byte-string defaults have
+// no Python form the derive macros can write. It mirrors `signature =` on
+// `PyDelimiters::new`. `__hash__` is `None`: the class compares by value and
+// is not hashable.
+pyo3_stub_gen::inventory::submit! {
+    PyMethodsInfo {
+        struct_id: std::any::TypeId::of::<PyDelimiters>,
+        attrs: &[MemberInfo {
+            name: "__hash__",
+            // Overriding `object.__hash__` with `None` is how typeshed spells an
+            // unhashable class; the ignore keeps type checkers from flagging it.
+            r#type: || {
+                TypeInfo::with_module(
+                    "typing.ClassVar[None]  # type: ignore[assignment]",
+                    "typing".into(),
+                )
+            },
+            doc: "",
+            default: None,
+            deprecated: None,
+        }],
+        getters: &[],
+        setters: &[],
+        methods: &[MethodInfo {
+            name: "__new__",
+            parameters: &[
+                delimiter("element", || "b\"*\"".to_string()),
+                delimiter("component", || "b\":\"".to_string()),
+                delimiter("segment", || "b\"~\"".to_string()),
+                optional_delimiter("repetition"),
+                optional_delimiter("release"),
+            ],
+            r#return: || TypeInfo::unqualified("Delimiters"),
+            doc: "",
+            r#type: MethodType::New,
+            is_async: false,
+            deprecated: None,
+            type_ignored: None,
+            is_overload: false,
+        }],
+        file: file!(),
+        line: line!(),
+        column: column!(),
+    }
 }
 
 /// The bytes as Python writes them, e.g. `b'*'` or `b'\n'`.
@@ -50,10 +129,16 @@ fn single<'py>(py: Python<'py>, byte: u8) -> Bound<'py, PyBytes> {
     PyBytes::new(py, &[byte])
 }
 
+#[gen_stub_pymethods]
 #[pymethods]
 impl PyDelimiters {
     #[new]
-    #[pyo3(signature = (element = b"*".as_slice(), component = b":".as_slice(), segment = b"~".as_slice(), repetition = None, release = None))]
+    #[gen_stub(skip)]
+    // `text_signature` mirrors `signature =`, as the stub description above does.
+    #[pyo3(
+        signature = (element = b"*".as_slice(), component = b":".as_slice(), segment = b"~".as_slice(), repetition = None, release = None),
+        text_signature = "(element=b'*', component=b':', segment=b'~', repetition=None, release=None)"
+    )]
     fn new(
         py: Python<'_>,
         element: &[u8],
@@ -119,17 +204,20 @@ impl PyDelimiters {
 }
 
 /// The file, indexed into segments and held byte for byte.
+#[gen_stub_pyclass(module = "oxedi835._core")]
 #[pyclass(name = "Document", module = "oxedi835", frozen)]
 pub struct PyDocument {
     pub inner: Document<'static>,
 }
 
+#[gen_stub_pymethods]
 #[pymethods]
 impl PyDocument {
     fn __len__(&self) -> usize {
         self.inner.len()
     }
 
+    #[gen_stub(skip)]
     fn __getitem__(slf: &Bound<'_, Self>, index: isize) -> PyResult<PySegment> {
         let len = slf.get().inner.len();
         let resolved = if index < 0 {
@@ -170,7 +258,18 @@ impl PyDocument {
     }
 }
 
+// Slot methods take their argument by position only.
+pyo3_stub_gen::inventory::submit! {
+    gen_methods_from_python! {
+        r#"
+        class PyDocument:
+            def __getitem__(self, index: builtins.int, /) -> Segment: ...
+        "#
+    }
+}
+
 /// One segment of a document, read from the document on access.
+#[gen_stub_pyclass(module = "oxedi835._core")]
 #[pyclass(name = "Segment", module = "oxedi835", frozen)]
 pub struct PySegment {
     document: Py<PyDocument>,
@@ -198,6 +297,7 @@ fn out_of_range(index: usize, len: usize) -> PyErr {
     ))
 }
 
+#[gen_stub_pymethods]
 #[pymethods]
 impl PySegment {
     /// The 0-based position of the segment in the document.
@@ -215,6 +315,7 @@ impl PySegment {
     /// The elements in X12 order (`elements[0]` is `XX01`): `bytes` for a
     /// simple element, a list of `bytes` for a composite one.
     #[getter]
+    #[gen_stub(override_return_type(type_repr = "builtins.list[builtins.bytes | builtins.list[builtins.bytes]]", imports = ("builtins",)))]
     fn elements<'py>(&self, py: Python<'py>) -> PyResult<Bound<'py, PyList>> {
         self.with(py, |segment| -> PyResult<Bound<'py, PyList>> {
             let list = PyList::empty(py);

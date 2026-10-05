@@ -4,13 +4,17 @@ usage: check_wheel.py WHEEL ROOT
 
 Fails unless the wheel's dist-info/licenses/ holds LICENSE and THIRD_PARTY_NOTICES
 byte-identical to the files in ROOT, and every Requires-Dist is tied to an extra
-(the base install has no Python dependencies), and no __pycache__ or .pyc member is present.
+(the base install has no Python dependencies), no __pycache__ or .pyc member is present,
+and the package ships its type information: the stub of the native module and py.typed.
 """
 
 import sys
 import zipfile
 from email.parser import BytesParser
 from pathlib import Path
+
+# What type checkers and IDEs read: the native module's stub and the PEP 561 marker.
+TYPING_MEMBERS = ("oxedi835/_core.pyi", "oxedi835/py.typed")
 
 
 def main(wheel: str, root: str) -> int:
@@ -23,6 +27,9 @@ def main(wheel: str, root: str) -> int:
                 problems.append(f"{wheel}: expected one dist-info/licenses/{name}, found {members}")
             elif zf.read(members[0]) != (Path(root) / name).read_bytes():
                 problems.append(f"{wheel}: {members[0]} differs from {root}/{name}")
+        for member in TYPING_MEMBERS:
+            if member not in names:
+                problems.append(f"{wheel}: lacks {member}, so type checkers cannot see the API")
         for name in names:
             if "__pycache__" in name.split("/") or name.endswith(".pyc"):
                 problems.append(f"{wheel}: holds compiled bytecode {name}")

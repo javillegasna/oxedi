@@ -3,7 +3,7 @@
 use edi835_core::{Diagnostic, Rule, SnipLevel};
 use pyo3::exceptions::PyValueError;
 use pyo3::prelude::*;
-use pyo3::types::{PyBytes, PyList};
+use pyo3::types::{PyBytes, PyInt, PyList};
 
 /// One finding about the data of a file. A value, never raised.
 #[pyclass(name = "Diagnostic", module = "oxedi835", frozen)]
@@ -117,6 +117,23 @@ impl PyDiagnostic {
     }
 }
 
+/// A position argument as an index. Any Python integer outside `usize` is a
+/// `ValueError` naming the argument and the value; other types keep Python's
+/// own `TypeError`.
+fn position_arg(name: &str, value: Option<&Bound<'_, PyAny>>) -> PyResult<Option<usize>> {
+    let Some(value) = value.filter(|value| !value.is_none()) else {
+        return Ok(None);
+    };
+    match value.extract::<usize>() {
+        Ok(index) => Ok(Some(index)),
+        Err(_) if value.is_instance_of::<PyInt>() => Err(PyValueError::new_err(format!(
+            "{name} must be a non-negative integer, got {}",
+            value.str()?
+        ))),
+        Err(err) => Err(err),
+    }
+}
+
 /// Builds a `Diagnostic` for a finding reported by an external validator.
 ///
 /// Internal: adapters to external validators call it; it is not part of the
@@ -130,13 +147,26 @@ impl PyDiagnostic {
 pub fn external_diagnostic(
     origin: String,
     message: String,
-    level: i64,
+    level: &Bound<'_, PyAny>,
     code: Option<String>,
-    segment: Option<usize>,
-    element: Option<usize>,
-    component: Option<usize>,
+    segment: Option<&Bound<'_, PyAny>>,
+    element: Option<&Bound<'_, PyAny>>,
+    component: Option<&Bound<'_, PyAny>>,
     datum: Vec<u8>,
 ) -> PyResult<PyDiagnostic> {
+    let segment = position_arg("segment", segment)?;
+    let element = position_arg("element", element)?;
+    let component = position_arg("component", component)?;
+    let level = match level.extract::<i64>() {
+        Ok(level) => level,
+        Err(_) if level.is_instance_of::<PyInt>() => {
+            return Err(PyValueError::new_err(format!(
+                "level must be 1, 2 or 3, got {}",
+                level.str()?
+            )));
+        }
+        Err(err) => return Err(err),
+    };
     let level = match level {
         1 => SnipLevel::L1,
         2 => SnipLevel::L2,

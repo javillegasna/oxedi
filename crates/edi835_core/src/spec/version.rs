@@ -37,6 +37,7 @@ impl DeclaredVersion {
 
 /// Why a spec's `version` was rejected.
 #[derive(Debug, Clone, PartialEq, Eq)]
+#[non_exhaustive]
 pub enum VersionError {
     /// `element` is 0.
     ZeroElement,

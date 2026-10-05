@@ -48,13 +48,21 @@ jobs:
           echo "VIRTUAL_ENV=$PWD/.venv" >> "$GITHUB_ENV"
           echo "$PWD/.venv/bin" >> "$GITHUB_PATH"
       - name: Tools
-        run: uv pip install "maturin>=1.9.4,<2" pytest polars pyarrow pandas "edi-835-parser==1.8.0" duckdb "pyx12>=4.0,<5"
+        run: uv pip install "maturin>=1.9.4,<2" pytest polars pyarrow pandas "edi-835-parser==1.8.0" duckdb "pyx12>=4.0,<5" mypy pandas-stubs
+      - name: Stub drift
+        run: |
+          make stubs
+          git diff --exit-code crates/oxedi835_py/python/oxedi835/_core.pyi
       - name: Build
         run: maturin develop --uv --release --manifest-path crates/oxedi835_py/Cargo.toml
       - name: Spec against pyx12's maps
         run: |
           python scripts/spec_vs_pyx12.py --check
           python scripts/spec_vs_pyx12.py --check --version 4010
+      - name: Stub against the runtime
+        run: python -m mypy.stubtest oxedi835._core $(test -f crates/oxedi835_py/stubtest-allowlist.txt && echo --allowlist crates/oxedi835_py/stubtest-allowlist.txt)
+      - name: Public API under mypy --strict
+        run: python -m mypy --strict crates/oxedi835_py/tests/typing/usage.py
       - name: Test
         run: pytest crates/oxedi835_py/tests
       - name: Wheel in a clean environment

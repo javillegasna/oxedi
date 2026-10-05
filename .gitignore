@@ -10,3 +10,4 @@ __pycache__/
 .venv/
 crates/oxedi835_py/python/oxedi835/*.so
 .pytest_cache/
+.mypy_cache/

@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
-# Builds the release wheel, installs it in a fresh virtual environment
-# outside the repository and runs the Python tests there against it.
+# Builds the release wheel, checks its packaging, installs it in a fresh
+# virtual environment outside the repository and runs the Python tests there
+# against it.
 set -euo pipefail
 
 repo="$(cd "$(dirname "$0")/.." && pwd)"
@@ -8,6 +9,7 @@ work="$(mktemp -d)"
 trap 'rm -rf "$work"' EXIT
 
 maturin build --release --manifest-path "$repo/crates/oxedi835_py/Cargo.toml" --out "$work/dist"
+python "$repo/scripts/check_wheel.py" "$(ls "$work"/dist/oxedi835-*.whl)" "$repo"
 uv venv --quiet --python "$(command -v python)" "$work/venv"
 VIRTUAL_ENV="$work/venv" uv pip install --quiet "$work"/dist/oxedi835-*.whl pytest polars pyarrow pandas "edi-835-parser==1.8.0" duckdb
 cp -r "$repo/crates/oxedi835_py/tests" "$work/tests"

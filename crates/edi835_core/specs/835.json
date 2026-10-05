@@ -358,27 +358,27 @@
       }},
       "4": {"name": "provider_adjustment_amount", "type": "R", "required": true, "min": 1, "max": 18},
       "5": {"name": "adjustment_identifier_2", "type": "AN", "composite": {
-        "1": {"name": "adjustment_reason_code", "type": "ID", "required": true, "min": 2, "max": 2},
+        "1": {"name": "adjustment_reason_code", "type": "ID", "required": true, "min": 2, "max": 2, "codes": ["50", "51", "72", "90", "AH", "AM", "AP", "B2", "B3", "BD", "BN", "C5", "CR", "CS", "CT", "CV", "CW", "DM", "E3", "FB", "FC", "GO", "HM", "IP", "IR", "IS", "J1", "L3", "L6", "LE", "LS", "OA", "OB", "PI", "PL", "RA", "RE", "SL", "TL", "WO", "WU"]},
         "2": {"name": "reference_identification", "type": "AN", "min": 1, "max": 50}
       }},
       "6": {"name": "provider_adjustment_amount_2", "type": "R", "min": 1, "max": 18},
       "7": {"name": "adjustment_identifier_3", "type": "AN", "composite": {
-        "1": {"name": "adjustment_reason_code", "type": "ID", "required": true, "min": 2, "max": 2},
+        "1": {"name": "adjustment_reason_code", "type": "ID", "required": true, "min": 2, "max": 2, "codes": ["50", "51", "72", "90", "AH", "AM", "AP", "B2", "B3", "BD", "BN", "C5", "CR", "CS", "CT", "CV", "CW", "DM", "E3", "FB", "FC", "GO", "HM", "IP", "IR", "IS", "J1", "L3", "L6", "LE", "LS", "OA", "OB", "PI", "PL", "RA", "RE", "SL", "TL", "WO", "WU"]},
         "2": {"name": "reference_identification", "type": "AN", "min": 1, "max": 50}
       }},
       "8": {"name": "provider_adjustment_amount_3", "type": "R", "min": 1, "max": 18},
       "9": {"name": "adjustment_identifier_4", "type": "AN", "composite": {
-        "1": {"name": "adjustment_reason_code", "type": "ID", "required": true, "min": 2, "max": 2},
+        "1": {"name": "adjustment_reason_code", "type": "ID", "required": true, "min": 2, "max": 2, "codes": ["50", "51", "72", "90", "AH", "AM", "AP", "B2", "B3", "BD", "BN", "C5", "CR", "CS", "CT", "CV", "CW", "DM", "E3", "FB", "FC", "GO", "HM", "IP", "IR", "IS", "J1", "L3", "L6", "LE", "LS", "OA", "OB", "PI", "PL", "RA", "RE", "SL", "TL", "WO", "WU"]},
         "2": {"name": "reference_identification", "type": "AN", "min": 1, "max": 50}
       }},
       "10": {"name": "provider_adjustment_amount_4", "type": "R", "min": 1, "max": 18},
       "11": {"name": "adjustment_identifier_5", "type": "AN", "composite": {
-        "1": {"name": "adjustment_reason_code", "type": "ID", "required": true, "min": 2, "max": 2},
+        "1": {"name": "adjustment_reason_code", "type": "ID", "required": true, "min": 2, "max": 2, "codes": ["50", "51", "72", "90", "AH", "AM", "AP", "B2", "B3", "BD", "BN", "C5", "CR", "CS", "CT", "CV", "CW", "DM", "E3", "FB", "FC", "GO", "HM", "IP", "IR", "IS", "J1", "L3", "L6", "LE", "LS", "OA", "OB", "PI", "PL", "RA", "RE", "SL", "TL", "WO", "WU"]},
         "2": {"name": "reference_identification", "type": "AN", "min": 1, "max": 50}
       }},
       "12": {"name": "provider_adjustment_amount_5", "type": "R", "min": 1, "max": 18},
       "13": {"name": "adjustment_identifier_6", "type": "AN", "composite": {
-        "1": {"name": "adjustment_reason_code", "type": "ID", "required": true, "min": 2, "max": 2},
+        "1": {"name": "adjustment_reason_code", "type": "ID", "required": true, "min": 2, "max": 2, "codes": ["50", "51", "72", "90", "AH", "AM", "AP", "B2", "B3", "BD", "BN", "C5", "CR", "CS", "CT", "CV", "CW", "DM", "E3", "FB", "FC", "GO", "HM", "IP", "IR", "IS", "J1", "L3", "L6", "LE", "LS", "OA", "OB", "PI", "PL", "RA", "RE", "SL", "TL", "WO", "WU"]},
         "2": {"name": "reference_identification", "type": "AN", "min": 1, "max": 50}
       }},
       "14": {"name": "provider_adjustment_amount_6", "type": "R", "min": 1, "max": 18}

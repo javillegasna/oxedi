@@ -9,6 +9,31 @@
       "key": "lengths:MIA02:max",
       "map": "835.4010.X091.A1.xml",
       "reason": "pyx12's 4010 map gives MIA02 (PPS Operating Outlier Amount) data element 380, a Quantity with maximum length 15; an amount is data element 782 (maximum 18), as the 5010 map has it. The spec keeps 18 on purpose."
+    },
+    {
+      "key": "codes:PLB05-1",
+      "map": "835.5010.X221.A1.xml",
+      "reason": "PLB05-1 is data element 426, the same as PLB03-1, whose code list pyx12's map gives only on the first composite. The spec applies it to every adjustment composite. The implementation guide defines PLB05 to PLB13 as repeats of the PLB03 adjustment identifier (same data element 426)."
+    },
+    {
+      "key": "codes:PLB07-1",
+      "map": "835.5010.X221.A1.xml",
+      "reason": "PLB07-1 is data element 426, the same as PLB03-1, whose code list pyx12's map gives only on the first composite. The spec applies it to every adjustment composite. The implementation guide defines PLB05 to PLB13 as repeats of the PLB03 adjustment identifier (same data element 426)."
+    },
+    {
+      "key": "codes:PLB09-1",
+      "map": "835.5010.X221.A1.xml",
+      "reason": "PLB09-1 is data element 426, the same as PLB03-1, whose code list pyx12's map gives only on the first composite. The spec applies it to every adjustment composite. The implementation guide defines PLB05 to PLB13 as repeats of the PLB03 adjustment identifier (same data element 426)."
+    },
+    {
+      "key": "codes:PLB11-1",
+      "map": "835.5010.X221.A1.xml",
+      "reason": "PLB11-1 is data element 426, the same as PLB03-1, whose code list pyx12's map gives only on the first composite. The spec applies it to every adjustment composite. The implementation guide defines PLB05 to PLB13 as repeats of the PLB03 adjustment identifier (same data element 426)."
+    },
+    {
+      "key": "codes:PLB13-1",
+      "map": "835.5010.X221.A1.xml",
+      "reason": "PLB13-1 is data element 426, the same as PLB03-1, whose code list pyx12's map gives only on the first composite. The spec applies it to every adjustment composite. The implementation guide defines PLB05 to PLB13 as repeats of the PLB03 adjustment identifier (same data element 426)."
     }
   ]
 }

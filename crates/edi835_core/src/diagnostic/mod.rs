@@ -193,8 +193,8 @@ pub enum Rule {
         component: Option<usize>,
         /// The element's name in the spec.
         name: String,
-        /// How many codes the list holds.
-        codes: usize,
+        /// The codes the spec lists, sorted by their bytes.
+        codes: Vec<String>,
     },
     /// A finding reported by a validator outside this crate, carried as that
     /// validator states it.

@@ -5,6 +5,9 @@ use std::fmt;
 
 use super::{Quoted, Rule};
 
+/// The longest code list a message spells out; longer lists keep the count.
+const MAX_LISTED_CODES: usize = 5;
+
 /// An element reference in X12 style: `CLP01`, or `SVC01-2` for a component.
 struct ElementRef<'a> {
     segment_id: &'a [u8],
@@ -206,14 +209,23 @@ impl fmt::Display for Rule {
                     element: *element,
                     component: *component,
                 };
-                match codes {
+                let listed = if codes.len() <= MAX_LISTED_CODES {
+                    let quoted: Vec<String> = codes
+                        .iter()
+                        .map(|c| Quoted(c.as_bytes()).to_string())
+                        .collect();
+                    format!(" ({})", quoted.join(", "))
+                } else {
+                    String::new()
+                };
+                match codes.len() {
                     1 => write!(
                         f,
-                        "element {at} ({name}) is not the one code the spec lists for it"
+                        "element {at} ({name}) is not the one code the spec lists for it{listed}"
                     ),
-                    _ => write!(
+                    count => write!(
                         f,
-                        "element {at} ({name}) is not one of the {codes} codes the spec lists for it"
+                        "element {at} ({name}) is not one of the {count} codes the spec lists for it{listed}"
                     ),
                 }
             }

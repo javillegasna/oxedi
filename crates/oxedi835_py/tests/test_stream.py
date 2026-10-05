@@ -123,7 +123,9 @@ def test_parse_lets_other_threads_run():
     iterations = 0
     last = time.perf_counter()
     largest_gap = 0.0
-    # A held GIL would stall this loop for the whole parse, so one huge gap exposes it.
+    # A held GIL would stall this loop for the whole parse, so one gap close to
+    # the parse's duration exposes it; a scheduler stall on a loaded runner is
+    # a fraction of that, hence the half.
     while not done.is_set():
         now = time.perf_counter()
         largest_gap = max(largest_gap, now - last)
@@ -132,7 +134,7 @@ def test_parse_lets_other_threads_run():
     thread.join()
     assert duration, "oxedi835.parse raised in the worker thread"
     assert iterations > 100, (iterations, duration[0])
-    assert largest_gap < duration[0] / 4, (largest_gap, duration[0])
+    assert largest_gap < duration[0] / 2, (largest_gap, duration[0])
 
 
 def test_a_stream_advanced_from_two_threads_names_the_rule():

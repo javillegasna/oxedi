@@ -26,6 +26,7 @@ classifiers = [
 [project.urls]
 Repository = "https://github.com/javillegasna/oxedi835"
 Issues = "https://github.com/javillegasna/oxedi835/issues"
+Changelog = "https://github.com/javillegasna/oxedi835/blob/master/CHANGELOG.md"
 
 [project.optional-dependencies]
 edi-835-parser = ["pandas>=2.0.3,<3", "pyarrow>=14"]

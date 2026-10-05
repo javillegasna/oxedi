@@ -6,6 +6,7 @@ use edi835_core::{Table, Tables};
 use pyo3::exceptions::{PyImportError, PyKeyError, PyRuntimeError};
 use pyo3::prelude::*;
 use pyo3::types::{PyCapsule, PyDict, PyIterator, PyTuple};
+use pyo3_stub_gen::derive::{gen_methods_from_python, gen_stub_pyclass, gen_stub_pymethods};
 
 use crate::arrow;
 
@@ -52,6 +53,7 @@ fn to_pandas<'py>(
 }
 
 /// The tables of one parse or one batch, by name. Shared, never copied.
+#[gen_stub_pyclass(module = "oxedi835._core")]
 #[pyclass(name = "Tables", module = "oxedi835", frozen, mapping)]
 pub struct PyTables {
     tables: Arc<Tables>,
@@ -91,6 +93,7 @@ impl PyTables {
     }
 }
 
+#[gen_stub_pymethods]
 #[pymethods]
 impl PyTables {
     /// The table names, in spec order.
@@ -102,15 +105,18 @@ impl PyTables {
         self.count()
     }
 
+    #[gen_stub(skip)]
     fn __contains__(&self, name: &Bound<'_, PyAny>) -> bool {
         name.extract::<&str>()
             .is_ok_and(|name| self.tables.get(name).is_some())
     }
 
+    #[gen_stub(override_return_type(type_repr = "collections.abc.Iterator[builtins.str]", imports = ("builtins", "collections.abc")))]
     fn __iter__<'py>(&self, py: Python<'py>) -> PyResult<Bound<'py, PyIterator>> {
         PyTuple::new(py, self.names())?.try_iter()
     }
 
+    #[gen_stub(skip)]
     fn __getitem__(&self, name: &str) -> PyResult<PyTable> {
         match self.tables.iter().position(|table| table.name() == name) {
             Some(index) => Ok(PyTable {
@@ -130,6 +136,7 @@ impl PyTables {
     }
 
     /// Every table as a polars `DataFrame`, by name, in table order.
+    #[gen_stub(override_return_type(type_repr = "builtins.dict[builtins.str, polars.DataFrame]", imports = ("builtins", "polars")))]
     fn to_polars<'py>(slf: &Bound<'py, Self>) -> PyResult<Bound<'py, PyDict>> {
         let frames = PyDict::new(slf.py());
         for index in 0..slf.get().count() {
@@ -141,6 +148,7 @@ impl PyTables {
     }
 
     /// Every table as a pandas `DataFrame`, by name, in table order.
+    #[gen_stub(override_return_type(type_repr = "builtins.dict[builtins.str, pandas.DataFrame]", imports = ("builtins", "pandas")))]
     fn to_pandas<'py>(slf: &Bound<'py, Self>) -> PyResult<Bound<'py, PyDict>> {
         let frames = PyDict::new(slf.py());
         for index in 0..slf.get().count() {
@@ -162,7 +170,19 @@ impl PyTables {
     }
 }
 
+// Slot methods take their argument by position only.
+pyo3_stub_gen::inventory::submit! {
+    gen_methods_from_python! {
+        r#"
+        class PyTables:
+            def __contains__(self, name: builtins.object, /) -> builtins.bool: ...
+            def __getitem__(self, name: builtins.str, /) -> Table: ...
+        "#
+    }
+}
+
 /// One projected table. Shares the tables it belongs to.
+#[gen_stub_pyclass(module = "oxedi835._core")]
 #[pyclass(name = "Table", module = "oxedi835", frozen)]
 pub struct PyTable {
     tables: Arc<Tables>,
@@ -178,6 +198,7 @@ impl PyTable {
     }
 }
 
+#[gen_stub_pymethods]
 #[pymethods]
 impl PyTable {
     /// The table name.
@@ -202,11 +223,13 @@ impl PyTable {
     }
 
     /// The table as a polars `DataFrame`, through the Arrow capsule.
+    #[gen_stub(override_return_type(type_repr = "polars.DataFrame", imports = ("polars",)))]
     fn to_polars<'py>(slf: &Bound<'py, Self>) -> PyResult<Bound<'py, PyAny>> {
         to_polars(slf.py(), "Table", slf.clone())
     }
 
     /// The table as a pandas `DataFrame`, through `pyarrow`.
+    #[gen_stub(override_return_type(type_repr = "pandas.DataFrame", imports = ("pandas",)))]
     fn to_pandas<'py>(slf: &Bound<'py, Self>) -> PyResult<Bound<'py, PyAny>> {
         to_pandas(slf.py(), "Table", slf.clone())
     }
@@ -221,9 +244,11 @@ impl PyTable {
     /// the column buffers. `requested_schema` is ignored, as the protocol
     /// allows: the table keeps its own types.
     #[pyo3(signature = (requested_schema = None))]
+    #[gen_stub(override_return_type(type_repr = "typing_extensions.CapsuleType", imports = ("typing_extensions",)))]
     fn __arrow_c_stream__<'py>(
         &self,
         py: Python<'py>,
+        #[gen_stub(override_type(type_repr = "builtins.object | None", imports = ("builtins",)))]
         requested_schema: Option<Bound<'py, PyAny>>,
     ) -> PyResult<Bound<'py, PyCapsule>> {
         let _ = requested_schema;
@@ -235,9 +260,11 @@ impl PyTable {
     /// the column buffers. `requested_schema` is ignored, as the protocol
     /// allows.
     #[pyo3(signature = (requested_schema = None))]
+    #[gen_stub(override_return_type(type_repr = "builtins.tuple[typing_extensions.CapsuleType, typing_extensions.CapsuleType]", imports = ("builtins", "typing_extensions")))]
     fn __arrow_c_array__<'py>(
         &self,
         py: Python<'py>,
+        #[gen_stub(override_type(type_repr = "builtins.object | None", imports = ("builtins",)))]
         requested_schema: Option<Bound<'py, PyAny>>,
     ) -> PyResult<(Bound<'py, PyCapsule>, Bound<'py, PyCapsule>)> {
         let _ = requested_schema;
@@ -249,6 +276,7 @@ impl PyTable {
     }
 
     /// Exports the table's schema.
+    #[gen_stub(override_return_type(type_repr = "typing_extensions.CapsuleType", imports = ("typing_extensions",)))]
     fn __arrow_c_schema__<'py>(&self, py: Python<'py>) -> PyResult<Bound<'py, PyCapsule>> {
         let schema = arrow::schema(&self.tables, self.index)?;
         PyCapsule::new_with_value(py, schema, c"arrow_schema")

@@ -10,7 +10,7 @@ publish = false
 
 [lib]
 name = "oxedi835_py"
-crate-type = ["cdylib"]
+crate-type = ["cdylib", "rlib"]
 test = false
 doctest = false
 bench = false
@@ -27,3 +27,4 @@ arrow-data = { version = "60", default-features = false, features = ["ffi"] }
 arrow-schema = { version = "60", default-features = false, features = ["ffi"] }
 bytes = "1.9"
 self_cell = "1"
+pyo3-stub-gen = { version = "0.23", default-features = false }

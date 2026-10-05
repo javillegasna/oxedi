@@ -11,7 +11,7 @@ import re
 import threading
 from bisect import bisect_right
 from collections import defaultdict, deque
-from typing import Any, BinaryIO, Union
+from typing import Any, BinaryIO, Iterator, Union
 
 from .. import Diagnostic, parse
 from .._core import _external_diagnostic
@@ -123,7 +123,7 @@ def _pyx12_loggers() -> list[logging.Logger]:
 
 
 @contextlib.contextmanager
-def _isolated_logging(capture: logging.Handler):
+def _isolated_logging(capture: logging.Handler) -> Iterator[None]:
     """Routes pyx12's error records to ``capture`` whatever the caller's logging
     configuration, and restores that configuration on exit. Callers hold ``_LOCK``."""
     root = logging.getLogger("pyx12")

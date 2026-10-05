@@ -3,13 +3,12 @@
 use std::sync::{Arc, OnceLock};
 
 use edi835_core::{Segment, Spec};
-use pyo3::create_exception;
 use pyo3::exceptions::{PyTypeError, PyValueError};
 use pyo3::prelude::*;
 use pyo3::types::{PyDict, PyString};
+use pyo3_stub_gen::derive::{gen_stub_pyclass, gen_stub_pymethods};
 
-create_exception!(
-    oxedi835,
+native_exception!(
     SpecError,
     PyValueError,
     "A spec that cannot be loaded or patched; the message names the rule, the loop and key, and the datum."
@@ -57,18 +56,24 @@ pub fn given_or_selected<'s>(
 }
 
 /// The loop structure, element definitions and tables of a file format.
+#[gen_stub_pyclass(module = "oxedi835._core")]
 #[pyclass(name = "Spec", module = "oxedi835", frozen)]
 pub struct PySpec {
     pub inner: Arc<Spec>,
 }
 
+#[gen_stub_pymethods]
 #[pymethods]
 impl PySpec {
     /// The built-in 835 spec of `version`, `"5010"` (the default) or
     /// `"4010"`; raises `ValueError` for any other version.
     #[staticmethod]
     #[pyo3(signature = (version = "5010"))]
-    fn builtin(version: &str) -> PyResult<PySpec> {
+    fn builtin(
+        // Described as written so the stub carries the default value.
+        #[gen_stub(override_type(type_repr = "builtins.str", imports = ("builtins",)))]
+        version: &str,
+    ) -> PyResult<PySpec> {
         let inner = match version {
             "5010" => builtin(),
             "4010" => builtin_4010(),
@@ -93,7 +98,13 @@ impl PySpec {
 
     /// A new spec with `patch` (a dict or JSON text) merged over this one;
     /// raises `SpecError` when the result is not valid.
-    fn patch(&self, py: Python<'_>, patch: &Bound<'_, PyAny>) -> PyResult<PySpec> {
+    fn patch(
+        &self,
+        py: Python<'_>,
+        // A JSON merge patch: the dict's values are any JSON value.
+        #[gen_stub(override_type(type_repr = "builtins.str | builtins.dict[builtins.str, typing.Any]", imports = ("builtins", "typing")))]
+        patch: &Bound<'_, PyAny>,
+    ) -> PyResult<PySpec> {
         let text = if let Ok(text) = patch.cast::<PyString>() {
             text.to_cow()?.into_owned()
         } else if patch.is_instance_of::<PyDict>() {

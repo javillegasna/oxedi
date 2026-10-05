@@ -15,7 +15,7 @@ WHEELS      := target/wheels
 CARGO_VERSION := $(shell sed -n 's/^version = "\(.*\)"/\1/p' Cargo.toml | head -n 1)
 VERSION     := $(shell echo '$(CARGO_VERSION)' | sed -E 's/-(a|b|rc)\.?/\1/; s/-dev\.?/.dev/')
 
-.PHONY: help version release-check sdist-check gates test clippy fmt fmt-check bench-check doc venv py-dev py-test compat-oracle dist smoke publish-test publish-test-verify publish tag clean-dist
+.PHONY: help version release-check sdist-check gates test clippy fmt fmt-check bench-check doc venv py-dev py-test stubs compat-oracle dist smoke publish-test publish-test-verify publish tag clean-dist
 
 help: ## list targets
 	@grep -E '^[a-z][a-z-]*:.*##' $(MAKEFILE_LIST) | sed 's/:.*## /\t/'
@@ -51,6 +51,9 @@ py-dev: ## build the extension into .venv (debug)
 
 py-test: py-dev ## build and run the Python suite
 	$(PYTEST) -q $(PY_TESTS)
+
+stubs: ## regenerate the native module's type stub from the binding
+	cargo run --locked -p oxedi835_py --bin stub_gen
 
 compat-oracle: ## compare with edi-835-parser on DIR (outside the repo); prints counts and verdicts only
 	@test -n "$(DIR)" || (echo "usage: make compat-oracle DIR=/path/outside/the/repo [OUT=report.txt]" && exit 1)

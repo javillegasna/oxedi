@@ -4,8 +4,12 @@ use edi835_core::{Diagnostic, Rule, SnipLevel};
 use pyo3::exceptions::PyValueError;
 use pyo3::prelude::*;
 use pyo3::types::{PyBytes, PyInt, PyList};
+use pyo3_stub_gen::derive::{gen_stub_pyclass, gen_stub_pymethods};
+use pyo3_stub_gen::type_info::{ParameterDefault, ParameterInfo, ParameterKind, PyFunctionInfo};
+use pyo3_stub_gen::{PyStubType, TypeInfo};
 
 /// One finding about the data of a file. A value, never raised.
+#[gen_stub_pyclass(module = "oxedi835._core")]
 #[pyclass(name = "Diagnostic", module = "oxedi835", frozen)]
 pub struct PyDiagnostic {
     inner: Diagnostic,
@@ -21,6 +25,7 @@ fn position(value: Option<usize>) -> String {
     value.map_or_else(|| "None".to_string(), |value| value.to_string())
 }
 
+#[gen_stub_pymethods]
 #[pymethods]
 impl PyDiagnostic {
     /// The SNIP level of the rule: 1, 2 or 3.
@@ -141,7 +146,8 @@ fn position_arg(name: &str, value: Option<&Bound<'_, PyAny>>) -> PyResult<Option
 #[pyfunction]
 #[pyo3(
     name = "_external_diagnostic",
-    signature = (origin, message, level, code=None, segment=None, element=None, component=None, datum=b"".to_vec())
+    signature = (origin, message, level, code=None, segment=None, element=None, component=None, datum=b"".to_vec()),
+    text_signature = "(origin, message, level, code=None, segment=None, element=None, component=None, datum=b'')"
 )]
 #[allow(clippy::too_many_arguments)]
 pub fn external_diagnostic(
@@ -192,6 +198,70 @@ pub fn external_diagnostic(
         datum,
     )))
 }
+
+/// A parameter of `_external_diagnostic` with no default.
+const fn required(name: &'static str, type_info: fn() -> TypeInfo) -> ParameterInfo {
+    ParameterInfo {
+        name,
+        kind: ParameterKind::PositionalOrKeyword,
+        type_info,
+        default: ParameterDefault::None,
+    }
+}
+
+/// A parameter of `_external_diagnostic` defaulting to `default`, written as
+/// a Python literal.
+const fn defaulted(
+    name: &'static str,
+    type_info: fn() -> TypeInfo,
+    default: fn() -> String,
+) -> ParameterInfo {
+    ParameterInfo {
+        name,
+        kind: ParameterKind::PositionalOrKeyword,
+        type_info,
+        default: ParameterDefault::Expr {
+            value: default,
+            source_module: None,
+        },
+    }
+}
+
+fn none() -> String {
+    "None".to_string()
+}
+
+// `_external_diagnostic` is described by hand: its positions are read from
+// any Python object to name the argument in the error, and `datum` defaults
+// to an empty byte string, which the derive macros cannot write in Python.
+pyo3_stub_gen::inventory::submit! {
+    PyFunctionInfo {
+        name: "_external_diagnostic",
+        parameters: &[
+            required("origin", <String as PyStubType>::type_input),
+            required("message", <String as PyStubType>::type_input),
+            required("level", <i64 as PyStubType>::type_input),
+            defaulted("code", <Option<String> as PyStubType>::type_input, none),
+            defaulted("segment", <Option<usize> as PyStubType>::type_input, none),
+            defaulted("element", <Option<usize> as PyStubType>::type_input, none),
+            defaulted("component", <Option<usize> as PyStubType>::type_input, none),
+            defaulted("datum", <Py<PyBytes> as PyStubType>::type_input, || "b\"\"".to_string()),
+        ],
+        r#return: <PyDiagnostic as PyStubType>::type_output,
+        doc: "Builds a `Diagnostic` for a finding reported by an external validator; internal.",
+        module: Some("oxedi835._core"),
+        is_async: false,
+        deprecated: None,
+        type_ignored: None,
+        is_overload: false,
+        file: file!(),
+        line: line!(),
+        column: column!(),
+        index: 0,
+    }
+}
+
+pyo3_stub_gen::export_verbatim!("oxedi835._core", "_external_diagnostic");
 
 /// The diagnostics as a Python list of `Diagnostic`.
 pub fn to_list(py: Python<'_>, diagnostics: Vec<Diagnostic>) -> PyResult<Bound<'_, PyList>> {

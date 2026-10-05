@@ -11,6 +11,7 @@ use edi835_core::{Delimiters, Diagnostic, Event, LoopId, Processor, Spec, Tables
 use pyo3::exceptions::{PyRuntimeError, PyValueError};
 use pyo3::prelude::*;
 use pyo3::types::PyList;
+use pyo3_stub_gen::derive::{gen_stub_pyclass, gen_stub_pyfunction, gen_stub_pymethods};
 use self_cell::self_cell;
 
 use crate::diagnostic;
@@ -80,6 +81,7 @@ impl State {
 /// A stream must be advanced from one thread at a time: a `next()` that finds
 /// another thread inside a step raises a `RuntimeError` naming the stream;
 /// unlike a generator, it does not raise `ValueError`.
+#[gen_stub_pyclass(module = "oxedi835._core")]
 #[pyclass(name = "Stream", module = "oxedi835", frozen)]
 pub struct PyStream {
     state: Mutex<State>,
@@ -87,12 +89,14 @@ pub struct PyStream {
 
 /// The tables and diagnostics of one closed loop instance (or of the end
 /// of the stream).
+#[gen_stub_pyclass(module = "oxedi835._core")]
 #[pyclass(name = "Batch", module = "oxedi835", frozen)]
 pub struct PyBatch {
     tables: Py<PyTables>,
     diagnostics: Py<PyList>,
 }
 
+#[gen_stub_pymethods]
 #[pymethods]
 impl PyBatch {
     /// The rows appended since the previous batch, by table.
@@ -103,6 +107,7 @@ impl PyBatch {
 
     /// The diagnostics emitted since the previous batch, in stream order.
     #[getter]
+    #[gen_stub(override_return_type(type_repr = "builtins.list[Diagnostic]", imports = ("builtins",)))]
     fn diagnostics(&self, py: Python<'_>) -> Py<PyList> {
         self.diagnostics.clone_ref(py)
     }
@@ -116,12 +121,15 @@ impl PyBatch {
     }
 }
 
+#[gen_stub_pymethods]
 #[pymethods]
 impl PyStream {
     fn __iter__(slf: PyRef<'_, Self>) -> PyRef<'_, Self> {
         slf
     }
 
+    // Returning `None` ends the iteration, so a call never yields `None`.
+    #[gen_stub(override_return_type(type_repr = "Batch"))]
     fn __next__(&self, py: Python<'_>) -> PyResult<Option<PyBatch>> {
         let stepped = py.detach(|| match self.state.try_lock() {
             Ok(mut state) => Ok(state.step()),
@@ -159,13 +167,16 @@ fn loop_of(spec: &Spec, by: &str) -> PyResult<LoopId> {
 /// closes, and one more at the end when anything is left. Without `spec`,
 /// the built-in spec of the version the file declares is used, else the
 /// default one.
+#[gen_stub_pyfunction]
 #[pyfunction]
 #[pyo3(signature = (data, spec = None, by = "transaction", delimiters = None))]
 pub fn stream(
     py: Python<'_>,
+    #[gen_stub(override_type(type_repr = "typing_extensions.Buffer", imports = ("typing_extensions",)))]
     data: &Bound<'_, PyAny>,
     spec: Option<&Bound<'_, PySpec>>,
-    by: &str,
+    // Described as written so the stub carries the default value.
+    #[gen_stub(override_type(type_repr = "builtins.str", imports = ("builtins",)))] by: &str,
     delimiters: Option<&Bound<'_, PyDelimiters>>,
 ) -> PyResult<PyStream> {
     let bytes = copy_input("stream", data)?;

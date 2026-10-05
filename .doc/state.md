@@ -1,23 +1,24 @@
-# State — 2026-10-04 (Stage 5d merged; Stage 5e in PR)
+# State — 2026-10-04 (Stage 5e merged; 0.2.0rc1 in preparation)
 
 Snapshot for picking the project up cold. Update when a stage changes state.
 
 ## Pick up here (2026-10-04, end of session)
 
-- **Now:** Stage 5e is executed on branch `stage-5e-pyx12` and ready for the final review. Built:
-  `scripts/spec_vs_pyx12.py` (report, draft patch, `--check`; exclusions with reasons in
-  `scripts/spec_vs_pyx12.ignore.json`); `codes` and `version` in the spec format with their
-  load-time validation and diagnostic; the 5010 spec completed from the maps (12 `required`
-  flips, TA1, 42 code lists); `specs/835.4010.json` as a patch; Python `parse`/`parse_file`/
-  `stream` pick the spec by declared version and `Spec.builtin(version=)`;
-  `oxedi835.pyx12.validate` behind `oxedi835[pyx12]`; `pyx12` BSD notice; CI runs the
-  cross-check for both versions. Golden changes: BPR16 on multi_claim and SVC03 on blue_cross,
-  both real data issues. Next: whole-branch review on Opus (P10 focus), one fix wave, PR against
-  `master` (Intent / Verification), owner merges; then deferred minors to Project #8 and
-  update `.doc/analysis/` (current at 7f4f8cf).
-- **Amendment on the same branch (PR #80):** one diagnostic type (T58–T61): `Rule::External`
-  in the core, `Diagnostic.origin`/`code`, `Segment.span`; `oxedi835.pyx12.validate` returns
-  `oxedi835.Diagnostic` and `Pyx12Diagnostic` is gone (never published).
+- **Now:** release 0.2.0. Branch `release-0.2.0rc1` sets the workspace version to `0.2.0-rc.1`,
+  adds the changelog section and the PyPI `Changelog` link (#74). Next: owner merges, then
+  `make release-check TAG=v0.2.0rc1 && make tag`, approve `testpypi`, verify the install
+  (`oxedi835[pyx12]` too), then a PR bumping to `0.2.0` (rc entry shortened, as for 0.1.0),
+  tag `v0.2.0`, approve `pypi`.
+- **Stage 5e merged** (PR #80, 2026-10-04) with its amendment (PR #81: one diagnostic type,
+  T58–T61): `scripts/spec_vs_pyx12.py` with `--check` in CI for 5010 and 4010; `codes` and
+  `version` in the spec format; 5010 spec completed from pyx12's map (12 `required` flips, TA1,
+  42 code lists); `specs/835.4010.json` patch; spec picked by declared version in Python;
+  `oxedi835.pyx12.validate` returning `oxedi835.Diagnostic` (`Rule::External`, `origin`, `code`,
+  `Segment.span`). Golden changes: BPR16 on multi_claim and SVC03 on blue_cross, both real data
+  issues. Ledgers: `analysis/stage-5e-ledger.md`, `analysis/stage-5e-unify-ledger.md`. Deferred
+  findings: issues #82–#97 on Project #8. `.doc/analysis/` notes still at 7f4f8cf (update for 5e).
+- **Owner decision pending:** `CLAUDE.md` names only `Spec::builtin_835` as the `expect`
+  exception; `Spec::builtin_835_4010` uses the same pattern.
 - **Merged today:** Stage 6 (PR #67) and `0.1.0` on PyPI by trusted publishing (rc1 on TestPyPI
   only); README for users (#68); flaky GIL test replaced (#72); Stage 5c module layout (#75);
   Stage 5d performance (#78: index 8 B/segment, `process` 33 → 37 MiB/s, gate 50 not met → #76);

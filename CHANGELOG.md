@@ -12,6 +12,8 @@ versioning; while the version is `0.x`, a minor release may break the API.
   is generated from the binding and checked against the runtime in CI.
 
 ### Changed
+- The 5010 spec checks the provider adjustment reason code in every PLB adjustment composite
+  (PLB05-1 to PLB13-1), not only the first.
 - `CodeNotInList` messages list the allowed codes when there are five or fewer.
 - A spec that lists a version value twice is rejected when it loads.
 - `oxedi835.pyx12.validate` ignores `pyx12`'s user and system configuration files.

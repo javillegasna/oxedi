@@ -3,7 +3,7 @@
 
 mod common;
 
-use edi835_core::{Document, Spec};
+use edi835_core::{Diagnostic, Document, Processor, Rule, Spec};
 
 fn selected(bytes: Vec<u8>) -> String {
     let five = Spec::builtin_835();
@@ -65,4 +65,46 @@ fn the_4010_spec_carries_the_4010_codes_and_structure() {
     );
     assert!(five.segment(b"RDM").is_some());
     assert!(four.segment(b"RDM").is_none());
+}
+
+/// The emedny fixture with one PLB carrying two adjustment composites, the
+/// second with `second_code`, optionally declared as 4010.
+fn with_plb(second_code: &str, declared_4010: bool) -> Vec<u8> {
+    let text = String::from_utf8(common::load_fixture("emedny_sample.txt")).unwrap();
+    let plb = format!("PLB*9999999995*20101231*CV:REF1*1.00*{second_code}:REF2*2.00~");
+    let mut text = text.replace("SE*", &format!("{plb}SE*"));
+    if declared_4010 {
+        text = text.replace("005010X221A1", "004010X091A1");
+    }
+    text.into_bytes()
+}
+
+/// Code-list findings on PLB segments only.
+fn code_findings(bytes: Vec<u8>) -> Vec<Diagnostic> {
+    let five = Spec::builtin_835();
+    let four = Spec::builtin_835_4010();
+    let document = Document::parse(bytes).unwrap();
+    let chosen = Spec::select(&[&five, &four], &five, document.segments());
+    let (_, diagnostics) = Processor::run(chosen, &document);
+    diagnostics
+        .into_iter()
+        .filter(
+            |d| matches!(&d.rule, Rule::CodeNotInList { segment_id, .. } if segment_id == b"PLB"),
+        )
+        .collect()
+}
+
+#[test]
+fn a_5010_plb_checks_the_reason_code_of_every_adjustment_composite() {
+    let found = code_findings(with_plb("ZZ", false));
+    assert_eq!(found.len(), 1);
+    assert_eq!((found[0].element, found[0].component), (Some(5), Some(1)));
+    assert_eq!(found[0].datum, b"ZZ");
+    assert!(code_findings(with_plb("OA", false)).is_empty());
+}
+
+#[test]
+fn a_4010_plb_leaves_every_reason_code_open() {
+    let found = code_findings(with_plb("ZZ", true));
+    assert!(found.is_empty(), "{found:?}");
 }

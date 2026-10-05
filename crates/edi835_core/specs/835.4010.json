@@ -77,6 +77,21 @@
     "PLB": { "elements": {
       "3": {"composite": {
         "1": {"codes": null}
+      }},
+      "5": {"composite": {
+        "1": {"codes": null}
+      }},
+      "7": {"composite": {
+        "1": {"codes": null}
+      }},
+      "9": {"composite": {
+        "1": {"codes": null}
+      }},
+      "11": {"composite": {
+        "1": {"codes": null}
+      }},
+      "13": {"composite": {
+        "1": {"codes": null}
       }}
     } }
   }

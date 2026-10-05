@@ -47,6 +47,15 @@ pub enum VersionError {
         /// The value's 0-based index in `values` as written.
         index: usize,
     },
+    /// A value is listed more than once.
+    DuplicateValue {
+        /// The value as written.
+        value: String,
+        /// 0-based index of its first listing.
+        first: usize,
+        /// 0-based index of its repeat.
+        second: usize,
+    },
 }
 
 impl fmt::Display for VersionError {
@@ -58,6 +67,14 @@ impl fmt::Display for VersionError {
                 "\"values\" is empty; list at least one value the element may hold"
             ),
             VersionError::EmptyValue { index } => write!(f, "\"values[{index}]\" is empty"),
+            VersionError::DuplicateValue {
+                value,
+                first,
+                second,
+            } => write!(
+                f,
+                "value {value:?} is listed twice, at values[{first}] and values[{second}]"
+            ),
         }
     }
 }
@@ -79,6 +96,16 @@ pub(super) fn compile_version(raw: &RawVersion) -> Result<DeclaredVersion, SpecE
     }
     if let Some(index) = raw.values.iter().position(String::is_empty) {
         return Err(bad(VersionError::EmptyValue { index }));
+    }
+    let mut seen = std::collections::HashMap::with_capacity(raw.values.len());
+    for (second, value) in raw.values.iter().enumerate() {
+        if let Some(first) = seen.insert(value.as_str(), second) {
+            return Err(bad(VersionError::DuplicateValue {
+                value: value.clone(),
+                first,
+                second,
+            }));
+        }
     }
     Ok(DeclaredVersion {
         segment: raw.segment.as_bytes().to_vec(),

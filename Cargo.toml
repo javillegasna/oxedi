@@ -3,7 +3,7 @@ resolver = "3"
 members = ["crates/edi835_core", "crates/oxedi835_py"]
 
 [workspace.package]
-version = "0.2.0-rc.1"
+version = "0.2.0"
 edition = "2024"
 license = "MIT"
 authors = ["javillegasna <javillegasna@gmail.com>"]

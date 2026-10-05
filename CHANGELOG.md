@@ -6,9 +6,9 @@ versioning; while the version is `0.x`, a minor release may break the API.
 
 ## [Unreleased]
 
-## [0.2.0rc1] - 2026-10-04
+## [0.2.0] - 2026-10-04
 
-Release candidate of 0.2.0: spec versions, code lists and validation with pyx12.
+Spec versions, code lists and validation with pyx12.
 
 ### Added
 - A built-in spec for each 835 version: 5010 (`005010X221A1`, the default) and 4010
@@ -43,6 +43,10 @@ Release candidate of 0.2.0: spec versions, code lists and validation with pyx12.
 - For Rust users of the core: `Rule` is now `#[non_exhaustive]` and gains the variants
   `CodeNotInList` and `External`.
 
+## [0.2.0rc1] - 2026-10-04
+
+Release candidate of 0.2.0, published to TestPyPI only. Same code as 0.2.0.
+
 ## [0.1.0] - 2026-10-04
 
 First usable version of oxedi835.
@@ -70,7 +74,8 @@ First usable version of oxedi835.
 
 Release candidate of 0.1.0, published to TestPyPI only. Same code as 0.1.0.
 
-[Unreleased]: https://github.com/javillegasna/oxedi835/compare/v0.2.0rc1...HEAD
+[Unreleased]: https://github.com/javillegasna/oxedi835/compare/v0.2.0...HEAD
+[0.2.0]: https://github.com/javillegasna/oxedi835/releases/tag/v0.2.0
 [0.2.0rc1]: https://github.com/javillegasna/oxedi835/releases/tag/v0.2.0rc1
 [0.1.0]: https://github.com/javillegasna/oxedi835/releases/tag/v0.1.0
 [0.1.0rc1]: https://github.com/javillegasna/oxedi835/releases/tag/v0.1.0rc1

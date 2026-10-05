@@ -293,8 +293,10 @@ def validate(source: Source) -> list[Diagnostic]:
 
     ``source`` is the file's bytes, a path, or a file object open in binary
     mode. pyx12 picks its map from the file's own version declaration.
-    pyx12's own defaults apply: its configuration files (``~/.pyx12.conf.xml``
-    and the one under ``sys.prefix``) are not read, so the findings do not
+    pyx12's own defaults apply: extended character set (``charset="E"``),
+    no external code lists excluded (``exclude_external_codes=None``),
+    and user/system configuration files (``~/.pyx12.conf.xml``,
+    ``<prefix>/etc/pyx12.conf.xml``) are not read, so findings do not
     depend on the machine.
 
     Each finding is an :class:`oxedi835.Diagnostic`, the type ``parse``

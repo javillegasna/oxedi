@@ -380,6 +380,9 @@ def test_a_finding_in_a_second_interchange_maps_to_its_own_segment():
 def test_user_configuration_does_not_change_the_findings(tmp_path, monkeypatch):
     import pyx12.params
 
+    # Lowercase text serves as the test probe: basic charset B rejects it,
+    # extended charset E (default) accepts it; the test verifies validate()
+    # ignores the B charset setting in user configuration files.
     data = read("edi835_test_davisvision.RMT").replace(b"SILVER OAK", b"silver oak")
     monkeypatch.setenv("HOME", str(tmp_path / "empty"))
     expected = [facts(f) for f in validate(data)]

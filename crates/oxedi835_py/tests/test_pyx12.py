@@ -24,7 +24,18 @@ CLI = (
 
 def facts(d):
     """Everything a diagnostic carries, to compare findings by value."""
-    return (d.level, d.origin, d.kind, d.code, d.rule, d.segment, d.element, d.component, d.path, d.datum)
+    return (
+        d.level,
+        d.origin,
+        d.kind,
+        d.code,
+        d.rule,
+        d.segment,
+        d.element,
+        d.component,
+        d.path,
+        d.datum,
+    )
 
 
 def span(data, d):
@@ -154,7 +165,7 @@ def test_a_file_pyx12_cannot_read_gives_one_failure():
     assert is_failure(failure)
     assert (failure.segment, failure.element, failure.datum) == (None, None, b"")
     assert failure.rule == (
-        "pyx12 could not finish validating: X12Error: ISA Interchange Control Version Number"
+        "could not finish validating: X12Error: ISA Interchange Control Version Number"
         " is unknown: 0401* for ISA*00*          *00*          *ZZ*RUSHMORE      *ZZ*ACME_MED"
         "       *190316*1615*U*00401*000001234*0*P*>~; it reached no segment (reported by pyx12)"
     )
@@ -175,7 +186,7 @@ def test_a_report_pyx12_shape_change_becomes_one_failure(monkeypatch):
     assert is_failure(failure)
     assert failure.segment is None
     assert failure.rule == (
-        "pyx12 could not finish validating: its report could not be translated"
+        "could not finish validating: its report could not be translated"
         " (KeyError: 'errors'); it reached no segment (reported by pyx12)"
     )
 
@@ -204,7 +215,7 @@ def test_an_exception_inside_pyx12_becomes_one_failure(monkeypatch):
     (failure,) = findings
     assert is_failure(failure)
     assert failure.rule == (
-        "pyx12 could not finish validating: RuntimeError: map exploded;"
+        "could not finish validating: RuntimeError: map exploded;"
         " it was processing segment #5; the last it completed is #4 (reported by pyx12)"
     )
     assert failure.segment == 5
@@ -295,7 +306,9 @@ def test_parse_and_validate_findings_mix_sort_by_level_and_filter_by_origin():
     assert all(isinstance(d, oxedi835.Diagnostic) for d in findings)
     assert {d.origin for d in findings} == {"oxedi835", "pyx12"}
     ordered = sorted(findings, key=lambda d: d.level)
-    assert [d.level for d in ordered] == sorted(d.level for d in findings)
+    levels = [d.level for d in ordered]
+    assert {1, 2} <= set(levels)
+    assert levels == sorted(levels)
     ours = [d for d in findings if d.origin == "oxedi835"]
     theirs = [d for d in findings if d.origin == "pyx12"]
     assert ours and theirs and len(ours) + len(theirs) == len(findings)
@@ -324,4 +337,4 @@ def test_a_failure_is_level_1_without_code():
         "pyx12",
         "External",
     )
-    assert failure.rule.startswith("pyx12 could not finish validating")
+    assert failure.rule.startswith("could not finish validating")

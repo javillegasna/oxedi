@@ -245,8 +245,10 @@ def _translate(
 def _failure(
     reason: str, track: list[int], positions: _Positions, document: Any, started: bool = True
 ) -> Diagnostic:
-    """One failure finding, with no code: pyx12 did not report it, it stopped. ``track`` holds the segment numbers pyx12 finished;
-    the segment it was working on when it failed is the one after the last."""
+    """One failure finding, with no code: pyx12 did not report it, it stopped.
+
+    ``track`` holds the segment numbers pyx12 finished; the segment it was
+    working on when it failed is the one after the last."""
     current = (track[-1] + 1 if track else 1) if started else None
     segment = positions.locate(current)
     if segment is None:
@@ -259,7 +261,7 @@ def _failure(
             f"; the last it completed is #{done}" if done is not None else ""
         )
     return _finding(
-        f"pyx12 could not finish validating: {reason}; {where}",
+        f"could not finish validating: {reason}; {where}",
         _FAILURE_LEVEL,
         segment=segment,
         datum=datum,
@@ -297,7 +299,7 @@ def validate(source: Source) -> list[Diagnostic]:
 
     A file pyx12 cannot read, an exception inside pyx12, or a report that
     cannot be translated gives one level 1 finding with no ``code`` whose
-    ``rule`` starts with ``pyx12 could not finish validating``, instead of
+    ``rule`` starts with ``could not finish validating``, instead of
     raising. A file with no ISA to read the delimiters from raises
     ``oxedi835.ParseError``, as ``oxedi835.parse`` does. Nothing is written to
     disk and no acknowledgement is generated.

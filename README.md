@@ -142,7 +142,7 @@ by `level` and filter by `origin`. A pyx12 finding has `kind == "External"`,
 `origin == "pyx12"`, `code` set to pyx12's error code and an empty `path` (pyx12 does not report
 the loop); interchange, group and transaction findings are level 1, segment and element
 findings level 2. A file pyx12 cannot read, or an exception inside pyx12, comes back as one
-level 1 finding with no `code` whose `rule` starts with `pyx12 could not finish validating`,
+level 1 finding with no `code` whose `rule` starts with `could not finish validating`,
 instead of a traceback.
 
 ## Coming from another library

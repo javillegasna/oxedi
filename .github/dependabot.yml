@@ -1,0 +1,29 @@
+# Version updates. Security updates are enabled separately in the repository settings and are
+# not limited by this file.
+version: 2
+updates:
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: monthly
+    groups:
+      actions:
+        patterns: ["*"]
+
+  - package-ecosystem: cargo
+    directory: /
+    schedule:
+      interval: monthly
+    ignore:
+      # Pinned exactly: upgraded by hand after checking that the DuckDB C API it targets has no
+      # unstable tail we would call (stable ABI, C_STRUCT).
+      - dependency-name: libduckdb-sys
+    groups:
+      # Minor and patch updates of every crate in one pull request.
+      rust-minor:
+        update-types: ["minor", "patch"]
+      # Major updates of the Python binding's stack, reviewed together because they usually need
+      # code changes.
+      pyo3-arrow-major:
+        patterns: ["pyo3*", "arrow*"]
+        update-types: ["major"]

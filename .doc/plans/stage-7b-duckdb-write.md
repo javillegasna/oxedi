@@ -107,6 +107,12 @@ only). Branch `stage-7b-duckdb-write`. Ledger `.superpowers/sdd/stage-7b/progres
 ### Task 4: docs, changelog, version
 - Extension README and root README: a short "Writing" section with the query pattern of T89, the
   options table, strict behaviour, `version`. Crate docs in `lib.rs`.
+- A "From your own tables" section (extension README and the root README's writing section): what
+  the writer tolerates (missing tables and columns, type widening) and refuses (unknown names,
+  floats for money, unbalanced totals); how to map one's own keys to `row` and the parent
+  references with `row_number()` and joins in SQL and `with_row_index` + `join` in Polars, dropping
+  helper columns with `EXCLUDE`/`drop`; how to see a table's columns today (`DESCRIBE … read_835`,
+  `Result.tables[...]`), pointing to issue #138 for a file-free schema.
 - `crates/oxedi_duckdb/CHANGELOG.md` `## [0.2.0]` (Added: the `edi835` format); crate version and
   `description.yml` version 0.2.0 (`make duckdb-version-check` green); `description.yml` docs
   `hello_world` gains a `COPY … (FORMAT edi835 …)` line if it stays short.

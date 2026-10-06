@@ -352,7 +352,7 @@ fn a_column_or_table_reading_a_segment_its_loop_never_holds_is_rejected() {
     let json = |tables: &str| {
         format!(
             r#"{{"name":"t","loops":{{
-                    "A":{{"trigger":{{"segment":"AA"}},"segments":["A1"],"end":"AE"}},
+                    "A":{{"trigger":{{"segment":"AA"}},"occurrences":{{"aa":{{"segment":"AA","pos":0}},"a1":{{"segment":"A1","pos":1}}}},"end":"AE"}},
                     "B":{{"parent":"A","trigger":{{"segment":"BB"}}}}
                 }},"tables":{tables}}}"#
         )
@@ -396,7 +396,7 @@ fn a_segment_index_column_must_name_a_segment_its_loop_holds() {
     let json = |tables: &str| {
         format!(
             r#"{{"name":"t","loops":{{
-                    "A":{{"trigger":{{"segment":"AA"}},"segments":["A1"]}},
+                    "A":{{"trigger":{{"segment":"AA"}},"occurrences":{{"aa":{{"segment":"AA","pos":0}},"a1":{{"segment":"A1","pos":1}}}}}},
                     "B":{{"parent":"A","trigger":{{"segment":"BB"}}}}
                 }},"tables":{tables}}}"#
         )

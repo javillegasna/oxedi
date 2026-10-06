@@ -153,11 +153,11 @@ spec = oxedi.Spec.builtin().patch({
 result = oxedi.parse(data, spec=spec)   # claims now has a contract_class column
 ```
 
-Objects merge key by key, while arrays are replaced whole: to allow an extra segment in a
-loop, list the loop's full `segments`:
+Objects merge key by key, while arrays are replaced whole. A loop's segments are named
+occurrences, so a patch adds one (or changes or removes it with `null`) by its name:
 
 ```json
-{"loops": {"1000A": {"segments": ["N3", "N4", "REF", "PER", "XX"]}}}
+{"loops": {"1000A": {"occurrences": {"xx": {"segment": "XX", "pos": 1400}}}}}
 ```
 
 `parse` and `stream` both accept `spec=`.

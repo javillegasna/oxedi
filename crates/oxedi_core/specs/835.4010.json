@@ -1,7 +1,7 @@
 {
   "version": {"values": ["004010X091A1", "004010X091", "004010"]},
   "loops": {
-    "1000B": {"segments": ["N3", "N4", "REF"]}
+    "1000B": {"occurrences": {"rdm": null}}
   },
   "segments": {
     "ISA": { "elements": {

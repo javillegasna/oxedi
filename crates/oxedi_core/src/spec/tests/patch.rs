@@ -48,17 +48,6 @@ fn a_patch_adds_a_column_with_three_lines() {
 }
 
 #[test]
-fn patch_replaces_arrays_wholesale() {
-    let spec = Spec::builtin_835()
-        .merge_patch(r#"{"loops":{"1000A":{"segments":["N3","N4"]}}}"#)
-        .unwrap();
-    assert_eq!(
-        spec.get(spec.loop_id("1000A").unwrap()).segments,
-        vec![b"N3".to_vec(), b"N4".to_vec()]
-    );
-}
-
-#[test]
 fn patch_merges_nested_objects_and_keeps_siblings() {
     let spec = Spec::builtin_835()
         .merge_patch(r#"{"loops":{"1000A":{"trigger":{"where":{"2":"ACME"}}}}}"#)

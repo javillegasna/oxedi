@@ -3,6 +3,7 @@
 use std::fmt;
 
 use super::loops::ControlError;
+use super::occurrences::OccurrenceError;
 use super::segments::ElementDefError;
 use super::tables::TableDefError;
 use super::version::VersionError;
@@ -45,8 +46,8 @@ pub enum SpecError {
     EmptySegmentId {
         /// The loop holding it; `None` for a key of the `segments` section.
         loop_name: Option<String>,
-        /// Where it sits, as written: `trigger.segment`, `segments[<i>]`,
-        /// `end`, or `segments.""` for the section.
+        /// Where it sits, as written: `trigger.segment`,
+        /// `occurrences.<name>.segment`, `end`, or `segments.""` for the section.
         key: String,
     },
     /// A loop's `end` is the segment that opens it.
@@ -148,6 +149,28 @@ pub enum SpecError {
         loop_name: String,
         /// What is wrong with it.
         reason: ControlError,
+    },
+    /// An occurrence of a loop is invalid.
+    BadOccurrence {
+        /// The loop.
+        loop_name: String,
+        /// The occurrence name as written.
+        occurrence: String,
+        /// What is wrong with it.
+        reason: Box<OccurrenceError>,
+    },
+    /// A loop declares occurrences, and none of them is the one its trigger
+    /// opens on.
+    UnmatchedTrigger {
+        /// The loop.
+        loop_name: String,
+        /// The trigger, e.g. `"N1" where {1: "PR"}`.
+        trigger: String,
+    },
+    /// A loop's `max` is 0.
+    ZeroLoopMax {
+        /// The loop.
+        loop_name: String,
     },
     /// Two loops with the same parent have identical triggers.
     AmbiguousTrigger {
@@ -304,6 +327,20 @@ impl fmt::Display for SpecError {
             SpecError::BadControl { loop_name, reason } => {
                 write!(f, "loop {loop_name:?} has an invalid \"control\": {reason}")
             }
+            SpecError::BadOccurrence {
+                loop_name,
+                occurrence,
+                reason,
+            } => write!(f, "loop {loop_name:?} occurrence {occurrence:?}: {reason}"),
+            SpecError::UnmatchedTrigger { loop_name, trigger } => write!(
+                f,
+                "loop {loop_name:?} opens on {trigger}, but none of its occurrences holds that \
+                 segment with a qualifier the trigger's conditions select"
+            ),
+            SpecError::ZeroLoopMax { loop_name } => write!(
+                f,
+                "loop {loop_name:?} has \"max\" 0; a loop that may appear appears at least once"
+            ),
             SpecError::AmbiguousTrigger {
                 first,
                 second,

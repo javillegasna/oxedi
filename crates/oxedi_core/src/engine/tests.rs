@@ -2,9 +2,9 @@ use super::*;
 use crate::{Delimiters, Spec, Tokenizer};
 
 const TINY: &str = r#"{"name":"t","loops":{
-    "A":{"trigger":{"segment":"AA"},"segments":["A1"],"end":"AE"},
-    "B":{"parent":"A","trigger":{"segment":"BB"},"segments":["B1"]},
-    "C":{"parent":"B","trigger":{"segment":"CC","where":{"1":"X"}},"segments":["C1"]}
+    "A":{"trigger":{"segment":"AA"},"occurrences":{"aa":{"segment":"AA","pos":0},"a1":{"segment":"A1","pos":1}},"end":"AE"},
+    "B":{"parent":"A","trigger":{"segment":"BB"},"occurrences":{"bb":{"segment":"BB","pos":0},"b1":{"segment":"B1","pos":1}}},
+    "C":{"parent":"B","trigger":{"segment":"CC","where":{"1":"X"}},"occurrences":{"cc":{"segment":"CC","pos":0},"c1":{"segment":"C1","pos":1}}}
 }}"#;
 
 fn spec() -> Spec {
@@ -231,7 +231,7 @@ fn a_reachable_trigger_wins_over_capture_in_the_current_loop() {
         r#"{"name":"t","loops":{
             "A":{"trigger":{"segment":"AA"}},
             "B":{"parent":"A","trigger":{"segment":"BB"}},
-            "C":{"parent":"B","trigger":{"segment":"CC"},"segments":["N1"]},
+            "C":{"parent":"B","trigger":{"segment":"CC"},"occurrences":{"cc":{"segment":"CC","pos":0},"n1":{"segment":"N1","pos":1}}},
             "D":{"parent":"A","trigger":{"segment":"N1"}}
         }}"#,
     )
@@ -325,7 +325,7 @@ fn an_end_segment_listed_by_an_inner_loop_is_captured_there_and_closes_nothing()
     let spec = Spec::from_json(
         r#"{"name":"t","loops":{
             "A":{"trigger":{"segment":"AA"},"end":"AE"},
-            "B":{"parent":"A","trigger":{"segment":"BB"},"segments":["AE"]}
+            "B":{"parent":"A","trigger":{"segment":"BB"},"occurrences":{"bb":{"segment":"BB","pos":0},"ae":{"segment":"AE","pos":1}}}
         }}"#,
     )
     .unwrap();

@@ -4,6 +4,7 @@ use std::fmt;
 
 #[cfg(doc)]
 use super::Spec;
+use super::occurrences::OccurrenceDef;
 use crate::element::Element;
 use crate::segment::Segment;
 
@@ -49,7 +50,16 @@ pub struct LoopDef {
     pub parent: Option<LoopId>,
     /// What opens the loop. The trigger segment is captured by the loop.
     pub trigger: Trigger,
-    /// Segments the loop holds after its trigger.
+    /// The named places segments take in the loop, by position, the one its
+    /// trigger opens on included. Empty when the loop declares none: it then
+    /// holds only its trigger and its end.
+    pub occurrences: Vec<OccurrenceDef>,
+    /// Most instances the loop may have under one parent instance; `None`
+    /// for no limit.
+    pub max: Option<usize>,
+    /// Segment ids the loop holds after its trigger, derived from the
+    /// occurrences: each id once, in position order, leaving out the
+    /// occurrences the trigger opens on.
     pub segments: Vec<Vec<u8>>,
     /// Segment that is captured and then closes the loop, e.g. `SE`.
     pub end: Option<Vec<u8>>,

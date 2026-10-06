@@ -4,47 +4,96 @@
   "loops": {
     "interchange": {
       "trigger": { "segment": "ISA" },
-      "segments": ["TA1"],
+      "occurrences": {
+        "isa": { "segment": "ISA", "pos": 0 },
+        "ta1": { "segment": "TA1", "pos": 1 }
+      },
       "end": "IEA",
       "control": { "opener_element": 13, "closer_element": 2, "count_element": 1, "count": "children" }
     },
     "group": {
       "parent": "interchange",
       "trigger": { "segment": "GS" },
+      "occurrences": {
+        "gs": { "segment": "GS", "pos": 0 }
+      },
       "end": "GE",
       "control": { "opener_element": 6, "closer_element": 2, "count_element": 1, "count": "children" }
     },
     "transaction": {
       "parent": "group",
       "trigger": { "segment": "ST" },
-      "segments": ["BPR", "TRN", "CUR", "REF", "DTM", "PLB"],
+      "occurrences": {
+        "st": { "segment": "ST", "pos": 0 },
+        "bpr": { "segment": "BPR", "pos": 1 },
+        "trn": { "segment": "TRN", "pos": 2 },
+        "cur": { "segment": "CUR", "pos": 3 },
+        "ref": { "segment": "REF", "pos": 4 },
+        "dtm": { "segment": "DTM", "pos": 5 },
+        "plb": { "segment": "PLB", "pos": 6 }
+      },
       "end": "SE",
       "control": { "opener_element": 2, "closer_element": 2, "count_element": 1, "count": "segments" }
     },
     "1000A": {
       "parent": "transaction",
       "trigger": { "segment": "N1", "where": { "1": "PR" } },
-      "segments": ["N3", "N4", "REF", "PER"]
+      "occurrences": {
+        "n1": { "segment": "N1", "pos": 0 },
+        "n3": { "segment": "N3", "pos": 1 },
+        "n4": { "segment": "N4", "pos": 2 },
+        "ref": { "segment": "REF", "pos": 3 },
+        "per": { "segment": "PER", "pos": 4 }
+      }
     },
     "1000B": {
       "parent": "transaction",
       "trigger": { "segment": "N1", "where": { "1": "PE" } },
-      "segments": ["N3", "N4", "REF", "RDM"]
+      "occurrences": {
+        "n1": { "segment": "N1", "pos": 0 },
+        "n3": { "segment": "N3", "pos": 1 },
+        "n4": { "segment": "N4", "pos": 2 },
+        "ref": { "segment": "REF", "pos": 3 },
+        "rdm": { "segment": "RDM", "pos": 4 }
+      }
     },
     "2000": {
       "parent": "transaction",
       "trigger": { "segment": "LX" },
-      "segments": ["TS3", "TS2"]
+      "occurrences": {
+        "lx": { "segment": "LX", "pos": 0 },
+        "ts3": { "segment": "TS3", "pos": 1 },
+        "ts2": { "segment": "TS2", "pos": 2 }
+      }
     },
     "2100": {
       "parent": "2000",
       "trigger": { "segment": "CLP" },
-      "segments": ["CAS", "NM1", "MIA", "MOA", "REF", "DTM", "PER", "AMT", "QTY"]
+      "occurrences": {
+        "clp": { "segment": "CLP", "pos": 0 },
+        "cas": { "segment": "CAS", "pos": 1 },
+        "nm1": { "segment": "NM1", "pos": 2 },
+        "mia": { "segment": "MIA", "pos": 3 },
+        "moa": { "segment": "MOA", "pos": 4 },
+        "ref": { "segment": "REF", "pos": 5 },
+        "dtm": { "segment": "DTM", "pos": 6 },
+        "per": { "segment": "PER", "pos": 7 },
+        "amt": { "segment": "AMT", "pos": 8 },
+        "qty": { "segment": "QTY", "pos": 9 }
+      }
     },
     "2110": {
       "parent": "2100",
       "trigger": { "segment": "SVC" },
-      "segments": ["DTM", "CAS", "REF", "AMT", "QTY", "LQ"]
+      "occurrences": {
+        "svc": { "segment": "SVC", "pos": 0 },
+        "dtm": { "segment": "DTM", "pos": 1 },
+        "cas": { "segment": "CAS", "pos": 2 },
+        "ref": { "segment": "REF", "pos": 3 },
+        "amt": { "segment": "AMT", "pos": 4 },
+        "qty": { "segment": "QTY", "pos": 5 },
+        "lq": { "segment": "LQ", "pos": 6 }
+      }
     }
   },
   "segments": {

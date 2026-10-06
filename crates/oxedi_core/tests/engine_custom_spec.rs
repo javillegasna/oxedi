@@ -10,20 +10,16 @@ fn a_patch_makes_the_bogus_trizetto_segment_captured() {
     let bytes = common::load_fixture("trizetto_sample.rmt");
     let builtin = Spec::builtin_835();
     let patched = builtin
-        .merge_patch(r#"{"loops":{"1000A":{"segments":["N3","N4","REF","PER","XX"]}}}"#)
+        .merge_patch(r#"{"loops":{"1000A":{"occurrences":{"xx":{"segment":"XX","pos":9000}}}}}"#)
         .unwrap();
     let payer = patched.get(patched.loop_id("1000A").unwrap());
+    let before = builtin.get(builtin.loop_id("1000A").unwrap());
     assert_eq!(
-        payer.segments,
-        [
-            b"N3".to_vec(),
-            b"N4".to_vec(),
-            b"REF".to_vec(),
-            b"PER".to_vec(),
-            b"XX".to_vec()
-        ],
-        "a merge patch replaces the segment list wholesale, so the patch lists the built-in entries too"
+        payer.segments[..payer.segments.len() - 1],
+        before.segments[..],
+        "a merge patch adds an occurrence by name and keeps the built-in ones"
     );
+    assert_eq!(payer.segments.last(), Some(&b"XX".to_vec()));
     let delims = Delimiters::from_isa(&bytes).unwrap();
     let unmatched = |spec: &Spec| {
         common::events_of(spec, &bytes, delims)
@@ -58,7 +54,7 @@ fn a_patch_adding_n3_n4_to_loop_2100_captures_the_multi_claim_addresses() {
     let builtin = Spec::builtin_835();
     let patched = builtin
         .merge_patch(
-            r#"{"loops":{"2100":{"segments":["CAS","NM1","MIA","MOA","REF","DTM","PER","AMT","QTY","N3","N4"]}}}"#,
+            r#"{"loops":{"2100":{"occurrences":{"n3":{"segment":"N3","pos":9000},"n4":{"segment":"N4","pos":9001}}}}}"#,
         )
         .unwrap();
     let delims = Delimiters::from_isa(&bytes).unwrap();
@@ -78,7 +74,7 @@ fn a_proprietary_loop_opens_and_captures_with_data_only() {
     let delims = Delimiters::new(b'*', b':', b'~');
     let builtin = Spec::builtin_835();
     let patched = builtin
-        .merge_patch(r#"{"loops":{"2100-ZZ":{"parent":"2100","trigger":{"segment":"ZZ1"},"segments":["ZZ2"]}}}"#)
+        .merge_patch(r#"{"loops":{"2100-ZZ":{"parent":"2100","trigger":{"segment":"ZZ1"},"occurrences":{"zz1":{"segment":"ZZ1","pos":0},"zz2":{"segment":"ZZ2","pos":1}}}}}"#)
         .unwrap();
 
     let tree = LoopTree::build(&builtin, Tokenizer::with_delimiters(input, delims));

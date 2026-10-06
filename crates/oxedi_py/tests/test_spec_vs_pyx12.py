@@ -86,8 +86,12 @@ SPEC = {
     "loops": {
         "interchange": {"trigger": {"segment": "ISA"}, "end": "IEA"},
         "2100": {"parent": "interchange", "trigger": {"segment": "CLP"},
-                 "segments": ["REF"]},
-        "2110": {"parent": "2100", "trigger": {"segment": "SVC"}, "segments": ["REF", "DTM"]},
+                 "occurrences": {"clp": {"segment": "CLP", "pos": 0},
+                                 "ref": {"segment": "REF", "pos": 1}}},
+        "2110": {"parent": "2100", "trigger": {"segment": "SVC"},
+                 "occurrences": {"svc": {"segment": "SVC", "pos": 0},
+                                 "ref": {"segment": "REF", "pos": 1},
+                                 "dtm": {"segment": "DTM", "pos": 2}}},
     },
     "segments": {
         "ISA": {"elements": {"1": {"name": "qualifier", "type": "ID", "required": True,
@@ -139,9 +143,9 @@ def test_report_and_patch_name_each_difference(tiny, tmp_path):
     assert draft["segments"]["ISA"]["elements"]["1"]["codes"] == ["00", "03"]
     # REF02 is situational in 2110, so the spec's `required` is stricter.
     assert "REF02: required is True in the spec, False in pyx12" in text
-    # The spec's 2100 does not hold DTM; the patch lists the loop's whole segment list.
+    # The spec's 2100 does not hold DTM; the patch adds an occurrence for it.
     assert "`segments:2100:DTM` [2100] loop 2100 does not hold DTM" in text
-    assert draft["loops"]["2100"]["segments"] == ["REF", "DTM"]
+    assert draft["loops"]["2100"]["occurrences"] == {"dtm": {"segment": "DTM", "pos": 0}}
     # CLP and SVC have no element definitions in the spec.
     assert draft["segments"]["CLP"]["elements"]["1"] == {
         "name": "claim_id", "type": "AN", "required": True, "min": 1, "max": 38,

@@ -9,6 +9,15 @@ This file covers the Python package; the DuckDB extension has its own changelog 
 
 ## [Unreleased]
 
+### Changed
+- A spec loop now declares its segments as `occurrences`, an object keyed by occurrence name:
+  each occurrence names its `segment`, its position `pos`, and optionally its `usage`
+  (`required` or `situational`), its maximum repeat `max`, a `qualifier` (the element and
+  codes that tell it apart from other occurrences of the same segment) and code lists of its
+  own (`codes`). A loop may also declare its maximum repeat `max`. The `segments` list of a
+  loop is removed: a patch of your own that redefines a loop's `segments` must move to
+  `occurrences`, where it can add, change or remove one occurrence by name.
+
 ## [0.3.0] - 2026-10-05
 
 The project is renamed to `oxedi`; the code is the same as 0.2.1 apart from the name.

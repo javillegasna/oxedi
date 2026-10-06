@@ -398,7 +398,7 @@ class Comparison:
             if ours is None:
                 continue
             listed = [ours.get("trigger", {}).get("segment")]
-            listed += ours.get("segments", [])
+            listed += [o.get("segment") for o in ours.get("occurrences", {}).values()]
             listed += [ours["end"]] if ours.get("end") else []
             missing = []
             for seg_id, usages in segments.items():
@@ -420,8 +420,9 @@ class Comparison:
                     self.add("segments", "differs", f"segments:{name}:{seg_id}", name,
                              f"loop {name} holds {seg_id} in the spec; pyx12 does not "
                              "place it there", seg_id, None, defined=True)
-            if missing:
-                self.set_patch(["loops", name, "segments"], ours.get("segments", []) + missing)
+            for seg_id in missing:
+                self.set_patch(["loops", name, "occurrences", seg_id.lower()],
+                               {"segment": seg_id, "pos": 0})
 
     # usage, types, lengths, codes
     def compare_elements(self):

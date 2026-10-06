@@ -391,7 +391,7 @@ pub(super) fn compile_elements(
 
 /// Validates a code list against its element's type and lengths and returns
 /// it sorted by bytes, the order the element check searches.
-fn compile_codes(
+pub(super) fn compile_codes(
     codes: &[String],
     kind: ElementType,
     min: Option<usize>,

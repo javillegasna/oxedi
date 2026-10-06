@@ -306,7 +306,7 @@ fn loops_still_open_at_the_end_of_the_stream_are_unterminated() {
 fn envelope_rules_come_from_the_spec() {
     let spec = Spec::from_json(
         r#"{"name":"t","loops":{
-            "batch":{"trigger":{"segment":"HDR"},"segments":["LN"],"end":"TRL",
+            "batch":{"trigger":{"segment":"HDR"},"occurrences":{"hdr":{"segment":"HDR","pos":0},"ln":{"segment":"LN","pos":1}},"end":"TRL",
                 "control":{"opener_element":1,"closer_element":2,"count_element":1,"count":"segments"}}
         }}"#,
     )

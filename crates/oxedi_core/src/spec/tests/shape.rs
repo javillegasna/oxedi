@@ -13,7 +13,7 @@ fn a_missing_required_key_is_rejected_with_its_key_path() {
             "spec: missing required key \"name\" at the top level",
         ),
         (
-            loop_json(r#"{"segments":["AA"]}"#),
+            loop_json(r#"{"occurrences":{}}"#),
             "spec: missing required key \"trigger\" at loops.env",
         ),
         (
@@ -316,7 +316,7 @@ fn wrong_type_displays_the_path_what_is_required_and_what_was_found() {
 #[test]
 fn patch_adds_a_loop() {
     let spec = Spec::builtin_835().merge_patch(
-        r#"{"loops":{"2100-ZZ":{"parent":"2100","trigger":{"segment":"ZZ1"},"segments":["ZZ2"]}}}"#,
+        r#"{"loops":{"2100-ZZ":{"parent":"2100","trigger":{"segment":"ZZ1"},"occurrences":{"zz1":{"segment":"ZZ1","pos":0},"zz2":{"segment":"ZZ2","pos":1}}}}}"#,
     )
     .unwrap();
     assert_eq!(spec.loops().len(), 9);

@@ -130,7 +130,7 @@ proptest! {
 /// Each segment has a table that reads every element and component, so the
 /// full spec parses every value and the spec without tables only validates.
 const TYPED_SPEC: &str = r#"{"name":"typed",
-    "loops":{"head":{"trigger":{"segment":"HD"},"segments":["NA","RS","CP","TX"],"end":"TR"}},
+    "loops":{"head":{"trigger":{"segment":"HD"},"occurrences":{"hd":{"segment":"HD","pos":0},"na":{"segment":"NA","pos":1},"rs":{"segment":"RS","pos":2},"cp":{"segment":"CP","pos":3},"tx":{"segment":"TX","pos":4}},"end":"TR"}},
     "segments":{
         "NA":{"elements":{
             "1":{"name":"n0","type":"N0","min":2,"max":4},
@@ -385,7 +385,7 @@ proptest! {
 /// Code lists on a required element, an optional one, a time and a
 /// component; each segment has a table that reads every element.
 const CODED_SPEC: &str = r#"{"name":"coded",
-    "loops":{"head":{"trigger":{"segment":"HD"},"segments":["CD","PX"],"end":"TR"}},
+    "loops":{"head":{"trigger":{"segment":"HD"},"occurrences":{"hd":{"segment":"HD","pos":0},"cd":{"segment":"CD","pos":1},"px":{"segment":"PX","pos":2}},"end":"TR"}},
     "segments":{
         "CD":{"elements":{
             "1":{"name":"qualifier","type":"ID","required":true,"min":2,"max":3,"codes":["PE","PR"]},

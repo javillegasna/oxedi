@@ -221,7 +221,7 @@ def test_real_maps_cover_every_loop(tmp_path):
 @pytest.mark.parametrize("version", ["5010", "4010"])
 def test_real_draft_patches_load_over_the_compared_spec(tmp_path, version):
     pytest.importorskip("pyx12")
-    from oxedi835 import Spec
+    from oxedi import Spec
 
     script = load_script()
     report, patch = tmp_path / "report.md", tmp_path / "patch.json"

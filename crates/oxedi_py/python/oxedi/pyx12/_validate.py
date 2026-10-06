@@ -36,7 +36,7 @@ def _import_pyx12() -> Any:
         import pyx12.x12n_document
     except ImportError as err:
         raise ImportError(
-            "oxedi835.pyx12 needs the pyx12 package: pip install 'oxedi835[pyx12]'"
+            "oxedi.pyx12 needs the pyx12 package: pip install 'oxedi[pyx12]'"
         ) from err
     return pyx12
 
@@ -299,7 +299,7 @@ def validate(source: Source) -> list[Diagnostic]:
     ``<prefix>/etc/pyx12.conf.xml``) are not read, so findings do not
     depend on the machine.
 
-    Each finding is an :class:`oxedi835.Diagnostic`, the type ``parse``
+    Each finding is an :class:`oxedi.Diagnostic`, the type ``parse``
     returns, so both lists mix, sort by ``level`` and filter by ``origin``.
     A pyx12 finding has ``kind == "External"``, ``origin == "pyx12"`` and
     ``code`` set to pyx12's own error code; ``rule`` is pyx12's message.
@@ -313,7 +313,7 @@ def validate(source: Source) -> list[Diagnostic]:
     cannot be translated gives one level 1 finding with no ``code`` whose
     ``rule`` starts with ``could not finish validating``, instead of
     raising. A file with no ISA to read the delimiters from raises
-    ``oxedi835.ParseError``, as ``oxedi835.parse`` does. Nothing is written to
+    ``oxedi.ParseError``, as ``oxedi.parse`` does. Nothing is written to
     disk and no acknowledgement is generated.
     """
     _import_pyx12()

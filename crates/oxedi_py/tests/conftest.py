@@ -7,7 +7,7 @@ import pytest
 CORE_TESTS = Path(
     os.environ.get(
         "OXEDI835_CORE_TESTS",
-        Path(__file__).resolve().parents[2] / "edi835_core" / "tests",
+        Path(__file__).resolve().parents[2] / "oxedi_core" / "tests",
     )
 )
 GOLDEN = CORE_TESTS / "golden" / "project"
@@ -48,12 +48,12 @@ def file_name(request):
 
 
 def delimiters_for(name):
-    import oxedi835
+    import oxedi
 
-    return oxedi835.Delimiters() if name in NO_ISA else None
+    return oxedi.Delimiters() if name in NO_ISA else None
 
 
 def parse_named(name):
-    import oxedi835
+    import oxedi
 
-    return oxedi835.parse(read(name), delimiters=delimiters_for(name))
+    return oxedi.parse(read(name), delimiters=delimiters_for(name))

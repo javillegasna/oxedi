@@ -2,8 +2,8 @@
 
 use std::ffi::c_char;
 
-use edi835_core::{Cell, Column, ColumnData};
 use libduckdb_sys as ffi;
+use oxedi_core::{Cell, Column, ColumnData};
 
 use crate::error::ReadError;
 use crate::schema::SqlType;

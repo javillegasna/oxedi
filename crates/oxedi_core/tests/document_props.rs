@@ -4,8 +4,8 @@
 
 mod common;
 
-use edi835_core::frame::{BYTE_ORDER_MARK, first_frame, next_frame};
-use edi835_core::{Delimiters, Document, Span, Tokenizer};
+use oxedi_core::frame::{BYTE_ORDER_MARK, first_frame, next_frame};
+use oxedi_core::{Delimiters, Document, Span, Tokenizer};
 use proptest::prelude::*;
 
 /// The spans as recorded straight from each frame, without deriving anything:

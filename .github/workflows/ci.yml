@@ -22,8 +22,8 @@ jobs:
         with:
           filters: |
             python:
-              - 'crates/edi835_core/**'
-              - 'crates/oxedi835_py/**'
+              - 'crates/oxedi_core/**'
+              - 'crates/oxedi_py/**'
               - 'scripts/**'
               - 'Cargo.toml'
               - 'Cargo.lock'
@@ -34,9 +34,9 @@ jobs:
               - 'THIRD_PARTY_NOTICES'
               - '.github/workflows/ci.yml'
             duckdb:
-              - 'crates/edi835_core/**'
+              - 'crates/oxedi_core/**'
               - 'crates/oxedi_duckdb/**'
-              - 'crates/oxedi835_py/**'
+              - 'crates/oxedi_py/**'
               - 'Cargo.toml'
               - 'Cargo.lock'
               - 'Makefile'
@@ -72,8 +72,8 @@ jobs:
         run: cargo bench --workspace --no-run --locked
       - name: Stub drift
         run: |
-          cargo run --locked -p oxedi835_py --bin stub_gen
-          git diff --exit-code crates/oxedi835_py/python/oxedi835/_core.pyi
+          cargo run --locked -p oxedi_py --bin stub_gen
+          git diff --exit-code crates/oxedi_py/python/oxedi/_core.pyi
 
   python:
     name: Python ${{ matrix.python }}
@@ -95,19 +95,19 @@ jobs:
       - name: Tools
         run: uv pip install "maturin>=1.9.4,<2" pytest polars pyarrow pandas "edi-835-parser==1.8.0" duckdb "pyx12>=4.0,<5" mypy pandas-stubs
       - name: Build
-        run: maturin develop --uv --release --manifest-path crates/oxedi835_py/Cargo.toml
+        run: maturin develop --uv --release --manifest-path crates/oxedi_py/Cargo.toml
       - name: Spec against pyx12's maps
         run: |
           python scripts/spec_vs_pyx12.py --check
           python scripts/spec_vs_pyx12.py --check --version 4010
       - name: Stub against the runtime
-        run: python -m mypy.stubtest oxedi835._core $(test -f crates/oxedi835_py/stubtest-allowlist.txt && echo --allowlist crates/oxedi835_py/stubtest-allowlist.txt)
+        run: python -m mypy.stubtest oxedi._core $(test -f crates/oxedi_py/stubtest-allowlist.txt && echo --allowlist crates/oxedi_py/stubtest-allowlist.txt)
       - name: Public API under mypy --strict, package under mypy
         run: |
-          python -m mypy --strict crates/oxedi835_py/tests/typing/usage.py
-          python -m mypy --config-file crates/oxedi835_py/pyproject.toml crates/oxedi835_py/python/oxedi835
+          python -m mypy --strict crates/oxedi_py/tests/typing/usage.py
+          python -m mypy --config-file crates/oxedi_py/pyproject.toml crates/oxedi_py/python/oxedi
       - name: Test
-        run: pytest crates/oxedi835_py/tests
+        run: pytest crates/oxedi_py/tests
       - name: Wheel in a clean environment
         run: scripts/smoke_wheel.sh
 
@@ -154,5 +154,5 @@ jobs:
         run: make release
       - name: SQLLogicTest
         run: make test_release DUCKDB_TEST_VERSION='${{ matrix.duckdb.test_version }}'
-      - name: Oracle against oxedi835.parse_file
+      - name: Oracle against oxedi.parse_file
         run: make duckdb-oracle

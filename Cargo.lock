@@ -372,16 +372,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "edi835_core"
-version = "0.2.1"
-dependencies = [
- "criterion",
- "proptest",
- "serde",
- "serde_json",
-]
-
-[[package]]
 name = "either"
 version = "1.18.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -801,26 +791,36 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "d6790f58c7ff633d8771f42965289203411a5e5c68388703c06e14f24770b41e"
 
 [[package]]
-name = "oxedi835_py"
-version = "0.2.1"
+name = "oxedi_core"
+version = "0.3.0"
 dependencies = [
- "arrow-array",
- "arrow-buffer",
- "arrow-data",
- "arrow-schema",
- "bytes",
- "edi835_core",
- "pyo3",
- "pyo3-stub-gen",
- "self_cell",
+ "criterion",
+ "proptest",
+ "serde",
+ "serde_json",
 ]
 
 [[package]]
 name = "oxedi_duckdb"
 version = "0.1.0"
 dependencies = [
- "edi835_core",
  "libduckdb-sys",
+ "oxedi_core",
+]
+
+[[package]]
+name = "oxedi_py"
+version = "0.3.0"
+dependencies = [
+ "arrow-array",
+ "arrow-buffer",
+ "arrow-data",
+ "arrow-schema",
+ "bytes",
+ "oxedi_core",
+ "pyo3",
+ "pyo3-stub-gen",
+ "self_cell",
 ]
 
 [[package]]

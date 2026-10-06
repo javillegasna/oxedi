@@ -10,6 +10,6 @@ statement ok
 SET disabled_filesystems = 'LocalFileSystem';
 
 statement error
-SELECT * FROM read_835('../edi835_core/tests/samples/*.rmt');
+SELECT * FROM read_835('../oxedi_core/tests/samples/*.rmt');
 ----
-read_835: the pattern "../edi835_core/tests/samples/*.rmt" could not be expanded: File system LocalFileSystem has been disabled by configuration
+read_835: the pattern "../oxedi_core/tests/samples/*.rmt" could not be expanded: File system LocalFileSystem has been disabled by configuration

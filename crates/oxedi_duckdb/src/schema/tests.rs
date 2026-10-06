@@ -1,4 +1,4 @@
-use edi835_core::ColumnType;
+use oxedi_core::ColumnType;
 
 use super::SqlType;
 

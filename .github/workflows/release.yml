@@ -11,7 +11,7 @@ permissions:
   contents: read
 
 env:
-  MANIFEST: crates/oxedi835_py/Cargo.toml
+  MANIFEST: crates/oxedi_py/Cargo.toml
 
 jobs:
   # The tag must equal v<version> from Cargo.toml and the changelog must have the section.
@@ -151,7 +151,7 @@ jobs:
     runs-on: ubuntu-latest
     environment:
       name: testpypi
-      url: https://test.pypi.org/project/oxedi835/
+      url: https://test.pypi.org/project/oxedi/
     permissions:
       id-token: write
     steps:
@@ -189,7 +189,7 @@ jobs:
           py="$RUNNER_TEMP/venv/bin/python"
           [ -x "$py" ] || py="$RUNNER_TEMP/venv/Scripts/python.exe"
           for attempt in 1 2 3 4 5 6 7 8 9 10; do
-            if "$py" -m pip install --pre --no-deps --only-binary=:all: --index-url https://test.pypi.org/simple/ "oxedi835==$VERSION"; then
+            if "$py" -m pip install --pre --no-deps --only-binary=:all: --index-url https://test.pypi.org/simple/ "oxedi==$VERSION"; then
               exit_code=0
               break
             fi
@@ -206,13 +206,13 @@ jobs:
         working-directory: ${{ runner.temp }}
         run: |
           "$py" - <<'PY'
-          import importlib.metadata as m, os, oxedi835
+          import importlib.metadata as m, os, oxedi
           expected = os.environ["VERSION"]
-          assert m.version("oxedi835") == expected, (m.version("oxedi835"), expected)
-          path = os.path.join(os.environ["GITHUB_WORKSPACE"], "crates", "edi835_core", "tests", "fixtures", "multi_claim_sample.txt")
-          result = oxedi835.parse_file(path)
+          assert m.version("oxedi") == expected, (m.version("oxedi"), expected)
+          path = os.path.join(os.environ["GITHUB_WORKSPACE"], "crates", "oxedi_core", "tests", "fixtures", "multi_claim_sample.txt")
+          result = oxedi.parse_file(path)
           assert result.count_claims() > 0
-          print("testpypi:", m.version("oxedi835"), result.count_claims(), "claims")
+          print("testpypi:", m.version("oxedi"), result.count_claims(), "claims")
           PY
 
   publish-pypi:
@@ -222,7 +222,7 @@ jobs:
     runs-on: ubuntu-latest
     environment:
       name: pypi
-      url: https://pypi.org/project/oxedi835/
+      url: https://pypi.org/project/oxedi/
     permissions:
       id-token: write
     steps:
@@ -277,6 +277,6 @@ jobs:
           else
             flags=()
             if [ "$PRERELEASE" = "true" ]; then flags+=(--prerelease); fi
-            gh release create "$GITHUB_REF_NAME" dist/* --title "oxedi835 ${GITHUB_REF_NAME#v}" \
+            gh release create "$GITHUB_REF_NAME" dist/* --title "oxedi ${GITHUB_REF_NAME#v}" \
               --notes-file notes.md --verify-tag "${flags[@]}"
           fi

@@ -2,102 +2,102 @@
 #![allow(unused_imports)]
 
 mod by_module {
-    use edi835_core::check::EnvelopeChecker;
-    use edi835_core::column::Bitmap;
-    use edi835_core::column::Cell;
-    use edi835_core::column::CellError;
-    use edi835_core::column::Column;
-    use edi835_core::column::ColumnData;
-    use edi835_core::column::ColumnType;
-    use edi835_core::column::DECIMAL_PRECISION;
-    use edi835_core::column::RowError;
-    use edi835_core::column::Table;
-    use edi835_core::column::Tables;
-    use edi835_core::column::parse_dt;
-    use edi835_core::column::parse_n;
-    use edi835_core::column::parse_r;
-    use edi835_core::column::parse_tm;
-    use edi835_core::delimiters::Delimiters;
-    use edi835_core::delimiters::IsaError;
-    use edi835_core::diagnostic::Diagnostic;
-    use edi835_core::diagnostic::LoopRef;
-    use edi835_core::diagnostic::Rule;
-    use edi835_core::diagnostic::SnipLevel;
-    use edi835_core::document::Document;
-    use edi835_core::document::DocumentError;
-    use edi835_core::document::Segments;
-    use edi835_core::document::SizeError;
-    use edi835_core::document::Span;
-    use edi835_core::document::Spans;
-    use edi835_core::element::Element;
-    use edi835_core::element::Value;
-    use edi835_core::element::split_raw;
-    use edi835_core::element::unescape;
-    use edi835_core::engine::Event;
-    use edi835_core::engine::LoopEngine;
-    use edi835_core::frame::BYTE_ORDER_MARK;
-    use edi835_core::frame::Frame;
-    use edi835_core::frame::find_unescaped;
-    use edi835_core::frame::first_frame;
-    use edi835_core::frame::is_trivia;
-    use edi835_core::frame::leading_trivia;
-    use edi835_core::frame::next_frame;
-    use edi835_core::process::Output;
-    use edi835_core::process::Processor;
-    use edi835_core::project::Projector;
-    use edi835_core::segment::Segment;
-    use edi835_core::segment::WriteError;
-    use edi835_core::spec::AnchorChains;
-    use edi835_core::spec::ColumnSource;
-    use edi835_core::spec::Control;
-    use edi835_core::spec::ControlCount;
-    use edi835_core::spec::ControlError;
-    use edi835_core::spec::DeclaredVersion;
-    use edi835_core::spec::ElementDef;
-    use edi835_core::spec::ElementDefError;
-    use edi835_core::spec::ElementType;
-    use edi835_core::spec::LoopDef;
-    use edi835_core::spec::LoopId;
-    use edi835_core::spec::ROW_COLUMN;
-    use edi835_core::spec::Repeat;
-    use edi835_core::spec::SEGMENT_COLUMN;
-    use edi835_core::spec::SegmentDef;
-    use edi835_core::spec::Spec;
-    use edi835_core::spec::SpecError;
-    use edi835_core::spec::TableDef;
-    use edi835_core::spec::TableDefError;
-    use edi835_core::spec::Trigger;
-    use edi835_core::spec::VersionError;
-    use edi835_core::spec::merge_patch;
-    use edi835_core::tokenizer::Tokenizer;
-    use edi835_core::tree::LoopTree;
-    use edi835_core::tree::Node;
-    use edi835_core::tree::NodeId;
-    use edi835_core::tree::TreeBuilder;
+    use oxedi_core::check::EnvelopeChecker;
+    use oxedi_core::column::Bitmap;
+    use oxedi_core::column::Cell;
+    use oxedi_core::column::CellError;
+    use oxedi_core::column::Column;
+    use oxedi_core::column::ColumnData;
+    use oxedi_core::column::ColumnType;
+    use oxedi_core::column::DECIMAL_PRECISION;
+    use oxedi_core::column::RowError;
+    use oxedi_core::column::Table;
+    use oxedi_core::column::Tables;
+    use oxedi_core::column::parse_dt;
+    use oxedi_core::column::parse_n;
+    use oxedi_core::column::parse_r;
+    use oxedi_core::column::parse_tm;
+    use oxedi_core::delimiters::Delimiters;
+    use oxedi_core::delimiters::IsaError;
+    use oxedi_core::diagnostic::Diagnostic;
+    use oxedi_core::diagnostic::LoopRef;
+    use oxedi_core::diagnostic::Rule;
+    use oxedi_core::diagnostic::SnipLevel;
+    use oxedi_core::document::Document;
+    use oxedi_core::document::DocumentError;
+    use oxedi_core::document::Segments;
+    use oxedi_core::document::SizeError;
+    use oxedi_core::document::Span;
+    use oxedi_core::document::Spans;
+    use oxedi_core::element::Element;
+    use oxedi_core::element::Value;
+    use oxedi_core::element::split_raw;
+    use oxedi_core::element::unescape;
+    use oxedi_core::engine::Event;
+    use oxedi_core::engine::LoopEngine;
+    use oxedi_core::frame::BYTE_ORDER_MARK;
+    use oxedi_core::frame::Frame;
+    use oxedi_core::frame::find_unescaped;
+    use oxedi_core::frame::first_frame;
+    use oxedi_core::frame::is_trivia;
+    use oxedi_core::frame::leading_trivia;
+    use oxedi_core::frame::next_frame;
+    use oxedi_core::process::Output;
+    use oxedi_core::process::Processor;
+    use oxedi_core::project::Projector;
+    use oxedi_core::segment::Segment;
+    use oxedi_core::segment::WriteError;
+    use oxedi_core::spec::AnchorChains;
+    use oxedi_core::spec::ColumnSource;
+    use oxedi_core::spec::Control;
+    use oxedi_core::spec::ControlCount;
+    use oxedi_core::spec::ControlError;
+    use oxedi_core::spec::DeclaredVersion;
+    use oxedi_core::spec::ElementDef;
+    use oxedi_core::spec::ElementDefError;
+    use oxedi_core::spec::ElementType;
+    use oxedi_core::spec::LoopDef;
+    use oxedi_core::spec::LoopId;
+    use oxedi_core::spec::ROW_COLUMN;
+    use oxedi_core::spec::Repeat;
+    use oxedi_core::spec::SEGMENT_COLUMN;
+    use oxedi_core::spec::SegmentDef;
+    use oxedi_core::spec::Spec;
+    use oxedi_core::spec::SpecError;
+    use oxedi_core::spec::TableDef;
+    use oxedi_core::spec::TableDefError;
+    use oxedi_core::spec::Trigger;
+    use oxedi_core::spec::VersionError;
+    use oxedi_core::spec::merge_patch;
+    use oxedi_core::tokenizer::Tokenizer;
+    use oxedi_core::tree::LoopTree;
+    use oxedi_core::tree::Node;
+    use oxedi_core::tree::NodeId;
+    use oxedi_core::tree::TreeBuilder;
 }
 
 // Root re-exports from lib.rs
-use edi835_core::EnvelopeChecker;
-use edi835_core::Projector;
-use edi835_core::Tokenizer;
-use edi835_core::{
+use oxedi_core::EnvelopeChecker;
+use oxedi_core::Projector;
+use oxedi_core::Tokenizer;
+use oxedi_core::{
     AnchorChains, ColumnSource, Control, ControlCount, ControlError, DeclaredVersion, ElementDef,
     ElementDefError, ElementType, LoopDef, LoopId, Repeat, SegmentDef, Spec, SpecError, TableDef,
     TableDefError, Trigger, VersionError, merge_patch,
 };
-use edi835_core::{
+use oxedi_core::{
     Bitmap, Cell, CellError, Column, ColumnData, ColumnType, RowError, Table, Tables, parse_dt,
     parse_n, parse_r, parse_tm,
 };
-use edi835_core::{Delimiters, IsaError};
-use edi835_core::{Diagnostic, LoopRef, Rule, SnipLevel};
-use edi835_core::{Document, DocumentError, Segments, SizeError, Span, Spans};
-use edi835_core::{Element, Value};
-use edi835_core::{Event, LoopEngine};
-use edi835_core::{Frame, next_frame};
-use edi835_core::{LoopTree, Node, NodeId, TreeBuilder};
-use edi835_core::{Output, Processor};
-use edi835_core::{Segment, WriteError};
+use oxedi_core::{Delimiters, IsaError};
+use oxedi_core::{Diagnostic, LoopRef, Rule, SnipLevel};
+use oxedi_core::{Document, DocumentError, Segments, SizeError, Span, Spans};
+use oxedi_core::{Element, Value};
+use oxedi_core::{Event, LoopEngine};
+use oxedi_core::{Frame, next_frame};
+use oxedi_core::{LoopTree, Node, NodeId, TreeBuilder};
+use oxedi_core::{Output, Processor};
+use oxedi_core::{Segment, WriteError};
 
 #[test]
 fn every_public_path_resolves() {}

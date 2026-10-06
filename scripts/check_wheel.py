@@ -14,7 +14,7 @@ from email.parser import BytesParser
 from pathlib import Path
 
 # What type checkers and IDEs read: the native module's stub and the PEP 561 marker.
-TYPING_MEMBERS = ("oxedi835/_core.pyi", "oxedi835/py.typed")
+TYPING_MEMBERS = ("oxedi/_core.pyi", "oxedi/py.typed")
 
 
 def main(wheel: str, root: str) -> int:

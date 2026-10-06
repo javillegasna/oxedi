@@ -3,7 +3,7 @@
 
 mod common;
 
-use edi835_core::{Diagnostic, Document, Processor, Rule, Spec};
+use oxedi_core::{Diagnostic, Document, Processor, Rule, Spec};
 
 fn selected(bytes: Vec<u8>) -> String {
     let five = Spec::builtin_835();

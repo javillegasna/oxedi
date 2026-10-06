@@ -1,6 +1,6 @@
 //! `parse`: one pass over a whole file, with the GIL released.
 
-use edi835_core::Processor;
+use oxedi_core::Processor;
 use pyo3::buffer::PyBuffer;
 use pyo3::exceptions::PyTypeError;
 use pyo3::prelude::*;
@@ -53,8 +53,8 @@ fn found(data: &Bound<'_, PyAny>) -> String {
 }
 
 /// What one parse produced.
-#[gen_stub_pyclass(module = "oxedi835._core")]
-#[pyclass(name = "Result", module = "oxedi835", frozen)]
+#[gen_stub_pyclass(module = "oxedi._core")]
+#[pyclass(name = "Result", module = "oxedi", frozen)]
 pub struct PyParseResult {
     document: Py<PyDocument>,
     tables: Py<PyTables>,
@@ -132,7 +132,7 @@ impl PyParseResult {
 /// The organization as a dict, or `None`.
 fn organization<'py>(
     py: Python<'py>,
-    tables: &edi835_core::Tables,
+    tables: &oxedi_core::Tables,
     role: Role,
 ) -> PyResult<Option<Bound<'py, PyDict>>> {
     let Some(fields) = native::organization(tables, role)? else {

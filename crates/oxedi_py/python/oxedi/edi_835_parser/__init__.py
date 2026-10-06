@@ -1,4 +1,4 @@
-"""edi-835-parser's API over oxedi835."""
+"""edi-835-parser's API over oxedi."""
 
 from ._sets import (
     TransactionSet, TransactionSets, parse, parse_bytes, parse_file_obj, parse_many,

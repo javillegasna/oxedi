@@ -106,7 +106,7 @@ impl Spec {
     /// # Example
     ///
     /// ```
-    /// # use edi835_core::Spec;
+    /// # use oxedi_core::Spec;
     /// let spec = Spec::builtin_835();
     /// let patched = spec.merge_patch(
     ///     r#"{"loops":{"1000A":{"segments":["N3","N4","REF","PER","XX"]}}}"#

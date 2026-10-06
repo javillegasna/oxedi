@@ -4,7 +4,7 @@ from decimal import Decimal
 import polars as pl
 import pyarrow as pa
 
-import oxedi835
+import oxedi
 from conftest import LARGEST, parse_named, read
 
 GROUPS = {
@@ -35,8 +35,8 @@ def test_polars_reads_a_table_with_its_rows_and_types():
 
 
 def test_every_column_type_reaches_polars_and_pyarrow():
-    spec = oxedi835.Spec.builtin().patch(GROUPS)
-    groups = oxedi835.parse(read(LARGEST), spec=spec).tables["groups"]
+    spec = oxedi.Spec.builtin().patch(GROUPS)
+    groups = oxedi.parse(read(LARGEST), spec=spec).tables["groups"]
     frame = pl.DataFrame(groups)
     assert dict(frame.schema) == {
         "row": pl.Int64,
@@ -79,7 +79,7 @@ def test_exported_data_outlives_the_result():
 
 def test_an_integer_with_implied_decimals_keeps_its_scale_in_the_field_metadata():
     patch = dict(GROUPS, segments={"GS": {"elements": {"6": {"type": "N2"}}}})
-    groups = oxedi835.parse(read(LARGEST), spec=oxedi835.Spec.builtin().patch(patch)).tables["groups"]
+    groups = oxedi.parse(read(LARGEST), spec=oxedi.Spec.builtin().patch(patch)).tables["groups"]
     field = pa.table(groups).schema.field("control")
     assert field.type == pa.int64()
     assert field.metadata == {b"scale": b"2"}

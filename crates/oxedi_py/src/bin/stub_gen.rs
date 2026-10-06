@@ -1,4 +1,4 @@
-//! Writes `python/oxedi835/_core.pyi`, the stub of the native module, from
+//! Writes `python/oxedi/_core.pyi`, the stub of the native module, from
 //! the descriptions the binding registers.
 //!
 //! The generator lays a mixed project's stub out as `_core/__init__.pyi`; the
@@ -14,7 +14,7 @@ use std::error::Error;
 use std::fs;
 use std::process::ExitCode;
 
-const MODULE: &str = "oxedi835._core";
+const MODULE: &str = "oxedi._core";
 
 fn main() -> ExitCode {
     match run() {
@@ -27,7 +27,7 @@ fn main() -> ExitCode {
 }
 
 fn run() -> Result<(), Box<dyn Error>> {
-    let info = oxedi835_py::stub_info()?;
+    let info = oxedi_py::stub_info()?;
     let module = match info.modules.get(MODULE) {
         Some(module) if info.modules.len() == 1 => module,
         _ => {
@@ -54,7 +54,7 @@ fn run() -> Result<(), Box<dyn Error>> {
         )
         .into());
     }
-    let dest = info.python_root.join("oxedi835").join("_core.pyi");
+    let dest = info.python_root.join("oxedi").join("_core.pyi");
     fs::write(&dest, stub)?;
     println!("stub_gen: wrote {}", dest.display());
     Ok(())

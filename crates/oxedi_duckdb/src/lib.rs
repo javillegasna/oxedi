@@ -1,4 +1,4 @@
-//! `oxedi`, a DuckDB extension over the oxedi835 EDI 835 parser core.
+//! `oxedi`, a DuckDB extension over the oxedi EDI 835 parser core.
 //!
 //! It registers one table function:
 //!

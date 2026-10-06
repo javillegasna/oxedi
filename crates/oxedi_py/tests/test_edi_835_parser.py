@@ -13,10 +13,10 @@ pd = pytest.importorskip("pandas")
 import n104_shim  # noqa: E402
 from conftest import CORE_TESTS, LARGEST, SAMPLES, path_of  # noqa: E402
 from edi_835_parser.segments import organization as library_organization  # noqa: E402
-from oxedi835 import ParseError  # noqa: E402
-from oxedi835 import edi_835_parser as compat  # noqa: E402
-from oxedi835.edi_835_parser import _codes  # noqa: E402
-from oxedi835.edi_835_parser._convert import ENCODING  # noqa: E402
+from oxedi import ParseError  # noqa: E402
+from oxedi import edi_835_parser as compat  # noqa: E402
+from oxedi.edi_835_parser import _codes  # noqa: E402
+from oxedi.edi_835_parser._convert import ENCODING  # noqa: E402
 
 n104_shim.apply()
 
@@ -199,7 +199,7 @@ def test_the_copied_code_tables_carry_the_library_license():
     notices = (CORE_TESTS.parents[2] / "THIRD_PARTY_NOTICES").read_text()
     assert "edi-835-parser 1.8.0" in notices and "keiron-stoddart / Senscio Systems" in notices
     assert LIBRARY_COPYRIGHT in notices and MIT_GRANT in notices
-    assert "oxedi835/edi_835_parser/_codes.py" in notices
+    assert "oxedi/edi_835_parser/_codes.py" in notices
     assert "claim status registry" in notices and "organization names" in notices
 
 
@@ -407,10 +407,10 @@ def test_an_unreadable_isa_raises_a_parse_error_naming_the_file(tmp_path):
 
 
 def test_only_the_compat_layer_reads_input_without_an_isa_as_the_library_does():
-    import oxedi835
+    import oxedi
 
     with pytest.raises(ParseError) as info:
-        oxedi835.parse(b"junk")
+        oxedi.parse(b"junk")
     assert str(info.value) == "input does not start with an ISA segment (found bytes [6a 75 6e 6b])"
     assert broken(compat.parse_bytes(b"junk")) == (None, None, [], [], (0, 0))
 
@@ -447,9 +447,9 @@ def test_a_byte_order_mark_loses_only_the_interchange_as_in_the_library(tmp_path
 
 
 def test_the_native_parse_reads_a_byte_order_mark_while_the_compat_layer_mirrors_the_library():
-    import oxedi835
+    import oxedi
 
-    marked, plain = oxedi835.parse(BOM + synthetic()), oxedi835.parse(synthetic())
+    marked, plain = oxedi.parse(BOM + synthetic()), oxedi.parse(synthetic())
     assert marked.document.write() == BOM + synthetic()
     assert [d.kind for d in marked.diagnostics] == ["ByteOrderMark"] + [d.kind for d in plain.diagnostics]
     assert marked.tables.render() == plain.tables.render()
@@ -711,7 +711,7 @@ def test_extended_keeps_the_strict_columns_first_whichever_file_comes_first(tmp_
 
 
 def test_the_extended_column_order_is_the_library_s():
-    from oxedi835.edi_835_parser._extended import LIBRARY_COLUMNS
+    from oxedi.edi_835_parser._extended import LIBRARY_COLUMNS
 
     strict = compat.parse(path_of(SAMPLES[0])).to_dataframe()
     assert list(LIBRARY_COLUMNS) == [c for c in strict.columns if not c.startswith(("adj_", "ref_", "rem_"))]
@@ -804,13 +804,13 @@ def test_the_oracle_reports_every_file_with_counts_and_exception_types_only(tmp_
     oracle().main([str(folder), "--out", str(report)])
     assert report.read_text().splitlines() == [
         "file 1/4",
-        "  shape edi-835-parser (1, 21) oxedi835 (1, 21)",
+        "  shape edi-835-parser (1, 21) oxedi (1, 21)",
         "  equal",
         "file 2/4",
-        "  shape edi-835-parser (1, 21) oxedi835 (1, 21)",
+        "  shape edi-835-parser (1, 21) oxedi (1, 21)",
         "  equal",
         "file 3/4",
-        "  shape edi-835-parser (1, 21) oxedi835 (1, 21)",
+        "  shape edi-835-parser (1, 21) oxedi (1, 21)",
         "  count_patients: edi-835-parser raised AssertionError",
         "file 4/4",
         "  skipped: the compat layer does not read it as an 835",

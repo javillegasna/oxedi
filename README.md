@@ -1,4 +1,4 @@
-# oxedi835
+# oxedi
 
 A fast EDI 835 (electronic remittance advice) parser for Python, written in Rust.
 
@@ -16,9 +16,9 @@ A fast EDI 835 (electronic remittance advice) parser for Python, written in Rust
 ## Install
 
 ```bash
-pip install oxedi835               # no Python dependencies
-pip install "oxedi835[polars]"     # with Polars
-pip install "oxedi835[pandas]"     # with pandas and pyarrow
+pip install oxedi               # no Python dependencies
+pip install "oxedi[polars]"     # with Polars
+pip install "oxedi[pandas]"     # with pandas and pyarrow
 ```
 
 Requires Python 3.11 or later. Wheels are available for Linux (x86_64 and aarch64, plus
@@ -27,9 +27,9 @@ musl on x86_64), macOS (Intel and Apple silicon) and Windows (x86_64).
 ## Quick start
 
 ```python
-import oxedi835
+import oxedi
 
-result = oxedi835.parse_file("remittance.835")
+result = oxedi.parse_file("remittance.835")
 
 claims = result.tables["claims"].to_polars()      # or .to_pandas()
 services = result.tables["services"].to_polars()
@@ -41,8 +41,8 @@ for diagnostic in result.diagnostics:
     print(diagnostic)
 ```
 
-`oxedi835.parse(data)` does the same from `bytes`. A file that is not an 835 at all (for
-example, one that does not start with an `ISA` segment) raises `oxedi835.ParseError`.
+`oxedi.parse(data)` does the same from `bytes`. A file that is not an 835 at all (for
+example, one that does not start with an `ISA` segment) raises `oxedi.ParseError`.
 
 ### Tables
 
@@ -72,7 +72,7 @@ pl.DataFrame(result.tables["services"])
 ```python
 from pathlib import Path
 
-for batch in oxedi835.stream(Path("big.835").read_bytes()):
+for batch in oxedi.stream(Path("big.835").read_bytes()):
     services = batch.tables["services"].to_polars()
 ```
 
@@ -84,7 +84,7 @@ files can be parsed in parallel from threads.
 
 ```python
 data = Path("remittance.835").read_bytes()
-assert oxedi835.parse(data).document.write() == data
+assert oxedi.parse(data).document.write() == data
 ```
 
 ## DuckDB extension
@@ -144,12 +144,12 @@ The structure of the 835 and the columns of each table are defined by a JSON spe
 in JSON Merge Patch format (RFC 7386) adapts it to a payer's variations:
 
 ```python
-spec = oxedi835.Spec.builtin().patch({
+spec = oxedi.Spec.builtin().patch({
     "tables": {"claims": {"columns": {
         "contract_class": {"segment": "REF", "where": {"1": "CE"}, "element": 2}
     }}}
 })
-result = oxedi835.parse(data, spec=spec)   # claims now has a contract_class column
+result = oxedi.parse(data, spec=spec)   # claims now has a contract_class column
 ```
 
 Objects merge key by key, while arrays are replaced whole: to allow an extra segment in a
@@ -168,27 +168,27 @@ the matching built-in spec: 5010 (`005010X221A1`) by default, 4010 (`004010X091A
 files. Pass `spec=` to override, or pick one yourself:
 
 ```python
-spec = oxedi835.Spec.builtin(version="4010")
+spec = oxedi.Spec.builtin(version="4010")
 ```
 
 ## Validating with pyx12
 
-`pip install "oxedi835[pyx12]"` adds [pyx12](https://github.com/azoner/pyx12)'s
+`pip install "oxedi[pyx12]"` adds [pyx12](https://github.com/azoner/pyx12)'s
 implementation-guide validation. `parse` never calls it; `validate` does, on demand:
 
 ```python
-import oxedi835
-from oxedi835.pyx12 import validate
+import oxedi
+from oxedi.pyx12 import validate
 
-result = oxedi835.parse(data)
+result = oxedi.parse(data)
 findings = result.diagnostics + validate(data)    # bytes, a path or a binary file object
 for d in sorted(findings, key=lambda d: d.level):
-    print(d.origin, d.code, d)                    # "oxedi835" or "pyx12"; pyx12's own code
+    print(d.origin, d.code, d)                    # "oxedi" or "pyx12"; pyx12's own code
     if d.segment is not None:
         start, end = result.document[d.segment].span  # the segment's bytes in your file
 ```
 
-`validate` returns `oxedi835.Diagnostic`, the type `parse` returns, so the two lists mix, sort
+`validate` returns `oxedi.Diagnostic`, the type `parse` returns, so the two lists mix, sort
 by `level` and filter by `origin`. A pyx12 finding has `kind == "External"`,
 `origin == "pyx12"`, `code` set to pyx12's error code and an empty `path` (pyx12 does not report
 the loop); interchange, group and transaction findings are level 1, segment and element
@@ -220,9 +220,9 @@ make dist       # build the sdist and the release wheel into target/wheels
 make smoke      # install the built wheel in a clean venv and run the suite
 ```
 
-The files under `crates/edi835_core/tests/fixtures/` and `crates/edi835_core/tests/samples/`
+The files under `crates/oxedi_core/tests/fixtures/` and `crates/oxedi_core/tests/samples/`
 are never edited.
 
 ## License
 
-MIT. See [`LICENSE`](https://github.com/javillegasna/oxedi835/blob/master/LICENSE) and [`THIRD_PARTY_NOTICES`](https://github.com/javillegasna/oxedi835/blob/master/THIRD_PARTY_NOTICES).
+MIT. See [`LICENSE`](https://github.com/javillegasna/oxedi/blob/master/LICENSE) and [`THIRD_PARTY_NOTICES`](https://github.com/javillegasna/oxedi/blob/master/THIRD_PARTY_NOTICES).

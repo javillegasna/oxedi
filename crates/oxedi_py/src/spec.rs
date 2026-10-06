@@ -2,7 +2,7 @@
 
 use std::sync::{Arc, OnceLock};
 
-use edi835_core::{Segment, Spec};
+use oxedi_core::{Segment, Spec};
 use pyo3::exceptions::{PyTypeError, PyValueError};
 use pyo3::prelude::*;
 use pyo3::types::{PyDict, PyString};
@@ -56,8 +56,8 @@ pub fn given_or_selected<'s>(
 }
 
 /// The loop structure, element definitions and tables of a file format.
-#[gen_stub_pyclass(module = "oxedi835._core")]
-#[pyclass(name = "Spec", module = "oxedi835", frozen)]
+#[gen_stub_pyclass(module = "oxedi._core")]
+#[pyclass(name = "Spec", module = "oxedi", frozen)]
 pub struct PySpec {
     pub inner: Arc<Spec>,
 }

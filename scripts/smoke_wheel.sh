@@ -8,17 +8,17 @@ repo="$(cd "$(dirname "$0")/.." && pwd)"
 work="$(mktemp -d)"
 trap 'rm -rf "$work"' EXIT
 
-maturin build --release --manifest-path "$repo/crates/oxedi835_py/Cargo.toml" --out "$work/dist"
-python "$repo/scripts/check_wheel.py" "$(ls "$work"/dist/oxedi835-*.whl)" "$repo"
+maturin build --release --manifest-path "$repo/crates/oxedi_py/Cargo.toml" --out "$work/dist"
+python "$repo/scripts/check_wheel.py" "$(ls "$work"/dist/oxedi-*.whl)" "$repo"
 uv venv --quiet --python "$(command -v python)" "$work/venv"
-VIRTUAL_ENV="$work/venv" uv pip install --quiet "$work"/dist/oxedi835-*.whl pytest polars pyarrow pandas "edi-835-parser==1.8.0" duckdb
-cp -r "$repo/crates/oxedi835_py/tests" "$work/tests"
+VIRTUAL_ENV="$work/venv" uv pip install --quiet "$work"/dist/oxedi-*.whl pytest polars pyarrow pandas "edi-835-parser==1.8.0" duckdb
+cp -r "$repo/crates/oxedi_py/tests" "$work/tests"
 
 cd "$work"
 "$work/venv/bin/python" -c "
-import oxedi835, pathlib
-assert pathlib.Path(oxedi835.__file__).is_relative_to(pathlib.Path('$work/venv')), oxedi835.__file__
-result = oxedi835.parse_file('$repo/crates/edi835_core/tests/samples/edi835_test_united.rmt')
+import oxedi, pathlib
+assert pathlib.Path(oxedi.__file__).is_relative_to(pathlib.Path('$work/venv')), oxedi.__file__
+result = oxedi.parse_file('$repo/crates/oxedi_core/tests/samples/edi835_test_united.rmt')
 print('smoke:', result)
 "
-OXEDI835_CORE_TESTS="$repo/crates/edi835_core/tests" "$work/venv/bin/python" -m pytest -q -p no:cacheprovider "$work/tests"
+OXEDI835_CORE_TESTS="$repo/crates/oxedi_core/tests" "$work/venv/bin/python" -m pytest -q -p no:cacheprovider "$work/tests"

@@ -1,4 +1,4 @@
-use edi835_core::{Cell, Document, DocumentError, IsaError, SizeError};
+use oxedi_core::{Cell, Document, DocumentError, IsaError, SizeError};
 
 use super::{datum, of_unparsable, types};
 use crate::error::ReadError;

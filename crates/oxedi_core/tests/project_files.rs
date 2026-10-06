@@ -4,7 +4,7 @@ mod common;
 
 use std::collections::BTreeMap;
 
-use edi835_core::{
+use oxedi_core::{
     Cell, Column, Document, Element, Event, LoopId, LoopTree, Processor, Segment, SnipLevel, Spec,
     Table, Tokenizer,
 };
@@ -125,7 +125,7 @@ fn every_row_points_at_its_anchor_and_at_the_rows_that_enclose_it() {
 #[test]
 fn a_fragment_that_opens_its_anchor_loops_implicitly_passes_the_same_invariants() {
     let spec = Spec::builtin_835();
-    let delims = edi835_core::Delimiters::new(b'*', b':', b'~');
+    let delims = oxedi_core::Delimiters::new(b'*', b':', b'~');
     for fragment in [
         &b"CLP*C1*1*100*80*20*12*R1*11*1~SVC*HC:99213*100*80~CAS*CO*45*20~"[..],
         &b"SVC*HC:99213*100*80~CAS*CO*45*20~"[..],
@@ -144,7 +144,7 @@ fn assert_rows_point_at_their_anchors(
     spec: &Spec,
     name: &str,
     bytes: &[u8],
-    delims: edi835_core::Delimiters,
+    delims: oxedi_core::Delimiters,
 ) {
     let segments: Vec<Segment<'_>> = Tokenizer::with_delimiters(bytes, delims).collect();
     let tree = LoopTree::build(spec, segments.iter().cloned());

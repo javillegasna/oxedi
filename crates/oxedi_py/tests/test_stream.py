@@ -7,7 +7,7 @@ from pathlib import Path
 
 import pytest
 
-import oxedi835
+import oxedi
 from conftest import LARGEST, delimiters_for, parse_named, read
 
 
@@ -28,7 +28,7 @@ def test_batches_add_up_to_one_parse(file_name, by):
     whole = parse_named(file_name)
     totals = {name: 0 for name in whole.tables}
     diagnostics = []
-    for batch in oxedi835.stream(read(file_name), by=by, delimiters=delimiters_for(file_name)):
+    for batch in oxedi.stream(read(file_name), by=by, delimiters=delimiters_for(file_name)):
         for name, rows in row_counts(batch.tables).items():
             totals[name] += rows
         diagnostics.extend(str(d) for d in batch.diagnostics)
@@ -37,7 +37,7 @@ def test_batches_add_up_to_one_parse(file_name, by):
 
 
 def test_one_batch_per_transaction():
-    batches = list(oxedi835.stream(repeated(LARGEST, 3)))
+    batches = list(oxedi.stream(repeated(LARGEST, 3)))
     assert [len(b.tables["payments"]) for b in batches] == [1, 1, 1, 0]
     assert [len(b.tables["claims"]) for b in batches] == [1332, 1332, 1332, 0]
     # The group still says it holds one transaction; that is found at GE, after the last one.
@@ -46,13 +46,13 @@ def test_one_batch_per_transaction():
 
 def test_batches_render_as_the_whole_file_does():
     data = read("emedny_sample.txt")
-    (batch,) = list(oxedi835.stream(data))
-    assert batch.tables.render() == oxedi835.parse(data).tables.render()
+    (batch,) = list(oxedi.stream(data))
+    assert batch.tables.render() == oxedi.parse(data).tables.render()
 
 
 def test_an_unknown_loop_names_the_loops_of_the_spec():
     with pytest.raises(ValueError) as raised:
-        oxedi835.stream(read(LARGEST), by="claim")
+        oxedi.stream(read(LARGEST), by="claim")
     assert str(raised.value) == (
         'stream by "claim": the spec has no such loop; its loops are 1000A, 1000B, 2000, 2100, 2110, group, interchange, transaction'
     )
@@ -63,7 +63,7 @@ def test_an_unknown_loop_names_the_loops_of_the_spec():
 MEASURE = """
 import json, sys
 sys.path.insert(0, {tests!r})
-import oxedi835
+import oxedi
 from test_stream import repeated
 
 def peak():
@@ -74,9 +74,9 @@ def peak():
 data = repeated("edi835_test_united.rmt", {copies})
 before = peak()
 if {mode!r} == "parse":
-    result = oxedi835.parse(data)
+    result = oxedi.parse(data)
 else:
-    for batch in oxedi835.stream(data):
+    for batch in oxedi.stream(data):
         pass
 print(json.dumps({{"input": len(data), "extra": peak() - before}}))
 """
@@ -103,7 +103,7 @@ def test_streaming_holds_one_transaction_not_the_file():
 
 def test_parse_lets_other_threads_run():
     data = repeated(LARGEST, 2)
-    oxedi835.parse(data)
+    oxedi.parse(data)
     parsing = threading.Event()
     done = threading.Event()
     duration = []
@@ -112,7 +112,7 @@ def test_parse_lets_other_threads_run():
         parsing.set()
         try:
             start = time.perf_counter()
-            oxedi835.parse(data)
+            oxedi.parse(data)
             duration.append(time.perf_counter() - start)
         finally:
             done.set()
@@ -132,15 +132,15 @@ def test_parse_lets_other_threads_run():
         last = now
         iterations += 1
     thread.join()
-    assert duration, "oxedi835.parse raised in the worker thread"
+    assert duration, "oxedi.parse raised in the worker thread"
     assert iterations > 100, (iterations, duration[0])
     assert largest_gap < duration[0] / 2, (largest_gap, duration[0])
 
 
 def test_a_stream_advanced_from_two_threads_names_the_rule():
     data = repeated(LARGEST, 10)
-    expected = sum(1 for _ in oxedi835.stream(data, by="2100"))
-    stream = oxedi835.stream(data, by="2100")
+    expected = sum(1 for _ in oxedi.stream(data, by="2100"))
+    stream = oxedi.stream(data, by="2100")
     barrier = threading.Barrier(2)
     messages = []
     unexpected = []
@@ -178,13 +178,13 @@ def test_batches_concatenated_in_polars_equal_the_parsed_table():
     import polars as pl
 
     data = repeated(LARGEST, 3)
-    parts = [pl.DataFrame(batch.tables["services"]) for batch in oxedi835.stream(data, by="2100")]
-    assert pl.concat(parts).equals(pl.DataFrame(oxedi835.parse(data).tables["services"]))
+    parts = [pl.DataFrame(batch.tables["services"]) for batch in oxedi.stream(data, by="2100")]
+    assert pl.concat(parts).equals(pl.DataFrame(oxedi.parse(data).tables["services"]))
 
 
 def test_input_without_an_isa_raises_parse_error():
-    with pytest.raises(oxedi835.ParseError) as info:
-        oxedi835.stream(b"ST*835~")
+    with pytest.raises(oxedi.ParseError) as info:
+        oxedi.stream(b"ST*835~")
     assert str(info.value) == (
         "input does not start with an ISA segment "
         "(found bytes [53 54 2a 38 33 35 7e])"
@@ -193,13 +193,13 @@ def test_input_without_an_isa_raises_parse_error():
 
 def test_an_unknown_loop_is_reported_before_the_input_is_read():
     with pytest.raises(ValueError) as info:
-        oxedi835.stream(b"ST*835~", by="claim")
-    assert not isinstance(info.value, oxedi835.ParseError)
+        oxedi.stream(b"ST*835~", by="claim")
+    assert not isinstance(info.value, oxedi.ParseError)
     assert str(info.value).startswith('stream by "claim": the spec has no such loop')
 
 
 def test_the_batch_repr():
-    (batch,) = list(oxedi835.stream(read("emedny_sample.txt")))
+    (batch,) = list(oxedi.stream(read("emedny_sample.txt")))
     assert repr(batch) == (
         "Batch(tables=Tables(adjustments: 4 rows, claims: 3 rows, payments: 1 rows, "
         "provider_adjustments: 0 rows, services: 10 rows), diagnostics=0)"

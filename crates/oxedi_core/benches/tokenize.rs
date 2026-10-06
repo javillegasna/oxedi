@@ -4,7 +4,7 @@
 mod common;
 
 use criterion::{BenchmarkId, Criterion, Throughput, criterion_group, criterion_main};
-use edi835_core::{Document, Tokenizer};
+use oxedi_core::{Document, Tokenizer};
 use std::hint::black_box;
 
 const FIXTURES: &[&str] = &[

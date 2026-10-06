@@ -1,6 +1,6 @@
 //! `Document`, `Segment` and `Delimiters`: the file held losslessly.
 
-use edi835_core::{Delimiters, Document, Element};
+use oxedi_core::{Delimiters, Document, Element};
 use pyo3::exceptions::{PyIndexError, PyValueError};
 use pyo3::prelude::*;
 use pyo3::types::{PyBytes, PyList};
@@ -18,14 +18,8 @@ native_exception!(
 );
 
 /// The five delimiters of an interchange.
-#[gen_stub_pyclass(module = "oxedi835._core")]
-#[pyclass(
-    name = "Delimiters",
-    module = "oxedi835",
-    frozen,
-    eq,
-    skip_from_py_object
-)]
+#[gen_stub_pyclass(module = "oxedi._core")]
+#[pyclass(name = "Delimiters", module = "oxedi", frozen, eq, skip_from_py_object)]
 #[derive(Clone, PartialEq)]
 pub struct PyDelimiters {
     pub inner: Delimiters,
@@ -204,8 +198,8 @@ impl PyDelimiters {
 }
 
 /// The file, indexed into segments and held byte for byte.
-#[gen_stub_pyclass(module = "oxedi835._core")]
-#[pyclass(name = "Document", module = "oxedi835", frozen)]
+#[gen_stub_pyclass(module = "oxedi._core")]
+#[pyclass(name = "Document", module = "oxedi", frozen)]
 pub struct PyDocument {
     pub inner: Document<'static>,
 }
@@ -269,8 +263,8 @@ pyo3_stub_gen::inventory::submit! {
 }
 
 /// One segment of a document, read from the document on access.
-#[gen_stub_pyclass(module = "oxedi835._core")]
-#[pyclass(name = "Segment", module = "oxedi835", frozen)]
+#[gen_stub_pyclass(module = "oxedi._core")]
+#[pyclass(name = "Segment", module = "oxedi", frozen)]
 pub struct PySegment {
     document: Py<PyDocument>,
     index: usize,
@@ -280,7 +274,7 @@ impl PySegment {
     fn with<T>(
         &self,
         py: Python<'_>,
-        read: impl FnOnce(&edi835_core::Segment<'_>) -> T,
+        read: impl FnOnce(&oxedi_core::Segment<'_>) -> T,
     ) -> PyResult<T> {
         let document = self.document.bind(py).get();
         document

@@ -2,7 +2,7 @@
 
 use std::collections::BTreeSet;
 
-use edi835_core::{Cell, ColumnData, ColumnType, Table, Tables};
+use oxedi_core::{Cell, ColumnData, ColumnType, Table, Tables};
 use pyo3::exceptions::{PyKeyError, PyTypeError, PyValueError};
 use pyo3::prelude::*;
 

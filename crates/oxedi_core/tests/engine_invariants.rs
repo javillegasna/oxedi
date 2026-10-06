@@ -4,7 +4,7 @@ mod common;
 
 use std::collections::BTreeMap;
 
-use edi835_core::{Event, LoopEngine, LoopTree, Spec, Tokenizer};
+use oxedi_core::{Event, LoopEngine, LoopTree, Spec, Tokenizer};
 
 #[test]
 fn every_segment_is_accounted_for_exactly_once_and_loops_balance() {
@@ -160,7 +160,7 @@ fn every_opening_names_the_segment_captured_right_after_it() {
 
 #[test]
 fn feeding_from_a_document_or_a_tokenizer_gives_the_same_events() {
-    use edi835_core::Document;
+    use oxedi_core::Document;
     let spec = Spec::builtin_835();
     for (name, bytes, delims) in common::all_files() {
         let doc = Document::with_delimiters(&bytes[..], delims).unwrap();

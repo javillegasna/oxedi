@@ -14,7 +14,7 @@ work="$(mktemp -d)"
 trap 'rm -rf "$work"' EXIT
 work="$(native "$work")"
 
-wheel="$(ls "$dist"/oxedi835-*.whl)"
+wheel="$(ls "$dist"/oxedi-*.whl)"
 version="$(basename "$wheel" | cut -d- -f2)"
 
 python "$repo/scripts/check_wheel.py" "$wheel" "$repo"
@@ -40,13 +40,13 @@ for line in headers.get_all("Requires-Dist") or []:
 PY
 )"
 "$py" -m pip install --quiet "$wheel" $requirements
-cp -r "$repo/crates/oxedi835_py/tests" "$work/tests"
+cp -r "$repo/crates/oxedi_py/tests" "$work/tests"
 
 cd "$work"
 "$py" -c "
-import oxedi835, pathlib, importlib.metadata as m
-assert pathlib.Path(oxedi835.__file__).resolve().is_relative_to(pathlib.Path(r'$work').resolve()), oxedi835.__file__
-assert m.version('oxedi835') == '$version', m.version('oxedi835')
-print('verify:', oxedi835.__file__, m.version('oxedi835'))
+import oxedi, pathlib, importlib.metadata as m
+assert pathlib.Path(oxedi.__file__).resolve().is_relative_to(pathlib.Path(r'$work').resolve()), oxedi.__file__
+assert m.version('oxedi') == '$version', m.version('oxedi')
+print('verify:', oxedi.__file__, m.version('oxedi'))
 "
-OXEDI835_CORE_TESTS="$repo/crates/edi835_core/tests" "$py" -m pytest -q -rs -p no:cacheprovider "$work/tests"
+OXEDI835_CORE_TESTS="$repo/crates/oxedi_core/tests" "$py" -m pytest -q -rs -p no:cacheprovider "$work/tests"

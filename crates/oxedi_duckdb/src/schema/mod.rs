@@ -1,8 +1,8 @@
 //! The DuckDB type of each core column type, and the logical type handles
 //! DuckDB is given for them.
 
-use edi835_core::ColumnType;
 use libduckdb_sys as ffi;
+use oxedi_core::ColumnType;
 
 use crate::error::ReadError;
 

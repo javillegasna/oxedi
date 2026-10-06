@@ -3,7 +3,7 @@
 
 mod common;
 
-use edi835_core::{Delimiters, IsaError, Segment, Tokenizer, next_frame};
+use oxedi_core::{Delimiters, IsaError, Segment, Tokenizer, next_frame};
 
 /// (fixture, number of `~` in it). Terminated segments must match exactly.
 const ENVELOPED: &[(&str, usize)] = &[

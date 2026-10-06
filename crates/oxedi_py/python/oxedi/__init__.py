@@ -29,7 +29,7 @@ from ._core import (
     stream,
 )
 
-__version__ = importlib.metadata.version("oxedi835")
+__version__ = importlib.metadata.version("oxedi")
 
 __all__ = [
     "Batch",

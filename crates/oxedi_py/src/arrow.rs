@@ -17,7 +17,7 @@ use arrow_array::{
 use arrow_buffer::{Buffer, ToByteSlice};
 use arrow_data::ArrayData;
 use arrow_schema::{ArrowError, DataType, Field, Schema, SchemaRef, TimeUnit};
-use edi835_core::{Column, ColumnData, Table, Tables};
+use oxedi_core::{Column, ColumnData, Table, Tables};
 use pyo3::PyErr;
 use pyo3::exceptions::PyRuntimeError;
 

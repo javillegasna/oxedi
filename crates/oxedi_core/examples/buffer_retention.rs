@@ -4,7 +4,7 @@
 //! `Vec<u8>`, iterating every segment, cloning, and the heap held by N
 //! documents built from N inputs and by N clones of one document.
 //!
-//! Run with `cargo run --release -p edi835_core --example buffer_retention`.
+//! Run with `cargo run --release -p oxedi_core --example buffer_retention`.
 
 use std::alloc::{GlobalAlloc, Layout, System};
 use std::hint::black_box;
@@ -12,7 +12,7 @@ use std::sync::Arc;
 use std::sync::atomic::{AtomicUsize, Ordering};
 use std::time::{Duration, Instant};
 
-use edi835_core::{Delimiters, Document, Frame, Segment, Span, frame::is_trivia, next_frame};
+use oxedi_core::{Delimiters, Document, Frame, Segment, Span, frame::is_trivia, next_frame};
 
 /// The system allocator, counting the bytes currently allocated.
 struct Counting;

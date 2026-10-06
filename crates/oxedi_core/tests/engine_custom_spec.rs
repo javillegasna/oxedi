@@ -3,7 +3,7 @@
 
 mod common;
 
-use edi835_core::{Delimiters, Event, LoopTree, Spec, Tokenizer};
+use oxedi_core::{Delimiters, Event, LoopTree, Spec, Tokenizer};
 
 #[test]
 fn a_patch_makes_the_bogus_trizetto_segment_captured() {

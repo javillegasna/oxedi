@@ -10,8 +10,8 @@ mod write;
 
 use std::sync::Arc;
 
-use edi835_core::{ColumnType, Document, Processor, Table};
 use libduckdb_sys as ffi;
+use oxedi_core::{ColumnType, Document, Processor, Table};
 
 use crate::builtins::Builtins;
 use crate::diagnostics;

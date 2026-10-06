@@ -5,7 +5,7 @@
 
 mod common;
 
-use edi835_core::{
+use oxedi_core::{
     Delimiters, Diagnostic, Document, Event, Processor, Rule, Segment, SnipLevel, Spec, Tables,
 };
 use proptest::prelude::*;

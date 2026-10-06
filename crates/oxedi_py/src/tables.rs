@@ -2,7 +2,7 @@
 
 use std::sync::Arc;
 
-use edi835_core::{Table, Tables};
+use oxedi_core::{Table, Tables};
 use pyo3::exceptions::{PyImportError, PyKeyError, PyRuntimeError};
 use pyo3::prelude::*;
 use pyo3::types::{PyCapsule, PyDict, PyIterator, PyTuple};
@@ -21,7 +21,7 @@ fn extra<'py>(
 ) -> PyResult<Bound<'py, PyModule>> {
     py.import(module).map_err(|original| {
         let error = PyImportError::new_err(format!(
-            "{owner}.{method} needs {module}, which is not installed; install it with: pip install \"oxedi835[{extra}]\""
+            "{owner}.{method} needs {module}, which is not installed; install it with: pip install \"oxedi[{extra}]\""
         ));
         error.set_cause(py, Some(original));
         error
@@ -53,8 +53,8 @@ fn to_pandas<'py>(
 }
 
 /// The tables of one parse or one batch, by name. Shared, never copied.
-#[gen_stub_pyclass(module = "oxedi835._core")]
-#[pyclass(name = "Tables", module = "oxedi835", frozen, mapping)]
+#[gen_stub_pyclass(module = "oxedi._core")]
+#[pyclass(name = "Tables", module = "oxedi", frozen, mapping)]
 pub struct PyTables {
     tables: Arc<Tables>,
 }
@@ -182,8 +182,8 @@ pyo3_stub_gen::inventory::submit! {
 }
 
 /// One projected table. Shares the tables it belongs to.
-#[gen_stub_pyclass(module = "oxedi835._core")]
-#[pyclass(name = "Table", module = "oxedi835", frozen)]
+#[gen_stub_pyclass(module = "oxedi._core")]
+#[pyclass(name = "Table", module = "oxedi", frozen)]
 pub struct PyTable {
     tables: Arc<Tables>,
     index: usize,

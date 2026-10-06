@@ -94,7 +94,7 @@ class Diagnostic:
     @property
     def origin(self) -> builtins.str:
         r"""
-        Who reported the finding: `"oxedi835"` for the parser's own rules, the
+        Who reported the finding: `"oxedi"` for the parser's own rules, the
         validator's name for an external finding.
         """
     @property

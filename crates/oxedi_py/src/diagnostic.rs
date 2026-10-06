@@ -1,6 +1,6 @@
 //! `Diagnostic`: one finding about a file's data, as Python attributes.
 
-use edi835_core::{Diagnostic, Rule, SnipLevel};
+use oxedi_core::{Diagnostic, Rule, SnipLevel};
 use pyo3::exceptions::PyValueError;
 use pyo3::prelude::*;
 use pyo3::types::{PyBytes, PyInt, PyList};
@@ -9,8 +9,8 @@ use pyo3_stub_gen::type_info::{ParameterDefault, ParameterInfo, ParameterKind, P
 use pyo3_stub_gen::{PyStubType, TypeInfo};
 
 /// One finding about the data of a file. A value, never raised.
-#[gen_stub_pyclass(module = "oxedi835._core")]
-#[pyclass(name = "Diagnostic", module = "oxedi835", frozen)]
+#[gen_stub_pyclass(module = "oxedi._core")]
+#[pyclass(name = "Diagnostic", module = "oxedi", frozen)]
 pub struct PyDiagnostic {
     inner: Diagnostic,
 }
@@ -38,13 +38,13 @@ impl PyDiagnostic {
         }
     }
 
-    /// Who reported the finding: `"oxedi835"` for the parser's own rules, the
+    /// Who reported the finding: `"oxedi"` for the parser's own rules, the
     /// validator's name for an external finding.
     #[getter]
     fn origin(&self) -> &str {
         match &self.inner.rule {
             Rule::External { origin, .. } => origin,
-            _ => "oxedi835",
+            _ => "oxedi",
         }
     }
 
@@ -251,7 +251,7 @@ pyo3_stub_gen::inventory::submit! {
         ],
         r#return: <PyDiagnostic as PyStubType>::type_output,
         doc: "Builds a `Diagnostic` for a finding reported by an external validator; internal.",
-        module: Some("oxedi835._core"),
+        module: Some("oxedi._core"),
         is_async: false,
         deprecated: None,
         type_ignored: None,
@@ -263,7 +263,7 @@ pyo3_stub_gen::inventory::submit! {
     }
 }
 
-pyo3_stub_gen::export_verbatim!("oxedi835._core", "_external_diagnostic");
+pyo3_stub_gen::export_verbatim!("oxedi._core", "_external_diagnostic");
 
 /// The diagnostics as a Python list of `Diagnostic`.
 pub fn to_list(py: Python<'_>, diagnostics: Vec<Diagnostic>) -> PyResult<Bound<'_, PyList>> {

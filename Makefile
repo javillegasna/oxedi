@@ -1,10 +1,10 @@
 # Developer entry points. Every target runs from the repository root.
 # Rust gates mirror CI; Python targets use the local .venv (create it with `make venv`).
 
-PY_MANIFEST := crates/oxedi835_py/Cargo.toml
-PY_TESTS    := crates/oxedi835_py/tests
+PY_MANIFEST := crates/oxedi_py/Cargo.toml
+PY_TESTS    := crates/oxedi_py/tests
 # stubtest reads an allowlist only when one exists; each entry carries its reason.
-STUBTEST_ALLOWLIST := crates/oxedi835_py/stubtest-allowlist.txt
+STUBTEST_ALLOWLIST := crates/oxedi_py/stubtest-allowlist.txt
 VENV        := .venv
 PYTHON      := $(VENV)/bin/python
 # Prefer the venv's tools; fall back to whatever is on PATH (asdf shims, uv tool installs).
@@ -60,12 +60,12 @@ py-test: py-dev ## build and run the Python suite
 	$(PYTEST) -q $(PY_TESTS)
 
 stubs: ## regenerate the native module's type stub from the binding
-	cargo run --locked -p oxedi835_py --bin stub_gen
+	cargo run --locked -p oxedi_py --bin stub_gen
 
 stubtest: py-dev ## check the stub against the built module, the public API with mypy --strict, and the package with mypy
-	$(PYTHON) -m mypy.stubtest oxedi835._core $(if $(wildcard $(STUBTEST_ALLOWLIST)),--allowlist $(STUBTEST_ALLOWLIST))
+	$(PYTHON) -m mypy.stubtest oxedi._core $(if $(wildcard $(STUBTEST_ALLOWLIST)),--allowlist $(STUBTEST_ALLOWLIST))
 	$(PYTHON) -m mypy --strict $(PY_TESTS)/typing/usage.py
-	$(PYTHON) -m mypy --config-file crates/oxedi835_py/pyproject.toml crates/oxedi835_py/python/oxedi835
+	$(PYTHON) -m mypy --config-file crates/oxedi_py/pyproject.toml crates/oxedi_py/python/oxedi
 
 compat-oracle: ## compare with edi-835-parser on DIR (outside the repo); prints counts and verdicts only
 	@test -n "$(DIR)" || (echo "usage: make compat-oracle DIR=/path/outside/the/repo [OUT=report.txt]" && exit 1)
@@ -79,13 +79,13 @@ dist: clean-dist ## build the sdist and the release wheel into target/wheels
 	@ls -l $(WHEELS)
 
 # Paths are matched exactly against the archive's listing, under its single top directory.
-SDIST_REQUIRED := crates/edi835_core/src/lib.rs crates/edi835_core/specs/835.json crates/edi835_core/specs/835.4010.json crates/edi835_core/specs/edi_835_parser.json crates/edi835_core/Cargo.toml crates/oxedi835_py/src/lib.rs pyproject.toml LICENSE THIRD_PARTY_NOTICES
+SDIST_REQUIRED := crates/oxedi_core/src/lib.rs crates/oxedi_core/specs/835.json crates/oxedi_core/specs/835.4010.json crates/oxedi_core/specs/edi_835_parser.json crates/oxedi_core/Cargo.toml crates/oxedi_py/src/lib.rs pyproject.toml LICENSE THIRD_PARTY_NOTICES
 
 sdist-check: ## fail if the sdist holds the core's test trees or lacks what the build needs
-	@sdist=$$(ls $(WHEELS)/oxedi835-*.tar.gz 2>/dev/null | head -n 1); \
-	  test -n "$$sdist" || { echo "sdist-check: no oxedi835-*.tar.gz in $(WHEELS); run make dist first"; exit 1; }; \
+	@sdist=$$(ls $(WHEELS)/oxedi-*.tar.gz 2>/dev/null | head -n 1); \
+	  test -n "$$sdist" || { echo "sdist-check: no oxedi-*.tar.gz in $(WHEELS); run make dist first"; exit 1; }; \
 	  listing=$$(tar tzf "$$sdist" | sed 's|^[^/]*/||') || exit 1; \
-	  if echo "$$listing" | grep -E '(^|/)edi835_core/tests/'; then echo "sdist-check: $$sdist holds the core's tests/ tree (samples, golden, fixtures)"; exit 1; fi; \
+	  if echo "$$listing" | grep -E '(^|/)oxedi_core/tests/'; then echo "sdist-check: $$sdist holds the core's tests/ tree (samples, golden, fixtures)"; exit 1; fi; \
 	  if echo "$$listing" | grep -E '(^|/)__pycache__(/|$$)|\.pyc$$'; then echo "sdist-check: $$sdist holds compiled bytecode"; exit 1; fi; \
 	  for need in $(SDIST_REQUIRED); do \
 	    echo "$$listing" | grep -qxF "$$need" || { echo "sdist-check: $$sdist lacks $$need"; exit 1; }; \
@@ -96,8 +96,8 @@ sdist-check: ## fail if the sdist holds the core's test trees or lacks what the 
 	  done; echo "sdist-check: ok ($$(echo "$$listing" | wc -l) entries)"
 
 wheel-check: ## fail if the built wheel lacks the type stub, py.typed or the licenses, or holds bytecode
-	@wheel=$$(ls $(WHEELS)/oxedi835-*.whl 2>/dev/null | head -n 1); \
-	  test -n "$$wheel" || { echo "wheel-check: no oxedi835-*.whl in $(WHEELS); run make dist first"; exit 1; }; \
+	@wheel=$$(ls $(WHEELS)/oxedi-*.whl 2>/dev/null | head -n 1); \
+	  test -n "$$wheel" || { echo "wheel-check: no oxedi-*.whl in $(WHEELS); run make dist first"; exit 1; }; \
 	  $(PYTHON) scripts/check_wheel.py "$$wheel" .
 
 smoke: ## install the built wheel in a clean venv outside the repo and run the suite
@@ -147,7 +147,7 @@ duckdb-version-check: ## fail unless the community descriptor's version equals t
 	@d=$$(sed -n 's/^  version: *\(.*\)$$/\1/p' $(EXT_DIR)/description.yml | head -n 1); \
 	test "$$d" = "$(DUCKDB_VERSION)" || { echo "duckdb-version-check: $(EXT_DIR)/description.yml has version $$d but $(EXT_DIR)/Cargo.toml has $(DUCKDB_VERSION)"; exit 1; }
 
-duckdb-oracle: py-dev ## DuckDB extension: compare read_835 with oxedi835.parse_file on every sample and fixture
+duckdb-oracle: py-dev ## DuckDB extension: compare read_835 with oxedi.parse_file on every sample and fixture
 	$(MAKE) -C $(EXT_DIR) test_oracle ORACLE_PYTHON=$(abspath $(PYTHON))
 
 # ---- Release ----
@@ -176,19 +176,19 @@ duckdb-release-check: ## fail unless TAG is duckdb-v<extension version>, the tre
 
 # ---- Publishing (credentials come from ~/.pypirc; never from the repo) ----
 publish-test: sdist-check ## upload the built artifacts to TestPyPI
-	$(MATURIN) upload -r testpypi $(WHEELS)/oxedi835-$(VERSION)*
+	$(MATURIN) upload -r testpypi $(WHEELS)/oxedi-$(VERSION)*
 
 publish-test-verify: ## install the TestPyPI pre-release into .venv and import it
-	uv pip install --python $(PYTHON) --index-url https://test.pypi.org/simple/ --pre --no-deps --reinstall oxedi835==$(VERSION)
-	$(PYTHON) -c "import oxedi835, importlib.metadata as m; print(m.version('oxedi835'), oxedi835.Spec.builtin())"
+	uv pip install --python $(PYTHON) --index-url https://test.pypi.org/simple/ --pre --no-deps --reinstall oxedi==$(VERSION)
+	$(PYTHON) -c "import oxedi, importlib.metadata as m; print(m.version('oxedi'), oxedi.Spec.builtin())"
 
 publish: sdist-check ## upload the built artifacts to PyPI (irreversible)
 	@test -n "$(VERSION)" || (echo "no version in Cargo.toml" && exit 1)
-	@echo "about to publish oxedi835 $(VERSION) to PyPI"; read -p "type the version to confirm: " v && test "$$v" = "$(VERSION)"
-	$(MATURIN) upload -r pypi $(WHEELS)/oxedi835-$(VERSION)*
+	@echo "about to publish oxedi $(VERSION) to PyPI"; read -p "type the version to confirm: " v && test "$$v" = "$(VERSION)"
+	$(MATURIN) upload -r pypi $(WHEELS)/oxedi-$(VERSION)*
 
 tag: ## tag the current commit as v<version> and push the tag
-	git tag -a v$(VERSION) -m "oxedi835 $(VERSION)"
+	git tag -a v$(VERSION) -m "oxedi $(VERSION)"
 	git push origin v$(VERSION)
 
 duckdb-tag: ## tag the current commit as duckdb-v<extension version> and push the tag (does not start the PyPI workflow)

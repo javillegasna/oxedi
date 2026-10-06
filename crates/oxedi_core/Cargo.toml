@@ -1,11 +1,11 @@
 [package]
-name = "edi835_core"
+name = "oxedi_core"
 version.workspace = true
 edition.workspace = true
 license.workspace = true
 authors.workspace = true
 repository.workspace = true
-description = "Lossless, fast, data-driven EDI 835 parser core (oxedi835)"
+description = "Lossless, fast, data-driven EDI 835 parser core (oxedi)"
 
 [lints]
 workspace = true

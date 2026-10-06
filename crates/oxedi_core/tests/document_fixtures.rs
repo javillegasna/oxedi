@@ -3,7 +3,7 @@
 
 mod common;
 
-use edi835_core::{Delimiters, Document, DocumentError, IsaError, Tokenizer};
+use oxedi_core::{Delimiters, Document, DocumentError, IsaError, Tokenizer};
 
 const ENVELOPED: &[&str] = &[
     "emedny_sample.txt",

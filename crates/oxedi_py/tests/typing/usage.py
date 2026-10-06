@@ -12,8 +12,8 @@ from collections.abc import Iterator
 
 import polars
 
-import oxedi835
-from oxedi835 import (
+import oxedi
+from oxedi import (
     Batch,
     Delimiters,
     Diagnostic,
@@ -27,7 +27,7 @@ from oxedi835 import (
     Table,
     Tables,
 )
-from oxedi835.pyx12 import validate
+from oxedi.pyx12 import validate
 
 
 def results(data: bytes, path: str) -> list[Result]:
@@ -36,11 +36,11 @@ def results(data: bytes, path: str) -> list[Result]:
     assert loops
     delimiters = Delimiters(element=b"*", component=b":", segment=b"~", repetition=None, release=None)
     return [
-        oxedi835.parse(data),
-        oxedi835.parse(bytearray(data), spec=spec, delimiters=delimiters),
-        oxedi835.parse(memoryview(data), spec=None, delimiters=None),
-        oxedi835.parse_file(path),
-        oxedi835.parse_file(path, spec=Spec.builtin(), delimiters=Delimiters()),
+        oxedi.parse(data),
+        oxedi.parse(bytearray(data), spec=spec, delimiters=delimiters),
+        oxedi.parse(memoryview(data), spec=None, delimiters=None),
+        oxedi.parse_file(path),
+        oxedi.parse_file(path, spec=Spec.builtin(), delimiters=Delimiters()),
     ]
 
 
@@ -111,7 +111,7 @@ def table_exports(tables: Tables) -> None:
 
 
 def streams(data: bytes) -> int:
-    batches: Stream = oxedi835.stream(data, spec=None, by="claim", delimiters=None)
+    batches: Stream = oxedi.stream(data, spec=None, by="claim", delimiters=None)
     total = 0
     for batch in batches:
         checked: Batch = batch
@@ -123,7 +123,7 @@ def streams(data: bytes) -> int:
 
 def errors(data: bytes) -> str:
     try:
-        oxedi835.parse(data)
+        oxedi.parse(data)
     except ParseError as error:
         problem: ValueError = error
         return str(problem)
@@ -140,4 +140,4 @@ def validated(data: bytes, path: str) -> list[Diagnostic]:
     return validate(data) + validate(path) + from_file
 
 
-version: str = oxedi835.__version__
+version: str = oxedi.__version__

@@ -2,9 +2,9 @@ import json
 
 import pytest
 
-import oxedi835
+import oxedi
 from conftest import LARGEST, read
-from oxedi835 import Spec, SpecError
+from oxedi import Spec, SpecError
 
 PATCH = {"loops": {"ZZ": {"parent": "2100", "trigger": {"segment": "ZZ1"}}}}
 
@@ -45,7 +45,7 @@ def test_a_patch_that_breaks_the_spec_raises_with_the_inner_error():
     with pytest.raises(SpecError) as info:
         Spec.builtin().patch(bad)
     assert str(info.value) == 'applying patch: loop "ZZ" names unknown parent "nope"'
-    assert type(info.value).__module__ == "oxedi835"
+    assert type(info.value).__module__ == "oxedi"
 
 
 def test_a_patch_must_be_a_dict_or_a_string():
@@ -77,11 +77,11 @@ COMPAT_TABLES = [
 
 
 def test_the_edi_835_parser_patch_loads_with_its_tables():
-    from oxedi835._core import EDI_835_PARSER_PATCH
+    from oxedi._core import EDI_835_PARSER_PATCH
 
     spec = Spec.builtin().patch(EDI_835_PARSER_PATCH)
     assert repr(spec) == "Spec(name='edi_835_parser', loops=8, tables=17)"
-    result = oxedi835.parse(read(LARGEST), spec=spec)
+    result = oxedi.parse(read(LARGEST), spec=spec)
     assert result.tables.keys() == COMPAT_TABLES
     assert (len(result.tables["rows"]), len(result.tables["rows_claims"]), len(result.diagnostics)) == (6192, 1332, 0)
 
@@ -113,19 +113,19 @@ def lines(diagnostics):
 def test_without_a_spec_the_file_gets_the_builtin_of_its_version(name, version, tmp_path):
     data = read(name)
     chosen = Spec.builtin(version=version)
-    expected = lines(oxedi835.parse(data, spec=chosen).diagnostics)
-    assert lines(oxedi835.parse(data).diagnostics) == expected
+    expected = lines(oxedi.parse(data, spec=chosen).diagnostics)
+    assert lines(oxedi.parse(data).diagnostics) == expected
     path = tmp_path / name
     path.write_bytes(data)
-    assert lines(oxedi835.parse_file(path).diagnostics) == expected
-    streamed = [d for batch in oxedi835.stream(data) for d in batch.diagnostics]
+    assert lines(oxedi.parse_file(path).diagnostics) == expected
+    streamed = [d for batch in oxedi.stream(data) for d in batch.diagnostics]
     assert lines(streamed) == expected
 
 
 def test_a_given_spec_is_used_as_given():
     data = read("edi835_test_davisvision.RMT")
-    kinds = [d.kind for d in oxedi835.parse(data, spec=Spec.builtin()).diagnostics]
+    kinds = [d.kind for d in oxedi.parse(data, spec=Spec.builtin()).diagnostics]
     assert kinds.count("CodeNotInList") == 2
-    assert "CodeNotInList" not in [d.kind for d in oxedi835.parse(data).diagnostics]
-    streamed = [d.kind for b in oxedi835.stream(data, spec=Spec.builtin()) for d in b.diagnostics]
+    assert "CodeNotInList" not in [d.kind for d in oxedi.parse(data).diagnostics]
+    streamed = [d.kind for b in oxedi.stream(data, spec=Spec.builtin()) for d in b.diagnostics]
     assert streamed.count("CodeNotInList") == 2

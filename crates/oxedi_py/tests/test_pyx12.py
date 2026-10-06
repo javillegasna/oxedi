@@ -1,4 +1,4 @@
-"""``oxedi835.pyx12.validate`` against pyx12 itself (skipped without pyx12)."""
+"""``oxedi.pyx12.validate`` against pyx12 itself (skipped without pyx12)."""
 
 import io
 import json
@@ -9,8 +9,8 @@ import pytest
 
 pytest.importorskip("pyx12")
 
-import oxedi835
-from oxedi835.pyx12 import validate
+import oxedi
+from oxedi.pyx12 import validate
 
 from conftest import SAMPLES, path_of, read
 
@@ -40,7 +40,7 @@ def facts(d):
 
 def span(data, d):
     """The byte range of the segment ``d`` names, read from the document of ``data``."""
-    return oxedi835.parse(data).document[d.segment].span
+    return oxedi.parse(data).document[d.segment].span
 
 
 def is_failure(d):
@@ -70,7 +70,7 @@ def test_the_samples_have_as_many_findings_as_x12valid_reports(name, tmp_path):
     copy.write_bytes(read(name))
     findings = validate(read(name))
     assert len(findings) == cli_count(copy)
-    assert all(isinstance(f, oxedi835.Diagnostic) for f in findings)
+    assert all(isinstance(f, oxedi.Diagnostic) for f in findings)
     assert all((f.origin, f.kind, f.path) == ("pyx12", "External", "") for f in findings)
 
 
@@ -81,7 +81,7 @@ def test_united_and_davisvision_have_no_findings(name):
 
 def test_a_finding_points_at_the_bytes_of_its_segment():
     data = read(EYEMED)
-    document = oxedi835.parse(data).document
+    document = oxedi.parse(data).document
     findings = validate(data)
     assert [(f.level, f.code, f.segment, f.element, f.component) for f in findings] == [
         (2, "1", 333, 8, None),
@@ -172,7 +172,7 @@ def test_a_file_pyx12_cannot_read_gives_one_failure():
 
 
 def test_a_report_pyx12_shape_change_becomes_one_failure(monkeypatch):
-    import oxedi835.pyx12._validate as module
+    import oxedi.pyx12._validate as module
 
     real = json.loads
 
@@ -192,7 +192,7 @@ def test_a_report_pyx12_shape_change_becomes_one_failure(monkeypatch):
 
 
 def test_a_file_without_isa_raises_parse_error():
-    with pytest.raises(oxedi835.ParseError):
+    with pytest.raises(oxedi.ParseError):
         validate(read("blue_cross_nc_sample.txt"))
 
 
@@ -219,7 +219,7 @@ def test_an_exception_inside_pyx12_becomes_one_failure(monkeypatch):
         " it was processing segment #5; the last it completed is #4 (reported by pyx12)"
     )
     assert failure.segment == 5
-    document = oxedi835.parse(data).document
+    document = oxedi.parse(data).document
     start, end = document[failure.segment].span
     assert data[start:end] == document[5].raw
     assert failure.datum == bytes(document[5].id)
@@ -302,14 +302,14 @@ def crafted():
 
 def test_parse_and_validate_findings_mix_sort_by_level_and_filter_by_origin():
     data = crafted()
-    findings = oxedi835.parse(data).diagnostics + validate(data)
-    assert all(isinstance(d, oxedi835.Diagnostic) for d in findings)
-    assert {d.origin for d in findings} == {"oxedi835", "pyx12"}
+    findings = oxedi.parse(data).diagnostics + validate(data)
+    assert all(isinstance(d, oxedi.Diagnostic) for d in findings)
+    assert {d.origin for d in findings} == {"oxedi", "pyx12"}
     ordered = sorted(findings, key=lambda d: d.level)
     levels = [d.level for d in ordered]
     assert {1, 2} <= set(levels)
     assert levels == sorted(levels)
-    ours = [d for d in findings if d.origin == "oxedi835"]
+    ours = [d for d in findings if d.origin == "oxedi"]
     theirs = [d for d in findings if d.origin == "pyx12"]
     assert ours and theirs and len(ours) + len(theirs) == len(findings)
     assert all(d.code is None for d in ours)
@@ -361,7 +361,7 @@ def test_a_finding_in_a_second_interchange_maps_to_its_own_segment():
     assert second != first
     bad = second[: second.index(b"BPR*")] + b"ZZZ*1~" + second[second.index(b"BPR*") :]
     data = first + bad
-    document = oxedi835.parse(data).document
+    document = oxedi.parse(data).document
     assert sum(1 for i in range(len(document)) if document[i].id == b"ISA") == 2
     assert validate(first + second) == []
     findings = validate(data)
@@ -374,7 +374,7 @@ def test_a_finding_in_a_second_interchange_maps_to_its_own_segment():
     assert start <= planted
     assert data[start:end].lstrip(b"\r\n") == b"ZZZ*1~"
     assert document[unknown.segment].raw == data[start:end]
-    assert unknown.segment > len(oxedi835.parse(first).document)
+    assert unknown.segment > len(oxedi.parse(first).document)
 
 
 def reports_error(node):

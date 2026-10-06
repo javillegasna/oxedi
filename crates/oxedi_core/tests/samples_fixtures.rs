@@ -3,7 +3,7 @@
 
 mod common;
 
-use edi835_core::{Document, Segment, Tokenizer, frame::is_trivia};
+use oxedi_core::{Document, Segment, Tokenizer, frame::is_trivia};
 
 /// (file, segments including a trailing trivia-only one, repetition separator).
 const SAMPLES: &[(&str, usize, Option<u8>)] = &[

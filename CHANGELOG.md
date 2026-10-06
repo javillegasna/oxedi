@@ -1,6 +1,6 @@
 # Changelog
 
-All notable changes to oxedi835 are documented here. The format follows
+All notable changes to oxedi (named oxedi835 up to 0.2.1) are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and the project uses semantic
 versioning; while the version is `0.x`, a minor release may break the API.
 
@@ -8,6 +8,12 @@ This file covers the Python package; the DuckDB extension has its own changelog 
 [`crates/oxedi_duckdb/CHANGELOG.md`](crates/oxedi_duckdb/CHANGELOG.md).
 
 ## [Unreleased]
+
+### Changed
+- The package is now `oxedi` (`pip install oxedi`, `import oxedi`, native module `oxedi._core`)
+  and the version line continues at 0.3.0. The extras keep their names (`oxedi[pyx12]`,
+  `oxedi[edi-835-parser]`, `oxedi[polars]`, `oxedi[pandas]`) and the API is unchanged. The
+  `oxedi835` project on PyPI is retired; releases 0.1.0 to 0.2.1 stay under that name.
 
 ## [0.2.1] - 2026-10-04
 
@@ -103,7 +109,7 @@ First usable version of oxedi835.
 
 Release candidate of 0.1.0, published to TestPyPI only. Same code as 0.1.0.
 
-[Unreleased]: https://github.com/javillegasna/oxedi835/compare/v0.2.1...HEAD
+[Unreleased]: https://github.com/javillegasna/oxedi/compare/v0.2.1...HEAD
 [0.2.1]: https://github.com/javillegasna/oxedi835/releases/tag/v0.2.1
 [0.2.0]: https://github.com/javillegasna/oxedi835/releases/tag/v0.2.0
 [0.2.0rc1]: https://github.com/javillegasna/oxedi835/releases/tag/v0.2.0rc1

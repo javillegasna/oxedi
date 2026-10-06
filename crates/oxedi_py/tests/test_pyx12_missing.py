@@ -4,8 +4,8 @@ import sys
 
 import pytest
 
-import oxedi835
-from oxedi835.pyx12 import validate
+import oxedi
+from oxedi.pyx12 import validate
 
 from conftest import read
 
@@ -15,7 +15,7 @@ def test_without_pyx12_validate_names_the_extra(monkeypatch):
     with pytest.raises(ImportError) as info:
         validate(read("emedny_sample.txt"))
     assert str(info.value) == (
-        "oxedi835.pyx12 needs the pyx12 package: pip install 'oxedi835[pyx12]'"
+        "oxedi.pyx12 needs the pyx12 package: pip install 'oxedi[pyx12]'"
     )
 
 
@@ -23,7 +23,7 @@ def test_the_subpackage_imports_without_pyx12(monkeypatch):
     monkeypatch.setitem(sys.modules, "pyx12", None)
     import importlib
 
-    module = importlib.reload(sys.modules["oxedi835.pyx12"])
+    module = importlib.reload(sys.modules["oxedi.pyx12"])
     assert module.__all__ == ["validate"]
     assert not hasattr(module, "Pyx12Diagnostic")
-    assert not hasattr(oxedi835, "validate")
+    assert not hasattr(oxedi, "validate")

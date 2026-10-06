@@ -5,7 +5,7 @@ mod common;
 
 use std::collections::BTreeMap;
 
-use edi835_core::{Document, SnipLevel, Spec};
+use oxedi_core::{Document, SnipLevel, Spec};
 
 #[test]
 fn the_known_anomalies_are_reported_exactly_and_nothing_else() {

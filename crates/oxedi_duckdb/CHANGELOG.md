@@ -14,5 +14,5 @@ and the extension has its own version.
   `read_835(...)` returns the payments, claims, services, adjustments, provider adjustments and
   diagnostics tables in SQL.
 
-[Unreleased]: https://github.com/javillegasna/oxedi835/compare/duckdb-v0.1.0...HEAD
-[0.1.0]: https://github.com/javillegasna/oxedi835/releases/tag/duckdb-v0.1.0
+[Unreleased]: https://github.com/javillegasna/oxedi/compare/duckdb-v0.1.0...HEAD
+[0.1.0]: https://github.com/javillegasna/oxedi/releases/tag/duckdb-v0.1.0

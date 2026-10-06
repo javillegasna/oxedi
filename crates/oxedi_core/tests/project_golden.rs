@@ -12,7 +12,7 @@ mod common;
 use std::fmt::Write as _;
 use std::path::PathBuf;
 
-use edi835_core::{Diagnostic, Document, Processor, Spec, Tables};
+use oxedi_core::{Diagnostic, Document, Processor, Spec, Tables};
 
 fn golden_dir() -> PathBuf {
     PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("tests/golden/project")

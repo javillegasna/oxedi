@@ -11,7 +11,7 @@ use std::collections::BTreeMap;
 use std::fmt::Write as _;
 use std::path::PathBuf;
 
-use edi835_core::{Event, Spec, Tokenizer};
+use oxedi_core::{Event, Spec, Tokenizer};
 
 fn golden_dir() -> PathBuf {
     PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("tests/golden")
@@ -36,15 +36,15 @@ fn line(spec: &Spec, event: Event, segment_id: &[u8]) -> String {
     }
 }
 
-fn full_stream(spec: &Spec, bytes: &[u8], delims: edi835_core::Delimiters) -> String {
+fn full_stream(spec: &Spec, bytes: &[u8], delims: oxedi_core::Delimiters) -> String {
     let mut out = String::new();
     let segments: Vec<_> = Tokenizer::with_delimiters(bytes, delims).collect();
     let events = common::run_engine(spec, segments.iter().cloned());
     for event in events {
         let segment_id = match event {
-            edi835_core::Event::Captured { segment, .. }
-            | edi835_core::Event::Unmatched { segment }
-            | edi835_core::Event::Empty { segment } => {
+            oxedi_core::Event::Captured { segment, .. }
+            | oxedi_core::Event::Unmatched { segment }
+            | oxedi_core::Event::Empty { segment } => {
                 segments.get(segment).map(|s| s.id).unwrap_or(b"")
             }
             _ => b"",
@@ -54,15 +54,15 @@ fn full_stream(spec: &Spec, bytes: &[u8], delims: edi835_core::Delimiters) -> St
     out
 }
 
-fn summary(spec: &Spec, bytes: &[u8], delims: edi835_core::Delimiters) -> String {
+fn summary(spec: &Spec, bytes: &[u8], delims: oxedi_core::Delimiters) -> String {
     let mut counts: BTreeMap<String, usize> = BTreeMap::new();
     let segments: Vec<_> = Tokenizer::with_delimiters(bytes, delims).collect();
     let events = common::run_engine(spec, segments.iter().cloned());
     for event in events {
         let segment_id = match event {
-            edi835_core::Event::Captured { segment, .. }
-            | edi835_core::Event::Unmatched { segment }
-            | edi835_core::Event::Empty { segment } => {
+            oxedi_core::Event::Captured { segment, .. }
+            | oxedi_core::Event::Unmatched { segment }
+            | oxedi_core::Event::Empty { segment } => {
                 segments.get(segment).map(|s| s.id).unwrap_or(b"")
             }
             _ => b"",

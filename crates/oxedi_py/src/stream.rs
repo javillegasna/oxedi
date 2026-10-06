@@ -7,7 +7,7 @@
 
 use std::sync::{Arc, Mutex, TryLockError};
 
-use edi835_core::{Delimiters, Diagnostic, Event, LoopId, Processor, Spec, Tables, Tokenizer};
+use oxedi_core::{Delimiters, Diagnostic, Event, LoopId, Processor, Spec, Tables, Tokenizer};
 use pyo3::exceptions::{PyRuntimeError, PyValueError};
 use pyo3::prelude::*;
 use pyo3::types::PyList;
@@ -81,16 +81,16 @@ impl State {
 /// A stream must be advanced from one thread at a time: a `next()` that finds
 /// another thread inside a step raises a `RuntimeError` naming the stream;
 /// unlike a generator, it does not raise `ValueError`.
-#[gen_stub_pyclass(module = "oxedi835._core")]
-#[pyclass(name = "Stream", module = "oxedi835", frozen)]
+#[gen_stub_pyclass(module = "oxedi._core")]
+#[pyclass(name = "Stream", module = "oxedi", frozen)]
 pub struct PyStream {
     state: Mutex<State>,
 }
 
 /// The tables and diagnostics of one closed loop instance (or of the end
 /// of the stream).
-#[gen_stub_pyclass(module = "oxedi835._core")]
-#[pyclass(name = "Batch", module = "oxedi835", frozen)]
+#[gen_stub_pyclass(module = "oxedi._core")]
+#[pyclass(name = "Batch", module = "oxedi", frozen)]
 pub struct PyBatch {
     tables: Py<PyTables>,
     diagnostics: Py<PyList>,

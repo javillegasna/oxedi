@@ -2,7 +2,7 @@ import inspect
 
 import pytest
 
-import oxedi835
+import oxedi
 from conftest import parse_named, read
 
 PATH = "interchange#1/group#1/transaction#1/2000#1/2100#1/2110#1"
@@ -34,7 +34,7 @@ def test_a_diagnostic_carries_level_rule_location_and_datum():
         f" · segment #25, element 1, component 2 · at {PATH} · datum \"\""
     )
     assert repr(d) == (
-        "Diagnostic(level=2, origin='oxedi835', kind='RequiredElementMissing', "
+        "Diagnostic(level=2, origin='oxedi', kind='RequiredElementMissing', "
         "segment=25, "
         "element=1, component=2)"
     )
@@ -53,7 +53,7 @@ def test_an_unknown_segment_has_its_id_as_datum():
 
 def test_a_finding_at_the_end_of_the_stream_has_no_segment():
     data = read("emedny_sample.txt")
-    result = oxedi835.parse(data[: data.index(b"SE*")])
+    result = oxedi.parse(data[: data.index(b"SE*")])
     ends = [d for d in result.diagnostics if d.segment is None]
     assert len(ends) == 3
     assert [d.kind for d in ends] == ["UnterminatedLoop"] * 3
@@ -64,15 +64,15 @@ def test_a_finding_at_the_end_of_the_stream_has_no_segment():
 def test_every_core_finding_has_the_core_origin_and_no_code():
     diagnostics = parse_named("multi_claim_sample.txt").diagnostics
     assert diagnostics
-    assert {d.origin for d in diagnostics} == {"oxedi835"}
+    assert {d.origin for d in diagnostics} == {"oxedi"}
     assert all(d.code is None for d in diagnostics)
 
 
 def test_an_external_finding_is_a_diagnostic_with_its_origin_and_code():
-    d = oxedi835._core._external_diagnostic(
+    d = oxedi._core._external_diagnostic(
         "pyx12", "msg", 2, code="1", segment=3, element=2, datum=b"X"
     )
-    assert isinstance(d, oxedi835.Diagnostic)
+    assert isinstance(d, oxedi.Diagnostic)
     assert (d.kind, d.level, d.origin, d.code, d.path) == (
         "External",
         2,
@@ -96,7 +96,7 @@ def test_external_diagnostic_signature_names_kinds_and_defaults():
     # The signature is written three times in the binding (`signature =`,
     # `text_signature` and the stub description); this pins the one Python
     # reports, and stubtest holds the stub to it.
-    parameters = inspect.signature(oxedi835._core._external_diagnostic).parameters
+    parameters = inspect.signature(oxedi._core._external_diagnostic).parameters
     keyword = inspect.Parameter.POSITIONAL_OR_KEYWORD
     empty = inspect.Parameter.empty
     assert [(p.name, p.kind, p.default) for p in parameters.values()] == [
@@ -112,7 +112,7 @@ def test_external_diagnostic_signature_names_kinds_and_defaults():
 
 
 def test_external_diagnostic_takes_every_parameter_by_keyword():
-    d = oxedi835._core._external_diagnostic(
+    d = oxedi._core._external_diagnostic(
         origin="pyx12",
         message="msg",
         level=3,
@@ -132,7 +132,7 @@ def test_external_diagnostic_takes_every_parameter_by_keyword():
 
 
 def test_an_external_finding_without_code_or_position():
-    d = oxedi835._core._external_diagnostic("pyx12", "it failed", 1)
+    d = oxedi._core._external_diagnostic("pyx12", "it failed", 1)
     assert (d.level, d.code, d.segment, d.element, d.datum) == (
         1,
         None,
@@ -149,17 +149,17 @@ def test_an_external_finding_without_code_or_position():
 @pytest.mark.parametrize("level", [0, 4, -1])
 def test_an_external_level_outside_one_to_three_is_refused(level):
     with pytest.raises(ValueError, match=f"^level must be 1, 2 or 3, got {level}$"):
-        oxedi835._core._external_diagnostic("pyx12", "msg", level)
+        oxedi._core._external_diagnostic("pyx12", "msg", level)
 
 
 @pytest.mark.parametrize("argument", ["segment", "element", "component"])
 @pytest.mark.parametrize("value", [-1, 2**64, 10**30])
 def test_external_position_out_of_range_names_the_argument(argument, value):
     with pytest.raises(ValueError, match=rf"^{argument} must be a non-negative integer, got {value}$"):
-        oxedi835._core._external_diagnostic("pyx12", "msg", 1, **{argument: value})
+        oxedi._core._external_diagnostic("pyx12", "msg", 1, **{argument: value})
 
 
 @pytest.mark.parametrize("value", [-(2**63) - 1, 2**63, 99999999999999999999])
 def test_external_level_beyond_i64_is_a_value_error(value):
     with pytest.raises(ValueError, match=rf"^level must be 1, 2 or 3, got {value}$"):
-        oxedi835._core._external_diagnostic("pyx12", "msg", value)
+        oxedi._core._external_diagnostic("pyx12", "msg", value)

@@ -1,7 +1,7 @@
 # oxedi, the DuckDB extension
 
 `oxedi` reads X12 EDI 835 remittance files as DuckDB tables, with the same parser and the
-same tables as the [oxedi835](../../README.md) Python package. Every DuckDB client (Python,
+same tables as the [oxedi](../../README.md) Python package. Every DuckDB client (Python,
 R, Java, Node, Go, .NET, Rust, the CLI) gets it. It is built on DuckDB's stable C API and
 loads on DuckDB 1.5.6 and later. It is not yet published to the community repository, so
 `INSTALL oxedi FROM community` works only once it is; until then build it (below) and
@@ -63,7 +63,7 @@ git submodule update --init
 make configure_ci          # test venv, platform and version (the crate's, as v<version>)
 make release               # build/release/extension/oxedi/oxedi.duckdb_extension
 make test_release          # SQLLogicTest files in crates/oxedi_duckdb/test/sql
-make duckdb-oracle         # read_835 against oxedi835.parse_file, row by row
+make duckdb-oracle         # read_835 against oxedi.parse_file, row by row
 ```
 
 Load a local build with `duckdb -unsigned` and `LOAD 'build/release/extension/oxedi/oxedi.duckdb_extension';`.

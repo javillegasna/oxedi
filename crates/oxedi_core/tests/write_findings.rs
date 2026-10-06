@@ -442,6 +442,21 @@ fn envelope_dates_and_times_drop_what_the_interchange_header_cannot_hold() {
 }
 
 #[test]
+fn an_envelope_time_far_outside_one_day_is_a_finding() {
+    let (spec, tables) = emedny();
+    let mut envelope = envelope();
+    envelope.time = i32::MIN;
+    let found = findings(write(&spec, &tables, &envelope));
+    assert!(
+        found
+            .iter()
+            .any(|f| f.starts_with("envelope field \"time\"")
+                && f.ends_with("which ISA10 cannot hold: a time must fall within one day")),
+        "{found:#?}"
+    );
+}
+
+#[test]
 fn a_control_number_too_long_is_named_on_every_envelope_segment() {
     let (spec, tables) = emedny();
     let mut envelope = envelope();

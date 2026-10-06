@@ -62,6 +62,9 @@ pub(super) fn envelope_date(days: i32, max: Option<usize>) -> Result<Vec<u8>, St
 /// element holds them (an element of four bytes drops them); the reason
 /// when the time falls outside one day.
 pub(super) fn envelope_time(seconds: i32, max: Option<usize>) -> Result<Vec<u8>, String> {
+    if !(0..86_400).contains(&seconds) {
+        return time_text(seconds, max);
+    }
     let held = match max {
         Some(max) if max < 6 => seconds - seconds.rem_euclid(60),
         _ => seconds,

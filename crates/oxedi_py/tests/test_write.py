@@ -35,6 +35,10 @@ REFUSED = [
 
 # The clean files whose originals pyx12 already reports: a payee state code
 # outside its list, and a rendering provider without its identifier.
+# The excerpts: only their payment's balance fails, so every other cell
+# writes back as it was read.
+EXCERPTS = {"edi835_test_file.RMT", "edi835_test_not_available_claim_id.RMT"}
+
 PYX12_FINDINGS = {
     "united_healthcare_legacy_sample.txt": ["N402"],
     "edi835_test_eyemed.RMT": ["NM108", "NM109"],
@@ -123,6 +127,11 @@ def test_a_file_with_findings_is_refused_and_written_only_when_allowed(name):
     assert {table: len(again.tables[table]) for table in again.tables.keys()} == {
         table: len(tables[table]) for table in tables.keys()
     }
+    if name in EXCERPTS:
+        assert_same(tables, again.tables)
+        assert [(f.kind, f.diagnostic.kind) for f in findings] == [
+            ("ReadBack", "BalanceMismatch")
+        ] * len(findings)
 
 
 def test_an_unbalanced_claim_is_refused_with_the_rule_it_breaks():
@@ -307,6 +316,17 @@ def test_a_float_for_a_decimal_column_is_refused():
             {"claims": pyarrow.table({"statement_from": [datetime.datetime(2024, 1, 1, 1)]})},
             envelope(),
         )
+
+
+def test_a_dictionary_key_outside_its_values_is_refused():
+    keys = pyarrow.array([0, 5], type=pyarrow.int32())
+    status = pyarrow.DictionaryArray.from_arrays(keys, pyarrow.array([b"1", b"2"]), safe=False)
+    with pytest.raises(oxedi.WriteError) as info:
+        oxedi.write({"claims": pyarrow.table({"claim_status": status})}, envelope())
+    assert str(info.value) == (
+        'table "claims" column "claim_status" row 1: '
+        "the dictionary key 5 is outside the column's 2 dictionary values"
+    )
 
 
 def test_a_reference_against_the_parent_chain_is_a_finding():

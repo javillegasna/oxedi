@@ -112,8 +112,10 @@ envelope = oxedi.Envelope(
 data = oxedi.write(frames, envelope)  # bytes, one interchange
 ```
 
-The spec is the one that parsed the tables, else the built-in 5010 spec; pass
-`spec=oxedi.Spec.builtin("4010")` (or your own spec) to choose. A table left out has no rows and
+The spec is the one that parsed the tables, else the built-in 5010 spec. A dictionary of frames,
+as above, no longer carries the parse's spec, so pass the one that matches the file's version:
+for a 4010 file, `oxedi.write(frames, envelope, spec=oxedi.Spec.builtin("4010"))`; otherwise it
+is written as 5010 and refused. A table left out has no rows and
 a column left out is null. Rows nest by their `payment`, `claim` and `service` columns, the row
 number of their parent. Only what the tables hold is written: segments no column reads (for
 example the payer's `PER*CX` or the bank details of `BPR`) are left out. To reproduce a parsed
@@ -130,11 +132,13 @@ fixed-width `ISA`, the control numbers that must match (`ISA13`/`IEA02`, `GS06`/
 **Strict by default.** The written file is read back with the spec, and every diagnostic of that
 read is a finding, as is anything the writer cannot place: for example a required element or
 occurrence without a value, a value outside its code list or length, a row whose parent does not
-exist or that comes out of order, a value holding a delimiter, or money that does not balance. Any finding raises `oxedi.WriteError`, a `ValueError` whose message lists every
-finding and whose `findings` holds them as `oxedi.WriteFinding` (each names the table, row and
-column, or the envelope field, with the diagnostic behind it); nothing is written. With
-`allow_findings=True` the call returns `(data, findings)` instead, for example to produce invalid
-files for tests:
+exist or that comes out of order, a value holding a delimiter, or money that does not balance.
+A value holding a delimiter is reported first: the file then splits where the data does not, so
+it is not read back, and the other findings show once that value is fixed. Any finding raises
+`oxedi.WriteError`, a `ValueError` whose message lists every finding and whose `findings` holds
+them as `oxedi.WriteFinding` (each names the table, row and column, or the envelope field, with
+the diagnostic behind it); nothing is written. With `allow_findings=True` the call returns
+`(data, findings)` instead, for example to produce invalid files for tests:
 
 ```python
 try:
@@ -160,8 +164,11 @@ parse write back to the same tables.
 ## DuckDB extension
 
 The same parser is available as a DuckDB extension, `oxedi`, so any DuckDB client can read
-835 files in SQL (not yet published to the community repository; see
-[`crates/oxedi_duckdb`](crates/oxedi_duckdb/README.md) for building it).
+835 files in SQL. It was accepted into DuckDB's community repository
+(duckdb/community-extensions#2937), but its community build failed on Windows on an
+OS-specific test text; the fix (extension 0.1.1, PR #120) is pending, and until it lands
+`INSTALL oxedi FROM community` is not available. See
+[`crates/oxedi_duckdb`](crates/oxedi_duckdb/README.md) for building it.
 
 ```sql
 INSTALL oxedi FROM community;

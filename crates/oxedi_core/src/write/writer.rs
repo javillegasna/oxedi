@@ -8,7 +8,7 @@
 //! splits where the data does not.
 
 use crate::column::{Cell, Tables};
-use crate::diagnostic::Rule;
+use crate::diagnostic::{Diagnostic, Rule};
 use crate::document::Document;
 use crate::process::Processor;
 use crate::spec::Spec;
@@ -168,24 +168,31 @@ fn read_back(
             .unwrap_or_default(),
     };
     for diagnostic in diagnostics {
-        // A rule about a whole instance, reported where it closes, names the
-        // row that opened it.
-        let opened = match &diagnostic.rule {
-            Rule::RequiredOccurrenceMissing { opened_at, .. }
-            | Rule::RequiredLoopMissing { opened_at, .. }
-            | Rule::UnterminatedLoop { opened_at, .. }
-            | Rule::ControlNumberMismatch { opened_at, .. } => Some(*opened_at),
-            _ => None,
-        };
-        let origin = match opened {
-            Some(opened_at) => {
-                opened_at.and_then(|segment| traces.origin(segment, None, None, &names))
-            }
-            None => diagnostic.segment.and_then(|segment| {
-                traces.origin(segment, diagnostic.element, diagnostic.component, &names)
-            }),
-        };
+        let origin = origin_of(&diagnostic, traces, &names);
         findings.push(Finding::ReadBack { origin, diagnostic });
     }
     Ok(())
+}
+
+/// The cell, row or envelope field behind a diagnostic about the written
+/// file. A rule about a whole instance, reported where it closes, names the
+/// row that opened it; a control number mismatch names the closer's
+/// element, which the envelope wrote.
+pub(super) fn origin_of(
+    diagnostic: &Diagnostic,
+    traces: &Traces,
+    names: &dyn Fn(usize, Option<usize>) -> String,
+) -> Option<Origin> {
+    let opened = match &diagnostic.rule {
+        Rule::RequiredOccurrenceMissing { opened_at, .. }
+        | Rule::RequiredLoopMissing { opened_at, .. }
+        | Rule::UnterminatedLoop { opened_at, .. } => Some(*opened_at),
+        _ => None,
+    };
+    match opened {
+        Some(opened_at) => opened_at.and_then(|segment| traces.origin(segment, None, None, names)),
+        None => diagnostic.segment.and_then(|segment| {
+            traces.origin(segment, diagnostic.element, diagnostic.component, names)
+        }),
+    }
 }

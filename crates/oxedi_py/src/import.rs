@@ -147,11 +147,20 @@ fn cell(array: &dyn Array, row: usize, kind: ColumnType) -> Result<Cell<'_>, Str
         )
     };
     if let Some(dictionary) = array.as_any_dictionary_opt() {
-        let index = integer(dictionary.keys(), row)
+        let key = integer(dictionary.keys(), row)
             .and_then(Result::ok)
-            .and_then(|key| usize::try_from(key).ok())
             .ok_or_else(unsupported)?;
-        return cell(dictionary.values().as_ref(), index, kind);
+        let values = dictionary.values();
+        let index = usize::try_from(key)
+            .ok()
+            .filter(|&index| index < values.len())
+            .ok_or_else(|| {
+                format!(
+                    "the dictionary key {key} is outside the column's {} dictionary values",
+                    values.len()
+                )
+            })?;
+        return cell(values.as_ref(), index, kind);
     }
     match kind {
         ColumnType::Binary => bytes(array, row).ok_or_else(unsupported).map(Cell::Binary),

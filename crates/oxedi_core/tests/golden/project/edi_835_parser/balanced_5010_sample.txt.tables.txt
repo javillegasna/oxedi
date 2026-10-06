@@ -2,8 +2,8 @@
 row: int64 | segment: int64 | interchange: int64 | payment: int64 | claim: int64 | allowed_units: binary | billed_units: binary | charge_amount: decimal128(38, 2) | code: binary | modifier: binary | paid_amount: decimal128(38, 2) | qualifier: binary | service_date_segment: int64 | service_period_end_segment: int64 | service_period_start_segment: int64
 0 | 24 | 0 | 0 | 0 | 1 | ∅ | 200.00 | 99213 | ∅ | 150.00 | HC | 25 | ∅ | ∅
 1 | 30 | 0 | 0 | 0 | 1 | ∅ | 100.00 | 85025 | ∅ | 50.00 | HC | 31 | ∅ | ∅
-2 | 41 | 0 | 0 | 1 | 4 | 5 | 650.00 | 97110 | ∅ | 400.00 | HC | 42 | ∅ | ∅
-3 | 52 | 0 | 0 | 2 | 1 | ∅ | 120.00 | 99212 | ∅ | 120.00 | HC | 53 | ∅ | ∅
+2 | 41 | 0 | 0 | 1 | 4 | 5 | 700.00 | 97110 | ∅ | 450.00 | HC | 42 | ∅ | ∅
+3 | 52 | 0 | 0 | 2 | 1 | ∅ | 150.00 | 99212 | ∅ | 150.00 | HC | 53 | ∅ | ∅
 
 ## rows_adjustment_groups (rows: 12)
 row: int64 | segment: int64 | interchange: int64 | payment: int64 | claim: int64 | service: int64 | amount: decimal128(38, 2) | code: binary | group: binary | quantity: decimal128(38, 2)

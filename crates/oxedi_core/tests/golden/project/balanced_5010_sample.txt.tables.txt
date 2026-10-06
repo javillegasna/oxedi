@@ -18,10 +18,10 @@ row: int64 | segment: int64 | payment: int64 | claim: int64 | service: int64 | a
 
 ## claims (rows: 4)
 row: int64 | segment: int64 | payment: int64 | charge_amount: decimal128(38, 2) | claim_id: binary | claim_status: binary | coverage_amount: decimal128(38, 2) | discharge_fraction: decimal128(38, 4) | drg_code: binary | drg_weight: decimal128(38, 4) | facility_type: binary | filing_indicator: binary | frequency_code: binary | group_number: binary | header_number: int64 | patient_first_name: binary | patient_id: binary | patient_id_qualifier: binary | patient_last_name: binary | patient_responsibility: decimal128(38, 2) | payer_control_number: binary | payment_amount: decimal128(38, 2) | rendering_provider_entity_type: binary | rendering_provider_id: binary | rendering_provider_id_qualifier: binary | rendering_provider_name: binary | statement_from: date32 | statement_to: date32
-0 | 17 | 0 | 300.00 | CLM1001 | 1 | 250.00 | ∅ | ∅ | ∅ | 11 | 12 | 1 | GRP77 | 1 | JANE | MBR0001 | MI | DOE | 50.00 | PCN1001 | 200.00 | 1 | 1234567893 | XX | SMITH | 2024-01-05 | 2024-01-05
-1 | 36 | 0 | 700.00 | CLM1002 | 2 | ∅ | ∅ | ∅ | ∅ | 11 | 12 | 1 | ∅ | 1 | RICHARD | MBR0002 | MI | ROE | ∅ | PCN1002 | 400.00 | ∅ | ∅ | ∅ | ∅ | 2024-01-06 | 2024-01-08
+0 | 17 | 0 | 300.00 | CLM1001 | 1 | 250.00 | ∅ | ∅ | ∅ | 11 | 12 | 1 | GRP77 | 1 | JANE | MBR0001 | MI | DOE | 60.00 | PCN1001 | 200.00 | 1 | 1234567893 | XX | SMITH | 2024-01-05 | 2024-01-05
+1 | 36 | 0 | 700.00 | CLM1002 | 2 | ∅ | ∅ | ∅ | ∅ | 11 | 12 | 1 | ∅ | 1 | RICHARD | MBR0002 | MI | ROE | 0.00 | PCN1002 | 400.00 | ∅ | ∅ | ∅ | ∅ | 2024-01-06 | 2024-01-08
 2 | 47 | 0 | 150.00 | CLM2001 | 1 | ∅ | ∅ | ∅ | ∅ | 11 | 12 | 1 | ∅ | 2 | ANNA | MBR0003 | MI | POE | 30.00 | PCN2001 | 120.00 | 2 | 1234567893 | XX | SUNRISE CLINIC | 2024-01-07 | ∅
-3 | 54 | 0 | 80.00 | CLM2002 | 4 | ∅ | ∅ | ∅ | ∅ | 11 | 12 | 1 | ∅ | 2 | MARK | MBR0004 | MI | LOE | ∅ | PCN2002 | 0.00 | ∅ | ∅ | ∅ | ∅ | 2024-01-02 | ∅
+3 | 54 | 0 | 80.00 | CLM2002 | 4 | ∅ | ∅ | ∅ | ∅ | 11 | 12 | 1 | ∅ | 2 | MARK | MBR0004 | MI | LOE | 0.00 | PCN2002 | 0.00 | ∅ | ∅ | ∅ | ∅ | 2024-01-02 | ∅
 
 ## payments (rows: 1)
 row: int64 | segment: int64 | credit_debit_flag: binary | handling_code: binary | payee_address: binary | payee_city: binary | payee_id: binary | payee_id_qualifier: binary | payee_name: binary | payee_state: binary | payee_zip: binary | payer_address: binary | payer_city: binary | payer_id: binary | payer_id_qualifier: binary | payer_identifier: binary | payer_name: binary | payer_state: binary | payer_technical_contact_name: binary | payer_technical_contact_number: binary | payer_technical_contact_qualifier: binary | payer_zip: binary | payment_date: date32 | payment_format: binary | payment_method: binary | production_date: date32 | receiver_id: binary | total_payment_amount: decimal128(38, 2) | trace_number: binary
@@ -37,6 +37,6 @@ row: int64 | segment: int64 | payment: int64 | amount: decimal128(38, 2) | fisca
 row: int64 | segment: int64 | payment: int64 | claim: int64 | allowed_amount: decimal128(38, 2) | charge_amount: decimal128(38, 2) | line_item_control_number: binary | original_units: decimal128(38, 2) | payment_amount: decimal128(38, 2) | procedure_code: binary | procedure_qualifier: binary | service_date: date32 | units_paid: decimal128(38, 2)
 0 | 24 | 0 | 0 | 180.00 | 200.00 | LINE0001 | ∅ | 150.00 | 99213 | HC | 2024-01-05 | 1.00
 1 | 30 | 0 | 0 | 80.00 | 100.00 | LINE0002 | ∅ | 50.00 | 85025 | HC | 2024-01-05 | 1.00
-2 | 41 | 0 | 1 | ∅ | 650.00 | LINE0003 | 5.00 | 400.00 | 97110 | HC | 2024-01-06 | 4.00
-3 | 52 | 0 | 2 | ∅ | 120.00 | ∅ | ∅ | 120.00 | 99212 | HC | 2024-01-07 | 1.00
+2 | 41 | 0 | 1 | ∅ | 700.00 | LINE0003 | 5.00 | 450.00 | 97110 | HC | 2024-01-06 | 4.00
+3 | 52 | 0 | 2 | ∅ | 150.00 | ∅ | ∅ | 150.00 | 99212 | HC | 2024-01-07 | 1.00
 

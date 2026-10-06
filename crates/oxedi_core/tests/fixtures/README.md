@@ -33,8 +33,8 @@ as above: **never edit them**. Every name, identifier and amount is invented.
 
 | File | Bytes | Segments | Version | Repetition | Line endings | Claims | Services | CAS rows | PLB groups |
 |------|-------|----------|---------|------------|--------------|--------|----------|----------|------------|
-| `balanced_5010_sample.txt` | 1 595 | 62 | 00501 / 005010X221A1 | `^` | LF after every `~` | 4 | 4 | 15 | 3 |
-| `balanced_4010_sample.txt` | 1 468 | 61 | 00401 / 004010X091A1 | — | none | 4 | 4 | 15 | 3 |
+| `balanced_5010_sample.txt` | 1 597 | 62 | 00501 / 005010X221A1 | `^` | LF after every `~` | 4 | 4 | 15 | 3 |
+| `balanced_4010_sample.txt` | 1 470 | 61 | 00401 / 004010X091A1 | — | none | 4 | 4 | 15 | 3 |
 
 Both hold the same remittance; the 5010 file adds `ST03` and the payer technical contact
 (`PER*BL`), which 4010 does not define. What they cover:
@@ -43,8 +43,12 @@ Both hold the same remittance; the 5010 file adds `ST03` and the payer technical
   one claim without services.
 - Every balancing rule holds: each service's charge minus payment equals its `CAS`; each
   claim's charge minus payment equals its claim-level plus service-level `CAS` (a claim with
-  only service adjustments, one with both, one with only a claim-level one); `BPR02` (690)
-  equals the claims' payments (720) minus the `PLB` amounts (25 − 5 + 10).
+  only service adjustments, one with both, one with only a claim-level one, which then pays
+  less than its services); `BPR02` (690) equals the claims' payments (720) minus the `PLB`
+  amounts (25 − 5 + 10).
+- The claim totals are consistent too: a claim with services charges the sum of their
+  charges, and every claim's patient responsibility (`CLP05`) is the sum of its `PR`
+  adjustments, claim and service level (0 when it has none).
 - `CAS` with several reasons in one segment, with a quantity, several groups on one service,
   and a split group: seven `CO` reasons over two `CAS` segments (six, then one).
 - A `PLB` with three reason groups, one negative; payer and payee `N1`/`N3`/`N4`, payee `REF*TJ`

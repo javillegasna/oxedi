@@ -20,8 +20,11 @@ Snapshot for picking the project up cold. Update when a stage changes state.
   claim rule does not model interest (`AMT*I`). After merge: deferred minors to Project #8, copy
   the ledger to `.doc/analysis/stage-7-ledger.md`, then Stage 7b (DuckDB write through `COPY`).
 - **Merged:** Stage 7a (occurrence model per loop, PR #119). **Released:** 0.3.0, the first under
-  the name `oxedi` (tag `v0.3.0`, PR #114); check the post-release steps (yank `oxedi835`
-  0.1.0/0.2.0/0.2.1 and archive it, T72; the `duckdb-v0.1.0` tag and the community PR).
+  the name `oxedi` (tag `v0.3.0`, PR #114). `oxedi835` 0.1.0–0.2.1 are yanked on PyPI
+  (archiving the project is pending, T72). The DuckDB extension was submitted and
+  duckdb/community-extensions#2937 merged, but its community build failed on Windows on an
+  OS-specific test text; the fix (extension 0.1.1, PR #120) is pending, and until then
+  `INSTALL oxedi FROM community` is not available.
 - **Released:** 0.2.1 on PyPI 2026-10-05 (#105: type stubs #102, quick-wins sprint #100, PLB
   codes #104); 0.2.0 on 2026-10-04 (#99).
 - **Stage 5e merged** (PR #80, 2026-10-04) with its amendment (PR #81: one diagnostic type,

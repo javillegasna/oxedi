@@ -1529,7 +1529,7 @@ elegidas por versión.
 núcleo para otros lenguajes (D17 a); specs propias; paralelismo entre archivos y *projection
 pushdown* hasta medirlos; funciones *table in-out*.
 
-### Stage 5g · Renombre a `oxedi` — PROPUESTA 2026-10-05
+### Stage 5g · Renombre a `oxedi` — APROBADO 2026-10-05
 
 La etapa que resuelve el nombre de D15 para todo el proyecto antes de que la 837 y el escritor
 (Stage 7) sumen API pública. `oxedi835` describe un solo conjunto de transacciones, pero el núcleo

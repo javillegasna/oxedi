@@ -1,7 +1,7 @@
 # CLAUDE.md — how work is done in oxedi835
 
 Lossless, fast, data-driven EDI 835 parser core in Rust (edition 2024); learning Rust in
-depth is a co-equal goal. Public repo `javillegasna/oxedi835`. Conversation language is
+depth is a co-equal goal. Public repo `javillegasna/oxedi`. Conversation language is
 Spanish; code, commits, PRs and issues are in English.
 
 ## Where the truth lives

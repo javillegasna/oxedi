@@ -132,4 +132,14 @@ impl LoopDef {
     pub fn accepts(&self, id: &[u8]) -> bool {
         self.segments.iter().any(|segment| segment == id) || self.end.as_deref() == Some(id)
     }
+
+    /// Index in `occurrences` of the occurrence `segment` takes in the loop:
+    /// the one with its id whose qualifier, when it has one, holds. `None`
+    /// when no occurrence matches. Qualifiers of one segment never share a
+    /// code, so at most one occurrence matches.
+    pub fn occurrence_of(&self, segment: &Segment<'_>) -> Option<usize> {
+        self.occurrences
+            .iter()
+            .position(|occurrence| occurrence.matches(segment))
+    }
 }

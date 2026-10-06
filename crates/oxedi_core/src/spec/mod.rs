@@ -46,7 +46,7 @@ pub use segments::{
 pub use tables::{AnchorChains, ColumnSource, Repeat, TableDef, TableDefError};
 pub use version::{DeclaredVersion, VersionError};
 
-pub(crate) use render::{render_key, render_trigger};
+pub(crate) use render::{render_key, render_selector, render_trigger};
 
 use std::cmp::Reverse;
 use std::collections::BTreeMap;

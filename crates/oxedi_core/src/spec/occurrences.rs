@@ -64,9 +64,14 @@ pub struct OccurrenceDef {
     /// Segment id, e.g. `NM1`.
     pub segment: Vec<u8>,
     /// Position in the loop; occurrences sharing a position may appear in
-    /// any order among themselves. A loop and the loops below it number
-    /// their occurrences in one position space, and the occurrence the
-    /// loop's trigger opens on has the lowest position of its loop.
+    /// any order among themselves, and the occurrence the loop's trigger
+    /// opens on has the lowest position of its loop. A child loop whose
+    /// trigger occurrence has a higher position than its parent's shares the
+    /// parent's position space, so its instances are ordered among the
+    /// parent's occurrences (in the built-in specs, the transaction and every
+    /// loop below it). A child whose trigger occurrence does not come after
+    /// its parent's numbers its own positions (the envelope loops above the
+    /// transaction).
     pub pos: usize,
     /// Whether every instance of the loop holds it.
     pub usage: Usage,

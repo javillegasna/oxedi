@@ -6,6 +6,10 @@
 //! count or control number disagrees with the loop they close. Which loops are
 //! envelopes, and which elements carry the count and the control number, is
 //! read from each loop's `control` in the spec.
+//!
+//! It also checks each loop instance against its loop's occurrences
+//! (`occurrences.rs`): required occurrences and child loops, repeat limits,
+//! position order and segments that match no occurrence.
 
 use std::borrow::Cow;
 
@@ -33,6 +37,12 @@ struct Open {
     control_number: Option<Vec<u8>>,
     /// `true` once the loop's end segment has been captured.
     ended: bool,
+    /// Where the instance's counts start in the checker's `counts`: one per
+    /// occurrence of its loop, then one per child loop.
+    counts: usize,
+    /// The occurrence with the highest position seen in the instance, as
+    /// `(loop, index in its occurrences)`.
+    last: Option<(LoopId, usize)>,
 }
 
 /// Turns the engine's events into structural diagnostics, one segment at a time.
@@ -46,6 +56,10 @@ pub struct EnvelopeChecker<'s> {
     ordinals: Vec<usize>,
     /// Non-empty segments consumed so far.
     seen: usize,
+    /// The occurrence and child loop counts of every open instance.
+    counts: Vec<usize>,
+    /// Instances of each root loop so far.
+    root_counts: Vec<usize>,
     diagnostics: Vec<Diagnostic>,
 }
 
@@ -59,6 +73,8 @@ impl<'s> EnvelopeChecker<'s> {
             open: Vec::new(),
             ordinals: vec![0; spec.loops().len()],
             seen: 0,
+            counts: Vec::new(),
+            root_counts: vec![0; spec.roots().len()],
             diagnostics: Vec::new(),
         }
     }
@@ -111,6 +127,7 @@ impl<'s> EnvelopeChecker<'s> {
         }
         self.seen = 0;
         self.ordinals.iter_mut().for_each(|count| *count = 0);
+        self.root_counts.iter_mut().for_each(|count| *count = 0);
         &self.diagnostics
     }
 
@@ -122,6 +139,10 @@ impl<'s> EnvelopeChecker<'s> {
         if !implicit && let Some(parent) = self.open.last_mut() {
             parent.children = parent.children.saturating_add(1);
         }
+        let opening = self.count_instance(id, implicit);
+        let counts = self.counts.len();
+        self.counts
+            .resize(counts + def.occurrences.len() + def.children.len(), 0);
         let mut missing_opener = None;
         let control_number = match def.control {
             Some(control) if !implicit => {
@@ -142,7 +163,10 @@ impl<'s> EnvelopeChecker<'s> {
             children: 0,
             control_number,
             ended: false,
+            counts,
+            last: None,
         });
+        self.report_opening(opening, trigger, segment.id);
         if let Some(element) = missing_opener {
             self.report(
                 Rule::ControlElementMissing {
@@ -169,6 +193,7 @@ impl<'s> EnvelopeChecker<'s> {
     }
 
     fn captured(&mut self, id: LoopId, segment: &Segment<'_>) {
+        self.occurrence_captured(id, segment);
         let spec = self.spec;
         let def = spec.get(id);
         if def.end.as_deref() != Some(segment.id) {
@@ -270,6 +295,7 @@ impl<'s> EnvelopeChecker<'s> {
                 at.map(|segment| segment.id.to_vec()).unwrap_or_default(),
             );
         }
+        self.occurrence_closed(at);
         self.open.pop();
     }
 
@@ -278,6 +304,17 @@ impl<'s> EnvelopeChecker<'s> {
         rule: Rule,
         segment: Option<usize>,
         element: Option<usize>,
+        datum: Vec<u8>,
+    ) {
+        self.report_at(rule, segment, element, None, datum);
+    }
+
+    fn report_at(
+        &mut self,
+        rule: Rule,
+        segment: Option<usize>,
+        element: Option<usize>,
+        component: Option<usize>,
         datum: Vec<u8>,
     ) {
         let spec = self.spec;
@@ -289,8 +326,9 @@ impl<'s> EnvelopeChecker<'s> {
                 ordinal: open.ordinal,
             })
             .collect();
-        self.diagnostics
-            .push(Diagnostic::new(rule, segment, element, None, path, datum));
+        self.diagnostics.push(Diagnostic::new(
+            rule, segment, element, component, path, datum,
+        ));
     }
 }
 
@@ -327,5 +365,8 @@ fn parse_count(value: &[u8]) -> Option<usize> {
     })
 }
 
+#[cfg(test)]
+mod occurrence_tests;
+mod occurrences;
 #[cfg(test)]
 mod tests;

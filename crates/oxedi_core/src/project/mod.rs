@@ -13,7 +13,10 @@
 //! meaning when the tables are drained part way.
 //!
 //! Every captured segment the spec defines is checked element by element as
-//! it arrives: required elements, types, lengths and composite shapes. An
+//! it arrives: required elements, types, lengths, codes and composite
+//! shapes. An element's codes come from the occurrence the segment takes in
+//! its loop when that occurrence lists its own, and from the element's
+//! definition otherwise (also for a segment that matches no occurrence). An
 //! element defined without components is read as one text, with any
 //! component separator it contains kept in place; components are read only
 //! where the definition declares them. A column reads the value the check
@@ -55,7 +58,7 @@ use crate::delimiters::Delimiters;
 use crate::diagnostic::Diagnostic;
 use crate::engine::Event;
 use crate::segment::Segment;
-use crate::spec::{ColumnSource, LoopId, ROW_COLUMN, SEGMENT_COLUMN, Spec};
+use crate::spec::{ColumnSource, LoopId, OccurrenceDef, ROW_COLUMN, SEGMENT_COLUMN, Spec};
 
 use check::Checked;
 use fill::append;
@@ -117,6 +120,9 @@ pub struct Projector<'s> {
     /// Instances opened so far, per loop index.
     ordinals: Vec<usize>,
     checked: Vec<Checked>,
+    /// The occurrence the segment being checked takes in its loop, whose own
+    /// code lists replace its elements' lists.
+    occurrence: Option<&'s OccurrenceDef>,
     /// Cells of the row being appended, kept for their allocation.
     cells: Vec<Cell<'static>>,
     joined: Vec<u8>,
@@ -206,6 +212,7 @@ impl<'s> Projector<'s> {
             open: Vec::new(),
             ordinals: vec![0; loops],
             checked: Vec::new(),
+            occurrence: None,
             cells: Vec::new(),
             joined: Vec::new(),
             diagnostics: Vec::new(),
@@ -302,6 +309,11 @@ impl<'s> Projector<'s> {
         let mut joined = std::mem::take(&mut self.joined);
         let plans = std::mem::take(&mut self.plans);
         let plan = plans.get(segment.id);
+        let spec = self.spec;
+        let def = spec.get(id);
+        self.occurrence = def
+            .occurrence_of(segment)
+            .and_then(|index| def.occurrences.get(index));
         self.check(
             plan.map_or(&[], |plan| &plan.elements),
             segment,

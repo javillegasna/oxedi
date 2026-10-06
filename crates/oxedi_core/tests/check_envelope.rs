@@ -1,5 +1,7 @@
-//! Structural diagnostics over every real-shaped file: the known anomalies,
-//! rendered in full, and nothing else.
+//! Structural diagnostics over every real-shaped file: the known envelope
+//! anomalies (SNIP 1), rendered in full, and nothing else. The occurrence
+//! findings (SNIP 2) of each file under its own version's spec are in the
+//! project goldens.
 
 mod common;
 
@@ -14,6 +16,7 @@ fn the_known_anomalies_are_reported_exactly_and_nothing_else() {
     for (name, bytes, delims) in common::all_files() {
         let rendered: Vec<String> = common::diagnostics_of(&spec, &bytes, delims)
             .iter()
+            .filter(|diagnostic| diagnostic.level == SnipLevel::L1)
             .map(ToString::to_string)
             .collect();
         if !rendered.is_empty() {
@@ -68,23 +71,49 @@ fn the_known_anomalies_are_reported_exactly_and_nothing_else() {
     assert_eq!(found, expected);
 }
 
+/// The checker's own SNIP 2 findings are the occurrence rules.
+const OCCURRENCE_RULES: &[&str] = &[
+    "RequiredOccurrenceMissing",
+    "OccurrenceOverMax",
+    "LoopOverMax",
+    "OutOfOrder",
+    "UnknownOccurrence",
+    "RequiredLoopMissing",
+];
+
 #[test]
-fn every_diagnostic_is_level_one_and_points_at_a_segment_holding_its_datum() {
-    let spec = Spec::builtin_835();
+fn every_diagnostic_points_at_a_segment_holding_its_datum() {
+    let (five, four) = common::builtins();
     for (name, bytes, delims) in common::all_files() {
         let document = Document::with_delimiters(&bytes[..], delims).unwrap();
-        for diagnostic in common::diagnostics_of(&spec, &bytes, delims) {
-            assert_eq!(diagnostic.level, SnipLevel::L1, "{name}: {diagnostic}");
-            let span = diagnostic
-                .span(&document)
-                .unwrap_or_else(|| panic!("{name}: {diagnostic} names no segment"));
-            let body = &document.as_bytes()[span.body];
-            assert!(
-                body.windows(diagnostic.datum.len())
-                    .any(|window| window == diagnostic.datum.as_slice()),
-                "{name}: {diagnostic} points at {:?}",
-                String::from_utf8_lossy(body)
-            );
+        for spec in [&five, &four] {
+            for diagnostic in common::diagnostics_of(spec, &bytes, delims) {
+                let kind = diagnostic.rule.kind();
+                let expected = if OCCURRENCE_RULES.contains(&kind) {
+                    SnipLevel::L2
+                } else {
+                    SnipLevel::L1
+                };
+                assert_eq!(diagnostic.level, expected, "{name}: {diagnostic}");
+                if diagnostic.segment.is_none() {
+                    assert!(diagnostic.datum.is_empty(), "{name}: {diagnostic}");
+                    continue;
+                }
+                points_at_its_datum(&name, &document, &diagnostic);
+            }
         }
     }
+}
+
+fn points_at_its_datum(name: &str, document: &Document<'_>, diagnostic: &oxedi_core::Diagnostic) {
+    let span = diagnostic
+        .span(document)
+        .unwrap_or_else(|| panic!("{name}: {diagnostic} names no segment"));
+    let body = &document.as_bytes()[span.body];
+    assert!(
+        body.windows(diagnostic.datum.len())
+            .any(|window| window == diagnostic.datum.as_slice()),
+        "{name}: {diagnostic} points at {:?}",
+        String::from_utf8_lossy(body)
+    );
 }

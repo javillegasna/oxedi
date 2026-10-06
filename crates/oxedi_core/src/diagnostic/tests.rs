@@ -1,5 +1,6 @@
 use super::*;
 use crate::Delimiters;
+use crate::spec::ElementType;
 
 fn path(loops: &[(&str, usize)]) -> Vec<LoopRef> {
     loops
@@ -119,8 +120,67 @@ fn every_rule_names_its_variant() {
                 component: None,
                 name: "n".into(),
                 codes: vec!["A".into(), "B".into()],
+                occurrence: None,
             },
             "CodeNotInList",
+        ),
+        (
+            Rule::RequiredOccurrenceMissing {
+                loop_name: "l".into(),
+                opened_at: None,
+                occurrence: "o".into(),
+                selector: "\"N3\"".into(),
+            },
+            "RequiredOccurrenceMissing",
+        ),
+        (
+            Rule::OccurrenceOverMax {
+                loop_name: "l".into(),
+                occurrence: "o".into(),
+                selector: "\"N3\"".into(),
+                max: 1,
+                count: 2,
+            },
+            "OccurrenceOverMax",
+        ),
+        (
+            Rule::LoopOverMax {
+                loop_name: "l".into(),
+                parent: None,
+                max: 1,
+                count: 2,
+            },
+            "LoopOverMax",
+        ),
+        (
+            Rule::OutOfOrder {
+                loop_name: "l".into(),
+                occurrence: "o".into(),
+                pos: 1,
+                after_loop: "l".into(),
+                after: "p".into(),
+                after_pos: 2,
+            },
+            "OutOfOrder",
+        ),
+        (
+            Rule::UnknownOccurrence {
+                loop_name: "l".into(),
+                segment_id: id(),
+                element: 1,
+                component: None,
+                occurrences: vec!["o".into()],
+            },
+            "UnknownOccurrence",
+        ),
+        (
+            Rule::RequiredLoopMissing {
+                loop_name: "l".into(),
+                opened_at: None,
+                child: "c".into(),
+                expected_trigger: "\"N1\" with no conditions".into(),
+            },
+            "RequiredLoopMissing",
         ),
     ];
     for (rule, kind) in rules {
@@ -454,6 +514,7 @@ fn code_not_in_list_displays_the_element_the_codes_and_the_value() {
         component,
         name: "qualifier".into(),
         codes,
+        occurrence: None,
     };
     let diagnostic = Diagnostic::new(
         rule(Some(1), codes(3)),
@@ -483,6 +544,195 @@ fn code_not_in_list_displays_the_element_the_codes_and_the_value() {
     assert_eq!(
         rule(None, vec!["a\"b".into(), "\n".into()]).to_string(),
         "element SVC01 (qualifier) is not one of the 2 codes the spec lists for it (\"a\\\"b\", \"\\n\")"
+    );
+}
+
+#[test]
+fn code_not_in_list_names_the_occurrence_whose_list_it_is() {
+    let rule = |codes| Rule::CodeNotInList {
+        segment_id: b"NM1".to_vec(),
+        element: 8,
+        component: None,
+        name: "identification_code_qualifier".into(),
+        codes,
+        occurrence: Some("patient_name".into()),
+    };
+    let diagnostic = Diagnostic::new(
+        rule(codes(2)),
+        Some(23),
+        Some(8),
+        None,
+        path(&[("2000", 1), ("2100", 4)]),
+        b"ZZ".to_vec(),
+    );
+    assert_eq!(
+        diagnostic.to_string(),
+        "SNIP 2 · element NM108 (identification_code_qualifier) is not one of the 2 codes the spec lists for it in occurrence \"patient_name\" (\"A\", \"B\") · segment #23, element 8 · at 2000#1/2100#4 · datum \"ZZ\""
+    );
+    assert_eq!(
+        rule(vec!["MI".into()]).to_string(),
+        "element NM108 (identification_code_qualifier) is not the one code the spec lists for it in occurrence \"patient_name\" (\"MI\")"
+    );
+}
+
+#[test]
+fn required_occurrence_missing_displays_the_loop_its_opener_and_the_occurrence() {
+    let rule = |opened_at| Rule::RequiredOccurrenceMissing {
+        loop_name: "1000A".into(),
+        opened_at,
+        occurrence: "payer_technical_contact_information".into(),
+        selector: "\"PER\" where PER01 is \"BL\"".into(),
+    };
+    let diagnostic = Diagnostic::new(
+        rule(Some(5)),
+        Some(9),
+        None,
+        None,
+        path(&[
+            ("interchange", 1),
+            ("group", 1),
+            ("transaction", 1),
+            ("1000A", 1),
+        ]),
+        b"N1".to_vec(),
+    );
+    assert_eq!(diagnostic.level, SnipLevel::L2);
+    assert_eq!(
+        diagnostic.to_string(),
+        "SNIP 2 · loop \"1000A\" opened at segment #5 closed without its required occurrence \"payer_technical_contact_information\" (\"PER\" where PER01 is \"BL\") · segment #9 · at interchange#1/group#1/transaction#1/1000A#1 · datum \"N1\""
+    );
+    assert_eq!(
+        rule(None).to_string(),
+        "loop \"1000A\" closed without its required occurrence \"payer_technical_contact_information\" (\"PER\" where PER01 is \"BL\")"
+    );
+}
+
+#[test]
+fn occurrence_over_max_displays_the_occurrence_the_count_and_the_maximum() {
+    let diagnostic = Diagnostic::new(
+        Rule::OccurrenceOverMax {
+            loop_name: "2100".into(),
+            occurrence: "other_claim_related_identification".into(),
+            selector: "\"REF\" where REF01 is one of 14 codes".into(),
+            max: 5,
+            count: 6,
+        },
+        Some(40),
+        None,
+        None,
+        path(&[("2000", 1), ("2100", 2)]),
+        b"REF".to_vec(),
+    );
+    assert_eq!(diagnostic.level, SnipLevel::L2);
+    assert_eq!(
+        diagnostic.to_string(),
+        "SNIP 2 · occurrence \"other_claim_related_identification\" (\"REF\" where REF01 is one of 14 codes) of loop \"2100\" appears 6 times in one instance; the spec allows at most 5 · segment #40 · at 2000#1/2100#2 · datum \"REF\""
+    );
+}
+
+#[test]
+fn loop_over_max_displays_the_parent_or_the_root() {
+    let rule = |parent: Option<&str>| Rule::LoopOverMax {
+        loop_name: "1000A".into(),
+        parent: parent.map(Into::into),
+        max: 1,
+        count: 2,
+    };
+    let diagnostic = Diagnostic::new(
+        rule(Some("transaction")),
+        Some(12),
+        None,
+        None,
+        path(&[("transaction", 1), ("1000A", 2)]),
+        b"N1".to_vec(),
+    );
+    assert_eq!(diagnostic.level, SnipLevel::L2);
+    assert_eq!(
+        diagnostic.to_string(),
+        "SNIP 2 · loop \"1000A\" has 2 instances under one instance of loop \"transaction\"; the spec allows at most 1 · segment #12 · at transaction#1/1000A#2 · datum \"N1\""
+    );
+    assert_eq!(
+        rule(None).to_string(),
+        "loop \"1000A\" has 2 instances at the root; the spec allows at most 1"
+    );
+}
+
+#[test]
+fn out_of_order_displays_both_occurrences_their_positions_and_loops() {
+    let diagnostic = Diagnostic::new(
+        Rule::OutOfOrder {
+            loop_name: "transaction".into(),
+            occurrence: "receiver_identification".into(),
+            pos: 10600,
+            after_loop: "1000A".into(),
+            after: "payer_identification".into(),
+            after_pos: 10800,
+        },
+        Some(8),
+        None,
+        None,
+        path(&[("transaction", 1)]),
+        b"REF".to_vec(),
+    );
+    assert_eq!(diagnostic.level, SnipLevel::L2);
+    assert_eq!(
+        diagnostic.to_string(),
+        "SNIP 2 · occurrence \"receiver_identification\" (position 10600) of loop \"transaction\" comes after occurrence \"payer_identification\" (position 10800) of loop \"1000A\" · segment #8 · at transaction#1 · datum \"REF\""
+    );
+}
+
+#[test]
+fn unknown_occurrence_displays_the_qualifier_and_the_occurrences() {
+    let rule = |names: &[&str], component| Rule::UnknownOccurrence {
+        loop_name: "2100".into(),
+        segment_id: b"NM1".to_vec(),
+        element: 1,
+        component,
+        occurrences: names.iter().map(|name| name.to_string()).collect(),
+    };
+    let diagnostic = Diagnostic::new(
+        rule(&["patient_name", "insured_name"], None),
+        Some(21),
+        Some(1),
+        None,
+        path(&[("2000", 1), ("2100", 1)]),
+        b"XX".to_vec(),
+    );
+    assert_eq!(diagnostic.level, SnipLevel::L2);
+    assert_eq!(
+        diagnostic.to_string(),
+        "SNIP 2 · segment \"NM1\" matches none of the 2 occurrences loop \"2100\" declares for it (\"patient_name\", \"insured_name\"): NM101 holds none of their qualifier codes · segment #21, element 1 · at 2000#1/2100#1 · datum \"XX\""
+    );
+    assert_eq!(
+        rule(&["a", "b", "c", "d", "e", "f"], Some(2)).to_string(),
+        "segment \"NM1\" matches none of the 6 occurrences loop \"2100\" declares for it: NM101-2 holds none of their qualifier codes"
+    );
+}
+
+#[test]
+fn required_loop_missing_displays_the_loop_its_opener_and_the_child() {
+    let rule = |opened_at| Rule::RequiredLoopMissing {
+        loop_name: "transaction".into(),
+        opened_at,
+        child: "1000A".into(),
+        expected_trigger: "\"N1\" where {1: \"PR\"}".into(),
+    };
+    let diagnostic = Diagnostic::new(
+        rule(Some(2)),
+        None,
+        None,
+        None,
+        path(&[("interchange", 1), ("group", 1), ("transaction", 1)]),
+        Vec::new(),
+    );
+    assert_eq!(diagnostic.level, SnipLevel::L2);
+    assert_eq!(
+        diagnostic.to_string(),
+        "SNIP 2 · loop \"transaction\" opened at segment #2 closed without its required child loop \"1000A\" (trigger \"N1\" where {1: \"PR\"}) · end of stream · at interchange#1/group#1/transaction#1 · datum \"\""
+    );
+    assert_eq!(
+        rule(None).to_string(),
+        "loop \"transaction\" closed without its required child loop \"1000A\" (trigger \"N1\" where {1: \"PR\"})"
     );
 }
 

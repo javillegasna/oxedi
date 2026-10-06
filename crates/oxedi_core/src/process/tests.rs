@@ -23,7 +23,11 @@ fn interchange(transactions: &[&str]) -> String {
     text
 }
 
-const CLAIM: &str = "BPR*I*10*C*CHK************20240101~TRN*1*1*1234567890~LX*1~CLP*C1*1*10*10**MC*X1~SVC*HC:99213*10*10~";
+/// A transaction body with every required occurrence and loop.
+const CLAIM: &str = "BPR*I*10*C*CHK************20240101~TRN*1*1*1234567890~\
+    N1*PR*PAYER~N3*1 MAIN ST~N4*CITY*NC*27601~PER*BL*DESK*TE*5555555555~\
+    N1*PE*PAYEE*XX*1234567893~\
+    LX*1~CLP*C1*1*10*10**MC*X1~NM1*QC*1*DOE*JANE****MI*M1~SVC*HC:99213*10*10~";
 
 #[test]
 fn one_feed_returns_the_events_and_every_diagnostic_of_its_segment() {
@@ -97,7 +101,16 @@ fn run_over_a_document_is_feeding_every_segment_then_finishing() {
     by_hand.extend_from_slice(processor.finish().diagnostics());
     assert_eq!(diagnostics, by_hand);
     assert_eq!(tables, processor.take_tables());
-    assert_eq!(diagnostics.len(), 1, "the unknown ZZZ");
+    let kinds: Vec<&str> = diagnostics.iter().map(|d| d.rule.kind()).collect();
+    assert_eq!(
+        kinds,
+        vec![
+            "UnknownSegment",
+            "RequiredLoopMissing",
+            "RequiredLoopMissing"
+        ],
+        "the unknown ZZZ, then the payer and payee loops the second transaction lacks"
+    );
     assert_eq!(tables.get("payments").unwrap().len(), 2);
 }
 

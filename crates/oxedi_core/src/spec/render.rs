@@ -5,6 +5,7 @@ use std::borrow::Cow;
 use serde_json::Value;
 
 use super::loops::Trigger;
+use super::occurrences::OccurrenceDef;
 
 /// Table names outermost first, joined by `/`; `no table` when there are none.
 pub(super) fn render_chain(chain: &[String]) -> String {
@@ -27,6 +28,32 @@ pub(crate) fn render_trigger(trigger: &Trigger) -> String {
         .map(|(position, value)| format!("{position}: {:?}", String::from_utf8_lossy(value)))
         .collect();
     format!("{segment:?} where {{{}}}", parts.join(", "))
+}
+
+/// The longest qualifier code list a selector spells out.
+const MAX_SELECTOR_CODES: usize = 5;
+
+/// What selects an occurrence: `"N3"`, `"PER" where PER01 is "BL"`,
+/// `"DTM" where DTM01 is one of "232", "233"`, or for a longer list
+/// `"REF" where REF01 is one of 14 codes`.
+pub(crate) fn render_selector(occurrence: &OccurrenceDef) -> String {
+    let segment = String::from_utf8_lossy(&occurrence.segment);
+    let Some(qualifier) = &occurrence.qualifier else {
+        return format!("{segment:?}");
+    };
+    let mut at = format!("{segment}{:02}", qualifier.element);
+    if let Some(component) = qualifier.component {
+        at.push_str(&format!("-{component}"));
+    }
+    let codes = match qualifier.codes.as_slice() {
+        [code] => format!("is {code:?}"),
+        codes if codes.len() <= MAX_SELECTOR_CODES => {
+            let quoted: Vec<String> = codes.iter().map(|code| format!("{code:?}")).collect();
+            format!("is one of {}", quoted.join(", "))
+        }
+        codes => format!("is one of {} codes", codes.len()),
+    };
+    format!("{segment:?} where {at} {codes}")
 }
 
 /// The value as the datum of a [`SpecError::WrongType`]: a scalar as compact

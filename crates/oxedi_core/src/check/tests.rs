@@ -4,8 +4,17 @@ use crate::{Delimiters, LoopEngine, Tokenizer};
 const ISA: &str = "ISA*00*          *00*          *ZZ*SENDER         *ZZ*RECEIVER       *240101*1200*^*00501*000000001*0*P*>~";
 
 /// Runs the engine and the checker over `input` (with `*`, `:` and `~`)
-/// and returns every diagnostic, `finish` included.
+/// and returns the envelope and structure diagnostics (SNIP 1), `finish`
+/// included. The bodies here are not complete transactions; what they lack
+/// of their occurrences is tested in `occurrence_tests.rs`.
 fn check(spec: &Spec, input: &str) -> Vec<Diagnostic> {
+    let mut out = check_all(spec, input);
+    out.retain(|diagnostic| diagnostic.level == crate::SnipLevel::L1);
+    out
+}
+
+/// [`check`] with every diagnostic, the occurrence ones included.
+pub(super) fn check_all(spec: &Spec, input: &str) -> Vec<Diagnostic> {
     let mut engine = LoopEngine::new(spec);
     let delims = Delimiters::new(b'*', b':', b'~');
     let mut checker = EnvelopeChecker::new(spec, &delims);
@@ -347,7 +356,7 @@ fn empty_segments_are_not_counted() {
 fn finishing_resets_the_checker() {
     let spec = Spec::builtin_835();
     let input = interchange("ZZZ~", "3");
-    let first = check(&spec, &input);
+    let first = check_all(&spec, &input);
     let mut engine = LoopEngine::new(&spec);
     let delims = Delimiters::new(b'*', b':', b'~');
     let mut checker = EnvelopeChecker::new(&spec, &delims);

@@ -5,7 +5,8 @@ use std::fmt;
 
 use super::{Quoted, Rule};
 
-/// The longest code list a message spells out; longer lists keep the count.
+/// The longest code or name list a message spells out; longer lists keep
+/// the count.
 const MAX_LISTED_CODES: usize = 5;
 
 /// An element reference in X12 style: `CLP01`, or `SVC01-2` for a component.
@@ -203,6 +204,7 @@ impl fmt::Display for Rule {
                 component,
                 name,
                 codes,
+                occurrence,
             } => {
                 let at = ElementRef {
                     segment_id,
@@ -218,16 +220,110 @@ impl fmt::Display for Rule {
                 } else {
                     String::new()
                 };
+                let own = occurrence
+                    .as_ref()
+                    .map(|occurrence| format!(" in occurrence {occurrence:?}"))
+                    .unwrap_or_default();
                 match codes.len() {
                     1 => write!(
                         f,
-                        "element {at} ({name}) is not the one code the spec lists for it{listed}"
+                        "element {at} ({name}) is not the one code the spec lists for it{own}{listed}"
                     ),
                     count => write!(
                         f,
-                        "element {at} ({name}) is not one of the {count} codes the spec lists for it{listed}"
+                        "element {at} ({name}) is not one of the {count} codes the spec lists for it{own}{listed}"
                     ),
                 }
+            }
+            Rule::RequiredOccurrenceMissing {
+                loop_name,
+                opened_at,
+                occurrence,
+                selector,
+            } => {
+                write!(f, "loop {loop_name:?} ")?;
+                if let Some(opened_at) = opened_at {
+                    write!(f, "opened at segment #{opened_at} ")?;
+                }
+                write!(
+                    f,
+                    "closed without its required occurrence {occurrence:?} ({selector})"
+                )
+            }
+            Rule::OccurrenceOverMax {
+                loop_name,
+                occurrence,
+                selector,
+                max,
+                count,
+            } => write!(
+                f,
+                "occurrence {occurrence:?} ({selector}) of loop {loop_name:?} appears {count} times in one instance; the spec allows at most {max}"
+            ),
+            Rule::LoopOverMax {
+                loop_name,
+                parent,
+                max,
+                count,
+            } => {
+                write!(f, "loop {loop_name:?} has {count} instances ")?;
+                match parent {
+                    Some(parent) => write!(f, "under one instance of loop {parent:?}")?,
+                    None => write!(f, "at the root")?,
+                }
+                write!(f, "; the spec allows at most {max}")
+            }
+            Rule::OutOfOrder {
+                loop_name,
+                occurrence,
+                pos,
+                after_loop,
+                after,
+                after_pos,
+            } => write!(
+                f,
+                "occurrence {occurrence:?} (position {pos}) of loop {loop_name:?} comes after occurrence {after:?} (position {after_pos}) of loop {after_loop:?}"
+            ),
+            Rule::UnknownOccurrence {
+                loop_name,
+                segment_id,
+                element,
+                component,
+                occurrences,
+            } => {
+                let at = ElementRef {
+                    segment_id,
+                    element: *element,
+                    component: *component,
+                };
+                let listed = if occurrences.len() <= MAX_LISTED_CODES {
+                    let quoted: Vec<String> =
+                        occurrences.iter().map(|name| format!("{name:?}")).collect();
+                    format!(" ({})", quoted.join(", "))
+                } else {
+                    String::new()
+                };
+                write!(
+                    f,
+                    "segment {} matches none of the {} occurrences loop {loop_name:?} declares for it{listed}: {at} holds none of their qualifier codes",
+                    Quoted(segment_id),
+                    occurrences.len()
+                )
+            }
+            Rule::RequiredLoopMissing {
+                loop_name,
+                opened_at,
+                child,
+                expected_trigger,
+            } => {
+                write!(f, "loop {loop_name:?} ")?;
+                if let Some(opened_at) = opened_at {
+                    write!(f, "opened at segment #{opened_at} ")?;
+                }
+                write!(
+                    f,
+                    "closed without its required child loop {child:?} (trigger {expected_trigger})"
+                )
             }
             Rule::External {
                 origin,

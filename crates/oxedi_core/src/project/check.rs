@@ -45,6 +45,14 @@ fn is_valid(kind: ColumnType, text: &[u8]) -> bool {
     }
 }
 
+/// `true` when `codes` is a code list and `value` is not in it.
+fn rejects(codes: &[String], value: &[u8]) -> bool {
+    !codes.is_empty()
+        && codes
+            .binary_search_by(|code| code.as_bytes().cmp(value))
+            .is_err()
+}
+
 /// A non-empty text as a value of the column type; `None` when it does not parse.
 pub(super) fn parse(kind: ColumnType, text: &[u8]) -> Option<Parsed> {
     Some(match kind {
@@ -208,16 +216,29 @@ impl<'s> Projector<'s> {
                 component,
                 text,
             );
-        } else if def.rejects_code(text) {
+        } else {
+            // The occurrence the segment matched may list its own codes for
+            // the element; otherwise the element's own list applies.
+            let own = self.occurrence.and_then(|occurrence| {
+                occurrence
+                    .codes
+                    .get(&(element, component))
+                    .map(|codes| (codes, occurrence))
+            });
+            let codes = own.map_or(&def.codes, |(codes, _)| codes);
             // Every code fits the element's lengths, so a value of the wrong
             // length is reported once, as a length.
+            if !rejects(codes, text) {
+                return value;
+            }
             self.report(
                 Rule::CodeNotInList {
                     segment_id: segment.id.to_vec(),
                     element,
                     component,
                     name: def.name.clone(),
-                    codes: def.codes.clone(),
+                    codes: codes.clone(),
+                    occurrence: own.map(|(_, occurrence)| occurrence.name.clone()),
                 },
                 segment.index,
                 element,

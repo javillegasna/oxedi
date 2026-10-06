@@ -405,3 +405,42 @@ fn occurrence_errors_are_their_own_variants() {
     assert!(matches!(&err, SpecError::ZeroLoopMax { loop_name } if loop_name == "head"));
     assert!(std::error::Error::source(&err).is_none());
 }
+
+#[test]
+fn a_selector_names_the_segment_and_its_qualifier_codes() {
+    let spec = base();
+    let head = spec.get(spec.loop_id("head").unwrap());
+    let selector = |name: &str| {
+        let occurrence = head.occurrences.iter().find(|o| o.name == name).unwrap();
+        render_selector(occurrence)
+    };
+    assert_eq!(selector("note"), "\"NT\"");
+    assert_eq!(selector("patient"), "\"NM\" where NM01 is \"QC\"");
+    assert_eq!(selector("id"), "\"ID\" where ID01-1 is one of \"A\", \"B\"");
+    let mut wide = head.occurrences[0].clone();
+    wide.qualifier = Some(Qualifier {
+        element: 1,
+        component: None,
+        codes: (0..6).map(|code| code.to_string()).collect(),
+    });
+    assert_eq!(
+        render_selector(&wide),
+        "\"HD\" where HD01 is one of 6 codes"
+    );
+}
+
+#[test]
+fn a_segment_takes_the_occurrence_its_qualifier_selects() {
+    let spec = base();
+    let head = spec.get(spec.loop_id("head").unwrap());
+    let input = segs(b"NM*IL~NM*QC*1~NM*XX~NT*anything~ZZ~");
+    let name = |at: usize| {
+        head.occurrence_of(&input[at])
+            .map(|index| head.occurrences[index].name.as_str())
+    };
+    assert_eq!(name(0), Some("insured"));
+    assert_eq!(name(1), Some("patient"));
+    assert_eq!(name(2), None);
+    assert_eq!(name(3), Some("note"));
+    assert_eq!(name(4), None);
+}

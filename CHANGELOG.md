@@ -4,12 +4,10 @@ All notable changes to oxedi835 are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and the project uses semantic
 versioning; while the version is `0.x`, a minor release may break the API.
 
-## [Unreleased]
+This file covers the Python package; the DuckDB extension has its own changelog in
+[`crates/oxedi_duckdb/CHANGELOG.md`](crates/oxedi_duckdb/CHANGELOG.md).
 
-### Added
-- The DuckDB extension `oxedi` (`crates/oxedi_duckdb`): `read_835(...)` returns the payments,
-  claims, services, adjustments, provider adjustments and diagnostics tables in SQL. It is
-  not yet published to the community repository.
+## [Unreleased]
 
 ## [0.2.1] - 2026-10-04
 

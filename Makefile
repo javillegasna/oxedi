@@ -15,12 +15,17 @@ WHEELS      := target/wheels
 # Only the -a.N, -b.N, -rc.N and -dev.N pre-release forms are mapped; any other suffix
 # (-alpha, -beta) leaves a version that release-check rejects against the tag.
 CARGO_VERSION := $(shell sed -n 's/^version = "\(.*\)"/\1/p' Cargo.toml | head -n 1)
+# The DuckDB extension has its own version, in its crate's Cargo.toml.
+DUCKDB_VERSION := $(shell sed -n 's/^version = "\(.*\)"/\1/p' crates/oxedi_duckdb/Cargo.toml | head -n 1)
 VERSION     := $(shell echo '$(CARGO_VERSION)' | sed -E 's/-(a|b|rc)\.?/\1/; s/-dev\.?/.dev/')
 
-.PHONY: help version release-check configure_ci set_duckdb_version set_duckdb_tag set_duckdb_repository debug release test_debug test_release duckdb-oracle duckdb-version-check sdist-check wheel-check gates test clippy fmt fmt-check bench-check doc venv py-dev py-test stubs stubtest compat-oracle dist smoke publish-test publish-test-verify publish tag clean-dist
+.PHONY: help version release-check configure_ci set_duckdb_version set_duckdb_tag set_duckdb_repository debug release test_debug test_release duckdb-oracle duckdb-version-check duckdb-release-check duckdb-tag sdist-check wheel-check gates test clippy fmt fmt-check bench-check doc venv py-dev py-test stubs stubtest compat-oracle dist smoke publish-test publish-test-verify publish tag clean-dist
 
 help: ## list targets
 	@grep -E '^[a-z][a-z_-]*:.*##' $(MAKEFILE_LIST) | sed 's/:.*## /\t/'
+	@echo
+	@echo "Python releases use release-check and tag (tags v*, which start the PyPI workflow)."
+	@echo "The DuckDB extension uses duckdb-release-check and duckdb-tag (tags duckdb-v*, which do not)."
 
 # ---- Rust gates (the same four CI runs, plus rustdoc) ----
 gates: fmt-check clippy test bench-check doc ## run every commit gate
@@ -138,24 +143,35 @@ test_release: ## DuckDB extension: run its SQLLogicTests against the release bui
 test_debug: ## DuckDB extension: run its SQLLogicTests against the debug build
 	$(MAKE) -C $(EXT_DIR) test_debug
 
-duckdb-version-check: ## fail unless the community descriptor's version equals the workspace version
+duckdb-version-check: ## fail unless the community descriptor's version equals the extension crate's version
 	@d=$$(sed -n 's/^  version: *\(.*\)$$/\1/p' $(EXT_DIR)/description.yml | head -n 1); \
-	test "$$d" = "$(CARGO_VERSION)" || { echo "duckdb-version-check: $(EXT_DIR)/description.yml has version $$d but Cargo.toml has $(CARGO_VERSION)"; exit 1; }
+	test "$$d" = "$(DUCKDB_VERSION)" || { echo "duckdb-version-check: $(EXT_DIR)/description.yml has version $$d but $(EXT_DIR)/Cargo.toml has $(DUCKDB_VERSION)"; exit 1; }
 
 duckdb-oracle: py-dev ## DuckDB extension: compare read_835 with oxedi835.parse_file on every sample and fixture
 	$(MAKE) -C $(EXT_DIR) test_oracle ORACLE_PYTHON=$(abspath $(PYTHON))
 
 # ---- Release ----
+# Python releases use release-check and tag (tags v*, which start the PyPI workflow).
+# The DuckDB extension uses duckdb-release-check and duckdb-tag (tags duckdb-v*, which do not).
 version: ## print the PEP 440 version published by maturin
 	@echo $(VERSION)
 
-release-check: duckdb-version-check ## fail unless TAG is v<version>, the tree is clean and CHANGELOG.md has the version
+release-check: ## fail unless TAG is v<version>, the tree is clean and CHANGELOG.md has the version
 	@test -n "$(TAG)" || { echo "usage: make release-check TAG=v<version>"; exit 1; }
 	@test -n "$(VERSION)" || { echo "release-check: no version in Cargo.toml [workspace.package]"; exit 1; }
 	@test "$(TAG)" = "v$(VERSION)" || { echo "release-check: tag $(TAG) differs from v$(VERSION) (Cargo.toml version $(CARGO_VERSION))"; exit 1; }
 	@test -z "$$(git status --porcelain)" || { echo "release-check: the working tree is not clean"; git status --short; exit 1; }
 	@grep -qE '^## \[$(subst .,\.,$(VERSION))\]' CHANGELOG.md || { echo "release-check: CHANGELOG.md has no '## [$(VERSION)]' section"; exit 1; }
 	@echo "release-check: ok ($(TAG))"
+
+duckdb-release-check: ## fail unless TAG is duckdb-v<extension version>, the tree is clean, the descriptor matches and the extension CHANGELOG.md has the version
+	@test -n "$(TAG)" || { echo "usage: make duckdb-release-check TAG=duckdb-v<version>"; exit 1; }
+	@test -n "$(DUCKDB_VERSION)" || { echo "duckdb-release-check: no version in $(EXT_DIR)/Cargo.toml"; exit 1; }
+	@test "$(TAG)" = "duckdb-v$(DUCKDB_VERSION)" || { echo "duckdb-release-check: tag $(TAG) differs from duckdb-v$(DUCKDB_VERSION) ($(EXT_DIR)/Cargo.toml version $(DUCKDB_VERSION))"; exit 1; }
+	@test -z "$$(git status --porcelain)" || { echo "duckdb-release-check: the working tree is not clean"; git status --short; exit 1; }
+	@$(MAKE) --no-print-directory duckdb-version-check
+	@grep -qE '^## \[$(subst .,\.,$(DUCKDB_VERSION))\]' $(EXT_DIR)/CHANGELOG.md || { echo "duckdb-release-check: $(EXT_DIR)/CHANGELOG.md has no '## [$(DUCKDB_VERSION)]' section"; exit 1; }
+	@echo "duckdb-release-check: ok ($(TAG))"
 
 # ---- Publishing (credentials come from ~/.pypirc; never from the repo) ----
 publish-test: sdist-check ## upload the built artifacts to TestPyPI
@@ -173,3 +189,7 @@ publish: sdist-check ## upload the built artifacts to PyPI (irreversible)
 tag: ## tag the current commit as v<version> and push the tag
 	git tag -a v$(VERSION) -m "oxedi835 $(VERSION)"
 	git push origin v$(VERSION)
+
+duckdb-tag: ## tag the current commit as duckdb-v<extension version> and push the tag (does not start the PyPI workflow)
+	git tag -a duckdb-v$(DUCKDB_VERSION) -m "oxedi DuckDB extension $(DUCKDB_VERSION)"
+	git push origin duckdb-v$(DUCKDB_VERSION)

@@ -8,12 +8,12 @@ PROJ_DIR := $(dir $(abspath $(lastword $(MAKEFILE_LIST))))
 
 EXTENSION_NAME=oxedi
 
-# The extension version is the workspace's, as `v<version>`. Left to itself the
+# The extension version is the crate's own, as `v<version>`. Left to itself the
 # ci-tools take a git tag at HEAD or the commit hash. configure/extension_version.txt
-# is regenerated when the workspace Cargo.toml is newer.
-EXTENSION_VERSION ?= v$(shell sed -n 's/^version = "\(.*\)"/\1/p' $(PROJ_DIR)../../Cargo.toml | head -n 1)
+# is regenerated when the crate's Cargo.toml is newer.
+EXTENSION_VERSION ?= v$(shell sed -n 's/^version = "\(.*\)"/\1/p' $(PROJ_DIR)Cargo.toml | head -n 1)
 
-configure/extension_version.txt: $(PROJ_DIR)../../Cargo.toml
+configure/extension_version.txt: $(PROJ_DIR)Cargo.toml
 
 # 0 builds ABI C_STRUCT: the binary loads on TARGET_DUCKDB_VERSION and every
 # later DuckDB. 1 would pin it to TARGET_DUCKDB_VERSION exactly.

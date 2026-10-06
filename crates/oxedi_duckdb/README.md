@@ -49,6 +49,11 @@ off, a glob pattern is an error. A remote pattern such as
 `s3://bucket/*.835` sees persistent secrets only, not temporary `CREATE SECRET` ones. Plain
 paths and lists are read through your own file system and secrets.
 
+## Versions
+
+The extension is versioned separately from the Python package (its version is in this
+crate's `Cargo.toml`), and its releases are tagged `duckdb-v*`.
+
 ## Build and test
 
 From the repository root (Rust, Python 3 and the `extension-ci-tools` submodule are needed):

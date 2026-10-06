@@ -166,6 +166,15 @@ n × 10000 plus its implementation-guide position (1000A's N1 is 10800, 2100's C
 a child loop's occurrences sit at their own positions inside that space. The occurrence a
 loop opens on comes first: every other occurrence of the loop has a higher `pos`.
 
+A column reads an element of a segment chosen by `segment` and optional `where`
+conditions, or of a named occurrence (`{"occurrence": "patient_name", "element": 3}`). `loop`
+reads a loop inside the table's anchor or above it: in the services table,
+`{"loop": "2100", "occurrence": "claim_payment_information", "element": 1}` gives each service
+its claim's id. When an occurrence repeats, `pick` chooses `"first"` (the default), `"last"` or
+the n-th match, counting from 1, among the segments read while the row's loop instance is
+open; a loop above the anchor offers the segments its enclosing instance read before the row's
+instance opened.
+
 `parse` and `stream` both accept `spec=`.
 
 ## Spec versions

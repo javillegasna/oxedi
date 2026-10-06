@@ -280,10 +280,12 @@ fn compile_term(
     })
 }
 
-/// The signed values of one side of a rule, e.g. `CLP04 of 2100
+/// The signed values of one side of a rule, e.g. `sum of CLP04 of 2100
 /// "claim_payment_information" - sum of PLB04, PLB06 of transaction
-/// "provider_adjustment"`.
-pub(crate) fn render_terms(spec: &Spec, terms: &[BalanceTerm]) -> String {
+/// "provider_adjustment"`. A term reads as a sum when it adds several
+/// elements, reads a loop below `per`, or reads an occurrence that may
+/// appear more than once.
+pub(crate) fn render_terms(spec: &Spec, per: LoopId, terms: &[BalanceTerm]) -> String {
     let mut out = String::new();
     for (i, term) in terms.iter().enumerate() {
         match (i, term.negative) {
@@ -308,7 +310,12 @@ pub(crate) fn render_terms(spec: &Spec, terms: &[BalanceTerm]) -> String {
             .iter()
             .map(|&element| place(&segment, element, term.component))
             .collect();
-        if places.len() > 1 {
+        let repeats = term.loop_id != per
+            || def
+                .occurrences
+                .get(term.occurrence)
+                .is_none_or(|occurrence| occurrence.max != Some(1));
+        if places.len() > 1 || repeats {
             out.push_str("sum of ");
         }
         out.push_str(&places.join(", "));

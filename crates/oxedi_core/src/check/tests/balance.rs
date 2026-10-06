@@ -104,7 +104,7 @@ fn the_payment_rule_adds_every_claim_and_subtracts_the_adjustments() {
     assert_eq!(
         rendered("PY*x*100.5~CL*a*x*60*60~CL*b*x*50*50~AJ*x*-1~PE~"),
         vec![
-            "SNIP 3 · balancing rule \"pay_rule\" fails in loop \"pay\" opened at segment #0: PY02 of pay \"py\" is 100.500, but CL04 of claim \"cl\" - sum of AJ02, AJ04 of pay \"aj\" adds up to 111.000 (off by -10.500); read from segments #0, #1, #2, #3 · segment #0, element 2 · at pay#1 · datum \"100.5\""
+            "SNIP 3 · balancing rule \"pay_rule\" fails in loop \"pay\" opened at segment #0: PY02 of pay \"py\" is 100.500, but sum of CL04 of claim \"cl\" - sum of AJ02, AJ04 of pay \"aj\" adds up to 111.000 (off by -10.500); read from segments #0, #1, #2, #3 · segment #0, element 2 · at pay#1 · datum \"100.5\""
         ]
     );
 }
@@ -115,7 +115,7 @@ fn a_long_segment_list_ends_with_the_count_of_the_rest() {
     assert_eq!(
         rendered(&format!("PY*x*1~{claims}PE~")),
         vec![
-            "SNIP 3 · balancing rule \"pay_rule\" fails in loop \"pay\" opened at segment #0: PY02 of pay \"py\" is 1.000, but CL04 of claim \"cl\" - sum of AJ02, AJ04 of pay \"aj\" adds up to 12.000 (off by -11.000); read from segments #0, #1, #2, #3, #4, #5, #6, #7, #8, #9 and 3 more · segment #0, element 2 · at pay#1 · datum \"1\""
+            "SNIP 3 · balancing rule \"pay_rule\" fails in loop \"pay\" opened at segment #0: PY02 of pay \"py\" is 1.000, but sum of CL04 of claim \"cl\" - sum of AJ02, AJ04 of pay \"aj\" adds up to 12.000 (off by -11.000); read from segments #0, #1, #2, #3, #4, #5, #6, #7, #8, #9 and 3 more · segment #0, element 2 · at pay#1 · datum \"1\""
         ]
     );
 }
@@ -143,7 +143,7 @@ fn an_unclosed_instance_is_checked_at_the_end_of_the_stream() {
     assert_eq!(
         rendered("PY*x*2~CL*a*x*1*1~"),
         vec![
-            "SNIP 3 · balancing rule \"pay_rule\" fails in loop \"pay\" opened at segment #0: PY02 of pay \"py\" is 2.000, but CL04 of claim \"cl\" - sum of AJ02, AJ04 of pay \"aj\" adds up to 1.000 (off by 1.000); read from segments #0, #1 · segment #0, element 2 · at pay#1 · datum \"2\""
+            "SNIP 3 · balancing rule \"pay_rule\" fails in loop \"pay\" opened at segment #0: PY02 of pay \"py\" is 2.000, but sum of CL04 of claim \"cl\" - sum of AJ02, AJ04 of pay \"aj\" adds up to 1.000 (off by 1.000); read from segments #0, #1 · segment #0, element 2 · at pay#1 · datum \"2\""
         ]
     );
 }

@@ -1681,3 +1681,77 @@ actuales.
 escritor, que es quien las usa para calcular totales); L3 de #53; la 837 (Stage 9); migrar al
 parche de la capa `oxedi.edi_835_parser` las reglas que hoy calcula en Python (el último AMT, los
 datos del claim en la fila del servicio) usando T79, que queda como mejora opcional.
+
+### Stage 7 · Escritor — PROPUESTA 2026-10-06
+
+El stage que cierra el ciclo leer → transformar → escribir (D7): a partir de tablas, el escritor
+genera un archivo 835 válido, guiado por la misma spec que las proyecta. El 7a dejó en la spec lo
+que el escritor necesita: qué ocurrencias lleva cada loop, en qué orden (un espacio de posiciones
+por transacción), cuántas veces, cuáles son obligatorias y qué calificador las distingue. Las tablas
+son una proyección y no contienen todo el archivo: el escritor produce un 835 válido con los datos
+que las tablas traen; reproducir un archivo byte a byte sigue siendo el camino del `Document` sin
+pérdidas.
+
+**Decisiones de diseño (cada una con la alternativa descartada).**
+- **T81 · Se escribe desde las tablas de la spec, con la proyección invertida.** Cada columna con
+  fuente en un elemento de una ocurrencia se convierte en ese elemento; una ocurrencia con un solo
+  código de calificador lo emite sola (NM1*QC); un calificador con varios códigos sale de la
+  columna que lo proyecta. El escritor acepta las tablas de un `parse` o tablas propias con el
+  mismo esquema. Una spec con la que no se puede escribir (una ocurrencia obligatoria sin columna
+  de origen, un elemento obligatorio que ninguna columna llena, una columna cuya fuente no se puede
+  invertir) se rechaza al preparar la escritura con un error P10 que nombra la tabla, la columna,
+  la ocurrencia y la razón. Las tablas integradas ganan las columnas que faltan para cubrir lo
+  obligatorio de la guía (por ejemplo el contacto técnico del pagador, `PER*BL`). Descartados un
+  esquema de escritura aparte (dos modelos que se desalinean) y una API de construcción en código
+  (no usa la spec y contradice D7).
+- **T82 · El árbol se reconstruye con las columnas ordinales.** Las columnas que apuntan a la fila
+  padre (`payment`, `claim`, `service`) ordenan y anidan las filas; una fila que apunta a un padre
+  inexistente, o filas de un mismo padre fuera de orden, son diagnósticos.
+- **T83 · El sobre lo da quien llama y el escritor calcula lo derivado.** Un parámetro `envelope`
+  trae emisor y receptor con sus calificadores, fecha y hora, el indicador de prueba o producción y
+  el primer número de control (el núcleo es sans-IO: no lee el reloj). El escritor calcula los
+  conteos (SE01, GE01, IEA01), los números de control correlativos, ST02 = SE02, el ISA de ancho
+  fijo y los delimitadores que se le pidan (por defecto `*`, `:`, `~`, repetición `^`, con salto de
+  línea opcional tras cada segmento). Descartado inventar datos del sobre.
+- **T84 · Los cuadres de dinero son reglas declarativas de la spec que se comprueban, no se
+  calculan.** Resuelve la parte de cuadres de D11. Las reglas del 835 son: BPR02 igual a la suma de
+  los pagos de los claims menos los ajustes PLB; CLP03 − CLP04 igual a la suma de los CAS del claim
+  y de sus servicios; SVC02 − SVC03 igual a la suma de los CAS del servicio. La spec las declara
+  como datos (sumas con signo por grupo), y sirven a dos cosas: al escribir, un descuadre es un
+  diagnóstico; al leer, son diagnósticos SNIP 3 nuevos, que se prueban contra los seis samples
+  reales y se revisan uno por uno antes de regenerar goldens. Descartado que el escritor calcule
+  totales (alteraría datos financieros del usuario sin avisar).
+- **T85 · Modo estricto por defecto.** Si hay algún diagnóstico que impide un archivo válido
+  (elemento u ocurrencia obligatoria sin dato, referencia rota, descuadre, valor fuera de su lista
+  de códigos o de su longitud), el escritor no emite nada y devuelve un error con todos los
+  diagnósticos. Con `allow_findings` escribe igual y devuelve los diagnósticos junto con los bytes,
+  por ejemplo para generar archivos de prueba inválidos.
+- **T86 · Se escriben 5010 y 4010.** El escritor se guía por la spec y el 7a ya dejó las
+  ocurrencias del 4010, así que la versión es la de la spec que se use. Si el 4010 resultara
+  desproporcionado durante el stage, se queda en 5010 y se avisa.
+- **T87 · API.** En el núcleo, una función sans-IO que recibe spec, tablas y sobre y devuelve los
+  bytes o un error con diagnósticos. En Python, `oxedi.write(tables, envelope=..., spec=None)
+  -> bytes`, que acepta el `Result.tables` de un `parse` o un mapeo de tablas Arrow, Polars o
+  pandas con el esquema de la spec; el binding convierte Arrow a las columnas del núcleo y no nombra
+  ningún segmento. La escritura desde DuckDB (`COPY … TO`) es el Stage 7b.
+
+**Entregable / contrato.**
+- El escritor en el núcleo (inversión de la proyección, reconstrucción del árbol, sobre, cuadres,
+  validación previa) con errores y diagnósticos P10 y su test de `Display` de texto completo.
+- Reglas de cuadre en la spec (5010 y 4010) y los diagnósticos SNIP 3 al leer.
+- Las tablas integradas completadas con lo obligatorio que falte, sin cambiar las celdas que ya
+  existen.
+- `oxedi.write` en Python, con los stubs regenerados, y documentación (README, CHANGELOG).
+
+**Gate de verificación.**
+- Para cada uno de los seis samples y los fixtures válidos: `parse` → tablas → `write` → `parse`
+  da las mismas tablas en las columnas que el escritor usa y ningún diagnóstico nuevo.
+- `pyx12` valida sin errores cada archivo generado, en 5010 y en 4010.
+- Cada diagnóstico SNIP 3 nuevo al leer queda revisado y explicado antes de regenerar goldens.
+- Los casos estrictos (falta de dato obligatorio, referencia rota, descuadre) fallan con el error
+  completo, y con `allow_findings` escriben y devuelven los diagnósticos.
+- `make gates`, `make py-test` con y sin `pyx12`, los tests de la extensión y su oráculo en verde.
+
+**Fuera de alcance.** Escribir desde DuckDB (Stage 7b); calcular totales por el usuario; editar un
+archivo existente conservando lo que las tablas no traen (camino del `Document`); la 837 (Stage 9);
+L3 de #53.

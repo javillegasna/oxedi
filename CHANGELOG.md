@@ -10,6 +10,23 @@ This file covers the Python package; the DuckDB extension has its own changelog 
 ## [Unreleased]
 
 ### Added
+- `oxedi.write(tables, envelope, spec=None, allow_findings=False)` writes an 835 from tables:
+  the tables of a parse, or a mapping of Arrow, Polars or pandas tables with the spec's columns.
+  The spec's projection is inverted (each column becomes its element, a single-code qualifier is
+  written on its own), rows nest by their `payment`, `claim` and `service` columns, and the file
+  is read back with the spec. 5010 and 4010, by the spec that parsed the tables or the one given.
+  Only what the tables hold is written; `Document.write()` still reproduces a file byte for byte.
+- `oxedi.Envelope`: the sender and receiver with their qualifiers, date and time, usage indicator,
+  first control number, optional group application codes, delimiters and line breaks. The writer
+  derives the fixed-width `ISA`, matching control numbers and the counts.
+- Strict writing: any finding (a required value missing, a code or length out of range, a broken
+  or out-of-order row reference, a value holding a delimiter, a balancing rule that fails) raises
+  `oxedi.WriteError` (a `ValueError`) listing every finding, and nothing is written. Its
+  `findings` are `oxedi.WriteFinding`s, each naming the table, row and column (or the envelope
+  field), its kind and the diagnostic behind it. `allow_findings=True` returns `(bytes,
+  findings)` instead. Totals are checked, never computed; the claim rule does not model interest
+  (`AMT*I`). A null text cell in the middle of a segment is written as an empty element and reads
+  back as `""`.
 - Six level-2 (SNIP 2) diagnostics from the loop structure, raised while reading:
   `RequiredOccurrenceMissing` (a loop instance closed without a required occurrence),
   `OccurrenceOverMax` (an occurrence repeats past its maximum in one instance), `LoopOverMax`

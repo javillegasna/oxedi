@@ -88,6 +88,75 @@ data = Path("remittance.835").read_bytes()
 assert oxedi.parse(data).document.write() == data
 ```
 
+## Writing
+
+`oxedi.write` turns tables back into an 835: the tables of a parse, or your own Arrow, Polars or
+pandas tables with the spec's columns. Parse, change a value, write:
+
+```python
+import datetime
+import polars as pl
+import oxedi
+
+result = oxedi.parse_file("remittance.835")
+frames = {name: result.tables[name].to_polars() for name in result.tables.keys()}
+frames["payments"] = frames["payments"].with_columns(trace_number=pl.lit("CHK100235"))
+
+envelope = oxedi.Envelope(
+    sender_id="ACMEPAYER",
+    receiver_id="SUNRISECLINIC",
+    date=datetime.date(2024, 1, 10),
+    time=datetime.time(9, 0),
+    usage_indicator="T",  # "P" (production) is the default
+)
+data = oxedi.write(frames, envelope)  # bytes, one interchange
+```
+
+The spec is the one that parsed the tables, else the built-in 5010 spec; pass
+`spec=oxedi.Spec.builtin("4010")` (or your own spec) to choose. A table left out has no rows and
+a column left out is null. Rows nest by their `payment`, `claim` and `service` columns, the row
+number of their parent. Only what the tables hold is written: segments no column reads (for
+example the payer's `PER*CX` or the bank details of `BPR`) are left out. To reproduce a parsed
+file byte for byte, use `result.document.write()` instead.
+
+**Envelope.** `oxedi.Envelope` gives what the tables cannot: `sender_id` and `receiver_id` with
+their qualifiers (`sender_qualifier`, `receiver_qualifier`, default `"ZZ"`), `date` and `time`,
+`usage_indicator`, the first `control_number` (default 1), optional `application_sender` and
+`application_receiver` for the group header, `delimiters` (default `*`, `:`, `~` and repetition
+`^`) and `line_break` (a line break after each segment). The writer works out the rest: the
+fixed-width `ISA`, the control numbers that must match (`ISA13`/`IEA02`, `GS06`/`GE02`,
+`ST02`/`SE02`) and the counts (`SE01`, `GE01`, `IEA01`).
+
+**Strict by default.** The written file is read back with the spec, and every diagnostic of that
+read is a finding, as is anything the writer cannot place: for example a required element or
+occurrence without a value, a value outside its code list or length, a row whose parent does not
+exist or that comes out of order, a value holding a delimiter, or money that does not balance. Any finding raises `oxedi.WriteError`, a `ValueError` whose message lists every
+finding and whose `findings` holds them as `oxedi.WriteFinding` (each names the table, row and
+column, or the envelope field, with the diagnostic behind it); nothing is written. With
+`allow_findings=True` the call returns `(data, findings)` instead, for example to produce invalid
+files for tests:
+
+```python
+try:
+    data = oxedi.write(frames, envelope)
+except oxedi.WriteError as error:
+    for finding in error.findings:
+        print(finding.table, finding.row, finding.column, finding)
+
+data, findings = oxedi.write(frames, envelope, allow_findings=True)
+```
+
+The writer never changes money: the balancing rules (`BPR02` against the claims' payments and
+the `PLB` adjustments, each claim's and each service's charge minus payment against their `CAS`
+adjustments) are checked, never used to fill a total. The claim rule does not model interest
+(`AMT*I`): a claim whose payment includes interest does not balance and is refused unless
+`allow_findings` is set.
+
+**Null and empty text.** In text columns, `null` is an element the segment does not have and `""`
+one it has but leaves empty. A null cell in the middle of a segment is still written as an empty
+element, so it reads back as `""`; only trailing nulls read back as `null`. The tables of a
+parse write back to the same tables.
+
 ## Extending the spec
 
 The structure of the 835 and the columns of each table are defined by a JSON spec. A patch

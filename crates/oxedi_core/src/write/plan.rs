@@ -118,9 +118,25 @@ pub struct LoopPlan {
 pub struct WritePlan {
     /// The plan of every loop, in [`Spec::loops`] order.
     pub loops: Vec<LoopPlan>,
-    /// `(table, column)` indexes of the columns that no valid file of the
-    /// spec fills, because their `where` names a code the segment's own code
-    /// list excludes: they write nothing, so a value in them cannot be
-    /// written.
-    pub unwritten: Vec<(usize, usize)>,
+    /// The columns that no valid file of the spec fills, because their
+    /// `where` names a code the segment's own code list excludes in every
+    /// anchor loop: they write nothing, so a value in them cannot be
+    /// written. One entry per column, in table then column order.
+    pub unwritten: Vec<Unwritten>,
+}
+
+/// A column that writes nothing, and why.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct Unwritten {
+    /// The table, by index into [`Spec::tables`].
+    pub table: usize,
+    /// The column, by index into its [`TableDef::columns`].
+    pub column: usize,
+    /// The element whose code list excludes the column's `where` code, e.g.
+    /// `PER01`.
+    pub place: String,
+    /// The excluded `where` code.
+    pub code: String,
+    /// The element's code list.
+    pub codes: Vec<String>,
 }

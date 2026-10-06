@@ -8,7 +8,7 @@ use crate::spec::{ColumnSource, LoopId, OccurrenceDef, Pick, Spec, TableDef};
 
 use super::codes::Resolved;
 use super::plan::{
-    ElementPlan, Instances, LoopPlan, SegmentPlan, SegmentSource, ValueSource, WritePlan,
+    ElementPlan, Instances, LoopPlan, SegmentPlan, SegmentSource, Unwritten, ValueSource, WritePlan,
 };
 use super::refusal::{PlanError, Refusal, render_source};
 use super::required::add_qualifier;
@@ -39,8 +39,8 @@ pub(super) struct Builder<'s> {
     /// Tables refused for their anchor: their columns are not placed.
     refused: Vec<usize>,
     /// `(table, anchor loop)` of every table anchored on a segment.
-    repeats: Vec<(usize, LoopId)>,
-    unwritten: Vec<(usize, usize)>,
+    pub(super) repeats: Vec<(usize, LoopId)>,
+    unwritten: Vec<Unwritten>,
 }
 
 impl WritePlan {
@@ -165,10 +165,23 @@ impl Builder<'_> {
         false
     }
 
-    /// A table without a segment gives one instance of its anchor loops per
-    /// row, or is refused when another table already gives one of them its
-    /// rows.
+    /// A table without a segment gives one instance of its anchor loop per
+    /// row, or is refused when another table already gives that loop its
+    /// rows, or when it has several anchor loops: nothing in a row says
+    /// which of them it opens.
     fn anchor(&mut self, index: usize, table: &TableDef) {
+        if table.loops.len() > 1 {
+            self.refusals.push(Refusal::SeveralAnchorLoops {
+                table: table.name.clone(),
+                loops: table
+                    .loops
+                    .iter()
+                    .map(|&id| self.spec.loop_name(id).to_string())
+                    .collect(),
+            });
+            self.refused.push(index);
+            return;
+        }
         for &anchor in &table.loops {
             let Some(plan) = self.loops.get_mut(anchor.index()) else {
                 continue;
@@ -188,12 +201,13 @@ impl Builder<'_> {
         }
     }
 
-    /// The columns of a table with one row per instance of its anchor loops.
+    /// The columns of a table with one row per instance of its anchor loop
+    /// (a table with several is refused by [`Builder::anchor`]).
     fn loop_table(&mut self, index: usize, table: &TableDef) {
         if self.refused.contains(&index) {
             return;
         }
-        for (first, &anchor) in table.loops.iter().enumerate() {
+        if let Some(&anchor) = table.loops.first() {
             for (column, (name, source)) in table.columns.iter().enumerate() {
                 let ColumnSource::Element {
                     loop_id,
@@ -207,11 +221,6 @@ impl Builder<'_> {
                 else {
                     continue;
                 };
-                // A column that names its loop reads that loop whatever the
-                // anchor: it is placed once.
-                if loop_id.is_some() && first > 0 {
-                    continue;
-                }
                 let reader = loop_id.unwrap_or(anchor);
                 let resolved = match occurrence {
                     Some(name) => self
@@ -227,8 +236,14 @@ impl Builder<'_> {
                 };
                 let (at, codes) = match resolved {
                     Resolved::One(at, codes) => (at, codes),
-                    Resolved::Nothing => {
-                        self.unwritten.push((index, column));
+                    Resolved::Nothing(excluded) => {
+                        self.unwritten.push(Unwritten {
+                            table: index,
+                            column,
+                            place: excluded.place,
+                            code: excluded.code,
+                            codes: excluded.codes,
+                        });
                         continue;
                     }
                     Resolved::Candidates(candidates) => {
@@ -289,7 +304,7 @@ impl Builder<'_> {
             self.repeats.push((index, anchor));
             let at = match self.resolve(anchor, segment, &[]) {
                 Resolved::One(at, _) => at,
-                Resolved::Nothing => continue,
+                Resolved::Nothing(_) => continue,
                 Resolved::Candidates(candidates) => {
                     self.refusals.push(Refusal::AmbiguousSource {
                         table: table.name.clone(),
@@ -336,71 +351,6 @@ impl Builder<'_> {
             self.check_codes(anchor.index(), &plan, index, None);
             if let Some(loop_plan) = self.loops.get_mut(anchor.index()) {
                 loop_plan.segments.push(plan);
-            }
-        }
-    }
-
-    /// Every loop above a written loop is written around it.
-    fn implied(&mut self) {
-        for index in 0..self.loops.len() {
-            let written = self
-                .loops
-                .get(index)
-                .is_some_and(|plan| plan.instances != Instances::Absent);
-            if !written {
-                continue;
-            }
-            let mut above = self.spec.loops().get(index).and_then(|def| def.parent);
-            while let Some(id) = above {
-                if let Some(plan) = self.loops.get_mut(id.index())
-                    && plan.instances == Instances::Absent
-                {
-                    plan.instances = Instances::Implied;
-                }
-                above = self.spec.get(id).parent;
-            }
-        }
-    }
-
-    /// Refuses a table anchored on a segment of a loop that nothing gives
-    /// instances to: its segments would have no instance to go in.
-    fn repeats_placed(&mut self) {
-        for (table, anchor) in std::mem::take(&mut self.repeats) {
-            let absent = self
-                .loops
-                .get(anchor.index())
-                .is_none_or(|plan| plan.instances == Instances::Absent);
-            if !absent {
-                continue;
-            }
-            let segment = self
-                .spec
-                .tables()
-                .get(table)
-                .and_then(|def| def.segment.as_deref())
-                .map(|segment| format!("{:?}", String::from_utf8_lossy(segment)))
-                .unwrap_or_default();
-            self.refusals.push(Refusal::RepeatWithoutInstances {
-                table: self.table_name(table),
-                loop_name: self.spec.loop_name(anchor).to_string(),
-                segment,
-            });
-        }
-    }
-
-    fn sort(&mut self) {
-        let spec = self.spec;
-        for (index, plan) in self.loops.iter_mut().enumerate() {
-            let Some(def) = spec.loops().get(index) else {
-                continue;
-            };
-            let pos = |at: usize| def.occurrences.get(at).map_or(0, |o| o.pos);
-            plan.segments
-                .sort_by_key(|segment| (pos(segment.occurrence), segment.occurrence));
-            for segment in &mut plan.segments {
-                segment
-                    .elements
-                    .sort_by_key(|element| (element.element, element.component));
             }
         }
     }

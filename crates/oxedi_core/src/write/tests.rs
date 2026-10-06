@@ -99,9 +99,13 @@ fn both_built_in_specs_can_be_written() {
         let unwritten: Vec<&str> = plan
             .unwritten
             .iter()
-            .map(|&(table, column)| spec.tables()[table].columns[column].0.as_str())
+            .map(|u| spec.tables()[u.table].columns[u.column].0.as_str())
             .collect();
         assert_eq!(unwritten, expected);
+        for u in &plan.unwritten {
+            assert_eq!((u.place.as_str(), u.code.as_str()), ("PER01", "BL"));
+            assert_eq!(u.codes, vec!["CX".to_string()]);
+        }
     }
 }
 
@@ -112,9 +116,36 @@ fn a_where_code_the_segment_excludes_writes_nothing() {
         "tables":{"heads":{"columns":{"q_date":{"segment":"DT","where":{"1":"Q"},"element":2}}}}}"#,
     );
     let plan = WritePlan::new(&spec).unwrap();
-    let heads = &spec.tables()[plan.unwritten[0].0];
+    let unwritten = &plan.unwritten[0];
+    let heads = &spec.tables()[unwritten.table];
     assert_eq!(plan.unwritten.len(), 1);
-    assert_eq!(heads.columns[plan.unwritten[0].1].0, "q_date");
+    assert_eq!(heads.columns[unwritten.column].0, "q_date");
+    assert_eq!(
+        (unwritten.place.as_str(), unwritten.code.as_str()),
+        ("DT01", "Q")
+    );
+    assert_eq!(unwritten.codes, vec!["S".to_string(), "X".to_string()]);
+}
+
+#[test]
+fn a_table_anchored_on_several_loops_is_refused() {
+    // Sibling anchors the loader accepts; the writer cannot tell them apart.
+    assert_eq!(
+        refusals(
+            r#"{"loops":{"other":{"parent":"env","trigger":{"segment":"OT"},
+                "occurrences":{"ot":{"segment":"OT","pos":1,"usage":"required"},
+                    "hd":{"segment":"HD","pos":2}}}},
+            "segments":{"OT":{"elements":{"1":{"name":"id","type":"AN"}}}},
+            "tables":{"heads":{"loops":["head","other"],"columns":{
+                "a_type":null,"a_name":null,"start":null,"first_kind":null,"first_date":null,
+                "second_kind":null,"second_date":null}},"adjustments":null}}"#
+        ),
+        vec![
+            "table \"heads\" is anchored on 2 loops (\"head\", \"other\"); a written row opens one loop instance and nothing in the row says which",
+            // Its columns are not placed, so what they would write is missing.
+            "occurrence \"hd\" (\"HD\") is required in every loop \"head\", but no column writes it"
+        ]
+    );
 }
 
 #[test]

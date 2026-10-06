@@ -218,7 +218,10 @@ impl Spec {
     }
 
     /// The tables and loops, editable past the loader's checks, to build
-    /// specs the loader refuses.
+    /// specs the loader refuses. It edits the loader's output without
+    /// updating anything derived from it (loop children and segment lists,
+    /// table parents and ancestors, the occurrence order): use it only for
+    /// write plan tests, which read the edited parts directly.
     #[cfg(test)]
     pub(crate) fn parts_mut(&mut self) -> (&mut Vec<TableDef>, &mut Vec<LoopDef>) {
         (&mut self.tables, &mut self.loops)

@@ -8,6 +8,17 @@ use super::build::{Builder, Codes};
 use super::plan::{SegmentPlan, ValueSource};
 use super::refusal::{Refusal, place};
 
+/// A `where` code the element's own code list excludes.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub(super) struct Excluded {
+    /// The element, e.g. `PER01`.
+    pub(super) place: String,
+    /// The excluded code.
+    pub(super) code: String,
+    /// The element's code list.
+    pub(super) codes: Vec<String>,
+}
+
 /// Where a segment and its `where` codes land in a loop.
 pub(super) enum Resolved {
     /// One occurrence, with the codes left once its single-code qualifier is
@@ -15,7 +26,7 @@ pub(super) enum Resolved {
     One(usize, Codes),
     /// No occurrence: the segment's own code list excludes a `where` code
     /// that an occurrence would otherwise take, so no valid file holds it.
-    Nothing,
+    Nothing(Excluded),
     /// No occurrence for another reason, or several: their names.
     Candidates(Vec<String>),
 }
@@ -63,7 +74,17 @@ impl Builder<'_> {
             .collect();
         let [index] = matched.as_slice() else {
             if matched.is_empty() && def.occurrences.iter().any(|o| accepts(o, false)) {
-                return Resolved::Nothing;
+                let excluded = conditions.iter().find_map(|(position, value)| {
+                    let element = spec.element_def(segment, *position, None)?;
+                    element.rejects_code(value).then(|| Excluded {
+                        place: place(segment, *position, None),
+                        code: String::from_utf8_lossy(value).into_owned(),
+                        codes: element.codes.clone(),
+                    })
+                });
+                if let Some(excluded) = excluded {
+                    return Resolved::Nothing(excluded);
+                }
             }
             return Resolved::Candidates(
                 matched

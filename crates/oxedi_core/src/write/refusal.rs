@@ -141,6 +141,14 @@ pub enum Refusal {
         /// The table that already gives the loop its rows.
         other: String,
     },
+    /// A table without a segment is anchored on several loops: a row opens
+    /// one instance of one of them, and nothing in the row says which.
+    SeveralAnchorLoops {
+        /// The table.
+        table: String,
+        /// Its anchor loops, as the spec lists them.
+        loops: Vec<String>,
+    },
     /// A table anchored on a segment sits in a loop that nothing gives
     /// instances to, so its segments have no instance to go in.
     RepeatWithoutInstances {
@@ -290,6 +298,16 @@ impl fmt::Display for Refusal {
                 "table {table:?} is anchored on loop {loop_name:?}, whose rows table {other:?} \
                  already gives; a loop takes its rows from one table"
             ),
+            Refusal::SeveralAnchorLoops { table, loops } => {
+                let quoted: Vec<String> = loops.iter().map(|name| format!("{name:?}")).collect();
+                write!(
+                    f,
+                    "table {table:?} is anchored on {} loops ({}); a written row opens one loop \
+                     instance and nothing in the row says which",
+                    loops.len(),
+                    quoted.join(", ")
+                )
+            }
             Refusal::RepeatWithoutInstances {
                 table,
                 loop_name,

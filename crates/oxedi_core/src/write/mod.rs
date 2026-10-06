@@ -2,7 +2,9 @@
 //!
 //! The folder holds: `plan.rs` (the write plan: where each loop's instances
 //! and each element's value come from), `build.rs` (its construction from a
-//! spec, inverting every table column), `codes.rs` (the occurrence a
+//! spec, inverting every table column), `place.rs` (the loops written
+//! around the written ones and the position order of segments), `codes.rs`
+//! (the occurrence a
 //! column's segment and `where` select, and the refusal of fixed codes its
 //! code lists do not allow), `segments.rs` (the segments the
 //! columns write, by repeat), `required.rs` (what a written loop requires and
@@ -11,6 +13,7 @@
 
 mod build;
 mod codes;
+mod place;
 mod plan;
 mod refusal;
 mod required;
@@ -19,6 +22,6 @@ mod segments;
 mod tests;
 
 pub use plan::{
-    ElementPlan, Instances, LoopPlan, SegmentPlan, SegmentSource, ValueSource, WritePlan,
+    ElementPlan, Instances, LoopPlan, SegmentPlan, SegmentSource, Unwritten, ValueSource, WritePlan,
 };
 pub use refusal::{PlanError, Refusal};

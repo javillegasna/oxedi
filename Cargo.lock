@@ -793,7 +793,7 @@ dependencies = [
 
 [[package]]
 name = "oxedi_duckdb"
-version = "0.1.2"
+version = "0.2.0"
 dependencies = [
  "libduckdb-sys",
  "oxedi_core",

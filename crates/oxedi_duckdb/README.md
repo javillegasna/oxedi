@@ -1,7 +1,7 @@
 # oxedi, the DuckDB extension
 
-`oxedi` reads X12 EDI 835 remittance files as DuckDB tables, with the same parser and the
-same tables as the [oxedi](../../README.md) Python package. Every DuckDB client (Python,
+`oxedi` reads X12 EDI 835 remittance files as DuckDB tables, and writes tables back into an
+835, with the same parser, writer and tables as the [oxedi](../../README.md) Python package. Every DuckDB client (Python,
 R, Java, Node, Go, .NET, Rust, the CLI) gets it. It is built on DuckDB's stable C API and
 loads on DuckDB 1.5.6 and later. It is accepted in the community repository but not
 installable yet: its first community build failed on Windows on a test that pinned the
@@ -20,6 +20,11 @@ FROM read_835(['a.835', 'b.835'], table_name := 'payments');
 FROM read_835('remits/*.835', table_name := 'diagnostics', ignore_errors := true);
 
 COPY (SELECT * FROM read_835('remits/*.835', table_name := 'claims')) TO 'claims.parquet';
+
+-- write tables back into an 835 (see Writing below)
+COPY (SELECT {'payments': (SELECT list(t ORDER BY t."row") FROM payments t), ...})
+  TO 'out.835' (FORMAT edi835, sender_id 'ACMEPAYER', receiver_id 'SUNRISECLINIC',
+                date DATE '2024-01-10', time TIME '09:00');
 ```
 
 `read_835(path, ...)` takes a path, a glob pattern or a list of them, and returns one table
@@ -49,6 +54,129 @@ Glob patterns are expanded by a private in-memory DuckDB that honours your setti
 off, a glob pattern is an error. A remote pattern such as
 `s3://bucket/*.835` sees persistent secrets only, not temporary `CREATE SECRET` ones. Plain
 paths and lists are read through your own file system and secrets.
+
+## Writing
+
+`COPY ... TO ... (FORMAT edi835, ...)` writes an 835 with the same writer as the Python
+package's `oxedi.write`; the file is byte for byte what `oxedi.write` gives for the same tables
+and envelope. The query returns **one `STRUCT` column** whose fields are named after the spec's
+tables, each a list of structs (one struct per row, the table's columns as fields):
+
+```sql
+COPY (
+  SELECT {
+    'payments':             (SELECT list(t ORDER BY t."row") FROM payments t),
+    'claims':               (SELECT list(t ORDER BY t."row") FROM claims t),
+    'services':             (SELECT list(t ORDER BY t."row") FROM services t),
+    'adjustments':          (SELECT list(t ORDER BY t."row") FROM adjustments t),
+    'provider_adjustments': (SELECT list(t ORDER BY t."row") FROM provider_adjustments t)
+  }
+) TO 'out.835' (FORMAT edi835, sender_id 'ACMEPAYER', receiver_id 'SUNRISECLINIC',
+                date DATE '2024-01-10', time TIME '09:00');
+```
+
+Here `payments`, `claims` and the rest are tables or views of the same names, for example
+`CREATE TEMP TABLE claims AS FROM read_835('remittance.835', table_name := 'claims')` after a
+change in SQL. Temporary tables, views and the open transaction are visible. The lists of several
+rows of the query concatenate into one interchange. A table left out has no rows and a column left out is null.
+
+| Option | Default | Meaning |
+|---|---|---|
+| `sender_id`, `receiver_id` | required | interchange sender and receiver ids |
+| `date`, `time` | required | the interchange date (`DATE`) and time (`TIME`) |
+| `sender_qualifier`, `receiver_qualifier` | `'ZZ'` | ISA qualifiers |
+| `usage_indicator` | `'P'` | `'P'` production or `'T'` test |
+| `control_number` | `1` | first interchange control number |
+| `application_sender`, `application_receiver` | the ids | group header sender and receiver codes |
+| `delimiters` | `*` `:` `~` `^` | a struct such as `{'element': '\|'}` with any of `element`, `component`, `segment`, `repetition`, `release` |
+| `line_break` | `false` | a line break after each segment |
+| `version` | `'5010'` | the built-in spec, `'5010'` or `'4010'` |
+
+The options are those of `oxedi.Envelope`, with the same defaults.
+
+**Strict.** The written file is read back with the spec, and every diagnostic of that read is a
+finding, as is anything the writer cannot place (a missing required element, a code outside its
+list, a row whose parent does not exist or is out of order, money that does not balance).
+Any finding fails the `COPY` with the listing `oxedi.WriteError` shows, each finding naming the
+table, row and column, and nothing is written. There is no `allow_findings` here yet.
+
+**Limits.**
+- `PARTITION_BY` and `PER_THREAD_OUTPUT` ask for several files; DuckDB consumes them and the
+  format refuses a second file. `compression` is refused too: compress afterwards.
+- An existing file is left untouched when the `COPY` fails only for a local path written
+  with DuckDB's default temporary file; on other file systems the target may be replaced
+  before a failure shows.
+- A bare `NULL` inside a struct is typed `INTEGER` by DuckDB and a text column refuses it;
+  write `NULL::VARCHAR` (or the column's type).
+- Text columns take `VARCHAR`, `ENUM` or `BLOB`; integer columns any integer type; decimal
+  columns a `DECIMAL` of any scale that holds the value exactly, never `FLOAT` or `DOUBLE`.
+
+### From your own tables
+
+The writer asks for the spec's names and nothing else, so tables built elsewhere work when
+they follow them.
+
+- **Tolerated:** a missing table (no rows), a missing column (null), a column of a wider type
+  (`INTEGER` for `BIGINT`, a `DECIMAL` of another scale that holds the value, `ENUM` or `BLOB`
+  for text).
+- **Refused, naming the table and column:** a table or column that is not in the spec, a
+  float for money, a value that would change in the conversion (a decimal that does not fit,
+  a number outside the column's range), and a file that does not balance or is missing a
+  required element.
+
+The spec's tables key their rows by position: `row` is the row's ordinal in its table starting
+at 0, and `payment`, `claim` and `service` hold the `row` of the parent. If your tables have
+their own keys, give each table a `row` with `row_number()`, put the parents' `row` in its
+parent columns with a join, and drop your helper columns with `EXCLUDE`. Rows of one parent
+must be together and in their parents' order (`row_number()` over the parent's `row` first),
+and the adjustments of a claim, which have no `service`, come before those of its services
+(`NULLS FIRST`). A table's own order inside a parent is the order you give: use a sequence
+column, or `rowid` of a table.
+
+This example takes `my_payments` (key `pay_key`), `my_claims` (`claim_key`, `pay_key`),
+`my_services` (`service_key`, `claim_key`), `my_adjustments` (`claim_key`, and `service_key`
+when the adjustment is on a service) and `my_provider_adjustments` (`pay_key`), each with the
+spec's other columns:
+
+```sql
+COPY (
+  WITH payments AS (
+         SELECT row_number() OVER (ORDER BY pay_key) - 1 AS "row", * FROM my_payments),
+       claims AS (
+         SELECT row_number() OVER (ORDER BY c.claim_key) - 1 AS "row", p."row" AS payment, c.*
+         FROM my_claims c JOIN payments p USING (pay_key)),
+       services AS (
+         SELECT row_number() OVER (ORDER BY s.service_key) - 1 AS "row",
+                c.payment, c."row" AS claim, s.*
+         FROM my_services s JOIN claims c USING (claim_key)),
+       adjustments AS (
+         SELECT row_number() OVER (ORDER BY c."row", s."row" NULLS FIRST) - 1 AS "row",
+                c.payment, c."row" AS claim, s."row" AS service, a.*
+         FROM my_adjustments a
+         JOIN claims c USING (claim_key)
+         LEFT JOIN services s ON s.service_key = a.service_key),
+       provider_adjustments AS (
+         SELECT row_number() OVER (ORDER BY p."row", a.rowid) - 1 AS "row", p."row" AS payment, a.*
+         FROM my_provider_adjustments a JOIN payments p USING (pay_key))
+  SELECT {
+    'payments': (SELECT list(t ORDER BY t."row") FROM (SELECT * EXCLUDE (pay_key) FROM payments) t),
+    'claims': (SELECT list(t ORDER BY t."row")
+               FROM (SELECT * EXCLUDE (pay_key, claim_key) FROM claims) t),
+    'services': (SELECT list(t ORDER BY t."row")
+                 FROM (SELECT * EXCLUDE (service_key, claim_key) FROM services) t),
+    'adjustments': (SELECT list(t ORDER BY t."row")
+                    FROM (SELECT * EXCLUDE (claim_key, service_key) FROM adjustments) t),
+    'provider_adjustments': (SELECT list(t ORDER BY t."row")
+                             FROM (SELECT * EXCLUDE (pay_key) FROM provider_adjustments) t)
+  }
+) TO 'out.835' (FORMAT edi835, sender_id 'ACMEPAYER', receiver_id 'SUNRISECLINIC',
+                date DATE '2024-01-10', time TIME '09:00');
+```
+
+To see the columns of a table today, read any file: `DESCRIBE SELECT * FROM
+read_835('remittance.835', table_name := 'claims')` lists the names and types (or
+`Result.tables["claims"]` in Python). A file-free schema is tracked in
+[#138](https://github.com/javillegasna/oxedi/issues/138).
 
 ## Versions
 

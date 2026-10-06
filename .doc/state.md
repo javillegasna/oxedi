@@ -5,11 +5,12 @@ Snapshot for picking the project up cold. Update when a stage changes state.
 ## Pick up here (2026-10-06)
 
 - **Now:** releasing 0.4.0, the first version with the writer (`oxedi.write`, `oxedi.Envelope`,
-  balancing rules and SNIP 3, the new table columns). Release candidate `v0.4.0rc1` goes to
-  TestPyPI first; after its install is verified with a write example, 0.4.0 goes to PyPI. The
-  DuckDB extension 0.1.2 (tag `duckdb-v0.1.2`, PR #135) fixes the Windows community build and
-  is pending in duckdb/community-extensions#2942. Next: update `.doc/analysis/` (stale since
-  5d), then Stage 7b (DuckDB write through `COPY`).
+  balancing rules and SNIP 3, the new table columns). `v0.4.0rc1` is on TestPyPI and its install
+  was verified (a balanced 5010 fixture written with `oxedi.write` reads back with no diagnostic
+  and the same tables apart from segment positions); `v0.4.0` goes to PyPI. The DuckDB extension
+  0.1.2 (tag `duckdb-v0.1.2`, PR #135) fixes the Windows community build and is pending in
+  duckdb/community-extensions#2942. Next: update `.doc/analysis/` (stale since 5d), then
+  Stage 7b (DuckDB write through `COPY`).
 - **Merged:** Stage 7 (writer, PR #121): core `write`/`write_with_findings(spec, tables,
   envelope)` and Python `oxedi.write`; balancing rules checked on write and read as
   `BalanceMismatch`; gate results in `analysis/stage-7-ledger.md`.

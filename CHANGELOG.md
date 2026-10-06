@@ -9,7 +9,7 @@ This file covers the Python package; the DuckDB extension has its own changelog 
 
 ## [Unreleased]
 
-## [0.4.0rc1] - 2026-10-06
+## [0.4.0] - 2026-10-06
 
 ### Added
 - `oxedi.write(tables, envelope, spec=None, allow_findings=False)` writes an 835 from tables:
@@ -82,6 +82,10 @@ This file covers the Python package; the DuckDB extension has its own changelog 
   occurrence the loop opens on must have the lowest `pos`. The `segments` list of a
   loop is removed: a patch of your own that redefines a loop's `segments` must move to
   `occurrences`, where it can add, change or remove one occurrence by name.
+
+## [0.4.0rc1] - 2026-10-06
+
+Release candidate of 0.4.0, published to TestPyPI only. Same code as 0.4.0.
 
 ## [0.3.0] - 2026-10-05
 
@@ -190,7 +194,8 @@ First usable version of oxedi835.
 
 Release candidate of 0.1.0, published to TestPyPI only. Same code as 0.1.0.
 
-[Unreleased]: https://github.com/javillegasna/oxedi/compare/v0.4.0rc1...HEAD
+[Unreleased]: https://github.com/javillegasna/oxedi/compare/v0.4.0...HEAD
+[0.4.0]: https://github.com/javillegasna/oxedi/releases/tag/v0.4.0
 [0.4.0rc1]: https://github.com/javillegasna/oxedi/releases/tag/v0.4.0rc1
 [0.3.0]: https://github.com/javillegasna/oxedi/releases/tag/v0.3.0
 [0.2.1]: https://github.com/javillegasna/oxedi835/releases/tag/v0.2.1

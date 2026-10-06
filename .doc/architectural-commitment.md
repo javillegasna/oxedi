@@ -1458,10 +1458,12 @@ elegidas por versión.
   hoy `read_835`, mañana `read_837` en la misma extensión. El crate es `crates/oxedi_duckdb`.
   Descartados `oxedi835` (choca con la 837) y `x12` o `edi` (genéricos, reclaman un espacio de
   nombres que no es solo nuestro). El paquete de PyPI conserva su nombre.
-- **T63 · Una función con parámetros.** `read_835(path | lista | glob, table := 'claims',
-  filename := false, version := NULL, binary := false, ignore_errors := false)`. `table` acepta
+- **T63 · Una función con parámetros.** `read_835(path | lista | glob, table_name := 'claims',
+  filename := false, version := NULL, binary := false, ignore_errors := false)`. `table_name` acepta
   las tablas que define la spec y `'diagnostics'`; las tablas vienen de la spec, así que una tabla
-  nueva no añade funciones. Descartada una función por tabla (`read_835_claims`, …).
+  nueva no añade funciones. Descartada una función por tabla (`read_835_claims`, …). El parámetro se llama `table_name` y no
+  `table` porque `table` es palabra reservada en DuckDB y obligaría a escribirlo entre comillas
+  (enmienda del dueño, 2026-10-05).
 - **T64 · Texto como VARCHAR, con salida exacta opcional.** Las columnas que en Arrow son
   `binary` (bytes tal cual) salen como VARCHAR, lo natural en SQL. Una celda que no es UTF-8
   válido hace fallar la consulta con un error P10 (archivo, tabla, columna, fila y bytes) que
@@ -1476,17 +1478,27 @@ elegidas por versión.
 - **T66 · Spec por versión, como en Python.** Sin `version`, cada archivo usa la spec built-in de
   la versión que declara (GS08), y la 5010 si no declara ninguna conocida. `version := '4010'` o
   `'5010'` fuerza una; otro valor es un error P10. Las specs propias quedan para después.
-- **T67 · Diagnósticos con la forma de `Diagnostic`.** `table := 'diagnostics'` devuelve una fila
+- **T67 · Diagnósticos con la forma de `Diagnostic`.** `table_name := 'diagnostics'` devuelve una fila
   por hallazgo con `level`, `kind`, `rule` (el texto completo), `segment`, `element`, `component`,
   `path`, `datum` (VARCHAR o BLOB según T64), `origin` y `code`, más `filename` si se pide.
 - **T68 · E/S por el sistema de archivos de DuckDB, un archivo a la vez.** La extensión lee con
   el sistema de archivos de DuckDB, así que `s3://`, `https://` y lo que DuckDB monte funcionan, y
-  nunca usa `std::fs`. En un glob procesa un archivo a la vez, así que la memoria queda acotada por
+  nunca usa `std::fs`. La API C estable no tiene glob, así que los patrones se expanden con `glob()`
+  en una base privada en memoria que respeta la configuración de quien llama: si
+  `enable_external_access` está desactivado, un patrón es un error P10; si no, la base privada copia
+  sus restricciones (directorios y rutas permitidos, instalación y carga automática de extensiones)
+  y no lee secretos persistentes ajenos. Los secretos temporales (`CREATE SECRET`) no llegan a esa
+  base: un glob remoto privado necesita secretos persistentes, y se documenta. Las URL `http(s)://`
+  nunca se tratan como patrón (enmienda del dueño, 2026-10-05). En un glob procesa un archivo a la vez, así que la memoria queda acotada por
   el archivo más grande. El paralelismo entre archivos y el *projection pushdown* esperan a una
   medición: el parseo domina (unos 16 ms en united). El núcleo no cambia y sigue sans-IO.
-- **T69 · Rust sobre `duckdb-rs` con la API C estable, DuckDB ≥ 1.5.6.** La plantilla oficial con
-  `USE_UNSTABLE_C_API=0`, con `duckdb-rs` fijado en `Cargo.lock` y subido solo tras comprobar que
-  no usa la cola inestable. El estado (conexión o base) va en el `extra_info` de cada función, sin
+- **T69 · Rust sobre `libduckdb-sys` con la API C estable, DuckDB ≥ 1.5.6.** La plantilla oficial
+  con `USE_UNSTABLE_C_API=0`, con `libduckdb-sys` (función `loadable-extension`) fijado en
+  `Cargo.lock` y subido solo tras comprobar que no usa la cola inestable. La extensión llama a la
+  API C directamente: la capa segura de `duckdb-rs` no expone el contexto de cliente que necesita el
+  sistema de archivos, y el crate `duckdb` arrastra `arrow` como dependencia obligatoria que la
+  extensión no usa. Cada bloque `unsafe` lleva su comentario de seguridad y cada callback atrapa
+  los pánicos (enmienda del dueño, 2026-10-05). El estado (conexión o base) va en el `extra_info` de cada función, sin
   globales de proceso. Plataformas: la matriz por defecto sin musl ni WASM, como las demás
   extensiones en Rust. Descartados la vía C (más código, solo necesaria para la línea 1.4) y el
   soporte de 1.4 LTS.

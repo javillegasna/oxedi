@@ -7,7 +7,7 @@
 **Goal:** a DuckDB community extension `oxedi` whose `read_835(...)` returns the spec's tables and
 the diagnostics, row-for-row equal to `oxedi835.parse_file`, loadable on DuckDB ≥ 1.5.6.
 
-**Architecture:** a new workspace crate `crates/oxedi_duckdb` (cdylib, `duckdb-rs` with the
+**Architecture:** a new workspace crate `crates/oxedi_duckdb` (cdylib, `libduckdb-sys` with the
 `loadable-extension` feature, stable C API, ABI `C_STRUCT`) that depends on `edi835_core` and
 does all I/O through DuckDB's file system. The core does not change.
 
@@ -23,14 +23,14 @@ ruled out by T68/T69). Ledger: `.superpowers/sdd/stage-5f/progress.md`.
 
 ## Global Constraints
 - `CLAUDE.md` non-negotiables apply to the new crate: no `unwrap`/`expect`/`panic!` or fallible
-  indexing on input; `unsafe` only where `duckdb-rs` vector writes require it, each block with a
-  `// SAFETY:` comment; comments describe implementation only; one folder per module
+  indexing on input; `unsafe` for the raw C API calls (owner-ratified), each block with a `// SAFETY:`
+  comment and every callback catching panics; comments describe implementation only; one folder per module
   (`x/mod.rs`, tests in `x/tests.rs`), ~400 code lines per file; P10 errors (rule, place, datum)
   with one full-text test per message.
 - The core (`crates/edi835_core`) gets no new dependency and no behaviour change; the Python
   binding is untouched.
 - Names: extension `oxedi`, crate `oxedi_duckdb`, function `read_835` with exactly the
-  parameters of T63: `table` (default `'claims'`), `filename` (default `false`), `version`
+  parameters of T63: `table_name` (default `'claims'`), `filename` (default `false`), `version`
   (default NULL), `binary` (default `false`), `ignore_errors` (default `false`).
 - Type mapping from the core's Arrow schema: `int64` → BIGINT; `binary` → VARCHAR (BLOB with
   `binary := true`); `date32` → DATE; `decimal128(38, s)` → DECIMAL(38, s); any other type the

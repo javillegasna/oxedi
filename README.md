@@ -1,6 +1,7 @@
 # oxedi
 
-A fast EDI 835 (electronic remittance advice) parser for Python, written in Rust.
+A fast X12 EDI parser for Python, written in Rust. Today it reads the 835 (electronic
+remittance advice).
 
 - **Lossless.** Every byte of the file is kept, so `write()` returns the file exactly as it
   was read.

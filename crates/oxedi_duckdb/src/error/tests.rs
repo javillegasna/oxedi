@@ -12,9 +12,9 @@ fn text(error: ReadError) -> String {
 fn path_type() {
     assert_eq!(
         text(ReadError::PathType {
-            found: "Integer".to_owned()
+            found: "INTEGER".to_owned()
         }),
-        "read_835: the path must be a VARCHAR or a list of VARCHAR; found Integer"
+        "read_835: the path must be a VARCHAR or a list of VARCHAR; found INTEGER"
     );
 }
 
@@ -49,7 +49,7 @@ fn unknown_table() {
             table: "nope".to_owned(),
             known: vec!["claims".to_owned(), "services".to_owned()],
         }),
-        "read_835: unknown table \"nope\"; table must be one of \"claims\", \"services\""
+        "read_835: unknown table \"nope\"; table_name must be one of \"claims\", \"services\""
     );
 }
 
@@ -110,7 +110,8 @@ fn invalid_utf8() {
             file: "a.835".to_owned(),
             table: "claims".to_owned(),
             column: "patient_last_name".to_owned(),
-            row: 3,
+            row: Some(3),
+            index: 2,
             bytes: b"M\xfcLLER".to_vec(),
         }),
         "read_835: \"a.835\", table \"claims\", column \"patient_last_name\", row 3: \
@@ -183,5 +184,41 @@ fn glob() {
             message: "HTTP 403".to_owned(),
         }),
         "read_835: the pattern \"s3://bucket/*.835\" could not be expanded: HTTP 403"
+    );
+}
+
+#[test]
+fn invalid_utf8_without_a_row_column() {
+    assert_eq!(
+        text(ReadError::InvalidUtf8 {
+            file: "a.835".to_owned(),
+            table: "t".to_owned(),
+            column: "c".to_owned(),
+            row: None,
+            index: 2,
+            bytes: b"\xff".to_vec(),
+        }),
+        "read_835: \"a.835\", table \"t\", column \"c\", row index 2: \
+         a VARCHAR must be valid UTF-8; found b\"\\xff\"; \
+         pass binary := true to read text columns as BLOB"
+    );
+}
+
+#[test]
+fn null_option() {
+    assert_eq!(
+        text(ReadError::NullOption { name: "table_name" }),
+        "read_835: table_name must not be NULL; leave it out to use its default"
+    );
+}
+
+#[test]
+fn pattern_without_external_access() {
+    assert_eq!(
+        text(ReadError::PatternWithoutExternalAccess {
+            pattern: "data/*.835".to_owned()
+        }),
+        "read_835: the pattern \"data/*.835\" cannot be expanded while \
+         enable_external_access is false; list the files instead"
     );
 }

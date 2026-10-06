@@ -41,5 +41,10 @@ test: test_release
 test_debug: test_extension_debug
 test_release: test_extension_release
 
+# DuckDB's CI calls this when it builds against another DuckDB repository; a
+# C API extension does not build DuckDB, so like set_duckdb_version it does
+# nothing. ci-tools defines the other two but not this one.
+set_duckdb_repository: nop
+
 clean: clean_build clean_rust
 clean_all: clean_configure clean

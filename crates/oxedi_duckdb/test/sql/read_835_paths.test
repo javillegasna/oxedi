@@ -41,7 +41,7 @@ ORDER BY filename;
 ../edi835_core/tests/samples/edi835_test_versant.RMT	648	124445.65
 
 query I
-SELECT count(*) FROM read_835('../edi835_core/tests/samples/*.rmt', "table" := 'services');
+SELECT count(*) FROM read_835('../edi835_core/tests/samples/*.rmt', table_name := 'services');
 ----
 6192
 
@@ -76,7 +76,7 @@ read_835: no file matches the pattern "../edi835_core/tests/samples/*.nope"
 statement error
 SELECT * FROM read_835(42);
 ----
-read_835: the path must be a VARCHAR or a list of VARCHAR; found Integer
+read_835: the path must be a VARCHAR or a list of VARCHAR; found INTEGER
 
 statement error
 SELECT * FROM read_835(['../edi835_core/tests/samples/edi835_test_united.rmt', NULL]);
@@ -89,6 +89,33 @@ SELECT * FROM read_835('../edi835_core/tests/samples/edi835_test_united.rmt', ve
 read_835: unknown version "3070"; version must be one of "5010", "4010"
 
 statement error
-SELECT * FROM read_835('../edi835_core/tests/samples/edi835_test_united.rmt', "table" := 'nope');
+SELECT * FROM read_835('../edi835_core/tests/samples/edi835_test_united.rmt', table_name := 'nope');
 ----
-read_835: unknown table "nope"; table must be one of "adjustments", "claims", "payments", "provider_adjustments", "services"
+read_835: unknown table "nope"; table_name must be one of "adjustments", "claims", "payments", "provider_adjustments", "services"
+
+statement error
+SELECT * FROM read_835('../edi835_core/tests/samples/edi835_test_united.rmt', table_name := NULL);
+----
+read_835: table_name must not be NULL; leave it out to use its default
+
+statement error
+SELECT * FROM read_835([42, 43]);
+----
+read_835: the path must be a VARCHAR or a list of VARCHAR; found INTEGER[]
+
+# An https URL is a path even when it holds ?, * or [: it is opened, not expanded.
+
+statement error
+SELECT * FROM read_835('https://127.0.0.1:9/remit.835?sig=a*b');
+----
+read_835: "https://127.0.0.1:9/remit.835?sig=a*b" could not be opened
+
+# With external access off, a pattern is refused: listing files is external access.
+
+statement ok
+SET enable_external_access = false;
+
+statement error
+SELECT * FROM read_835('../edi835_core/tests/samples/*.rmt');
+----
+read_835: the pattern "../edi835_core/tests/samples/*.rmt" cannot be expanded while enable_external_access is false; list the files instead

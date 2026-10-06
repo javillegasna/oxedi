@@ -7,46 +7,64 @@
 
 mod glob;
 
-pub use glob::resolve;
+pub use glob::{CallerSettings, resolve};
 
 use std::ffi::{CStr, CString};
 
-use duckdb::ffi;
+use libduckdb_sys as ffi;
 
 use crate::error::ReadError;
 
 /// Bytes asked for per read call.
 const READ_BLOCK: usize = 1 << 20;
 
+/// The client context of the query being bound, released on drop.
+#[derive(Debug)]
+pub struct ClientContext(ffi::duckdb_client_context);
+
+impl ClientContext {
+    /// The client context that binds `info`.
+    ///
+    /// # Safety
+    ///
+    /// `info` must be the bind info DuckDB passed to the running bind
+    /// callback, and the returned value must be dropped before it returns.
+    pub unsafe fn of_bind(info: ffi::duckdb_bind_info) -> Option<ClientContext> {
+        let mut context: ffi::duckdb_client_context = std::ptr::null_mut();
+        // SAFETY: `info` is a live bind info (caller contract); DuckDB writes
+        // a new context wrapper into `context`.
+        unsafe { ffi::duckdb_table_function_get_client_context(info, &mut context) };
+        (!context.is_null()).then_some(ClientContext(context))
+    }
+
+    /// The raw handle, valid while `self` lives.
+    pub fn raw(&self) -> ffi::duckdb_client_context {
+        self.0
+    }
+
+    /// The context's file system. It refers to the client context itself,
+    /// not to this wrapper, so it may outlive the wrapper; it must not
+    /// outlive the client context, which holds for bind data.
+    pub fn file_system(&self) -> Option<FileSystem> {
+        // SAFETY: the context wrapper is live.
+        let file_system = unsafe { ffi::duckdb_client_context_get_file_system(self.0) };
+        (!file_system.is_null()).then_some(FileSystem(file_system))
+    }
+}
+
+impl Drop for ClientContext {
+    fn drop(&mut self) {
+        // SAFETY: the wrapper was created by DuckDB and is destroyed once;
+        // the client context it wraps lives on.
+        unsafe { ffi::duckdb_destroy_client_context(&mut self.0) };
+    }
+}
+
 /// DuckDB's file system of one client context, released on drop.
 #[derive(Debug)]
 pub struct FileSystem(ffi::duckdb_file_system);
 
 impl FileSystem {
-    /// The file system of the client context that binds `info`.
-    ///
-    /// # Safety
-    ///
-    /// `info` must be the bind info DuckDB passed to the running bind
-    /// callback. The returned handle must not outlive the client context,
-    /// which holds for bind data: DuckDB drops it before the context.
-    pub unsafe fn of_bind(info: ffi::duckdb_bind_info) -> Option<FileSystem> {
-        let mut context: ffi::duckdb_client_context = std::ptr::null_mut();
-        // SAFETY: `info` is a live bind info (caller contract); DuckDB writes
-        // a new context wrapper into `context`.
-        unsafe { ffi::duckdb_table_function_get_client_context(info, &mut context) };
-        if context.is_null() {
-            return None;
-        }
-        // SAFETY: `context` is the live wrapper created above. The file
-        // system it returns refers to the client context itself, not to
-        // the wrapper, so destroying the wrapper next is sound.
-        let file_system = unsafe { ffi::duckdb_client_context_get_file_system(context) };
-        // SAFETY: `context` was created by DuckDB above and is destroyed once.
-        unsafe { ffi::duckdb_destroy_client_context(&mut context) };
-        (!file_system.is_null()).then_some(FileSystem(file_system))
-    }
-
     /// Every byte of the file at `path`.
     pub fn read_all(&self, path: &str) -> Result<Vec<u8>, ReadError> {
         let file = self.open(path)?;
@@ -118,7 +136,13 @@ impl FileHandle {
     fn read_to_end(&self, path: &str) -> Result<Vec<u8>, ReadError> {
         // SAFETY: the file handle is live.
         let size = unsafe { ffi::duckdb_file_handle_size(self.0) };
-        let mut bytes = Vec::with_capacity(usize::try_from(size).unwrap_or(0));
+        let mut bytes = Vec::new();
+        bytes
+            .try_reserve_exact(usize::try_from(size).unwrap_or(0))
+            .map_err(|_| ReadError::Read {
+                file: path.to_owned(),
+                message: format!("{size} bytes do not fit in memory"),
+            })?;
         let mut block = vec![0u8; READ_BLOCK];
         loop {
             let wanted = i64::try_from(block.len()).unwrap_or(i64::MAX);
@@ -146,6 +170,12 @@ impl FileHandle {
                     ),
                 });
             };
+            bytes
+                .try_reserve(chunk.len())
+                .map_err(|_| ReadError::Read {
+                    file: path.to_owned(),
+                    message: format!("{} bytes do not fit in memory", bytes.len() + chunk.len()),
+                })?;
             bytes.extend_from_slice(chunk);
         }
     }

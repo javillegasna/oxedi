@@ -2,8 +2,8 @@
 
 use std::ffi::c_char;
 
-use duckdb::ffi;
-use edi835_core::{Column, ColumnData};
+use edi835_core::{Cell, Column, ColumnData};
+use libduckdb_sys as ffi;
 
 use crate::error::ReadError;
 use crate::schema::SqlType;
@@ -19,6 +19,18 @@ pub struct Place<'a> {
     pub table: &'a str,
     /// The column of the cell.
     pub column: &'a str,
+    /// The table's `row` column, which names a row as users see it.
+    pub rows: Option<&'a ColumnData>,
+}
+
+impl Place<'_> {
+    /// The value of the `row` column at `index`, when there is one.
+    fn row(&self, index: usize) -> Option<i64> {
+        match self.rows?.get(index)? {
+            Cell::Int64(row) => Some(row),
+            _ => None,
+        }
+    }
 }
 
 /// One output vector of the chunk being filled.
@@ -70,12 +82,14 @@ impl Vector {
         }
     }
 
-    /// Stores `bytes` as the VARCHAR or BLOB of row `index`.
+    /// Stores `bytes` as the VARCHAR or BLOB of row `index`. DuckDB does
+    /// not check them: a VARCHAR must have been checked for UTF-8 first.
     fn set_bytes(&mut self, index: usize, bytes: &[u8]) {
-        // SAFETY: the vector is a VARCHAR or BLOB vector; DuckDB copies the
+        // SAFETY: the vector is a VARCHAR or BLOB vector, and VARCHAR bytes
+        // were checked to be UTF-8 by the caller; DuckDB copies the
         // `bytes.len()` bytes at `bytes` into its own string heap.
         unsafe {
-            ffi::duckdb_vector_assign_string_element_len(
+            ffi::duckdb_unsafe_vector_assign_string_element_len(
                 self.raw,
                 index as ffi::idx_t,
                 bytes.as_ptr().cast::<c_char>(),
@@ -122,12 +136,17 @@ impl Vector {
                         continue;
                     }
                     let cell = cell_bytes(offsets, bytes, row).ok_or_else(short)?;
+                    // This check is what reports invalid text: DuckDB's
+                    // checked assign would store NULL for it without an
+                    // error, and the unchecked one used after it stores the
+                    // bytes as they are.
                     if sql == SqlType::Varchar && std::str::from_utf8(cell).is_err() {
                         return Err(ReadError::InvalidUtf8 {
                             file: place.file.to_owned(),
                             table: place.table.to_owned(),
                             column: place.column.to_owned(),
-                            row,
+                            row: place.row(row),
+                            index: row,
                             bytes: cell.to_vec(),
                         });
                     }

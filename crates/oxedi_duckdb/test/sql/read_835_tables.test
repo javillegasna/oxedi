@@ -10,13 +10,13 @@ require oxedi
 query IRTTTT
 SELECT count(*), sum(total_payment_amount), min(payment_date), min(production_date),
        min(trace_number), min(payer_name)
-FROM read_835('../edi835_core/tests/samples/edi835_test_united.rmt', "table" := 'payments');
+FROM read_835('../edi835_core/tests/samples/edi835_test_united.rmt', table_name := 'payments');
 ----
 1	173305.00	2022-09-07	2022-09-01	302396000	HARBOR EYE CARE
 
 query IRTTT
 SELECT count(*), sum(total_payment_amount), min(payment_date), min(trace_number), min(payer_name)
-FROM read_835('../edi835_core/tests/samples/edi835_test_eyemed.RMT', "table" := 'payments');
+FROM read_835('../edi835_core/tests/samples/edi835_test_eyemed.RMT', table_name := 'payments');
 ----
 1	8982.00	2024-01-08	51621440131398625793	COASTAL BENEFITS CO
 
@@ -30,7 +30,7 @@ FROM read_835('../edi835_core/tests/samples/edi835_test_united.rmt');
 
 query TRRTT
 SELECT claim_id, charge_amount, payment_amount, statement_from, patient_last_name
-FROM read_835('../edi835_core/tests/samples/edi835_test_eyemed.RMT', "table" := 'claims')
+FROM read_835('../edi835_core/tests/samples/edi835_test_eyemed.RMT', table_name := 'claims')
 ORDER BY "row"
 LIMIT 1;
 ----
@@ -46,18 +46,18 @@ FROM read_835('../edi835_core/tests/samples/edi835_test_eyemed.RMT');
 
 query IRRTT
 SELECT count(*), sum(charge_amount), sum(payment_amount), min(service_date), max(service_date)
-FROM read_835('../edi835_core/tests/samples/edi835_test_united.rmt', "table" := 'services');
+FROM read_835('../edi835_core/tests/samples/edi835_test_united.rmt', table_name := 'services');
 ----
 6192	252640.00	173305.00	2021-12-30	2022-09-01
 
 query I
-SELECT count(DISTINCT "row") FROM read_835('../edi835_core/tests/samples/edi835_test_united.rmt', "table" := 'services');
+SELECT count(DISTINCT "row") FROM read_835('../edi835_core/tests/samples/edi835_test_united.rmt', table_name := 'services');
 ----
 6192
 
 query IRRTT
 SELECT count(*), sum(charge_amount), sum(payment_amount), min(service_date), max(service_date)
-FROM read_835('../edi835_core/tests/samples/edi835_test_eyemed.RMT', "table" := 'services');
+FROM read_835('../edi835_core/tests/samples/edi835_test_eyemed.RMT', table_name := 'services');
 ----
 414	16447.40	8982.00	NULL	NULL
 
@@ -65,31 +65,31 @@ FROM read_835('../edi835_core/tests/samples/edi835_test_eyemed.RMT', "table" := 
 
 query IRI
 SELECT count(*), sum(amount), count(DISTINCT group_code)
-FROM read_835('../edi835_core/tests/samples/edi835_test_united.rmt', "table" := 'adjustments');
+FROM read_835('../edi835_core/tests/samples/edi835_test_united.rmt', table_name := 'adjustments');
 ----
 2370	79335.00	3
 
 query IRI
 SELECT count(*), sum(amount), count(DISTINCT group_code)
-FROM read_835('../edi835_core/tests/samples/edi835_test_eyemed.RMT', "table" := 'adjustments');
+FROM read_835('../edi835_core/tests/samples/edi835_test_eyemed.RMT', table_name := 'adjustments');
 ----
 105	7465.40	1
 
 # ---- provider_adjustments: no sample has any, the columns are still typed ----
 
 query I
-SELECT count(*) FROM read_835('../edi835_core/tests/samples/edi835_test_united.rmt', "table" := 'provider_adjustments');
+SELECT count(*) FROM read_835('../edi835_core/tests/samples/edi835_test_united.rmt', table_name := 'provider_adjustments');
 ----
 0
 
 query I
-SELECT count(*) FROM read_835('../edi835_core/tests/samples/edi835_test_eyemed.RMT', "table" := 'provider_adjustments');
+SELECT count(*) FROM read_835('../edi835_core/tests/samples/edi835_test_eyemed.RMT', table_name := 'provider_adjustments');
 ----
 0
 
 query TT
 SELECT column_name, column_type
-FROM (DESCRIBE SELECT * FROM read_835('../edi835_core/tests/samples/edi835_test_united.rmt', "table" := 'provider_adjustments'));
+FROM (DESCRIBE SELECT * FROM read_835('../edi835_core/tests/samples/edi835_test_united.rmt', table_name := 'provider_adjustments'));
 ----
 row	BIGINT
 segment	BIGINT

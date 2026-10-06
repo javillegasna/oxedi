@@ -24,7 +24,12 @@ pub enum ReadError {
     },
     /// The list of paths is empty.
     EmptyPathList,
-    /// `table` names no table of the spec.
+    /// A named parameter that has no NULL meaning was given as NULL.
+    NullOption {
+        /// The parameter's name.
+        name: &'static str,
+    },
+    /// `table_name` names no table of the spec.
     UnknownTable {
         /// The name given.
         table: String,
@@ -37,6 +42,12 @@ pub enum ReadError {
         version: String,
         /// The versions of the built-in specs.
         known: Vec<&'static str>,
+    },
+    /// A glob pattern was given while the caller's `enable_external_access`
+    /// is off, so it may not be expanded.
+    PatternWithoutExternalAccess {
+        /// The pattern as given.
+        pattern: String,
     },
     /// A glob pattern matched no file.
     NoFiles {
@@ -79,8 +90,11 @@ pub enum ReadError {
         table: String,
         /// The column of the cell.
         column: String,
-        /// The 0-based row of the cell in the file's table.
-        row: usize,
+        /// The value of the table's `row` column for the cell's row, when
+        /// the table has one.
+        row: Option<i64>,
+        /// The 0-based position of the cell's row in the file's table.
+        index: usize,
         /// The cell's bytes.
         bytes: Vec<u8>,
     },
@@ -105,9 +119,10 @@ pub enum ReadError {
         /// The core's type.
         kind: ColumnType,
     },
-    /// A panic was caught before it could cross into DuckDB.
+    /// Something that should not happen: a panic caught before it could
+    /// cross into DuckDB, or a handle or state DuckDB did not provide.
     Internal {
-        /// The panic's message.
+        /// What went wrong.
         message: String,
     },
 }
@@ -140,15 +155,24 @@ impl fmt::Display for ReadError {
             ReadError::EmptyPathList => {
                 write!(f, "{FUNCTION}: the list of paths must not be empty")
             }
+            ReadError::NullOption { name } => write!(
+                f,
+                "{FUNCTION}: {name} must not be NULL; leave it out to use its default"
+            ),
             ReadError::UnknownTable { table, known } => write!(
                 f,
-                "{FUNCTION}: unknown table {table:?}; table must be one of {}",
+                "{FUNCTION}: unknown table {table:?}; table_name must be one of {}",
                 quoted(known)
             ),
             ReadError::UnknownVersion { version, known } => write!(
                 f,
                 "{FUNCTION}: unknown version {version:?}; version must be one of {}",
                 quoted(known)
+            ),
+            ReadError::PatternWithoutExternalAccess { pattern } => write!(
+                f,
+                "{FUNCTION}: the pattern {pattern:?} cannot be expanded while \
+                 enable_external_access is false; list the files instead"
             ),
             ReadError::NoFiles { pattern } => {
                 write!(f, "{FUNCTION}: no file matches the pattern {pattern:?}")
@@ -174,12 +198,17 @@ impl fmt::Display for ReadError {
                 table,
                 column,
                 row,
+                index,
                 bytes,
             } => write!(
                 f,
-                "{FUNCTION}: {file:?}, table {table:?}, column {column:?}, row {row}: \
+                "{FUNCTION}: {file:?}, table {table:?}, column {column:?}, {}: \
                  a VARCHAR must be valid UTF-8; found b\"{}\"; \
                  pass binary := true to read text columns as BLOB",
+                match row {
+                    Some(row) => format!("row {row}"),
+                    None => format!("row index {index}"),
+                },
                 bytes.escape_ascii()
             ),
             ReadError::SchemaMismatch {

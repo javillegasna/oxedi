@@ -10,14 +10,17 @@ mod write;
 
 use std::sync::Arc;
 
-use duckdb::ffi;
-use edi835_core::{ColumnType, Document, Processor, Table, Tables};
+use edi835_core::{ColumnType, Document, Processor, Table};
+use libduckdb_sys as ffi;
 
 use crate::builtins::Builtins;
 use crate::error::ReadError;
 use crate::files::FileSystem;
 use crate::schema::SqlType;
 use write::{Place, Vector};
+
+/// The column every table carries with each row's ordinal.
+const ROW_COLUMN: &str = "row";
 
 /// Everything the bind settled, read by the scan.
 #[derive(Debug)]
@@ -43,24 +46,14 @@ pub struct Bound {
     pub filename: bool,
 }
 
-/// The tables of the file being emitted.
+/// The bound table of the file being emitted.
 #[derive(Debug)]
 struct Loaded {
     /// Index of the file in [`Bound::files`].
     file: usize,
-    tables: Tables,
+    table: Table,
     /// Rows already emitted.
     emitted: usize,
-}
-
-impl Loaded {
-    fn table<'a>(&'a self, bound: &Bound) -> Result<&'a Table, ReadError> {
-        self.tables
-            .get(&bound.table)
-            .ok_or_else(|| ReadError::Internal {
-                message: format!("the parsed file has no table {:?}", bound.table),
-            })
-    }
 }
 
 /// Where the scan is.
@@ -88,7 +81,7 @@ impl Scan {
         let capacity = usize::try_from(unsafe { ffi::duckdb_vector_size() }).unwrap_or(0);
         loop {
             let pending = match &self.current {
-                Some(loaded) => loaded.table(bound)?.len().saturating_sub(loaded.emitted),
+                Some(loaded) => loaded.table.len().saturating_sub(loaded.emitted),
                 None => 0,
             };
             if pending > 0 {
@@ -98,10 +91,10 @@ impl Scan {
                 self.current = None;
                 return Ok(0);
             };
-            let tables = load(bound, file)?;
+            let table = load(bound, file)?;
             self.current = Some(Loaded {
                 file: self.next_file,
-                tables,
+                table,
                 emitted: 0,
             });
             self.next_file += 1;
@@ -109,7 +102,7 @@ impl Scan {
         let Some(loaded) = self.current.as_mut() else {
             return Ok(0);
         };
-        let table = loaded.table(bound)?;
+        let table = &loaded.table;
         let start = loaded.emitted;
         let len = table.len().saturating_sub(start).min(capacity);
         let file = bound.files.get(loaded.file).map_or("", String::as_str);
@@ -121,6 +114,7 @@ impl Scan {
                 file,
                 table: &bound.table,
                 column: name,
+                rows: table.column(ROW_COLUMN),
             };
             vector.fill(data, *sql, start, len, &place)?;
         }
@@ -134,9 +128,9 @@ impl Scan {
     }
 }
 
-/// Reads and parses one file, and checks that its spec projects the bound
-/// table with the bound columns.
-fn load(bound: &Bound, file: &str) -> Result<Tables, ReadError> {
+/// Reads and parses one file, checks that its spec projects the bound table
+/// with the bound columns, and keeps that table only.
+fn load(bound: &Bound, file: &str) -> Result<Table, ReadError> {
     let bytes = bound.file_system.read_all(file)?;
     let document = Document::parse(bytes).map_err(|source| ReadError::Parse {
         file: file.to_owned(),
@@ -162,7 +156,13 @@ fn load(bound: &Bound, file: &str) -> Result<Tables, ReadError> {
         });
     }
     let (tables, _diagnostics) = Processor::run(&builtin.spec, &document);
-    Ok(tables)
+    // The other tables and the document are dropped on return.
+    tables
+        .get(&bound.table)
+        .cloned()
+        .ok_or_else(|| ReadError::Internal {
+            message: format!("the parsed file has no table {:?}", bound.table),
+        })
 }
 
 #[cfg(test)]

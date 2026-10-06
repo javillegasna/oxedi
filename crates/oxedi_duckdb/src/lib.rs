@@ -3,7 +3,7 @@
 //! It registers one table function:
 //!
 //! ```sql
-//! read_835(path, "table" := 'claims', filename := false, version := NULL,
+//! read_835(path, table_name := 'claims', filename := false, version := NULL,
 //!          binary := false, ignore_errors := false)
 //! ```
 //!
@@ -11,6 +11,13 @@
 //! DuckDB's file system. Each file is parsed with the built-in spec of the
 //! version it declares (or `version`), and the rows of one projected table
 //! are returned with the column types the core declares.
+//!
+//! Glob patterns are expanded by a private in-memory DuckDB that follows the
+//! caller's settings (see `files::glob`): with `enable_external_access` off a
+//! pattern is an error, and a remote pattern (`s3://bucket/*.835`) sees the
+//! caller's persistent secrets only, not temporary `CREATE SECRET` ones.
+//! `http://` and `https://` paths are never patterns. Plain paths and lists
+//! of them are read through the caller's own file system and secrets.
 //!
 //! The extension is built on DuckDB's stable C API; it keeps no process-wide
 //! state of its own: the built-in specs live in the function's extra info.
@@ -22,6 +29,7 @@
 //! - `options`: the arguments of a call.
 //! - `scan`: emitting one file's rows at a time.
 //! - `schema`: the DuckDB type of each core column type.
+//! - `value`: owned DuckDB values read through the C API.
 
 mod builtins;
 mod error;
@@ -30,11 +38,12 @@ mod function;
 mod options;
 mod scan;
 mod schema;
+mod value;
 
 use std::ffi::CString;
 use std::sync::Arc;
 
-use duckdb::ffi;
+use libduckdb_sys as ffi;
 
 /// The oldest DuckDB C API the extension asks for; the build passes the
 /// target version.

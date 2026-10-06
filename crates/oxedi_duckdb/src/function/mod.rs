@@ -7,11 +7,11 @@ use std::ffi::{CString, c_void};
 use std::panic::{AssertUnwindSafe, catch_unwind};
 use std::sync::{Arc, Mutex};
 
-use duckdb::ffi;
+use libduckdb_sys as ffi;
 
 use crate::builtins::Builtins;
 use crate::error::{FUNCTION, ReadError};
-use crate::files::{self, FileSystem};
+use crate::files::{self, CallerSettings, ClientContext};
 use crate::options::{NAMED, Options};
 use crate::scan::{Bound, Scan};
 use crate::schema::{self, SqlType};
@@ -156,9 +156,9 @@ unsafe fn bind_with(info: ffi::duckdb_bind_info) -> Result<(), ReadError> {
         None => builtins.default(),
     };
     let table = builtin
-        .table(&options.table)
+        .table(&options.table_name)
         .ok_or_else(|| ReadError::UnknownTable {
-            table: options.table.clone(),
+            table: options.table_name.clone(),
             known: builtin.table_names(),
         })?;
     let types = table
@@ -174,12 +174,19 @@ unsafe fn bind_with(info: ffi::duckdb_bind_info) -> Result<(), ReadError> {
         // SAFETY: as above.
         unsafe { add_column(info, FILENAME_COLUMN, SqlType::Varchar) }?;
     }
-    // SAFETY: `info` is the live bind info (caller contract); the bind data
-    // holding the file system is dropped before the client context.
-    let file_system = unsafe { FileSystem::of_bind(info) }.ok_or_else(|| ReadError::Internal {
-        message: "the client context has no file system".to_owned(),
-    })?;
-    let files = files::resolve(&options.paths)?;
+    let no_context = |what: &str| ReadError::Internal {
+        message: format!("the bind has no {what}"),
+    };
+    // SAFETY: `info` is the live bind info (caller contract); the context
+    // is dropped at the end of this function.
+    let context =
+        unsafe { ClientContext::of_bind(info) }.ok_or_else(|| no_context("client context"))?;
+    // The bind data holding the file system is dropped before the client
+    // context it refers to.
+    let file_system = context
+        .file_system()
+        .ok_or_else(|| no_context("file system"))?;
+    let files = files::resolve(&options.paths, &CallerSettings::of(&context))?;
     let bound = Bound {
         files,
         file_system,

@@ -17,7 +17,7 @@ WHEELS      := target/wheels
 CARGO_VERSION := $(shell sed -n 's/^version = "\(.*\)"/\1/p' Cargo.toml | head -n 1)
 VERSION     := $(shell echo '$(CARGO_VERSION)' | sed -E 's/-(a|b|rc)\.?/\1/; s/-dev\.?/.dev/')
 
-.PHONY: help version release-check configure_ci set_duckdb_version set_duckdb_tag debug release test_debug test_release sdist-check wheel-check gates test clippy fmt fmt-check bench-check doc venv py-dev py-test stubs stubtest compat-oracle dist smoke publish-test publish-test-verify publish tag clean-dist
+.PHONY: help version release-check configure_ci set_duckdb_version set_duckdb_tag set_duckdb_repository debug release test_debug test_release sdist-check wheel-check gates test clippy fmt fmt-check bench-check doc venv py-dev py-test stubs stubtest compat-oracle dist smoke publish-test publish-test-verify publish tag clean-dist
 
 help: ## list targets
 	@grep -E '^[a-z][a-z_-]*:.*##' $(MAKEFILE_LIST) | sed 's/:.*## /\t/'
@@ -106,6 +106,8 @@ clean-dist:
 # test_release (or test_debug) from the repository root and uploads
 # build/<type>/extension/oxedi/oxedi.duckdb_extension, so each target delegates to the crate's
 # extension-ci-tools Makefile and the build copies its artifact to that path here.
+# These names are fixed by that CI: release, debug, test_release and test_debug build and test the
+# DuckDB extension only; Python releases go through dist, publish and tag.
 EXT_DIR     := crates/oxedi_duckdb
 EXT_NAME    := oxedi
 PYTHON_BIN  ?= python3
@@ -119,7 +121,10 @@ set_duckdb_version: ## DuckDB extension: no-op for C API extensions (called by D
 set_duckdb_tag: ## DuckDB extension: no-op for C API extensions (called by DuckDB's CI)
 	$(MAKE) -C $(EXT_DIR) set_duckdb_tag
 
-release: ## DuckDB extension: build oxedi.duckdb_extension (release) into build/release/extension/oxedi
+set_duckdb_repository: ## DuckDB extension: no-op for C API extensions (called by DuckDB's CI)
+	$(MAKE) -C $(EXT_DIR) set_duckdb_repository
+
+release: ## DuckDB extension (not a Python release; see dist/publish/tag): build oxedi.duckdb_extension (release) into build/release/extension/oxedi
 	$(MAKE) -C $(EXT_DIR) release
 	@$(PYTHON_BIN) -c "import pathlib, shutil; d = pathlib.Path('build/release/extension/$(EXT_NAME)'); d.mkdir(parents=True, exist_ok=True); shutil.copyfile('$(EXT_DIR)/build/release/extension/$(EXT_NAME)/$(EXT_NAME).duckdb_extension', d / '$(EXT_NAME).duckdb_extension')"
 

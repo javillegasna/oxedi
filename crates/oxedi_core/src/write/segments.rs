@@ -15,7 +15,7 @@ impl Builder<'_> {
     /// columns pick, with the codes that select it.
     pub(super) fn segments(&mut self) {
         let groups = std::mem::take(&mut self.groups);
-        for ((id, at, codes), entries) in groups {
+        for ((id, at, _, codes), entries) in groups {
             let Some(occurrence) = self.occurrence(id, at).cloned() else {
                 continue;
             };
@@ -78,6 +78,12 @@ impl Builder<'_> {
                             column: entry.column,
                         },
                     }),
+                }
+            }
+            let carrier = entries.first().map(|entry| (entry.table, entry.column));
+            for plan in by_nth.values() {
+                if let Some((table, column)) = carrier {
+                    self.check_codes(id, plan, table, Some(column));
                 }
             }
             if let Some(plan) = self.loops.get_mut(id) {

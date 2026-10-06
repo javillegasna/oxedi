@@ -131,6 +131,46 @@ pub enum Refusal {
         /// The envelope occurrence.
         occurrence: String,
     },
+    /// A table without a segment is anchored on a loop whose rows another
+    /// table already gives.
+    AnchoredByAnotherTable {
+        /// The table.
+        table: String,
+        /// The loop it is anchored on.
+        loop_name: String,
+        /// The table that already gives the loop its rows.
+        other: String,
+    },
+    /// A table anchored on a segment sits in a loop that nothing gives
+    /// instances to, so its segments have no instance to go in.
+    RepeatWithoutInstances {
+        /// The table.
+        table: String,
+        /// The loop it is anchored on.
+        loop_name: String,
+        /// The anchor segment, e.g. `"CAS"`.
+        segment: String,
+    },
+    /// A code the spec fixes for a written segment (a `where` value or the
+    /// occurrence's single qualifier code) is outside the code list of the
+    /// occurrence or of the element.
+    CodeOutsideList {
+        /// The table.
+        table: String,
+        /// The column whose segment carries the code; `None` for the
+        /// table's anchor segment.
+        column: Option<String>,
+        /// The loop.
+        loop_name: String,
+        /// The occurrence.
+        occurrence: String,
+        /// The element or component, e.g. `PER01`.
+        place: String,
+        /// The fixed code.
+        value: String,
+        /// The code list that does not allow it.
+        codes: Vec<String>,
+    },
 }
 
 impl fmt::Display for Refusal {
@@ -241,6 +281,46 @@ impl fmt::Display for Refusal {
                 "table {table:?} column {column:?} reads the envelope occurrence {occurrence:?} \
                  of loop {loop_name:?}, which the envelope and the writer's counts give"
             ),
+            Refusal::AnchoredByAnotherTable {
+                table,
+                loop_name,
+                other,
+            } => write!(
+                f,
+                "table {table:?} is anchored on loop {loop_name:?}, whose rows table {other:?} \
+                 already gives; a loop takes its rows from one table"
+            ),
+            Refusal::RepeatWithoutInstances {
+                table,
+                loop_name,
+                segment,
+            } => write!(
+                f,
+                "table {table:?} writes one {segment} per row in loop {loop_name:?}, but no \
+                 table is anchored on that loop and no column reads it, so the segments have no \
+                 instance to go in"
+            ),
+            Refusal::CodeOutsideList {
+                table,
+                column,
+                loop_name,
+                occurrence,
+                place,
+                value,
+                codes,
+            } => {
+                match column {
+                    Some(column) => write!(f, "table {table:?} column {column:?}")?,
+                    None => write!(f, "table {table:?} anchor segment")?,
+                }
+                let quoted: Vec<String> = codes.iter().map(|code| format!("{code:?}")).collect();
+                write!(
+                    f,
+                    " writes occurrence {occurrence:?} in loop {loop_name:?} with the fixed code \
+                     {value:?} in {place}, which its code list ({}) does not allow",
+                    quoted.join(", ")
+                )
+            }
         }
     }
 }

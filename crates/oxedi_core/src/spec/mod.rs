@@ -217,6 +217,13 @@ impl Spec {
         &self.tables
     }
 
+    /// The tables and loops, editable past the loader's checks, to build
+    /// specs the loader refuses.
+    #[cfg(test)]
+    pub(crate) fn parts_mut(&mut self) -> (&mut Vec<TableDef>, &mut Vec<LoopDef>) {
+        (&mut self.tables, &mut self.loops)
+    }
+
     /// A table by name.
     pub fn table(&self, name: &str) -> Option<&TableDef> {
         self.tables.iter().find(|table| table.name == name)

@@ -6,6 +6,7 @@ use std::collections::BTreeMap;
 
 use crate::spec::{ColumnSource, LoopId, OccurrenceDef, Pick, Spec, TableDef};
 
+use super::codes::Resolved;
 use super::plan::{
     ElementPlan, Instances, LoopPlan, SegmentPlan, SegmentSource, ValueSource, WritePlan,
 };
@@ -23,9 +24,9 @@ pub(super) struct Entry {
     pub(super) component: Option<usize>,
 }
 
-/// The segments a loop's columns write, keyed by loop, occurrence and the
-/// codes their `where` fixes beyond the occurrence's own qualifier.
-pub(super) type Groups = BTreeMap<(usize, usize, Codes), Vec<Entry>>;
+/// The segments a loop's columns write, keyed by loop, occurrence, table and
+/// the codes their `where` fixes beyond the occurrence's own qualifier.
+pub(super) type Groups = BTreeMap<(usize, usize, usize, Codes), Vec<Entry>>;
 
 /// `(1-based element position, code)` pairs a `where` fixes, by position.
 pub(super) type Codes = Vec<(usize, Vec<u8>)>;
@@ -35,6 +36,11 @@ pub(super) struct Builder<'s> {
     pub(super) loops: Vec<LoopPlan>,
     pub(super) groups: Groups,
     pub(super) refusals: Vec<Refusal>,
+    /// Tables refused for their anchor: their columns are not placed.
+    refused: Vec<usize>,
+    /// `(table, anchor loop)` of every table anchored on a segment.
+    repeats: Vec<(usize, LoopId)>,
+    unwritten: Vec<(usize, usize)>,
 }
 
 impl WritePlan {
@@ -52,6 +58,9 @@ impl WritePlan {
             ],
             groups: Groups::new(),
             refusals: Vec::new(),
+            refused: Vec::new(),
+            repeats: Vec::new(),
+            unwritten: Vec::new(),
         };
         builder.envelope();
         for (index, table) in spec.tables().iter().enumerate() {
@@ -67,11 +76,13 @@ impl WritePlan {
         }
         builder.segments();
         builder.implied();
+        builder.repeats_placed();
         builder.required();
         builder.sort();
         if builder.refusals.is_empty() {
             Ok(WritePlan {
                 loops: builder.loops,
+                unwritten: builder.unwritten,
             })
         } else {
             Err(PlanError {
@@ -115,9 +126,9 @@ impl Builder<'_> {
                 continue;
             };
             plan.instances = Instances::Envelope;
-            if !def.occurrences.is_empty() {
+            if let Some(occurrence) = def.trigger_occurrence() {
                 plan.segments.push(SegmentPlan {
-                    occurrence: 0,
+                    occurrence,
                     source: SegmentSource::Envelope,
                     elements: Vec::new(),
                 });
@@ -154,71 +165,34 @@ impl Builder<'_> {
         false
     }
 
-    /// The occurrence of loop `id` that `segment` and `conditions` select,
-    /// with the conditions left once the occurrence's own single-code
-    /// qualifier is taken out; every occurrence that matches when there is
-    /// not exactly one.
-    fn resolve(
-        &self,
-        id: LoopId,
-        segment: &[u8],
-        conditions: &[(usize, Vec<u8>)],
-    ) -> Result<(usize, Codes), Vec<String>> {
-        let def = self.spec.get(id);
-        let accepts = |occurrence: &OccurrenceDef| {
-            occurrence.segment == segment
-                && conditions.iter().all(|(position, value)| {
-                    let listed = |codes: &[String]| codes.iter().any(|c| c.as_bytes() == value);
-                    match &occurrence.qualifier {
-                        Some(q) if q.element == *position && q.component.is_none() => {
-                            listed(&q.codes)
-                        }
-                        _ => occurrence
-                            .codes
-                            .get(&(*position, None))
-                            .is_none_or(|codes| listed(codes)),
-                    }
-                })
-        };
-        let matched: Vec<usize> = def
-            .occurrences
-            .iter()
-            .enumerate()
-            .filter(|(_, occurrence)| accepts(occurrence))
-            .map(|(index, _)| index)
-            .collect();
-        let [index] = matched.as_slice() else {
-            return Err(matched
-                .iter()
-                .filter_map(|&index| def.occurrences.get(index))
-                .map(|occurrence| occurrence.name.clone())
-                .collect());
-        };
-        let occurrence = def.occurrences.get(*index);
-        let implied = occurrence
-            .and_then(|o| o.qualifier.as_ref())
-            .filter(|q| q.component.is_none() && q.codes.len() == 1)
-            .map(|q| q.element);
-        let rest = conditions
-            .iter()
-            .filter(|(position, _)| Some(*position) != implied)
-            .cloned()
-            .collect();
-        Ok((*index, rest))
-    }
-
-    /// A table with one row per instance of its anchor loops.
-    /// A table without a segment gives one instance of its anchor loops per row.
+    /// A table without a segment gives one instance of its anchor loops per
+    /// row, or is refused when another table already gives one of them its
+    /// rows.
     fn anchor(&mut self, index: usize, table: &TableDef) {
         for &anchor in &table.loops {
-            if let Some(plan) = self.loops.get_mut(anchor.index()) {
-                plan.instances = Instances::Rows { table: index };
+            let Some(plan) = self.loops.get_mut(anchor.index()) else {
+                continue;
+            };
+            match plan.instances {
+                Instances::Rows { table: other } if other != index => {
+                    self.refusals.push(Refusal::AnchoredByAnotherTable {
+                        table: table.name.clone(),
+                        loop_name: self.spec.loop_name(anchor).to_string(),
+                        other: self.table_name(other),
+                    });
+                    self.refused.push(index);
+                    return;
+                }
+                _ => plan.instances = Instances::Rows { table: index },
             }
         }
     }
 
     /// The columns of a table with one row per instance of its anchor loops.
     fn loop_table(&mut self, index: usize, table: &TableDef) {
+        if self.refused.contains(&index) {
+            return;
+        }
         for (first, &anchor) in table.loops.iter().enumerate() {
             for (column, (name, source)) in table.columns.iter().enumerate() {
                 let ColumnSource::Element {
@@ -246,13 +220,18 @@ impl Builder<'_> {
                         .occurrences
                         .iter()
                         .position(|o| o.name == *name)
-                        .map(|at| (at, Vec::new()))
-                        .ok_or_else(Vec::new),
+                        .map_or(Resolved::Candidates(Vec::new()), |at| {
+                            Resolved::One(at, Vec::new())
+                        }),
                     None => self.resolve(reader, segment, conditions),
                 };
                 let (at, codes) = match resolved {
-                    Ok(found) => found,
-                    Err(candidates) => {
+                    Resolved::One(at, codes) => (at, codes),
+                    Resolved::Nothing => {
+                        self.unwritten.push((index, column));
+                        continue;
+                    }
+                    Resolved::Candidates(candidates) => {
                         self.refusals.push(Refusal::AmbiguousSource {
                             table: table.name.clone(),
                             column: Some(name.clone()),
@@ -264,14 +243,14 @@ impl Builder<'_> {
                     }
                 };
                 let def = self.spec.get(reader);
-                if def.control.is_some() && at == 0 {
+                if def.control.is_some() && def.trigger_occurrence() == Some(at) {
                     self.refusals.push(Refusal::EnvelopeColumn {
                         table: table.name.clone(),
                         column: name.clone(),
                         loop_name: def.name.clone(),
                         occurrence: def
                             .occurrences
-                            .first()
+                            .get(at)
                             .map(|o| o.name.clone())
                             .unwrap_or_default(),
                     });
@@ -288,7 +267,7 @@ impl Builder<'_> {
                     }
                 }
                 self.groups
-                    .entry((reader.index(), at, codes))
+                    .entry((reader.index(), at, index, codes))
                     .or_default()
                     .push(Entry {
                         table: index,
@@ -307,9 +286,11 @@ impl Builder<'_> {
             return;
         };
         for &anchor in &table.loops {
+            self.repeats.push((index, anchor));
             let at = match self.resolve(anchor, segment, &[]) {
-                Ok((at, _)) => at,
-                Err(candidates) => {
+                Resolved::One(at, _) => at,
+                Resolved::Nothing => continue,
+                Resolved::Candidates(candidates) => {
                     self.refusals.push(Refusal::AmbiguousSource {
                         table: table.name.clone(),
                         column: None,
@@ -352,6 +333,7 @@ impl Builder<'_> {
             if let Some(occurrence) = self.occurrence(anchor.index(), at) {
                 add_qualifier(&mut plan, occurrence);
             }
+            self.check_codes(anchor.index(), &plan, index, None);
             if let Some(loop_plan) = self.loops.get_mut(anchor.index()) {
                 loop_plan.segments.push(plan);
             }
@@ -377,6 +359,32 @@ impl Builder<'_> {
                 }
                 above = self.spec.get(id).parent;
             }
+        }
+    }
+
+    /// Refuses a table anchored on a segment of a loop that nothing gives
+    /// instances to: its segments would have no instance to go in.
+    fn repeats_placed(&mut self) {
+        for (table, anchor) in std::mem::take(&mut self.repeats) {
+            let absent = self
+                .loops
+                .get(anchor.index())
+                .is_none_or(|plan| plan.instances == Instances::Absent);
+            if !absent {
+                continue;
+            }
+            let segment = self
+                .spec
+                .tables()
+                .get(table)
+                .and_then(|def| def.segment.as_deref())
+                .map(|segment| format!("{:?}", String::from_utf8_lossy(segment)))
+                .unwrap_or_default();
+            self.refusals.push(Refusal::RepeatWithoutInstances {
+                table: self.table_name(table),
+                loop_name: self.spec.loop_name(anchor).to_string(),
+                segment,
+            });
         }
     }
 

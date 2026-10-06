@@ -8,9 +8,18 @@
 //! of an adjustment segment are. The rule is not evaluated for an instance
 //! when it cannot be exact: the target occurrence never appeared, a required
 //! amount is absent or empty, an amount is not a decimal of the rule's scale
-//! or the total overflows. Each of those already raises its own finding (a
-//! missing occurrence, a missing element, a type mismatch), so the instance
-//! is left to them.
+//! or the total overflows. A missing occurrence or element raises its own
+//! finding, so the instance is left to it.
+//!
+//! An amount that is not a decimal is left to the type check, which runs only
+//! where a table column projects that element: with a spec whose tables do
+//! not read it (a custom spec without tables, for one), the instance is
+//! skipped with no finding at all. A total that overflows 128 bits is skipped
+//! with no finding either.
+//!
+//! The claim rule adds only the CAS amounts of the claim and its services:
+//! claim-level interest (`AMT*I`) and prompt-pay discounts are not part of
+//! it, as the guide's text for them has not been verified.
 
 use crate::column::parse_r;
 use crate::diagnostic::Rule;

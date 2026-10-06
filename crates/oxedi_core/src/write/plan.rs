@@ -39,12 +39,15 @@ pub enum Instances {
 pub enum SegmentSource {
     /// An envelope segment: the caller's envelope and the writer's counts.
     Envelope,
-    /// The `nth` (from 1) segment of the occurrence, filled from one row of
-    /// `table`.
+    /// The `nth` (from 1) segment of the occurrence among those that carry
+    /// the same `where` codes, filled from one row of `table`: one
+    /// occurrence may hold several such groups (one per set of codes), each
+    /// counting its repeats from 1.
     Row {
         /// The table.
         table: usize,
-        /// Which repeat of the occurrence, counting from 1.
+        /// Which repeat within the occurrence's group of segments with the
+        /// same `where` codes, counting from 1.
         nth: usize,
     },
     /// One segment per segment of a table anchored on the segment: the rows
@@ -115,4 +118,9 @@ pub struct LoopPlan {
 pub struct WritePlan {
     /// The plan of every loop, in [`Spec::loops`] order.
     pub loops: Vec<LoopPlan>,
+    /// `(table, column)` indexes of the columns that no valid file of the
+    /// spec fills, because their `where` names a code the segment's own code
+    /// list excludes: they write nothing, so a value in them cannot be
+    /// written.
+    pub unwritten: Vec<(usize, usize)>,
 }

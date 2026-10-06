@@ -72,7 +72,16 @@ fn loop_plan<'p>(spec: &Spec, plan: &'p WritePlan, name: &str) -> &'p LoopPlan {
 
 #[test]
 fn both_built_in_specs_can_be_written() {
-    for spec in [Spec::builtin_835(), Spec::builtin_835_4010()] {
+    // 4010 has no PER*BL: its technical contact columns write nothing.
+    let contact: &[&str] = &[
+        "payer_technical_contact_name",
+        "payer_technical_contact_number",
+        "payer_technical_contact_qualifier",
+    ];
+    for (spec, expected) in [
+        (Spec::builtin_835(), &[][..]),
+        (Spec::builtin_835_4010(), contact),
+    ] {
         let plan = WritePlan::new(&spec).unwrap();
         let claims = spec
             .tables()
@@ -87,7 +96,119 @@ fn both_built_in_specs_can_be_written() {
             loop_plan(&spec, &plan, "interchange").instances,
             Instances::Envelope
         );
+        let unwritten: Vec<&str> = plan
+            .unwritten
+            .iter()
+            .map(|&(table, column)| spec.tables()[table].columns[column].0.as_str())
+            .collect();
+        assert_eq!(unwritten, expected);
     }
+}
+
+#[test]
+fn a_where_code_the_segment_excludes_writes_nothing() {
+    let spec = spec(
+        r#"{"segments":{"DT":{"elements":{"1":{"codes":["S","X"]}}}},
+        "tables":{"heads":{"columns":{"q_date":{"segment":"DT","where":{"1":"Q"},"element":2}}}}}"#,
+    );
+    let plan = WritePlan::new(&spec).unwrap();
+    let heads = &spec.tables()[plan.unwritten[0].0];
+    assert_eq!(plan.unwritten.len(), 1);
+    assert_eq!(heads.columns[plan.unwritten[0].1].0, "q_date");
+}
+
+#[test]
+fn a_segment_table_in_a_loop_nothing_writes_is_refused() {
+    assert_eq!(
+        refusals(
+            r#"{"tables":{"items":null,"marks":{"loops":["group"],"segment":"GR","columns":{"number":{"element":1}}}}}"#
+        ),
+        vec![
+            "table \"marks\" writes one \"GR\" per row in loop \"group\", but no table is anchored on that loop and no column reads it, so the segments have no instance to go in"
+        ]
+    );
+}
+
+#[test]
+fn a_fixed_code_outside_the_element_codes_is_refused() {
+    // The loader refuses such a qualifier; the plan refuses it too.
+    let mut spec = spec("{}");
+    let (_, loops) = spec.parts_mut();
+    let head = loops.iter_mut().find(|l| l.name == "head").unwrap();
+    let nm_a = head
+        .occurrences
+        .iter_mut()
+        .find(|o| o.name == "nm_a")
+        .unwrap();
+    nm_a.qualifier.as_mut().unwrap().codes = vec!["Q".into()];
+    let error = WritePlan::new(&spec).unwrap_err();
+    assert_eq!(
+        error
+            .refusals
+            .iter()
+            .map(ToString::to_string)
+            .collect::<Vec<_>>(),
+        vec![
+            "table \"heads\" column \"a_name\" writes occurrence \"nm_a\" in loop \"head\" with the fixed code \"Q\" in NM01, which its code list (\"A\", \"B\", \"C\") does not allow"
+        ]
+    );
+}
+
+#[test]
+fn a_second_table_anchored_on_a_loop_is_refused() {
+    // The loader refuses two tables on one anchor; the plan refuses them too.
+    let mut spec = spec("{}");
+    let (tables, _) = spec.parts_mut();
+    let mut others = tables.iter().find(|t| t.name == "heads").unwrap().clone();
+    others.name = "others".into();
+    tables.push(others);
+    let error = WritePlan::new(&spec).unwrap_err();
+    assert_eq!(
+        error
+            .refusals
+            .iter()
+            .map(ToString::to_string)
+            .collect::<Vec<_>>(),
+        vec![
+            "table \"others\" is anchored on loop \"head\", whose rows table \"heads\" already gives; a loop takes its rows from one table"
+        ]
+    );
+}
+
+#[test]
+fn the_envelope_segment_is_found_by_the_loop_trigger() {
+    // The loader puts the trigger occurrence first; the plan finds it by the
+    // trigger wherever it is.
+    let moved = |patch: &str| {
+        let mut spec = spec(patch);
+        let (_, loops) = spec.parts_mut();
+        let env = loops.iter_mut().find(|l| l.name == "env").unwrap();
+        let mut other = env.occurrences[0].clone();
+        other.name = "ex".into();
+        other.segment = b"EX".to_vec();
+        other.usage = crate::spec::Usage::Situational;
+        env.occurrences.insert(0, other);
+        spec
+    };
+    let plain = moved("{}");
+    let plan = WritePlan::new(&plain).unwrap();
+    let env = loop_plan(&plain, &plan, "env");
+    assert_eq!(env.segments.len(), 1);
+    assert_eq!(env.segments[0].occurrence, 1);
+    let error = WritePlan::new(&moved(
+        r#"{"tables":{"items":{"columns":{"control":{"loop":"env","segment":"EV","element":1}}}}}"#,
+    ))
+    .unwrap_err();
+    assert_eq!(
+        error
+            .refusals
+            .iter()
+            .map(ToString::to_string)
+            .collect::<Vec<_>>(),
+        vec![
+            "table \"items\" column \"control\" reads the envelope occurrence \"ev\" of loop \"env\", which the envelope and the writer's counts give"
+        ]
+    );
 }
 
 #[test]
@@ -345,4 +466,17 @@ fn refusals_display_their_full_text() {
         "spec \"s\" cannot be written (1 reason)\n1. table \"claims\" column \"isa\" reads loop \"interchange\", whose instances the envelope writes"
     );
     assert!(std::error::Error::source(&one).is_none());
+    let anchored = Refusal::CodeOutsideList {
+        table: "adjustments".into(),
+        column: None,
+        loop_name: "2100".into(),
+        occurrence: "claim_adjustment".into(),
+        place: "CAS01".into(),
+        value: "XX".into(),
+        codes: vec!["CO".into(), "PR".into()],
+    };
+    assert_eq!(
+        anchored.to_string(),
+        "table \"adjustments\" anchor segment writes occurrence \"claim_adjustment\" in loop \"2100\" with the fixed code \"XX\" in CAS01, which its code list (\"CO\", \"PR\") does not allow"
+    );
 }

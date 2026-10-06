@@ -5,6 +5,7 @@
 use std::fmt;
 
 use oxedi_core::ColumnType;
+use oxedi_core::column::RowError;
 use oxedi_core::write::WriteError;
 
 /// The name every message starts with: the format's name in `COPY`.
@@ -132,9 +133,37 @@ pub enum CopyError {
         /// The spec's type of the column.
         expected: ColumnType,
     },
+    /// A value that would change on its way into the column's type.
+    Value {
+        /// The table.
+        table: String,
+        /// The column.
+        column: String,
+        /// The 0-based position of the row in its table.
+        row: usize,
+        /// What would change.
+        reason: String,
+    },
+    /// The core refused a row, e.g. text past what a column addresses.
+    Row(RowError),
     /// The core's writer refused the tables or the envelope; nothing was
     /// written.
     Write(WriteError),
+    /// DuckDB asked for a second file in one `COPY`, as `PARTITION_BY` and
+    /// `PER_THREAD_OUTPUT` do.
+    SecondFile {
+        /// The path of the second file.
+        path: String,
+    },
+    /// DuckDB's file system failed on the target file.
+    Output {
+        /// The path DuckDB gave the format.
+        path: String,
+        /// The step that failed, e.g. `opened for writing`.
+        step: &'static str,
+        /// DuckDB's message.
+        message: String,
+    },
     /// Something that should not happen: a panic caught before it could
     /// cross into DuckDB, or a handle or state DuckDB did not provide.
     Internal {
@@ -264,7 +293,28 @@ impl fmt::Display for CopyError {
                  spec's {expected} values: a float may not hold the amount exactly; cast it to \
                  DECIMAL"
             ),
+            CopyError::Value {
+                table,
+                column,
+                row,
+                reason,
+            } => write!(
+                f,
+                "{FORMAT}: table {table:?} column {column:?} row {row}: {reason}"
+            ),
+            CopyError::Row(error) => write!(f, "{FORMAT}: {error}"),
             CopyError::Write(error) => write!(f, "{FORMAT}: {error}"),
+            CopyError::SecondFile { path } => write!(
+                f,
+                "{FORMAT}: the COPY asks for a second file, {path:?}, but the format writes all \
+                 the rows as one interchange in one file; PARTITION_BY and PER_THREAD_OUTPUT do \
+                 not apply"
+            ),
+            CopyError::Output {
+                path,
+                step,
+                message,
+            } => write!(f, "{FORMAT}: {path:?} could not be {step}: {message}"),
             CopyError::Internal { message } => {
                 write!(f, "{FORMAT}: internal error: {message}")
             }
@@ -286,6 +336,7 @@ pub fn accepted(kind: ColumnType) -> &'static str {
 impl std::error::Error for CopyError {
     fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
         match self {
+            CopyError::Row(source) => Some(source),
             CopyError::Write(source) => Some(source),
             _ => None,
         }

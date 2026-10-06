@@ -14,20 +14,26 @@
 //! - `options.rs`: the options and the envelope they make.
 //! - `read.rs`: the options read from DuckDB's value.
 //! - `input.rs`: the query's columns bound to the spec's tables.
+//! - `sink.rs`: the rows of one input chunk.
+//! - `convert.rs`: DuckDB values to the spec's column types.
 
+mod convert;
 mod error;
 mod input;
 mod options;
 mod read;
+mod sink;
 
-use std::ffi::CString;
+use std::ffi::{CStr, CString};
 use std::panic::{AssertUnwindSafe, catch_unwind};
-use std::sync::Arc;
+use std::sync::{Arc, Mutex};
 
 use libduckdb_sys as ffi;
-use oxedi_core::write::Envelope;
+use oxedi_core::write::{Envelope, write};
+use oxedi_core::{Table, Tables};
 
 use crate::builtins::Builtins;
+use crate::files::ClientContext;
 use crate::function::{drop_box, panic_message};
 use error::{CopyError, FORMAT};
 use input::BoundColumn;
@@ -56,7 +62,9 @@ pub unsafe fn register(
             Some(drop_box::<Arc<Builtins>>),
         );
         ffi::duckdb_copy_function_set_bind(function.0, Some(bind));
+        ffi::duckdb_copy_function_set_global_init(function.0, Some(global_init));
         ffi::duckdb_copy_function_set_sink(function.0, Some(sink));
+        ffi::duckdb_copy_function_set_finalize(function.0, Some(finalize));
     }
     // SAFETY: both handles are live; DuckDB copies the function into the
     // catalog, extra info included.
@@ -86,12 +94,21 @@ impl Drop for CopyFunction {
 }
 
 /// What the bind settled: the spec, the envelope and the input columns.
-#[expect(dead_code, reason = "the rows are not written yet")]
 struct Bound {
     builtins: Arc<Builtins>,
     version: &'static str,
     envelope: Envelope,
     columns: Vec<BoundColumn>,
+    /// The first file DuckDB asked this bind for. Asking for another one
+    /// is what per-thread and partitioned output do; running the same
+    /// statement again asks for the same file.
+    target: Mutex<Option<String>>,
+}
+
+/// The state of one `COPY`: the target and the tables built so far.
+struct State {
+    path: String,
+    tables: Mutex<Vec<Table>>,
 }
 
 /// Runs `body`, turning a panic into an error.
@@ -169,6 +186,7 @@ unsafe fn bind_with(info: ffi::duckdb_copy_function_bind_info) -> Result<(), Cop
         version: builtin.version,
         envelope: settings.envelope,
         columns,
+        target: Mutex::new(None),
     };
     // SAFETY: `info` is live; DuckDB owns the box from here and frees it
     // with `drop_box::<Bound>`.
@@ -182,13 +200,158 @@ unsafe fn bind_with(info: ffi::duckdb_copy_function_bind_info) -> Result<(), Cop
     Ok(())
 }
 
-unsafe extern "C" fn sink(info: ffi::duckdb_copy_function_sink_info, _: ffi::duckdb_data_chunk) {
-    let error = CopyError::Internal {
-        message: "the rows cannot be written yet".to_owned(),
+unsafe extern "C" fn global_init(info: ffi::duckdb_copy_function_global_init_info) {
+    let result = guarded(|| {
+        // SAFETY: the bind data is the `Bound` set by `bind_with`, alive
+        // until the copy ends; the path is a C string DuckDB owns during the
+        // call, copied here.
+        let (bound, path) = unsafe {
+            (
+                ffi::duckdb_copy_function_global_init_get_bind_data(info)
+                    .cast::<Bound>()
+                    .as_ref(),
+                ffi::duckdb_copy_function_global_init_get_file_path(info),
+            )
+        };
+        let bound = bound.ok_or_else(|| missing("bind data"))?;
+        if path.is_null() {
+            return Err(missing("file path"));
+        }
+        // SAFETY: `path` is a live NUL-terminated string (checked non-null).
+        let path = unsafe { CStr::from_ptr(path) }
+            .to_string_lossy()
+            .into_owned();
+        {
+            let mut target = bound.target.lock().map_err(|_| CopyError::Internal {
+                message: "the target was poisoned by an earlier panic".to_owned(),
+            })?;
+            match target.as_deref() {
+                Some(first) if first != path => {
+                    return Err(CopyError::SecondFile { path });
+                }
+                Some(_) => {}
+                None => *target = Some(path.clone()),
+            }
+        }
+        let tables = bound
+            .columns
+            .iter()
+            .map(|column| {
+                Table::new(
+                    column.table.clone(),
+                    column
+                        .fields
+                        .iter()
+                        .map(|field| (field.name.clone(), field.kind)),
+                )
+            })
+            .collect();
+        let state = State {
+            path,
+            tables: Mutex::new(tables),
+        };
+        // SAFETY: `info` is live; DuckDB owns the box from here and frees
+        // it with `drop_box::<State>`.
+        unsafe {
+            ffi::duckdb_copy_function_global_init_set_global_state(
+                info,
+                Box::into_raw(Box::new(state)).cast(),
+                Some(drop_box::<State>),
+            );
+        }
+        Ok(())
+    });
+    if let Err(error) = result {
+        let message = c_message(&error);
+        // SAFETY: DuckDB passes a live info and copies the message.
+        unsafe { ffi::duckdb_copy_function_global_init_set_error(info, message.as_ptr()) };
+    }
+}
+
+unsafe extern "C" fn sink(
+    info: ffi::duckdb_copy_function_sink_info,
+    input: ffi::duckdb_data_chunk,
+) {
+    let result = guarded(|| {
+        // SAFETY: the bind data and global state are the `Bound` and `State`
+        // set above, alive until the copy ends.
+        let (bound, state) = unsafe {
+            (
+                ffi::duckdb_copy_function_sink_get_bind_data(info)
+                    .cast::<Bound>()
+                    .as_ref(),
+                ffi::duckdb_copy_function_sink_get_global_state(info)
+                    .cast::<State>()
+                    .as_ref(),
+            )
+        };
+        let bound = bound.ok_or_else(|| missing("bind data"))?;
+        let state = state.ok_or_else(|| missing("global state"))?;
+        let mut tables = state.tables.lock().map_err(|_| CopyError::Internal {
+            message: "the tables were poisoned by an earlier panic".to_owned(),
+        })?;
+        // SAFETY: `input` is the flattened chunk of the bound columns.
+        unsafe { sink::append(input, &bound.columns, &mut tables) }
+    });
+    if let Err(error) = result {
+        let message = c_message(&error);
+        // SAFETY: DuckDB passes a live info and copies the message.
+        unsafe { ffi::duckdb_copy_function_sink_set_error(info, message.as_ptr()) };
+    }
+}
+
+unsafe extern "C" fn finalize(info: ffi::duckdb_copy_function_finalize_info) {
+    // SAFETY: DuckDB passes a live finalize info.
+    if let Err(error) = guarded(|| unsafe { finalize_with(info) }) {
+        let message = c_message(&error);
+        // SAFETY: as above; DuckDB copies the message.
+        unsafe { ffi::duckdb_copy_function_finalize_set_error(info, message.as_ptr()) };
+    }
+}
+
+/// # Safety
+///
+/// `info` must be the live finalize info of the `edi835` copy format.
+unsafe fn finalize_with(info: ffi::duckdb_copy_function_finalize_info) -> Result<(), CopyError> {
+    // SAFETY: the bind data and global state are the `Bound` and `State`
+    // set above, alive until the copy ends.
+    let (bound, state) = unsafe {
+        (
+            ffi::duckdb_copy_function_finalize_get_bind_data(info)
+                .cast::<Bound>()
+                .as_ref(),
+            ffi::duckdb_copy_function_finalize_get_global_state(info)
+                .cast::<State>()
+                .as_ref(),
+        )
     };
-    let message = c_message(&error);
-    // SAFETY: DuckDB passes a live info and copies the message.
-    unsafe { ffi::duckdb_copy_function_sink_set_error(info, message.as_ptr()) };
+    let bound = bound.ok_or_else(|| missing("bind data"))?;
+    let state = state.ok_or_else(|| missing("global state"))?;
+    let tables = std::mem::take(&mut *state.tables.lock().map_err(|_| CopyError::Internal {
+        message: "the tables were poisoned by an earlier panic".to_owned(),
+    })?);
+    let builtin = bound
+        .builtins
+        .by_version(bound.version)
+        .ok_or_else(|| missing("built-in spec of the bound version"))?;
+    let bytes =
+        write(&builtin.spec, &Tables::new(tables), &bound.envelope).map_err(CopyError::Write)?;
+    // SAFETY: `info` is live (caller contract); the wrapper is owned here
+    // and dropped before this function returns.
+    let context = unsafe {
+        ClientContext::owned(ffi::duckdb_copy_function_finalize_get_client_context(info))
+    }
+    .ok_or_else(|| missing("client context"))?;
+    let file_system = context
+        .file_system()
+        .ok_or_else(|| missing("file system"))?;
+    file_system
+        .write_all(&state.path, &bytes)
+        .map_err(|failure| CopyError::Output {
+            path: state.path.clone(),
+            step: failure.step,
+            message: failure.message,
+        })
 }
 
 #[cfg(test)]

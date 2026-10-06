@@ -1,6 +1,7 @@
 use std::error::Error;
 
 use oxedi_core::ColumnType;
+use oxedi_core::column::{CellError, RowError};
 use oxedi_core::write::WriteError;
 
 use super::super::error::CopyError;
@@ -201,6 +202,37 @@ fn float_for_decimal() {
 }
 
 #[test]
+fn value() {
+    assert_eq!(
+        text(CopyError::Value {
+            table: "claims".to_owned(),
+            column: "charge_amount".to_owned(),
+            row: 4,
+            reason: "1234 at scale 3 has more decimals than the column's scale 2".to_owned(),
+        }),
+        "edi835: table \"claims\" column \"charge_amount\" row 4: 1234 at scale 3 has more \
+         decimals than the column's scale 2"
+    );
+}
+
+#[test]
+fn row_chains_its_source() {
+    let error = CopyError::Row(RowError::Cell {
+        table: "claims".to_owned(),
+        column: "claim_id".to_owned(),
+        source: CellError::BinaryOverflow {
+            bytes: 2_147_483_648,
+        },
+    });
+    assert_eq!(
+        error.to_string(),
+        "edi835: table \"claims\" column \"claim_id\": a binary column holds at most 2147483647 \
+         bytes; this value would bring it to 2147483648"
+    );
+    assert!(error.source().is_some());
+}
+
+#[test]
 fn write_chains_its_source() {
     let error = CopyError::Write(WriteError::UnknownColumn {
         table: "claims".to_owned(),
@@ -213,6 +245,31 @@ fn write_chains_its_source() {
          \"segment\""
     );
     assert!(error.source().is_some());
+}
+
+#[test]
+fn second_file() {
+    assert_eq!(
+        text(CopyError::SecondFile {
+            path: "out/p=2/data_0.".to_owned(),
+        }),
+        "edi835: the COPY asks for a second file, \"out/p=2/data_0.\", but the format writes all \
+         the rows as one interchange in one file; PARTITION_BY and PER_THREAD_OUTPUT do not apply"
+    );
+}
+
+#[test]
+fn output() {
+    let error = CopyError::Output {
+        path: "s3://bucket/out.835".to_owned(),
+        step: "written",
+        message: "access denied".to_owned(),
+    };
+    assert_eq!(
+        error.to_string(),
+        "edi835: \"s3://bucket/out.835\" could not be written: access denied"
+    );
+    assert!(error.source().is_none());
 }
 
 #[test]

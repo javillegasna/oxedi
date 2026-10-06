@@ -1,0 +1,534 @@
+# name: test/sql/copy_edi835.test
+# description: COPY ... (FORMAT edi835) writes the tables back into an 835: round trips of a 5010
+#              and a 4010 fixture, the sources a query can read (view, TEMP table, several rows,
+#              the open transaction), input shapes and types, refusals, and the target file
+# group: [oxedi]
+
+require oxedi
+
+statement ok
+CREATE VIEW tables_5010 AS
+SELECT (SELECT list(t ORDER BY t."row") FROM read_835('../oxedi_core/tests/fixtures/balanced_5010_sample.txt', table_name := 'payments') t) AS payments,
+       (SELECT list(t ORDER BY t."row") FROM read_835('../oxedi_core/tests/fixtures/balanced_5010_sample.txt', table_name := 'claims') t) AS claims,
+       (SELECT list(t ORDER BY t."row") FROM read_835('../oxedi_core/tests/fixtures/balanced_5010_sample.txt', table_name := 'services') t) AS services,
+       (SELECT list(t ORDER BY t."row") FROM read_835('../oxedi_core/tests/fixtures/balanced_5010_sample.txt', table_name := 'adjustments') t) AS adjustments,
+       (SELECT list(t ORDER BY t."row") FROM read_835('../oxedi_core/tests/fixtures/balanced_5010_sample.txt', table_name := 'provider_adjustments') t) AS provider_adjustments;
+
+statement ok
+CREATE VIEW tables_4010 AS
+SELECT (SELECT list(t ORDER BY t."row") FROM read_835('../oxedi_core/tests/fixtures/balanced_4010_sample.txt', table_name := 'payments') t) AS payments,
+       (SELECT list(t ORDER BY t."row") FROM read_835('../oxedi_core/tests/fixtures/balanced_4010_sample.txt', table_name := 'claims') t) AS claims,
+       (SELECT list(t ORDER BY t."row") FROM read_835('../oxedi_core/tests/fixtures/balanced_4010_sample.txt', table_name := 'services') t) AS services,
+       (SELECT list(t ORDER BY t."row") FROM read_835('../oxedi_core/tests/fixtures/balanced_4010_sample.txt', table_name := 'adjustments') t) AS adjustments,
+       (SELECT list(t ORDER BY t."row") FROM read_835('../oxedi_core/tests/fixtures/balanced_4010_sample.txt', table_name := 'provider_adjustments') t) AS provider_adjustments;
+
+statement ok
+CREATE VIEW tables_multi AS
+SELECT (SELECT list(t ORDER BY t."row") FROM read_835('../oxedi_core/tests/fixtures/multi_claim_sample.txt', table_name := 'payments') t) AS payments,
+       (SELECT list(t ORDER BY t."row") FROM read_835('../oxedi_core/tests/fixtures/multi_claim_sample.txt', table_name := 'claims') t) AS claims,
+       (SELECT list(t ORDER BY t."row") FROM read_835('../oxedi_core/tests/fixtures/multi_claim_sample.txt', table_name := 'services') t) AS services,
+       (SELECT list(t ORDER BY t."row") FROM read_835('../oxedi_core/tests/fixtures/multi_claim_sample.txt', table_name := 'adjustments') t) AS adjustments,
+       (SELECT list(t ORDER BY t."row") FROM read_835('../oxedi_core/tests/fixtures/multi_claim_sample.txt', table_name := 'provider_adjustments') t) AS provider_adjustments;
+
+# ---- round trips: read_835 -> COPY -> read_835 gives the same tables, apart from segment ----
+
+statement ok
+COPY (SELECT * FROM tables_5010) TO '__TEST_DIR__/copy_ref.835' (FORMAT edi835, sender_id 'SENDER', receiver_id 'RECEIVER', date '2024-01-02', time '10:30');
+
+query I
+SELECT count(*) FROM (
+    (SELECT * EXCLUDE (segment) FROM read_835('../oxedi_core/tests/fixtures/balanced_5010_sample.txt', table_name := 'payments')
+     EXCEPT ALL
+     SELECT * EXCLUDE (segment) FROM read_835('__TEST_DIR__/copy_ref.835', table_name := 'payments'))
+    UNION ALL
+    (SELECT * EXCLUDE (segment) FROM read_835('__TEST_DIR__/copy_ref.835', table_name := 'payments')
+     EXCEPT ALL
+     SELECT * EXCLUDE (segment) FROM read_835('../oxedi_core/tests/fixtures/balanced_5010_sample.txt', table_name := 'payments')));
+----
+0
+
+query I
+SELECT count(*) FROM (
+    (SELECT * EXCLUDE (segment) FROM read_835('../oxedi_core/tests/fixtures/balanced_5010_sample.txt', table_name := 'claims')
+     EXCEPT ALL
+     SELECT * EXCLUDE (segment) FROM read_835('__TEST_DIR__/copy_ref.835', table_name := 'claims'))
+    UNION ALL
+    (SELECT * EXCLUDE (segment) FROM read_835('__TEST_DIR__/copy_ref.835', table_name := 'claims')
+     EXCEPT ALL
+     SELECT * EXCLUDE (segment) FROM read_835('../oxedi_core/tests/fixtures/balanced_5010_sample.txt', table_name := 'claims')));
+----
+0
+
+query I
+SELECT count(*) FROM (
+    (SELECT * EXCLUDE (segment) FROM read_835('../oxedi_core/tests/fixtures/balanced_5010_sample.txt', table_name := 'services')
+     EXCEPT ALL
+     SELECT * EXCLUDE (segment) FROM read_835('__TEST_DIR__/copy_ref.835', table_name := 'services'))
+    UNION ALL
+    (SELECT * EXCLUDE (segment) FROM read_835('__TEST_DIR__/copy_ref.835', table_name := 'services')
+     EXCEPT ALL
+     SELECT * EXCLUDE (segment) FROM read_835('../oxedi_core/tests/fixtures/balanced_5010_sample.txt', table_name := 'services')));
+----
+0
+
+query I
+SELECT count(*) FROM (
+    (SELECT * EXCLUDE (segment) FROM read_835('../oxedi_core/tests/fixtures/balanced_5010_sample.txt', table_name := 'adjustments')
+     EXCEPT ALL
+     SELECT * EXCLUDE (segment) FROM read_835('__TEST_DIR__/copy_ref.835', table_name := 'adjustments'))
+    UNION ALL
+    (SELECT * EXCLUDE (segment) FROM read_835('__TEST_DIR__/copy_ref.835', table_name := 'adjustments')
+     EXCEPT ALL
+     SELECT * EXCLUDE (segment) FROM read_835('../oxedi_core/tests/fixtures/balanced_5010_sample.txt', table_name := 'adjustments')));
+----
+0
+
+query I
+SELECT count(*) FROM (
+    (SELECT * EXCLUDE (segment) FROM read_835('../oxedi_core/tests/fixtures/balanced_5010_sample.txt', table_name := 'provider_adjustments')
+     EXCEPT ALL
+     SELECT * EXCLUDE (segment) FROM read_835('__TEST_DIR__/copy_ref.835', table_name := 'provider_adjustments'))
+    UNION ALL
+    (SELECT * EXCLUDE (segment) FROM read_835('__TEST_DIR__/copy_ref.835', table_name := 'provider_adjustments')
+     EXCEPT ALL
+     SELECT * EXCLUDE (segment) FROM read_835('../oxedi_core/tests/fixtures/balanced_5010_sample.txt', table_name := 'provider_adjustments')));
+----
+0
+
+statement ok
+COPY (SELECT * FROM tables_4010) TO '__TEST_DIR__/copy_4010.835' (FORMAT edi835, sender_id 'SENDER', receiver_id 'RECEIVER', date '2024-01-02', time '10:30', version '4010');
+
+query I
+SELECT count(*) FROM (
+    (SELECT * EXCLUDE (segment) FROM read_835('../oxedi_core/tests/fixtures/balanced_4010_sample.txt', table_name := 'payments')
+     EXCEPT ALL
+     SELECT * EXCLUDE (segment) FROM read_835('__TEST_DIR__/copy_4010.835', table_name := 'payments'))
+    UNION ALL
+    (SELECT * EXCLUDE (segment) FROM read_835('__TEST_DIR__/copy_4010.835', table_name := 'payments')
+     EXCEPT ALL
+     SELECT * EXCLUDE (segment) FROM read_835('../oxedi_core/tests/fixtures/balanced_4010_sample.txt', table_name := 'payments')));
+----
+0
+
+query I
+SELECT count(*) FROM (
+    (SELECT * EXCLUDE (segment) FROM read_835('../oxedi_core/tests/fixtures/balanced_4010_sample.txt', table_name := 'claims')
+     EXCEPT ALL
+     SELECT * EXCLUDE (segment) FROM read_835('__TEST_DIR__/copy_4010.835', table_name := 'claims'))
+    UNION ALL
+    (SELECT * EXCLUDE (segment) FROM read_835('__TEST_DIR__/copy_4010.835', table_name := 'claims')
+     EXCEPT ALL
+     SELECT * EXCLUDE (segment) FROM read_835('../oxedi_core/tests/fixtures/balanced_4010_sample.txt', table_name := 'claims')));
+----
+0
+
+query I
+SELECT count(*) FROM (
+    (SELECT * EXCLUDE (segment) FROM read_835('../oxedi_core/tests/fixtures/balanced_4010_sample.txt', table_name := 'services')
+     EXCEPT ALL
+     SELECT * EXCLUDE (segment) FROM read_835('__TEST_DIR__/copy_4010.835', table_name := 'services'))
+    UNION ALL
+    (SELECT * EXCLUDE (segment) FROM read_835('__TEST_DIR__/copy_4010.835', table_name := 'services')
+     EXCEPT ALL
+     SELECT * EXCLUDE (segment) FROM read_835('../oxedi_core/tests/fixtures/balanced_4010_sample.txt', table_name := 'services')));
+----
+0
+
+query I
+SELECT count(*) FROM (
+    (SELECT * EXCLUDE (segment) FROM read_835('../oxedi_core/tests/fixtures/balanced_4010_sample.txt', table_name := 'adjustments')
+     EXCEPT ALL
+     SELECT * EXCLUDE (segment) FROM read_835('__TEST_DIR__/copy_4010.835', table_name := 'adjustments'))
+    UNION ALL
+    (SELECT * EXCLUDE (segment) FROM read_835('__TEST_DIR__/copy_4010.835', table_name := 'adjustments')
+     EXCEPT ALL
+     SELECT * EXCLUDE (segment) FROM read_835('../oxedi_core/tests/fixtures/balanced_4010_sample.txt', table_name := 'adjustments')));
+----
+0
+
+query I
+SELECT count(*) FROM (
+    (SELECT * EXCLUDE (segment) FROM read_835('../oxedi_core/tests/fixtures/balanced_4010_sample.txt', table_name := 'provider_adjustments')
+     EXCEPT ALL
+     SELECT * EXCLUDE (segment) FROM read_835('__TEST_DIR__/copy_4010.835', table_name := 'provider_adjustments'))
+    UNION ALL
+    (SELECT * EXCLUDE (segment) FROM read_835('__TEST_DIR__/copy_4010.835', table_name := 'provider_adjustments')
+     EXCEPT ALL
+     SELECT * EXCLUDE (segment) FROM read_835('../oxedi_core/tests/fixtures/balanced_4010_sample.txt', table_name := 'provider_adjustments')));
+----
+0
+
+# The envelope comes from the options.
+
+query T
+SELECT content[1:106] FROM read_text('__TEST_DIR__/copy_ref.835');
+----
+ISA*00*          *00*          *ZZ*SENDER         *ZZ*RECEIVER       *240102*1030*^*00501*000000001*0*P*:~
+
+query T
+SELECT content[1:106] FROM read_text('__TEST_DIR__/copy_4010.835');
+----
+ISA*00*          *00*          *ZZ*SENDER         *ZZ*RECEIVER       *240102*1030*U*00401*000000001*0*P*:~
+
+# Every option reaches the envelope; a bare line_break means true.
+
+statement ok
+COPY (SELECT * FROM tables_5010) TO '__TEST_DIR__/copy_options.835'
+    (FORMAT edi835, sender_id 'SENDER', receiver_id 'RECEIVER', date DATE '2024-01-02',
+     time TIME '10:30:15', sender_qualifier '01', receiver_qualifier '14', usage_indicator 'T',
+     control_number 42, application_sender 'APPS', application_receiver 'APPR',
+     delimiters {'element': '|', 'component': '>', 'segment': '~', 'repetition': '^'}, line_break);
+
+query T
+SELECT unnest(string_split(content, chr(10))[1:2]) FROM read_text('__TEST_DIR__/copy_options.835');
+----
+ISA|00|          |00|          |01|SENDER         |14|RECEIVER       |240102|1030|^|00501|000000042|0|T|>~
+GS|HP|APPS|APPR|20240102|103015|42|X|005010X221A1~
+
+query I
+SELECT count(*) FROM (
+    (SELECT * EXCLUDE (segment) FROM read_835('../oxedi_core/tests/fixtures/balanced_5010_sample.txt', table_name := 'payments')
+     EXCEPT ALL
+     SELECT * EXCLUDE (segment) FROM read_835('__TEST_DIR__/copy_options.835', table_name := 'payments'))
+    UNION ALL
+    (SELECT * EXCLUDE (segment) FROM read_835('__TEST_DIR__/copy_options.835', table_name := 'payments')
+     EXCEPT ALL
+     SELECT * EXCLUDE (segment) FROM read_835('../oxedi_core/tests/fixtures/balanced_5010_sample.txt', table_name := 'payments')));
+----
+0
+
+query I
+SELECT count(*) FROM (
+    (SELECT * EXCLUDE (segment) FROM read_835('../oxedi_core/tests/fixtures/balanced_5010_sample.txt', table_name := 'claims')
+     EXCEPT ALL
+     SELECT * EXCLUDE (segment) FROM read_835('__TEST_DIR__/copy_options.835', table_name := 'claims'))
+    UNION ALL
+    (SELECT * EXCLUDE (segment) FROM read_835('__TEST_DIR__/copy_options.835', table_name := 'claims')
+     EXCEPT ALL
+     SELECT * EXCLUDE (segment) FROM read_835('../oxedi_core/tests/fixtures/balanced_5010_sample.txt', table_name := 'claims')));
+----
+0
+
+query I
+SELECT count(*) FROM (
+    (SELECT * EXCLUDE (segment) FROM read_835('../oxedi_core/tests/fixtures/balanced_5010_sample.txt', table_name := 'services')
+     EXCEPT ALL
+     SELECT * EXCLUDE (segment) FROM read_835('__TEST_DIR__/copy_options.835', table_name := 'services'))
+    UNION ALL
+    (SELECT * EXCLUDE (segment) FROM read_835('__TEST_DIR__/copy_options.835', table_name := 'services')
+     EXCEPT ALL
+     SELECT * EXCLUDE (segment) FROM read_835('../oxedi_core/tests/fixtures/balanced_5010_sample.txt', table_name := 'services')));
+----
+0
+
+query I
+SELECT count(*) FROM (
+    (SELECT * EXCLUDE (segment) FROM read_835('../oxedi_core/tests/fixtures/balanced_5010_sample.txt', table_name := 'adjustments')
+     EXCEPT ALL
+     SELECT * EXCLUDE (segment) FROM read_835('__TEST_DIR__/copy_options.835', table_name := 'adjustments'))
+    UNION ALL
+    (SELECT * EXCLUDE (segment) FROM read_835('__TEST_DIR__/copy_options.835', table_name := 'adjustments')
+     EXCEPT ALL
+     SELECT * EXCLUDE (segment) FROM read_835('../oxedi_core/tests/fixtures/balanced_5010_sample.txt', table_name := 'adjustments')));
+----
+0
+
+query I
+SELECT count(*) FROM (
+    (SELECT * EXCLUDE (segment) FROM read_835('../oxedi_core/tests/fixtures/balanced_5010_sample.txt', table_name := 'provider_adjustments')
+     EXCEPT ALL
+     SELECT * EXCLUDE (segment) FROM read_835('__TEST_DIR__/copy_options.835', table_name := 'provider_adjustments'))
+    UNION ALL
+    (SELECT * EXCLUDE (segment) FROM read_835('__TEST_DIR__/copy_options.835', table_name := 'provider_adjustments')
+     EXCEPT ALL
+     SELECT * EXCLUDE (segment) FROM read_835('../oxedi_core/tests/fixtures/balanced_5010_sample.txt', table_name := 'provider_adjustments')));
+----
+0
+
+# ---- sources: a view (above), a TEMP table, several rows, the caller's open transaction ----
+
+statement ok
+CREATE TEMP TABLE temp_tables AS SELECT * FROM tables_5010;
+
+statement ok
+COPY temp_tables TO '__TEST_DIR__/copy_temp.835' (FORMAT edi835, sender_id 'SENDER', receiver_id 'RECEIVER', date '2024-01-02', time '10:30');
+
+query I
+SELECT (SELECT md5(content) FROM read_blob('__TEST_DIR__/copy_ref.835')) = (SELECT md5(content) FROM read_blob('__TEST_DIR__/copy_temp.835'));
+----
+true
+
+# Several rows concatenate each table's lists in order; a NULL list adds nothing.
+
+statement ok
+COPY (
+    SELECT payments, list_slice(claims, 1, 2) AS claims, services, adjustments,
+           provider_adjustments
+    FROM tables_5010
+    UNION ALL
+    SELECT NULL, list_slice(claims, 3, 4), NULL, NULL, NULL FROM tables_5010
+) TO '__TEST_DIR__/copy_rows.835' (FORMAT edi835, sender_id 'SENDER', receiver_id 'RECEIVER', date '2024-01-02', time '10:30', preserve_order true);
+
+query I
+SELECT (SELECT md5(content) FROM read_blob('__TEST_DIR__/copy_ref.835')) = (SELECT md5(content) FROM read_blob('__TEST_DIR__/copy_rows.835'));
+----
+true
+
+statement ok
+BEGIN TRANSACTION;
+
+statement ok
+CREATE TABLE open_tables AS SELECT * FROM tables_5010;
+
+statement ok
+COPY open_tables TO '__TEST_DIR__/copy_transaction.835' (FORMAT edi835, sender_id 'SENDER', receiver_id 'RECEIVER', date '2024-01-02', time '10:30');
+
+statement ok
+ROLLBACK;
+
+query I
+SELECT (SELECT md5(content) FROM read_blob('__TEST_DIR__/copy_ref.835')) = (SELECT md5(content) FROM read_blob('__TEST_DIR__/copy_transaction.835'));
+----
+true
+
+# ---- input shapes: empty and NULL lists, NULL structs and fields, a table left out ----
+
+# Two columns of one table are refused, even when one is an empty list.
+
+statement error
+COPY (
+    SELECT payments, list_concat(claims, [NULL]) AS claims, services, adjustments,
+           provider_adjustments, []::STRUCT(claim_id VARCHAR)[] AS empty
+    FROM tables_5010
+) TO '__TEST_DIR__/copy_nulls.835' (FORMAT edi835, sender_id 'SENDER', receiver_id 'RECEIVER', date '2024-01-02', time '10:30');
+----
+edi835: input columns 2 and 6 both hold table "claims"; give each table once, with every row in one list
+
+# A NULL struct adds no row; an empty list and a NULL list add none either.
+
+statement ok
+COPY (
+    SELECT payments, list_concat(claims, [NULL]) AS claims, services, adjustments,
+           provider_adjustments
+    FROM tables_5010
+    UNION ALL
+    SELECT [], NULL, [], NULL, [] FROM tables_5010
+) TO '__TEST_DIR__/copy_nulls.835' (FORMAT edi835, sender_id 'SENDER', receiver_id 'RECEIVER', date '2024-01-02', time '10:30', preserve_order true);
+
+query I
+SELECT (SELECT md5(content) FROM read_blob('__TEST_DIR__/copy_ref.835')) = (SELECT md5(content) FROM read_blob('__TEST_DIR__/copy_nulls.835'));
+----
+true
+
+# A table left out has no rows: without its provider adjustments the payment no longer balances.
+
+statement error
+COPY (
+    SELECT payments, claims, services, adjustments FROM tables_5010
+) TO '__TEST_DIR__/copy_left_out.835' (FORMAT edi835, sender_id 'SENDER', receiver_id 'RECEIVER', date '2024-01-02', time '10:30');
+----
+edi835: the tables do not make a valid file (1 finding); nothing was written
+1. table "payments" row 0 column "total_payment_amount": SNIP 3 · balancing rule "transaction_balance" fails in loop "transaction" opened at segment #2: BPR02 of transaction "financial_information" is 690.00, but sum of CLP04 of 2100 "claim_payment_information" - sum of PLB04, PLB06, PLB08, PLB10, PLB12, PLB14 of transaction "provider_adjustment" adds up to 720.00 (off by -30.00); read from segments #3, #15, #34, #45, #52 · segment #3, element 2 · at interchange#1/group#1/transaction#1 · datum "690"
+
+# A NULL field is a null cell; a field left out is a null column. A null in the middle of a
+# segment is written as an empty element, which reads back as empty text.
+
+statement ok
+COPY (
+    SELECT payments,
+           list_transform(claims, c -> struct_update(c, rendering_provider_name := NULL::VARCHAR)) AS claims,
+           services, adjustments, provider_adjustments
+    FROM tables_5010
+) TO '__TEST_DIR__/copy_null_field.835' (FORMAT edi835, sender_id 'SENDER', receiver_id 'RECEIVER', date '2024-01-02', time '10:30');
+
+query I
+SELECT count(NULLIF(rendering_provider_name, '')) FROM read_835('__TEST_DIR__/copy_null_field.835');
+----
+0
+
+statement ok
+COPY (
+    SELECT payments,
+           (SELECT list(c ORDER BY c."row")
+            FROM (SELECT * EXCLUDE (rendering_provider_entity_type, rendering_provider_id,
+                                    rendering_provider_id_qualifier, rendering_provider_name)
+                  FROM read_835('../oxedi_core/tests/fixtures/balanced_5010_sample.txt')) c) AS claims,
+           services, adjustments, provider_adjustments
+    FROM tables_5010
+) TO '__TEST_DIR__/copy_few_fields.835' (FORMAT edi835, sender_id 'SENDER', receiver_id 'RECEIVER', date '2024-01-02', time '10:30');
+
+query TII
+SELECT claim_id, count(rendering_provider_id), count(rendering_provider_name)
+FROM read_835('__TEST_DIR__/copy_few_fields.835') GROUP BY claim_id ORDER BY claim_id;
+----
+CLM1001	0	0
+CLM1002	0	0
+CLM2001	0	0
+CLM2002	0	0
+
+# ---- input types: other widths, scales and text types write the same file ----
+
+statement ok
+COPY (
+    SELECT payments,
+           list_transform(claims, c -> struct_update(c,
+               "row" := c."row"::INTEGER,
+               payment := c.payment::HUGEINT,
+               claim_id := c.claim_id::BLOB,
+               charge_amount := c.charge_amount::DECIMAL(18, 3),
+               payment_amount := c.payment_amount::DECIMAL(9, 2),
+               statement_from := c.statement_from::TIMESTAMP)) AS claims,
+           list_transform(services, s -> struct_update(s,
+               "row" := s."row"::UTINYINT,
+               claim := s.claim::DOUBLE)) AS services,
+           adjustments, provider_adjustments
+    FROM tables_5010
+) TO '__TEST_DIR__/copy_types.835' (FORMAT edi835, sender_id 'SENDER', receiver_id 'RECEIVER', date '2024-01-02', time '10:30');
+
+query I
+SELECT (SELECT md5(content) FROM read_blob('__TEST_DIR__/copy_ref.835')) = (SELECT md5(content) FROM read_blob('__TEST_DIR__/copy_types.835'));
+----
+true
+
+# A value that would change is refused with its table, column and row.
+
+statement error
+COPY (
+    SELECT payments,
+           list_transform(claims, c -> struct_update(c,
+               charge_amount := c.charge_amount::DECIMAL(18, 3) + 0.001)) AS claims
+    FROM tables_5010
+) TO '__TEST_DIR__/copy_value.835' (FORMAT edi835, sender_id 'SENDER', receiver_id 'RECEIVER', date '2024-01-02', time '10:30');
+----
+edi835: table "claims" column "charge_amount" row 0: 300001 at scale 3 has more decimals than the column's scale 2
+
+statement error
+COPY (
+    SELECT payments,
+           list_transform(claims, c -> struct_update(c,
+               statement_from := c.statement_from::TIMESTAMP + INTERVAL 1 HOUR)) AS claims
+    FROM tables_5010
+) TO '__TEST_DIR__/copy_value.835' (FORMAT edi835, sender_id 'SENDER', receiver_id 'RECEIVER', date '2024-01-02', time '10:30');
+----
+edi835: table "claims" column "statement_from" row 0: timestamp 1704416400000000 is not at midnight; give dates
+
+statement error
+COPY (
+    SELECT payments,
+           list_transform(claims, c -> struct_update(c, payment := c.payment::HUGEINT + 9223372036854775808))
+               AS claims
+    FROM tables_5010
+) TO '__TEST_DIR__/copy_value.835' (FORMAT edi835, sender_id 'SENDER', receiver_id 'RECEIVER', date '2024-01-02', time '10:30');
+----
+edi835: table "claims" column "payment" row 0: 9223372036854775808 does not fit a 64-bit integer
+
+query I
+SELECT count(*) FROM glob('__TEST_DIR__/copy_value.835');
+----
+0
+
+# ---- strict: any finding fails the COPY with the full listing, and nothing is written ----
+
+statement error
+COPY (SELECT * FROM tables_multi) TO '__TEST_DIR__/copy_refused.835' (FORMAT edi835, sender_id 'SENDER', receiver_id 'RECEIVER', date '2024-01-02', time '10:30');
+----
+edi835: the tables do not make a valid file (5 findings); nothing was written
+1. table "services" row 0 column "procedure_qualifier" writes SVC01-1 with "HC:99213", which holds the component separator ":"; a value cannot hold the interchange's delimiters
+2. table "services" row 1 column "procedure_qualifier" writes SVC01-1 with "HC:99214", which holds the component separator ":"; a value cannot hold the interchange's delimiters
+3. table "services" row 2 column "procedure_qualifier" writes SVC01-1 with "HC:99213", which holds the component separator ":"; a value cannot hold the interchange's delimiters
+4. table "services" row 3 column "procedure_qualifier" writes SVC01-1 with "HC:99214", which holds the component separator ":"; a value cannot hold the interchange's delimiters
+5. table "services" row 4 column "procedure_qualifier" writes SVC01-1 with "HC:99215", which holds the component separator ":"; a value cannot hold the interchange's delimiters
+
+query I
+SELECT count(*) FROM glob('__TEST_DIR__/copy_refused.835');
+----
+0
+
+# The writer's own refusals read as in Python: here the delimiters leave out the repetition
+# separator the 5010 interchange header carries.
+
+statement error
+COPY (SELECT * FROM tables_5010) TO '__TEST_DIR__/copy_refused.835'
+    (FORMAT edi835, sender_id 'SENDER', receiver_id 'RECEIVER', date '2024-01-02', time '10:30', delimiters {'element': '|'});
+----
+edi835: the interchange header carries a repetition separator, but the envelope field "delimiters.repetition" is not set
+
+# ---- the target file ----
+
+# A refusal leaves an existing file as it was.
+
+statement ok
+COPY (SELECT * FROM tables_5010) TO '__TEST_DIR__/copy_kept.835' (FORMAT edi835, sender_id 'SENDER', receiver_id 'RECEIVER', date '2024-01-02', time '10:30');
+
+statement error
+COPY (SELECT * FROM tables_multi) TO '__TEST_DIR__/copy_kept.835' (FORMAT edi835, sender_id 'SENDER', receiver_id 'RECEIVER', date '2024-01-02', time '10:30');
+----
+edi835: the tables do not make a valid file (5 findings); nothing was written
+
+query I
+SELECT (SELECT md5(content) FROM read_blob('__TEST_DIR__/copy_ref.835')) = (SELECT md5(content) FROM read_blob('__TEST_DIR__/copy_kept.835'));
+----
+true
+
+# A successful COPY replaces an existing file whole (DuckDB writes a temporary file and moves it).
+
+statement ok
+COPY (SELECT * FROM tables_4010) TO '__TEST_DIR__/copy_kept.835' (FORMAT edi835, sender_id 'SENDER', receiver_id 'RECEIVER', date '2024-01-02', time '10:30', version '4010');
+
+query I
+SELECT (SELECT md5(content) FROM read_blob('__TEST_DIR__/copy_4010.835')) = (SELECT md5(content) FROM read_blob('__TEST_DIR__/copy_kept.835'));
+----
+true
+
+# Without the temporary file (USE_TMP_FILE false, or a remote path) the file is written from its
+# first byte: an existing file no longer than the new content is replaced whole.
+
+statement ok
+COPY (SELECT * FROM tables_5010) TO '__TEST_DIR__/copy_kept.835'
+    (FORMAT edi835, sender_id 'SENDER', receiver_id 'RECEIVER', date '2024-01-02', time '10:30', use_tmp_file false);
+
+query I
+SELECT (SELECT md5(content) FROM read_blob('__TEST_DIR__/copy_ref.835')) = (SELECT md5(content) FROM read_blob('__TEST_DIR__/copy_kept.835'));
+----
+true
+
+# A longer one cannot be truncated through the C API, so it is refused. DuckDB then removes the
+# target of the failed COPY, as it does for every format.
+
+statement error
+COPY (SELECT * FROM tables_4010) TO '__TEST_DIR__/copy_kept.835'
+    (FORMAT edi835, sender_id 'SENDER', receiver_id 'RECEIVER', date '2024-01-02', time '10:30', version '4010', use_tmp_file false);
+----
+<REGEX>:.*edi835: ".*copy_kept\.835" could not be opened for writing: it already holds 1450 bytes, more than the 1404 to write, and DuckDB's file system cannot truncate a file from an extension; remove it first, or leave USE_TMP_FILE at its default.*
+
+query I
+SELECT count(*) FROM glob('__TEST_DIR__/copy_kept.835');
+----
+0
+
+statement error
+COPY (SELECT * FROM tables_5010) TO '__TEST_DIR__/no_such_directory/out.835' (FORMAT edi835, sender_id 'SENDER', receiver_id 'RECEIVER', date '2024-01-02', time '10:30');
+----
+<REGEX>:.*edi835: ".*no_such_directory/out\.835" could not be opened for writing: .*
+
+# One file per COPY: DuckDB handles PARTITION_BY and PER_THREAD_OUTPUT before the format sees
+# them, so the format refuses the second file DuckDB asks for. Output that makes a single file
+# (one partition, one thread) is not detected. DuckDB removes the partition files it created; with
+# PER_THREAD_OUTPUT the file written before the refusal stays.
+
+statement error
+COPY (SELECT 1 AS part, * FROM tables_5010 UNION ALL SELECT 2, * FROM tables_5010)
+TO '__TEST_DIR__/copy_parts.835' (FORMAT edi835, sender_id 'SENDER', receiver_id 'RECEIVER', date '2024-01-02', time '10:30', partition_by (part), overwrite true);
+----
+<REGEX>:.*edi835: the COPY asks for a second file, ".*copy_parts\.835.*part=2.*", but the format writes all the rows as one interchange in one file; PARTITION_BY and PER_THREAD_OUTPUT do not apply.*
+
+query I
+SELECT count(*) FROM glob('__TEST_DIR__/copy_parts.835/*/*');
+----
+0
+
+statement error
+COPY (SELECT * FROM tables_5010 UNION ALL SELECT * FROM tables_5010)
+TO '__TEST_DIR__/copy_threads.835' (FORMAT edi835, sender_id 'SENDER', receiver_id 'RECEIVER', date '2024-01-02', time '10:30', per_thread_output true, overwrite true);
+----
+<REGEX>:.*edi835: the COPY asks for a second file, ".*copy_threads\.835.*", but the format writes all the rows as one interchange in one file; PARTITION_BY and PER_THREAD_OUTPUT do not apply.*

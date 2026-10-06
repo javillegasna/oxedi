@@ -38,6 +38,18 @@ pub enum ReadError {
         /// The versions of the built-in specs.
         known: Vec<&'static str>,
     },
+    /// A glob pattern matched no file.
+    NoFiles {
+        /// The pattern as given.
+        pattern: String,
+    },
+    /// DuckDB could not expand a glob pattern.
+    Glob {
+        /// The pattern as given.
+        pattern: String,
+        /// DuckDB's message.
+        message: String,
+    },
     /// DuckDB's file system could not open a file.
     Open {
         /// The path as given or expanded.
@@ -137,6 +149,13 @@ impl fmt::Display for ReadError {
                 f,
                 "{FUNCTION}: unknown version {version:?}; version must be one of {}",
                 quoted(known)
+            ),
+            ReadError::NoFiles { pattern } => {
+                write!(f, "{FUNCTION}: no file matches the pattern {pattern:?}")
+            }
+            ReadError::Glob { pattern, message } => write!(
+                f,
+                "{FUNCTION}: the pattern {pattern:?} could not be expanded: {message}"
             ),
             ReadError::Open { file, message } => {
                 write!(f, "{FUNCTION}: {file:?} could not be opened: {message}")

@@ -1,6 +1,13 @@
 //! Reading whole files through the file system of the query's client
 //! context, so every path DuckDB can open (local, `s3://`, `https://`, ...)
 //! works and nothing here touches the operating system directly.
+//!
+//! - `mod.rs`: [`FileSystem`], opening and reading one file.
+//! - `glob.rs`: expanding glob patterns into the files they match.
+
+mod glob;
+
+pub use glob::resolve;
 
 use std::ffi::{CStr, CString};
 
@@ -171,3 +178,6 @@ fn take_error(mut error: ffi::duckdb_error_data) -> String {
     unsafe { ffi::duckdb_destroy_error_data(&mut error) };
     message
 }
+
+#[cfg(test)]
+mod tests;

@@ -164,3 +164,24 @@ fn internal() {
 fn only_parse_has_a_source() {
     assert!(ReadError::EmptyPathList.source().is_none());
 }
+
+#[test]
+fn no_files() {
+    assert_eq!(
+        text(ReadError::NoFiles {
+            pattern: "data/*.835".to_owned()
+        }),
+        "read_835: no file matches the pattern \"data/*.835\""
+    );
+}
+
+#[test]
+fn glob() {
+    assert_eq!(
+        text(ReadError::Glob {
+            pattern: "s3://bucket/*.835".to_owned(),
+            message: "HTTP 403".to_owned(),
+        }),
+        "read_835: the pattern \"s3://bucket/*.835\" could not be expanded: HTTP 403"
+    );
+}

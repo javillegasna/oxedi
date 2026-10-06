@@ -1,0 +1,110 @@
+# name: test/sql/read_835_tables.test
+# description: every table of one 5010 sample (united) and one 4010 sample (eyemed): row counts,
+#              column types and exact values, equal to oxedi835.parse_file
+# group: [oxedi]
+
+require oxedi
+
+# ---- payments ----
+
+query IRTTTT
+SELECT count(*), sum(total_payment_amount), min(payment_date), min(production_date),
+       min(trace_number), min(payer_name)
+FROM read_835('../edi835_core/tests/samples/edi835_test_united.rmt', "table" := 'payments');
+----
+1	173305.00	2022-09-07	2022-09-01	302396000	HARBOR EYE CARE
+
+query IRTTT
+SELECT count(*), sum(total_payment_amount), min(payment_date), min(trace_number), min(payer_name)
+FROM read_835('../edi835_core/tests/samples/edi835_test_eyemed.RMT', "table" := 'payments');
+----
+1	8982.00	2024-01-08	51621440131398625793	COASTAL BENEFITS CO
+
+# ---- claims (the default table) ----
+
+query IRRI
+SELECT count(*), sum(charge_amount), sum(payment_amount), count(statement_from)
+FROM read_835('../edi835_core/tests/samples/edi835_test_united.rmt');
+----
+1332	252640.00	173305.00	0
+
+query TRRTT
+SELECT claim_id, charge_amount, payment_amount, statement_from, patient_last_name
+FROM read_835('../edi835_core/tests/samples/edi835_test_eyemed.RMT', "table" := 'claims')
+ORDER BY "row"
+LIMIT 1;
+----
+5074220218633018656	395.00	136.00	2024-01-05	IBARRA
+
+query IRRI
+SELECT count(*), sum(charge_amount), sum(payment_amount), count(statement_from)
+FROM read_835('../edi835_core/tests/samples/edi835_test_eyemed.RMT');
+----
+82	16447.40	8982.00	82
+
+# ---- services: 6192 rows span several DuckDB vectors ----
+
+query IRRTT
+SELECT count(*), sum(charge_amount), sum(payment_amount), min(service_date), max(service_date)
+FROM read_835('../edi835_core/tests/samples/edi835_test_united.rmt', "table" := 'services');
+----
+6192	252640.00	173305.00	2021-12-30	2022-09-01
+
+query I
+SELECT count(DISTINCT "row") FROM read_835('../edi835_core/tests/samples/edi835_test_united.rmt', "table" := 'services');
+----
+6192
+
+query IRRTT
+SELECT count(*), sum(charge_amount), sum(payment_amount), min(service_date), max(service_date)
+FROM read_835('../edi835_core/tests/samples/edi835_test_eyemed.RMT', "table" := 'services');
+----
+414	16447.40	8982.00	NULL	NULL
+
+# ---- adjustments ----
+
+query IRI
+SELECT count(*), sum(amount), count(DISTINCT group_code)
+FROM read_835('../edi835_core/tests/samples/edi835_test_united.rmt', "table" := 'adjustments');
+----
+2370	79335.00	3
+
+query IRI
+SELECT count(*), sum(amount), count(DISTINCT group_code)
+FROM read_835('../edi835_core/tests/samples/edi835_test_eyemed.RMT', "table" := 'adjustments');
+----
+105	7465.40	1
+
+# ---- provider_adjustments: no sample has any, the columns are still typed ----
+
+query I
+SELECT count(*) FROM read_835('../edi835_core/tests/samples/edi835_test_united.rmt', "table" := 'provider_adjustments');
+----
+0
+
+query I
+SELECT count(*) FROM read_835('../edi835_core/tests/samples/edi835_test_eyemed.RMT', "table" := 'provider_adjustments');
+----
+0
+
+query TT
+SELECT column_name, column_type
+FROM (DESCRIBE SELECT * FROM read_835('../edi835_core/tests/samples/edi835_test_united.rmt', "table" := 'provider_adjustments'));
+----
+row	BIGINT
+segment	BIGINT
+payment	BIGINT
+amount	DECIMAL(38,2)
+fiscal_period_date	DATE
+provider_id	VARCHAR
+reason_code	VARCHAR
+reference_id	VARCHAR
+
+# ---- binary := true turns text columns into BLOB ----
+
+query TT
+SELECT typeof(claim_id), typeof(charge_amount)
+FROM read_835('../edi835_core/tests/samples/edi835_test_eyemed.RMT', binary := true)
+LIMIT 1;
+----
+BLOB	DECIMAL(38,2)

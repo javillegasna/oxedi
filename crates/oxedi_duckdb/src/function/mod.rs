@@ -11,7 +11,7 @@ use duckdb::ffi;
 
 use crate::builtins::Builtins;
 use crate::error::{FUNCTION, ReadError};
-use crate::files::FileSystem;
+use crate::files::{self, FileSystem};
 use crate::options::{NAMED, Options};
 use crate::scan::{Bound, Scan};
 use crate::schema::{self, SqlType};
@@ -179,8 +179,9 @@ unsafe fn bind_with(info: ffi::duckdb_bind_info) -> Result<(), ReadError> {
     let file_system = unsafe { FileSystem::of_bind(info) }.ok_or_else(|| ReadError::Internal {
         message: "the client context has no file system".to_owned(),
     })?;
+    let files = files::resolve(&options.paths)?;
     let bound = Bound {
-        files: options.paths,
+        files,
         file_system,
         builtins: Arc::clone(builtins),
         table: table.name.clone(),

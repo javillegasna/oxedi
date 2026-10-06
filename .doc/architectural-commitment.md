@@ -1814,8 +1814,8 @@ de Python no cambian.
   un solo archivo se escribe normal); una opción que llega y no aplica (por ejemplo `COMPRESSION`)
   es un error P10 que lo dice. El archivo de destino se abre solo después de una escritura sin
   hallazgos; con una ruta local y el archivo temporal de DuckDB (`USE_TMP_FILE`, por defecto) un
-  archivo existente queda intacto si el `COPY` falla, y en los demás casos DuckDB borra el destino
-  al fallar, como con cualquier formato. Sin estado
+  archivo existente queda intacto si el `COPY` falla, y en los demás casos lo que pase con el destino
+  al fallar lo decide DuckDB (según la versión puede borrarlo). Sin estado
   global: todo vive en el bind y en el estado global del `COPY`; ningún pánico cruza la frontera
   FFI.
 

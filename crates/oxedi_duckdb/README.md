@@ -107,7 +107,7 @@ table, row and column, and nothing is written. There is no `allow_findings` here
 - An existing file is left untouched when the `COPY` fails only for a local path written
   with DuckDB's default temporary file. Without it (`USE_TMP_FILE false`, or a path that is not
   local) the file is written over from its first byte, an existing file longer than the new
-  content is refused ("remove it first") and DuckDB removes the target of any failed `COPY`.
+  content is refused ("remove it first") and what happens to the target of a failed `COPY` is up to DuckDB (some versions remove it).
 - A bare `NULL` inside a struct is typed `INTEGER` by DuckDB and a text column refuses it;
   write `NULL::VARCHAR` (or the column's type).
 - Accepted types, per column of the spec: text takes `VARCHAR`, `ENUM` or `BLOB`; an integer

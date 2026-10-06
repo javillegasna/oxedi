@@ -9,8 +9,8 @@
 //! the finalize writes, and opens the target only after the writer
 //! accepted the tables, so a refusal does not open it. What DuckDB then
 //! does with a target of a failed `COPY` is its own: with a local path and
-//! its temporary file an existing file stays as it was; otherwise DuckDB
-//! removes the target. Every callback catches panics, so none unwinds into
+//! its temporary file an existing file stays as it was; otherwise it may
+//! remove the target depending on its version. Every callback catches panics,
 //! DuckDB.
 //!
 //! - `mod.rs`: registration and the bind, init, sink and finalize callbacks.

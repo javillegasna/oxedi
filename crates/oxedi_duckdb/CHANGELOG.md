@@ -7,7 +7,12 @@ and the extension has its own version.
 
 ## [Unreleased]
 
+## [0.1.0] - 2026-10-05
+
 ### Added
-- The DuckDB extension `oxedi`: `read_835(...)` returns the payments, claims, services,
-  adjustments, provider adjustments and diagnostics tables in SQL. It is not yet published to
-  the community repository.
+- The DuckDB extension `oxedi`, installed with `INSTALL oxedi FROM community; LOAD oxedi;`:
+  `read_835(...)` returns the payments, claims, services, adjustments, provider adjustments and
+  diagnostics tables in SQL.
+
+[Unreleased]: https://github.com/javillegasna/oxedi835/compare/duckdb-v0.1.0...HEAD
+[0.1.0]: https://github.com/javillegasna/oxedi835/releases/tag/duckdb-v0.1.0

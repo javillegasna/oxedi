@@ -164,11 +164,12 @@ release-check: ## fail unless TAG is v<version>, the tree is clean and CHANGELOG
 	@grep -qE '^## \[$(subst .,\.,$(VERSION))\]' CHANGELOG.md || { echo "release-check: CHANGELOG.md has no '## [$(VERSION)]' section"; exit 1; }
 	@echo "release-check: ok ($(TAG))"
 
-duckdb-release-check: ## fail unless TAG is duckdb-v<extension version>, the tree is clean, the descriptor matches and the extension CHANGELOG.md has the version
+duckdb-release-check: ## fail unless TAG is duckdb-v<extension version>, the tree is clean, HEAD is on origin/master, the descriptor matches and the extension CHANGELOG.md has the version
 	@test -n "$(TAG)" || { echo "usage: make duckdb-release-check TAG=duckdb-v<version>"; exit 1; }
 	@test -n "$(DUCKDB_VERSION)" || { echo "duckdb-release-check: no version in $(EXT_DIR)/Cargo.toml"; exit 1; }
 	@test "$(TAG)" = "duckdb-v$(DUCKDB_VERSION)" || { echo "duckdb-release-check: tag $(TAG) differs from duckdb-v$(DUCKDB_VERSION) ($(EXT_DIR)/Cargo.toml version $(DUCKDB_VERSION))"; exit 1; }
 	@test -z "$$(git status --porcelain)" || { echo "duckdb-release-check: the working tree is not clean"; git status --short; exit 1; }
+	@git merge-base --is-ancestor HEAD origin/master || { echo "duckdb-release-check: HEAD is not on origin/master (run git fetch first; the check uses the local origin/master)"; exit 1; }
 	@$(MAKE) --no-print-directory duckdb-version-check
 	@grep -qE '^## \[$(subst .,\.,$(DUCKDB_VERSION))\]' $(EXT_DIR)/CHANGELOG.md || { echo "duckdb-release-check: $(EXT_DIR)/CHANGELOG.md has no '## [$(DUCKDB_VERSION)]' section"; exit 1; }
 	@echo "duckdb-release-check: ok ($(TAG))"

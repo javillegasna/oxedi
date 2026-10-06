@@ -186,7 +186,7 @@ unsafe fn bind_with(info: ffi::duckdb_bind_info) -> Result<(), ReadError> {
     let file_system = context
         .file_system()
         .ok_or_else(|| no_context("file system"))?;
-    let files = files::resolve(&options.paths, &CallerSettings::of(&context))?;
+    let files = files::resolve(&options.paths, &CallerSettings::of(&context), &file_system)?;
     let bound = Bound {
         files,
         file_system,

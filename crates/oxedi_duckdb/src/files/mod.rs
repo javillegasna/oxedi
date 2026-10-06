@@ -71,6 +71,39 @@ impl FileSystem {
         file.read_to_end(path)
     }
 
+    /// DuckDB's message when this file system refuses `path` outright (a
+    /// permission error, such as a file system the caller disabled), found
+    /// by trying to open it; `None` when it does not, whether or not the
+    /// path exists.
+    pub fn refuses(&self, path: &str) -> Option<String> {
+        let c_path = CString::new(path).ok()?;
+        let options = OpenOptions::read()?;
+        let mut handle: ffi::duckdb_file_handle = std::ptr::null_mut();
+        // SAFETY: the file system, path and options are live handles; DuckDB
+        // writes a new file handle (or null) into `handle`.
+        let state = unsafe {
+            ffi::duckdb_file_system_open(self.0, c_path.as_ptr(), options.0, &mut handle)
+        };
+        if state == ffi::duckdb_state_DuckDBSuccess && !handle.is_null() {
+            drop(FileHandle(handle));
+            return None;
+        }
+        // SAFETY: the file system handle is live; the error data it returns
+        // is owned here and released by `take_error`.
+        let mut error = unsafe { ffi::duckdb_file_system_error_data(self.0) };
+        // SAFETY: `error` is null or a live error data handle.
+        let permission = !error.is_null()
+            && unsafe { ffi::duckdb_error_data_error_type(error) }
+                == ffi::duckdb_error_type_DUCKDB_ERROR_PERMISSION;
+        if permission {
+            Some(take_error(error))
+        } else {
+            // SAFETY: `error` is null or was created by DuckDB; destroyed once.
+            unsafe { ffi::duckdb_destroy_error_data(&mut error) };
+            None
+        }
+    }
+
     fn open(&self, path: &str) -> Result<FileHandle, ReadError> {
         let open_error = |message: String| ReadError::Open {
             file: path.to_owned(),

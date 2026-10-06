@@ -5,12 +5,22 @@
 //! extension load would keep that database alive for the life of the
 //! process. A pattern is therefore expanded by a private in-memory DuckDB
 //! opened for the bind and closed after it. That database follows the
-//! caller's settings: with `enable_external_access` off no pattern is
-//! expanded at all; otherwise it copies the caller's allowed directories and
-//! paths, extension autoinstall and autoload, and its persistent-secret
-//! settings (`allow_persistent_secrets`, `secret_directory`), so a remote
-//! pattern lists files with the caller's persistent secrets and no other
-//! ones. Temporary secrets (`CREATE SECRET` without `PERSISTENT`) live in the
+//! caller's settings: with `enable_external_access` off (or unreadable) no
+//! pattern is expanded at all. DuckDB does not report `disabled_filesystems`
+//! (reading the setting always gives an empty string), so before a pattern
+//! is expanded it is opened through the caller's file system: a permission
+//! error there (a file system the caller disabled) refuses the pattern. This
+//! costs one open attempt per pattern, a request for a remote one.
+//! Otherwise the private database copies the caller's extension settings
+//! (autoinstall, autoload, directory, repositories) and its
+//! persistent-secret settings
+//! (`allow_persistent_secrets`, `secret_directory`), so a remote pattern
+//! lists files with the caller's persistent secrets and no other ones.
+//!
+//! `allowed_directories` and `allowed_paths` are copied too, but they only
+//! mirror the caller: DuckDB enforces them only while external access is
+//! off, and the private database is opened only when it is on, so there
+//! they restrict nothing. Temporary secrets (`CREATE SECRET` without `PERSISTENT`) live in the
 //! caller's database only and do not reach the private one. The files
 //! themselves are read through the caller's file system.
 
@@ -19,20 +29,24 @@ use std::ffi::{CStr, CString, c_char};
 use libduckdb_sys as ffi;
 
 use crate::error::ReadError;
-use crate::files::ClientContext;
+use crate::files::{ClientContext, FileSystem};
 use crate::value::Value;
 
-/// The caller's settings the private database is opened with.
-const CONFIGURED: [&str; 4] = [
+/// The caller's settings the private database is opened with, when set to
+/// something other than an empty string.
+const CONFIGURED: [&str; 7] = [
     "autoinstall_known_extensions",
     "autoload_known_extensions",
+    "extension_directory",
+    "autoinstall_extension_repository",
+    "custom_extension_repository",
     "allow_persistent_secrets",
     "secret_directory",
 ];
 
 /// The caller's list settings the private database takes once started:
 /// DuckDB refuses them in the configuration it opens with.
-const SET_AFTER_START: [&str; 2] = ["allowed_directories", "allowed_paths"];
+const LISTS_AFTER_START: [&str; 2] = ["allowed_directories", "allowed_paths"];
 
 /// The query that lists the files a pattern matches.
 const GLOB_QUERY: &CStr = c"SELECT file FROM glob($1) ORDER BY file";
@@ -54,8 +68,8 @@ pub struct CallerSettings {
     pub external_access: bool,
     /// Each configured setting the caller has, as configuration text.
     pub configured: Vec<(&'static str, String)>,
-    /// Each non-empty list setting the caller has, as an SQL list literal.
-    pub lists: Vec<(&'static str, String)>,
+    /// Each non-empty setting set once started, as an SQL literal.
+    pub after_start: Vec<(&'static str, String)>,
 }
 
 impl CallerSettings {
@@ -74,16 +88,18 @@ impl CallerSettings {
             }
         };
         CallerSettings {
-            external_access: setting("enable_external_access").is_none_or(|v| v.boolean()),
+            external_access: setting("enable_external_access").is_some_and(|v| v.boolean()),
             configured: CONFIGURED
                 .iter()
-                .filter_map(|name| setting(name).map(|value| (*name, value.text())))
+                .filter_map(|name| {
+                    let text = setting(name)?.text();
+                    (!text.is_empty()).then_some((*name, text))
+                })
                 .collect(),
-            lists: SET_AFTER_START
+            after_start: LISTS_AFTER_START
                 .iter()
                 .filter_map(|name| {
-                    let value = setting(name)?;
-                    let items = value.list();
+                    let items = setting(name)?.list();
                     (!items.is_empty()).then(|| (*name, list_literal(&items)))
                 })
                 .collect(),
@@ -91,19 +107,39 @@ impl CallerSettings {
     }
 }
 
+/// Text as an SQL string literal: `'b''c'`.
+fn string_literal(text: &str) -> String {
+    format!("'{}'", text.replace('\'', "''"))
+}
+
 /// List items as an SQL list literal of strings: `['a', 'b''c']`.
 fn list_literal(items: &[Option<Value>]) -> String {
     let items: Vec<String> = items
         .iter()
         .flatten()
-        .map(|item| format!("'{}'", item.text().replace('\'', "''")))
+        .map(|item| string_literal(&item.text()))
         .collect();
     format!("[{}]", items.join(", "))
 }
 
+/// A matched file name as text; one that is not UTF-8 is refused with its
+/// bytes escaped.
+pub fn file_name(bytes: &[u8]) -> Result<String, String> {
+    std::str::from_utf8(bytes).map(str::to_owned).map_err(|_| {
+        format!(
+            "a matched file name is not valid UTF-8: b\"{}\"",
+            bytes.escape_ascii()
+        )
+    })
+}
+
 /// Every path of `paths`, with each pattern replaced by the files it
 /// matches, sorted. A pattern that matches nothing is an error.
-pub fn resolve(paths: &[String], settings: &CallerSettings) -> Result<Vec<String>, ReadError> {
+pub fn resolve(
+    paths: &[String],
+    settings: &CallerSettings,
+    file_system: &FileSystem,
+) -> Result<Vec<String>, ReadError> {
     let mut files = Vec::with_capacity(paths.len());
     let mut globber: Option<Private> = None;
     for path in paths {
@@ -114,6 +150,12 @@ pub fn resolve(paths: &[String], settings: &CallerSettings) -> Result<Vec<String
         if !settings.external_access {
             return Err(ReadError::PatternWithoutExternalAccess {
                 pattern: path.clone(),
+            });
+        }
+        if let Some(message) = file_system.refuses(path) {
+            return Err(ReadError::Glob {
+                pattern: path.clone(),
+                message,
             });
         }
         let private = match globber.as_ref() {
@@ -175,9 +217,9 @@ impl Private {
         {
             return Err(failed("no connection to the private database".to_owned()));
         }
-        for (name, list) in &settings.lists {
+        for (name, literal) in &settings.after_start {
             private
-                .execute(&format!("SET {name} = {list}"))
+                .execute(&format!("SET {name} = {literal}"))
                 .map_err(failed)?;
         }
         Ok(private)
@@ -358,7 +400,7 @@ impl Chunk {
                 let length = ffi::duckdb_string_t_length(*string) as usize;
                 let start = ffi::duckdb_string_t_data(string).cast::<u8>();
                 let bytes = std::slice::from_raw_parts(start, length);
-                values.push(String::from_utf8_lossy(bytes).into_owned());
+                values.push(file_name(bytes)?);
             }
         }
         Ok(())

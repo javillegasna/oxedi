@@ -357,7 +357,7 @@ statement ok
 COPY (
     SELECT {'payments': payments, 'claims': claims, 'services': services, 'adjustments': adjustments, 'provider_adjustments': provider_adjustments} FROM (
         SELECT payments,
-               list_transform(claims, c -> struct_update(c, rendering_provider_name := NULL::VARCHAR)) AS claims,
+               list_transform(claims, lambda c: struct_update(c, rendering_provider_name := NULL::VARCHAR)) AS claims,
                services, adjustments, provider_adjustments
         FROM parts_5010
     )
@@ -396,7 +396,7 @@ statement ok
 COPY (
     SELECT {'payments': payments, 'claims': claims, 'services': services, 'adjustments': adjustments, 'provider_adjustments': provider_adjustments} FROM (
         SELECT payments,
-               list_transform(claims, c -> struct_update(c,
+               list_transform(claims, lambda c: struct_update(c,
                    "row" := c."row"::INTEGER,
                    payment := c.payment::HUGEINT,
                    claim_id := c.claim_id::BLOB,
@@ -404,7 +404,7 @@ COPY (
                    charge_amount := c.charge_amount::DECIMAL(18, 3),
                    payment_amount := c.payment_amount::DECIMAL(9, 2),
                    statement_from := c.statement_from::TIMESTAMP)) AS claims,
-               list_transform(services, s -> struct_update(s,
+               list_transform(services, lambda s: struct_update(s,
                    "row" := s."row"::UTINYINT,
                    claim := s.claim::DOUBLE)) AS services,
                adjustments, provider_adjustments
@@ -423,7 +423,7 @@ statement error
 COPY (
     SELECT {'payments': payments, 'claims': claims} FROM (
         SELECT payments,
-               list_transform(claims, c -> struct_update(c,
+               list_transform(claims, lambda c: struct_update(c,
                    charge_amount := c.charge_amount::DECIMAL(18, 3) + 0.001)) AS claims
         FROM parts_5010
     )
@@ -435,7 +435,7 @@ statement error
 COPY (
     SELECT {'payments': payments, 'claims': claims} FROM (
         SELECT payments,
-               list_transform(claims, c -> struct_update(c,
+               list_transform(claims, lambda c: struct_update(c,
                    statement_from := c.statement_from::TIMESTAMP + INTERVAL 1 HOUR)) AS claims
         FROM parts_5010
     )
@@ -447,7 +447,7 @@ statement error
 COPY (
     SELECT {'payments': payments, 'claims': claims} FROM (
         SELECT payments,
-               list_transform(claims, c -> struct_update(c, payment := c.payment::HUGEINT + 9223372036854775808))
+               list_transform(claims, lambda c: struct_update(c, payment := c.payment::HUGEINT + 9223372036854775808))
                    AS claims
         FROM parts_5010
     )

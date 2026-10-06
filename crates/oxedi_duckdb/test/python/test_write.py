@@ -109,6 +109,7 @@ def test_copy_equals_oxedi_write(
     try:
         expected = python_write(path, version, extra)
     except oxedi.WriteError as refused:
+        assert pair in outcomes()["refused"]
         with pytest.raises(duckdb.Error) as failed:
             con.execute(statement)
         assert str(refused) in str(failed.value)

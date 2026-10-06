@@ -148,7 +148,7 @@ fn column_count() {
     assert_eq!(
         text(CopyError::ColumnCount { found: 2 }),
         "edi835: the query returns 2 columns; it must return one, a STRUCT with one field per \
-         table, such as SELECT {'claims': (SELECT list(c) FROM claims c)}"
+         table, such as SELECT {'claims': (SELECT list(c ORDER BY c.\"row\") FROM claims c)}"
     );
 }
 
@@ -159,7 +159,7 @@ fn not_struct() {
             found: "STRUCT(row BIGINT)[]".to_owned(),
         }),
         "edi835: the query's column is STRUCT(row BIGINT)[]; it must be a STRUCT with one field \
-         per table, such as SELECT {'claims': (SELECT list(c) FROM claims c)}"
+         per table, such as SELECT {'claims': (SELECT list(c ORDER BY c.\"row\") FROM claims c)}"
     );
 }
 
@@ -171,7 +171,7 @@ fn not_rows() {
             found: "VARCHAR[]".to_owned(),
         }),
         "edi835: table \"claims\" is VARCHAR[]; it must be a list of structs holding the \
-         table's rows, such as (SELECT list(c) FROM claims c)"
+         table's rows, such as (SELECT list(c ORDER BY c.\"row\") FROM claims c)"
     );
 }
 

@@ -155,25 +155,25 @@ statement error
 COPY (SELECT list(c) AS claims, list(c) AS more FROM claims c) TO '__TEST_DIR__/options.835'
     (FORMAT edi835, sender_id 'SENDER', receiver_id 'RECEIVER', date '2024-01-02', time '10:30');
 ----
-edi835: the query returns 2 columns; it must return one, a STRUCT with one field per table, such as SELECT {'claims': (SELECT list(c) FROM claims c)}
+edi835: the query returns 2 columns; it must return one, a STRUCT with one field per table, such as SELECT {'claims': (SELECT list(c ORDER BY c."row") FROM claims c)}
 
 statement error
 COPY (SELECT list({'claim_id': c.claim_id}) AS claims FROM claims c) TO '__TEST_DIR__/options.835'
     (FORMAT edi835, sender_id 'SENDER', receiver_id 'RECEIVER', date '2024-01-02', time '10:30');
 ----
-edi835: the query's column is STRUCT(claim_id VARCHAR)[]; it must be a STRUCT with one field per table, such as SELECT {'claims': (SELECT list(c) FROM claims c)}
+edi835: the query's column is STRUCT(claim_id VARCHAR)[]; it must be a STRUCT with one field per table, such as SELECT {'claims': (SELECT list(c ORDER BY c."row") FROM claims c)}
 
 statement error
 COPY (SELECT 42 AS tables) TO '__TEST_DIR__/options.835'
     (FORMAT edi835, sender_id 'SENDER', receiver_id 'RECEIVER', date '2024-01-02', time '10:30');
 ----
-edi835: the query's column is INTEGER; it must be a STRUCT with one field per table, such as SELECT {'claims': (SELECT list(c) FROM claims c)}
+edi835: the query's column is INTEGER; it must be a STRUCT with one field per table, such as SELECT {'claims': (SELECT list(c ORDER BY c."row") FROM claims c)}
 
 statement error
 COPY (SELECT {'claims': list(c.claim_id)} FROM claims c) TO '__TEST_DIR__/options.835'
     (FORMAT edi835, sender_id 'SENDER', receiver_id 'RECEIVER', date '2024-01-02', time '10:30');
 ----
-edi835: table "claims" is VARCHAR[]; it must be a list of structs holding the table's rows, such as (SELECT list(c) FROM claims c)
+edi835: table "claims" is VARCHAR[]; it must be a list of structs holding the table's rows, such as (SELECT list(c ORDER BY c."row") FROM claims c)
 
 statement error
 COPY (SELECT {'claims': list(c), 'nope': list(c)} FROM claims c) TO '__TEST_DIR__/options.835'
@@ -195,6 +195,14 @@ TO '__TEST_DIR__/options.835'
     (FORMAT edi835, sender_id 'SENDER', receiver_id 'RECEIVER', date '2024-01-02', time '10:30');
 ----
 edi835: table "claims" field "charge_amount" is VARCHAR; the spec's column is decimal128(38, 2), which takes DECIMAL or an integer type
+
+statement error
+COPY (SELECT {'claims': list({'claim_id': 7})}
+      FROM claims c)
+TO '__TEST_DIR__/options.835'
+    (FORMAT edi835, sender_id 'SENDER', receiver_id 'RECEIVER', date '2024-01-02', time '10:30');
+----
+edi835: table "claims" field "claim_id" is INTEGER; the spec's column is binary, which takes VARCHAR, ENUM or BLOB
 
 statement error
 COPY (SELECT {'claims': list({'claim_id': c.claim_id, 'statement_from': c.statement_from::TIMESTAMPTZ})}

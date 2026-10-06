@@ -400,7 +400,7 @@ COPY (
                    "row" := c."row"::INTEGER,
                    payment := c.payment::HUGEINT,
                    claim_id := c.claim_id::BLOB,
-               claim_status := c.claim_status::ENUM('1', '2', '4'),
+                   claim_status := c.claim_status::ENUM('1', '2', '4'),
                    charge_amount := c.charge_amount::DECIMAL(18, 3),
                    payment_amount := c.payment_amount::DECIMAL(9, 2),
                    statement_from := c.statement_from::TIMESTAMP)) AS claims,

@@ -26,7 +26,7 @@ pub enum FieldType {
     Blob,
     /// An `ENUM`, its index stored as this unsigned integer; the field
     /// carries the dictionary.
-    Enum(Integer),
+    Enum(EnumIndex),
     /// An integer type.
     Integer(Integer),
     /// `FLOAT`.
@@ -50,6 +50,17 @@ pub enum FieldType {
     Timestamp(Unit),
     /// Any other type.
     Other,
+}
+
+/// The width of an `ENUM`'s index, always unsigned.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum EnumIndex {
+    /// `UTINYINT`.
+    U8,
+    /// `USMALLINT`.
+    U16,
+    /// `UINTEGER`.
+    U32,
 }
 
 /// The integer types, by how DuckDB stores them.
@@ -391,9 +402,9 @@ unsafe fn field_type(logical_type: ffi::duckdb_logical_type) -> FieldType {
         // SAFETY: the type is a live ENUM.
         ffi::DUCKDB_TYPE_DUCKDB_TYPE_ENUM => {
             match unsafe { ffi::duckdb_enum_internal_type(logical_type) } {
-                ffi::DUCKDB_TYPE_DUCKDB_TYPE_UTINYINT => FieldType::Enum(Integer::U8),
-                ffi::DUCKDB_TYPE_DUCKDB_TYPE_USMALLINT => FieldType::Enum(Integer::U16),
-                ffi::DUCKDB_TYPE_DUCKDB_TYPE_UINTEGER => FieldType::Enum(Integer::U32),
+                ffi::DUCKDB_TYPE_DUCKDB_TYPE_UTINYINT => FieldType::Enum(EnumIndex::U8),
+                ffi::DUCKDB_TYPE_DUCKDB_TYPE_USMALLINT => FieldType::Enum(EnumIndex::U16),
+                ffi::DUCKDB_TYPE_DUCKDB_TYPE_UINTEGER => FieldType::Enum(EnumIndex::U32),
                 _ => FieldType::Other,
             }
         }

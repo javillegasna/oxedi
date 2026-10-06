@@ -168,8 +168,8 @@ envelope. See [`crates/oxedi_duckdb`](crates/oxedi_duckdb/README.md#writing).
 ### From your own tables
 
 `oxedi.write` takes the spec's table and column names and nothing else. It tolerates a missing
-table (no rows), a missing column (null) and a column of a wider type (an integer for a big
-integer, a decimal of another scale that holds the value). It refuses a table or column that is
+table (no rows), a missing column (null) and a column of a narrower or compatible type (an
+integer for a big integer, a decimal of another scale that holds the value). It refuses a table or column that is
 not in the spec, floats for money, a value that would change in the conversion, and a file whose
 totals do not balance or that lacks a required element, each finding naming the table, row and
 column.
@@ -178,7 +178,11 @@ The spec's tables key their rows by position: `row` counts the rows of a table f
 `payment`, `claim` and `service` hold the `row` of the parent. If your tables have their own
 keys, number the rows with `with_row_index("row")`, bring the parents' `row` in with a join
 and drop your helper columns. Rows of one parent must be together and in their parents'
-order, and the adjustments of a claim (no `service`) come before those of its services:
+order, so sort each child table by the parent's `row` first, then by its own key (keep the
+table's order for ties), and the adjustments of a claim (no `service`) come before those of its
+services. Keep the `segment` column of `provider_adjustments` when you have one: adjustments with
+the same `segment` are written in one `PLB`, and without it all the adjustments of a payment share
+one `PLB`:
 
 ```python
 import polars as pl
@@ -188,23 +192,30 @@ import polars as pl
 # (pay_key): your tables, each with the spec's other columns
 payments = my_payments.sort("pay_key").with_row_index("row")
 claims = (
-    my_claims.sort("claim_key")
-    .join(payments.select("row", "pay_key"), on="pay_key")
+    my_claims.join(payments.select("row", "pay_key"), on="pay_key", maintain_order="left")
     .rename({"row": "payment"})
+    .sort("payment", "claim_key", maintain_order=True)
     .with_row_index("row")
 )
 claim_rows = claims.select(claim="row", payment="payment", claim_key="claim_key")
 services = (
-    my_services.sort("service_key").join(claim_rows, on="claim_key").with_row_index("row")
+    my_services.join(claim_rows, on="claim_key", maintain_order="left")
+    .sort("claim", "service_key", maintain_order=True)
+    .with_row_index("row")
 )
 adjustments = (
-    my_adjustments.join(claim_rows, on="claim_key")
-    .join(services.select(service="row", service_key="service_key"), on="service_key", how="left")
+    my_adjustments.join(claim_rows, on="claim_key", maintain_order="left")
+    .join(
+        services.select(service="row", service_key="service_key"),
+        on="service_key", how="left", maintain_order="left",
+    )
     .sort("claim", "service", nulls_last=False, maintain_order=True)
     .with_row_index("row")
 )
 provider_adjustments = (
-    my_provider_adjustments.join(payments.select(payment="row", pay_key="pay_key"), on="pay_key")
+    my_provider_adjustments.join(
+        payments.select(payment="row", pay_key="pay_key"), on="pay_key", maintain_order="left"
+    )
     .sort("payment", maintain_order=True)
     .with_row_index("row")
 )
@@ -228,7 +239,8 @@ extension's README has the same mapping in SQL with `row_number()` and joins.
 The same parser is available as a DuckDB extension, `oxedi`, so any DuckDB client can read
 835 files in SQL. It was accepted into DuckDB's community repository
 (duckdb/community-extensions#2937), but its community build failed on Windows on an
-OS-specific test text; the fix (extension 0.1.1, PR #120) is pending, and until it lands
+OS-specific test text; the fix (extension 0.1.2, PR #135) is built and green and waits for
+the maintainers to merge duckdb/community-extensions#2942; until then
 `INSTALL oxedi FROM community` is not available. See
 [`crates/oxedi_duckdb`](crates/oxedi_duckdb/README.md) for building it.
 

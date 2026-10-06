@@ -232,17 +232,17 @@ impl fmt::Display for CopyError {
             CopyError::ColumnCount { found } => write!(
                 f,
                 "{FORMAT}: the query returns {found} columns; it must return one, a STRUCT with \
-                 one field per table, such as SELECT {{'claims': (SELECT list(c) FROM claims c)}}"
+                 one field per table, such as SELECT {{'claims': (SELECT list(c ORDER BY c.\"row\") FROM claims c)}}"
             ),
             CopyError::NotStruct { found } => write!(
                 f,
                 "{FORMAT}: the query's column is {found}; it must be a STRUCT with one field per \
-                 table, such as SELECT {{'claims': (SELECT list(c) FROM claims c)}}"
+                 table, such as SELECT {{'claims': (SELECT list(c ORDER BY c.\"row\") FROM claims c)}}"
             ),
             CopyError::NotRows { table, found } => write!(
                 f,
                 "{FORMAT}: table {table:?} is {found}; it must be a list of structs holding the \
-                 table's rows, such as (SELECT list(c) FROM claims c)"
+                 table's rows, such as (SELECT list(c ORDER BY c.\"row\") FROM claims c)"
             ),
             CopyError::FieldType {
                 table,
@@ -298,7 +298,7 @@ impl fmt::Display for CopyError {
 /// The DuckDB types a column of the spec's type takes.
 pub fn accepted(kind: ColumnType) -> &'static str {
     match kind {
-        ColumnType::Binary => "VARCHAR or BLOB",
+        ColumnType::Binary => "VARCHAR, ENUM or BLOB",
         ColumnType::Int64 { .. } => "an integer type or a FLOAT or DOUBLE holding whole numbers",
         ColumnType::Decimal128 { .. } => "DECIMAL or an integer type",
         ColumnType::Date32 => "DATE, or TIMESTAMP at midnight",

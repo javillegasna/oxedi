@@ -12,7 +12,7 @@ use oxedi_core::{Cell, ColumnType, Table};
 
 use super::convert;
 use super::error::CopyError;
-use super::input::{BoundTable, FieldType, Integer, Unit};
+use super::input::{BoundTable, EnumIndex, FieldType, Integer, Unit};
 
 /// Appends the rows of `chunk` to `tables`, one per bound table.
 ///
@@ -263,10 +263,9 @@ impl Field<'_> {
                         std::slice::from_raw_parts(start, len)
                     })
                 }
-                FieldType::Enum(Integer::U8) => Raw::Key(at::<u8>(data, row).into()),
-                FieldType::Enum(Integer::U16) => Raw::Key(at::<u16>(data, row).into()),
-                FieldType::Enum(Integer::U32) => Raw::Key(at::<u32>(data, row)),
-                FieldType::Enum(_) => Raw::None,
+                FieldType::Enum(EnumIndex::U8) => Raw::Key(at::<u8>(data, row).into()),
+                FieldType::Enum(EnumIndex::U16) => Raw::Key(at::<u16>(data, row).into()),
+                FieldType::Enum(EnumIndex::U32) => Raw::Key(at::<u32>(data, row)),
                 FieldType::Integer(Integer::I8) => Raw::Signed(at::<i8>(data, row).into()),
                 FieldType::Integer(Integer::I16) => Raw::Signed(at::<i16>(data, row).into()),
                 FieldType::Integer(Integer::I32) => Raw::Signed(at::<i32>(data, row).into()),

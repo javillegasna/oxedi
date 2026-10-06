@@ -5,7 +5,8 @@
 R, Java, Node, Go, .NET, Rust, the CLI) gets it. It is built on DuckDB's stable C API and
 loads on DuckDB 1.5.6 and later. It is accepted in the community repository but not
 installable yet: its first community build failed on Windows on a test that pinned the
-operating system's error text, and the fixed release (0.1.1) is pending. Until then build it
+operating system's error text, and the fixed release (0.1.2, PR #135) is built and green and waits for the maintainers to merge
+duckdb/community-extensions#2942. Until then build it
 (below) and `LOAD` the file.
 
 ```sql
@@ -88,7 +89,7 @@ rows of the query concatenate into one interchange. A table left out has no rows
 | `usage_indicator` | `'P'` | `'P'` production or `'T'` test |
 | `control_number` | `1` | first interchange control number |
 | `application_sender`, `application_receiver` | the ids | group header sender and receiver codes |
-| `delimiters` | `*` `:` `~` `^` | a struct such as `{'element': '\|'}` with any of `element`, `component`, `segment`, `repetition`, `release` |
+| `delimiters` | `*` `:` `~` `^` | a struct such as `{'element': '\|', 'repetition': '^'}` with any of `element`, `component`, `segment`, `repetition`, `release`; fields left out take the defaults of `oxedi.Delimiters()` (`*`, `:`, `~`, and no repetition or release), so on 5010 give `repetition` |
 | `line_break` | `false` | a line break after each segment |
 | `version` | `'5010'` | the built-in spec, `'5010'` or `'4010'` |
 
@@ -104,21 +105,24 @@ table, row and column, and nothing is written. There is no `allow_findings` here
 - `PARTITION_BY` and `PER_THREAD_OUTPUT` ask for several files; DuckDB consumes them and the
   format refuses a second file. `compression` is refused too: compress afterwards.
 - An existing file is left untouched when the `COPY` fails only for a local path written
-  with DuckDB's default temporary file; on other file systems the target may be replaced
-  before a failure shows.
+  with DuckDB's default temporary file. Without it (`USE_TMP_FILE false`, or a path that is not
+  local) the file is written over from its first byte, an existing file longer than the new
+  content is refused ("remove it first") and DuckDB removes the target of any failed `COPY`.
 - A bare `NULL` inside a struct is typed `INTEGER` by DuckDB and a text column refuses it;
   write `NULL::VARCHAR` (or the column's type).
-- Text columns take `VARCHAR`, `ENUM` or `BLOB`; integer columns any integer type; decimal
-  columns a `DECIMAL` of any scale that holds the value exactly, never `FLOAT` or `DOUBLE`.
+- Accepted types, per column of the spec: text takes `VARCHAR`, `ENUM` or `BLOB`; an integer
+  column any integer type, or a `FLOAT` or `DOUBLE` holding a whole number; a decimal column
+  any `DECIMAL` or integer type that holds the value exactly (never `FLOAT` or `DOUBLE`); a date
+  column `DATE`, or `TIMESTAMP` at midnight; a time column `TIME` in whole seconds.
 
 ### From your own tables
 
 The writer asks for the spec's names and nothing else, so tables built elsewhere work when
 they follow them.
 
-- **Tolerated:** a missing table (no rows), a missing column (null), a column of a wider type
-  (`INTEGER` for `BIGINT`, a `DECIMAL` of another scale that holds the value, `ENUM` or `BLOB`
-  for text).
+- **Tolerated:** a missing table (no rows), a missing column (null), a column of a narrower or
+  compatible type (`INTEGER` for `BIGINT`, a `DECIMAL` of another scale that holds the value,
+  `ENUM` or `BLOB` for text; the accepted types are listed above).
 - **Refused, naming the table and column:** a table or column that is not in the spec, a
   float for money, a value that would change in the conversion (a decimal that does not fit,
   a number outside the column's range), and a file that does not balance or is missing a
@@ -128,10 +132,12 @@ The spec's tables key their rows by position: `row` is the row's ordinal in its 
 at 0, and `payment`, `claim` and `service` hold the `row` of the parent. If your tables have
 their own keys, give each table a `row` with `row_number()`, put the parents' `row` in its
 parent columns with a join, and drop your helper columns with `EXCLUDE`. Rows of one parent
-must be together and in their parents' order (`row_number()` over the parent's `row` first),
-and the adjustments of a claim, which have no `service`, come before those of its services
-(`NULLS FIRST`). A table's own order inside a parent is the order you give: use a sequence
-column, or `rowid` of a table.
+must be together and in their parents' order, so number each child table ordered by the
+parent's `row` first, then by its own key, then by a stable tie-breaker (a sequence column, or
+`rowid` of a table). The adjustments of a claim, which have no `service`, come before those of
+its services (`NULLS FIRST`). Your keys need not sort in parent order across parents.
+Keep the `segment` column of `provider_adjustments` when you have one: adjustments with the same
+`segment` are written in one `PLB`, and without it all the adjustments of a payment share one `PLB`.
 
 This example takes `my_payments` (key `pay_key`), `my_claims` (`claim_key`, `pay_key`),
 `my_services` (`service_key`, `claim_key`), `my_adjustments` (`claim_key`, and `service_key`
@@ -143,14 +149,14 @@ COPY (
   WITH payments AS (
          SELECT row_number() OVER (ORDER BY pay_key) - 1 AS "row", * FROM my_payments),
        claims AS (
-         SELECT row_number() OVER (ORDER BY c.claim_key) - 1 AS "row", p."row" AS payment, c.*
+         SELECT row_number() OVER (ORDER BY p."row", c.claim_key) - 1 AS "row", p."row" AS payment, c.*
          FROM my_claims c JOIN payments p USING (pay_key)),
        services AS (
-         SELECT row_number() OVER (ORDER BY s.service_key) - 1 AS "row",
+         SELECT row_number() OVER (ORDER BY c."row", s.service_key) - 1 AS "row",
                 c.payment, c."row" AS claim, s.*
          FROM my_services s JOIN claims c USING (claim_key)),
        adjustments AS (
-         SELECT row_number() OVER (ORDER BY c."row", s."row" NULLS FIRST) - 1 AS "row",
+         SELECT row_number() OVER (ORDER BY c."row", s."row" NULLS FIRST, a.rowid) - 1 AS "row",
                 c.payment, c."row" AS claim, s."row" AS service, a.*
          FROM my_adjustments a
          JOIN claims c USING (claim_key)

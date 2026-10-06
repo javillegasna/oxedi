@@ -3,7 +3,7 @@
 //!
 //! The query returns one STRUCT column whose fields are tables of the spec,
 //! each a list of structs with the table's columns (`SELECT {'claims':
-//! (SELECT list(c) FROM claims c)}`); several query rows concatenate. The
+//! (SELECT list(c ORDER BY c."row") FROM claims c)}`); several query rows concatenate. The
 //! bind reads the options (the envelope and the version) and binds each
 //! field of the STRUCT to its table; the sink appends every chunk's rows;
 //! the finalize writes, and opens the target only after the writer

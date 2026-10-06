@@ -2,7 +2,8 @@ use oxedi_core::ColumnType;
 
 use super::super::error::CopyError;
 use super::super::input::{
-    BoundField, BoundTable, FieldType, InputColumn, InputField, InputTable, Integer, bind,
+    BoundField, BoundTable, EnumIndex, FieldType, InputColumn, InputField, InputTable, Integer,
+    bind,
 };
 use crate::builtins::{Builtin, Builtins};
 
@@ -144,7 +145,7 @@ fn the_query_must_return_one_column() {
     assert_eq!(
         message(&[one.clone(), one]),
         "edi835: the query returns 2 columns; it must return one, a STRUCT with one field per \
-         table, such as SELECT {'claims': (SELECT list(c) FROM claims c)}"
+         table, such as SELECT {'claims': (SELECT list(c ORDER BY c.\"row\") FROM claims c)}"
     );
     assert!(matches!(
         bound(&[]),
@@ -157,7 +158,7 @@ fn the_column_must_be_a_struct() {
     assert_eq!(
         message(&[InputColumn::Other("STRUCT(\"row\" BIGINT)[]".to_owned())]),
         "edi835: the query's column is STRUCT(\"row\" BIGINT)[]; it must be a STRUCT with one \
-         field per table, such as SELECT {'claims': (SELECT list(c) FROM claims c)}"
+         field per table, such as SELECT {'claims': (SELECT list(c ORDER BY c.\"row\") FROM claims c)}"
     );
 }
 
@@ -181,7 +182,7 @@ fn a_table_must_be_a_list_of_structs() {
             InputTable::Other("VARCHAR[]".to_owned())
         )])),
         "edi835: table \"claims\" is VARCHAR[]; it must be a list of structs holding the table's \
-         rows, such as (SELECT list(c) FROM claims c)"
+         rows, such as (SELECT list(c ORDER BY c.\"row\") FROM claims c)"
     );
 }
 
@@ -231,7 +232,7 @@ fn a_field_of_the_wrong_type() {
             "INTEGER"
         )),
         "edi835: table \"claims\" field \"claim_id\" is INTEGER; the spec's column is binary, \
-         which takes VARCHAR or BLOB"
+         which takes VARCHAR, ENUM or BLOB"
     );
     assert_eq!(
         message(&field("row", FieldType::Varchar, "VARCHAR")),
@@ -263,7 +264,7 @@ fn an_enum_is_text_with_its_dictionary() {
             "claims".to_owned(),
             InputTable::Rows(vec![InputField {
                 name: name.to_owned(),
-                kind: FieldType::Enum(Integer::U8),
+                kind: FieldType::Enum(EnumIndex::U8),
                 sql: "ENUM".to_owned(),
                 dictionary: dictionary.clone(),
             }]),
@@ -277,7 +278,7 @@ fn an_enum_is_text_with_its_dictionary() {
         Some(vec![BoundField {
             name: "claim_status".to_owned(),
             kind: ColumnType::Binary,
-            input: FieldType::Enum(Integer::U8),
+            input: FieldType::Enum(EnumIndex::U8),
             dictionary: dictionary.clone(),
         }])
     );

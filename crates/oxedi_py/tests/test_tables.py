@@ -42,4 +42,4 @@ def test_reprs(tables):
         "Tables(adjustments: 4 rows, claims: 3 rows, payments: 1 rows, "
         "provider_adjustments: 0 rows, services: 10 rows)"
     )
-    assert repr(tables["claims"]) == "Table(name='claims', rows=3, columns=24)"
+    assert repr(tables["claims"]) == "Table(name='claims', rows=3, columns=28)"

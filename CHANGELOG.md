@@ -41,6 +41,13 @@ This file covers the Python package; the DuckDB extension has its own changelog 
   computed amounts and the segments read. An absent optional amount counts as zero; an instance
   with a missing required amount or a value that is not a decimal is left to those findings.
 
+- New columns in the built-in tables, so the tables hold what a valid file needs: `payments`
+  gains `payer_technical_contact_name`, `payer_technical_contact_qualifier` and
+  `payer_technical_contact_number` (the payer's PER*BL contact, null on 4010 files),
+  `payer_id_qualifier` and `payee_id_qualifier` (N103); `claims` gains `header_number` (LX01 of
+  the claim's header loop), `patient_id_qualifier` and `rendering_provider_id_qualifier` (NM108)
+  and `rendering_provider_entity_type` (NM102). Existing columns and their values are unchanged.
+
 ### Changed
 - A custom patch that deletes a loop or an occurrence a balancing rule reads, or retypes one of
   its amounts away from `R`, must also remove that rule (`"balancing": {"claim_balance": null}`);

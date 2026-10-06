@@ -42,6 +42,7 @@ pub mod segment;
 pub mod spec;
 pub mod tokenizer;
 pub mod tree;
+pub mod write;
 
 pub use check::EnvelopeChecker;
 pub use column::{
@@ -65,3 +66,4 @@ pub use spec::{
 };
 pub use tokenizer::Tokenizer;
 pub use tree::{LoopTree, Node, NodeId, TreeBuilder};
+pub use write::{PlanError, Refusal, WritePlan};

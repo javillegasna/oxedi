@@ -136,7 +136,7 @@ def test_a_table_reaches_polars_and_pandas():
     frame = tables["claims"].to_polars()
     assert frame.height == 1332
     assert frame.schema["charge_amount"] == pl.Decimal(38, 2)
-    assert tables["claims"].to_pandas().shape == (1332, 24)
+    assert tables["claims"].to_pandas().shape == (1332, 28)
     frames = tables.to_polars()
     assert list(frames) == tables.keys()
     assert frames["services"].height == 6192

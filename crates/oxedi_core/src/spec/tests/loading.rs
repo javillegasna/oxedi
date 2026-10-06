@@ -137,7 +137,7 @@ fn builtin_835_declares_five_tables_and_how_they_nest() {
     assert_eq!(plb.segment.as_deref(), Some(&b"PLB"[..]));
     assert_eq!(plb.repeat, Some(Repeat { from: 3, step: 2 }));
     let counts: Vec<usize> = spec.tables().iter().map(|t| t.columns.len()).collect();
-    assert_eq!(counts, vec![4, 21, 22, 5, 9]);
+    assert_eq!(counts, vec![4, 25, 27, 5, 9]);
 }
 
 #[test]

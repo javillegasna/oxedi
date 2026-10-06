@@ -26,29 +26,29 @@ row: int64 | segment: int64 | payment: int64 | claim: int64 | service: int64 | a
 23 | 254 | 0 | 17 | 25 | 25.00 | CO | ∅ | 45
 
 ## claims (rows: 18)
-row: int64 | segment: int64 | payment: int64 | charge_amount: decimal128(38, 2) | claim_id: binary | claim_status: binary | coverage_amount: decimal128(38, 2) | discharge_fraction: decimal128(38, 4) | drg_code: binary | drg_weight: decimal128(38, 4) | facility_type: binary | filing_indicator: binary | frequency_code: binary | group_number: binary | patient_first_name: binary | patient_id: binary | patient_last_name: binary | patient_responsibility: decimal128(38, 2) | payer_control_number: binary | payment_amount: decimal128(38, 2) | rendering_provider_id: binary | rendering_provider_name: binary | statement_from: date32 | statement_to: date32
-0 | 15 | 0 | 195.00 | FH SFWNRZJ GYGG ENN | 1 | 195.00 | ∅ | ∅ | ∅ | 11 | HM | ∅ | 65747 | DUNIA | 33 | SALAZAR | ∅ | JSE93757550 | 195.00 | ∅ | ∅ | 2024-04-09 | ∅
-1 | 31 | 0 | 292.00 | FH SFWNRZJ GYGG ENN | 1 | 200.00 | ∅ | ∅ | ∅ | 11 | HM | ∅ | 65747 | JONAS | 33 | YANEZ | ∅ | LNB68547061 | 200.00 | ∅ | ∅ | 2024-04-05 | ∅
-2 | 43 | 0 | 95.00 | FH SFWNRZJ GYGG ENN | 1 | 95.00 | ∅ | ∅ | ∅ | 11 | HM | ∅ | 65747 | ROSA | 07 | PINEDA | ∅ | 72K40642800 | 95.00 | ∅ | ∅ | 2024-02-06 | ∅
-3 | 55 | 0 | 245.00 | FH SFWNRZJ GYGG ENN | 1 | 200.00 | ∅ | ∅ | ∅ | 11 | HM | ∅ | T2247 | ALICE | 33 | OCHOA | ∅ | BJM42454396 | 200.00 | ∅ | ∅ | 2024-04-05 | ∅
-4 | 71 | 0 | 445.00 | FH SFWNRZJ GYGG ENN | 1 | 200.00 | ∅ | ∅ | ∅ | 11 | HM | ∅ | M4686 | MATEO | 33 | BRAVO | ∅ | JJF38386996 | 200.00 | ∅ | ∅ | 2024-04-09 | ∅
-5 | 87 | 0 | 345.00 | FH SFWNRZJ GYGG ENN | 1 | 200.00 | ∅ | ∅ | ∅ | 11 | HM | ∅ | 65747 | PABLO | 33 | ESPINOZA | ∅ | XEY77533173 | 200.00 | ∅ | ∅ | 2024-04-09 | ∅
-6 | 103 | 0 | 85.00 | BRQVPCNJGQNY | 1 | 60.00 | ∅ | ∅ | ∅ | 11 | HM | ∅ | V2717 | ZOE | WNKLK7084 | MOLINA | ∅ | YQP61680776 | 60.00 | ∅ | ∅ | 2024-04-21 | ∅
-7 | 114 | 0 | 275.00 | FH SFWNRZJ GYGG ENN | 1 | 200.00 | ∅ | ∅ | ∅ | 11 | HM | ∅ | 65747 | LEON | 14 | ROJAS | ∅ | 26Y25288013 | 200.00 | ∅ | ∅ | 2024-04-11 | ∅
-8 | 130 | 0 | 445.00 | FH SFWNRZJ GYGG ENN | 1 | 200.00 | ∅ | ∅ | ∅ | 11 | HM | ∅ | L4986 | DUNIA | 33 | KOVACS | ∅ | 03B67982121 | 200.00 | ∅ | ∅ | 2024-04-05 | ∅
-9 | 146 | 0 | 218.00 | FH SFWNRZJ GYGG ENN | 1 | 200.00 | ∅ | ∅ | ∅ | 11 | HM | ∅ | 58975 | XENIA | 07 | ANDRADE | ∅ | 14D33220041 | 200.00 | ∅ | ∅ | 2024-04-07 | ∅
-10 | 158 | 0 | 218.00 | AE QHSC NUMB LTCYVT | 1 | 200.00 | ∅ | ∅ | ∅ | 11 | HM | ∅ | 58975 | AMIR | 07 | ANDRADE | ∅ | 14D33220041 | 200.00 | ∅ | ∅ | 2024-04-07 | ∅
-11 | 170 | 0 | 218.00 | AE QHSC NUMB LTCYVT | 1 | 200.00 | ∅ | ∅ | ∅ | 11 | HM | ∅ | 58975 | OLGA | 07 | JIMENEZ | ∅ | 14D33220041 | 200.00 | ∅ | ∅ | 2024-04-07 | ∅
-12 | 182 | 0 | 218.00 | AE QHSC NUMB LTCYVT | 1 | 200.00 | ∅ | ∅ | ∅ | 11 | HM | ∅ | 58975 | AMIR | 07 | GALVEZ | ∅ | 14D33220041 | 200.00 | ∅ | ∅ | 2024-04-07 | ∅
-13 | 194 | 0 | 218.00 | EL VFLE JTSN GPTCR | 1 | 200.00 | ∅ | ∅ | ∅ | 11 | HM | ∅ | 58975 | YAGO | 07 | URIBE | ∅ | 14D33220041 | 200.00 | ∅ | ∅ | 2024-04-07 | ∅
-14 | 206 | 0 | 218.00 | EL VFLE JTSN GPTCR | 1 | 200.00 | ∅ | ∅ | ∅ | 11 | HM | ∅ | 58975 | SIMON | 07 | BELTRAN | ∅ | 14D33220041 | 200.00 | ∅ | ∅ | 2024-04-07 | ∅
-15 | 218 | 0 | 218.00 | EL VFLE JTSN GPTCR | 1 | 200.00 | ∅ | ∅ | ∅ | 11 | HM | ∅ | 58975 | ROSA | 07 | LARA | ∅ | 14D33220041 | 200.00 | ∅ | ∅ | 2024-04-07 | ∅
-16 | 230 | 0 | 218.00 | EL VFLE JTSN GPTCR | 1 | 200.00 | ∅ | ∅ | ∅ | 11 | HM | ∅ | 58975 | MATEO | 07 | MENDEZ | ∅ | 14D33220041 | 200.00 | ∅ | ∅ | 2024-04-07 | ∅
-17 | 242 | 0 | 220.00 | BRQVPCNJGQNY | 1 | 200.00 | ∅ | ∅ | ∅ | 11 | HM | ∅ | 21813 | JULIA | DGVXN0565 | SOTO | ∅ | 56J63046421 | 200.00 | ∅ | ∅ | 2024-04-20 | ∅
+row: int64 | segment: int64 | payment: int64 | charge_amount: decimal128(38, 2) | claim_id: binary | claim_status: binary | coverage_amount: decimal128(38, 2) | discharge_fraction: decimal128(38, 4) | drg_code: binary | drg_weight: decimal128(38, 4) | facility_type: binary | filing_indicator: binary | frequency_code: binary | group_number: binary | header_number: int64 | patient_first_name: binary | patient_id: binary | patient_id_qualifier: binary | patient_last_name: binary | patient_responsibility: decimal128(38, 2) | payer_control_number: binary | payment_amount: decimal128(38, 2) | rendering_provider_entity_type: binary | rendering_provider_id: binary | rendering_provider_id_qualifier: binary | rendering_provider_name: binary | statement_from: date32 | statement_to: date32
+0 | 15 | 0 | 195.00 | FH SFWNRZJ GYGG ENN | 1 | 195.00 | ∅ | ∅ | ∅ | 11 | HM | ∅ | 65747 | 11 | DUNIA | 33 | MI | SALAZAR | ∅ | JSE93757550 | 195.00 | ∅ | ∅ | ∅ | ∅ | 2024-04-09 | ∅
+1 | 31 | 0 | 292.00 | FH SFWNRZJ GYGG ENN | 1 | 200.00 | ∅ | ∅ | ∅ | 11 | HM | ∅ | 65747 | 8 | JONAS | 33 | MI | YANEZ | ∅ | LNB68547061 | 200.00 | ∅ | ∅ | ∅ | ∅ | 2024-04-05 | ∅
+2 | 43 | 0 | 95.00 | FH SFWNRZJ GYGG ENN | 1 | 95.00 | ∅ | ∅ | ∅ | 11 | HM | ∅ | 65747 | 6 | ROSA | 07 | MI | PINEDA | ∅ | 72K40642800 | 95.00 | ∅ | ∅ | ∅ | ∅ | 2024-02-06 | ∅
+3 | 55 | 0 | 245.00 | FH SFWNRZJ GYGG ENN | 1 | 200.00 | ∅ | ∅ | ∅ | 11 | HM | ∅ | T2247 | 13 | ALICE | 33 | MI | OCHOA | ∅ | BJM42454396 | 200.00 | ∅ | ∅ | ∅ | ∅ | 2024-04-05 | ∅
+4 | 71 | 0 | 445.00 | FH SFWNRZJ GYGG ENN | 1 | 200.00 | ∅ | ∅ | ∅ | 11 | HM | ∅ | M4686 | 10 | MATEO | 33 | MI | BRAVO | ∅ | JJF38386996 | 200.00 | ∅ | ∅ | ∅ | ∅ | 2024-04-09 | ∅
+5 | 87 | 0 | 345.00 | FH SFWNRZJ GYGG ENN | 1 | 200.00 | ∅ | ∅ | ∅ | 11 | HM | ∅ | 65747 | 18 | PABLO | 33 | MI | ESPINOZA | ∅ | XEY77533173 | 200.00 | ∅ | ∅ | ∅ | ∅ | 2024-04-09 | ∅
+6 | 103 | 0 | 85.00 | BRQVPCNJGQNY | 1 | 60.00 | ∅ | ∅ | ∅ | 11 | HM | ∅ | V2717 | 14 | ZOE | WNKLK7084 | MI | MOLINA | ∅ | YQP61680776 | 60.00 | ∅ | ∅ | ∅ | ∅ | 2024-04-21 | ∅
+7 | 114 | 0 | 275.00 | FH SFWNRZJ GYGG ENN | 1 | 200.00 | ∅ | ∅ | ∅ | 11 | HM | ∅ | 65747 | 19 | LEON | 14 | MI | ROJAS | ∅ | 26Y25288013 | 200.00 | ∅ | ∅ | ∅ | ∅ | 2024-04-11 | ∅
+8 | 130 | 0 | 445.00 | FH SFWNRZJ GYGG ENN | 1 | 200.00 | ∅ | ∅ | ∅ | 11 | HM | ∅ | L4986 | 16 | DUNIA | 33 | MI | KOVACS | ∅ | 03B67982121 | 200.00 | ∅ | ∅ | ∅ | ∅ | 2024-04-05 | ∅
+9 | 146 | 0 | 218.00 | FH SFWNRZJ GYGG ENN | 1 | 200.00 | ∅ | ∅ | ∅ | 11 | HM | ∅ | 58975 | 12 | XENIA | 07 | MI | ANDRADE | ∅ | 14D33220041 | 200.00 | ∅ | ∅ | ∅ | ∅ | 2024-04-07 | ∅
+10 | 158 | 0 | 218.00 | AE QHSC NUMB LTCYVT | 1 | 200.00 | ∅ | ∅ | ∅ | 11 | HM | ∅ | 58975 | 4 | AMIR | 07 | MI | ANDRADE | ∅ | 14D33220041 | 200.00 | ∅ | ∅ | ∅ | ∅ | 2024-04-07 | ∅
+11 | 170 | 0 | 218.00 | AE QHSC NUMB LTCYVT | 1 | 200.00 | ∅ | ∅ | ∅ | 11 | HM | ∅ | 58975 | 4 | OLGA | 07 | MI | JIMENEZ | ∅ | 14D33220041 | 200.00 | ∅ | ∅ | ∅ | ∅ | 2024-04-07 | ∅
+12 | 182 | 0 | 218.00 | AE QHSC NUMB LTCYVT | 1 | 200.00 | ∅ | ∅ | ∅ | 11 | HM | ∅ | 58975 | 4 | AMIR | 07 | MI | GALVEZ | ∅ | 14D33220041 | 200.00 | ∅ | ∅ | ∅ | ∅ | 2024-04-07 | ∅
+13 | 194 | 0 | 218.00 | EL VFLE JTSN GPTCR | 1 | 200.00 | ∅ | ∅ | ∅ | 11 | HM | ∅ | 58975 | 4 | YAGO | 07 | MI | URIBE | ∅ | 14D33220041 | 200.00 | ∅ | ∅ | ∅ | ∅ | 2024-04-07 | ∅
+14 | 206 | 0 | 218.00 | EL VFLE JTSN GPTCR | 1 | 200.00 | ∅ | ∅ | ∅ | 11 | HM | ∅ | 58975 | 4 | SIMON | 07 | MI | BELTRAN | ∅ | 14D33220041 | 200.00 | ∅ | ∅ | ∅ | ∅ | 2024-04-07 | ∅
+15 | 218 | 0 | 218.00 | EL VFLE JTSN GPTCR | 1 | 200.00 | ∅ | ∅ | ∅ | 11 | HM | ∅ | 58975 | 4 | ROSA | 07 | MI | LARA | ∅ | 14D33220041 | 200.00 | ∅ | ∅ | ∅ | ∅ | 2024-04-07 | ∅
+16 | 230 | 0 | 218.00 | EL VFLE JTSN GPTCR | 1 | 200.00 | ∅ | ∅ | ∅ | 11 | HM | ∅ | 58975 | 4 | MATEO | 07 | MI | MENDEZ | ∅ | 14D33220041 | 200.00 | ∅ | ∅ | ∅ | ∅ | 2024-04-07 | ∅
+17 | 242 | 0 | 220.00 | BRQVPCNJGQNY | 1 | 200.00 | ∅ | ∅ | ∅ | 11 | HM | ∅ | 21813 | 4 | JULIA | DGVXN0565 | MI | SOTO | ∅ | 56J63046421 | 200.00 | ∅ | ∅ | ∅ | ∅ | 2024-04-20 | ∅
 
 ## payments (rows: 1)
-row: int64 | segment: int64 | credit_debit_flag: binary | handling_code: binary | payee_address: binary | payee_city: binary | payee_id: binary | payee_name: binary | payee_state: binary | payee_zip: binary | payer_address: binary | payer_city: binary | payer_id: binary | payer_identifier: binary | payer_name: binary | payer_state: binary | payer_zip: binary | payment_date: date32 | payment_format: binary | payment_method: binary | production_date: date32 | receiver_id: binary | total_payment_amount: decimal128(38, 2) | trace_number: binary
-0 | 2 | C | I | 8391 OAK WAY | SALEM | 479864355 | MERIDIAN WELLNESS ASSOCIATES | NY | 354904856 | 8776 PINE AVE | SPRINGFIELD | INSTAMED | 2797276090 | BLUE RIDGE WELLNESS ASSOCIATES LLC | NY | 35644 | 2024-04-29 | CCP | ACH | 2024-04-25 | ∅ | 3715.00 | 04781537
+row: int64 | segment: int64 | credit_debit_flag: binary | handling_code: binary | payee_address: binary | payee_city: binary | payee_id: binary | payee_id_qualifier: binary | payee_name: binary | payee_state: binary | payee_zip: binary | payer_address: binary | payer_city: binary | payer_id: binary | payer_id_qualifier: binary | payer_identifier: binary | payer_name: binary | payer_state: binary | payer_technical_contact_name: binary | payer_technical_contact_number: binary | payer_technical_contact_qualifier: binary | payer_zip: binary | payment_date: date32 | payment_format: binary | payment_method: binary | production_date: date32 | receiver_id: binary | total_payment_amount: decimal128(38, 2) | trace_number: binary
+0 | 2 | C | I | 8391 OAK WAY | SALEM | 479864355 | FI | MERIDIAN WELLNESS ASSOCIATES | NY | 354904856 | 8776 PINE AVE | SPRINGFIELD | INSTAMED | XV | 2797276090 | BLUE RIDGE WELLNESS ASSOCIATES LLC | NY | ∅ | ∅ | ∅ | 35644 | 2024-04-29 | CCP | ACH | 2024-04-25 | ∅ | 3715.00 | 04781537
 
 ## provider_adjustments (rows: 0)
 row: int64 | segment: int64 | payment: int64 | amount: decimal128(38, 2) | fiscal_period_date: date32 | provider_id: binary | reason_code: binary | reference_id: binary

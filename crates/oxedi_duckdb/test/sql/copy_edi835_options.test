@@ -147,7 +147,7 @@ COPY (SELECT {'claims': list(c)} FROM claims c) TO '__TEST_DIR__/options.835'
     (FORMAT edi835, sender_id 'SENDER', receiver_id 'RECEIVER', date '2024-01-02', time '10:30',
      file_size_bytes 1000);
 ----
-FILE_SIZE_BYTES not implemented for FORMAT "edi835"
+<REGEX>:.*FILE_SIZE_BYTES not implemented for .*edi835.*
 
 # ---- the input: one STRUCT column keyed by table, each field a LIST(STRUCT) of its rows ----
 

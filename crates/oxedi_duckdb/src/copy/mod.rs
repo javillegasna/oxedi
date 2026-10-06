@@ -11,7 +11,7 @@
 //! does with a target of a failed `COPY` is its own: with a local path and
 //! its temporary file an existing file stays as it was; otherwise it may
 //! remove the target depending on its version. Every callback catches panics,
-//! DuckDB.
+//! so none unwinds into DuckDB.
 //!
 //! - `mod.rs`: registration and the bind, init, sink and finalize callbacks.
 //! - `error.rs`: the errors the format reports.

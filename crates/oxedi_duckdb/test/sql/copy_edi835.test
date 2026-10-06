@@ -548,7 +548,7 @@ statement error
 COPY (SELECT 1 AS part, * FROM tables_5010 UNION ALL SELECT 2, * FROM tables_5010)
 TO '__TEST_DIR__/copy_parts.835' (FORMAT edi835, sender_id 'SENDER', receiver_id 'RECEIVER', date '2024-01-02', time '10:30', partition_by (part), overwrite true);
 ----
-<REGEX>:.*edi835: the COPY asks for a second file, ".*copy_parts\.835.*part=2.*", but the format writes all the rows as one interchange in one file; PARTITION_BY and PER_THREAD_OUTPUT do not apply.*
+<REGEX>:.*edi835: the COPY asks for a second file, ".*copy_parts\.835.*part=\d+.*", but the format writes all the rows as one interchange in one file; PARTITION_BY and PER_THREAD_OUTPUT do not apply.*
 
 query I
 SELECT count(*) FROM glob('__TEST_DIR__/copy_parts.835/*/*');

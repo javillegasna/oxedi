@@ -5,21 +5,25 @@
 //! segments it may hold (named, with position, usage, maximum repeat,
 //! qualifier and own code lists) and an optional segment that closes it. An
 //! optional `segments` section names and types the elements of each segment
-//! id, wherever the segment appears. Loading compiles that into index-based definitions so the engine
+//! id, wherever the segment appears. An optional `balancing` section lists
+//! amounts that must add up inside each instance of a loop. Loading compiles that into index-based definitions so the engine
 //! never compares strings, and keeps the JSON value so patches can be applied
 //! on top. Patches follow RFC 7386: objects merge key by key, while arrays and
 //! scalars replace wholesale; see [`Spec::merge_patch`] for what that means
 //! for a loop's occurrences.
 //!
-//! The module is split by responsibility: `loops`, `occurrences`, `segments`
-//! and `tables` hold the definitions, `occurrence_error` and `table_error`
-//! why an occurrence or a table is rejected; `raw` the deserialization shapes;
+//! The module is split by responsibility: `loops`, `occurrences`, `segments`,
+//! `tables` and `balance` hold the definitions, `occurrence_error`,
+//! `table_error` and `balance_error` why an occurrence, a table or a
+//! balancing rule is rejected; `raw` the deserialization shapes;
 //! `shape` the JSON shape checks; `build` and `compile` the construction of a [`Spec`],
 //! `columns` the compilation of one table column;
 //! `error` the load error; `render` the text used in messages; `patch` the
 //! merge patch; `version` the version declaration and the choice of a spec
 //! by it.
 
+mod balance;
+mod balance_error;
 mod build;
 mod columns;
 mod compile;
@@ -38,6 +42,8 @@ mod tables;
 mod tests;
 mod version;
 
+pub use balance::{BalanceRule, BalanceTerm};
+pub use balance_error::BalanceError;
 pub use error::SpecError;
 pub use loops::{Control, ControlCount, ControlError, LoopDef, LoopId, Trigger};
 pub use occurrence_error::OccurrenceError;
@@ -50,6 +56,7 @@ pub use table_error::{AnchorChains, AnchorPositions, LoopSegments, TableDefError
 pub use tables::{ColumnSource, Pick, Repeat, TableDef};
 pub use version::{DeclaredVersion, VersionError};
 
+pub(crate) use balance::{render_amount, render_terms};
 pub(crate) use render::{render_key, render_selector, render_trigger};
 pub(crate) use segments::rejects_code;
 
@@ -68,6 +75,7 @@ pub struct Spec {
     roots: Vec<LoopId>,
     segments: BTreeMap<Vec<u8>, SegmentDef>,
     tables: Vec<TableDef>,
+    balancing: Vec<BalanceRule>,
     version: Option<DeclaredVersion>,
     source: Value,
 }
@@ -212,6 +220,11 @@ impl Spec {
     /// A table by name.
     pub fn table(&self, name: &str) -> Option<&TableDef> {
         self.tables.iter().find(|table| table.name == name)
+    }
+
+    /// Every balancing rule, in name order.
+    pub fn balancing(&self) -> &[BalanceRule] {
+        &self.balancing
     }
 
     /// Children of a loop, or the top-level loops for `None`.

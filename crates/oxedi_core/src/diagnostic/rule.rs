@@ -224,6 +224,28 @@ pub enum Rule {
         /// The child's trigger as the spec writes it.
         expected_trigger: String,
     },
+    /// The amounts of a balancing rule do not add up in one loop instance.
+    BalanceMismatch {
+        /// The rule's name in the spec.
+        rule: String,
+        /// The loop whose instance the rule checks.
+        loop_name: String,
+        /// Index of the segment that opened the instance; `None` for an
+        /// instance opened implicitly.
+        opened_at: Option<usize>,
+        /// The rule's target values as the spec declares them.
+        target: String,
+        /// The rule's summed values as the spec declares them.
+        sum: String,
+        /// The target's amount, scaled by `10^scale`.
+        expected: i128,
+        /// The sum's amount, scaled by `10^scale`.
+        computed: i128,
+        /// Decimal places of both amounts.
+        scale: u8,
+        /// Indexes of every segment whose values were read, in stream order.
+        segments: Vec<usize>,
+    },
     /// A finding reported by a validator outside this crate, carried as that
     /// validator states it.
     External {
@@ -261,6 +283,7 @@ impl Rule {
             | Rule::OutOfOrder { .. }
             | Rule::UnknownOccurrence { .. }
             | Rule::RequiredLoopMissing { .. } => SnipLevel::L2,
+            Rule::BalanceMismatch { .. } => SnipLevel::L3,
             Rule::External { level, .. } => *level,
         }
     }
@@ -288,6 +311,7 @@ impl Rule {
             Rule::OutOfOrder { .. } => "OutOfOrder",
             Rule::UnknownOccurrence { .. } => "UnknownOccurrence",
             Rule::RequiredLoopMissing { .. } => "RequiredLoopMissing",
+            Rule::BalanceMismatch { .. } => "BalanceMismatch",
             Rule::External { .. } => "External",
         }
     }

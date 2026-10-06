@@ -85,7 +85,7 @@ FROM read_835('test/data/*.835', table_name := 'diagnostics', ignore_errors := t
 GROUP BY origin
 ORDER BY origin;
 ----
-oxedi	24
+oxedi	26
 read_835	2
 
 # A binary file: VARCHAR mode escapes the bytes found instead of ISA, so the row survives;

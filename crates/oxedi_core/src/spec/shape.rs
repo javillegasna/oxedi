@@ -4,6 +4,7 @@ use std::collections::BTreeMap;
 
 use serde_json::Value;
 
+use super::balance::check_balancing_shape;
 use super::error::SpecError;
 use super::render::{child, render_value};
 
@@ -29,7 +30,7 @@ pub(super) fn kind_of(value: &Value) -> &'static str {
 }
 
 /// The value as an object, or [`SpecError::NotAnObject`] naming `path`.
-fn object_at<'v>(
+pub(super) fn object_at<'v>(
     value: &'v Value,
     path: &str,
 ) -> Result<&'v serde_json::Map<String, Value>, SpecError> {
@@ -41,7 +42,7 @@ fn object_at<'v>(
 
 /// The scalar kinds the raw structs expect.
 #[derive(Clone, Copy)]
-enum Leaf {
+pub(super) enum Leaf {
     Text,
     Flag,
     Count,
@@ -87,7 +88,7 @@ impl Leaf {
 }
 
 /// Requires `value` to be of the `kind`.
-fn check_leaf(value: &Value, at: &str, kind: Leaf) -> Result<(), SpecError> {
+pub(super) fn check_leaf(value: &Value, at: &str, kind: Leaf) -> Result<(), SpecError> {
     match kind.mismatch(value) {
         None => Ok(()),
         Some(found) => Err(SpecError::WrongType {
@@ -101,7 +102,7 @@ fn check_leaf(value: &Value, at: &str, kind: Leaf) -> Result<(), SpecError> {
 
 /// Requires the member `key` of `map`, when present, to be of the `kind`;
 /// `null` also passes when `nullable`.
-fn check_member(
+pub(super) fn check_member(
     map: &serde_json::Map<String, Value>,
     at: &str,
     key: &str,
@@ -158,7 +159,7 @@ fn check_member_texts(
 
 /// Requires every key of `map` to be one of `known`, then every key of
 /// `required` to be present; the first unknown key in key order fails first.
-fn check_keys(
+pub(super) fn check_keys(
     map: &serde_json::Map<String, Value>,
     at: &str,
     known: &[&str],
@@ -189,7 +190,14 @@ pub(super) fn check_shape(source: &Value) -> Result<(), SpecError> {
     check_keys(
         root,
         "",
-        &["name", "loops", "segments", "tables", "version"],
+        &[
+            "name",
+            "loops",
+            "segments",
+            "tables",
+            "balancing",
+            "version",
+        ],
         &["name", "loops"],
     )?;
     check_member(root, "", "name", Leaf::Text, false)?;
@@ -298,6 +306,9 @@ pub(super) fn check_shape(source: &Value) -> Result<(), SpecError> {
                 }
             }
         }
+    }
+    if let Some(balancing) = root.get("balancing") {
+        check_balancing_shape(balancing)?;
     }
     if let Some(segments) = root.get("segments") {
         for (id, def) in object_at(segments, "segments")? {

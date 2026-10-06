@@ -3,6 +3,7 @@
 
 use super::*;
 
+mod balance;
 mod occurrences;
 use crate::{Delimiters, LoopEngine, Tokenizer};
 

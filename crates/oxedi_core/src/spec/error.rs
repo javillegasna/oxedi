@@ -2,6 +2,7 @@
 
 use std::fmt;
 
+use super::balance_error::BalanceError;
 use super::loops::ControlError;
 use super::occurrence_error::OccurrenceError;
 use super::segments::ElementDefError;
@@ -158,6 +159,20 @@ pub enum SpecError {
         occurrence: String,
         /// What is wrong with it.
         reason: Box<OccurrenceError>,
+    },
+    /// A balancing rule does not match the schema.
+    BalanceSchema {
+        /// The rule name as written.
+        rule: String,
+        /// What serde rejected.
+        source: serde_json::Error,
+    },
+    /// A balancing rule is invalid.
+    BadBalance {
+        /// The rule name as written.
+        rule: String,
+        /// What is wrong with it.
+        reason: Box<BalanceError>,
     },
     /// A loop declares occurrences, and none of them is the one its trigger
     /// opens on.
@@ -369,6 +384,13 @@ impl fmt::Display for SpecError {
                 occurrence,
                 reason,
             } => write!(f, "loop {loop_name:?} occurrence {occurrence:?}: {reason}"),
+            SpecError::BalanceSchema { rule, source } => write!(
+                f,
+                "balancing rule {rule:?} does not match the schema: {source}"
+            ),
+            SpecError::BadBalance { rule, reason } => {
+                write!(f, "balancing rule {rule:?}: {reason}")
+            }
             SpecError::UnmatchedTrigger {
                 loop_name,
                 trigger,
@@ -472,7 +494,8 @@ impl std::error::Error for SpecError {
             SpecError::Json(e)
             | SpecError::Schema { source: e, .. }
             | SpecError::SegmentSchema { source: e, .. }
-            | SpecError::TableSchema { source: e, .. } => Some(e),
+            | SpecError::TableSchema { source: e, .. }
+            | SpecError::BalanceSchema { source: e, .. } => Some(e),
             SpecError::Patch { source } => Some(source.as_ref()),
             _ => None,
         }

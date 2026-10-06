@@ -1,1 +1,2 @@
 SNIP 1 · SE01 declares "1202" but the count is 76 · segment #77, element 1 · at interchange#1/group#1/transaction#1 · datum "1202"
+SNIP 3 · balancing rule "transaction_balance" fails in loop "transaction" opened at segment #2: BPR02 of transaction "financial_information" is 8982.00, but CLP04 of 2100 "claim_payment_information" - sum of PLB04, PLB06, PLB08, PLB10, PLB12, PLB14 of transaction "provider_adjustment" adds up to 369.00 (off by 8613.00); read from segments #3, #15, #30, #47, #62 · segment #3, element 2 · at interchange#1/group#1/transaction#1 · datum "8982"

@@ -103,8 +103,10 @@ def test_a_missing_column_is_named():
 
 
 def test_a_non_decimal_amount_is_named():
+    # The balancing rule that reads BPR02 as an amount goes with the change.
     spec = Spec.builtin().patch({"segments": {"BPR": {"elements": {"2": {
-        "name": "total_actual_provider_payment_amount", "type": "AN", "min": 1, "max": 18}}}}})
+        "name": "total_actual_provider_payment_amount", "type": "AN", "min": 1, "max": 18}}}},
+        "balancing": {"transaction_balance": None}})
     result = oxedi.parse(read("edi835_test_file.RMT"), spec=spec)
     with pytest.raises(TypeError) as info:
         result.sum_payments()

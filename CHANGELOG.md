@@ -32,7 +32,19 @@ This file covers the Python package; the DuckDB extension has its own changelog 
   + `where` columns work as before; several built-in columns now name occurrences, with
   identical cells.
 
+- Balancing rules in the spec, a new `balancing` section: in every instance of a loop, signed
+  amounts (elements of occurrences in that loop or below it) must add up exactly. The built-in
+  5010 and 4010 specs declare the guide's three: `service_balance` (SVC02 − SVC03 = the service's
+  CAS amounts), `claim_balance` (CLP03 − CLP04 = the CAS amounts of the claim and its services)
+  and `transaction_balance` (BPR02 = Σ CLP04 − Σ PLB amounts). Each failure is a new level-3
+  (SNIP 3) diagnostic, `BalanceMismatch`, naming the rule, the loop instance, the expected and
+  computed amounts and the segments read. An absent optional amount counts as zero; an instance
+  with a missing required amount or a value that is not a decimal is left to those findings.
+
 ### Changed
+- A custom patch that deletes a loop or an occurrence a balancing rule reads, or retypes one of
+  its amounts away from `R`, must also remove that rule (`"balancing": {"claim_balance": null}`);
+  otherwise the spec fails to load with an error that names the rule and the key.
 - In text columns, an element (or component) the segment does not have is `null` and one it
   has but leaves empty is `""`; both used to be `null`. Number and date columns keep `null` for
   both. The `oxedi.edi_835_parser` layer keeps the library's values.

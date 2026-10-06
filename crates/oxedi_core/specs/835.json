@@ -543,5 +543,38 @@
       "reference_id": {"group_element": 0, "component": 2},
       "amount": {"group_element": 1}
     } }
+  },
+  "balancing": {
+    "service_balance": {
+      "per": "2110",
+      "target": [
+        {"occurrence": "service_payment_information", "elements": [2]},
+        {"occurrence": "service_payment_information", "elements": [3], "sign": "-"}
+      ],
+      "sum": [
+        {"occurrence": "service_adjustment", "elements": [3, 6, 9, 12, 15, 18]}
+      ]
+    },
+    "claim_balance": {
+      "per": "2100",
+      "target": [
+        {"occurrence": "claim_payment_information", "elements": [3]},
+        {"occurrence": "claim_payment_information", "elements": [4], "sign": "-"}
+      ],
+      "sum": [
+        {"occurrence": "claim_adjustment", "elements": [3, 6, 9, 12, 15, 18]},
+        {"loop": "2110", "occurrence": "service_adjustment", "elements": [3, 6, 9, 12, 15, 18]}
+      ]
+    },
+    "transaction_balance": {
+      "per": "transaction",
+      "target": [
+        {"occurrence": "financial_information", "elements": [2]}
+      ],
+      "sum": [
+        {"loop": "2100", "occurrence": "claim_payment_information", "elements": [4]},
+        {"occurrence": "provider_adjustment", "elements": [4, 6, 8, 10, 12, 14], "sign": "-"}
+      ]
+    }
   }
 }

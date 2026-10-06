@@ -65,7 +65,7 @@ fn patch_merges_nested_objects_and_keeps_siblings() {
 fn patch_null_deletes() {
     let spec = Spec::builtin_835()
         .merge_patch(
-            r#"{"loops":{"2110":null},"tables":{"services":null,"adjustments":{"loops":["2100"]}}}"#,
+            r#"{"loops":{"2110":null},"tables":{"services":null,"adjustments":{"loops":["2100"]}},"balancing":{"service_balance":null,"claim_balance":null}}"#,
         )
         .unwrap();
     assert_eq!(spec.loop_id("2110"), None);

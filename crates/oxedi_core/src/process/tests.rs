@@ -89,7 +89,7 @@ fn run_over_a_document_is_feeding_every_segment_then_finishing() {
     let spec = Spec::builtin_835();
     let input = interchange(&[
         CLAIM,
-        "BPR*I*1*C*CHK************20240101~TRN*1*2*1234567890~ZZZ~",
+        "BPR*I*0*C*CHK************20240101~TRN*1*2*1234567890~ZZZ~",
     ]);
     let document = Document::with_delimiters(input.as_bytes(), delimiters()).unwrap();
     let (tables, diagnostics) = Processor::run(&spec, &document);

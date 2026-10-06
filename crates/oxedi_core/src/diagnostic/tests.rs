@@ -182,6 +182,20 @@ fn every_rule_names_its_variant() {
             },
             "RequiredLoopMissing",
         ),
+        (
+            Rule::BalanceMismatch {
+                rule: "r".into(),
+                loop_name: "l".into(),
+                opened_at: None,
+                target: "t".into(),
+                sum: "s".into(),
+                expected: 0,
+                computed: 1,
+                scale: 2,
+                segments: Vec::new(),
+            },
+            "BalanceMismatch",
+        ),
     ];
     for (rule, kind) in rules {
         assert_eq!(rule.kind(), kind);
@@ -733,6 +747,46 @@ fn required_loop_missing_displays_the_loop_its_opener_and_the_child() {
     assert_eq!(
         rule(None).to_string(),
         "loop \"transaction\" closed without its required child loop \"1000A\" (trigger \"N1\" where {1: \"PR\"})"
+    );
+}
+
+#[test]
+fn balance_mismatch_displays_the_rule_both_amounts_and_the_segments_read() {
+    let rule = |opened_at, segments| {
+        Rule::BalanceMismatch {
+        rule: "claim_balance".into(),
+        loop_name: "2100".into(),
+        opened_at,
+        target: "CLP03 of 2100 \"claim_payment_information\" - CLP04 of 2100 \"claim_payment_information\"".into(),
+        sum: "sum of CAS03, CAS06 of 2100 \"claim_adjustment\"".into(),
+        expected: 30000,
+        computed: -1250,
+        scale: 2,
+        segments,
+    }
+    };
+    let diagnostic = Diagnostic::new(
+        rule(Some(16), vec![16, 17]),
+        Some(16),
+        Some(3),
+        None,
+        path(&[
+            ("interchange", 1),
+            ("group", 1),
+            ("transaction", 1),
+            ("2000", 1),
+            ("2100", 1),
+        ]),
+        b"800.00".to_vec(),
+    );
+    assert_eq!(diagnostic.level, SnipLevel::L3);
+    assert_eq!(
+        diagnostic.to_string(),
+        "SNIP 3 · balancing rule \"claim_balance\" fails in loop \"2100\" opened at segment #16: CLP03 of 2100 \"claim_payment_information\" - CLP04 of 2100 \"claim_payment_information\" is 300.00, but sum of CAS03, CAS06 of 2100 \"claim_adjustment\" adds up to -12.50 (off by 312.50); read from segments #16, #17 · segment #16, element 3 · at interchange#1/group#1/transaction#1/2000#1/2100#1 · datum \"800.00\""
+    );
+    assert_eq!(
+        rule(None, (1..=12).collect()).to_string(),
+        "balancing rule \"claim_balance\" fails in loop \"2100\" opened implicitly: CLP03 of 2100 \"claim_payment_information\" - CLP04 of 2100 \"claim_payment_information\" is 300.00, but sum of CAS03, CAS06 of 2100 \"claim_adjustment\" adds up to -12.50 (off by 312.50); read from segments #1, #2, #3, #4, #5, #6, #7, #8, #9, #10 and 2 more"
     );
 }
 

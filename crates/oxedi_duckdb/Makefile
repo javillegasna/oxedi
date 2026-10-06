@@ -45,7 +45,8 @@ debug: build_extension_library_debug build_extension_with_metadata_debug
 release: build_extension_library_release build_extension_with_metadata_release
 
 # release first, so a local run never tests a stale binary.
-test: release test_release test_oracle
+test: release
+	$(MAKE) test_release test_oracle
 test_debug: test_extension_debug
 # Must not build: DuckDB's CI runs it on a different host than the build.
 # Our CI runs `make release` first.

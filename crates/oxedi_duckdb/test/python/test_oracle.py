@@ -68,6 +68,7 @@ FILES = input_files()
 UNPARSABLE = {
     "fixtures/blue_cross_nc_sample.txt": "ST*835*1",
     "data/not_an_interchange.835": "hello, t",
+    "data/not_text.835": r"\x1f\x8b\x08\x00\x00\x00\x00\x00",
 }
 
 
@@ -208,3 +209,9 @@ def test_an_unparsable_file(con: duckdb.DuckDBPyConnection, path: pathlib.Path) 
     assert rows == [
         (1, "NotAnInterchange", message, None, None, None, "", datum, "read_835", None)
     ]
+    raw = con.execute(
+        "SELECT datum FROM read_835(?, table_name := 'diagnostics', ignore_errors := true,"
+        " binary := true)",
+        [str(path)],
+    ).fetchall()
+    assert raw == [(datum.encode().decode("unicode_escape").encode("latin-1"),)]

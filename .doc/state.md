@@ -9,7 +9,7 @@ Snapshot for picking the project up cold. Update when a stage changes state.
   binary :=, ignore_errors :=)`) on DuckDB's stable C API >= 1.5.6; CI job `duckdb` builds it and
   runs SQLLogicTest and the oracle on DuckDB 1.5.6 and `next`. Results: oracle equal on 11 parsable
   files x 6 tables, 0 mismatches, 15 oracle tests passed; 5 SQLLogicTest files in `crates/oxedi_duckdb/test/sql`;
-  both CI legs green (stable 1.5.6 and next 2.0.0.dev loading the 1.5.6-ABI binary); gates green. Next: owner merges; then submit `crates/oxedi_duckdb/description.yml` (set `repo.ref` to the
+  three CI legs green (stable 1.5.6, latest and next 2.0.0.dev loading the 1.5.6-ABI binary); gates green. Next: owner merges; then submit `crates/oxedi_duckdb/description.yml` (set `repo.ref` to the
   release tag `v<version>` after a version bump, so the git tag and EXTENSION_VERSION agree) to
   duckdb/community-extensions.
 - **Released:** 0.2.1 on PyPI 2026-10-05 (#105: type stubs #102, quick-wins sprint #100, PLB

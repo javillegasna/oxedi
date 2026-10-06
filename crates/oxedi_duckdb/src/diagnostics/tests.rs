@@ -60,7 +60,7 @@ fn an_unparsable_file_is_one_row() {
         file: "a.835".to_owned(),
         source,
     };
-    let Ok(table) = of_unparsable(&error, b"hello") else {
+    let Ok(table) = of_unparsable(&error, b"hello", false) else {
         panic!("the row fits the table");
     };
     assert_eq!(table.len(), 1);
@@ -76,4 +76,38 @@ fn an_unparsable_file_is_one_row() {
     assert_eq!(cell("datum"), Some(Cell::Binary(b"hello")));
     assert_eq!(cell("origin"), Some(Cell::Binary(b"read_835")));
     assert_eq!(cell("code"), Some(Cell::Null));
+}
+
+fn datum_of_binary_file(binary: bool) -> Vec<u8> {
+    let bytes = b"\x1f\x8b\x08\x00\x00\x00\x00\x00rest".to_vec();
+    let Err(source) = Document::parse(bytes.as_slice()) else {
+        panic!("the input has no ISA");
+    };
+    let found = datum(&source, &bytes).to_vec();
+    let error = ReadError::Parse {
+        file: "a.gz".to_owned(),
+        source,
+    };
+    let Ok(table) = of_unparsable(&error, &found, binary) else {
+        panic!("the row fits the table");
+    };
+    match table.column("datum").and_then(|column| column.get(0)) {
+        Some(Cell::Binary(bytes)) => bytes.to_vec(),
+        other => panic!("the datum is a binary cell, not {other:?}"),
+    }
+}
+
+#[test]
+fn the_datum_of_a_binary_file_is_escaped_text_in_varchar_mode() {
+    let escaped = datum_of_binary_file(false);
+    assert_eq!(escaped, br"\x1f\x8b\x08\x00\x00\x00\x00\x00");
+    assert!(std::str::from_utf8(&escaped).is_ok());
+}
+
+#[test]
+fn the_datum_of_a_binary_file_is_raw_in_binary_mode() {
+    assert_eq!(
+        datum_of_binary_file(true),
+        b"\x1f\x8b\x08\x00\x00\x00\x00\x00"
+    );
 }

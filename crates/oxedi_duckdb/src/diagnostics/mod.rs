@@ -84,10 +84,11 @@ fn level(level: SnipLevel) -> i64 {
     }
 }
 
-/// Appends one row; a row the table refuses is an internal error.
+/// Appends one row; a row the table refuses is an internal error naming the
+/// table.
 fn push(table: &mut Table, cells: &[Cell<'_>]) -> Result<(), ReadError> {
     table.push_row(cells).map_err(|error| ReadError::Internal {
-        message: error.to_string(),
+        message: format!("table {TABLE:?}: {error}"),
     })
 }
 
@@ -146,10 +147,14 @@ pub fn datum<'a>(error: &'a DocumentError, bytes: &'a [u8]) -> &'a [u8] {
 /// The one-row table of a file that could not be parsed: level 1, kind
 /// `NotAnInterchange`, the error's full text (file included) as the rule,
 /// no position or path, the offending bytes as the datum, origin
-/// `read_835` and no code.
-pub fn of_unparsable(error: &ReadError, datum: &[u8]) -> Result<Table, ReadError> {
+/// `read_835` and no code. The datum is the bytes themselves with `binary`;
+/// otherwise it is their `escape_ascii` text, which is always valid UTF-8
+/// (the bytes of a binary file are rarely so).
+pub fn of_unparsable(error: &ReadError, datum: &[u8], binary: bool) -> Result<Table, ReadError> {
     let mut table = empty();
     let rule = error.to_string();
+    let escaped = datum.escape_ascii().to_string();
+    let datum = if binary { datum } else { escaped.as_bytes() };
     push(
         &mut table,
         &[

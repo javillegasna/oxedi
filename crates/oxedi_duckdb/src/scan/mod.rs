@@ -50,6 +50,8 @@ pub struct Bound {
     /// Whether a file that cannot be parsed is reported instead of failing:
     /// as one row of `diagnostics`, and as no rows of any other table.
     pub ignore_errors: bool,
+    /// Whether text columns are BLOB instead of VARCHAR.
+    pub binary: bool,
 }
 
 /// The bound table of the file being emitted.
@@ -150,7 +152,7 @@ fn load(bound: &Bound, file: &str) -> Result<Table, ReadError> {
                 file: file.to_owned(),
                 source,
             };
-            return diagnostics::of_unparsable(&error, &datum);
+            return diagnostics::of_unparsable(&error, &datum, bound.binary);
         }
         Err(source) => {
             return Err(ReadError::Parse {
@@ -165,7 +167,10 @@ fn load(bound: &Bound, file: &str) -> Result<Table, ReadError> {
         Some(bound.builtins.select(document.segments()))
     }
     .ok_or_else(|| ReadError::Internal {
-        message: format!("no built-in spec for version {}", bound.bound_version),
+        message: format!(
+            "{file:?}: no built-in spec for version {}",
+            bound.bound_version
+        ),
     })?;
     if bound.diagnostics {
         let (_tables, findings) = Processor::run(&builtin.spec, &document);
@@ -188,7 +193,7 @@ fn load(bound: &Bound, file: &str) -> Result<Table, ReadError> {
         .get(&bound.table)
         .cloned()
         .ok_or_else(|| ReadError::Internal {
-            message: format!("the parsed file has no table {:?}", bound.table),
+            message: format!("{file:?}: the parsed file has no table {:?}", bound.table),
         })
 }
 

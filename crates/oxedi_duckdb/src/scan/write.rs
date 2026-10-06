@@ -119,8 +119,8 @@ impl Vector {
         let end = start.saturating_add(len);
         let short = || ReadError::Internal {
             message: format!(
-                "table {:?}, column {:?} has fewer than {end} rows",
-                place.table, place.column
+                "{:?}, table {:?}, column {:?} has fewer than {end} rows",
+                place.file, place.table, place.column
             ),
         };
         match (data.column(), sql) {
@@ -186,7 +186,8 @@ impl Vector {
             (column, sql) => {
                 return Err(ReadError::Internal {
                     message: format!(
-                        "table {:?}, column {:?}: a {} column cannot fill a {sql:?} vector",
+                        "{:?}, table {:?}, column {:?}: a {} column cannot fill a {sql:?} vector",
+                        place.file,
                         place.table,
                         place.column,
                         kind_name(column)

@@ -126,9 +126,12 @@ tables: decimals, dates and times.
 Without `ignore_errors`, a file that is not an interchange fails the query. With it, the
 file contributes no rows to any table but one `diagnostics` row whose `rule` is the error,
 so run the query with `table_name := 'diagnostics'` as well to see what was skipped.
+In that row `datum` holds the bytes found instead of `ISA`: as `escape_ascii` text (always valid
+UTF-8) by default, and raw with `binary := true`.
 
-Glob patterns are expanded by a private in-memory DuckDB that honours your settings:
-`enable_external_access` and `disabled_filesystems` apply: with `enable_external_access` off, a glob pattern is an error. A remote pattern such as
+Glob patterns are expanded by a private in-memory DuckDB that honours your settings.
+`enable_external_access` and `disabled_filesystems` apply: with `enable_external_access`
+off, a glob pattern is an error. A remote pattern such as
 `s3://bucket/*.835` sees persistent secrets only, not temporary `CREATE SECRET` ones. Plain
 paths and lists are read through your own file system and secrets.
 

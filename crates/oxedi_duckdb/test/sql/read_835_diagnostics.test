@@ -86,7 +86,22 @@ GROUP BY origin
 ORDER BY origin;
 ----
 oxedi835	23
-read_835	1
+read_835	2
+
+# A binary file: VARCHAR mode escapes the bytes found instead of ISA, so the row survives;
+# binary := true keeps them raw.
+
+query TT
+SELECT kind, datum
+FROM read_835('test/data/not_text.835', table_name := 'diagnostics', ignore_errors := true);
+----
+NotAnInterchange	\x1f\x8b\x08\x00\x00\x00\x00\x00
+
+query TT
+SELECT kind, datum
+FROM read_835('test/data/not_text.835', table_name := 'diagnostics', ignore_errors := true, binary := true);
+----
+NotAnInterchange	\x1F\x8B\x08\x00\x00\x00\x00\x00
 
 # ignore_errors does not cover a file that cannot be opened.
 

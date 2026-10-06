@@ -2,20 +2,28 @@ use oxedi_core::ColumnType;
 
 use super::super::error::CopyError;
 use super::super::input::{
-    BoundField, FieldType, InputColumn, InputField, InputTable, Integer, bind,
+    BoundField, BoundTable, FieldType, InputColumn, InputField, InputTable, Integer, bind,
 };
-use crate::builtins::{Builtins, TableSchema};
+use crate::builtins::{Builtin, Builtins};
 
-fn tables() -> Vec<TableSchema> {
-    Builtins::load().default().tables.clone()
+fn builtins() -> Builtins {
+    Builtins::load()
+}
+
+fn spec(builtins: &Builtins) -> &Builtin {
+    builtins.default()
 }
 
 fn schema(table: &str) -> Vec<(String, ColumnType)> {
-    tables()
-        .into_iter()
-        .find(|schema| schema.name == table)
-        .map(|schema| schema.columns)
+    builtins()
+        .default()
+        .table(table)
+        .map(|schema| schema.columns.clone())
         .unwrap_or_default()
+}
+
+fn bound(columns: &[InputColumn]) -> Result<Vec<BoundTable>, CopyError> {
+    bind(spec(&builtins()), columns)
 }
 
 fn quoted_columns(table: &str) -> String {
@@ -42,6 +50,7 @@ fn natural(name: &str, kind: ColumnType) -> InputField {
         name: name.to_owned(),
         kind,
         sql,
+        dictionary: Vec::new(),
     }
 }
 
@@ -63,7 +72,7 @@ fn input(tables: Vec<(String, InputTable)>) -> Vec<InputColumn> {
 }
 
 fn message(columns: &[InputColumn]) -> String {
-    match bind(&tables(), columns) {
+    match bound(columns) {
         Ok(bound) => format!("bound: {bound:?}"),
         Err(error) => error.to_string(),
     }
@@ -78,13 +87,9 @@ fn every_table_binds_by_name_in_the_struct_order() {
         "provider_adjustments",
         "adjustments",
     ];
-    let bound = bind(
-        &tables(),
-        &input(names.iter().map(|name| whole(name)).collect()),
-    )
-    .ok();
+    let tables = bound(&input(names.iter().map(|name| whole(name)).collect())).ok();
     assert_eq!(
-        bound.map(|bound| bound
+        tables.map(|bound| bound
             .into_iter()
             .map(|column| column.table)
             .collect::<Vec<_>>()),
@@ -99,10 +104,11 @@ fn fields_keep_their_order_and_input_type() {
             name: "payment_amount".to_owned(),
             kind: FieldType::Integer(Integer::I32),
             sql: "INTEGER".to_owned(),
+            dictionary: Vec::new(),
         },
         natural("claim_id", ColumnType::Binary),
     ]);
-    let bound = bind(&tables(), &input(vec![("claims".to_owned(), claims)])).ok();
+    let bound = bound(&input(vec![("claims".to_owned(), claims)])).ok();
     assert_eq!(
         bound
             .and_then(|bound| bound.into_iter().next())
@@ -115,11 +121,13 @@ fn fields_keep_their_order_and_input_type() {
                     scale: 2,
                 },
                 input: FieldType::Integer(Integer::I32),
+                dictionary: Vec::new(),
             },
             BoundField {
                 name: "claim_id".to_owned(),
                 kind: ColumnType::Binary,
                 input: FieldType::Varchar,
+                dictionary: Vec::new(),
             },
         ])
     );
@@ -127,7 +135,7 @@ fn fields_keep_their_order_and_input_type() {
 
 #[test]
 fn an_empty_struct_binds_no_table() {
-    assert_eq!(bind(&tables(), &input(Vec::new())).ok(), Some(Vec::new()));
+    assert_eq!(bound(&input(Vec::new())).ok(), Some(Vec::new()));
 }
 
 #[test]
@@ -139,7 +147,7 @@ fn the_query_must_return_one_column() {
          table, such as SELECT {'claims': (SELECT list(c) FROM claims c)}"
     );
     assert!(matches!(
-        bind(&tables(), &[]),
+        bound(&[]),
         Err(CopyError::ColumnCount { found: 0 })
     ));
 }
@@ -201,6 +209,7 @@ fn a_field_of_the_wrong_type() {
                 name: name.to_owned(),
                 kind,
                 sql: sql.to_owned(),
+                dictionary: Vec::new(),
             }]),
         )])
     };
@@ -243,5 +252,38 @@ fn a_field_of_the_wrong_type() {
         "edi835: table \"claims\" field \"statement_from\" is TIMESTAMP WITH TIME ZONE; the \
          spec's column is date32, which takes DATE, or TIMESTAMP at midnight"
     );
-    assert!(bind(&tables(), &field("claim_id", FieldType::Null, "NULL")).is_ok());
+    assert!(bound(&field("claim_id", FieldType::Null, "NULL")).is_ok());
+}
+
+#[test]
+fn an_enum_is_text_with_its_dictionary() {
+    let dictionary = vec![b"1".to_vec(), b"2".to_vec()];
+    let field = |name: &str| {
+        input(vec![(
+            "claims".to_owned(),
+            InputTable::Rows(vec![InputField {
+                name: name.to_owned(),
+                kind: FieldType::Enum(Integer::U8),
+                sql: "ENUM".to_owned(),
+                dictionary: dictionary.clone(),
+            }]),
+        )])
+    };
+    assert_eq!(
+        bound(&field("claim_status"))
+            .ok()
+            .and_then(|tables| tables.into_iter().next())
+            .map(|table| table.fields),
+        Some(vec![BoundField {
+            name: "claim_status".to_owned(),
+            kind: ColumnType::Binary,
+            input: FieldType::Enum(Integer::U8),
+            dictionary: dictionary.clone(),
+        }])
+    );
+    assert_eq!(
+        message(&field("charge_amount")),
+        "edi835: table \"claims\" field \"charge_amount\" is ENUM; the spec's column is \
+         decimal128(38, 2), which takes DECIMAL or an integer type"
+    );
 }

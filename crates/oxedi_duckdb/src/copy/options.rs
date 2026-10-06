@@ -242,7 +242,9 @@ fn time(value: &OptionValue) -> Result<i32, CopyError> {
             i32::try_from(micros / MICROS_PER_SECOND)
                 .ok()
                 .filter(|seconds| (0..86_400).contains(seconds))
-                .ok_or_else(|| wrong("time", value, TIME))
+                .ok_or_else(|| CopyError::TimeOutOfRange {
+                    value: value.shown.clone(),
+                })
         }
         Kind::Text(text) => parse_time(text).ok_or_else(|| wrong("time", value, TIME)),
         Kind::Null => Err(CopyError::NoValue { name: "time" }),

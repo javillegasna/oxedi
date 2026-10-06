@@ -8,6 +8,8 @@ use oxedi_core::ColumnType;
 use oxedi_core::column::RowError;
 use oxedi_core::write::WriteError;
 
+use crate::function::FromPanic;
+
 /// The name every message starts with: the format's name in `COPY`.
 pub const FORMAT: &str = "edi835";
 
@@ -51,6 +53,12 @@ pub enum CopyError {
     },
     /// The time has a fraction of a second.
     FractionalTime {
+        /// The value as given, with its DuckDB type.
+        value: String,
+    },
+    /// The time is not one an X12 time can hold (DuckDB's TIME allows
+    /// 24:00:00).
+    TimeOutOfRange {
         /// The value as given, with its DuckDB type.
         value: String,
     },
@@ -200,6 +208,11 @@ impl fmt::Display for CopyError {
                 "{FORMAT}: the option \"time\" is {value}, which has a fraction of a second; \
                  the envelope holds whole seconds"
             ),
+            CopyError::TimeOutOfRange { value } => write!(
+                f,
+                "{FORMAT}: the option \"time\" is {value}, which is out of range for an X12 time; \
+                 it must be from 00:00:00 to 23:59:59"
+            ),
             CopyError::UnknownVersion { version, known } => write!(
                 f,
                 "{FORMAT}: unknown version {version:?}; version must be one of {}",
@@ -290,6 +303,12 @@ pub fn accepted(kind: ColumnType) -> &'static str {
         ColumnType::Decimal128 { .. } => "DECIMAL or an integer type",
         ColumnType::Date32 => "DATE, or TIMESTAMP at midnight",
         ColumnType::Time32 => "TIME in whole seconds",
+    }
+}
+
+impl FromPanic for CopyError {
+    fn from_panic(message: String) -> Self {
+        CopyError::Internal { message }
     }
 }
 

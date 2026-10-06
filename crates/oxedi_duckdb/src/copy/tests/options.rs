@@ -222,6 +222,17 @@ fn a_time_is_whole_seconds() {
         )
     );
     if let Some(slot) = all.get_mut(3) {
+        slot.1 = value(Kind::Time(86_400_000_000), "TIME 24:00:00");
+    }
+    assert_eq!(
+        Settings::parse(&all).map_err(|error| error.to_string()),
+        Err(
+            "edi835: the option \"time\" is TIME 24:00:00, which is out of range for an X12 \
+             time; it must be from 00:00:00 to 23:59:59"
+                .to_owned()
+        )
+    );
+    if let Some(slot) = all.get_mut(3) {
         slot.1 = varchar("25:00");
     }
     assert_eq!(

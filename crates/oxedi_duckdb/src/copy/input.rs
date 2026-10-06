@@ -11,8 +11,9 @@ use oxedi_core::ColumnType;
 use oxedi_core::write::WriteError;
 
 use super::error::CopyError;
-use crate::builtins::TableSchema;
-use crate::value::primitive_name;
+use crate::builtins::{Builtin, TableSchema};
+use crate::schema::LogicalType;
+use crate::value::{primitive_name, take_text};
 
 /// The DuckDB type of a struct field, as far as conversion cares.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -23,6 +24,9 @@ pub enum FieldType {
     Varchar,
     /// `BLOB`.
     Blob,
+    /// An `ENUM`, its index stored as this unsigned integer; the field
+    /// carries the dictionary.
+    Enum(Integer),
     /// An integer type.
     Integer(Integer),
     /// `FLOAT`.
@@ -78,7 +82,10 @@ impl FieldType {
         matches!(
             (self, kind),
             (FieldType::Null, _)
-                | (FieldType::Varchar | FieldType::Blob, ColumnType::Binary)
+                | (
+                    FieldType::Varchar | FieldType::Blob | FieldType::Enum(_),
+                    ColumnType::Binary
+                )
                 | (
                     FieldType::Integer(_) | FieldType::Float | FieldType::Double,
                     ColumnType::Int64 { .. }
@@ -105,6 +112,8 @@ pub struct InputField {
     pub kind: FieldType,
     /// Its DuckDB type as SQL writes it, for messages.
     pub sql: String,
+    /// The values of an `ENUM`, by index; empty for any other type.
+    pub dictionary: Vec<Vec<u8>>,
 }
 
 /// One table of the input as its type describes it.
@@ -134,11 +143,13 @@ pub struct BoundField {
     pub kind: ColumnType,
     /// The field's DuckDB type.
     pub input: FieldType,
+    /// The values of an `ENUM`, by index; empty for any other type.
+    pub dictionary: Vec<Vec<u8>>,
 }
 
 /// One table of the input bound to the spec's.
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub struct BoundColumn {
+pub struct BoundTable {
     /// The table.
     pub table: String,
     /// Each field of the table's structs, in the structs' order.
@@ -146,11 +157,9 @@ pub struct BoundColumn {
 }
 
 /// Binds the query's columns, which must be one STRUCT keyed by table, to
-/// `tables`; one bound table per field of the STRUCT, in its order.
-pub fn bind(
-    tables: &[TableSchema],
-    columns: &[InputColumn],
-) -> Result<Vec<BoundColumn>, CopyError> {
+/// the tables of `builtin`; one bound table per field of the STRUCT, in its
+/// order.
+pub fn bind(builtin: &Builtin, columns: &[InputColumn]) -> Result<Vec<BoundTable>, CopyError> {
     let fields = match columns {
         [InputColumn::Tables(fields)] => fields,
         [InputColumn::Other(found)] => {
@@ -167,15 +176,12 @@ pub fn bind(
     fields
         .iter()
         .map(|(name, input)| {
-            let table = tables
-                .iter()
-                .find(|table| table.name == *name)
-                .ok_or_else(|| {
-                    CopyError::Write(WriteError::UnknownTable {
-                        table: name.clone(),
-                        tables: tables.iter().map(|table| table.name.clone()).collect(),
-                    })
-                })?;
+            let table = builtin.table(name).ok_or_else(|| {
+                CopyError::Write(WriteError::UnknownTable {
+                    table: name.clone(),
+                    tables: builtin.table_names(),
+                })
+            })?;
             let fields = match input {
                 InputTable::Rows(fields) => fields,
                 InputTable::Other(found) => {
@@ -189,7 +195,7 @@ pub fn bind(
                 .iter()
                 .map(|field| bind_field(table, field))
                 .collect::<Result<Vec<_>, _>>()?;
-            Ok(BoundColumn {
+            Ok(BoundTable {
                 table: table.name.clone(),
                 fields,
             })
@@ -234,48 +240,69 @@ fn bind_field(table: &TableSchema, field: &InputField) -> Result<BoundField, Cop
         name: field.name.clone(),
         kind,
         input: field.kind,
+        dictionary: field.dictionary.clone(),
     })
 }
 
-/// A logical type the caller owns, destroyed on drop.
-struct Owned(ffi::duckdb_logical_type);
-
-impl Drop for Owned {
-    fn drop(&mut self) {
-        // SAFETY: the handle was created by DuckDB for the caller and is
-        // destroyed once.
-        unsafe { ffi::duckdb_destroy_logical_type(&mut self.0) };
-    }
-}
+/// What messages call a type DuckDB did not describe.
+const UNDESCRIBED: &str = "a type DuckDB did not describe";
 
 /// The query's column of a logical type.
 ///
 /// # Safety
 ///
 /// `logical_type` must be a live logical type handle.
-pub unsafe fn column_of(logical_type: ffi::duckdb_logical_type) -> InputColumn {
+pub unsafe fn column_of(logical_type: &LogicalType) -> InputColumn {
+    let raw = logical_type.raw();
     // SAFETY: the type is live (caller contract).
-    if unsafe { ffi::duckdb_get_type_id(logical_type) } != ffi::DUCKDB_TYPE_DUCKDB_TYPE_STRUCT {
+    if unsafe { ffi::duckdb_get_type_id(raw) } != ffi::DUCKDB_TYPE_DUCKDB_TYPE_STRUCT {
         // SAFETY: as above.
-        return InputColumn::Other(unsafe { sql_name(logical_type) });
+        return InputColumn::Other(unsafe { sql_name(raw) });
     }
     // SAFETY: the type is a live STRUCT.
-    let count = unsafe { ffi::duckdb_struct_type_child_count(logical_type) };
-    let tables = (0..count)
-        .map(|index| {
-            // SAFETY: `index` is below the child count; the name and type
-            // returned are owned here and released after use.
-            let (name, child) = unsafe {
-                (
-                    take_text(ffi::duckdb_struct_type_child_name(logical_type, index)),
-                    Owned(ffi::duckdb_struct_type_child_type(logical_type, index)),
-                )
+    let tables = unsafe { children(raw) }
+        .into_iter()
+        .map(|(name, child)| {
+            let table = match child {
+                // SAFETY: `child` is live.
+                Some(child) => unsafe { table_of(child.raw()) },
+                None => InputTable::Other(UNDESCRIBED.to_owned()),
             };
-            // SAFETY: `child.0` is live.
-            (name, unsafe { table_of(child.0) })
+            (name, table)
         })
         .collect();
     InputColumn::Tables(tables)
+}
+
+/// The name and type of each field of a STRUCT type.
+///
+/// # Safety
+///
+/// `logical_type` must be a live STRUCT type.
+unsafe fn children(logical_type: ffi::duckdb_logical_type) -> Vec<(String, Option<LogicalType>)> {
+    // SAFETY: the type is a live STRUCT (caller contract).
+    let count = unsafe { ffi::duckdb_struct_type_child_count(logical_type) };
+    (0..count)
+        // SAFETY: `index` is below the child count; the name and type
+        // returned are owned here and released after use.
+        .map(|index| unsafe {
+            (
+                take_text(ffi::duckdb_struct_type_child_name(logical_type, index)),
+                LogicalType::owned(ffi::duckdb_struct_type_child_type(logical_type, index)),
+            )
+        })
+        .collect()
+}
+
+/// The child type of a LIST type.
+///
+/// # Safety
+///
+/// `logical_type` must be a live LIST type.
+unsafe fn list_child(logical_type: ffi::duckdb_logical_type) -> Option<LogicalType> {
+    // SAFETY: the type is a live LIST (caller contract); its child type is
+    // owned by the result.
+    unsafe { LogicalType::owned(ffi::duckdb_list_type_child_type(logical_type)) }
 }
 
 /// One table of the input: a LIST of STRUCT, else its SQL type.
@@ -286,14 +313,14 @@ pub unsafe fn column_of(logical_type: ffi::duckdb_logical_type) -> InputColumn {
 unsafe fn table_of(logical_type: ffi::duckdb_logical_type) -> InputTable {
     // SAFETY: the type is live (caller contract).
     let id = unsafe { ffi::duckdb_get_type_id(logical_type) };
-    if id == ffi::DUCKDB_TYPE_DUCKDB_TYPE_LIST {
-        // SAFETY: the type is a live LIST; its child type is owned here.
-        let child = Owned(unsafe { ffi::duckdb_list_type_child_type(logical_type) });
-        // SAFETY: `child.0` is live.
-        if unsafe { ffi::duckdb_get_type_id(child.0) } == ffi::DUCKDB_TYPE_DUCKDB_TYPE_STRUCT {
-            // SAFETY: `child.0` is a live STRUCT type.
-            return InputTable::Rows(unsafe { struct_fields(child.0) });
-        }
+    if id == ffi::DUCKDB_TYPE_DUCKDB_TYPE_LIST
+        // SAFETY: the type is a live LIST.
+        && let Some(child) = unsafe { list_child(logical_type) }
+        // SAFETY: `child` is live.
+        && unsafe { ffi::duckdb_get_type_id(child.raw()) } == ffi::DUCKDB_TYPE_DUCKDB_TYPE_STRUCT
+    {
+        // SAFETY: `child` is a live STRUCT type.
+        return InputTable::Rows(unsafe { struct_fields(child.raw()) });
     }
     // SAFETY: the type is live (caller contract).
     InputTable::Other(unsafe { sql_name(logical_type) })
@@ -306,41 +333,47 @@ unsafe fn table_of(logical_type: ffi::duckdb_logical_type) -> InputTable {
 /// `logical_type` must be a live STRUCT type.
 unsafe fn struct_fields(logical_type: ffi::duckdb_logical_type) -> Vec<InputField> {
     // SAFETY: the type is a live STRUCT (caller contract).
-    let count = unsafe { ffi::duckdb_struct_type_child_count(logical_type) };
-    (0..count)
-        .map(|index| {
-            // SAFETY: `index` is below the child count; the name and type
-            // returned are owned here and released after use.
-            let (name, child) = unsafe {
-                (
-                    take_text(ffi::duckdb_struct_type_child_name(logical_type, index)),
-                    Owned(ffi::duckdb_struct_type_child_type(logical_type, index)),
-                )
-            };
-            // SAFETY: `child.0` is live.
-            let (kind, sql) = unsafe { (field_type(child.0), sql_name(child.0)) };
-            InputField { name, kind, sql }
+    unsafe { children(logical_type) }
+        .into_iter()
+        .map(|(name, child)| match child {
+            // SAFETY: `child` is live.
+            Some(child) => unsafe {
+                InputField {
+                    name,
+                    kind: field_type(child.raw()),
+                    sql: sql_name(child.raw()),
+                    dictionary: dictionary(child.raw()),
+                }
+            },
+            None => InputField {
+                name,
+                kind: FieldType::Other,
+                sql: UNDESCRIBED.to_owned(),
+                dictionary: Vec::new(),
+            },
         })
         .collect()
 }
 
-/// A C string DuckDB allocated for the caller, freed after it is copied.
+/// The values of an ENUM type, by index; empty for any other type.
 ///
 /// # Safety
 ///
-/// `text` must be null or a NUL-terminated string allocated by DuckDB.
-unsafe fn take_text(text: *mut std::os::raw::c_char) -> String {
-    if text.is_null() {
-        return String::new();
+/// `logical_type` must be a live logical type handle.
+unsafe fn dictionary(logical_type: ffi::duckdb_logical_type) -> Vec<Vec<u8>> {
+    // SAFETY: the type is live (caller contract).
+    if unsafe { ffi::duckdb_get_type_id(logical_type) } != ffi::DUCKDB_TYPE_DUCKDB_TYPE_ENUM {
+        return Vec::new();
     }
-    // SAFETY: `text` is a live C string (caller contract), freed once.
-    unsafe {
-        let owned = std::ffi::CStr::from_ptr(text)
-            .to_string_lossy()
-            .into_owned();
-        ffi::duckdb_free(text.cast());
-        owned
-    }
+    // SAFETY: the type is a live ENUM.
+    let size = unsafe { ffi::duckdb_enum_dictionary_size(logical_type) };
+    (0..u64::from(size))
+        // SAFETY: `index` is below the dictionary size; the string returned
+        // is owned here and freed by `take_text`.
+        .map(|index| unsafe {
+            take_text(ffi::duckdb_enum_dictionary_value(logical_type, index)).into_bytes()
+        })
+        .collect()
 }
 
 /// The field type of a logical type.
@@ -355,6 +388,15 @@ unsafe fn field_type(logical_type: ffi::duckdb_logical_type) -> FieldType {
         ffi::DUCKDB_TYPE_DUCKDB_TYPE_SQLNULL => FieldType::Null,
         ffi::DUCKDB_TYPE_DUCKDB_TYPE_VARCHAR => FieldType::Varchar,
         ffi::DUCKDB_TYPE_DUCKDB_TYPE_BLOB => FieldType::Blob,
+        // SAFETY: the type is a live ENUM.
+        ffi::DUCKDB_TYPE_DUCKDB_TYPE_ENUM => {
+            match unsafe { ffi::duckdb_enum_internal_type(logical_type) } {
+                ffi::DUCKDB_TYPE_DUCKDB_TYPE_UTINYINT => FieldType::Enum(Integer::U8),
+                ffi::DUCKDB_TYPE_DUCKDB_TYPE_USMALLINT => FieldType::Enum(Integer::U16),
+                ffi::DUCKDB_TYPE_DUCKDB_TYPE_UINTEGER => FieldType::Enum(Integer::U32),
+                _ => FieldType::Other,
+            }
+        }
         ffi::DUCKDB_TYPE_DUCKDB_TYPE_TINYINT => FieldType::Integer(Integer::I8),
         ffi::DUCKDB_TYPE_DUCKDB_TYPE_SMALLINT => FieldType::Integer(Integer::I16),
         ffi::DUCKDB_TYPE_DUCKDB_TYPE_INTEGER => FieldType::Integer(Integer::I32),
@@ -404,12 +446,12 @@ unsafe fn sql_name(logical_type: ffi::duckdb_logical_type) -> String {
             };
             format!("DECIMAL({width},{scale})")
         }
-        ffi::DUCKDB_TYPE_DUCKDB_TYPE_LIST => {
-            // SAFETY: the type is a live LIST; the child type is owned here.
-            let child = Owned(unsafe { ffi::duckdb_list_type_child_type(logical_type) });
-            // SAFETY: `child.0` is live.
-            format!("{}[]", unsafe { sql_name(child.0) })
-        }
+        // SAFETY: the type is a live LIST.
+        ffi::DUCKDB_TYPE_DUCKDB_TYPE_LIST => match unsafe { list_child(logical_type) } {
+            // SAFETY: `child` is live.
+            Some(child) => format!("{}[]", unsafe { sql_name(child.raw()) }),
+            None => UNDESCRIBED.to_owned(),
+        },
         ffi::DUCKDB_TYPE_DUCKDB_TYPE_STRUCT => {
             // SAFETY: the type is a live STRUCT.
             let fields = unsafe { struct_fields(logical_type) };

@@ -1,5 +1,5 @@
-//! The DuckDB type of each core column type, and the logical type handles
-//! DuckDB is given for them.
+//! The DuckDB type of each core column type, and owned logical type
+//! handles: those DuckDB is given and those it hands back.
 
 use libduckdb_sys as ffi;
 use oxedi_core::ColumnType;
@@ -117,6 +117,16 @@ pub fn boolean_type() -> LogicalType {
 pub struct LogicalType(ffi::duckdb_logical_type);
 
 impl LogicalType {
+    /// Takes ownership of a logical type handle; `None` for a null handle.
+    ///
+    /// # Safety
+    ///
+    /// `raw` must be null or a logical type handle the caller owns and
+    /// gives up.
+    pub unsafe fn owned(raw: ffi::duckdb_logical_type) -> Option<LogicalType> {
+        (!raw.is_null()).then_some(LogicalType(raw))
+    }
+
     /// The raw handle, valid while `self` lives.
     pub fn raw(&self) -> ffi::duckdb_logical_type {
         self.0

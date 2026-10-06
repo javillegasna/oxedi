@@ -12,18 +12,18 @@ use oxedi_core::{Cell, ColumnType, Table};
 
 use super::convert;
 use super::error::CopyError;
-use super::input::{BoundColumn, FieldType, Integer, Unit};
+use super::input::{BoundTable, FieldType, Integer, Unit};
 
-/// Appends the rows of `chunk` to `tables`, one table per bound column.
+/// Appends the rows of `chunk` to `tables`, one per bound table.
 ///
 /// # Safety
 ///
 /// `chunk` must be the flattened input chunk DuckDB passed to the running
-/// sink callback: one STRUCT column with one field per entry of `columns`,
+/// sink callback: one STRUCT column with one field per entry of `bound`,
 /// of the types they were bound from.
 pub unsafe fn append(
     chunk: ffi::duckdb_data_chunk,
-    columns: &[BoundColumn],
+    bound: &[BoundTable],
     tables: &mut [Table],
 ) -> Result<(), CopyError> {
     // SAFETY: `chunk` is live (caller contract).
@@ -33,24 +33,24 @@ pub unsafe fn append(
             ffi::duckdb_data_chunk_get_column_count(chunk),
         )
     };
-    if count != 1 || tables.len() != columns.len() {
+    if count != 1 || tables.len() != bound.len() {
         return Err(CopyError::Internal {
             message: format!(
                 "the chunk has {count} columns and the state {} tables for {} bound tables",
                 tables.len(),
-                columns.len()
+                bound.len()
             ),
         });
     }
     // SAFETY: the chunk has one column, checked above.
     let input = unsafe { ffi::duckdb_data_chunk_get_vector(chunk, 0) };
-    for (index, (column, table)) in columns.iter().zip(tables.iter_mut()).enumerate() {
+    for (index, (fields, table)) in bound.iter().zip(tables.iter_mut()).enumerate() {
         // SAFETY: the STRUCT vector has one child per bound table, in order
         // (caller contract).
         let list = unsafe { ffi::duckdb_struct_vector_get_child(input, index as ffi::idx_t) };
         // SAFETY: the child is the table's flat LIST of STRUCT, and the
         // input STRUCT vector has `rows` rows.
-        unsafe { append_column(input, list, rows, column, table) }?;
+        unsafe { append_table(input, list, rows, fields, table) }?;
     }
     Ok(())
 }
@@ -73,16 +73,21 @@ unsafe fn valid(vector: ffi::duckdb_vector, row: u64) -> bool {
 ///
 /// `input` must be the live flat STRUCT vector of `rows` rows that holds
 /// `list`, a flat LIST vector of STRUCT whose struct fields are of the types
-/// `column` was bound from.
-unsafe fn append_column(
+/// `bound` was bound from.
+unsafe fn append_table(
     input: ffi::duckdb_vector,
     list: ffi::duckdb_vector,
     rows: ffi::idx_t,
-    column: &BoundColumn,
+    bound: &BoundTable,
     table: &mut Table,
 ) -> Result<(), CopyError> {
     // SAFETY: `list` is a live LIST vector (caller contract): its data holds
     // `rows` list entries, its child is the STRUCT vector of `size` rows.
+    // The child and the child's own children are read as flat vectors:
+    // `CCopyToSink` flattens the chunk before the callback, and DuckDB keeps
+    // the child vector of a list flat (flattening a constant list flattens
+    // its entries, not its child). The C API cannot tell a vector's kind, so
+    // this rests on that DuckDB invariant.
     let (entries, structs, size) = unsafe {
         (
             ffi::duckdb_vector_get_data(list).cast::<ffi::duckdb_list_entry>(),
@@ -90,7 +95,7 @@ unsafe fn append_column(
             ffi::duckdb_list_vector_get_size(list),
         )
     };
-    let fields: Vec<Field> = column
+    let fields: Vec<Field<'_>> = bound
         .fields
         .iter()
         .enumerate()
@@ -105,6 +110,7 @@ unsafe fn append_column(
                 vector,
                 kind: field.kind,
                 input: field.input,
+                dictionary: &field.dictionary,
             }
         })
         .collect();
@@ -124,7 +130,7 @@ unsafe fn append_column(
             return Err(CopyError::Internal {
                 message: format!(
                     "a list entry of table {:?} ends past its {size} child rows",
-                    column.table
+                    bound.table
                 ),
             });
         };
@@ -134,13 +140,13 @@ unsafe fn append_column(
                 continue;
             }
             cells.clear();
-            for (field, bound) in fields.iter().zip(&column.fields) {
+            for (field, column) in fields.iter().zip(&bound.fields) {
                 // SAFETY: `at` is below the child's size, so below each
                 // field vector's.
                 let cell =
                     unsafe { field.cell(at as usize) }.map_err(|reason| CopyError::Value {
-                        table: column.table.clone(),
-                        column: bound.name.clone(),
+                        table: bound.table.clone(),
+                        column: column.name.clone(),
                         row: table.len(),
                         reason,
                     })?;
@@ -153,14 +159,16 @@ unsafe fn append_column(
 }
 
 /// One field vector of the STRUCT being read.
-struct Field {
+struct Field<'a> {
     vector: ffi::duckdb_vector,
     data: *mut c_void,
     kind: ColumnType,
     input: FieldType,
+    /// The values of an `ENUM` field, by index.
+    dictionary: &'a [Vec<u8>],
 }
 
-impl Field {
+impl Field<'_> {
     /// The value at `row` as a cell of the column's type.
     ///
     /// # Safety
@@ -183,6 +191,16 @@ impl Field {
         };
         match (self.kind, raw) {
             (ColumnType::Binary, Raw::Bytes(bytes)) => Ok(Cell::Binary(bytes)),
+            (ColumnType::Binary, Raw::Key(key)) => usize::try_from(key)
+                .ok()
+                .and_then(|index| self.dictionary.get(index))
+                .map(|bytes| Cell::Binary(bytes))
+                .ok_or_else(|| {
+                    format!(
+                        "the dictionary key {key} is outside the column's {} dictionary values",
+                        self.dictionary.len()
+                    )
+                }),
             (ColumnType::Int64 { .. }, Raw::Signed(value)) => {
                 convert::wide_integer(value).map(Cell::Int64)
             }
@@ -245,6 +263,10 @@ impl Field {
                         std::slice::from_raw_parts(start, len)
                     })
                 }
+                FieldType::Enum(Integer::U8) => Raw::Key(at::<u8>(data, row).into()),
+                FieldType::Enum(Integer::U16) => Raw::Key(at::<u16>(data, row).into()),
+                FieldType::Enum(Integer::U32) => Raw::Key(at::<u32>(data, row)),
+                FieldType::Enum(_) => Raw::None,
                 FieldType::Integer(Integer::I8) => Raw::Signed(at::<i8>(data, row).into()),
                 FieldType::Integer(Integer::I16) => Raw::Signed(at::<i16>(data, row).into()),
                 FieldType::Integer(Integer::I32) => Raw::Signed(at::<i32>(data, row).into()),
@@ -284,6 +306,8 @@ impl Field {
 /// A value as DuckDB stores it.
 enum Raw<'a> {
     Bytes(&'a [u8]),
+    /// An `ENUM` index into the field's dictionary.
+    Key(u32),
     Signed(i128),
     Unsigned(u128),
     Float(f64),

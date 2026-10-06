@@ -29,8 +29,33 @@ impl WriteFailure {
 }
 
 const OPEN: &str = "opened for writing";
+const MEASURE: &str = "measured";
 const WRITE: &str = "written";
 const CLOSE: &str = "closed";
+
+/// Whether `len` bytes may be written over a file of `size` bytes, which
+/// the C API cannot truncate; a negative size is DuckDB's failure to measure
+/// the file, whose message `cause` gives.
+pub(super) fn fits(
+    size: i64,
+    len: usize,
+    cause: impl FnOnce() -> String,
+) -> Result<(), WriteFailure> {
+    let Ok(held) = usize::try_from(size) else {
+        return Err(WriteFailure::new(MEASURE, cause()));
+    };
+    if held > len {
+        return Err(WriteFailure::new(
+            OPEN,
+            format!(
+                "it already holds {held} bytes, more than the {len} to write, and DuckDB's file \
+                 system cannot truncate a file from an extension; remove it first, or leave \
+                 USE_TMP_FILE at its default"
+            ),
+        ));
+    }
+    Ok(())
+}
 
 impl OpenOptions {
     /// Options to open a file for writing, creating it when it is missing.
@@ -76,17 +101,11 @@ impl FileSystem {
         let file = FileHandle(handle);
         // SAFETY: the file handle is live.
         let size = unsafe { ffi::duckdb_file_handle_size(file.0) };
-        if usize::try_from(size).map_or(true, |size| size > bytes.len()) {
-            return Err(WriteFailure::new(
-                OPEN,
-                format!(
-                    "it already holds {size} bytes, more than the {} to write, and DuckDB's file \
-                     system cannot truncate a file from an extension; remove it first, or leave \
-                     USE_TMP_FILE at its default",
-                    bytes.len()
-                ),
-            ));
-        }
+        fits(size, bytes.len(), || {
+            // SAFETY: the file handle is live; the error data it returns is
+            // owned and released by `take_error`.
+            take_error(unsafe { ffi::duckdb_file_handle_error_data(file.0) })
+        })?;
         for block in bytes.chunks(WRITE_BLOCK) {
             let mut rest = block;
             while !rest.is_empty() {

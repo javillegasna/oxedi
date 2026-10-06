@@ -87,6 +87,29 @@ fn fractional_time() {
 }
 
 #[test]
+fn time_out_of_range() {
+    assert_eq!(
+        text(CopyError::TimeOutOfRange {
+            value: "TIME 24:00:00".to_owned(),
+        }),
+        "edi835: the option \"time\" is TIME 24:00:00, which is out of range for an X12 time; \
+         it must be from 00:00:00 to 23:59:59"
+    );
+}
+
+#[test]
+fn output_when_the_size_cannot_be_measured() {
+    assert_eq!(
+        text(CopyError::Output {
+            path: "s3://bucket/out.835".to_owned(),
+            step: "measured",
+            message: "the file size is unknown".to_owned(),
+        }),
+        "edi835: \"s3://bucket/out.835\" could not be measured: the file size is unknown"
+    );
+}
+
+#[test]
 fn unknown_version() {
     assert_eq!(
         text(CopyError::UnknownVersion {

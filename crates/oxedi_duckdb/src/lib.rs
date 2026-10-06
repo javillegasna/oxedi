@@ -49,12 +49,13 @@
 //! - `copy`: the `edi835` copy format.
 //! - `diagnostics`: the `diagnostics` table.
 //! - `error`: the errors `read_835` reports.
-//! - `files`: reading files through DuckDB's file system.
-//! - `function`: registration and the bind, init and scan callbacks.
+//! - `files`: reading and writing files through DuckDB's file system.
+//! - `function`: `read_835`'s registration and callbacks, and the panic
+//!   guard every callback uses.
 //! - `options`: the arguments of a call.
 //! - `scan`: emitting one file's rows at a time.
-//! - `schema`: the DuckDB type of each core column type.
-//! - `value`: owned DuckDB values read through the C API.
+//! - `schema`: the DuckDB type of each core column type; owned logical types.
+//! - `value`: owned DuckDB values and C strings read through the C API.
 
 mod builtins;
 mod copy;

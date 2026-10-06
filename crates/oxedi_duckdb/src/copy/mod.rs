@@ -3,11 +3,15 @@
 //!
 //! The query returns one STRUCT column whose fields are tables of the spec,
 //! each a list of structs with the table's columns (`SELECT {'claims':
-//! (SELECT list(c) FROM claims c)}`); several query rows concatenate. The bind reads the options (the
-//! envelope and the version) and binds each column to its table; the sink
-//! appends every chunk's rows; the finalize writes, and only then opens the
-//! target, so a refusal leaves no file behind. Every callback catches
-//! panics, so none unwinds into DuckDB.
+//! (SELECT list(c) FROM claims c)}`); several query rows concatenate. The
+//! bind reads the options (the envelope and the version) and binds each
+//! field of the STRUCT to its table; the sink appends every chunk's rows;
+//! the finalize writes, and opens the target only after the writer
+//! accepted the tables, so a refusal does not open it. What DuckDB then
+//! does with a target of a failed `COPY` is its own: with a local path and
+//! its temporary file an existing file stays as it was; otherwise DuckDB
+//! removes the target. Every callback catches panics, so none unwinds into
+//! DuckDB.
 //!
 //! - `mod.rs`: registration and the bind, init, sink and finalize callbacks.
 //! - `error.rs`: the errors the format reports.
@@ -25,7 +29,6 @@ mod read;
 mod sink;
 
 use std::ffi::{CStr, CString};
-use std::panic::{AssertUnwindSafe, catch_unwind};
 use std::sync::{Arc, Mutex};
 
 use libduckdb_sys as ffi;
@@ -34,9 +37,10 @@ use oxedi_core::{Table, Tables};
 
 use crate::builtins::Builtins;
 use crate::files::ClientContext;
-use crate::function::{drop_box, panic_message};
+use crate::function::{c_message, drop_box, guarded};
+use crate::schema::LogicalType;
 use error::{CopyError, FORMAT};
-use input::BoundColumn;
+use input::BoundTable;
 use options::Settings;
 
 /// Registers the `edi835` copy format on `connection`, with `builtins` as
@@ -98,7 +102,7 @@ struct Bound {
     builtins: Arc<Builtins>,
     version: &'static str,
     envelope: Envelope,
-    columns: Vec<BoundColumn>,
+    tables: Vec<BoundTable>,
     /// The first file DuckDB asked this bind for. Asking for another one
     /// is what per-thread and partitioned output do; running the same
     /// statement again asks for the same file.
@@ -109,21 +113,6 @@ struct Bound {
 struct State {
     path: String,
     tables: Mutex<Vec<Table>>,
-}
-
-/// Runs `body`, turning a panic into an error.
-fn guarded<T>(body: impl FnOnce() -> Result<T, CopyError>) -> Result<T, CopyError> {
-    catch_unwind(AssertUnwindSafe(body)).unwrap_or_else(|payload| {
-        Err(CopyError::Internal {
-            message: panic_message(payload.as_ref()),
-        })
-    })
-}
-
-/// The error's message as a C string; a NUL byte is written `\0`.
-fn c_message(error: &CopyError) -> CString {
-    let text = error.to_string().replace('\0', "\\0");
-    CString::new(text).unwrap_or_default()
 }
 
 fn missing(what: &str) -> CopyError {
@@ -168,24 +157,21 @@ unsafe fn bind_with(info: ffi::duckdb_copy_function_bind_info) -> Result<(), Cop
     let columns = (0..count)
         .map(|index| {
             // SAFETY: `index` is below the column count; the type returned is
-            // owned here and destroyed after it is read.
-            unsafe {
-                let mut kind = ffi::duckdb_copy_function_bind_get_column_type(info, index);
-                if kind.is_null() {
-                    return Err(missing("column type"));
-                }
-                let column = input::column_of(kind);
-                ffi::duckdb_destroy_logical_type(&mut kind);
-                Ok(column)
+            // owned by the guard, which destroys it.
+            let kind = unsafe {
+                LogicalType::owned(ffi::duckdb_copy_function_bind_get_column_type(info, index))
             }
+            .ok_or_else(|| missing("column type"))?;
+            // SAFETY: `kind` is live.
+            Ok(unsafe { input::column_of(&kind) })
         })
-        .collect::<Result<Vec<_>, _>>()?;
-    let columns = input::bind(&builtin.tables, &columns)?;
+        .collect::<Result<Vec<_>, CopyError>>()?;
+    let tables = input::bind(builtin, &columns)?;
     let bound = Bound {
         builtins: Arc::clone(builtins),
         version: builtin.version,
         envelope: settings.envelope,
-        columns,
+        tables,
         target: Mutex::new(None),
     };
     // SAFETY: `info` is live; DuckDB owns the box from here and frees it
@@ -201,7 +187,7 @@ unsafe fn bind_with(info: ffi::duckdb_copy_function_bind_info) -> Result<(), Cop
 }
 
 unsafe extern "C" fn global_init(info: ffi::duckdb_copy_function_global_init_info) {
-    let result = guarded(|| {
+    let result = guarded(|| -> Result<(), CopyError> {
         // SAFETY: the bind data is the `Bound` set by `bind_with`, alive
         // until the copy ends; the path is a C string DuckDB owns during the
         // call, copied here.
@@ -234,12 +220,12 @@ unsafe extern "C" fn global_init(info: ffi::duckdb_copy_function_global_init_inf
             }
         }
         let tables = bound
-            .columns
+            .tables
             .iter()
-            .map(|column| {
+            .map(|table| {
                 Table::new(
-                    column.table.clone(),
-                    column
+                    table.table.clone(),
+                    table
                         .fields
                         .iter()
                         .map(|field| (field.name.clone(), field.kind)),
@@ -272,7 +258,7 @@ unsafe extern "C" fn sink(
     info: ffi::duckdb_copy_function_sink_info,
     input: ffi::duckdb_data_chunk,
 ) {
-    let result = guarded(|| {
+    let result = guarded(|| -> Result<(), CopyError> {
         // SAFETY: the bind data and global state are the `Bound` and `State`
         // set above, alive until the copy ends.
         let (bound, state) = unsafe {
@@ -290,8 +276,8 @@ unsafe extern "C" fn sink(
         let mut tables = state.tables.lock().map_err(|_| CopyError::Internal {
             message: "the tables were poisoned by an earlier panic".to_owned(),
         })?;
-        // SAFETY: `input` is the flattened chunk of the bound columns.
-        unsafe { sink::append(input, &bound.columns, &mut tables) }
+        // SAFETY: `input` is the flattened chunk of the bound tables.
+        unsafe { sink::append(input, &bound.tables, &mut tables) }
     });
     if let Err(error) = result {
         let message = c_message(&error);

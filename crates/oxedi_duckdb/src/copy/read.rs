@@ -1,12 +1,10 @@
 //! The options of a `COPY` read from DuckDB's STRUCT value into
 //! [`OptionValue`]s.
 
-use std::ffi::CStr;
-
 use libduckdb_sys as ffi;
 
 use super::options::{Kind, OptionValue};
-use crate::value::Value;
+use crate::value::{Value, take_text};
 
 /// The options of the bind in progress, each name lower case, in the order
 /// DuckDB gives them.
@@ -52,16 +50,8 @@ unsafe fn struct_children(value: &Value) -> Option<Vec<(String, OptionValue)>> {
             // here and freed after it is copied, and the child value is
             // owned and taken by `Value::owned`.
             let (name, child) = unsafe {
-                let raw = ffi::duckdb_struct_type_child_name(kind, index);
-                let name = if raw.is_null() {
-                    String::new()
-                } else {
-                    let name = CStr::from_ptr(raw).to_string_lossy().into_owned();
-                    ffi::duckdb_free(raw.cast());
-                    name
-                };
                 (
-                    name,
+                    take_text(ffi::duckdb_struct_type_child_name(kind, index)),
                     Value::owned(ffi::duckdb_get_struct_child(value.raw(), index)),
                 )
             };

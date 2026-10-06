@@ -1,4 +1,4 @@
-//! Reading whole files through the file system of the query's client
+//! Reading and writing whole files through the file system of the query's client
 //! context, so every path DuckDB can open (local, `s3://`, `https://`, ...)
 //! works and nothing here touches the operating system directly.
 //!

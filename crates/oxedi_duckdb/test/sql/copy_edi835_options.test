@@ -84,6 +84,13 @@ edi835: the option "time" is TIME 10:30:00.5, which has a fraction of a second; 
 
 statement error
 COPY (SELECT {'claims': list(c)} FROM claims c) TO '__TEST_DIR__/options.835'
+    (FORMAT edi835, sender_id 'SENDER', receiver_id 'RECEIVER', date '2024-01-02',
+     time TIME '24:00:00');
+----
+edi835: the option "time" is TIME 24:00:00, which is out of range for an X12 time; it must be from 00:00:00 to 23:59:59
+
+statement error
+COPY (SELECT {'claims': list(c)} FROM claims c) TO '__TEST_DIR__/options.835'
     (FORMAT edi835, sender_id 'SENDER', receiver_id 'RECEIVER', date '2024-01-02', time '10:30',
      line_break 'yes');
 ----

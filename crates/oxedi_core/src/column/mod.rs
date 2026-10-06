@@ -27,7 +27,7 @@ pub(crate) use parse::is_dt;
 pub use parse::{parse_dt, parse_n, parse_r, parse_tm};
 pub use table::{RowError, Table, Tables};
 
-use parse::civil_from_days;
+pub(crate) use parse::civil_from_days;
 
 /// Precision of every `Decimal128` column: the most digits an `i128` holds in full.
 pub const DECIMAL_PRECISION: u8 = 38;

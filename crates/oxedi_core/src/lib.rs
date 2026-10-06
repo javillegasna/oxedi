@@ -22,6 +22,11 @@
 //!   spec defines (required, type, length, code list, components) and fills the spec's
 //!   tables, typed [`Table`]s of [`ColumnData`] laid out as Apache Arrow
 //!   lays out its arrays, with each row pointing at the rows that enclose it.
+//! - [`write::write()`] turns tables with a spec's schema back into an
+//!   interchange: the spec's projection inverted, the loop tree rebuilt from
+//!   the tables' references, the envelope's counts and control numbers
+//!   computed, and the written file read back so every finding names the
+//!   cell it comes from.
 //! - [`Processor`] feeds one segment at a time to the engine, the checker and
 //!   the projector; [`Processor::run`] does it over a whole [`Document`].
 //!

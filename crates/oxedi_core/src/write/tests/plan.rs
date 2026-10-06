@@ -1,8 +1,8 @@
 //! The write plan over the built-in specs and over a small spec whose
 //! tables are patched to raise each refusal.
 
-use super::*;
 use crate::spec::Spec;
+use crate::write::*;
 
 /// `env` is an envelope with a required `head`; `head` holds two NM
 /// occurrences told apart by NM01, a repeating DT and an AJ segment;

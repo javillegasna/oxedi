@@ -1588,3 +1588,89 @@ crates.io. Todavía no hay usuarios, así que no hace falta paquete de transici�
 - Ningún golden cambia de contenido.
 
 **Fuera de alcance.** Publicar en crates.io; la 837 (Stage 9); cambios de API más allá del nombre.
+
+### Stage 7a · Modelo de ocurrencias por loop — PROPUESTA 2026-10-06
+
+El stage que da a la spec lo que el escritor (Stage 7) necesita y la lectura ya aprovecha: qué
+segmentos lleva cada loop, en qué orden, cuántas veces y cuál es cuál. Hoy cada loop declara solo
+el conjunto de segmentos que puede contener (`segments`), lo que basta para leer pero no para
+emitir ni para validar SNIP 2 completo. Los mapas de `pyx12` describen cada loop como una lista de
+ocurrencias: el loop 2100 del 5010, por ejemplo, tiene siete NM1 distintos que se distinguen por
+NM101, cada uno con su uso, su máximo de repeticiones y sus códigos. Esa misma estructura resuelve
+D11 (orden y cardinalidad), #82 (códigos por ocurrencia) y la parte de #53 que el escritor
+necesita. El stage se separa del escritor porque sirve ya a la lectura y se prueba con los goldens
+actuales.
+
+**Decisiones de diseño (cada una con la alternativa descartada).**
+- **T75 · Ocurrencias en cada loop de la spec.** La lista simple `segments` de cada loop pasa a
+  ser una lista ordenada de ocurrencias. Cada ocurrencia tiene:
+  - un nombre propio dentro del loop (p. ej. `patient` para NM1*QC);
+  - su segmento;
+  - el calificador que la distingue: un elemento (o componente) y el conjunto de códigos que
+    identifica la ocurrencia; puede no haber calificador;
+  - su uso (obligatoria o situacional);
+  - su máximo de repeticiones;
+  - su posición. Las ocurrencias con la misma posición pueden aparecer en cualquier orden entre
+    ellas, como las siete NM1 del 2100.
+
+  El loop declara además su máximo de repeticiones. El trigger del loop es su primera ocurrencia.
+  La pertenencia de un segmento a un loop se deriva de las ocurrencias, así que el motor de loops
+  se comporta igual que hoy. Los parches RFC 7386 siguen funcionando sobre el formato nuevo.
+  Descartados un archivo aparte de cardinalidad (dos fuentes que pueden desalinearse) y leer los
+  mapas de `pyx12` en tiempo de ejecución (rompería sans-IO).
+- **T76 · Generado desde `pyx12` y revisado.** El script del 5e (`scripts/spec_vs_pyx12.py`)
+  aprende a generar y a cotejar las ocurrencias (nombres, calificadores, uso, repeticiones,
+  posiciones) para 5010 y 4010. Las ocurrencias de cada versión se aplican a su spec y el parche
+  4010 ajusta lo que cambie. `--check` cubre las ocurrencias y las exclusiones se listan con su
+  razón. Los nombres de las ocurrencias los propone el script desde el nombre del mapa y se revisan
+  a mano. Descartado escribir las ocurrencias a mano sin oráculo.
+- **T77 · Códigos por ocurrencia (#82).** Una ocurrencia puede declarar sus propios códigos para un
+  elemento; ese elemento se valida contra la lista de su ocurrencia. La lista global del elemento
+  (la unión del 5e) queda para los segmentos que no se pueden atribuir a ninguna ocurrencia.
+  Descartados las listas por loop (no distinguen las NM1 de un mismo loop) y seguir solo con la
+  unión.
+- **T78 · Validación SNIP 2 al leer.** Con las ocurrencias, la lectura emite diagnósticos de nivel 2
+  nuevos:
+  - falta una ocurrencia obligatoria;
+  - una ocurrencia supera su máximo de repeticiones;
+  - un loop supera su máximo de repeticiones;
+  - un segmento aparece fuera de orden respecto de las posiciones;
+  - un segmento del loop no corresponde a ninguna ocurrencia (calificador desconocido).
+
+  Cada diagnóstico nombra la regla, el loop y su ruta, la ocurrencia, el segmento con su índice y
+  el dato, con su test de `Display` de texto completo. El segmento sigue en el documento: nada se
+  descarta. Cada diagnóstico nuevo en samples y fixtures se revisa uno por uno antes de regenerar
+  goldens, como en el 5e.
+- **T79 · Columnas que nombran ocurrencias (#53, L0 y L2).** La fuente de una columna puede nombrar
+  una ocurrencia en lugar de un segmento con `where`, y un loop ancestro de la tabla (L0: p. ej. el
+  `claim_id` en la tabla de servicios). Cuando una ocurrencia se repite, la columna elige `first`,
+  `last` o la n-ésima (L2). Las columnas actuales con `segment` + `where` siguen funcionando. Las
+  tablas built-in pasan a nombrar ocurrencias donde eso aclara la fuente; ninguna celda cambia por
+  ello. L3 (cambiar el tipo de una columna por proyección) queda fuera.
+- **T80 · Ausente y vacío se distinguen (#53, L1).** En las columnas de texto, un elemento ausente
+  da `null` y uno presente pero vacío da `""` (bytes vacíos en Arrow). Hoy los dos dan `null`. Es un
+  cambio visible al leer (en united, unas 5.833 celdas de `rendering_provider`) y se revisa en los
+  goldens. En columnas numéricas y de fecha, vacío y ausente siguen siendo `null`, porque un valor
+  vacío no es un número. Descartada una columna extra de presencia (duplica columnas).
+
+**Entregable / contrato.**
+- Formato de spec con ocurrencias, su validación al cargar (errores P10 con test de texto completo:
+  nombres repetidos, calificador inexistente, posiciones inválidas…) y las specs 5010 y 4010
+  migradas.
+- `spec_vs_pyx12.py` genera y coteja ocurrencias; `--check` en el CI.
+- Los diagnósticos SNIP 2 nuevos y los códigos por ocurrencia en la lectura, con paridad en el
+  camino de elementos no leídos.
+- Fuentes de columna por ocurrencia, con ancestro y selector; distinción ausente y vacío.
+- La extensión de DuckDB y el binding de Python reflejan los cambios (los diagnósticos nuevos y
+  las celdas `""`), con su CHANGELOG.
+
+**Gate de verificación.**
+- `--check` pasa para 5010 y 4010, con las exclusiones listadas y razonadas.
+- Cada diagnóstico nuevo en los seis samples y en los fixtures queda revisado y explicado (dato
+  real, spec demasiado estricta o bug) antes de regenerar goldens; lo mismo para cada celda que
+  pasa de `null` a `""`.
+- Las tablas de los seis samples no cambian salvo por T80.
+- `make gates`, `make py-test` con y sin `pyx12`, los tests de la extensión y su oráculo en verde.
+
+**Fuera de alcance.** El escritor (Stage 7); las reglas de cuadre de D11 (se diseñan con el
+escritor, que es quien las usa para calcular totales); L3 de #53; la 837 (Stage 9).

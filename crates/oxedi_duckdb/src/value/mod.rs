@@ -24,6 +24,11 @@ impl Value {
         (!null).then_some(value)
     }
 
+    /// The raw handle, valid while `self` lives.
+    pub fn raw(&self) -> ffi::duckdb_value {
+        self.0
+    }
+
     /// The value's type id.
     pub fn type_id(&self) -> ffi::DUCKDB_TYPE {
         // SAFETY: the value is live; the type it returns is borrowed from
@@ -124,6 +129,12 @@ pub fn primitive_name(id: ffi::DUCKDB_TYPE) -> &'static str {
         ffi::DUCKDB_TYPE_DUCKDB_TYPE_DATE => "DATE",
         ffi::DUCKDB_TYPE_DUCKDB_TYPE_TIME => "TIME",
         ffi::DUCKDB_TYPE_DUCKDB_TYPE_TIMESTAMP => "TIMESTAMP",
+        ffi::DUCKDB_TYPE_DUCKDB_TYPE_TIMESTAMP_S => "TIMESTAMP_S",
+        ffi::DUCKDB_TYPE_DUCKDB_TYPE_TIMESTAMP_MS => "TIMESTAMP_MS",
+        ffi::DUCKDB_TYPE_DUCKDB_TYPE_TIMESTAMP_NS => "TIMESTAMP_NS",
+        ffi::DUCKDB_TYPE_DUCKDB_TYPE_TIMESTAMP_TZ => "TIMESTAMP WITH TIME ZONE",
+        ffi::DUCKDB_TYPE_DUCKDB_TYPE_TIME_TZ => "TIME WITH TIME ZONE",
+        ffi::DUCKDB_TYPE_DUCKDB_TYPE_TIME_NS => "TIME_NS",
         ffi::DUCKDB_TYPE_DUCKDB_TYPE_INTERVAL => "INTERVAL",
         ffi::DUCKDB_TYPE_DUCKDB_TYPE_VARCHAR => "VARCHAR",
         ffi::DUCKDB_TYPE_DUCKDB_TYPE_BLOB => "BLOB",

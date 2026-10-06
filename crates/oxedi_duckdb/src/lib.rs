@@ -1,6 +1,6 @@
 //! `oxedi`, a DuckDB extension over the oxedi EDI 835 parser core.
 //!
-//! It registers one table function:
+//! It registers a table function and a copy format. The table function:
 //!
 //! ```sql
 //! read_835(path, table_name := 'claims', filename := false, version := NULL,
@@ -26,10 +26,27 @@
 //! `http://` and `https://` paths are never patterns. Plain paths and lists
 //! of them are read through the caller's own file system and secrets.
 //!
+//! The copy format `edi835` writes the tables of the spec back into an 835:
+//!
+//! ```sql
+//! COPY (SELECT (SELECT list(p) FROM payments p) AS payments,
+//!              (SELECT list(c) FROM claims c) AS claims)
+//! TO 'out.835' (FORMAT edi835, sender_id 'SENDER', receiver_id 'RECEIVER',
+//!               date '2024-01-02', time '10:30')
+//! ```
+//!
+//! Each column is a list of structs, one struct per row of one table; the
+//! C API does not give a copy format the columns' names, so a column's
+//! table is the one whose columns hold every field of its structs. The
+//! options are the fields of `oxedi.Envelope` and `version` (`'5010'` by
+//! default, `'4010'`). The file is written with the core's writer in strict
+//! mode: any finding fails the `COPY` and nothing is written.
+//!
 //! The extension is built on DuckDB's stable C API; it keeps no process-wide
-//! state of its own: the built-in specs live in the function's extra info.
+//! state of its own: the built-in specs live in the functions' extra info.
 //!
 //! - `builtins`: the built-in specs and the schema of their tables.
+//! - `copy`: the `edi835` copy format.
 //! - `diagnostics`: the `diagnostics` table.
 //! - `error`: the errors `read_835` reports.
 //! - `files`: reading files through DuckDB's file system.
@@ -40,6 +57,7 @@
 //! - `value`: owned DuckDB values read through the C API.
 
 mod builtins;
+mod copy;
 mod diagnostics;
 mod error;
 mod files;
@@ -95,7 +113,9 @@ unsafe fn load(
     }
     let builtins = Arc::new(builtins::Builtins::load());
     // SAFETY: `connection` is the live connection created above.
-    let registered = unsafe { function::register(connection, builtins) };
+    let registered = unsafe { function::register(connection, Arc::clone(&builtins)) }
+        // SAFETY: as above.
+        .and_then(|()| unsafe { copy::register(connection, builtins) });
     // SAFETY: `connection` was created above and is closed once; the
     // registered function does not refer to it.
     unsafe { ffi::duckdb_disconnect(&mut connection) };

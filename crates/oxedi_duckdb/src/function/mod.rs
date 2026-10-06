@@ -89,7 +89,7 @@ impl Drop for TableFunction {
 }
 
 /// Drops a `Box<T>` DuckDB held as a raw pointer.
-unsafe extern "C" fn drop_box<T>(pointer: *mut c_void) {
+pub(crate) unsafe extern "C" fn drop_box<T>(pointer: *mut c_void) {
     if !pointer.is_null() {
         // SAFETY: `pointer` came from `Box::<T>::into_raw` and DuckDB
         // releases it once.
@@ -106,7 +106,7 @@ fn guarded<T>(body: impl FnOnce() -> Result<T, ReadError>) -> Result<T, ReadErro
     })
 }
 
-fn panic_message(payload: &(dyn Any + Send)) -> String {
+pub(crate) fn panic_message(payload: &(dyn Any + Send)) -> String {
     if let Some(text) = payload.downcast_ref::<&str>() {
         (*text).to_owned()
     } else if let Some(text) = payload.downcast_ref::<String>() {

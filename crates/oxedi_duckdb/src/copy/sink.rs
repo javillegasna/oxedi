@@ -1,9 +1,9 @@
 //! Appending the rows of one input chunk to the tables being built.
 //!
-//! Each input column is a flat LIST vector: per input row a list entry
-//! (offset and length) into a child STRUCT vector, whose children hold the
-//! fields. A NULL list or a NULL struct adds no row; a NULL field is a null
-//! cell.
+//! The input is one flat STRUCT vector with one child per table. Each child
+//! is a LIST vector: per input row a list entry (offset and length) into a
+//! child STRUCT vector, whose children hold the fields. A NULL input row, a
+//! NULL list or a NULL struct adds no row; a NULL field is a null cell.
 
 use std::ffi::c_void;
 
@@ -19,8 +19,8 @@ use super::input::{BoundColumn, FieldType, Integer, Unit};
 /// # Safety
 ///
 /// `chunk` must be the flattened input chunk DuckDB passed to the running
-/// sink callback, with one column per entry of `columns`, of the types they
-/// were bound from.
+/// sink callback: one STRUCT column with one field per entry of `columns`,
+/// of the types they were bound from.
 pub unsafe fn append(
     chunk: ffi::duckdb_data_chunk,
     columns: &[BoundColumn],
@@ -33,21 +33,24 @@ pub unsafe fn append(
             ffi::duckdb_data_chunk_get_column_count(chunk),
         )
     };
-    if count != columns.len() as ffi::idx_t || tables.len() != columns.len() {
+    if count != 1 || tables.len() != columns.len() {
         return Err(CopyError::Internal {
             message: format!(
-                "the chunk has {count} columns, the bind {} and the state {} tables",
-                columns.len(),
-                tables.len()
+                "the chunk has {count} columns and the state {} tables for {} bound tables",
+                tables.len(),
+                columns.len()
             ),
         });
     }
+    // SAFETY: the chunk has one column, checked above.
+    let input = unsafe { ffi::duckdb_data_chunk_get_vector(chunk, 0) };
     for (index, (column, table)) in columns.iter().zip(tables.iter_mut()).enumerate() {
-        // SAFETY: `index` is below the chunk's column count, checked above.
-        let list = unsafe { ffi::duckdb_data_chunk_get_vector(chunk, index as ffi::idx_t) };
-        // SAFETY: the vector is the column's flat LIST of STRUCT (caller
-        // contract).
-        unsafe { append_column(list, rows, column, table) }?;
+        // SAFETY: the STRUCT vector has one child per bound table, in order
+        // (caller contract).
+        let list = unsafe { ffi::duckdb_struct_vector_get_child(input, index as ffi::idx_t) };
+        // SAFETY: the child is the table's flat LIST of STRUCT, and the
+        // input STRUCT vector has `rows` rows.
+        unsafe { append_column(input, list, rows, column, table) }?;
     }
     Ok(())
 }
@@ -68,9 +71,11 @@ unsafe fn valid(vector: ffi::duckdb_vector, row: u64) -> bool {
 
 /// # Safety
 ///
-/// `list` must be a live flat LIST vector of STRUCT of `rows` rows, its
-/// struct fields of the types `column` was bound from.
+/// `input` must be the live flat STRUCT vector of `rows` rows that holds
+/// `list`, a flat LIST vector of STRUCT whose struct fields are of the types
+/// `column` was bound from.
 unsafe fn append_column(
+    input: ffi::duckdb_vector,
     list: ffi::duckdb_vector,
     rows: ffi::idx_t,
     column: &BoundColumn,
@@ -105,8 +110,8 @@ unsafe fn append_column(
         .collect();
     let mut cells: Vec<Cell<'_>> = Vec::with_capacity(fields.len());
     for row in 0..rows {
-        // SAFETY: `row` is below the vector's row count.
-        if !unsafe { valid(list, row) } {
+        // SAFETY: `row` is below both vectors' row count.
+        if !unsafe { valid(input, row) && valid(list, row) } {
             continue;
         }
         // SAFETY: the list data holds `rows` entries and `row` is below it.

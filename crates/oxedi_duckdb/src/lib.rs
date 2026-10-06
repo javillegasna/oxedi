@@ -29,15 +29,15 @@
 //! The copy format `edi835` writes the tables of the spec back into an 835:
 //!
 //! ```sql
-//! COPY (SELECT (SELECT list(p) FROM payments p) AS payments,
-//!              (SELECT list(c) FROM claims c) AS claims)
+//! COPY (SELECT {'payments': (SELECT list(p ORDER BY p."row") FROM payments p),
+//!               'claims': (SELECT list(c ORDER BY c."row") FROM claims c)})
 //! TO 'out.835' (FORMAT edi835, sender_id 'SENDER', receiver_id 'RECEIVER',
 //!               date '2024-01-02', time '10:30')
 //! ```
 //!
-//! Each column is a list of structs, one struct per row of one table; the
-//! C API does not give a copy format the columns' names, so a column's
-//! table is the one whose columns hold every field of its structs. The
+//! The query returns one STRUCT column whose fields are named after the
+//! spec's tables, each a list of structs, one struct per row with the
+//! table's columns; the lists of several query rows concatenate. The
 //! options are the fields of `oxedi.Envelope` and `version` (`'5010'` by
 //! default, `'4010'`). The file is written with the core's writer in strict
 //! mode: any finding fails the `COPY` and nothing is written.

@@ -121,55 +121,49 @@ fn delimiter_length() {
 }
 
 #[test]
+fn column_count() {
+    assert_eq!(
+        text(CopyError::ColumnCount { found: 2 }),
+        "edi835: the query returns 2 columns; it must return one, a STRUCT with one field per \
+         table, such as SELECT {'claims': (SELECT list(c) FROM claims c)}"
+    );
+}
+
+#[test]
+fn not_struct() {
+    assert_eq!(
+        text(CopyError::NotStruct {
+            found: "STRUCT(row BIGINT)[]".to_owned(),
+        }),
+        "edi835: the query's column is STRUCT(row BIGINT)[]; it must be a STRUCT with one field \
+         per table, such as SELECT {'claims': (SELECT list(c) FROM claims c)}"
+    );
+}
+
+#[test]
 fn not_rows() {
     assert_eq!(
         text(CopyError::NotRows {
-            column: 2,
-            found: "INTEGER".to_owned(),
-        }),
-        "edi835: input column 2 is INTEGER; each input column must be a list of structs holding \
-         one table's rows, such as (SELECT list(c) FROM claims c)"
-    );
-}
-
-#[test]
-fn no_table() {
-    assert_eq!(
-        text(CopyError::NoTable {
-            column: 1,
-            fields: vec!["a".to_owned(), "b".to_owned()],
-            tables: vec!["claims".to_owned(), "payments".to_owned()],
-        }),
-        "edi835: input column 1 holds structs with the fields \"a\", \"b\", which no table of \
-         the spec has together; the spec's tables are \"claims\", \"payments\""
-    );
-}
-
-#[test]
-fn ambiguous_table() {
-    assert_eq!(
-        text(CopyError::AmbiguousTable {
-            column: 3,
-            fields: vec!["row".to_owned(), "amount".to_owned()],
-            tables: vec!["adjustments".to_owned(), "provider_adjustments".to_owned()],
-        }),
-        "edi835: input column 3 holds structs with the fields \"row\", \"amount\", which the \
-         tables \"adjustments\", \"provider_adjustments\" all have; add the fields that tell \
-         them apart, such as every column of the table"
-    );
-}
-
-#[test]
-fn duplicate_table() {
-    assert_eq!(
-        text(CopyError::DuplicateTable {
             table: "claims".to_owned(),
-            first: 1,
-            second: 3,
+            found: "VARCHAR[]".to_owned(),
         }),
-        "edi835: input columns 1 and 3 both hold table \"claims\"; give each table once, with \
-         every row in one list"
+        "edi835: table \"claims\" is VARCHAR[]; it must be a list of structs holding the \
+         table's rows, such as (SELECT list(c) FROM claims c)"
     );
+}
+
+#[test]
+fn unknown_table_reads_as_python() {
+    let error = CopyError::Write(WriteError::UnknownTable {
+        table: "nope".to_owned(),
+        tables: vec!["claims".to_owned(), "payments".to_owned()],
+    });
+    assert_eq!(
+        error.to_string(),
+        "edi835: table \"nope\" is not a table of the spec, whose tables are \"claims\", \
+         \"payments\""
+    );
+    assert!(error.source().is_some());
 }
 
 #[test]

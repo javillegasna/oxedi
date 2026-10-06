@@ -1,6 +1,7 @@
 # name: test/sql/copy_edi835_options.test
 # description: the options and the input schema of COPY ... (FORMAT edi835): every message the
-#              bind reports, and the file options DuckDB handles before the format sees them
+#              bind reports, and the file options DuckDB handles before the format sees them; the
+#              input is one STRUCT column keyed by table
 # group: [oxedi]
 
 require oxedi
@@ -16,87 +17,87 @@ SELECT * FROM read_835('../oxedi_core/tests/fixtures/balanced_5010_sample.txt', 
 # ---- options ----
 
 statement error
-COPY (SELECT list(c) AS claims FROM claims c) TO '__TEST_DIR__/options.835'
+COPY (SELECT {'claims': list(c)} FROM claims c) TO '__TEST_DIR__/options.835'
     (FORMAT edi835, sender_id 'SENDER', receiver_id 'RECEIVER', date '2024-01-02', time '10:30',
      header true);
 ----
 edi835: unknown option "header"; the options are "sender_id", "receiver_id", "date", "time", "sender_qualifier", "receiver_qualifier", "usage_indicator", "control_number", "application_sender", "application_receiver", "delimiters", "line_break", "version"
 
 statement error
-COPY (SELECT list(c) AS claims FROM claims c) TO '__TEST_DIR__/options.835'
+COPY (SELECT {'claims': list(c)} FROM claims c) TO '__TEST_DIR__/options.835'
     (FORMAT edi835, sender_id 'SENDER', receiver_id 'RECEIVER', date '2024-01-02', time '10:30',
      compression 'gzip');
 ----
 edi835: the option "compression" does not apply: the format writes one uncompressed file; compress it afterwards
 
 statement error
-COPY (SELECT list(c) AS claims FROM claims c) TO '__TEST_DIR__/options.835'
+COPY (SELECT {'claims': list(c)} FROM claims c) TO '__TEST_DIR__/options.835'
     (FORMAT edi835, sender_id 'SENDER', receiver_id 'RECEIVER', time '10:30');
 ----
 edi835: the option "date" is required; every one of "sender_id", "receiver_id", "date", "time" must be given
 
 statement error
-COPY (SELECT list(c) AS claims FROM claims c) TO '__TEST_DIR__/options.835'
+COPY (SELECT {'claims': list(c)} FROM claims c) TO '__TEST_DIR__/options.835'
     (FORMAT edi835, sender_id 'SENDER', receiver_id 'RECEIVER', date '2024-01-02', time '10:30',
      usage_indicator);
 ----
 edi835: the option "usage_indicator" needs a value
 
 statement error
-COPY (SELECT list(c) AS claims FROM claims c) TO '__TEST_DIR__/options.835'
+COPY (SELECT {'claims': list(c)} FROM claims c) TO '__TEST_DIR__/options.835'
     (FORMAT edi835, sender_id 123456789, receiver_id 'RECEIVER', date '2024-01-02', time '10:30');
 ----
 edi835: the option "sender_id" is INTEGER 123456789; it must be text (VARCHAR)
 
 statement error
-COPY (SELECT list(c) AS claims FROM claims c) TO '__TEST_DIR__/options.835'
+COPY (SELECT {'claims': list(c)} FROM claims c) TO '__TEST_DIR__/options.835'
     (FORMAT edi835, sender_id 'SENDER', receiver_id 'RECEIVER', date '2024-01-02', time '10:30',
      control_number -1);
 ----
 edi835: the option "control_number" is INTEGER -1; it must be a whole number from 0 to 18446744073709551615
 
 statement error
-COPY (SELECT list(c) AS claims FROM claims c) TO '__TEST_DIR__/options.835'
+COPY (SELECT {'claims': list(c)} FROM claims c) TO '__TEST_DIR__/options.835'
     (FORMAT edi835, sender_id 'SENDER', receiver_id 'RECEIVER', date '2024-02-30', time '10:30');
 ----
 edi835: the option "date" is VARCHAR "2024-02-30"; it must be a DATE, or text in the form YYYY-MM-DD
 
 statement error
-COPY (SELECT list(c) AS claims FROM claims c) TO '__TEST_DIR__/options.835'
+COPY (SELECT {'claims': list(c)} FROM claims c) TO '__TEST_DIR__/options.835'
     (FORMAT edi835, sender_id 'SENDER', receiver_id 'RECEIVER', date TIMESTAMP '2024-01-02 10:30',
      time '10:30');
 ----
 edi835: the option "date" is TIMESTAMP 2024-01-02 10:30:00; it must be a DATE, or text in the form YYYY-MM-DD
 
 statement error
-COPY (SELECT list(c) AS claims FROM claims c) TO '__TEST_DIR__/options.835'
+COPY (SELECT {'claims': list(c)} FROM claims c) TO '__TEST_DIR__/options.835'
     (FORMAT edi835, sender_id 'SENDER', receiver_id 'RECEIVER', date '2024-01-02', time '10.30');
 ----
 edi835: the option "time" is VARCHAR "10.30"; it must be a TIME, or text in the form HH:MM, HHMM or HH:MM:SS
 
 statement error
-COPY (SELECT list(c) AS claims FROM claims c) TO '__TEST_DIR__/options.835'
+COPY (SELECT {'claims': list(c)} FROM claims c) TO '__TEST_DIR__/options.835'
     (FORMAT edi835, sender_id 'SENDER', receiver_id 'RECEIVER', date '2024-01-02',
      time TIME '10:30:00.5');
 ----
 edi835: the option "time" is TIME 10:30:00.5, which has a fraction of a second; the envelope holds whole seconds
 
 statement error
-COPY (SELECT list(c) AS claims FROM claims c) TO '__TEST_DIR__/options.835'
+COPY (SELECT {'claims': list(c)} FROM claims c) TO '__TEST_DIR__/options.835'
     (FORMAT edi835, sender_id 'SENDER', receiver_id 'RECEIVER', date '2024-01-02', time '10:30',
      line_break 'yes');
 ----
 edi835: the option "line_break" is VARCHAR "yes"; it must be a BOOLEAN
 
 statement error
-COPY (SELECT list(c) AS claims FROM claims c) TO '__TEST_DIR__/options.835'
+COPY (SELECT {'claims': list(c)} FROM claims c) TO '__TEST_DIR__/options.835'
     (FORMAT edi835, sender_id 'SENDER', receiver_id 'RECEIVER', date '2024-01-02', time '10:30',
      version '3070');
 ----
 edi835: unknown version "3070"; version must be one of "5010", "4010"
 
 statement error
-COPY (SELECT list(c) AS claims FROM claims c) TO '__TEST_DIR__/options.835'
+COPY (SELECT {'claims': list(c)} FROM claims c) TO '__TEST_DIR__/options.835'
     (FORMAT edi835, sender_id 'SENDER', receiver_id 'RECEIVER', date '2024-01-02', time '10:30',
      version 5010);
 ----
@@ -105,28 +106,28 @@ edi835: the option "version" is INTEGER 5010; it must be text (VARCHAR) naming a
 # ---- delimiters ----
 
 statement error
-COPY (SELECT list(c) AS claims FROM claims c) TO '__TEST_DIR__/options.835'
+COPY (SELECT {'claims': list(c)} FROM claims c) TO '__TEST_DIR__/options.835'
     (FORMAT edi835, sender_id 'SENDER', receiver_id 'RECEIVER', date '2024-01-02', time '10:30',
      delimiters '|');
 ----
 edi835: the option "delimiters" is VARCHAR "|"; it must be a STRUCT of one-byte texts with any of the fields element, component, segment, repetition and release, such as {'element': '|'}
 
 statement error
-COPY (SELECT list(c) AS claims FROM claims c) TO '__TEST_DIR__/options.835'
+COPY (SELECT {'claims': list(c)} FROM claims c) TO '__TEST_DIR__/options.835'
     (FORMAT edi835, sender_id 'SENDER', receiver_id 'RECEIVER', date '2024-01-02', time '10:30',
      delimiters {'element': '**'});
 ----
 edi835: delimiter element must be exactly one byte, got 2 bytes: b'**'
 
 statement error
-COPY (SELECT list(c) AS claims FROM claims c) TO '__TEST_DIR__/options.835'
+COPY (SELECT {'claims': list(c)} FROM claims c) TO '__TEST_DIR__/options.835'
     (FORMAT edi835, sender_id 'SENDER', receiver_id 'RECEIVER', date '2024-01-02', time '10:30',
      delimiters {'sub': '|'});
 ----
 edi835: delimiters has no field "sub"; its fields are "element", "component", "segment", "repetition", "release"
 
 statement error
-COPY (SELECT list(c) AS claims FROM claims c) TO '__TEST_DIR__/options.835'
+COPY (SELECT {'claims': list(c)} FROM claims c) TO '__TEST_DIR__/options.835'
     (FORMAT edi835, sender_id 'SENDER', receiver_id 'RECEIVER', date '2024-01-02', time '10:30',
      delimiters {'segment': 7});
 ----
@@ -135,54 +136,53 @@ edi835: the option "delimiters" is INTEGER 7 in the field "segment"; it must be 
 # ---- file options: DuckDB handles these before the format sees them ----
 
 statement error
-COPY (SELECT list(c) AS claims FROM claims c) TO '__TEST_DIR__/options.835'
+COPY (SELECT {'claims': list(c)} FROM claims c) TO '__TEST_DIR__/options.835'
     (FORMAT edi835, sender_id 'SENDER', receiver_id 'RECEIVER', date '2024-01-02', time '10:30',
      file_size_bytes 1000);
 ----
 FILE_SIZE_BYTES not implemented for FORMAT "edi835"
 
-# ---- the input schema: one LIST(STRUCT) column per table ----
+# ---- the input: one STRUCT column keyed by table, each field a LIST(STRUCT) of its rows ----
 
 statement error
-COPY (SELECT list(c) AS claims, 42 AS payments FROM claims c) TO '__TEST_DIR__/options.835'
+COPY (SELECT list(c) AS claims, list(c) AS more FROM claims c) TO '__TEST_DIR__/options.835'
     (FORMAT edi835, sender_id 'SENDER', receiver_id 'RECEIVER', date '2024-01-02', time '10:30');
 ----
-edi835: input column 2 is INTEGER; each input column must be a list of structs holding one table's rows, such as (SELECT list(c) FROM claims c)
+edi835: the query returns 2 columns; it must return one, a STRUCT with one field per table, such as SELECT {'claims': (SELECT list(c) FROM claims c)}
 
 statement error
-COPY (SELECT list(c.claim_id) AS claims FROM claims c) TO '__TEST_DIR__/options.835'
+COPY (SELECT list({'claim_id': c.claim_id}) AS claims FROM claims c) TO '__TEST_DIR__/options.835'
     (FORMAT edi835, sender_id 'SENDER', receiver_id 'RECEIVER', date '2024-01-02', time '10:30');
 ----
-edi835: input column 1 is VARCHAR[]; each input column must be a list of structs holding one table's rows, such as (SELECT list(c) FROM claims c)
+edi835: the query's column is STRUCT(claim_id VARCHAR)[]; it must be a STRUCT with one field per table, such as SELECT {'claims': (SELECT list(c) FROM claims c)}
 
 statement error
-COPY (SELECT [{'nope': 1, 'other': 2}] AS claims) TO '__TEST_DIR__/options.835'
+COPY (SELECT 42 AS tables) TO '__TEST_DIR__/options.835'
     (FORMAT edi835, sender_id 'SENDER', receiver_id 'RECEIVER', date '2024-01-02', time '10:30');
 ----
-edi835: input column 1 holds structs with the fields "nope", "other", which no table of the spec has together; the spec's tables are "adjustments", "claims", "payments", "provider_adjustments", "services"
+edi835: the query's column is INTEGER; it must be a STRUCT with one field per table, such as SELECT {'claims': (SELECT list(c) FROM claims c)}
 
 statement error
-COPY (SELECT [{'row': 0, 'payment': 0, 'amount': 1.00, 'reason_code': 'WO'}] AS adjustments)
-TO '__TEST_DIR__/options.835'
+COPY (SELECT {'claims': list(c.claim_id)} FROM claims c) TO '__TEST_DIR__/options.835'
     (FORMAT edi835, sender_id 'SENDER', receiver_id 'RECEIVER', date '2024-01-02', time '10:30');
 ----
-edi835: input column 1 holds structs with the fields "row", "payment", "amount", "reason_code", which the tables "adjustments", "provider_adjustments" all have; add the fields that tell them apart, such as every column of the table
+edi835: table "claims" is VARCHAR[]; it must be a list of structs holding the table's rows, such as (SELECT list(c) FROM claims c)
 
 statement error
-COPY (SELECT list(c) AS claims, list(c) AS claims_again FROM claims c) TO '__TEST_DIR__/options.835'
+COPY (SELECT {'claims': list(c), 'nope': list(c)} FROM claims c) TO '__TEST_DIR__/options.835'
     (FORMAT edi835, sender_id 'SENDER', receiver_id 'RECEIVER', date '2024-01-02', time '10:30');
 ----
-edi835: input columns 1 and 2 both hold table "claims"; give each table once, with every row in one list
+edi835: table "nope" is not a table of the spec, whose tables are "adjustments", "claims", "payments", "provider_adjustments", "services"
 
 statement error
-COPY (SELECT list({'claim_id': c.claim_id, 'nope': 1}) AS claims FROM claims c)
+COPY (SELECT {'claims': list({'claim_id': c.claim_id, 'nope': 1})} FROM claims c)
 TO '__TEST_DIR__/options.835'
     (FORMAT edi835, sender_id 'SENDER', receiver_id 'RECEIVER', date '2024-01-02', time '10:30');
 ----
 edi835: table "claims" has no column "nope" in the spec; its columns are "row", "segment", "payment", "charge_amount", "claim_id", "claim_status", "coverage_amount", "discharge_fraction", "drg_code", "drg_weight", "facility_type", "filing_indicator", "frequency_code", "group_number", "header_number", "patient_first_name", "patient_id", "patient_id_qualifier", "patient_last_name", "patient_responsibility", "payer_control_number", "payment_amount", "rendering_provider_entity_type", "rendering_provider_id", "rendering_provider_id_qualifier", "rendering_provider_name", "statement_from", "statement_to"
 
 statement error
-COPY (SELECT list({'claim_id': c.claim_id, 'charge_amount': c.charge_amount::VARCHAR}) AS claims
+COPY (SELECT {'claims': list({'claim_id': c.claim_id, 'charge_amount': c.charge_amount::VARCHAR})}
       FROM claims c)
 TO '__TEST_DIR__/options.835'
     (FORMAT edi835, sender_id 'SENDER', receiver_id 'RECEIVER', date '2024-01-02', time '10:30');
@@ -190,7 +190,7 @@ TO '__TEST_DIR__/options.835'
 edi835: table "claims" field "charge_amount" is VARCHAR; the spec's column is decimal128(38, 2), which takes DECIMAL or an integer type
 
 statement error
-COPY (SELECT list({'claim_id': c.claim_id, 'statement_from': c.statement_from::TIMESTAMPTZ}) AS claims
+COPY (SELECT {'claims': list({'claim_id': c.claim_id, 'statement_from': c.statement_from::TIMESTAMPTZ})}
       FROM claims c)
 TO '__TEST_DIR__/options.835'
     (FORMAT edi835, sender_id 'SENDER', receiver_id 'RECEIVER', date '2024-01-02', time '10:30');
@@ -198,7 +198,7 @@ TO '__TEST_DIR__/options.835'
 edi835: table "claims" field "statement_from" is TIMESTAMP WITH TIME ZONE; the spec's column is date32, which takes DATE, or TIMESTAMP at midnight
 
 statement error
-COPY (SELECT list({'claim_id': c.claim_id, 'charge_amount': c.charge_amount::DOUBLE}) AS claims
+COPY (SELECT {'claims': list({'claim_id': c.claim_id, 'charge_amount': c.charge_amount::DOUBLE})}
       FROM claims c)
 TO '__TEST_DIR__/options.835'
     (FORMAT edi835, sender_id 'SENDER', receiver_id 'RECEIVER', date '2024-01-02', time '10:30');

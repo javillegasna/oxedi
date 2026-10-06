@@ -1,9 +1,9 @@
 //! The `edi835` copy format: `COPY (query) TO 'file' (FORMAT edi835, …)`
 //! writes the query's tables as one 835 interchange with the core's writer.
 //!
-//! The query returns one `LIST(STRUCT(...))` column per table of the spec,
-//! each struct a row with the table's columns (`SELECT list(c) FROM claims
-//! c`); several query rows concatenate. The bind reads the options (the
+//! The query returns one STRUCT column whose fields are tables of the spec,
+//! each a list of structs with the table's columns (`SELECT {'claims':
+//! (SELECT list(c) FROM claims c)}`); several query rows concatenate. The bind reads the options (the
 //! envelope and the version) and binds each column to its table; the sink
 //! appends every chunk's rows; the finalize writes, and only then opens the
 //! target, so a refusal leaves no file behind. Every callback catches
@@ -13,7 +13,7 @@
 //! - `error.rs`: the errors the format reports.
 //! - `options.rs`: the options and the envelope they make.
 //! - `read.rs`: the options read from DuckDB's value.
-//! - `input.rs`: the query's columns bound to the spec's tables.
+//! - `input.rs`: the query's column bound to the spec's tables.
 //! - `sink.rs`: the rows of one input chunk.
 //! - `convert.rs`: DuckDB values to the spec's column types.
 
@@ -93,7 +93,7 @@ impl Drop for CopyFunction {
     }
 }
 
-/// What the bind settled: the spec, the envelope and the input columns.
+/// What the bind settled: the spec, the envelope and the input tables.
 struct Bound {
     builtins: Arc<Builtins>,
     version: &'static str,

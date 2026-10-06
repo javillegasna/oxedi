@@ -1,13 +1,14 @@
 # name: test/sql/copy_edi835.test
 # description: COPY ... (FORMAT edi835) writes the tables back into an 835: round trips of a 5010
 #              and a 4010 fixture, the sources a query can read (view, TEMP table, several rows,
-#              the open transaction), input shapes and types, refusals, and the target file
+#              the open transaction), input shapes and types, refusals, and the target file;
+#              the input is one STRUCT column keyed by table
 # group: [oxedi]
 
 require oxedi
 
 statement ok
-CREATE VIEW tables_5010 AS
+CREATE VIEW parts_5010 AS
 SELECT (SELECT list(t ORDER BY t."row") FROM read_835('../oxedi_core/tests/fixtures/balanced_5010_sample.txt', table_name := 'payments') t) AS payments,
        (SELECT list(t ORDER BY t."row") FROM read_835('../oxedi_core/tests/fixtures/balanced_5010_sample.txt', table_name := 'claims') t) AS claims,
        (SELECT list(t ORDER BY t."row") FROM read_835('../oxedi_core/tests/fixtures/balanced_5010_sample.txt', table_name := 'services') t) AS services,
@@ -15,7 +16,7 @@ SELECT (SELECT list(t ORDER BY t."row") FROM read_835('../oxedi_core/tests/fixtu
        (SELECT list(t ORDER BY t."row") FROM read_835('../oxedi_core/tests/fixtures/balanced_5010_sample.txt', table_name := 'provider_adjustments') t) AS provider_adjustments;
 
 statement ok
-CREATE VIEW tables_4010 AS
+CREATE VIEW parts_4010 AS
 SELECT (SELECT list(t ORDER BY t."row") FROM read_835('../oxedi_core/tests/fixtures/balanced_4010_sample.txt', table_name := 'payments') t) AS payments,
        (SELECT list(t ORDER BY t."row") FROM read_835('../oxedi_core/tests/fixtures/balanced_4010_sample.txt', table_name := 'claims') t) AS claims,
        (SELECT list(t ORDER BY t."row") FROM read_835('../oxedi_core/tests/fixtures/balanced_4010_sample.txt', table_name := 'services') t) AS services,
@@ -23,12 +24,23 @@ SELECT (SELECT list(t ORDER BY t."row") FROM read_835('../oxedi_core/tests/fixtu
        (SELECT list(t ORDER BY t."row") FROM read_835('../oxedi_core/tests/fixtures/balanced_4010_sample.txt', table_name := 'provider_adjustments') t) AS provider_adjustments;
 
 statement ok
-CREATE VIEW tables_multi AS
+CREATE VIEW parts_multi AS
 SELECT (SELECT list(t ORDER BY t."row") FROM read_835('../oxedi_core/tests/fixtures/multi_claim_sample.txt', table_name := 'payments') t) AS payments,
        (SELECT list(t ORDER BY t."row") FROM read_835('../oxedi_core/tests/fixtures/multi_claim_sample.txt', table_name := 'claims') t) AS claims,
        (SELECT list(t ORDER BY t."row") FROM read_835('../oxedi_core/tests/fixtures/multi_claim_sample.txt', table_name := 'services') t) AS services,
        (SELECT list(t ORDER BY t."row") FROM read_835('../oxedi_core/tests/fixtures/multi_claim_sample.txt', table_name := 'adjustments') t) AS adjustments,
        (SELECT list(t ORDER BY t."row") FROM read_835('../oxedi_core/tests/fixtures/multi_claim_sample.txt', table_name := 'provider_adjustments') t) AS provider_adjustments;
+
+# The input: one STRUCT column keyed by table, each field a list of that table's rows.
+
+statement ok
+CREATE VIEW tables_5010 AS SELECT {'payments': payments, 'claims': claims, 'services': services, 'adjustments': adjustments, 'provider_adjustments': provider_adjustments} AS tables FROM parts_5010;
+
+statement ok
+CREATE VIEW tables_4010 AS SELECT {'payments': payments, 'claims': claims, 'services': services, 'adjustments': adjustments, 'provider_adjustments': provider_adjustments} AS tables FROM parts_4010;
+
+statement ok
+CREATE VIEW tables_multi AS SELECT {'payments': payments, 'claims': claims, 'services': services, 'adjustments': adjustments, 'provider_adjustments': provider_adjustments} AS tables FROM parts_multi;
 
 # ---- round trips: read_835 -> COPY -> read_835 gives the same tables, apart from segment ----
 
@@ -262,11 +274,14 @@ true
 
 statement ok
 COPY (
-    SELECT payments, list_slice(claims, 1, 2) AS claims, services, adjustments,
-           provider_adjustments
-    FROM tables_5010
-    UNION ALL
-    SELECT NULL, list_slice(claims, 3, 4), NULL, NULL, NULL FROM tables_5010
+    SELECT {'payments': payments, 'claims': claims, 'services': services, 'adjustments': adjustments,
+            'provider_adjustments': provider_adjustments} FROM (
+        SELECT payments, list_slice(claims, 1, 2) AS claims, services, adjustments,
+               provider_adjustments
+        FROM parts_5010
+        UNION ALL
+        SELECT NULL, list_slice(claims, 3, 4), NULL, NULL, NULL FROM parts_5010
+    )
 ) TO '__TEST_DIR__/copy_rows.835' (FORMAT edi835, sender_id 'SENDER', receiver_id 'RECEIVER', date '2024-01-02', time '10:30', preserve_order true);
 
 query I
@@ -293,26 +308,18 @@ true
 
 # ---- input shapes: empty and NULL lists, NULL structs and fields, a table left out ----
 
-# Two columns of one table are refused, even when one is an empty list.
-
-statement error
-COPY (
-    SELECT payments, list_concat(claims, [NULL]) AS claims, services, adjustments,
-           provider_adjustments, []::STRUCT(claim_id VARCHAR)[] AS empty
-    FROM tables_5010
-) TO '__TEST_DIR__/copy_nulls.835' (FORMAT edi835, sender_id 'SENDER', receiver_id 'RECEIVER', date '2024-01-02', time '10:30');
-----
-edi835: input columns 2 and 6 both hold table "claims"; give each table once, with every row in one list
-
 # A NULL struct adds no row; an empty list and a NULL list add none either.
 
 statement ok
 COPY (
-    SELECT payments, list_concat(claims, [NULL]) AS claims, services, adjustments,
-           provider_adjustments
-    FROM tables_5010
-    UNION ALL
-    SELECT [], NULL, [], NULL, [] FROM tables_5010
+    SELECT {'payments': payments, 'claims': claims, 'services': services, 'adjustments': adjustments,
+            'provider_adjustments': provider_adjustments} FROM (
+        SELECT payments, list_concat(claims, [NULL]) AS claims, services, adjustments,
+               provider_adjustments
+        FROM parts_5010
+        UNION ALL
+        SELECT [], NULL, [], NULL, [] FROM parts_5010
+    )
 ) TO '__TEST_DIR__/copy_nulls.835' (FORMAT edi835, sender_id 'SENDER', receiver_id 'RECEIVER', date '2024-01-02', time '10:30', preserve_order true);
 
 query I
@@ -320,11 +327,24 @@ SELECT (SELECT md5(content) FROM read_blob('__TEST_DIR__/copy_ref.835')) = (SELE
 ----
 true
 
+# A NULL input row adds nothing either.
+
+statement ok
+COPY (SELECT * FROM tables_5010 UNION ALL SELECT NULL)
+TO '__TEST_DIR__/copy_null_row.835' (FORMAT edi835, sender_id 'SENDER', receiver_id 'RECEIVER', date '2024-01-02', time '10:30', preserve_order true);
+
+query I
+SELECT (SELECT md5(content) FROM read_blob('__TEST_DIR__/copy_ref.835')) = (SELECT md5(content) FROM read_blob('__TEST_DIR__/copy_null_row.835'));
+----
+true
+
 # A table left out has no rows: without its provider adjustments the payment no longer balances.
 
 statement error
 COPY (
-    SELECT payments, claims, services, adjustments FROM tables_5010
+    SELECT {'payments': payments, 'claims': claims, 'services': services, 'adjustments': adjustments} FROM (
+        SELECT payments, claims, services, adjustments FROM parts_5010
+    )
 ) TO '__TEST_DIR__/copy_left_out.835' (FORMAT edi835, sender_id 'SENDER', receiver_id 'RECEIVER', date '2024-01-02', time '10:30');
 ----
 edi835: the tables do not make a valid file (1 finding); nothing was written
@@ -335,10 +355,12 @@ edi835: the tables do not make a valid file (1 finding); nothing was written
 
 statement ok
 COPY (
-    SELECT payments,
-           list_transform(claims, c -> struct_update(c, rendering_provider_name := NULL::VARCHAR)) AS claims,
-           services, adjustments, provider_adjustments
-    FROM tables_5010
+    SELECT {'payments': payments, 'claims': claims, 'services': services, 'adjustments': adjustments, 'provider_adjustments': provider_adjustments} FROM (
+        SELECT payments,
+               list_transform(claims, c -> struct_update(c, rendering_provider_name := NULL::VARCHAR)) AS claims,
+               services, adjustments, provider_adjustments
+        FROM parts_5010
+    )
 ) TO '__TEST_DIR__/copy_null_field.835' (FORMAT edi835, sender_id 'SENDER', receiver_id 'RECEIVER', date '2024-01-02', time '10:30');
 
 query I
@@ -348,13 +370,15 @@ SELECT count(NULLIF(rendering_provider_name, '')) FROM read_835('__TEST_DIR__/co
 
 statement ok
 COPY (
-    SELECT payments,
-           (SELECT list(c ORDER BY c."row")
-            FROM (SELECT * EXCLUDE (rendering_provider_entity_type, rendering_provider_id,
-                                    rendering_provider_id_qualifier, rendering_provider_name)
-                  FROM read_835('../oxedi_core/tests/fixtures/balanced_5010_sample.txt')) c) AS claims,
-           services, adjustments, provider_adjustments
-    FROM tables_5010
+    SELECT {'payments': payments, 'claims': claims, 'services': services, 'adjustments': adjustments, 'provider_adjustments': provider_adjustments} FROM (
+        SELECT payments,
+               (SELECT list(c ORDER BY c."row")
+                FROM (SELECT * EXCLUDE (rendering_provider_entity_type, rendering_provider_id,
+                                        rendering_provider_id_qualifier, rendering_provider_name)
+                      FROM read_835('../oxedi_core/tests/fixtures/balanced_5010_sample.txt')) c) AS claims,
+               services, adjustments, provider_adjustments
+        FROM parts_5010
+    )
 ) TO '__TEST_DIR__/copy_few_fields.835' (FORMAT edi835, sender_id 'SENDER', receiver_id 'RECEIVER', date '2024-01-02', time '10:30');
 
 query TII
@@ -370,19 +394,21 @@ CLM2002	0	0
 
 statement ok
 COPY (
-    SELECT payments,
-           list_transform(claims, c -> struct_update(c,
-               "row" := c."row"::INTEGER,
-               payment := c.payment::HUGEINT,
-               claim_id := c.claim_id::BLOB,
-               charge_amount := c.charge_amount::DECIMAL(18, 3),
-               payment_amount := c.payment_amount::DECIMAL(9, 2),
-               statement_from := c.statement_from::TIMESTAMP)) AS claims,
-           list_transform(services, s -> struct_update(s,
-               "row" := s."row"::UTINYINT,
-               claim := s.claim::DOUBLE)) AS services,
-           adjustments, provider_adjustments
-    FROM tables_5010
+    SELECT {'payments': payments, 'claims': claims, 'services': services, 'adjustments': adjustments, 'provider_adjustments': provider_adjustments} FROM (
+        SELECT payments,
+               list_transform(claims, c -> struct_update(c,
+                   "row" := c."row"::INTEGER,
+                   payment := c.payment::HUGEINT,
+                   claim_id := c.claim_id::BLOB,
+                   charge_amount := c.charge_amount::DECIMAL(18, 3),
+                   payment_amount := c.payment_amount::DECIMAL(9, 2),
+                   statement_from := c.statement_from::TIMESTAMP)) AS claims,
+               list_transform(services, s -> struct_update(s,
+                   "row" := s."row"::UTINYINT,
+                   claim := s.claim::DOUBLE)) AS services,
+               adjustments, provider_adjustments
+        FROM parts_5010
+    )
 ) TO '__TEST_DIR__/copy_types.835' (FORMAT edi835, sender_id 'SENDER', receiver_id 'RECEIVER', date '2024-01-02', time '10:30');
 
 query I
@@ -394,30 +420,36 @@ true
 
 statement error
 COPY (
-    SELECT payments,
-           list_transform(claims, c -> struct_update(c,
-               charge_amount := c.charge_amount::DECIMAL(18, 3) + 0.001)) AS claims
-    FROM tables_5010
+    SELECT {'payments': payments, 'claims': claims} FROM (
+        SELECT payments,
+               list_transform(claims, c -> struct_update(c,
+                   charge_amount := c.charge_amount::DECIMAL(18, 3) + 0.001)) AS claims
+        FROM parts_5010
+    )
 ) TO '__TEST_DIR__/copy_value.835' (FORMAT edi835, sender_id 'SENDER', receiver_id 'RECEIVER', date '2024-01-02', time '10:30');
 ----
 edi835: table "claims" column "charge_amount" row 0: 300001 at scale 3 has more decimals than the column's scale 2
 
 statement error
 COPY (
-    SELECT payments,
-           list_transform(claims, c -> struct_update(c,
-               statement_from := c.statement_from::TIMESTAMP + INTERVAL 1 HOUR)) AS claims
-    FROM tables_5010
+    SELECT {'payments': payments, 'claims': claims} FROM (
+        SELECT payments,
+               list_transform(claims, c -> struct_update(c,
+                   statement_from := c.statement_from::TIMESTAMP + INTERVAL 1 HOUR)) AS claims
+        FROM parts_5010
+    )
 ) TO '__TEST_DIR__/copy_value.835' (FORMAT edi835, sender_id 'SENDER', receiver_id 'RECEIVER', date '2024-01-02', time '10:30');
 ----
 edi835: table "claims" column "statement_from" row 0: timestamp 1704416400000000 is not at midnight; give dates
 
 statement error
 COPY (
-    SELECT payments,
-           list_transform(claims, c -> struct_update(c, payment := c.payment::HUGEINT + 9223372036854775808))
-               AS claims
-    FROM tables_5010
+    SELECT {'payments': payments, 'claims': claims} FROM (
+        SELECT payments,
+               list_transform(claims, c -> struct_update(c, payment := c.payment::HUGEINT + 9223372036854775808))
+                   AS claims
+        FROM parts_5010
+    )
 ) TO '__TEST_DIR__/copy_value.835' (FORMAT edi835, sender_id 'SENDER', receiver_id 'RECEIVER', date '2024-01-02', time '10:30');
 ----
 edi835: table "claims" column "payment" row 0: 9223372036854775808 does not fit a 64-bit integer

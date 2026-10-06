@@ -75,40 +75,22 @@ pub enum CopyError {
         /// Its bytes.
         bytes: Vec<u8>,
     },
-    /// An input column that is not a list of structs.
-    NotRows {
-        /// The 1-based position of the column in the query.
-        column: usize,
+    /// The query returns other than one column.
+    ColumnCount {
+        /// How many columns it returns.
+        found: usize,
+    },
+    /// The query's column is not a STRUCT.
+    NotStruct {
         /// The column's DuckDB type.
         found: String,
     },
-    /// No table of the spec has every field of an input column's structs.
-    NoTable {
-        /// The 1-based position of the column in the query.
-        column: usize,
-        /// The struct's fields.
-        fields: Vec<String>,
-        /// The spec's tables.
-        tables: Vec<String>,
-    },
-    /// Several tables of the spec have every field of an input column's
-    /// structs.
-    AmbiguousTable {
-        /// The 1-based position of the column in the query.
-        column: usize,
-        /// The struct's fields.
-        fields: Vec<String>,
-        /// The tables that have them all.
-        tables: Vec<String>,
-    },
-    /// Two input columns hold the same table.
-    DuplicateTable {
-        /// The table.
+    /// A field of the query's STRUCT is not a list of structs.
+    NotRows {
+        /// The field, named after a table.
         table: String,
-        /// The 1-based position of the first column.
-        first: usize,
-        /// The 1-based position of the second column.
-        second: usize,
+        /// The field's DuckDB type.
+        found: String,
     },
     /// A struct field whose DuckDB type cannot hold the column's values.
     FieldType {
@@ -234,42 +216,20 @@ impl fmt::Display for CopyError {
                 bytes.len(),
                 bytes_literal(bytes)
             ),
-            CopyError::NotRows { column, found } => write!(
+            CopyError::ColumnCount { found } => write!(
                 f,
-                "{FORMAT}: input column {column} is {found}; each input column must be a list of \
-                 structs holding one table's rows, such as (SELECT list(c) FROM claims c)"
+                "{FORMAT}: the query returns {found} columns; it must return one, a STRUCT with \
+                 one field per table, such as SELECT {{'claims': (SELECT list(c) FROM claims c)}}"
             ),
-            CopyError::NoTable {
-                column,
-                fields,
-                tables,
-            } => write!(
+            CopyError::NotStruct { found } => write!(
                 f,
-                "{FORMAT}: input column {column} holds structs with the fields {}, which no table \
-                 of the spec has together; the spec's tables are {}",
-                quoted(fields),
-                quoted(tables)
+                "{FORMAT}: the query's column is {found}; it must be a STRUCT with one field per \
+                 table, such as SELECT {{'claims': (SELECT list(c) FROM claims c)}}"
             ),
-            CopyError::AmbiguousTable {
-                column,
-                fields,
-                tables,
-            } => write!(
+            CopyError::NotRows { table, found } => write!(
                 f,
-                "{FORMAT}: input column {column} holds structs with the fields {}, which the \
-                 tables {} all have; add the fields that tell them apart, such as every column \
-                 of the table",
-                quoted(fields),
-                quoted(tables)
-            ),
-            CopyError::DuplicateTable {
-                table,
-                first,
-                second,
-            } => write!(
-                f,
-                "{FORMAT}: input columns {first} and {second} both hold table {table:?}; give \
-                 each table once, with every row in one list"
+                "{FORMAT}: table {table:?} is {found}; it must be a list of structs holding the \
+                 table's rows, such as (SELECT list(c) FROM claims c)"
             ),
             CopyError::FieldType {
                 table,

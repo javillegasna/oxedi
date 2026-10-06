@@ -1,9 +1,10 @@
-//! The query's columns: one `LIST(STRUCT(...))` per table of the spec.
+//! The query's one column: a STRUCT with one field per table of the spec,
+//! each a `LIST(STRUCT(...))` of that table's rows.
 //!
 //! The C API of a copy function gives the columns' types but not their
-//! names, so each column's table is the one table of the spec that has
-//! every field of its structs. Each field must be a column of that table,
-//! with a DuckDB type its values convert from.
+//! names; the names of a STRUCT's fields travel in its type, so the tables
+//! are named there. Each field of a table's rows must be a column of that
+//! table, with a DuckDB type its values convert from.
 
 use libduckdb_sys as ffi;
 use oxedi_core::ColumnType;
@@ -106,11 +107,20 @@ pub struct InputField {
     pub sql: String,
 }
 
-/// One input column as its type describes it.
+/// One table of the input as its type describes it.
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub enum InputColumn {
+pub enum InputTable {
     /// A list of structs with these fields.
     Rows(Vec<InputField>),
+    /// Any other type, as SQL writes it.
+    Other(String),
+}
+
+/// The query's column as its type describes it.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum InputColumn {
+    /// A STRUCT: each field's name and type.
+    Tables(Vec<(String, InputTable)>),
     /// Any other type, as SQL writes it.
     Other(String),
 }
@@ -126,106 +136,65 @@ pub struct BoundField {
     pub input: FieldType,
 }
 
-/// An input column bound to its table.
+/// One table of the input bound to the spec's.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct BoundColumn {
     /// The table.
     pub table: String,
-    /// Each field of the column's structs, in the structs' order.
+    /// Each field of the table's structs, in the structs' order.
     pub fields: Vec<BoundField>,
 }
 
-/// Binds every input column to a table of `tables`.
+/// Binds the query's columns, which must be one STRUCT keyed by table, to
+/// `tables`; one bound table per field of the STRUCT, in its order.
 pub fn bind(
     tables: &[TableSchema],
     columns: &[InputColumn],
 ) -> Result<Vec<BoundColumn>, CopyError> {
-    let mut bound: Vec<BoundColumn> = Vec::with_capacity(columns.len());
-    for (index, column) in columns.iter().enumerate() {
-        let position = index + 1;
-        let fields = match column {
-            InputColumn::Rows(fields) => fields,
-            InputColumn::Other(found) => {
-                return Err(CopyError::NotRows {
-                    column: position,
-                    found: found.clone(),
-                });
-            }
-        };
-        let table = table_of(tables, position, fields)?;
-        if let Some(first) = bound.iter().position(|other| other.table == table.name) {
-            return Err(CopyError::DuplicateTable {
-                table: table.name.clone(),
-                first: first + 1,
-                second: position,
+    let fields = match columns {
+        [InputColumn::Tables(fields)] => fields,
+        [InputColumn::Other(found)] => {
+            return Err(CopyError::NotStruct {
+                found: found.clone(),
             });
         }
-        let fields = fields
-            .iter()
-            .map(|field| bind_field(table, field))
-            .collect::<Result<Vec<_>, _>>()?;
-        bound.push(BoundColumn {
-            table: table.name.clone(),
-            fields,
-        });
-    }
-    Ok(bound)
-}
-
-fn has(table: &TableSchema, field: &str) -> bool {
-    table.columns.iter().any(|(column, _)| column == field)
-}
-
-/// The one table that has every field; else the error that says why none
-/// does.
-fn table_of<'t>(
-    tables: &'t [TableSchema],
-    position: usize,
-    fields: &[InputField],
-) -> Result<&'t TableSchema, CopyError> {
-    let names = || fields.iter().map(|field| field.name.clone()).collect();
-    let matching: Vec<&TableSchema> = tables
-        .iter()
-        .filter(|table| fields.iter().all(|field| has(table, &field.name)))
-        .collect();
-    match matching.as_slice() {
-        [table] => return Ok(table),
-        [] => {}
-        several => {
-            return Err(CopyError::AmbiguousTable {
-                column: position,
-                fields: names(),
-                tables: several.iter().map(|table| table.name.clone()).collect(),
+        _ => {
+            return Err(CopyError::ColumnCount {
+                found: columns.len(),
             });
         }
-    }
-    // No table has every field: the table that has the most of them, when
-    // one does, is the one meant, and the first field it lacks is unknown.
-    let overlap = |table: &TableSchema| {
-        fields
-            .iter()
-            .filter(|field| has(table, &field.name))
-            .count()
     };
-    let most = tables.iter().map(overlap).max().unwrap_or(0);
-    let best: Vec<&TableSchema> = tables
+    fields
         .iter()
-        .filter(|table| overlap(table) == most)
-        .collect();
-    if let ([table], true) = (best.as_slice(), most > 0)
-        && let Some(field) = fields.iter().find(|field| !has(table, &field.name))
-    {
-        return Err(CopyError::Write(WriteError::UnknownColumn {
-            table: table.name.clone(),
-            column: field.name.clone(),
-            columns: table.columns.iter().map(|(name, _)| name.clone()).collect(),
-        }));
-    }
-    Err(CopyError::NoTable {
-        column: position,
-        fields: names(),
-        tables: tables.iter().map(|table| table.name.clone()).collect(),
-    })
+        .map(|(name, input)| {
+            let table = tables
+                .iter()
+                .find(|table| table.name == *name)
+                .ok_or_else(|| {
+                    CopyError::Write(WriteError::UnknownTable {
+                        table: name.clone(),
+                        tables: tables.iter().map(|table| table.name.clone()).collect(),
+                    })
+                })?;
+            let fields = match input {
+                InputTable::Rows(fields) => fields,
+                InputTable::Other(found) => {
+                    return Err(CopyError::NotRows {
+                        table: name.clone(),
+                        found: found.clone(),
+                    });
+                }
+            };
+            let fields = fields
+                .iter()
+                .map(|field| bind_field(table, field))
+                .collect::<Result<Vec<_>, _>>()?;
+            Ok(BoundColumn {
+                table: table.name.clone(),
+                fields,
+            })
+        })
+        .collect()
 }
 
 fn bind_field(table: &TableSchema, field: &InputField) -> Result<BoundField, CopyError> {
@@ -234,11 +203,12 @@ fn bind_field(table: &TableSchema, field: &InputField) -> Result<BoundField, Cop
         .iter()
         .find(|(column, _)| *column == field.name)
         .map(|(_, kind)| *kind)
-        .ok_or_else(|| CopyError::Internal {
-            message: format!(
-                "table {:?} lost the column {:?} it was chosen for",
-                table.name, field.name
-            ),
+        .ok_or_else(|| {
+            CopyError::Write(WriteError::UnknownColumn {
+                table: table.name.clone(),
+                column: field.name.clone(),
+                columns: table.columns.iter().map(|(name, _)| name.clone()).collect(),
+            })
         })?;
     if !field.kind.converts_to(kind) {
         let float = matches!(field.kind, FieldType::Float | FieldType::Double);
@@ -278,12 +248,42 @@ impl Drop for Owned {
     }
 }
 
-/// The input column of a logical type.
+/// The query's column of a logical type.
 ///
 /// # Safety
 ///
 /// `logical_type` must be a live logical type handle.
 pub unsafe fn column_of(logical_type: ffi::duckdb_logical_type) -> InputColumn {
+    // SAFETY: the type is live (caller contract).
+    if unsafe { ffi::duckdb_get_type_id(logical_type) } != ffi::DUCKDB_TYPE_DUCKDB_TYPE_STRUCT {
+        // SAFETY: as above.
+        return InputColumn::Other(unsafe { sql_name(logical_type) });
+    }
+    // SAFETY: the type is a live STRUCT.
+    let count = unsafe { ffi::duckdb_struct_type_child_count(logical_type) };
+    let tables = (0..count)
+        .map(|index| {
+            // SAFETY: `index` is below the child count; the name and type
+            // returned are owned here and released after use.
+            let (name, child) = unsafe {
+                (
+                    take_text(ffi::duckdb_struct_type_child_name(logical_type, index)),
+                    Owned(ffi::duckdb_struct_type_child_type(logical_type, index)),
+                )
+            };
+            // SAFETY: `child.0` is live.
+            (name, unsafe { table_of(child.0) })
+        })
+        .collect();
+    InputColumn::Tables(tables)
+}
+
+/// One table of the input: a LIST of STRUCT, else its SQL type.
+///
+/// # Safety
+///
+/// `logical_type` must be a live logical type handle.
+unsafe fn table_of(logical_type: ffi::duckdb_logical_type) -> InputTable {
     // SAFETY: the type is live (caller contract).
     let id = unsafe { ffi::duckdb_get_type_id(logical_type) };
     if id == ffi::DUCKDB_TYPE_DUCKDB_TYPE_LIST {
@@ -292,11 +292,11 @@ pub unsafe fn column_of(logical_type: ffi::duckdb_logical_type) -> InputColumn {
         // SAFETY: `child.0` is live.
         if unsafe { ffi::duckdb_get_type_id(child.0) } == ffi::DUCKDB_TYPE_DUCKDB_TYPE_STRUCT {
             // SAFETY: `child.0` is a live STRUCT type.
-            return InputColumn::Rows(unsafe { struct_fields(child.0) });
+            return InputTable::Rows(unsafe { struct_fields(child.0) });
         }
     }
     // SAFETY: the type is live (caller contract).
-    InputColumn::Other(unsafe { sql_name(logical_type) })
+    InputTable::Other(unsafe { sql_name(logical_type) })
 }
 
 /// The fields of a STRUCT type.

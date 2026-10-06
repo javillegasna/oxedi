@@ -1,7 +1,9 @@
 use oxedi_core::ColumnType;
 
 use super::super::error::CopyError;
-use super::super::input::{BoundField, FieldType, InputColumn, InputField, Integer, bind};
+use super::super::input::{
+    BoundField, FieldType, InputColumn, InputField, InputTable, Integer, bind,
+};
 use crate::builtins::{Builtins, TableSchema};
 
 fn tables() -> Vec<TableSchema> {
@@ -14,6 +16,14 @@ fn schema(table: &str) -> Vec<(String, ColumnType)> {
         .find(|schema| schema.name == table)
         .map(|schema| schema.columns)
         .unwrap_or_default()
+}
+
+fn quoted_columns(table: &str) -> String {
+    schema(table)
+        .iter()
+        .map(|(name, _)| format!("{name:?}"))
+        .collect::<Vec<_>>()
+        .join(", ")
 }
 
 /// A field of the type a parse gives the column.
@@ -36,26 +46,20 @@ fn natural(name: &str, kind: ColumnType) -> InputField {
 }
 
 /// Every column of `table`, as `SELECT list(t) FROM table t` gives them.
-fn whole(table: &str) -> InputColumn {
-    InputColumn::Rows(
-        schema(table)
-            .iter()
-            .map(|(name, kind)| natural(name, *kind))
-            .collect(),
+fn whole(table: &str) -> (String, InputTable) {
+    (
+        table.to_owned(),
+        InputTable::Rows(
+            schema(table)
+                .iter()
+                .map(|(name, kind)| natural(name, *kind))
+                .collect(),
+        ),
     )
 }
 
-fn named(fields: &[&str]) -> InputColumn {
-    InputColumn::Rows(
-        fields
-            .iter()
-            .map(|name| InputField {
-                name: (*name).to_owned(),
-                kind: FieldType::Null,
-                sql: "NULL".to_owned(),
-            })
-            .collect(),
-    )
+fn input(tables: Vec<(String, InputTable)>) -> Vec<InputColumn> {
+    vec![InputColumn::Tables(tables)]
 }
 
 fn message(columns: &[InputColumn]) -> String {
@@ -66,39 +70,31 @@ fn message(columns: &[InputColumn]) -> String {
 }
 
 #[test]
-fn every_table_is_found_by_its_fields() {
+fn every_table_binds_by_name_in_the_struct_order() {
     let names = [
+        "services",
         "payments",
         "claims",
-        "services",
-        "adjustments",
         "provider_adjustments",
+        "adjustments",
     ];
-    let columns: Vec<InputColumn> = names.iter().map(|name| whole(name)).collect();
-    let bound = bind(&tables(), &columns).ok();
-    let found: Option<Vec<String>> =
-        bound.map(|bound| bound.into_iter().map(|column| column.table).collect());
-    assert_eq!(
-        found,
-        Some(names.iter().map(|name| (*name).to_owned()).collect())
-    );
-}
-
-#[test]
-fn a_subset_that_one_table_has_is_enough() {
-    let bound = bind(&tables(), &[named(&["claim_id", "charge_amount"])]).ok();
+    let bound = bind(
+        &tables(),
+        &input(names.iter().map(|name| whole(name)).collect()),
+    )
+    .ok();
     assert_eq!(
         bound.map(|bound| bound
             .into_iter()
             .map(|column| column.table)
             .collect::<Vec<_>>()),
-        Some(vec!["claims".to_owned()])
+        Some(names.iter().map(|name| (*name).to_owned()).collect())
     );
 }
 
 #[test]
 fn fields_keep_their_order_and_input_type() {
-    let column = InputColumn::Rows(vec![
+    let claims = InputTable::Rows(vec![
         InputField {
             name: "payment_amount".to_owned(),
             kind: FieldType::Integer(Integer::I32),
@@ -106,7 +102,7 @@ fn fields_keep_their_order_and_input_type() {
         },
         natural("claim_id", ColumnType::Binary),
     ]);
-    let bound = bind(&tables(), &[column]).ok();
+    let bound = bind(&tables(), &input(vec![("claims".to_owned(), claims)])).ok();
     assert_eq!(
         bound
             .and_then(|bound| bound.into_iter().next())
@@ -130,122 +126,122 @@ fn fields_keep_their_order_and_input_type() {
 }
 
 #[test]
-fn a_column_that_is_not_a_list_of_structs() {
+fn an_empty_struct_binds_no_table() {
+    assert_eq!(bind(&tables(), &input(Vec::new())).ok(), Some(Vec::new()));
+}
+
+#[test]
+fn the_query_must_return_one_column() {
+    let one = InputColumn::Tables(vec![whole("claims")]);
     assert_eq!(
-        message(&[whole("claims"), InputColumn::Other("INTEGER[]".to_owned())]),
-        "edi835: input column 2 is INTEGER[]; each input column must be a list of structs \
-         holding one table's rows, such as (SELECT list(c) FROM claims c)"
+        message(&[one.clone(), one]),
+        "edi835: the query returns 2 columns; it must return one, a STRUCT with one field per \
+         table, such as SELECT {'claims': (SELECT list(c) FROM claims c)}"
+    );
+    assert!(matches!(
+        bind(&tables(), &[]),
+        Err(CopyError::ColumnCount { found: 0 })
+    ));
+}
+
+#[test]
+fn the_column_must_be_a_struct() {
+    assert_eq!(
+        message(&[InputColumn::Other("STRUCT(\"row\" BIGINT)[]".to_owned())]),
+        "edi835: the query's column is STRUCT(\"row\" BIGINT)[]; it must be a STRUCT with one \
+         field per table, such as SELECT {'claims': (SELECT list(c) FROM claims c)}"
     );
 }
 
 #[test]
-fn fields_several_tables_have() {
+fn an_unknown_table_reads_as_python() {
     assert_eq!(
-        message(&[named(&["row", "payment", "amount", "reason_code"])]),
-        "edi835: input column 1 holds structs with the fields \"row\", \"payment\", \"amount\", \
-         \"reason_code\", which the tables \"adjustments\", \"provider_adjustments\" all have; \
-         add the fields that tell them apart, such as every column of the table"
+        message(&input(vec![
+            whole("claims"),
+            ("nope".to_owned(), InputTable::Rows(Vec::new()))
+        ])),
+        "edi835: table \"nope\" is not a table of the spec, whose tables are \"adjustments\", \
+         \"claims\", \"payments\", \"provider_adjustments\", \"services\""
     );
 }
 
 #[test]
-fn a_field_the_best_table_lacks_reads_as_python() {
+fn a_table_must_be_a_list_of_structs() {
     assert_eq!(
-        message(&[named(&["claim_id", "charge_amount", "nope"])]),
+        message(&input(vec![(
+            "claims".to_owned(),
+            InputTable::Other("VARCHAR[]".to_owned())
+        )])),
+        "edi835: table \"claims\" is VARCHAR[]; it must be a list of structs holding the table's \
+         rows, such as (SELECT list(c) FROM claims c)"
+    );
+}
+
+#[test]
+fn an_unknown_column_reads_as_python() {
+    let claims = InputTable::Rows(vec![
+        natural("claim_id", ColumnType::Binary),
+        natural("nope", ColumnType::Binary),
+    ]);
+    assert_eq!(
+        message(&input(vec![("claims".to_owned(), claims)])),
         format!(
             "edi835: table \"claims\" has no column \"nope\" in the spec; its columns are {}",
-            schema("claims")
-                .iter()
-                .map(|(name, _)| format!("{name:?}"))
-                .collect::<Vec<_>>()
-                .join(", ")
+            quoted_columns("claims")
         )
-    );
-}
-
-#[test]
-fn fields_no_table_has() {
-    assert_eq!(
-        message(&[named(&["nope", "other"])]),
-        "edi835: input column 1 holds structs with the fields \"nope\", \"other\", which no \
-         table of the spec has together; the spec's tables are \"adjustments\", \"claims\", \
-         \"payments\", \"provider_adjustments\", \"services\""
-    );
-    assert_eq!(
-        message(&[named(&["row", "nope"])]),
-        "edi835: input column 1 holds structs with the fields \"row\", \"nope\", which no table \
-         of the spec has together; the spec's tables are \"adjustments\", \"claims\", \"payments\", \
-         \"provider_adjustments\", \"services\""
-    );
-}
-
-#[test]
-fn a_table_given_twice() {
-    assert_eq!(
-        message(&[whole("claims"), whole("services"), named(&["claim_id"])]),
-        "edi835: input columns 1 and 3 both hold table \"claims\"; give each table once, with \
-         every row in one list"
     );
 }
 
 #[test]
 fn a_field_of_the_wrong_type() {
     let field = |name: &str, kind: FieldType, sql: &str| {
-        InputColumn::Rows(vec![
-            natural("claim_id", ColumnType::Binary),
-            InputField {
+        input(vec![(
+            "claims".to_owned(),
+            InputTable::Rows(vec![InputField {
                 name: name.to_owned(),
                 kind,
                 sql: sql.to_owned(),
-            },
-        ])
+            }]),
+        )])
     };
     assert_eq!(
-        message(&[field("charge_amount", FieldType::Varchar, "VARCHAR")]),
+        message(&field("charge_amount", FieldType::Varchar, "VARCHAR")),
         "edi835: table \"claims\" field \"charge_amount\" is VARCHAR; the spec's column is \
          decimal128(38, 2), which takes DECIMAL or an integer type"
     );
     assert_eq!(
-        message(&[field("charge_amount", FieldType::Double, "DOUBLE")]),
+        message(&field("charge_amount", FieldType::Double, "DOUBLE")),
         "edi835: table \"claims\" field \"charge_amount\" is DOUBLE, which is refused for the \
          spec's decimal128(38, 2) values: a float may not hold the amount exactly; cast it to \
          DECIMAL"
     );
     assert_eq!(
-        message(&[field(
+        message(&field(
             "claim_id",
             FieldType::Integer(Integer::I32),
             "INTEGER"
-        )]),
+        )),
         "edi835: table \"claims\" field \"claim_id\" is INTEGER; the spec's column is binary, \
          which takes VARCHAR or BLOB"
     );
     assert_eq!(
-        message(&[field("row", FieldType::Varchar, "VARCHAR")]),
+        message(&field("row", FieldType::Varchar, "VARCHAR")),
         "edi835: table \"claims\" field \"row\" is VARCHAR; the spec's column is int64, which \
          takes an integer type or a FLOAT or DOUBLE holding whole numbers"
     );
     assert_eq!(
-        message(&[field("statement_from", FieldType::Time, "TIME")]),
+        message(&field("statement_from", FieldType::Time, "TIME")),
         "edi835: table \"claims\" field \"statement_from\" is TIME; the spec's column is \
          date32, which takes DATE, or TIMESTAMP at midnight"
     );
     assert_eq!(
-        message(&[field(
+        message(&field(
             "statement_from",
             FieldType::Other,
             "TIMESTAMP WITH TIME ZONE"
-        )]),
+        )),
         "edi835: table \"claims\" field \"statement_from\" is TIMESTAMP WITH TIME ZONE; the \
          spec's column is date32, which takes DATE, or TIMESTAMP at midnight"
     );
-}
-
-#[test]
-fn a_null_field_fits_any_column() {
-    assert!(bind(&tables(), &[named(&["claim_id", "charge_amount"])]).is_ok());
-    assert!(matches!(
-        bind(&tables(), &[named(&["nope"])]),
-        Err(CopyError::NoTable { .. })
-    ));
+    assert!(bind(&tables(), &field("claim_id", FieldType::Null, "NULL")).is_ok());
 }

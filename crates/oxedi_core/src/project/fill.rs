@@ -11,7 +11,9 @@ use super::check::{Checked, Parsed, parse};
 use super::{Projector, Row, Slot};
 
 impl<'s> Projector<'s> {
-    /// Fills the open rows whose columns read this segment and have no value yet.
+    /// Fills the open rows whose columns read this segment and have no value
+    /// yet. `watchers` come from the plan of the segment's id, so only the
+    /// columns' conditions are left to check.
     pub(super) fn fill(
         &mut self,
         watchers: &[(usize, usize)],
@@ -29,13 +31,12 @@ impl<'s> Projector<'s> {
             };
             let slot = match source {
                 ColumnSource::Element {
-                    segment: wanted,
                     conditions,
                     element,
                     component,
                     ..
                 } => {
-                    if !matches(segment, wanted, conditions) {
+                    if !segment.holds(conditions) {
                         continue;
                     }
                     let kind = state
@@ -57,12 +58,8 @@ impl<'s> Projector<'s> {
                         &mut state.row.bytes,
                     )
                 }
-                ColumnSource::SegmentIndex {
-                    segment: wanted,
-                    conditions,
-                    ..
-                } => {
-                    if !matches(segment, wanted, conditions) {
+                ColumnSource::SegmentIndex { conditions, .. } => {
+                    if !segment.holds(conditions) {
                         continue;
                     }
                     i64::try_from(segment.index).map_or(Slot::Null, Slot::Int)
@@ -211,14 +208,6 @@ impl<'s> Projector<'s> {
     }
 }
 
-/// `true` when the segment has the id and every condition holds.
-fn matches(segment: &Segment<'_>, id: &[u8], conditions: &[(usize, Vec<u8>)]) -> bool {
-    segment.id == id
-        && conditions.iter().all(|(position, value)| {
-            segment.element(*position).and_then(Element::simple) == Some(value.as_slice())
-        })
-}
-
 /// `true` when an element has a non-empty value or component.
 fn has_content(element: &Element<'_>) -> bool {
     match element {
@@ -238,37 +227,20 @@ pub(super) fn leaf_text<'a>(
     separator: u8,
     joined: &'a mut Vec<u8>,
 ) -> &'a [u8] {
-    match (segment.element(element), component) {
-        (None, _) | (Some(Element::Simple(_)), Some(2..)) => &[],
-        (Some(Element::Simple(value)), _) => value,
-        (Some(Element::Composite(parts)), Some(component)) => component
-            .checked_sub(1)
-            .and_then(|at| parts.get(at))
-            .map_or(&[][..], |part| part.as_ref()),
-        (Some(Element::Composite(parts)), None) => {
-            joined.clear();
-            for (at, part) in parts.iter().enumerate() {
-                if at > 0 {
-                    joined.push(separator);
-                }
-                joined.extend_from_slice(part);
-            }
-            joined
-        }
+    match component {
+        None => segment.text(element, separator, joined),
+        Some(_) => segment.leaf(element, component),
     }
+    .unwrap_or_default()
 }
 
 /// `true` when the segment has the element, or the component, a column
 /// reads, even if it is empty. Component 1 of a simple element is the
 /// element itself; no other component of it is present.
 fn is_present(segment: &Segment<'_>, at: Place) -> bool {
-    match (segment.element(at.element), at.component) {
-        (None, _) => false,
-        (Some(Element::Simple(_)), component) => component.is_none_or(|component| component == 1),
-        (Some(Element::Composite(_)), None) => true,
-        (Some(Element::Composite(parts)), Some(component)) => {
-            component.checked_sub(1).is_some_and(|at| at < parts.len())
-        }
+    match at.component {
+        None => segment.element(at.element).is_some(),
+        Some(_) => segment.leaf(at.element, at.component).is_some(),
     }
 }
 

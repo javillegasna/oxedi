@@ -78,6 +78,56 @@ impl<'a> Segment<'a> {
     pub fn element(&self, position: usize) -> Option<&Element<'a>> {
         self.elements.get(position.checked_sub(1)?)
     }
+
+    /// The value of an element, or of one of its components, as written.
+    /// Component 1 of a simple element is the element itself, and a
+    /// composite addressed without a component gives its first component.
+    /// `None` when the segment does not have it.
+    #[inline]
+    pub(crate) fn leaf(&self, element: usize, component: Option<usize>) -> Option<&[u8]> {
+        match (self.element(element)?, component) {
+            (Element::Simple(value), None | Some(1)) => Some(value),
+            (Element::Simple(_), Some(_)) => None,
+            (Element::Composite(parts), component) => component
+                .unwrap_or(1)
+                .checked_sub(1)
+                .and_then(|at| parts.get(at))
+                .map(AsRef::as_ref),
+        }
+    }
+
+    /// The whole text of an element: a composite's components are written
+    /// back into `joined` with `separator` between them. `None` when the
+    /// segment does not have the element.
+    pub(crate) fn text<'s>(
+        &'s self,
+        element: usize,
+        separator: u8,
+        joined: &'s mut Vec<u8>,
+    ) -> Option<&'s [u8]> {
+        match self.element(element)? {
+            Element::Simple(value) => Some(value),
+            Element::Composite(parts) => {
+                joined.clear();
+                for (at, part) in parts.iter().enumerate() {
+                    if at > 0 {
+                        joined.push(separator);
+                    }
+                    joined.extend_from_slice(part);
+                }
+                Some(joined)
+            }
+        }
+    }
+
+    /// `true` when every `(position, value)` holds: the element at the
+    /// position is simple and equal to the value.
+    #[inline]
+    pub(crate) fn holds(&self, conditions: &[(usize, Vec<u8>)]) -> bool {
+        conditions.iter().all(|(position, value)| {
+            self.element(*position).and_then(Element::simple) == Some(value.as_slice())
+        })
+    }
 }
 
 /// Why a segment could not be written.

@@ -291,3 +291,34 @@ proptest::proptest! {
         }
     }
 }
+
+#[test]
+fn leaf_reads_an_element_or_a_component_and_a_composite_at_its_first_component() {
+    let delims = Delimiters::new(b'*', b':', b'~');
+    let segment = Segment::parse(0, frame(b"SV*HC:99213:*A**"), &delims);
+    assert_eq!(segment.leaf(1, None), Some(&b"HC"[..]));
+    assert_eq!(segment.leaf(1, Some(1)), Some(&b"HC"[..]));
+    assert_eq!(segment.leaf(1, Some(2)), Some(&b"99213"[..]));
+    assert_eq!(segment.leaf(1, Some(3)), Some(&b""[..]));
+    assert_eq!(segment.leaf(1, Some(4)), None);
+    assert_eq!(segment.leaf(2, None), Some(&b"A"[..]));
+    assert_eq!(segment.leaf(2, Some(1)), Some(&b"A"[..]));
+    assert_eq!(segment.leaf(2, Some(2)), None);
+    assert_eq!(segment.leaf(4, None), Some(&b""[..]));
+    assert_eq!(segment.leaf(5, None), None);
+    assert_eq!(segment.leaf(0, None), None);
+}
+
+#[test]
+fn text_joins_a_composite_and_conditions_hold_on_simple_elements_only() {
+    let delims = Delimiters::new(b'*', b':', b'~');
+    let segment = Segment::parse(0, frame(b"SV*HC:99213*A"), &delims);
+    let mut joined = Vec::new();
+    assert_eq!(segment.text(1, b':', &mut joined), Some(&b"HC:99213"[..]));
+    assert_eq!(segment.text(2, b':', &mut joined), Some(&b"A"[..]));
+    assert_eq!(segment.text(3, b':', &mut joined), None);
+    assert!(segment.holds(&[(2, b"A".to_vec())]));
+    assert!(segment.holds(&[]));
+    assert!(!segment.holds(&[(1, b"HC".to_vec())]));
+    assert!(!segment.holds(&[(3, b"".to_vec())]));
+}

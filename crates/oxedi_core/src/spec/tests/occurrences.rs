@@ -444,3 +444,15 @@ fn a_segment_takes_the_occurrence_its_qualifier_selects() {
     assert_eq!(name(3), Some("note"));
     assert_eq!(name(4), None);
 }
+
+#[test]
+fn a_qualifier_without_a_component_reads_a_composite_at_its_first_component() {
+    let qualifier = Qualifier {
+        element: 1,
+        component: None,
+        codes: vec!["A".to_string()],
+    };
+    let input = segs(b"ID*A:9~ID*B:A~ID*A~ID~");
+    let matching: Vec<bool> = input.iter().map(|s| qualifier.matches(s)).collect();
+    assert_eq!(matching, [true, false, true, false]);
+}

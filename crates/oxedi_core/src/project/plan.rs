@@ -3,7 +3,7 @@
 use std::collections::BTreeMap;
 
 use crate::column::ColumnType;
-use crate::spec::{ColumnSource, ElementDef, Spec, TableDef};
+use crate::spec::{ColumnSource, ElementDef, OccurrenceDef, Qualifier, Spec, TableDef};
 
 /// One defined element, with what checking it needs worked out once.
 #[derive(Debug, Clone)]
@@ -61,6 +61,22 @@ pub(super) struct SegmentPlan<'s> {
     /// Per loop: `(table, column)` for the columns that read this segment
     /// when it is captured in that loop.
     pub(super) watchers: Vec<Vec<(usize, usize)>>,
+    /// Per loop: the loop's occurrences of this segment id, the only ones a
+    /// captured segment can match.
+    pub(super) occurrences: Vec<Vec<Candidate<'s>>>,
+}
+
+/// An occurrence a segment id can match in a loop, with what matching it
+/// and checking its elements read.
+#[derive(Debug, Clone, Copy)]
+pub(super) struct Candidate<'s> {
+    /// Index in the loop's occurrences.
+    pub(super) index: usize,
+    /// The qualifier the segment must hold; `None` matches any segment of
+    /// the id.
+    pub(super) qualifier: Option<&'s Qualifier>,
+    /// The occurrence, when it has code lists of its own.
+    pub(super) own_codes: Option<&'s OccurrenceDef>,
 }
 
 /// The plans of every segment id. Ids of up to seven bytes are keyed by their
@@ -149,6 +165,7 @@ impl<'s> Plans<'s> {
         let empty = || SegmentPlan {
             elements: Vec::new(),
             watchers: vec![Vec::new(); loops],
+            occurrences: vec![Vec::new(); loops],
         };
         match Self::key(id) {
             Some(key) => self.short.entry(key).or_insert_with(empty),

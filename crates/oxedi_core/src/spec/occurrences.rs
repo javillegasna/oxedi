@@ -12,7 +12,6 @@ use super::render::{render_key, render_trigger};
 use super::segments::{
     ElementDef, ElementDefError, ElementType, SegmentDef, compile_codes, parse_position,
 };
-use crate::element::Element;
 use crate::segment::Segment;
 
 /// Whether an occurrence must appear in every instance of its loop.
@@ -38,21 +37,17 @@ pub struct Qualifier {
 
 impl Qualifier {
     /// `true` when the segment holds one of the codes at the qualifier's place.
-    /// A simple element counts as its own first component.
+    /// A simple element counts as its own first component, and a composite
+    /// element named without a component is read at its first component.
+    #[inline]
     pub fn matches(&self, segment: &Segment<'_>) -> bool {
-        let value = match (segment.element(self.element), self.component) {
-            (Some(Element::Simple(value)), None | Some(1)) => Some(value.as_ref()),
-            (Some(Element::Composite(parts)), Some(component)) => component
-                .checked_sub(1)
-                .and_then(|index| parts.get(index))
-                .map(AsRef::as_ref),
-            _ => None,
-        };
-        value.is_some_and(|value| {
-            self.codes
-                .binary_search_by(|code| code.as_bytes().cmp(value))
-                .is_ok()
-        })
+        segment
+            .leaf(self.element, self.component)
+            .is_some_and(|value| {
+                self.codes
+                    .binary_search_by(|code| code.as_bytes().cmp(value))
+                    .is_ok()
+            })
     }
 }
 

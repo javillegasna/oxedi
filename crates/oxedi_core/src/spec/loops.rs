@@ -5,7 +5,6 @@ use std::fmt;
 #[cfg(doc)]
 use super::Spec;
 use super::occurrences::{OccurrenceDef, Usage};
-use crate::element::Element;
 use crate::segment::Segment;
 
 /// Index of a loop definition inside a [`Spec`]. A `LoopId` is only
@@ -34,10 +33,7 @@ pub struct Trigger {
 impl Trigger {
     /// `true` when the segment has this id and every condition holds.
     pub fn matches(&self, segment: &Segment<'_>) -> bool {
-        segment.id == self.segment.as_slice()
-            && self.conditions.iter().all(|(position, value)| {
-                segment.element(*position).and_then(Element::simple) == Some(value.as_slice())
-            })
+        segment.id == self.segment.as_slice() && segment.holds(&self.conditions)
     }
 }
 

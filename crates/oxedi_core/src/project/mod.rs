@@ -64,7 +64,7 @@ use crate::spec::{ColumnSource, LoopId, OccurrenceDef, ROW_COLUMN, SEGMENT_COLUM
 
 use check::Checked;
 use fill::append;
-use plan::{ElementPlan, Plans, column_type};
+use plan::{Candidate, ElementPlan, Plans, column_type};
 
 /// A column value of a row being collected.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -122,9 +122,12 @@ pub struct Projector<'s> {
     /// Instances opened so far, per loop index.
     ordinals: Vec<usize>,
     checked: Vec<Checked>,
-    /// The occurrence the segment being checked takes in its loop, whose own
-    /// code lists replace its elements' lists.
+    /// The occurrence the segment being checked takes in its loop, when it
+    /// has code lists of its own, which replace its elements' lists.
     occurrence: Option<&'s OccurrenceDef>,
+    /// Index of the occurrence the latest captured segment matched in its
+    /// loop's occurrences.
+    matched: Option<usize>,
     /// Cells of the row being appended, kept for their allocation.
     cells: Vec<Cell<'static>>,
     joined: Vec<u8>,
@@ -144,6 +147,18 @@ impl<'s> Projector<'s> {
                 .iter()
                 .map(|(&position, element)| ElementPlan::new(position, element))
                 .collect();
+        }
+        for (at, def) in spec.loops().iter().enumerate() {
+            for (index, occurrence) in def.occurrences.iter().enumerate() {
+                let plan = plans.entry(&occurrence.segment, loops);
+                if let Some(list) = plan.occurrences.get_mut(at) {
+                    list.push(Candidate {
+                        index,
+                        qualifier: occurrence.qualifier.as_ref(),
+                        own_codes: (!occurrence.codes.is_empty()).then_some(occurrence),
+                    });
+                }
+            }
         }
         let mut segment_tables = vec![Vec::new(); loops];
         let mut tables = Vec::with_capacity(spec.tables().len());
@@ -215,6 +230,7 @@ impl<'s> Projector<'s> {
             ordinals: vec![0; loops],
             checked: Vec::new(),
             occurrence: None,
+            matched: None,
             cells: Vec::new(),
             joined: Vec::new(),
             diagnostics: Vec::new(),
@@ -225,6 +241,7 @@ impl<'s> Projector<'s> {
     /// diagnostics its elements raise. The slice is valid until the next call.
     pub fn on(&mut self, segment: &Segment<'_>, events: &[Event]) -> &[Diagnostic] {
         self.diagnostics.clear();
+        self.matched = None;
         for &event in events {
             match event {
                 Event::LoopOpened {
@@ -311,11 +328,19 @@ impl<'s> Projector<'s> {
         let mut joined = std::mem::take(&mut self.joined);
         let plans = std::mem::take(&mut self.plans);
         let plan = plans.get(segment.id);
-        let spec = self.spec;
-        let def = spec.get(id);
-        self.occurrence = def
-            .occurrence_of(segment)
-            .and_then(|index| def.occurrences.get(index));
+        // Every candidate has the segment's id: only its qualifier is left
+        // to check.
+        let found = plan
+            .and_then(|plan| plan.occurrences.get(id.index()))
+            .and_then(|candidates| {
+                candidates.iter().find(|candidate| {
+                    candidate
+                        .qualifier
+                        .is_none_or(|qualifier| qualifier.matches(segment))
+                })
+            });
+        self.matched = found.map(|candidate| candidate.index);
+        self.occurrence = found.and_then(|candidate| candidate.own_codes);
         self.check(
             plan.map_or(&[], |plan| &plan.elements),
             segment,
@@ -327,6 +352,18 @@ impl<'s> Projector<'s> {
         self.plans = plans;
         self.segment_rows(id, segment, &mut joined);
         self.joined = joined;
+    }
+
+    /// Index of the occurrence the segment of the latest `on` matched in the
+    /// loop that captured it; `None` when nothing was captured or nothing
+    /// matched.
+    pub(crate) fn matched(&self) -> Option<usize> {
+        self.matched
+    }
+
+    /// The diagnostics of the latest `on` or `finish`.
+    pub(crate) fn diagnostics(&self) -> &[Diagnostic] {
+        &self.diagnostics
     }
 
     /// The number of the row `table` is collecting, if an instance is open.

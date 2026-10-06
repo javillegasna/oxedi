@@ -34,7 +34,7 @@ pub fn load_sample(name: &str) -> Vec<u8> {
     std::fs::read(&path).unwrap_or_else(|e| panic!("failed to read sample {}: {e}", path.display()))
 }
 
-/// The five synthetic fixtures and six anonymized samples, each with the
+/// The seven synthetic fixtures and six anonymized samples, each with the
 /// delimiters to tokenize it (the ISA-less fragment gets caller delimiters).
 pub fn all_files() -> Vec<(String, Vec<u8>, oxedi_core::Delimiters)> {
     let fixtures = [
@@ -42,6 +42,8 @@ pub fn all_files() -> Vec<(String, Vec<u8>, oxedi_core::Delimiters)> {
         "united_healthcare_legacy_sample.txt",
         "multi_claim_sample.txt",
         "trizetto_sample.rmt",
+        "balanced_5010_sample.txt",
+        "balanced_4010_sample.txt",
     ];
     let samples = [
         "edi835_test_davisvision.RMT",

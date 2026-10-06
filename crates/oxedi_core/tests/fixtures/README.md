@@ -23,3 +23,33 @@ Known quirks, kept on purpose:
 - `multi_claim_sample.txt` carries `N3`/`N4` patient address segments inside loop 2100, which
   the 835 standard does not define there; with the built-in spec they are reported as
   unmatched (4 segments), and a user patch adding them to loop 2100 captures them.
+
+## Balanced fixtures for the writer
+
+Two synthetic files written by hand for the writer's round-trip and `pyx12` gate, the first
+fixtures that are valid end to end: they balance, carry every occurrence the implementation
+guide requires, parse with zero diagnostics and validate with zero `pyx12` findings. Same rule
+as above: **never edit them**. Every name, identifier and amount is invented.
+
+| File | Bytes | Segments | Version | Repetition | Line endings | Claims | Services | CAS rows | PLB groups |
+|------|-------|----------|---------|------------|--------------|--------|----------|----------|------------|
+| `balanced_5010_sample.txt` | 1 595 | 62 | 00501 / 005010X221A1 | `^` | LF after every `~` | 4 | 4 | 15 | 3 |
+| `balanced_4010_sample.txt` | 1 468 | 61 | 00401 / 004010X091A1 | — | none | 4 | 4 | 15 | 3 |
+
+Both hold the same remittance; the 5010 file adds `ST03` and the payer technical contact
+(`PER*BL`), which 4010 does not define. What they cover:
+
+- Two `LX` groups with two claims each: paid (`CLP02` 1), paid as secondary (2) and denied (4),
+  one claim without services.
+- Every balancing rule holds: each service's charge minus payment equals its `CAS`; each
+  claim's charge minus payment equals its claim-level plus service-level `CAS` (a claim with
+  only service adjustments, one with both, one with only a claim-level one); `BPR02` (690)
+  equals the claims' payments (720) minus the `PLB` amounts (25 − 5 + 10).
+- `CAS` with several reasons in one segment, with a quantity, several groups on one service,
+  and a split group: seven `CO` reasons over two `CAS` segments (six, then one).
+- A `PLB` with three reason groups, one negative; payer and payee `N1`/`N3`/`N4`, payee `REF*TJ`
+  and payer `PER*CX`, which no built-in table carries (the written file leaves them out and
+  still validates).
+- Claim columns: patient and rendering provider (person and organization), statement dates,
+  `AMT*AU`, `REF*1L`; service columns: `DTM*472`, `REF*6R`, `AMT*B6`, units paid and original
+  units.

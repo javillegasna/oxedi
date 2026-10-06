@@ -1,14 +1,18 @@
 """``oxedi.write``: tables back into a file, read back to the same tables."""
 
+import collections
 import datetime
+import importlib.util
+import re
 
 import pyarrow
 import pytest
 
 import oxedi
-from conftest import parse_named
+from conftest import parse_named, read
 
-# The files that read without a diagnostic, and so write strictly.
+# The files that read without a diagnostic, and so write strictly: 5010 and
+# 4010, synthetic and anonymized real.
 CLEAN = [
     "edi835_test_davisvision.RMT",
     "edi835_test_eyemed.RMT",
@@ -16,7 +20,29 @@ CLEAN = [
     "edi835_test_versant.RMT",
     "emedny_sample.txt",
     "united_healthcare_legacy_sample.txt",
+    "balanced_5010_sample.txt",
+    "balanced_4010_sample.txt",
 ]
+
+# The files with findings: unbalanced synthetic fixtures and the two excerpts
+# whose payment no longer adds up to the claims they keep.
+REFUSED = [
+    "multi_claim_sample.txt",
+    "trizetto_sample.rmt",
+    "edi835_test_file.RMT",
+    "edi835_test_not_available_claim_id.RMT",
+]
+
+# The clean files whose originals pyx12 already reports: a payee state code
+# outside its list, and a rendering provider without its identifier.
+PYX12_FINDINGS = {
+    "united_healthcare_legacy_sample.txt": ["N402"],
+    "edi835_test_eyemed.RMT": ["NM108", "NM109"],
+}
+
+requires_pyx12 = pytest.mark.skipif(
+    importlib.util.find_spec("pyx12") is None, reason="pyx12 is not installed"
+)
 
 
 def envelope(**changes):
@@ -54,6 +80,68 @@ def test_the_tables_of_a_parse_write_back_to_the_same_tables(name):
     again = oxedi.parse(data)
     assert again.diagnostics == []
     assert_same(result.tables, again.tables)
+
+
+def pyx12_findings(data):
+    """pyx12's findings on ``data``, by everything but the segment index (the
+    written file holds fewer segments)."""
+    from oxedi.pyx12 import validate
+
+    return collections.Counter(
+        (d.level, d.kind, d.code, d.rule, d.element, d.component, d.datum)
+        for d in validate(data)
+    )
+
+
+@requires_pyx12
+@pytest.mark.parametrize("name", CLEAN)
+def test_pyx12_finds_in_the_written_file_exactly_what_it_finds_in_the_original(name):
+    original = pyx12_findings(read(name))
+    written = pyx12_findings(oxedi.write(parse_named(name).tables, envelope()))
+    assert written == original
+    element = re.compile(r"\(([A-Z0-9]{2,3}\d{2})\)")
+    named = sorted(element.findall(rule)[-1] for _, _, _, rule, *_ in original.elements())
+    assert named == PYX12_FINDINGS.get(name, [])
+
+
+@pytest.mark.parametrize("name", REFUSED)
+def test_a_file_with_findings_is_refused_and_written_only_when_allowed(name):
+    tables = parse_named(name).tables
+    with pytest.raises(oxedi.WriteError) as info:
+        oxedi.write(tables, envelope())
+    refused = info.value.findings
+    assert refused
+    assert str(info.value).startswith(
+        f"the tables do not make a valid file ({len(refused)} finding"
+    )
+    for finding in refused:
+        assert finding.table is not None and finding.row is not None
+        assert f'table "{finding.table}" row {finding.row}' in str(finding)
+    data, findings = oxedi.write(tables, envelope(), allow_findings=True)
+    assert [str(f) for f in findings] == [str(f) for f in refused]
+    again = oxedi.parse(data)
+    assert {table: len(again.tables[table]) for table in again.tables.keys()} == {
+        table: len(tables[table]) for table in tables.keys()
+    }
+
+
+def test_an_unbalanced_claim_is_refused_with_the_rule_it_breaks():
+    tables = parse_named("multi_claim_sample.txt").tables
+    given = envelope(delimiters=oxedi.Delimiters(component=b">", repetition=b"^"))
+    with pytest.raises(oxedi.WriteError) as info:
+        oxedi.write(tables, given)
+    unbalanced = [
+        f
+        for f in info.value.findings
+        if f.diagnostic is not None and f.diagnostic.kind == "BalanceMismatch"
+    ]
+    assert [(f.table, f.row, f.column) for f in unbalanced] == [
+        ("claims", 0, "charge_amount"),
+        ("claims", 1, "charge_amount"),
+    ]
+    assert all('balancing rule "claim_balance"' in str(f) for f in unbalanced)
+    _, findings = oxedi.write(tables, given, allow_findings=True)
+    assert [str(f) for f in findings] == [str(f) for f in info.value.findings]
 
 
 @pytest.mark.parametrize("kind", ["pyarrow", "polars", "pandas"])

@@ -1,0 +1,110 @@
+## rows (rows: 4)
+row: int64 | segment: int64 | interchange: int64 | payment: int64 | claim: int64 | allowed_units: binary | billed_units: binary | charge_amount: decimal128(38, 2) | code: binary | modifier: binary | paid_amount: decimal128(38, 2) | qualifier: binary | service_date_segment: int64 | service_period_end_segment: int64 | service_period_start_segment: int64
+0 | 23 | 0 | 0 | 0 | 1 | ∅ | 200.00 | 99213 | ∅ | 150.00 | HC | 24 | ∅ | ∅
+1 | 29 | 0 | 0 | 0 | 1 | ∅ | 100.00 | 85025 | ∅ | 50.00 | HC | 30 | ∅ | ∅
+2 | 40 | 0 | 0 | 1 | 4 | 5 | 650.00 | 97110 | ∅ | 400.00 | HC | 41 | ∅ | ∅
+3 | 51 | 0 | 0 | 2 | 1 | ∅ | 120.00 | 99212 | ∅ | 120.00 | HC | 52 | ∅ | ∅
+
+## rows_adjustment_groups (rows: 12)
+row: int64 | segment: int64 | interchange: int64 | payment: int64 | claim: int64 | service: int64 | amount: decimal128(38, 2) | code: binary | group: binary | quantity: decimal128(38, 2)
+0 | 25 | 0 | 0 | 0 | 0 | 30.00 | 1 | PR | ∅
+1 | 26 | 0 | 0 | 0 | 0 | 20.00 | 45 | CO | ∅
+2 | 31 | 0 | 0 | 0 | 1 | 20.00 | 2 | PR | ∅
+3 | 31 | 0 | 0 | 0 | 1 | 10.00 | 3 | PR | ∅
+4 | 32 | 0 | 0 | 0 | 1 | 20.00 | 45 | CO | ∅
+5 | 42 | 0 | 0 | 1 | 2 | 100.00 | 45 | CO | 1.00
+6 | 42 | 0 | 0 | 1 | 2 | 10.00 | 253 | CO | ∅
+7 | 42 | 0 | 0 | 1 | 2 | 20.00 | 94 | CO | ∅
+8 | 42 | 0 | 0 | 1 | 2 | 30.00 | 97 | CO | ∅
+9 | 42 | 0 | 0 | 1 | 2 | 40.00 | 59 | CO | ∅
+10 | 42 | 0 | 0 | 1 | 2 | 10.00 | 16 | CO | ∅
+11 | 43 | 0 | 0 | 1 | 2 | 40.00 | 96 | CO | ∅
+
+## rows_adjustments (rows: 6)
+row: int64 | segment: int64 | interchange: int64 | payment: int64 | claim: int64 | service: int64 | amount: decimal128(38, 2) | code: binary | group: binary
+0 | 25 | 0 | 0 | 0 | 0 | 30.00 | 1 | PR
+1 | 26 | 0 | 0 | 0 | 0 | 20.00 | 45 | CO
+2 | 31 | 0 | 0 | 0 | 1 | 20.00 | 2 | PR
+3 | 32 | 0 | 0 | 0 | 1 | 20.00 | 45 | CO
+4 | 42 | 0 | 0 | 1 | 2 | 100.00 | 45 | CO
+5 | 43 | 0 | 0 | 1 | 2 | 40.00 | 96 | CO
+
+## rows_claim_adjustments (rows: 3)
+row: int64 | segment: int64 | interchange: int64 | payment: int64 | claim: int64 | amount: decimal128(38, 2) | code: binary | group: binary | quantity: decimal128(38, 2)
+0 | 36 | 0 | 0 | 1 | 50.00 | 23 | OA | ∅
+1 | 47 | 0 | 0 | 2 | 30.00 | 2 | PR | ∅
+2 | 54 | 0 | 0 | 3 | 80.00 | 29 | CO | ∅
+
+## rows_claim_amounts (rows: 1)
+row: int64 | segment: int64 | interchange: int64 | payment: int64 | claim: int64 | amount: decimal128(38, 2) | qualifier: binary
+0 | 22 | 0 | 0 | 0 | 250.00 | AU
+
+## rows_claim_dates (rows: 6)
+row: int64 | segment: int64 | interchange: int64 | payment: int64 | claim: int64 | date: date32 | qualifier: binary
+0 | 20 | 0 | 0 | 0 | 2024-01-05 | 232
+1 | 21 | 0 | 0 | 0 | 2024-01-05 | 233
+2 | 38 | 0 | 0 | 1 | 2024-01-06 | 232
+3 | 39 | 0 | 0 | 1 | 2024-01-08 | 233
+4 | 50 | 0 | 0 | 2 | 2024-01-07 | 232
+5 | 56 | 0 | 0 | 3 | 2024-01-02 | 232
+
+## rows_claim_entities (rows: 6)
+row: int64 | segment: int64 | interchange: int64 | payment: int64 | claim: int64 | entity: binary | first_name: binary | identification_code: binary | identification_code_qualifier: binary | last_name: binary | type: binary
+0 | 17 | 0 | 0 | 0 | QC | JANE | MBR0001 | MI | DOE | 1
+1 | 18 | 0 | 0 | 0 | 82 | JOHN | 1234567893 | XX | SMITH | 1
+2 | 37 | 0 | 0 | 1 | QC | RICHARD | MBR0002 | MI | ROE | 1
+3 | 48 | 0 | 0 | 2 | QC | ANNA | MBR0003 | MI | POE | 1
+4 | 49 | 0 | 0 | 2 | 82 |  | 1234567893 | XX | SUNRISE CLINIC | 2
+5 | 55 | 0 | 0 | 3 | QC | MARK | MBR0004 | MI | LOE | 1
+
+## rows_claim_references (rows: 1)
+row: int64 | segment: int64 | interchange: int64 | payment: int64 | claim: int64 | qualifier: binary | value: binary
+0 | 19 | 0 | 0 | 0 | 1L | GRP77
+
+## rows_claims (rows: 4)
+row: int64 | segment: int64 | interchange: int64 | payment: int64 | charge_amount: decimal128(38, 2) | claim_type: binary | icn: binary | marker: binary | paid_amount: decimal128(38, 2) | patient_segment: int64 | rendering_provider_segment: int64 | statement_period_end_segment: int64 | statement_period_start_segment: int64 | status: binary
+0 | 16 | 0 | 0 | 300.00 | 12 | PCN1001 | CLM1001 | 200.00 | 17 | 18 | 21 | 20 | 1
+1 | 35 | 0 | 0 | 700.00 | 12 | PCN1002 | CLM1002 | 400.00 | 37 | ∅ | 39 | 38 | 2
+2 | 46 | 0 | 0 | 150.00 | 12 | PCN2001 | CLM2001 | 120.00 | 48 | 49 | ∅ | 50 | 1
+3 | 53 | 0 | 0 | 80.00 | 12 | PCN2002 | CLM2002 | 0.00 | 55 | ∅ | ∅ | 56 | 4
+
+## rows_interchanges (rows: 1)
+row: int64 | segment: int64 | authorization_information_qualifier: binary | receiver: binary | sender: binary | transmission_date: date32 | transmission_time: time32 (seconds)
+0 | 0 | 00 | SUNRISECLINIC   | ACMEPAYER       | 2024-01-10 | 09:00:00
+
+## rows_organizations (rows: 2)
+row: int64 | segment: int64 | interchange: int64 | payment: int64 | address: binary | address_segment: int64 | city: binary | identification_code: binary | location_segment: int64 | name: binary | state: binary | type: binary | zip_code: binary
+0 | 7 | 0 | 0 | 100 MAIN ST | 8 | SPRINGFIELD | ∅ | 9 | ACME HEALTH PLAN | IL | PR | 62701
+1 | 11 | 0 | 0 | 200 OAK AVE | 12 | SPRINGFIELD | 1234567893 | 13 | SUNRISE CLINIC | IL | PE | 62702
+
+## rows_payments (rows: 1)
+row: int64 | segment: int64 | interchange: int64 | amount_paid: decimal128(38, 2) | bpr_segment: int64 | payee_segment: int64 | payer_segment: int64 | payment_method: binary | routing_number: binary | transaction_date: date32
+0 | 2 | 0 | 690.00 | 3 | 11 | 7 | CHK |  | 2024-01-12
+
+## rows_provider_adjustments (rows: 3)
+row: int64 | segment: int64 | interchange: int64 | payment: int64 | amount: decimal128(38, 2) | fiscal_period_date: date32 | provider_id: binary | reason_code: binary | reference_id: binary
+0 | 57 | 0 | 0 | 25.00 | 2024-12-31 | 1234567893 | WO | OVERPAY01
+1 | 57 | 0 | 0 | -5.00 | 2024-12-31 | 1234567893 | L6 | INTEREST01
+2 | 57 | 0 | 0 | 10.00 | 2024-12-31 | 1234567893 | FB | BALANCE01
+
+## rows_references (rows: 3)
+row: int64 | segment: int64 | interchange: int64 | payment: int64 | claim: int64 | service: int64 | qual: binary | value: binary
+0 | 27 | 0 | 0 | 0 | 0 | 6R | LINE0001
+1 | 33 | 0 | 0 | 0 | 1 | 6R | LINE0002
+2 | 44 | 0 | 0 | 1 | 2 | 6R | LINE0003
+
+## rows_remarks (rows: 0)
+row: int64 | segment: int64 | interchange: int64 | payment: int64 | claim: int64 | service: int64 | code: binary | qual: binary
+
+## rows_service_amounts (rows: 2)
+row: int64 | segment: int64 | interchange: int64 | payment: int64 | claim: int64 | service: int64 | amount: decimal128(38, 2) | qualifier: binary
+0 | 28 | 0 | 0 | 0 | 0 | 180.00 | B6
+1 | 34 | 0 | 0 | 0 | 1 | 80.00 | B6
+
+## rows_service_dates (rows: 4)
+row: int64 | segment: int64 | interchange: int64 | payment: int64 | claim: int64 | service: int64 | date: date32 | qualifier: binary
+0 | 24 | 0 | 0 | 0 | 0 | 2024-01-05 | 472
+1 | 30 | 0 | 0 | 0 | 1 | 2024-01-05 | 472
+2 | 41 | 0 | 0 | 1 | 2 | 2024-01-06 | 472
+3 | 52 | 0 | 0 | 2 | 3 | 2024-01-07 | 472
+

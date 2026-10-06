@@ -18,6 +18,8 @@ const CLEAN: &[&str] = &[
     "edi835_test_versant.RMT",
     "emedny_sample.txt",
     "united_healthcare_legacy_sample.txt",
+    "balanced_5010_sample.txt",
+    "balanced_4010_sample.txt",
 ];
 
 /// 2024-01-01 at 12:30.

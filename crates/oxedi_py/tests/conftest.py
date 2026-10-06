@@ -18,6 +18,8 @@ FIXTURES = [
     "multi_claim_sample.txt",
     "trizetto_sample.rmt",
     "blue_cross_nc_sample.txt",
+    "balanced_5010_sample.txt",
+    "balanced_4010_sample.txt",
 ]
 SAMPLES = [
     "edi835_test_davisvision.RMT",

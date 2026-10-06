@@ -20,13 +20,13 @@ const BASE: &str = r#"{"name":"t",
         }},
         "party":{"parent":"head","trigger":{"segment":"N1","where":{"1":"PR"}},"occurrences":{
             "payer":{"segment":"N1","pos":1,"qualifier":{"element":1,"codes":["PR"]}},
-            "other":{"segment":"N1","pos":1,"qualifier":{"element":1,"codes":["XX"]}}
+            "other":{"segment":"N1","pos":2,"qualifier":{"element":1,"codes":["XX"]}}
         }},
         "bare":{"parent":"head","trigger":{"segment":"BR"}}
     },
     "segments":{
         "NM":{"elements":{
-            "1":{"name":"entity","type":"ID","min":2,"max":3},
+            "1":{"name":"entity","type":"ID","min":2,"max":3,"codes":["IL","QC","QD"]},
             "2":{"name":"kind","type":"ID","min":1,"max":1},
             "3":{"name":"amount","type":"R"}
         }},
@@ -88,6 +88,16 @@ fn occurrences_load_in_position_order_with_their_fields() {
     );
     let party = spec.get(spec.loop_id("party").unwrap());
     assert_eq!(party.max, None);
+    assert_eq!(
+        head.usage,
+        Usage::Situational,
+        "a loop's usage defaults to situational"
+    );
+    let spec = patched(r#"{"loops":{"head":{"usage":"required"}}}"#).unwrap();
+    assert_eq!(
+        spec.get(spec.loop_id("head").unwrap()).usage,
+        Usage::Required
+    );
 }
 
 #[test]
@@ -163,6 +173,36 @@ fn the_builtin_loops_hold_the_segments_they_held_before_occurrences() {
     ];
     let v5010 = Spec::builtin_835();
     let v4010 = Spec::builtin_835_4010();
+    for spec in [&v5010, &v4010] {
+        for def in spec.loops() {
+            // Every built-in loop holds at least the occurrence it opens on,
+            // and that occurrence comes first.
+            let first = def.occurrences.first();
+            assert!(
+                first.is_some_and(|o| o.segment == def.trigger.segment),
+                "{}: {:?}",
+                def.name,
+                first
+            );
+        }
+    }
+    let required = |spec: &Spec| -> BTreeSet<String> {
+        spec.loops()
+            .iter()
+            .filter(|def| def.usage == Usage::Required)
+            .map(|def| def.name.clone())
+            .collect()
+    };
+    let expected_required = set(&[
+        "interchange",
+        "group",
+        "transaction",
+        "1000A",
+        "1000B",
+        "2100",
+    ]);
+    assert_eq!(required(&v5010), expected_required);
+    assert_eq!(required(&v4010), expected_required);
     for (name, segments) in expected {
         assert_eq!(held(&v5010, name), segments, "5010 {name}");
         let mut segments = segments;
@@ -293,7 +333,27 @@ fn invalid_occurrences_are_rejected_naming_loop_occurrence_rule_and_datum() {
         ),
         (
             r#"{"loops":{"head":{"occurrences":{"head":null}}}}"#,
-            "loop \"head\" opens on \"HD\" with no conditions, but none of its occurrences holds that segment with a qualifier the trigger's conditions select",
+            "loop \"head\" opens on \"HD\" with no conditions, but none of its occurrences holds that segment: declare the occurrence the loop opens on",
+        ),
+        (
+            r#"{"loops":{"head":{"occurrences":{"patient":{"qualifier":{"codes":["ZZ"]}}}}}}"#,
+            "loop \"head\" occurrence \"patient\": qualifier.codes: code \"ZZ\" is not among the codes NM01 allows (IL, QC, QD)",
+        ),
+        (
+            r#"{"loops":{"party":{"occurrences":{"payer":{"qualifier":{"codes":["PR","ZZ"]}}}}}}"#,
+            "loop \"party\" opens on \"N1\" where {1: \"PR\"}, and its occurrence \"payer\" also accepts code \"ZZ\": a segment with that code would match the occurrence without opening the loop",
+        ),
+        (
+            r#"{"loops":{"head":{"occurrences":{"note":{"pos":10}}}}}"#,
+            "loop \"head\": occurrence \"note\" has \"pos\" 10, at or before 10 of \"head\", the occurrence the loop opens on, which must come first",
+        ),
+        (
+            r#"{"loops":{"head":{"usage":"R"}}}"#,
+            "loop \"head\" has \"usage\" \"R\"; it must be \"required\" or \"situational\"",
+        ),
+        (
+            r#"{"loops":{"head":{"usage":7}}}"#,
+            "spec: the value at loops.head.usage must be a string; found a number (7)",
         ),
         (
             r#"{"loops":{"head":{"max":0}}}"#,
@@ -327,7 +387,20 @@ fn occurrence_errors_are_their_own_variants() {
             if loop_name == "head" && occurrence == "note" && **reason == OccurrenceError::ZeroMax
     ));
     let err = patched(r#"{"loops":{"head":{"occurrences":{"head":null}}}}"#).unwrap_err();
-    assert!(matches!(&err, SpecError::UnmatchedTrigger { loop_name, .. } if loop_name == "head"));
+    assert!(matches!(
+        &err,
+        SpecError::UnmatchedTrigger { loop_name, segment_held: false, .. } if loop_name == "head"
+    ));
+    let err =
+        patched(r#"{"loops":{"party":{"occurrences":{"payer":{"qualifier":{"codes":["PE"]}}}}}}"#)
+            .unwrap_err();
+    assert!(matches!(
+        &err,
+        SpecError::UnmatchedTrigger {
+            segment_held: true,
+            ..
+        }
+    ));
     let err = patched(r#"{"loops":{"head":{"max":0}}}"#).unwrap_err();
     assert!(matches!(&err, SpecError::ZeroLoopMax { loop_name } if loop_name == "head"));
     assert!(std::error::Error::source(&err).is_none());

@@ -157,8 +157,14 @@ Objects merge key by key, while arrays are replaced whole. A loop's segments are
 occurrences, so a patch adds one (or changes or removes it with `null`) by its name:
 
 ```json
-{"loops": {"1000A": {"occurrences": {"xx": {"segment": "XX", "pos": 1400}}}}}
+{"loops": {"1000A": {"occurrences": {"xx": {"segment": "XX", "pos": 11400}}}}}
 ```
+
+`pos` orders the occurrences of a loop. The transaction and every loop below it share one
+position space: the built-in spec numbers a segment of the transaction's n-th table at
+n × 10000 plus its implementation-guide position (1000A's N1 is 10800, 2100's CLP 20100), and
+a child loop's occurrences sit at their own positions inside that space. The occurrence a
+loop opens on comes first: every other occurrence of the loop has a higher `pos`.
 
 `parse` and `stream` both accept `spec=`.
 

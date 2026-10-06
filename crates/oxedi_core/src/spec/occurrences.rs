@@ -3,12 +3,12 @@
 //! their compilation against the `segments` section.
 
 use std::collections::BTreeMap;
-use std::fmt;
 
 use super::error::SpecError;
 use super::loops::Trigger;
+use super::occurrence_error::{OccurrenceError, place};
 use super::raw::{RawOccurrence, RawQualifier};
-use super::render::render_key;
+use super::render::{render_key, render_trigger};
 use super::segments::{
     ElementDef, ElementDefError, ElementType, SegmentDef, compile_codes, parse_position,
 };
@@ -64,7 +64,9 @@ pub struct OccurrenceDef {
     /// Segment id, e.g. `NM1`.
     pub segment: Vec<u8>,
     /// Position in the loop; occurrences sharing a position may appear in
-    /// any order among themselves.
+    /// any order among themselves. A loop and the loops below it number
+    /// their occurrences in one position space, and the occurrence the
+    /// loop's trigger opens on has the lowest position of its loop.
     pub pos: usize,
     /// Whether every instance of the loop holds it.
     pub usage: Usage,
@@ -102,133 +104,6 @@ impl OccurrenceDef {
                 *position == qualifier.element
                     && qualifier.codes.iter().any(|code| code.as_bytes() == value)
             })
-    }
-}
-
-/// Why an occurrence was rejected.
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub enum OccurrenceError {
-    /// The occurrence name is the empty string.
-    EmptyName,
-    /// `usage` is not `required` or `situational`.
-    UnknownUsage {
-        /// The value as written.
-        found: String,
-    },
-    /// `max` is 0.
-    ZeroMax,
-    /// The qualifier or a `codes` key names an element or component the
-    /// `segments` section does not define for the segment.
-    UndefinedElement {
-        /// Where the reference sits: `qualifier` or `codes.<key>`.
-        key: String,
-        /// The segment id.
-        segment: String,
-        /// The element position.
-        element: usize,
-        /// The component position, if any.
-        component: Option<usize>,
-    },
-    /// A `codes` key is not `<element>` or `<element>-<component>`, 1-based
-    /// in canonical form.
-    BadCodesKey {
-        /// The key as written.
-        key: String,
-    },
-    /// A code list (the qualifier's or one under `codes`) is empty.
-    EmptyCodes {
-        /// Where the list sits: `qualifier.codes` or `codes.<key>`.
-        key: String,
-    },
-    /// A code list (the qualifier's or one under `codes`) is invalid for its element.
-    BadCodes {
-        /// Where the list sits: `qualifier.codes` or `codes.<key>`.
-        key: String,
-        /// What is wrong with it.
-        reason: ElementDefError,
-    },
-    /// A `codes` key names the qualifier's own element or component.
-    QualifierInCodes {
-        /// The key as written.
-        key: String,
-    },
-    /// Another occurrence holds the same segment and the two have no
-    /// qualifier on one shared element or component to tell them apart.
-    Indistinct {
-        /// The other occurrence.
-        other: String,
-        /// The segment id both hold.
-        segment: String,
-    },
-    /// Another occurrence holds the same segment and both qualifiers accept a code.
-    SharedCode {
-        /// The other occurrence.
-        other: String,
-        /// The segment id both hold.
-        segment: String,
-        /// The code both accept.
-        code: String,
-    },
-}
-
-fn place(segment: &str, element: usize, component: Option<usize>) -> String {
-    match component {
-        Some(component) => format!("{segment}{element:02}-{component}"),
-        None => format!("{segment}{element:02}"),
-    }
-}
-
-impl fmt::Display for OccurrenceError {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match self {
-            OccurrenceError::EmptyName => write!(f, "the occurrence name is empty"),
-            OccurrenceError::UnknownUsage { found } => write!(
-                f,
-                "\"usage\" must be \"required\" or \"situational\"; found {found:?}"
-            ),
-            OccurrenceError::ZeroMax => write!(
-                f,
-                "\"max\" is 0; an occurrence that may appear appears at least once"
-            ),
-            OccurrenceError::UndefinedElement {
-                key,
-                segment,
-                element,
-                component,
-            } => write!(
-                f,
-                "{key} names {}, which the \"segments\" section does not define for {segment:?}",
-                place(segment, *element, *component)
-            ),
-            OccurrenceError::BadCodesKey { key } => write!(
-                f,
-                "codes key {key:?} must be \"<element>\" or \"<element>-<component>\", \
-                 1-based integers in canonical form"
-            ),
-            OccurrenceError::EmptyCodes { key } => {
-                write!(f, "{key} is empty; list at least one code")
-            }
-            OccurrenceError::BadCodes { key, reason } => write!(f, "{key}: {reason}"),
-            OccurrenceError::QualifierInCodes { key } => write!(
-                f,
-                "codes key {key:?} names the qualifier's own place; its codes are the \
-                 qualifier's \"codes\""
-            ),
-            OccurrenceError::Indistinct { other, segment } => write!(
-                f,
-                "holds segment {segment:?} like occurrence {other:?}, and the two have no \
-                 qualifier on one shared element to tell them apart"
-            ),
-            OccurrenceError::SharedCode {
-                other,
-                segment,
-                code,
-            } => write!(
-                f,
-                "holds segment {segment:?} like occurrence {other:?}, and both qualifiers \
-                 accept code {code:?}"
-            ),
-        }
     }
 }
 
@@ -280,6 +155,68 @@ fn parse_codes_key(key: &str) -> Option<(usize, Option<usize>)> {
             Some((parse_position(element)?, Some(parse_position(component)?)))
         }
     }
+}
+
+/// Reads a `usage`: `required`, or `situational` (also when absent); the
+/// value as written when it is neither.
+pub(super) fn parse_usage(usage: Option<&str>) -> Result<Usage, String> {
+    match usage {
+        None | Some("situational") => Ok(Usage::Situational),
+        Some("required") => Ok(Usage::Required),
+        Some(found) => Err(found.to_string()),
+    }
+}
+
+/// Checks the occurrence a loop's trigger opens on, when the loop declares
+/// occurrences: there is one, its qualifier selects no code the trigger's
+/// conditions leave out, and it comes before every other occurrence.
+pub(super) fn check_trigger(
+    loop_name: &str,
+    occurrences: &[OccurrenceDef],
+    trigger: &Trigger,
+) -> Result<(), SpecError> {
+    if occurrences.is_empty() {
+        return Ok(());
+    }
+    let Some(first) = occurrences.iter().find(|o| o.opens_on(trigger)) else {
+        return Err(SpecError::UnmatchedTrigger {
+            loop_name: loop_name.to_string(),
+            trigger: render_trigger(trigger),
+            segment_held: occurrences.iter().any(|o| o.segment == trigger.segment),
+        });
+    };
+    if let Some(qualifier) = &first.qualifier {
+        let selected = trigger
+            .conditions
+            .iter()
+            .find(|(position, _)| *position == qualifier.element)
+            .map(|(_, value)| value.as_slice());
+        if let Some(code) = qualifier
+            .codes
+            .iter()
+            .find(|code| Some(code.as_bytes()) != selected)
+        {
+            return Err(SpecError::TriggerQualifierWider {
+                loop_name: loop_name.to_string(),
+                occurrence: first.name.clone(),
+                trigger: render_trigger(trigger),
+                code: code.clone(),
+            });
+        }
+    }
+    if let Some(other) = occurrences
+        .iter()
+        .find(|o| o.name != first.name && o.pos <= first.pos)
+    {
+        return Err(SpecError::TriggerNotFirst {
+            loop_name: loop_name.to_string(),
+            occurrence: first.name.clone(),
+            pos: first.pos,
+            other: other.name.clone(),
+            other_pos: other.pos,
+        });
+    }
+    Ok(())
 }
 
 /// Compiles the occurrences of the loop `loop_name` against the segment
@@ -351,15 +288,8 @@ fn compile_occurrence(
         });
     }
     let segment = def.segment.as_bytes();
-    let usage = match def.usage.as_deref() {
-        None | Some("situational") => Usage::Situational,
-        Some("required") => Usage::Required,
-        Some(found) => {
-            return Err(fail(OccurrenceError::UnknownUsage {
-                found: found.to_string(),
-            }));
-        }
-    };
+    let usage = parse_usage(def.usage.as_deref())
+        .map_err(|found| fail(OccurrenceError::UnknownUsage { found }))?;
     if def.max == Some(0) {
         return Err(fail(OccurrenceError::ZeroMax));
     }
@@ -389,6 +319,16 @@ fn compile_occurrence(
                     reason,
                 })
             })?;
+            if let Some(code) = codes
+                .iter()
+                .find(|code| target.rejects_code(code.as_bytes()))
+            {
+                return Err(fail(OccurrenceError::QualifierCodeOutsideElement {
+                    code: code.clone(),
+                    place: place(&def.segment, *element, *component),
+                    allowed: target.codes.clone(),
+                }));
+            }
             Some(Qualifier {
                 element: *element,
                 component: *component,

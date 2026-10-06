@@ -4,6 +4,7 @@
   "loops": {
     "interchange": {
       "trigger": { "segment": "ISA" },
+      "usage": "required",
       "occurrences": {
         "interchange_control_header": {"segment": "ISA", "pos": 100, "usage": "required", "max": 1},
         "interchange_acknowledgement": {"segment": "TA1", "pos": 200, "usage": "situational", "max": 1}
@@ -14,6 +15,7 @@
     "group": {
       "parent": "interchange",
       "trigger": { "segment": "GS" },
+      "usage": "required",
       "occurrences": {
         "functional_group_header": {"segment": "GS", "pos": 100, "usage": "required", "max": 1}
       },
@@ -23,6 +25,7 @@
     "transaction": {
       "parent": "group",
       "trigger": { "segment": "ST" },
+      "usage": "required",
       "occurrences": {
         "transaction_set_header": {"segment": "ST", "pos": 100, "usage": "required", "max": 1},
         "financial_information": {"segment": "BPR", "pos": 10200, "usage": "required", "max": 1},
@@ -39,78 +42,83 @@
     "1000A": {
       "parent": "transaction",
       "trigger": { "segment": "N1", "where": {"1": "PR"} },
+      "usage": "required",
       "max": 1,
       "occurrences": {
-        "payer_identification": {"segment": "N1", "pos": 800, "usage": "required", "max": 1, "codes": {"1": ["PR"], "3": ["XV"]}},
-        "payer_address": {"segment": "N3", "pos": 1000, "usage": "required", "max": 1},
-        "payer_city_state_zip_code": {"segment": "N4", "pos": 1100, "usage": "required", "max": 1},
-        "additional_payer_identification": {"segment": "REF", "pos": 1200, "usage": "situational", "max": 4, "codes": {"1": ["2U", "EO", "HI", "NF"]}},
-        "payer_business_contact_information": {"segment": "PER", "pos": 1300, "usage": "situational", "max": 1, "qualifier": {"element": 1, "codes": ["CX"]}, "codes": {"3": ["EM", "FX", "TE"], "5": ["EM", "EX", "FX", "TE"], "7": ["EX"]}},
-        "payer_technical_contact_information": {"segment": "PER", "pos": 1300, "usage": "required", "qualifier": {"element": 1, "codes": ["BL"]}, "codes": {"3": ["EM", "TE", "UR"]}},
-        "payer_web_site": {"segment": "PER", "pos": 1300, "usage": "situational", "max": 1, "qualifier": {"element": 1, "codes": ["IC"]}, "codes": {"3": ["UR"]}}
+        "payer_identification": {"segment": "N1", "pos": 10800, "usage": "required", "max": 1, "codes": {"1": ["PR"], "3": ["XV"]}},
+        "payer_address": {"segment": "N3", "pos": 11000, "usage": "required", "max": 1},
+        "payer_city_state_zip_code": {"segment": "N4", "pos": 11100, "usage": "required", "max": 1},
+        "additional_payer_identification": {"segment": "REF", "pos": 11200, "usage": "situational", "max": 4, "codes": {"1": ["2U", "EO", "HI", "NF"]}},
+        "payer_business_contact_information": {"segment": "PER", "pos": 11300, "usage": "situational", "max": 1, "qualifier": {"element": 1, "codes": ["CX"]}, "codes": {"3": ["EM", "FX", "TE"], "5": ["EM", "EX", "FX", "TE"], "7": ["EX"]}},
+        "payer_technical_contact_information": {"segment": "PER", "pos": 11300, "usage": "required", "qualifier": {"element": 1, "codes": ["BL"]}, "codes": {"3": ["EM", "TE", "UR"]}},
+        "payer_web_site": {"segment": "PER", "pos": 11300, "usage": "situational", "max": 1, "qualifier": {"element": 1, "codes": ["IC"]}, "codes": {"3": ["UR"]}}
       }
     },
     "1000B": {
       "parent": "transaction",
       "trigger": { "segment": "N1", "where": {"1": "PE"} },
+      "usage": "required",
       "max": 1,
       "occurrences": {
-        "payee_identification": {"segment": "N1", "pos": 800, "usage": "required", "max": 1, "codes": {"1": ["PE"]}},
-        "payee_address": {"segment": "N3", "pos": 1000, "usage": "situational", "max": 1},
-        "payee_city_state_zip_code": {"segment": "N4", "pos": 1100, "usage": "situational", "max": 1},
-        "payee_additional_identification": {"segment": "REF", "pos": 1200, "usage": "situational", "codes": {"1": ["0B", "D3", "PQ", "TJ"]}},
-        "remittance_delivery_method": {"segment": "RDM", "pos": 1400, "usage": "situational", "max": 1}
+        "payee_identification": {"segment": "N1", "pos": 10800, "usage": "required", "max": 1, "codes": {"1": ["PE"]}},
+        "payee_address": {"segment": "N3", "pos": 11000, "usage": "situational", "max": 1},
+        "payee_city_state_zip_code": {"segment": "N4", "pos": 11100, "usage": "situational", "max": 1},
+        "payee_additional_identification": {"segment": "REF", "pos": 11200, "usage": "situational", "codes": {"1": ["0B", "D3", "PQ", "TJ"]}},
+        "remittance_delivery_method": {"segment": "RDM", "pos": 11400, "usage": "situational", "max": 1}
       }
     },
     "2000": {
       "parent": "transaction",
       "trigger": { "segment": "LX" },
+      "usage": "situational",
       "occurrences": {
-        "header_number": {"segment": "LX", "pos": 30, "usage": "required", "max": 1},
-        "provider_summary_information": {"segment": "TS3", "pos": 50, "usage": "situational", "max": 1},
-        "provider_supplemental_summary_information": {"segment": "TS2", "pos": 70, "usage": "situational", "max": 1}
+        "header_number": {"segment": "LX", "pos": 20030, "usage": "required", "max": 1},
+        "provider_summary_information": {"segment": "TS3", "pos": 20050, "usage": "situational", "max": 1},
+        "provider_supplemental_summary_information": {"segment": "TS2", "pos": 20070, "usage": "situational", "max": 1}
       }
     },
     "2100": {
       "parent": "2000",
       "trigger": { "segment": "CLP" },
+      "usage": "required",
       "occurrences": {
-        "claim_payment_information": {"segment": "CLP", "pos": 100, "usage": "required", "max": 1},
-        "claim_adjustment": {"segment": "CAS", "pos": 200, "usage": "situational", "max": 99},
-        "patient_name": {"segment": "NM1", "pos": 300, "usage": "required", "max": 1, "qualifier": {"element": 1, "codes": ["QC"]}, "codes": {"2": ["1"], "8": ["34", "HN", "II", "MI", "MR"]}},
-        "insured_name": {"segment": "NM1", "pos": 300, "usage": "situational", "max": 1, "qualifier": {"element": 1, "codes": ["IL"]}, "codes": {"8": ["FI", "II", "MI"]}},
-        "corrected_patient_insured_name": {"segment": "NM1", "pos": 300, "usage": "situational", "max": 1, "qualifier": {"element": 1, "codes": ["74"]}, "codes": {"8": ["C"]}},
-        "service_provider_name": {"segment": "NM1", "pos": 300, "usage": "situational", "max": 1, "qualifier": {"element": 1, "codes": ["82"]}, "codes": {"8": ["BD", "BS", "FI", "MC", "PC", "SL", "UP", "XX"]}},
-        "crossover_carrier_name": {"segment": "NM1", "pos": 300, "usage": "situational", "max": 1, "qualifier": {"element": 1, "codes": ["TT"]}, "codes": {"2": ["2"], "8": ["AD", "FI", "NI", "PI", "PP", "XV"]}},
-        "corrected_priority_payer_name": {"segment": "NM1", "pos": 300, "usage": "situational", "max": 1, "qualifier": {"element": 1, "codes": ["PR"]}, "codes": {"2": ["2"], "8": ["AD", "FI", "NI", "PI", "PP", "XV"]}},
-        "other_subscriber_name": {"segment": "NM1", "pos": 300, "usage": "situational", "max": 1, "qualifier": {"element": 1, "codes": ["GB"]}, "codes": {"8": ["FI", "II", "MI"]}},
-        "inpatient_adjudication_information": {"segment": "MIA", "pos": 330, "usage": "situational", "max": 1},
-        "outpatient_adjudication_information": {"segment": "MOA", "pos": 350, "usage": "situational", "max": 1},
-        "other_claim_related_identification": {"segment": "REF", "pos": 400, "usage": "situational", "max": 5, "qualifier": {"element": 1, "codes": ["1L", "1W", "28", "6P", "9A", "9C", "BB", "CE", "EA", "F8", "G1", "G3", "IG", "SY"]}},
-        "rendering_provider_identification": {"segment": "REF", "pos": 400, "usage": "situational", "max": 10, "qualifier": {"element": 1, "codes": ["0B", "1A", "1B", "1C", "1D", "1G", "1H", "1J", "D3", "G2", "LU"]}},
-        "statement_from_or_to_date": {"segment": "DTM", "pos": 500, "usage": "situational", "max": 2, "qualifier": {"element": 1, "codes": ["232", "233"]}},
-        "coverage_expiration_date": {"segment": "DTM", "pos": 500, "usage": "situational", "max": 1, "qualifier": {"element": 1, "codes": ["036"]}},
-        "claim_received_date": {"segment": "DTM", "pos": 500, "usage": "situational", "max": 1, "qualifier": {"element": 1, "codes": ["050"]}},
-        "claim_contact_information": {"segment": "PER", "pos": 600, "usage": "situational", "max": 2, "codes": {"1": ["CX"], "3": ["EM", "FX", "TE"], "5": ["EM", "EX", "FX", "TE"], "7": ["EX"]}},
-        "claim_supplemental_information": {"segment": "AMT", "pos": 620, "usage": "situational", "max": 13, "codes": {"1": ["AU", "D8", "DY", "F5", "I", "NL", "T", "T2", "ZK", "ZL", "ZM", "ZN", "ZO"]}},
-        "claim_supplemental_information_quantity": {"segment": "QTY", "pos": 640, "usage": "situational", "max": 14}
+        "claim_payment_information": {"segment": "CLP", "pos": 20100, "usage": "required", "max": 1},
+        "claim_adjustment": {"segment": "CAS", "pos": 20200, "usage": "situational", "max": 99},
+        "patient_name": {"segment": "NM1", "pos": 20300, "usage": "required", "max": 1, "qualifier": {"element": 1, "codes": ["QC"]}, "codes": {"2": ["1"], "8": ["34", "HN", "II", "MI", "MR"]}},
+        "insured_name": {"segment": "NM1", "pos": 20300, "usage": "situational", "max": 1, "qualifier": {"element": 1, "codes": ["IL"]}, "codes": {"8": ["FI", "II", "MI"]}},
+        "corrected_patient_insured_name": {"segment": "NM1", "pos": 20300, "usage": "situational", "max": 1, "qualifier": {"element": 1, "codes": ["74"]}, "codes": {"8": ["C"]}},
+        "service_provider_name": {"segment": "NM1", "pos": 20300, "usage": "situational", "max": 1, "qualifier": {"element": 1, "codes": ["82"]}, "codes": {"8": ["BD", "BS", "FI", "MC", "PC", "SL", "UP", "XX"]}},
+        "crossover_carrier_name": {"segment": "NM1", "pos": 20300, "usage": "situational", "max": 1, "qualifier": {"element": 1, "codes": ["TT"]}, "codes": {"2": ["2"], "8": ["AD", "FI", "NI", "PI", "PP", "XV"]}},
+        "corrected_priority_payer_name": {"segment": "NM1", "pos": 20300, "usage": "situational", "max": 1, "qualifier": {"element": 1, "codes": ["PR"]}, "codes": {"2": ["2"], "8": ["AD", "FI", "NI", "PI", "PP", "XV"]}},
+        "other_subscriber_name": {"segment": "NM1", "pos": 20300, "usage": "situational", "max": 1, "qualifier": {"element": 1, "codes": ["GB"]}, "codes": {"8": ["FI", "II", "MI"]}},
+        "inpatient_adjudication_information": {"segment": "MIA", "pos": 20330, "usage": "situational", "max": 1},
+        "outpatient_adjudication_information": {"segment": "MOA", "pos": 20350, "usage": "situational", "max": 1},
+        "other_claim_related_identification": {"segment": "REF", "pos": 20400, "usage": "situational", "max": 5, "qualifier": {"element": 1, "codes": ["1L", "1W", "28", "6P", "9A", "9C", "BB", "CE", "EA", "F8", "G1", "G3", "IG", "SY"]}},
+        "rendering_provider_identification": {"segment": "REF", "pos": 20400, "usage": "situational", "max": 10, "qualifier": {"element": 1, "codes": ["0B", "1A", "1B", "1C", "1D", "1G", "1H", "1J", "D3", "G2", "LU"]}},
+        "statement_from_or_to_date": {"segment": "DTM", "pos": 20500, "usage": "situational", "max": 2, "qualifier": {"element": 1, "codes": ["232", "233"]}},
+        "coverage_expiration_date": {"segment": "DTM", "pos": 20500, "usage": "situational", "max": 1, "qualifier": {"element": 1, "codes": ["036"]}},
+        "claim_received_date": {"segment": "DTM", "pos": 20500, "usage": "situational", "max": 1, "qualifier": {"element": 1, "codes": ["050"]}},
+        "claim_contact_information": {"segment": "PER", "pos": 20600, "usage": "situational", "max": 2, "codes": {"1": ["CX"], "3": ["EM", "FX", "TE"], "5": ["EM", "EX", "FX", "TE"], "7": ["EX"]}},
+        "claim_supplemental_information": {"segment": "AMT", "pos": 20620, "usage": "situational", "max": 13, "codes": {"1": ["AU", "D8", "DY", "F5", "I", "NL", "T", "T2", "ZK", "ZL", "ZM", "ZN", "ZO"]}},
+        "claim_supplemental_information_quantity": {"segment": "QTY", "pos": 20640, "usage": "situational", "max": 14}
       }
     },
     "2110": {
       "parent": "2100",
       "trigger": { "segment": "SVC" },
+      "usage": "situational",
       "max": 999,
       "occurrences": {
-        "service_payment_information": {"segment": "SVC", "pos": 700, "usage": "required", "max": 1},
-        "service_date": {"segment": "DTM", "pos": 800, "usage": "situational", "max": 2, "codes": {"1": ["150", "151", "472"]}},
-        "service_adjustment": {"segment": "CAS", "pos": 900, "usage": "situational", "max": 99},
-        "service_identification": {"segment": "REF", "pos": 1000, "usage": "situational", "max": 8, "qualifier": {"element": 1, "codes": ["1S", "APC", "BB", "E9", "G1", "G3", "LU", "RB"]}},
-        "line_item_control_number": {"segment": "REF", "pos": 1000, "usage": "situational", "max": 1, "qualifier": {"element": 1, "codes": ["6R"]}},
-        "rendering_provider_information": {"segment": "REF", "pos": 1000, "usage": "situational", "max": 10, "qualifier": {"element": 1, "codes": ["0B", "1A", "1B", "1C", "1D", "1G", "1H", "1J", "D3", "G2", "HPI", "SY", "TJ"]}},
-        "healthcare_policy_identification": {"segment": "REF", "pos": 1000, "usage": "situational", "max": 5, "qualifier": {"element": 1, "codes": ["0K"]}},
-        "service_supplemental_amount": {"segment": "AMT", "pos": 1100, "usage": "situational", "max": 9, "codes": {"1": ["B6", "KH", "T", "T2", "ZK", "ZL", "ZM", "ZN", "ZO"]}},
-        "service_supplemental_quantity": {"segment": "QTY", "pos": 1200, "usage": "situational", "max": 6, "codes": {"1": ["ZK", "ZL", "ZM", "ZN", "ZO"]}},
-        "health_care_remark_codes": {"segment": "LQ", "pos": 1300, "usage": "situational", "max": 99}
+        "service_payment_information": {"segment": "SVC", "pos": 20700, "usage": "required", "max": 1},
+        "service_date": {"segment": "DTM", "pos": 20800, "usage": "situational", "max": 2, "codes": {"1": ["150", "151", "472"]}},
+        "service_adjustment": {"segment": "CAS", "pos": 20900, "usage": "situational", "max": 99},
+        "service_identification": {"segment": "REF", "pos": 21000, "usage": "situational", "max": 8, "qualifier": {"element": 1, "codes": ["1S", "APC", "BB", "E9", "G1", "G3", "LU", "RB"]}},
+        "line_item_control_number": {"segment": "REF", "pos": 21000, "usage": "situational", "max": 1, "qualifier": {"element": 1, "codes": ["6R"]}},
+        "rendering_provider_information": {"segment": "REF", "pos": 21000, "usage": "situational", "max": 10, "qualifier": {"element": 1, "codes": ["0B", "1A", "1B", "1C", "1D", "1G", "1H", "1J", "D3", "G2", "HPI", "SY", "TJ"]}},
+        "healthcare_policy_identification": {"segment": "REF", "pos": 21000, "usage": "situational", "max": 5, "qualifier": {"element": 1, "codes": ["0K"]}},
+        "service_supplemental_amount": {"segment": "AMT", "pos": 21100, "usage": "situational", "max": 9, "codes": {"1": ["B6", "KH", "T", "T2", "ZK", "ZL", "ZM", "ZN", "ZO"]}},
+        "service_supplemental_quantity": {"segment": "QTY", "pos": 21200, "usage": "situational", "max": 6, "codes": {"1": ["ZK", "ZL", "ZM", "ZN", "ZO"]}},
+        "health_care_remark_codes": {"segment": "LQ", "pos": 21300, "usage": "situational", "max": 99}
       }
     }
   },

@@ -166,11 +166,14 @@ def test_check_names_loop_element_and_both_values(tiny, capsys):
     assert ("usage:REF02:required: loop 2100,2110: REF02: required is True in the spec, "
             "False in pyx12") in err
     # The spec's 2100 declares its occurrences, and the map's DTM is not one of them.
-    assert ("occurrences:2100:dtm: loop 2100: loop 2100: pyx12 occurrence dtm (DTM '') has no "
+    assert ("occurrences:2100:dtm: loop 2100: pyx12 occurrence dtm (DTM '') has no "
             "counterpart in the spec") in err
+    # A mapped loop that declares no occurrences fails.
+    assert ("occurrences:interchange: loop interchange declares no occurrences; pyx12 places "
+            "1 in it") in err
     # What the spec lacks is reported, never a failure.
     assert "REF01 (Qualifier) has no code list" not in err
-    assert "3 disagreement(s)" in err
+    assert "4 disagreement(s)" in err
 
 
 def test_check_skips_ignored_findings(tiny):
@@ -178,6 +181,7 @@ def test_check_skips_ignored_findings(tiny):
         {"key": "codes:ISA01", "reason": "synthetic"},
         {"key": "usage:REF02:required", "reason": "synthetic"},
         {"key": "occurrences:2100:dtm", "reason": "synthetic"},
+        {"key": "occurrences:interchange", "reason": "synthetic"},
     ]}))
     assert load_script().main(args(tiny, "--check")) == 0
 
@@ -199,7 +203,7 @@ def test_check_reports_what_only_the_spec_defines(tiny, capsys):
             "such position") in err
     assert ("segments:ZZZ: loop -: segment ZZZ is defined in the spec; no mapped pyx12 "
             "loop holds it") in err
-    assert "5 disagreement(s)" in err
+    assert "6 disagreement(s)" in err
 
 
 def test_draft_drops_empty_codes_and_keeps_types_without_a_data_element(tiny, tmp_path):
@@ -356,8 +360,19 @@ def test_occurrences_are_generated_from_the_map(tiny, tmp_path):
     text = report.read_text()
     assert ("- 2100: `claim` CLP@200 R max 1; `claim_date` DTM@300 S max 2; `other_id` "
             "REF@400 ['BB', 'EA'] S max 5; `provider_id` REF@400 ['1A'] S") in text
-    # A loop without occurrences lacks them: reported, never a failure.
-    assert script.main(args(tiny, "--check")) == 0
+    # A mapped loop that declares no occurrences fails the check.
+    assert script.main(args(tiny, "--check")) == 1
+
+
+def test_check_fails_on_a_loop_without_occurrences(tiny, capsys):
+    occ_spec(tiny, {})
+    assert load_script().main(args(tiny, "--check")) == 1
+    err = capsys.readouterr().err
+    assert ("occurrences:2100: loop 2100 declares no occurrences; pyx12 places 4 in it"
+            in err)
+    assert ("occurrences:2110: loop 2110 declares no occurrences; pyx12 places 2 in it"
+            in err)
+    assert "2 disagreement(s)" in err
 
 
 def test_check_matches_occurrences_by_segment_and_qualifier_not_by_name(tiny, capsys):
@@ -368,14 +383,15 @@ def test_check_matches_occurrences_by_segment_and_qualifier_not_by_name(tiny, ca
     occ_spec(tiny, {"max": 2, "occurrences": occurrences})
     assert load_script().main(args(tiny, "--check")) == 1
     err = capsys.readouterr().err
-    assert ("occurrences:2100:other_id:max: loop 2100: loop 2100 occurrence other_id: max is 4 "
+    assert ("occurrences:2100:other_id:max: loop 2100 occurrence other_id: max is 4 "
             "in the spec, 5 in pyx12") in err
-    assert ("occurrences:2100:extra: loop 2100: loop 2100: spec occurrence extra has no "
+    assert ("occurrences:2100:extra: loop 2100: spec occurrence extra has no "
             "counterpart in pyx12") in err
     assert "claim_header" not in err, "a renamed occurrence still matches its place"
     # The extra AMT is also a segment pyx12 does not place in the loop.
-    assert "segments:2100:AMT: loop 2100: loop 2100 holds AMT in the spec" in err
-    assert "3 disagreement(s)" in err
+    assert "segments:2100:AMT: loop 2100 holds AMT in the spec" in err
+    # 2110 declares no occurrences.
+    assert "4 disagreement(s)" in err
 
 
 def test_check_names_an_occurrence_the_spec_lacks_and_a_loop_max(tiny, capsys):
@@ -386,7 +402,7 @@ def test_check_names_an_occurrence_the_spec_lacks_and_a_loop_max(tiny, capsys):
     occ_spec(tiny, {"occurrences": occurrences})
     assert load_script().main(args(tiny, "--check")) == 1
     err = capsys.readouterr().err
-    assert "occurrences:2100:max: loop 2100: loop 2100: max is None in the spec, 2 in pyx12" in err
+    assert "occurrences:2100:max: loop 2100: max is None in the spec, 2 in pyx12" in err
     # Both REF places meet the spec's single REF, so neither is matched.
     assert ("loop 2100: pyx12 occurrence provider_id (REF 'Provider Id') has no counterpart "
             "in the spec") in err
@@ -397,6 +413,31 @@ def test_positions_number_both_versions_alike():
     assert script._position("030") == script._position("0300") == 300
     assert script._position("0100", table=3) == 30100
     assert script._position(None) == 0
+
+
+def test_loops_nested_in_a_wrapper_table_share_its_position_space(tmp_path):
+    path = tmp_path / "map.xml"
+    path.write_text("""<?xml version="1.0"?>
+<transaction xid="T">
+  <loop xid="ST_LOOP" type="explicit"><usage>R</usage>
+    <segment xid="ST"><pos>010</pos></segment>
+    <loop xid="HEADER" type="wrapper">
+      <segment xid="BPR"><pos>020</pos></segment>
+      <loop xid="1000A"><usage>R</usage><segment xid="N1"><pos>080</pos></segment></loop>
+    </loop>
+    <loop xid="DETAIL" type="wrapper">
+      <loop xid="2000"><usage>S</usage><segment xid="LX"><pos>003</pos></segment>
+        <loop xid="2100"><segment xid="CLP"><pos>010</pos></segment></loop>
+      </loop>
+    </loop>
+  </loop>
+</transaction>
+""")
+    loops = {loop.xid: loop for loop in load_script().load_map(path)}
+    first = {xid: loop.segments[0].pos for xid, loop in loops.items() if loop.segments}
+    assert first == {"ST_LOOP": 100, "HEADER": 10200, "1000A": 10800, "2000": 20030,
+                     "2100": 20100}
+    assert (loops["ST_LOOP"].usage, loops["2000"].usage, loops["2100"].usage) == ("R", "S", "")
 
 
 def test_merge_diff_is_the_patch_between_two_objects():

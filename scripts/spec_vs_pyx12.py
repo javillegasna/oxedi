@@ -132,6 +132,7 @@ class MapLoop:
     segments: list[MapSegment]
     # The loop's repeat; None for ">1" or when the map gives none.
     repeat: int | None = None
+    usage: str = ""
 
 
 def _count(text):
@@ -145,8 +146,9 @@ def _position(text, table=0):
     three digits and 5010 maps with four (``030`` is ``0300``), so a 4010
     position is scaled by ten and both versions number alike. The wrapper
     tables of a transaction (header, detail, footer) restart their
-    positions, so a segment inside the n-th table gets ``n * 10000`` added
-    and the transaction's own segments keep one order."""
+    positions, so a segment inside the n-th table, or inside a loop nested in
+    it, gets ``n * 10000`` added: the transaction and every loop below it
+    share one position space."""
     text = (text or "").strip()
     pos = int(text) if text.isdigit() else 0
     if len(text) == 3:
@@ -187,13 +189,13 @@ def load_map(path):
     root = ET.parse(path).getroot()
     loops = []
 
-    def walk(node, parent):
+    def walk(node, parent, inherited=0):
         tables = 0
         for child in node:
             if child.tag != "loop":
                 continue
             xid = child.get("xid")
-            table = 0
+            table = inherited
             if child.get("type") == "wrapper":
                 tables += 1
                 table = tables
@@ -216,8 +218,9 @@ def load_map(path):
                     )
                 )
             loops.append(MapLoop(xid, child.get("type"), parent, segments,
-                                 _count(child.findtext("repeat"))))
-            walk(child, xid)
+                                 _count(child.findtext("repeat")),
+                                 (child.findtext("usage") or "").strip()))
+            walk(child, xid, table)
 
     walk(root, None)
     return loops
@@ -520,13 +523,14 @@ class Comparison:
     # occurrences: generated from the map, matched with the spec's, compared
     def compare_occurrences(self):
         spec_loops = self.spec.get("loops", {})
-        held, repeat = {}, {}
+        held, repeat, usage = {}, {}, {}
         for loop in self.loops:
             name = LOOP_MAP.get(loop.xid)
             if name is None or name not in spec_loops:
                 continue
             if loop.kind != "wrapper":
                 repeat[name] = loop.repeat
+                usage[name] = "required" if loop.usage == "R" else "situational"
             end = spec_loops[name].get("end")
             for seg in loop.segments:
                 if seg.id != end and seg.usage != "N":
@@ -540,6 +544,18 @@ class Comparison:
             pairs = {} if self.fresh_names else self.match(spec_occurrences, generated)
             named = self.name(generated, pairs)
             self.generated[name] = named
+            if not declared:
+                self.add("occurrences", "differs", f"occurrences:{name}", name,
+                         f"loop {name} declares no occurrences; pyx12 places {len(named)} "
+                         "in it", None, list(named), defined=True)
+            if ours.get("usage", "situational") == usage.get(name):
+                self.add("occurrences", "match", f"occurrences:{name}:usage", name, "loop usage")
+            else:
+                self.add("occurrences", status, f"occurrences:{name}:usage", name,
+                         f"loop {name}: usage is {ours.get('usage', 'situational')!r} in the "
+                         f"spec, {usage.get(name)!r} in pyx12", ours.get("usage"),
+                         usage.get(name), defined=declared)
+                self.set_patch(["loops", name, "usage"], usage.get(name))
             if ours.get("max") == repeat.get(name):
                 self.add("occurrences", "match", f"occurrences:{name}:max", name, "loop max")
             else:
@@ -931,6 +947,9 @@ def failures(comparison, ignored):
 
 
 def failure_text(finding):
+    # A message that already names its loop is not prefixed with it again.
+    if finding.message.startswith(f"loop {finding.loops}"):
+        return f"{finding.key}: {finding.message}"
     return f"{finding.key}: loop {finding.loops}: {finding.message}"
 
 

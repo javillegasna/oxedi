@@ -39,6 +39,7 @@ pub(super) struct RawLoop {
     #[serde(default)]
     pub(super) occurrences: BTreeMap<String, RawOccurrence>,
     pub(super) max: Option<usize>,
+    pub(super) usage: Option<String>,
     pub(super) end: Option<String>,
     pub(super) control: Option<RawControl>,
 }

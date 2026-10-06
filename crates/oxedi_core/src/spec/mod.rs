@@ -12,7 +12,8 @@
 //! for a loop's occurrences.
 //!
 //! The module is split by responsibility: `loops`, `occurrences`, `segments`
-//! and `tables` hold the definitions; `raw` the deserialization shapes;
+//! and `tables` hold the definitions, `occurrence_error` why an occurrence
+//! is rejected; `raw` the deserialization shapes;
 //! `shape` the JSON shape checks; `build` and `compile` the construction of a [`Spec`];
 //! `error` the load error; `render` the text used in messages; `patch` the
 //! merge patch; `version` the version declaration and the choice of a spec
@@ -22,6 +23,7 @@ mod build;
 mod compile;
 mod error;
 mod loops;
+mod occurrence_error;
 mod occurrences;
 mod patch;
 mod raw;
@@ -35,7 +37,8 @@ mod version;
 
 pub use error::SpecError;
 pub use loops::{Control, ControlCount, ControlError, LoopDef, LoopId, Trigger};
-pub use occurrences::{OccurrenceDef, OccurrenceError, Qualifier, Usage};
+pub use occurrence_error::OccurrenceError;
+pub use occurrences::{OccurrenceDef, Qualifier, Usage};
 pub use patch::merge_patch;
 pub use segments::{
     ElementDef, ElementDefError, ElementType, ROW_COLUMN, SEGMENT_COLUMN, SegmentDef,
@@ -111,7 +114,7 @@ impl Spec {
     /// # use oxedi_core::Spec;
     /// let spec = Spec::builtin_835();
     /// let patched = spec.merge_patch(
-    ///     r#"{"loops":{"1000A":{"occurrences":{"extra":{"segment":"XX","pos":1400}}}}}"#
+    ///     r#"{"loops":{"1000A":{"occurrences":{"extra":{"segment":"XX","pos":11400}}}}}"#
     /// ).unwrap();
     /// let loop_1000a = patched.get(patched.loop_id("1000A").unwrap());
     /// assert!(loop_1000a.segments.contains(&b"XX".to_vec()));

@@ -25,7 +25,7 @@
         "corrected_priority_payer_name": {"max": 2},
         "other_claim_related_identification": {"qualifier": {"codes": ["1L", "1W", "9A", "9C", "A6", "BB", "CE", "EA", "F8", "G1", "G3", "IG", "SY"]}},
         "rendering_provider_identification": {"qualifier": {"codes": ["1A", "1B", "1C", "1D", "1G", "1H", "D3", "G2"]}},
-        "claim_date": {"segment": "DTM", "pos": 500, "usage": "situational", "max": 4, "codes": {"1": ["036", "050", "232", "233"]}},
+        "claim_date": {"segment": "DTM", "pos": 20500, "usage": "situational", "max": 4, "codes": {"1": ["036", "050", "232", "233"]}},
         "claim_contact_information": {"codes": null, "max": 3},
         "claim_supplemental_information": {"max": 14, "codes": {"1": ["AU", "D8", "DY", "F5", "I", "NL", "T", "T2", "ZK", "ZL", "ZM", "ZN", "ZO", "ZZ"]}},
         "claim_supplemental_information_quantity": {"max": 15}

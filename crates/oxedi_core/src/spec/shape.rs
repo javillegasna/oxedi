@@ -206,12 +206,21 @@ pub(super) fn check_shape(source: &Value) -> Result<(), SpecError> {
             check_keys(
                 def,
                 &at,
-                &["parent", "trigger", "occurrences", "max", "end", "control"],
+                &[
+                    "parent",
+                    "trigger",
+                    "occurrences",
+                    "max",
+                    "usage",
+                    "end",
+                    "control",
+                ],
                 &["trigger"],
             )?;
             check_member(def, &at, "parent", Leaf::Text, true)?;
             check_member(def, &at, "end", Leaf::Text, true)?;
             check_member(def, &at, "max", Leaf::Count, true)?;
+            check_member(def, &at, "usage", Leaf::Text, true)?;
             if let Some(occurrences) = def.get("occurrences") {
                 check_occurrences_shape(occurrences, &child(&at, "occurrences"))?;
             }

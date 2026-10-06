@@ -14,7 +14,8 @@ This file covers the Python package; the DuckDB extension has its own changelog 
   each occurrence names its `segment`, its position `pos`, and optionally its `usage`
   (`required` or `situational`), its maximum repeat `max`, a `qualifier` (the element and
   codes that tell it apart from other occurrences of the same segment) and code lists of its
-  own (`codes`). A loop may also declare its maximum repeat `max`. The `segments` list of a
+  own (`codes`). A loop may also declare its maximum repeat `max` and its `usage`. The
+  occurrence the loop opens on must have the lowest `pos`. The `segments` list of a
   loop is removed: a patch of your own that redefines a loop's `segments` must move to
   `occurrences`, where it can add, change or remove one occurrence by name.
 

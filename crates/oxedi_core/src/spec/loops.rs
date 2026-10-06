@@ -4,7 +4,7 @@ use std::fmt;
 
 #[cfg(doc)]
 use super::Spec;
-use super::occurrences::OccurrenceDef;
+use super::occurrences::{OccurrenceDef, Usage};
 use crate::element::Element;
 use crate::segment::Segment;
 
@@ -54,6 +54,8 @@ pub struct LoopDef {
     /// trigger opens on included. Empty when the loop declares none: it then
     /// holds only its trigger and its end.
     pub occurrences: Vec<OccurrenceDef>,
+    /// Whether every instance of the parent holds an instance of the loop.
+    pub usage: Usage,
     /// Most instances the loop may have under one parent instance; `None`
     /// for no limit.
     pub max: Option<usize>,

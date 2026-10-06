@@ -10,7 +10,7 @@ fn a_patch_makes_the_bogus_trizetto_segment_captured() {
     let bytes = common::load_fixture("trizetto_sample.rmt");
     let builtin = Spec::builtin_835();
     let patched = builtin
-        .merge_patch(r#"{"loops":{"1000A":{"occurrences":{"xx":{"segment":"XX","pos":9000}}}}}"#)
+        .merge_patch(r#"{"loops":{"1000A":{"occurrences":{"xx":{"segment":"XX","pos":19000}}}}}"#)
         .unwrap();
     let payer = patched.get(patched.loop_id("1000A").unwrap());
     let before = builtin.get(builtin.loop_id("1000A").unwrap());
@@ -54,7 +54,7 @@ fn a_patch_adding_n3_n4_to_loop_2100_captures_the_multi_claim_addresses() {
     let builtin = Spec::builtin_835();
     let patched = builtin
         .merge_patch(
-            r#"{"loops":{"2100":{"occurrences":{"n3":{"segment":"N3","pos":9000},"n4":{"segment":"N4","pos":9001}}}}}"#,
+            r#"{"loops":{"2100":{"occurrences":{"n3":{"segment":"N3","pos":29000},"n4":{"segment":"N4","pos":29001}}}}}"#,
         )
         .unwrap();
     let delims = Delimiters::from_isa(&bytes).unwrap();

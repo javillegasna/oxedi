@@ -3,7 +3,7 @@
 use std::fmt;
 
 use super::loops::ControlError;
-use super::occurrences::OccurrenceError;
+use super::occurrence_error::OccurrenceError;
 use super::segments::ElementDefError;
 use super::tables::TableDefError;
 use super::version::VersionError;
@@ -166,6 +166,43 @@ pub enum SpecError {
         loop_name: String,
         /// The trigger, e.g. `"N1" where {1: "PR"}`.
         trigger: String,
+        /// Whether some occurrence holds the trigger's segment, with a
+        /// qualifier the trigger's conditions do not select.
+        segment_held: bool,
+    },
+    /// The qualifier of the occurrence a loop's trigger opens on accepts a
+    /// code the trigger's conditions do not select: a segment with that code
+    /// would match the occurrence without opening the loop.
+    TriggerQualifierWider {
+        /// The loop.
+        loop_name: String,
+        /// The trigger's occurrence.
+        occurrence: String,
+        /// The trigger, e.g. `"N1" where {1: "PR"}`.
+        trigger: String,
+        /// The first code the trigger does not select.
+        code: String,
+    },
+    /// Another occurrence of a loop has a position at or before the
+    /// occurrence its trigger opens on, which must come first.
+    TriggerNotFirst {
+        /// The loop.
+        loop_name: String,
+        /// The trigger's occurrence.
+        occurrence: String,
+        /// Its position.
+        pos: usize,
+        /// The occurrence placed at or before it.
+        other: String,
+        /// That occurrence's position.
+        other_pos: usize,
+    },
+    /// A loop's `usage` is not `required` or `situational`.
+    UnknownLoopUsage {
+        /// The loop.
+        loop_name: String,
+        /// The value as written.
+        found: String,
     },
     /// A loop's `max` is 0.
     ZeroLoopMax {
@@ -332,10 +369,50 @@ impl fmt::Display for SpecError {
                 occurrence,
                 reason,
             } => write!(f, "loop {loop_name:?} occurrence {occurrence:?}: {reason}"),
-            SpecError::UnmatchedTrigger { loop_name, trigger } => write!(
+            SpecError::UnmatchedTrigger {
+                loop_name,
+                trigger,
+                segment_held: true,
+            } => write!(
                 f,
                 "loop {loop_name:?} opens on {trigger}, but none of its occurrences holds that \
                  segment with a qualifier the trigger's conditions select"
+            ),
+            SpecError::UnmatchedTrigger {
+                loop_name,
+                trigger,
+                segment_held: false,
+            } => write!(
+                f,
+                "loop {loop_name:?} opens on {trigger}, but none of its occurrences holds that \
+                 segment: declare the occurrence the loop opens on"
+            ),
+            SpecError::TriggerQualifierWider {
+                loop_name,
+                occurrence,
+                trigger,
+                code,
+            } => write!(
+                f,
+                "loop {loop_name:?} opens on {trigger}, and its occurrence {occurrence:?} also \
+                 accepts code {code:?}: a segment with that code would match the occurrence \
+                 without opening the loop"
+            ),
+            SpecError::TriggerNotFirst {
+                loop_name,
+                occurrence,
+                pos,
+                other,
+                other_pos,
+            } => write!(
+                f,
+                "loop {loop_name:?}: occurrence {other:?} has \"pos\" {other_pos}, at or before \
+                 {pos} of {occurrence:?}, the occurrence the loop opens on, which must come first"
+            ),
+            SpecError::UnknownLoopUsage { loop_name, found } => write!(
+                f,
+                "loop {loop_name:?} has \"usage\" {found:?}; it must be \"required\" or \
+                 \"situational\""
             ),
             SpecError::ZeroLoopMax { loop_name } => write!(
                 f,

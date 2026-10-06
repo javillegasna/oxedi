@@ -1,7 +1,7 @@
 //! The built-in 835 specs `read_835` chooses from, each with the columns of
 //! every table it projects.
 
-use edi835_core::{ColumnType, Delimiters, Processor, Segment, Spec};
+use oxedi_core::{ColumnType, Delimiters, Processor, Segment, Spec};
 
 /// The columns of one projected table, in order.
 #[derive(Debug, Clone, PartialEq, Eq)]

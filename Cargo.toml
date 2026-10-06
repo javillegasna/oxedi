@@ -1,13 +1,13 @@
 [workspace]
 resolver = "3"
-members = ["crates/edi835_core", "crates/oxedi835_py", "crates/oxedi_duckdb"]
+members = ["crates/oxedi_core", "crates/oxedi_py", "crates/oxedi_duckdb"]
 
 [workspace.package]
-version = "0.2.1"
+version = "0.3.0"
 edition = "2024"
 license = "MIT"
 authors = ["javillegasna <javillegasna@gmail.com>"]
-repository = "https://github.com/javillegasna/oxedi835"
+repository = "https://github.com/javillegasna/oxedi"
 
 [workspace.lints.clippy]
 # Project-wide lint posture; CI enforces with -D warnings.

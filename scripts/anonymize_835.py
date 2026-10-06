@@ -29,7 +29,7 @@ What is replaced (element positions are X12 positions, XX01 = first element):
 Fake NPIs are Luhn-valid with the 80840 prefix, so NPI validators still pass.
 
 Usage:
-  anonymize_835.py --in-dir /path/outside/repo/originals --out-dir crates/edi835_core/tests/samples \
+  anonymize_835.py --in-dir /path/outside/repo/originals --out-dir crates/oxedi_core/tests/samples \
                    [--mapping /path/outside/repo/mapping.json] [--seed x]
 
 The mapping file is a re-identification key: keep it with the originals, never
@@ -361,7 +361,7 @@ def main() -> int:
     p.add_argument("--in-dir", required=True, type=Path)
     p.add_argument("--out-dir", required=True, type=Path)
     p.add_argument("--mapping", type=Path, help="write the re-identification key here (keep it private)")
-    p.add_argument("--seed", default="oxedi835")
+    p.add_argument("--seed", default="oxedi")
     args = p.parse_args()
 
     a = Anonymizer(args.seed)

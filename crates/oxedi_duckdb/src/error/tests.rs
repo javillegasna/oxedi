@@ -1,6 +1,6 @@
 use std::error::Error;
 
-use edi835_core::{ColumnType, Document};
+use oxedi_core::{ColumnType, Document};
 
 use super::ReadError;
 

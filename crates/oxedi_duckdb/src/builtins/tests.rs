@@ -1,4 +1,4 @@
-use edi835_core::Document;
+use oxedi_core::Document;
 
 use super::Builtins;
 

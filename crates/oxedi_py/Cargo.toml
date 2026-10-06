@@ -1,0 +1,33 @@
+[package]
+name = "oxedi_py"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+authors.workspace = true
+repository.workspace = true
+description = "Python binding of the oxedi EDI 835 parser core"
+publish = false
+
+[lib]
+name = "oxedi_py"
+crate-type = ["cdylib", "rlib"]
+test = false
+doctest = false
+bench = false
+
+[lints]
+workspace = true
+
+[dependencies]
+oxedi_core = { path = "../oxedi_core" }
+pyo3 = { version = "0.29", features = ["abi3-py311"] }
+arrow-array = { version = "60", default-features = false, features = ["ffi"] }
+arrow-buffer = { version = "60", default-features = false }
+arrow-data = { version = "60", default-features = false, features = ["ffi"] }
+arrow-schema = { version = "60", default-features = false, features = ["ffi"] }
+bytes = "1.9"
+self_cell = "1"
+# Without default features the stub generator never calls Python: the default
+# `infer_signature` formats default values through the interpreter, whose symbols
+# the `stub_gen` binary cannot link while PYO3_BUILD_EXTENSION_MODULE is set.
+pyo3-stub-gen = { version = "0.23", default-features = false }

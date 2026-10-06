@@ -1,4 +1,4 @@
-# Compromiso Arquitectónico y Mapa de Ruta — oxedi835
+# Compromiso Arquitectónico y Mapa de Ruta — oxedi (antes oxedi835)
 
 > Documento vivo. Es el contrato de diseño del proyecto. Se construye stage por stage:
 > cada stage añade su sección de compromiso (§7) tras ser aprobada. Las decisiones del
@@ -1528,3 +1528,63 @@ elegidas por versión.
 **Fuera de alcance.** `write_835` y el formato de `COPY` (Stage 7b); WASM y musl; la API C del
 núcleo para otros lenguajes (D17 a); specs propias; paralelismo entre archivos y *projection
 pushdown* hasta medirlos; funciones *table in-out*.
+
+### Stage 5g · Renombre a `oxedi` — APROBADO 2026-10-05
+
+La etapa que resuelve el nombre de D15 para todo el proyecto antes de que la 837 y el escritor
+(Stage 7) sumen API pública. `oxedi835` describe un solo conjunto de transacciones, pero el núcleo
+solo conoce el 835 a través de su spec, así que la 837 entra como otra spec y no como otra
+librería. El dueño ya renombró el repositorio a `javillegasna/oxedi` (GitHub redirige el nombre
+viejo). La extensión de DuckDB ya se llama `oxedi` (T62). `oxedi` está libre en PyPI y en
+crates.io. Todavía no hay usuarios, así que no hace falta paquete de transición.
+
+**Decisiones de diseño (cada una con la alternativa descartada).**
+- **T70 · Un solo nombre, `oxedi`.**
+  - El paquete de Python es `oxedi` (`pip install oxedi`, `import oxedi`), con los mismos extras
+    (`oxedi[pyx12]`, `oxedi[edi-835-parser]`, …). El módulo nativo es `oxedi._core`.
+  - Los crates pasan a `crates/oxedi_core` (núcleo) y `crates/oxedi_py` (binding);
+    `crates/oxedi_duckdb` no cambia.
+  - La API no cambia salvo el nombre del módulo. La capa de compatibilidad sigue siendo
+    `oxedi.edi_835_parser`, porque es propia del 835 por naturaleza. También conservan su nombre
+    los built-ins por transacción (`Spec::builtin_835`, `specs/835.json`).
+  - Descartados un paquete por conjunto de transacciones (cada uno cargaría su propia copia
+    compilada del núcleo) y conservar `oxedi835` con la 837 dentro (el nombre mentiría).
+- **T71 · La numeración continúa.** La primera release de `oxedi` es la 0.3.0, que sigue la línea
+  de `oxedi835` (0.1.0–0.2.1). La extensión de DuckDB conserva su versión propia (0.1.0, tags
+  `duckdb-v*`). Descartado reiniciar en 0.1.0, que confundiría la historia del CHANGELOG.
+- **T72 · `oxedi835` en PyPI se retira sin borrarse.** Una vez publicado `oxedi`, el dueño:
+  - hace *yank* de 0.1.0, 0.2.0 y 0.2.1;
+  - deja en la descripción "renombrado a `oxedi`";
+  - archiva el proyecto.
+
+  El nombre sigue siendo del proyecto y nadie puede ocuparlo. Descartado borrarlo: el nombre
+  quedaría libre para suplantaciones.
+- **T73 · Lo histórico no se reescribe.** Los planes de etapas pasadas (`.doc/plans/`), los §7
+  ya aprobados, los ledgers y las entradas publicadas del CHANGELOG conservan los nombres de su
+  momento. Se actualizan:
+  - la documentación viva: READMEs, `docs/`, `.doc/state.md`, `.doc/roadmap.md`, `CLAUDE.md` con
+    permiso del dueño, metadatos de los paquetes, descriptor de la extensión y URLs;
+  - el código, los tests, los scripts, el Makefile y los workflows.
+- **T74 · crates.io sigue diferido (T34).** El núcleo pasa a llamarse `oxedi_core`, pero no se
+  publica en crates.io en esta etapa. Reservar `oxedi` allí queda a decisión del dueño.
+
+**Entregable / contrato.**
+- Directorios de crates movidos con `git mv`, así la historia de cada archivo se conserva.
+- Nombres de crates y del módulo nativo, `pyproject.toml`, el stub regenerado, los tests, el
+  Makefile, los workflows (incluidos los filtros de rutas del CI), `scripts/`, el descriptor de
+  la extensión y la documentación viva, todo con `oxedi`.
+- Una entrada en el CHANGELOG de Python que explica el cambio de nombre.
+- `CLAUDE.md` actualizado, con permiso explícito del dueño, en las líneas que nombran el repo,
+  los crates y los comandos.
+
+**Gate de verificación.**
+- `git grep` no encuentra `oxedi835` ni `edi835_core` fuera de lo histórico de T73 y del aviso
+  del CHANGELOG.
+- `make gates`, `make py-test` con y sin `pyx12`, `make stubs` sin diferencias y `make
+  stubtest`.
+- `make release`, `make test_release` y `make duckdb-oracle` de la extensión.
+- `make dist && make smoke`: el wheel se llama `oxedi-0.3.0-…` y `import oxedi` funciona en un
+  venv limpio.
+- Ningún golden cambia de contenido.
+
+**Fuera de alcance.** Publicar en crates.io; la 837 (Stage 9); cambios de API más allá del nombre.

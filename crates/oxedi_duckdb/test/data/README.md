@@ -1,7 +1,7 @@
 # Test data of the DuckDB extension
 
 Synthetic inputs for error paths that no sample or fixture exercises. All are
-derived from `crates/edi835_core/tests/fixtures/multi_claim_sample.txt`
+derived from `crates/oxedi_core/tests/fixtures/multi_claim_sample.txt`
 (synthetic) or written by hand; neither holds real data. Do not edit them: the
 SQLLogicTests and the oracle test pin their exact bytes.
 

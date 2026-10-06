@@ -11,7 +11,7 @@ extension:
     - javillegasna
 
 repo:
-  github: javillegasna/oxedi835
+  github: javillegasna/oxedi
   # Placeholder: the commit or tag to build, filled in when submitting.
   ref: REPLACE_WITH_COMMIT_OR_TAG
 

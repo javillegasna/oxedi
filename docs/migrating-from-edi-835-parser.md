@@ -1,15 +1,15 @@
 # Migrating from edi-835-parser
 
 This guide is for projects that use the `edi-835-parser` library and want to move to
-`oxedi835`. Install the compatibility layer with `pip install "oxedi835[edi-835-parser]"`;
-it exposes the same API as `oxedi835.edi_835_parser`. You can keep your code and change
+`oxedi`. Install the compatibility layer with `pip install "oxedi[edi-835-parser]"`;
+it exposes the same API as `oxedi.edi_835_parser`. You can keep your code and change
 only the import, or move to the native API.
 
 Two paths. **Change the import** and keep your code:
 
 ```python
 # before: from edi_835_parser import parse
-from oxedi835.edi_835_parser import parse      # pip install "oxedi835[edi-835-parser]"
+from oxedi.edi_835_parser import parse      # pip install "oxedi[edi-835-parser]"
 
 frame = parse("remittances/").to_dataframe()    # same rows, columns, order and dtypes
 # parse_bytes(data, file_path=...), parse_file_obj(f), parse_many([...]) read from memory
@@ -38,7 +38,7 @@ when claim-only or provider-adjustment rows exist, some strict columns widen the
 - Without a BOM, an unreadable ISA preceded by a newline gives an empty result where the
   library raises `IndexError`.
 - The `ParseError` for a single path names the file.
-- The native API (`oxedi835.parse`) is strict and raises `ParseError` for all of these.
+- The native API (`oxedi.parse`) is strict and raises `ParseError` for all of these.
   It does read a file that starts with a UTF-8 BOM (then optional spaces, tabs or line
   breaks) before the ISA: the mark stays in the first segment's `raw`, `write()` gives the
   file back unchanged, and a `ByteOrderMark` diagnostic says it was there. The
@@ -46,16 +46,16 @@ when claim-only or provider-adjustment rows exist, some strict columns widen the
 
 **Or move to the native API**, which needs no pandas:
 
-| edi-835-parser | oxedi835 |
+| edi-835-parser | oxedi |
 |---|---|
-| `parse(path)` | `oxedi835.parse_file(path)` returning a `Result` |
-| `.to_dataframe()` | `result.tables["services"].to_polars()` / `.to_pandas()` (`pip install "oxedi835[polars]"` or `"oxedi835[pandas]"`), joined to `claims` on `claim` and to `payments` on `payment` |
+| `parse(path)` | `oxedi.parse_file(path)` returning a `Result` |
+| `.to_dataframe()` | `result.tables["services"].to_polars()` / `.to_pandas()` (`pip install "oxedi[polars]"` or `"oxedi[pandas]"`), joined to `claims` on `claim` and to `payments` on `payment` |
 | `.count_claims()` | `result.count_claims()` |
 | `.count_patients()` | `result.count_patients()` (a null id is not a patient; ids are text, so `0123` and `123` are different patients, unlike edi-835-parser) |
 | `.sum_payments()` (float) | `result.sum_payments()` (`Decimal`) |
 | `transaction_set.payer` / `.payee` | `result.payer` / `result.payee` (dict of text values: `name`, `identification_code`, `address`, `city`, `state`, `zip_code`; `ValueError` when `payments` has more than one row) |
 | none | SQL: `duckdb.sql("select ... from claims")` with `claims = result.tables["claims"]` |
 
-The extras pin pandas differently: `oxedi835[pandas]` asks for `pandas>=2` and so allows
-pandas 3, while `oxedi835[edi-835-parser]` pins `pandas>=2.0.3,<3`, the range the
+The extras pin pandas differently: `oxedi[pandas]` asks for `pandas>=2` and so allows
+pandas 3, while `oxedi[edi-835-parser]` pins `pandas>=2.0.3,<3`, the range the
 compatibility layer's parity with edi-835-parser 1.8.0 is tested on.

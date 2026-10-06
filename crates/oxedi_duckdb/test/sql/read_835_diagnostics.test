@@ -5,11 +5,11 @@
 
 require oxedi
 
-# ---- diagnostics: one row per finding, with the attributes of oxedi835.Diagnostic ----
+# ---- diagnostics: one row per finding, with the attributes of oxedi.Diagnostic ----
 
 query TT
 SELECT column_name, column_type
-FROM (DESCRIBE SELECT * FROM read_835('../edi835_core/tests/fixtures/multi_claim_sample.txt',
+FROM (DESCRIBE SELECT * FROM read_835('../oxedi_core/tests/fixtures/multi_claim_sample.txt',
                                       table_name := 'diagnostics', filename := true));
 ----
 level	BIGINT
@@ -25,17 +25,17 @@ code	VARCHAR
 filename	VARCHAR
 
 query ITTIIITTTT
-SELECT * FROM read_835('../edi835_core/tests/fixtures/multi_claim_sample.txt', table_name := 'diagnostics')
+SELECT * FROM read_835('../oxedi_core/tests/fixtures/multi_claim_sample.txt', table_name := 'diagnostics')
 LIMIT 2;
 ----
-2	LengthOutOfRange	element ISA06 (interchange_sender_id) has length 14; the spec allows 15 to 15	0	6	NULL	interchange#1	RUSHMORE      	oxedi835	NULL
-2	LengthOutOfRange	element BPR10 (originating_company_identifier) has length 9; the spec allows 10 to 10	3	10	NULL	interchange#1/group#1/transaction#1	111333555	oxedi835	NULL
+2	LengthOutOfRange	element ISA06 (interchange_sender_id) has length 14; the spec allows 15 to 15	0	6	NULL	interchange#1	RUSHMORE      	oxedi	NULL
+2	LengthOutOfRange	element BPR10 (originating_company_identifier) has length 9; the spec allows 10 to 10	3	10	NULL	interchange#1/group#1/transaction#1	111333555	oxedi	NULL
 
 # binary := true turns datum, and only datum, into a BLOB.
 
 query TT
 SELECT column_name, column_type
-FROM (DESCRIBE SELECT * FROM read_835('../edi835_core/tests/fixtures/multi_claim_sample.txt',
+FROM (DESCRIBE SELECT * FROM read_835('../oxedi_core/tests/fixtures/multi_claim_sample.txt',
                                       table_name := 'diagnostics', binary := true))
 WHERE column_type <> 'VARCHAR';
 ----
@@ -62,18 +62,18 @@ read_835: "test/data/not_an_interchange.835" is not an X12 interchange: input do
 query TI
 SELECT filename, count(*)
 FROM read_835(['test/data/not_an_interchange.835',
-               '../edi835_core/tests/fixtures/multi_claim_sample.txt'],
+               '../oxedi_core/tests/fixtures/multi_claim_sample.txt'],
               ignore_errors := true, filename := true)
 GROUP BY filename;
 ----
-../edi835_core/tests/fixtures/multi_claim_sample.txt	2
+../oxedi_core/tests/fixtures/multi_claim_sample.txt	2
 
 # ...and it becomes one diagnostics row naming the file, the rule and the datum.
 
 query ITTIIITTTTT
 SELECT *
 FROM read_835(['test/data/not_an_interchange.835',
-               '../edi835_core/tests/fixtures/multi_claim_sample.txt'],
+               '../oxedi_core/tests/fixtures/multi_claim_sample.txt'],
               table_name := 'diagnostics', ignore_errors := true, filename := true)
 WHERE origin = 'read_835';
 ----
@@ -85,7 +85,7 @@ FROM read_835('test/data/*.835', table_name := 'diagnostics', ignore_errors := t
 GROUP BY origin
 ORDER BY origin;
 ----
-oxedi835	23
+oxedi	23
 read_835	2
 
 # A binary file: VARCHAR mode escapes the bytes found instead of ISA, so the row survives;

@@ -5,13 +5,13 @@
 require oxedi
 
 query I
-SELECT count(*) FROM read_835('../edi835_core/tests/fixtures/multi_claim_sample.txt');
+SELECT count(*) FROM read_835('../oxedi_core/tests/fixtures/multi_claim_sample.txt');
 ----
 2
 
 query TRR
 SELECT claim_id, charge_amount, payment_amount
-FROM read_835('../edi835_core/tests/fixtures/multi_claim_sample.txt')
+FROM read_835('../oxedi_core/tests/fixtures/multi_claim_sample.txt')
 ORDER BY "row";
 ----
 33344555510	800.00	500.00

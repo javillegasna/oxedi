@@ -2,7 +2,7 @@
 //! with the attributes of the Python `Diagnostic`, and one row per file that
 //! could not be parsed when `ignore_errors` is on.
 
-use edi835_core::{Cell, ColumnType, Diagnostic, DocumentError, IsaError, Rule, SnipLevel, Table};
+use oxedi_core::{Cell, ColumnType, Diagnostic, DocumentError, IsaError, Rule, SnipLevel, Table};
 
 use crate::error::ReadError;
 use crate::schema::SqlType;
@@ -11,7 +11,7 @@ use crate::schema::SqlType;
 pub const TABLE: &str = "diagnostics";
 
 /// Who reports the parser's own findings, as the Python binding names it.
-const PARSER_ORIGIN: &str = "oxedi835";
+const PARSER_ORIGIN: &str = "oxedi";
 
 /// Who reports a file that could not be parsed.
 const READER_ORIGIN: &str = "read_835";

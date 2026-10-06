@@ -4,7 +4,7 @@
 
 use std::fmt;
 
-use edi835_core::{ColumnType, DocumentError};
+use oxedi_core::{ColumnType, DocumentError};
 
 /// The name every message starts with, as DuckDB shows it to the user.
 pub const FUNCTION: &str = "read_835";

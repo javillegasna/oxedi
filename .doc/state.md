@@ -1,26 +1,30 @@
-# State — 2026-10-05 (0.2.1 on PyPI; Stage 5f in PR)
+# State — 2026-10-05 (0.2.1 on PyPI as oxedi835; Stage 5g in PR)
 
 Snapshot for picking the project up cold. Update when a stage changes state.
 
 ## Pick up here (2026-10-05)
 
-- **Now:** Stage 5f (DuckDB extension, read) on branch `stage-5f-duckdb`: implemented, in PR.
-  Extension `oxedi` (`crates/oxedi_duckdb`, `read_835(..., table_name :=, filename :=, version :=,
-  binary :=, ignore_errors :=)`) on DuckDB's stable C API >= 1.5.6; CI job `duckdb` builds it and
-  runs SQLLogicTest and the oracle on DuckDB 1.5.6 and `next`. Results: oracle equal on 11 parsable
-  files x 6 tables, 0 mismatches, 15 oracle tests passed; 5 SQLLogicTest files in `crates/oxedi_duckdb/test/sql`;
-  three CI legs green (stable 1.5.6, latest and next 2.0.0.dev loading the 1.5.6-ABI binary); gates green. Next: owner merges; then run
-  `make duckdb-release-check TAG=duckdb-v0.1.0 && make duckdb-tag`, then open the community PR
-  (`crates/oxedi_duckdb/description.yml` with `repo.ref` set to the commit SHA from
-  `git rev-parse duckdb-v0.1.0^{commit}`) to duckdb/community-extensions.
-  The extension has its own version; `duckdb-v*` tags do not start the PyPI workflow.
+- **Now:** Stage 5g (rename to `oxedi`, T70–T74) on branch `stage-5g-rename`, in PR. Stage 5f
+  (DuckDB extension) merged (#106), the extension has its own version (#111) and CI has path
+  filters (#112). The package, crates and module are `oxedi`, `oxedi_core`, `oxedi_py`; the
+  workspace version is 0.3.0; `Diagnostic.origin` of the parser's own findings is now `"oxedi"`.
+  Next after the merge:
+  1. Owner registers PyPI and TestPyPI pending publishers for `oxedi` (repo
+     `javillegasna/oxedi`, workflow `release.yml`, environments `pypi` and `testpypi`).
+  2. Release PR with a dated `## [0.3.0]` section and the `[0.3.0]` link.
+  3. `make release-check TAG=v0.3.0 && make tag` (optionally an rc through TestPyPI first;
+     TestPyPI was in maintenance).
+  4. T72: yank `oxedi835` 0.1.0, 0.2.0 and 0.2.1, set the description "renamed to oxedi", archive.
+  5. Tag `duckdb-v0.1.0` (`make duckdb-release-check TAG=duckdb-v0.1.0 && make duckdb-tag`), then
+     the community PR with `repo.ref` set to that tag's commit SHA
+     (`git rev-parse duckdb-v0.1.0^{commit}`).
 - **Released:** 0.2.1 on PyPI 2026-10-05 (#105: type stubs #102, quick-wins sprint #100, PLB
   codes #104); 0.2.0 on 2026-10-04 (#99).
 - **Stage 5e merged** (PR #80, 2026-10-04) with its amendment (PR #81: one diagnostic type,
   T58–T61): `scripts/spec_vs_pyx12.py` with `--check` in CI for 5010 and 4010; `codes` and
   `version` in the spec format; 5010 spec completed from pyx12's map (12 `required` flips, TA1,
   42 code lists); `specs/835.4010.json` patch; spec picked by declared version in Python;
-  `oxedi835.pyx12.validate` returning `oxedi835.Diagnostic` (`Rule::External`, `origin`, `code`,
+  `oxedi.pyx12.validate` returning `oxedi.Diagnostic` (`Rule::External`, `origin`, `code`,
   `Segment.span`). Golden changes: BPR16 on multi_claim and SVC03 on blue_cross, both real data
   issues. Ledgers: `analysis/stage-5e-ledger.md`, `analysis/stage-5e-unify-ledger.md`. Deferred
   findings: issues #82–#97 on Project #8. `.doc/analysis/` notes still at 7f4f8cf (update for 5e).
@@ -62,7 +66,7 @@ Snapshot for picking the project up cold. Update when a stage changes state.
   `SegmentDef`), shape pre-check (`NotAnObject`), `EmptySegmentId`, `OverlappingTriggers`
   (narrow rule), `control` per envelope loop, `Event::LoopOpened.segment`,
   `Node::opened_by`, `Diagnostic`/`Rule`/`SnipLevel`/`LoopRef`, `EnvelopeChecker` (SNIP 1).
-- The crate (`crates/edi835_core`) offers: `Delimiters::from_isa`, `frame::next_frame`,
+- The crate (`crates/oxedi_core`) offers: `Delimiters::from_isa`, `frame::next_frame`,
   `Tokenizer<'a>` (lazy, lossless `Segment` stream), `Segment::write_to` (symmetric writer),
   `Document<'a>` (`Cow` bytes + spans, borrowed or owned), `Spec` (JSON loop spec with
   validation and RFC 7386 `merge_patch`, built-in `specs/835.json`), `LoopEngine` (events by
@@ -103,7 +107,7 @@ stage closes with the figure reached and issue #76 (§7 allows it).
 
 Stage 4 is done (4a PR #30, 4b PR #38, backlog sprint PR #43). §7 Stage 5 (T18–T24) and
 plan `plans/stage-5-python.md` were approved 2026-10-03; the branch `stage-5-python` holds
-the binding (`crates/oxedi835_py`, package `oxedi835`: `parse`, `parse_file`, `stream`,
+the binding (`crates/oxedi_py`, package `oxedi`: `parse`, `parse_file`, `stream`,
 `Spec`, `Document`/`Segment`/`Delimiters`, `Result`/`Tables`/`Table`/`Diagnostic`, Arrow
 export by PyCapsule, CI job on 3.11 and 3.13, clean-venv wheel smoke script, comparison
 script against `edi-835-parser`), the D8 example and docs. Core `src/` unchanged. Suite:
@@ -122,20 +126,20 @@ project-scoped one.
 
 Decisions taken 2026-10-03 after the merge (all in §6.2 and the roadmap):
 - 5b in four parts (D12): DataFrame parity by spec on the originals (shim for the library's
-  `int(N104)`, #46); what `edi-835-parser` drops and we keep; `oxedi835.edi_835_parser`
-  behind the extra `oxedi835[edi-835-parser]` covering its whole surface; native
+  `int(N104)`, #46); what `edi-835-parser` drops and we keep; `oxedi.edi_835_parser`
+  behind the extra `oxedi[edi-835-parser]` covering its whole surface; native
   counterparts (`count_claims`, `count_patients`, `sum_payments`, `payer`, `payee`,
   `to_polars`, `to_pandas`). Base wheel has no Python dependencies; polars/pandas only as
   extras with lazy imports. DuckDB reads our tables with no dependency (verified); 5b adds a
   test. Survey of Python 835 parsers: only `edi-835-parser` merits a layer.
 - D16 `pyx12`: maps as spec oracle/generator inside Stage 9; `validate` and `ContextReader`
-  optional (9b) behind `oxedi835[pyx12]`.
+  optional (9b) behind `oxedi[pyx12]`.
 - D7 writer scheduled after 5b and 6: tables (our schema, Arrow) → `.RMT`, spec inverted,
   derived fields, diagnostics before writing, DuckDB connectors as ingestion adapter outside
   the core, round-trip + `pyx12` gate; D11 is its prerequisite.
 
 Stage 5b is implemented on branch `stage-5b-edi835parser` and in PR (2026-10-04): the
-layer `oxedi835.edi_835_parser` reproduces `edi-835-parser` 1.8.0's DataFrame cell for cell
+layer `oxedi.edi_835_parser` reproduces `edi-835-parser` 1.8.0's DataFrame cell for cell
 (dtypes and per-cell Python types included) on the six samples through path, bytes, memoryview,
 file and directory; `parse` is a strict drop-in, memory via `parse_bytes`/`parse_file_obj`/
 `parse_many`; `extended=True` recovers claims without services, claim adjustments, PLB and
@@ -199,7 +203,7 @@ The decisions that were open, now settled in §7:
   `edi-835-parser` (D12, three parts: same DataFrame via a spec; prove what that library
   drops and we keep; a compatible `TransactionSets`/`to_dataframe()` API) and 5c module
   layout plan (D13); see roadmap. `pyx12` interop (D16): map cross-check/generator is part of
-  Stage 9; `validate` and `ContextReader` are optional (9b), behind `oxedi835[pyx12]`.
+  Stage 9; `validate` and `ContextReader` are optional (9b), behind `oxedi[pyx12]`.
 - After the roadmap (owner's request 2026-10-03): Stage 8 durable human documentation
   (ideas, patterns, concepts, no code; Python and CLI guides; D14) and Stage 9 X12 family
   toolkit starting with the 837 (D15).
@@ -209,4 +213,4 @@ The decisions that were open, now settled in §7:
 Real 835 originals, the verified anonymized output and the re-identification key:
 `~/Desktop/org/personal/oxedi835-private-samples/` (`originals/`, `anonymized/`,
 `mapping.json`). Re-anonymize with `scripts/anonymize_835.py --in-dir <originals>
---out-dir crates/edi835_core/tests/samples` and `cmp` against `anonymized/` before any commit.
+--out-dir crates/oxedi_core/tests/samples` and `cmp` against `anonymized/` before any commit.

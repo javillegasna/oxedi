@@ -42,7 +42,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 
 REPO = Path(__file__).resolve().parents[1]
-SPECS = REPO / "crates" / "edi835_core" / "specs"
+SPECS = REPO / "crates" / "oxedi_core" / "specs"
 IGNORE = Path(__file__).resolve().with_name("spec_vs_pyx12.ignore.json")
 OUT = REPO / ".superpowers" / "spec_vs_pyx12"
 

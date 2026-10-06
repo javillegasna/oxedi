@@ -1,4 +1,4 @@
-"""Compares oxedi835.edi_835_parser with edi-835-parser on every file of a directory.
+"""Compares oxedi.edi_835_parser with edi-835-parser on every file of a directory.
 
 Not a gate. Meant for files that must not enter the repository: the report
 names files by their position in the sorted listing and prints only shapes,
@@ -17,7 +17,7 @@ import sys
 import warnings
 from pathlib import Path
 
-TESTS = Path(__file__).resolve().parents[1] / "crates" / "oxedi835_py" / "tests"
+TESTS = Path(__file__).resolve().parents[1] / "crates" / "oxedi_py" / "tests"
 COUNTS = ("count_claims", "count_patients", "sum_payments")
 
 
@@ -25,8 +25,8 @@ def is_835(data):
     """Whether the compat layer reads ``data`` as an 835: the interchange's
     opening segment, after an optional UTF-8 byte order mark and optional
     ASCII whitespace."""
-    from oxedi835.edi_835_parser._convert import STRIPPED
-    from oxedi835.edi_835_parser._tables import BOM, interchange_trigger
+    from oxedi.edi_835_parser._convert import STRIPPED
+    from oxedi.edi_835_parser._tables import BOM, interchange_trigger
 
     if data.startswith(BOM):
         data = data[len(BOM):]
@@ -57,12 +57,12 @@ def compare(path, old, new):
         actual_sets = new.parse(path)
         actual = actual_sets.to_dataframe()
     except Exception as error:
-        return [f"oxedi835 failed: {type(error).__name__}"]
-    lines = [f"shape edi-835-parser {expected.shape} oxedi835 {actual.shape}"]
+        return [f"oxedi failed: {type(error).__name__}"]
+    lines = [f"shape edi-835-parser {expected.shape} oxedi {actual.shape}"]
     only_old = [c for c in expected.columns if c not in actual.columns]
     only_new = [c for c in actual.columns if c not in expected.columns]
     if only_old or only_new:
-        lines.append(f"columns only in edi-835-parser: {only_old}; only in oxedi835: {only_new}")
+        lines.append(f"columns only in edi-835-parser: {only_old}; only in oxedi: {only_new}")
     if list(expected.columns) != list(actual.columns) and not (only_old or only_new):
         lines.append("same columns in a different order")
     if expected.shape[0] == actual.shape[0]:
@@ -77,7 +77,7 @@ def compare(path, old, new):
     for name in COUNTS:
         a, b = theirs[name], ours[name]
         if isinstance(a, str) or isinstance(b, str):
-            raised = [f"{who} raised {kind}" for who, kind in (("edi-835-parser", a), ("oxedi835", b))
+            raised = [f"{who} raised {kind}" for who, kind in (("edi-835-parser", a), ("oxedi", b))
                       if isinstance(kind, str)]
             lines.append(f"{name}: {', '.join(raised)}")
         elif abs(a - b) > 0.005:
@@ -99,7 +99,7 @@ def main(argv=None):
     sys.path.insert(0, str(TESTS))
     import n104_shim
 
-    from oxedi835 import edi_835_parser as new
+    from oxedi import edi_835_parser as new
 
     n104_shim.apply()
     files = sorted(p for p in args.directory.iterdir() if p.is_file())

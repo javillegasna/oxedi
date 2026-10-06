@@ -1,4 +1,4 @@
-"""Times oxedi835.parse against edi_835_parser.parse on the files both can read.
+"""Times oxedi.parse against edi_835_parser.parse on the files both can read.
 
 Not a gate: it needs `uv pip install edi-835-parser` in the active environment and
 reports and skips every file that either parser cannot read.
@@ -16,7 +16,7 @@ try:
 except ImportError:
     sys.exit("edi_835_parser is not installed: uv pip install edi-835-parser")
 
-import oxedi835
+import oxedi
 
 warnings.simplefilter("ignore")  # the old parser warns on every unhandled segment
 
@@ -34,7 +34,7 @@ def _organization_init(self, segment: str):
 
 organization.Organization.__init__ = _organization_init
 
-tests = Path(__file__).resolve().parents[1] / "crates" / "edi835_core" / "tests"
+tests = Path(__file__).resolve().parents[1] / "crates" / "oxedi_core" / "tests"
 
 
 def files():
@@ -54,7 +54,7 @@ def median_seconds(work, runs=5):
     return sorted(times)[len(times) // 2]
 
 
-print(f"{'file':42} {'KiB':>8} {'old ms':>10} {'oxedi835 ms':>12} {'speed-up':>9}")
+print(f"{'file':42} {'KiB':>8} {'old ms':>10} {'oxedi ms':>12} {'speed-up':>9}")
 for path in files():
     try:
         old = median_seconds(lambda: edi_835_parser.parse(str(path)).to_dataframe())
@@ -62,8 +62,8 @@ for path in files():
         print(f"{path.name:42} skipped: {type(error).__name__}: {error}")
         continue
     try:
-        new = median_seconds(lambda: oxedi835.parse_file(path))
-    except oxedi835.ParseError as error:
+        new = median_seconds(lambda: oxedi.parse_file(path))
+    except oxedi.ParseError as error:
         print(f"{path.name:42} skipped: {error}")
         continue
     kib = path.stat().st_size / 1024

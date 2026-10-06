@@ -1,6 +1,6 @@
 Third-party notices
 
-oxedi835 includes material from the projects listed below, each under the
+oxedi includes material from the projects listed below, each under the
 license reproduced with it.
 
 -------------------------------------------------------------------------------
@@ -8,7 +8,7 @@ edi-835-parser 1.8.0
 by keiron-stoddart / Senscio Systems
 https://github.com/keironstoddart/edi-835-parser
 
-Used in: crates/oxedi835_py/python/oxedi835/edi_835_parser/_codes.py (the code
+Used in: crates/oxedi_py/python/oxedi/edi_835_parser/_codes.py (the code
 description tables, the organization names and the claim status registry,
 copied verbatim).
 
@@ -39,7 +39,7 @@ pyx12 4.0.0
 by John Holland
 https://github.com/azoner/pyx12
 
-Used in: crates/edi835_core/specs/835.json and crates/edi835_core/specs/835.4010.json
+Used in: crates/oxedi_core/specs/835.json and crates/oxedi_core/specs/835.4010.json
 (element usage, lengths and code lists derived from its 835 transaction maps,
 dataele.xml and codes.xml). The maps themselves are read from the installed
 package by scripts/spec_vs_pyx12.py and are not copied into the repository.

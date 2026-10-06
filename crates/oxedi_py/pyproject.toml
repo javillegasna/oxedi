@@ -1,0 +1,55 @@
+[build-system]
+requires = ["maturin>=1.9.4,<2"]
+build-backend = "maturin"
+
+[project]
+name = "oxedi"
+dynamic = ["version"]
+description = "Lossless, fast, data-driven EDI 835 parser"
+requires-python = ">=3.11"
+license = "MIT"
+license-files = ["LICENSE", "THIRD_PARTY_NOTICES"]
+readme = "README.md"
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Programming Language :: Rust",
+    "Programming Language :: Python :: Implementation :: CPython",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Operating System :: POSIX :: Linux",
+    "Operating System :: MacOS",
+    "Operating System :: Microsoft :: Windows",
+    "Topic :: Office/Business :: Financial",
+]
+
+[project.urls]
+Repository = "https://github.com/javillegasna/oxedi"
+Issues = "https://github.com/javillegasna/oxedi/issues"
+Changelog = "https://github.com/javillegasna/oxedi/blob/master/CHANGELOG.md"
+
+[project.optional-dependencies]
+edi-835-parser = ["pandas>=2.0.3,<3", "pyarrow>=14"]
+pandas = ["pandas>=2", "pyarrow>=14"]
+polars = ["polars>=1.0"]
+pyx12 = ["pyx12>=4.0,<5"]
+test = ["pytest>=8", "polars>=1.0", "pyarrow>=14", "pandas>=2.0.3,<3", "edi-835-parser==1.8.0", "duckdb>=1.1"]
+
+[tool.maturin]
+module-name = "oxedi._core"
+python-source = "python"
+exclude = [
+    { path = "**/oxedi_core/tests/**", format = "sdist" },
+    { path = "**/__pycache__/**", format = "sdist" },
+    { path = "**/*.pyc", format = "sdist" },
+    { path = "**/__pycache__/**", format = "wheel" },
+    { path = "**/*.pyc", format = "wheel" },
+]
+
+# The package check (`make stubtest`): pyx12 and pyarrow ship no type information.
+[[tool.mypy.overrides]]
+module = ["pyx12", "pyx12.*", "pyarrow", "pyarrow.*"]
+ignore_missing_imports = true
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]

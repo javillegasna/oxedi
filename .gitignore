@@ -8,7 +8,7 @@ __pycache__/
 
 # Python: local environments, the editable-install extension, test caches.
 .venv/
-crates/oxedi835_py/python/oxedi835/*.so
+crates/oxedi_py/python/oxedi/*.so
 .pytest_cache/
 .mypy_cache/
 

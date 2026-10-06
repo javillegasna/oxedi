@@ -1,4 +1,4 @@
-"""read_835 (the DuckDB extension) against oxedi835.parse_file (the Python binding).
+"""read_835 (the DuckDB extension) against oxedi.parse_file (the Python binding).
 
 For every sample, every fixture and every file of test/data, every table and
 `diagnostics` must hold the same rows in the same order. Each row is rendered
@@ -19,12 +19,12 @@ import pathlib
 from typing import Any, Iterable, Sequence
 
 import duckdb
-import oxedi835
+import oxedi
 import pyarrow as pa
 import pytest
 
 CRATE = pathlib.Path(__file__).resolve().parents[2]
-CORE_TESTS = CRATE.parent / "edi835_core" / "tests"
+CORE_TESTS = CRATE.parent / "oxedi_core" / "tests"
 EXTENSION = pathlib.Path(
     os.environ.get(
         "OXEDI_EXTENSION",
@@ -143,8 +143,8 @@ def tables_of(result: Any) -> list[str]:
 
 def parsed(path: pathlib.Path) -> Any:
     try:
-        return oxedi835.parse_file(str(path))
-    except oxedi835.ParseError:
+        return oxedi.parse_file(str(path))
+    except oxedi.ParseError:
         return None
 
 
@@ -164,7 +164,7 @@ PARSABLE = [path for path in FILES if file_id(path) not in UNPARSABLE]
 
 @pytest.mark.parametrize("path", PARSABLE, ids=file_id)
 def test_every_table_equals_parse_file(con: duckdb.DuckDBPyConnection, path: pathlib.Path) -> None:
-    result = oxedi835.parse_file(str(path))
+    result = oxedi.parse_file(str(path))
     for table in tables_of(result):
         if table == DIAGNOSTICS:
             expected = oracle_diagnostics(result)
@@ -195,8 +195,8 @@ def test_the_unparsable_inputs_are_pinned() -> None:
     "path", [path for path in FILES if file_id(path) in UNPARSABLE], ids=file_id
 )
 def test_an_unparsable_file(con: duckdb.DuckDBPyConnection, path: pathlib.Path) -> None:
-    with pytest.raises(oxedi835.ParseError) as raised:
-        oxedi835.parse_file(str(path))
+    with pytest.raises(oxedi.ParseError) as raised:
+        oxedi.parse_file(str(path))
     message = f'read_835: "{path}" is not an X12 interchange: {raised.value}'
     with pytest.raises(duckdb.Error) as failed:
         con.execute("SELECT * FROM read_835(?)", [str(path)]).fetchall()

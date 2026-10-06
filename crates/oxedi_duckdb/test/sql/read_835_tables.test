@@ -108,3 +108,17 @@ FROM read_835('../oxedi_core/tests/samples/edi835_test_eyemed.RMT', binary := tr
 LIMIT 1;
 ----
 BLOB	DECIMAL(38,2)
+
+# A text element written empty is '' (an empty BLOB with binary := true); an absent one is NULL.
+
+query TTIT
+SELECT payment_format = '', payment_format IS NULL, length(payment_format), receiver_id IS NULL
+FROM read_835('../oxedi_core/tests/samples/edi835_test_davisvision.RMT', table_name := 'payments');
+----
+true	false	0	true
+
+query TI
+SELECT typeof(payment_format), octet_length(payment_format)
+FROM read_835('../oxedi_core/tests/samples/edi835_test_davisvision.RMT', table_name := 'payments', binary := true);
+----
+BLOB	0

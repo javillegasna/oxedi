@@ -9,7 +9,7 @@ row: int64 | segment: int64 | payment: int64 | charge_amount: decimal128(38, 2) 
 
 ## payments (rows: 1)
 row: int64 | segment: int64 | credit_debit_flag: binary | handling_code: binary | payee_address: binary | payee_city: binary | payee_id: binary | payee_name: binary | payee_state: binary | payee_zip: binary | payer_address: binary | payer_city: binary | payer_id: binary | payer_identifier: binary | payer_name: binary | payer_state: binary | payer_zip: binary | payment_date: date32 | payment_format: binary | payment_method: binary | production_date: date32 | receiver_id: binary | total_payment_amount: decimal128(38, 2) | trace_number: binary
-0 | 2 | C | H | 9054 SUNSET RD | SALEM | 479864355 | MERIDIAN WELLNESS ASSOCIATES | NY | 101292963 | 8776 PINE AVE | SPRINGFIELD | INSTAMED | 2797276090 | SILVER OAK VISION CENTER | NY | 35644 | 2024-01-03 | ∅ | NON | 2024-01-01 | ∅ | 0.00 | 60239834
+0 | 2 | C | H | 9054 SUNSET RD | SALEM | 479864355 | MERIDIAN WELLNESS ASSOCIATES | NY | 101292963 | 8776 PINE AVE | SPRINGFIELD | INSTAMED | 2797276090 | SILVER OAK VISION CENTER | NY | 35644 | 2024-01-03 |  | NON | 2024-01-01 | ∅ | 0.00 | 60239834
 
 ## provider_adjustments (rows: 1)
 row: int64 | segment: int64 | payment: int64 | amount: decimal128(38, 2) | fiscal_period_date: date32 | provider_id: binary | reason_code: binary | reference_id: binary

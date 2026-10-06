@@ -20,9 +20,11 @@
 //! element defined without components is read as one text, with any
 //! component separator it contains kept in place; components are read only
 //! where the definition declares them. A column reads the value the check
-//! already parsed, so no element is parsed twice. A value that is missing or
-//! does not parse as its type is null in its column; a value whose length is
-//! out of range is reported and kept.
+//! already parsed, so no element is parsed twice. In a text column an
+//! element (or component) the segment does not have is null and one it has
+//! but leaves empty is the empty text. In the other columns a value that is
+//! missing, empty or does not parse as its type is null. A value whose
+//! length is out of range is reported and kept.
 //!
 //! Allocation: appending a row collects its cells into a vector that is kept
 //! from one row to the next and grows the table's buffers; each diagnostic

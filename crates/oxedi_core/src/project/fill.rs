@@ -258,6 +258,20 @@ pub(super) fn leaf_text<'a>(
     }
 }
 
+/// `true` when the segment has the element, or the component, a column
+/// reads, even if it is empty. Component 1 of a simple element is the
+/// element itself; no other component of it is present.
+fn is_present(segment: &Segment<'_>, at: Place) -> bool {
+    match (segment.element(at.element), at.component) {
+        (None, _) => false,
+        (Some(Element::Simple(_)), component) => component.is_none_or(|component| component == 1),
+        (Some(Element::Composite(_)), None) => true,
+        (Some(Element::Composite(parts)), Some(component)) => {
+            component.checked_sub(1).is_some_and(|at| at < parts.len())
+        }
+    }
+}
+
 /// Where a column reads inside a segment, and as what.
 #[derive(Debug, Clone, Copy)]
 struct Place {
@@ -269,7 +283,8 @@ struct Place {
 /// The column value at `at`: the checked value when the definition there
 /// maps to the column's type, otherwise the text parsed as that type (an
 /// element the spec does not define, or a group whose definition differs).
-/// Text is copied into `bytes`.
+/// Text is copied into `bytes`; an empty text that is present in the
+/// segment is an empty value, not null.
 fn read(
     checked: &[Checked],
     segment: &Segment<'_>,
@@ -293,6 +308,11 @@ fn read(
         }
     };
     match value {
+        // A text column tells a present but empty value (`""`) from an
+        // absent one (null); other types have no empty value.
+        Parsed::Null if at.kind == ColumnType::Binary && is_present(segment, at) => {
+            Slot::Bytes(bytes.len(), bytes.len())
+        }
         Parsed::Null => Slot::Null,
         Parsed::Text => {
             let text = leaf_text(segment, at.element, at.component, separator, joined);

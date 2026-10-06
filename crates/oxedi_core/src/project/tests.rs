@@ -220,6 +220,31 @@ fn a_column_no_segment_matches_is_null() {
 }
 
 #[test]
+fn a_text_cell_is_empty_when_its_element_is_written_empty_and_null_when_absent() {
+    let spec = spec();
+    // CL01, CL04-2 and RF02 are written empty: empty text. CL03 is written
+    // empty too, but a number has no empty value: null.
+    let (tables, _) = project(&spec, "HD*B1~CL**1**HC:~RF*Q*~TR~");
+    assert_eq!(
+        rows(&tables, "claims")[1],
+        "0 | 1 | 0 | 1.00 |  |  | ∅ | ∅ | HC: |  | ∅"
+    );
+    // The segments stop before CL04-2 and RF02, and CL has no CL05: null.
+    let (tables, _) = project(&spec, "HD*B1~CL*C1*1**HC~RF*Q~TR~");
+    assert_eq!(
+        rows(&tables, "claims")[1],
+        "0 | 1 | 0 | 1.00 | C1 | ∅ | ∅ | ∅ | HC | ∅ | ∅"
+    );
+    let table = tables.get("claims").unwrap();
+    let (_, code) = &table.columns()[5];
+    assert_eq!(code.get(0), Some(crate::column::Cell::Null));
+    let (tables, _) = project(&spec, "HD*B1~CL**1~TR~");
+    let table = tables.get("claims").unwrap();
+    let (_, claim_id) = &table.columns()[4];
+    assert_eq!(claim_id.get(0), Some(crate::column::Cell::Binary(&b""[..])));
+}
+
+#[test]
 fn every_row_names_the_open_row_of_each_table_above_it() {
     let spec = spec();
     let (tables, _) = project(

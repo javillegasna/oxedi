@@ -86,12 +86,16 @@ SPEC = {
     "loops": {
         "interchange": {"trigger": {"segment": "ISA"}, "end": "IEA"},
         "2100": {"parent": "interchange", "trigger": {"segment": "CLP"},
-                 "occurrences": {"clp": {"segment": "CLP", "pos": 0},
-                                 "ref": {"segment": "REF", "pos": 1}}},
+                 "occurrences": {
+                     "clp": {"segment": "CLP", "pos": 0, "usage": "required"},
+                     "ref": {"segment": "REF", "pos": 0, "usage": "situational",
+                             "codes": {"1": ["EA"]}}}},
         "2110": {"parent": "2100", "trigger": {"segment": "SVC"},
-                 "occurrences": {"svc": {"segment": "SVC", "pos": 0},
-                                 "ref": {"segment": "REF", "pos": 1},
-                                 "dtm": {"segment": "DTM", "pos": 2}}},
+                 "occurrences": {
+                     "svc": {"segment": "SVC", "pos": 0, "usage": "required"},
+                     "ref": {"segment": "REF", "pos": 0, "usage": "situational",
+                             "codes": {"1": ["6R"]}},
+                     "dtm": {"segment": "DTM", "pos": 0, "usage": "situational"}}},
     },
     "segments": {
         "ISA": {"elements": {"1": {"name": "qualifier", "type": "ID", "required": True,
@@ -145,7 +149,8 @@ def test_report_and_patch_name_each_difference(tiny, tmp_path):
     assert "REF02: required is True in the spec, False in pyx12" in text
     # The spec's 2100 does not hold DTM; the patch adds an occurrence for it.
     assert "`segments:2100:DTM` [2100] loop 2100 does not hold DTM" in text
-    assert draft["loops"]["2100"]["occurrences"] == {"dtm": {"segment": "DTM", "pos": 0}}
+    assert draft["loops"]["2100"]["occurrences"] == {"dtm": {
+        "segment": "DTM", "pos": 0, "usage": "situational", "codes": {"1": ["232"]}}}
     # CLP and SVC have no element definitions in the spec.
     assert draft["segments"]["CLP"]["elements"]["1"] == {
         "name": "claim_id", "type": "AN", "required": True, "min": 1, "max": 38,
@@ -160,15 +165,19 @@ def test_check_names_loop_element_and_both_values(tiny, capsys):
             "['00', '03'] in pyx12") in err
     assert ("usage:REF02:required: loop 2100,2110: REF02: required is True in the spec, "
             "False in pyx12") in err
+    # The spec's 2100 declares its occurrences, and the map's DTM is not one of them.
+    assert ("occurrences:2100:dtm: loop 2100: loop 2100: pyx12 occurrence dtm (DTM '') has no "
+            "counterpart in the spec") in err
     # What the spec lacks is reported, never a failure.
     assert "REF01 (Qualifier) has no code list" not in err
-    assert "2 disagreement(s)" in err
+    assert "3 disagreement(s)" in err
 
 
 def test_check_skips_ignored_findings(tiny):
     tiny["ignore"].write_text(json.dumps({"ignore": [
         {"key": "codes:ISA01", "reason": "synthetic"},
         {"key": "usage:REF02:required", "reason": "synthetic"},
+        {"key": "occurrences:2100:dtm", "reason": "synthetic"},
     ]}))
     assert load_script().main(args(tiny, "--check")) == 0
 
@@ -190,7 +199,7 @@ def test_check_reports_what_only_the_spec_defines(tiny, capsys):
             "such position") in err
     assert ("segments:ZZZ: loop -: segment ZZZ is defined in the spec; no mapped pyx12 "
             "loop holds it") in err
-    assert "4 disagreement(s)" in err
+    assert "5 disagreement(s)" in err
 
 
 def test_draft_drops_empty_codes_and_keeps_types_without_a_data_element(tiny, tmp_path):
@@ -243,3 +252,157 @@ def test_real_draft_patches_load_over_the_compared_spec(tmp_path, version):
 def test_real_spec_agrees_with_the_map(version, capsys):
     pytest.importorskip("pyx12")
     assert load_script().main(["--check", "--version", version]) == 0, capsys.readouterr().err
+
+
+OCC_MAP = """<?xml version="1.0"?>
+<transaction xid="T">
+  <loop xid="ISA_LOOP" type="explicit">
+    <repeat>&gt;1</repeat>
+    <segment xid="ISA"><name>Interchange Header</name><usage>R</usage><pos>010</pos>
+      <max_use>1</max_use>
+      <element xid="ISA01"><data_ele>I01</data_ele><name>Qualifier</name><usage>R</usage>
+        <seq>01</seq><valid_codes><code>00</code></valid_codes></element>
+    </segment>
+    <loop xid="2100">
+      <repeat>2</repeat>
+      <segment xid="CLP"><name>Claim</name><usage>R</usage><pos>020</pos><max_use>1</max_use>
+        <element xid="CLP01"><data_ele>1028</data_ele><name>Claim Id</name><usage>R</usage>
+          <seq>01</seq></element>
+      </segment>
+      <segment xid="REF"><name>Other Id</name><usage>S</usage><pos>040</pos><max_use>5</max_use>
+        <element xid="REF01"><data_ele>128</data_ele><name>Qualifier</name><usage>R</usage>
+          <seq>01</seq><valid_codes><code>EA</code><code>BB</code></valid_codes></element>
+        <element xid="REF02"><data_ele>127</data_ele><name>Value</name><usage>R</usage>
+          <seq>02</seq></element>
+      </segment>
+      <segment xid="REF"><name>Provider Id</name><usage>S</usage><pos>040</pos>
+        <max_use>&gt;1</max_use>
+        <element xid="REF01"><data_ele>128</data_ele><name>Qualifier</name><usage>R</usage>
+          <seq>01</seq><valid_codes><code>1A</code></valid_codes></element>
+      </segment>
+      <segment xid="DTM"><name>Claim Date</name><usage>S</usage><pos>030</pos><max_use>2</max_use>
+        <element xid="DTM01"><data_ele>374</data_ele><name>Date Qualifier</name><usage>R</usage>
+          <seq>01</seq><valid_codes><code>232</code></valid_codes></element>
+      </segment>
+      <loop xid="2110">
+        <repeat>999</repeat>
+        <segment xid="SVC"><name>Service</name><usage>R</usage><pos>070</pos>
+          <element xid="SVC01"><data_ele>782</data_ele><name>Charge</name><usage>R</usage>
+            <seq>01</seq></element>
+        </segment>
+        <segment xid="DTM"><name>Service Date</name><usage>S</usage><pos>080</pos>
+          <element xid="DTM01"><data_ele>374</data_ele><name>Date Qualifier</name>
+            <usage>R</usage><seq>01</seq><valid_codes><code>472</code></valid_codes></element>
+        </segment>
+      </loop>
+    </loop>
+    <segment xid="IEA"><usage>R</usage><pos>030</pos></segment>
+  </loop>
+</transaction>
+"""
+
+OCC_SEGMENTS = {
+    "ISA": {"elements": {"1": {"name": "qualifier", "type": "ID", "required": True,
+                               "min": 2, "max": 2, "codes": ["00"]}}},
+    "CLP": {"elements": {"1": {"name": "claim_id", "type": "AN", "required": True,
+                               "min": 1, "max": 38}}},
+    "REF": {"elements": {
+        "1": {"name": "qualifier", "type": "ID", "required": True, "min": 2, "max": 3,
+              "codes": ["1A", "BB", "EA"]},
+        "2": {"name": "value", "type": "AN", "required": True, "min": 1, "max": 50},
+    }},
+    "DTM": {"elements": {"1": {"name": "qualifier", "type": "ID", "required": True,
+                               "min": 3, "max": 3, "codes": ["232", "472"]}}},
+}
+
+# What the map gives 2100: 4010 positions scaled to 5010 numbering, a
+# qualifier for the two REF places, and DTM01 narrower than its global list
+# (the union with the DTM of 2110).
+OCC_2100 = {
+    "claim": {"segment": "CLP", "pos": 200, "usage": "required", "max": 1},
+    "claim_date": {"segment": "DTM", "pos": 300, "usage": "situational", "max": 2,
+                   "codes": {"1": ["232"]}},
+    "other_id": {"segment": "REF", "pos": 400, "usage": "situational", "max": 5,
+                 "qualifier": {"element": 1, "codes": ["BB", "EA"]}},
+    "provider_id": {"segment": "REF", "pos": 400, "usage": "situational",
+                    "qualifier": {"element": 1, "codes": ["1A"]}},
+}
+
+
+def occ_spec(tiny, loops_2100):
+    spec = {
+        "name": "occ",
+        "loops": {
+            "interchange": {"trigger": {"segment": "ISA"}, "end": "IEA", "occurrences": {
+                "interchange_header": {"segment": "ISA", "pos": 100, "usage": "required",
+                                       "max": 1}}},
+            "2100": {"parent": "interchange", "trigger": {"segment": "CLP"}, **loops_2100},
+            "2110": {"parent": "2100", "trigger": {"segment": "SVC"}},
+        },
+        "segments": OCC_SEGMENTS,
+    }
+    tiny["map.xml"].write_text(OCC_MAP)
+    tiny["spec"].write_text(json.dumps(spec))
+
+
+def test_occurrences_are_generated_from_the_map(tiny, tmp_path):
+    occ_spec(tiny, {})
+    script = load_script()
+    report, patch = tmp_path / "report.md", tmp_path / "patch.json"
+    assert script.main(args(tiny, "--report", str(report), "--patch", str(patch))) == 0
+    draft = json.loads(patch.read_text())
+    assert draft["loops"]["2100"] == {"max": 2, "occurrences": OCC_2100}
+    assert "interchange" not in draft["loops"], "the spec's interchange already agrees"
+    text = report.read_text()
+    assert ("- 2100: `claim` CLP@200 R max 1; `claim_date` DTM@300 S max 2; `other_id` "
+            "REF@400 ['BB', 'EA'] S max 5; `provider_id` REF@400 ['1A'] S") in text
+    # A loop without occurrences lacks them: reported, never a failure.
+    assert script.main(args(tiny, "--check")) == 0
+
+
+def test_check_matches_occurrences_by_segment_and_qualifier_not_by_name(tiny, capsys):
+    occurrences = dict(OCC_2100)
+    occurrences["claim_header"] = occurrences.pop("claim")
+    occurrences["other_id"] = {**occurrences["other_id"], "max": 4}
+    occurrences["extra"] = {"segment": "AMT", "pos": 500}
+    occ_spec(tiny, {"max": 2, "occurrences": occurrences})
+    assert load_script().main(args(tiny, "--check")) == 1
+    err = capsys.readouterr().err
+    assert ("occurrences:2100:other_id:max: loop 2100: loop 2100 occurrence other_id: max is 4 "
+            "in the spec, 5 in pyx12") in err
+    assert ("occurrences:2100:extra: loop 2100: loop 2100: spec occurrence extra has no "
+            "counterpart in pyx12") in err
+    assert "claim_header" not in err, "a renamed occurrence still matches its place"
+    # The extra AMT is also a segment pyx12 does not place in the loop.
+    assert "segments:2100:AMT: loop 2100: loop 2100 holds AMT in the spec" in err
+    assert "3 disagreement(s)" in err
+
+
+def test_check_names_an_occurrence_the_spec_lacks_and_a_loop_max(tiny, capsys):
+    occurrences = dict(OCC_2100)
+    del occurrences["provider_id"]
+    occurrences["other_id"] = {**occurrences["other_id"],
+                               "qualifier": {"element": 1, "codes": ["1A", "BB", "EA"]}}
+    occ_spec(tiny, {"occurrences": occurrences})
+    assert load_script().main(args(tiny, "--check")) == 1
+    err = capsys.readouterr().err
+    assert "occurrences:2100:max: loop 2100: loop 2100: max is None in the spec, 2 in pyx12" in err
+    # Both REF places meet the spec's single REF, so neither is matched.
+    assert ("loop 2100: pyx12 occurrence provider_id (REF 'Provider Id') has no counterpart "
+            "in the spec") in err
+
+
+def test_positions_number_both_versions_alike():
+    script = load_script()
+    assert script._position("030") == script._position("0300") == 300
+    assert script._position("0100", table=3) == 30100
+    assert script._position(None) == 0
+
+
+def test_merge_diff_is_the_patch_between_two_objects():
+    script = load_script()
+    base = {"a": {"x": 1, "y": [1]}, "b": 2}
+    target = {"a": {"x": 1, "y": [2]}, "c": 3}
+    diff = script.merge_diff(base, target)
+    assert diff == {"a": {"y": [2]}, "b": None, "c": 3}
+    assert script.merge_patch(base, diff) == target

@@ -3,9 +3,9 @@
 Reads pyx12's installed maps (the transaction map, ``dataele.xml`` and
 ``codes.xml``), located through the installed package and never copied into
 the repository, and a spec (``specs/835.json``, with ``specs/835.4010.json``
-merged over it for the 4010 map). It compares loops (ids, parents, triggers),
-the segments each loop holds, element usage, types, lengths and code lists,
-and writes:
+merged over it for the 4010 map). It compares loops (ids, parents, triggers,
+maximum repeat), the segments each loop holds, the occurrences of each loop,
+element usage, types, lengths and code lists, and writes:
 
 - a Markdown report: per category, what matches, what differs and what the
   spec lacks, plus what is left out on purpose and why;
@@ -21,6 +21,23 @@ is the union of the lists of every place, or open (no list) when any place
 leaves it open or points at an external code set. That union never rejects a
 value some place accepts.
 
+Occurrences are generated from the map, one per place a segment takes in a
+loop (places marked not used are left out): its segment, position, usage
+(``required`` for R, ``situational`` for S), ``max`` from ``max_use`` (none
+for ``>1``), and, when the segment has several places in the loop, a
+qualifier on the element pyx12 reads to tell them apart (the first element
+when it is an ID with valid codes, else the first component of a composite
+first element, or HL03 for HL, as pyx12 does) with that place's codes. An occurrence also carries its own
+code list for each element whose list at that place is narrower than the
+spec's list for the element, unless that element's codes are ignored on
+purpose. Positions are the map's, 4010 ones scaled to 5010 numbering, with
+the transaction's wrapper tables offset by ``table * 10000`` so the
+transaction keeps one order. Names come from the map's segment names in
+snake case, unique within the loop; an occurrence the spec already has keeps
+the spec's name (``--fresh-names`` proposes every name from the map). The
+spec's occurrences are matched to the map's by segment and identifying codes,
+never by name, so a renamed occurrence still matches.
+
 ``--check`` compares only what the spec already defines and exits 1 when any
 of it disagrees with the map, naming loop, segment, element and both values.
 Findings listed in ``scripts/spec_vs_pyx12.ignore.json`` (each with its
@@ -28,6 +45,7 @@ reason) are skipped.
 
 Usage:
     python scripts/spec_vs_pyx12.py [--version 5010|4010] [--report PATH] [--patch PATH]
+        [--fresh-names]
     python scripts/spec_vs_pyx12.py --check [--version 5010|4010]
 """
 
@@ -68,7 +86,7 @@ LOOP_MAP = {
     "2110": "2110",
 }
 
-CATEGORIES = ("loops", "segments", "usage", "types", "lengths", "codes")
+CATEGORIES = ("loops", "segments", "occurrences", "usage", "types", "lengths", "codes")
 
 
 # ---- pyx12 maps ----------------------------------------------------------
@@ -101,6 +119,9 @@ class MapSegment:
     usage: str
     loop: str
     elements: dict[int, MapElement]
+    # Position in its spec loop (see ``_position``); max_use, None for ">1".
+    pos: int = 0
+    max_use: int | None = None
 
 
 @dataclass
@@ -109,6 +130,28 @@ class MapLoop:
     kind: str | None
     parent: str | None
     segments: list[MapSegment]
+    # The loop's repeat; None for ">1" or when the map gives none.
+    repeat: int | None = None
+
+
+def _count(text):
+    """A map count: ``>1`` (or nothing) is no limit, otherwise the number."""
+    text = (text or "").strip()
+    return int(text) if text.isdigit() else None
+
+
+def _position(text, table=0):
+    """A map position as the spec writes it. 4010 maps write positions with
+    three digits and 5010 maps with four (``030`` is ``0300``), so a 4010
+    position is scaled by ten and both versions number alike. The wrapper
+    tables of a transaction (header, detail, footer) restart their
+    positions, so a segment inside the n-th table gets ``n * 10000`` added
+    and the transaction's own segments keep one order."""
+    text = (text or "").strip()
+    pos = int(text) if text.isdigit() else 0
+    if len(text) == 3:
+        pos *= 10
+    return table * 10000 + pos
 
 
 def _element(node):
@@ -145,10 +188,15 @@ def load_map(path):
     loops = []
 
     def walk(node, parent):
+        tables = 0
         for child in node:
             if child.tag != "loop":
                 continue
             xid = child.get("xid")
+            table = 0
+            if child.get("type") == "wrapper":
+                tables += 1
+                table = tables
             segments = []
             for seg in child.findall("segment"):
                 elements = {}
@@ -163,9 +211,12 @@ def load_map(path):
                         usage=seg.findtext("usage") or "",
                         loop=xid,
                         elements=elements,
+                        pos=_position(seg.findtext("pos"), table),
+                        max_use=_count(seg.findtext("max_use")),
                     )
                 )
-            loops.append(MapLoop(xid, child.get("type"), parent, segments))
+            loops.append(MapLoop(xid, child.get("type"), parent, segments,
+                                 _count(child.findtext("repeat"))))
             walk(child, xid)
 
     walk(root, None)
@@ -264,6 +315,44 @@ def _snake(name):
     return re.sub(r"[^a-z0-9]+", "_", name.lower()).strip("_") or "element"
 
 
+def merge_diff(base, target):
+    """The RFC 7386 merge patch that turns ``base`` into ``target``."""
+    if not isinstance(base, dict) or not isinstance(target, dict):
+        return target
+    out = {key: None for key in base if key not in target}
+    for key, value in target.items():
+        if key not in base:
+            out[key] = value
+        elif base[key] != value:
+            both = isinstance(base[key], dict) and isinstance(value, dict)
+            out[key] = merge_diff(base[key], value) if both else value
+    return out
+
+
+def _ident(occurrence):
+    """The codes that identify a spec occurrence: its qualifier's, else its
+    own codes for the first element."""
+    qualifier = occurrence.get("qualifier") or {}
+    return set(qualifier.get("codes") or occurrence.get("codes", {}).get("1") or [])
+
+
+def _normal(occurrence):
+    """An occurrence with its defaults written out, for comparison."""
+    qualifier = occurrence.get("qualifier")
+    if qualifier is not None:
+        qualifier = {"element": qualifier.get("element"),
+                     "component": qualifier.get("component"),
+                     "codes": sorted(qualifier.get("codes", []))}
+    return {
+        "segment": occurrence.get("segment"),
+        "pos": occurrence.get("pos"),
+        "usage": occurrence.get("usage", "situational"),
+        "max": occurrence.get("max"),
+        "qualifier": qualifier,
+        "codes": {key: sorted(codes) for key, codes in occurrence.get("codes", {}).items()},
+    }
+
+
 def _ref(segment, position, component=None):
     text = f"{segment}{position:02d}"
     return text if component is None else f"{text}-{component}"
@@ -307,15 +396,23 @@ def aggregate(uses):
 
 
 class Comparison:
-    def __init__(self, spec, loops, dataele, codesets):
+    def __init__(self, spec, loops, dataele, codesets, ignored=None, fresh_names=False):
         self.spec = spec
         self.loops = loops
         self.dataele = dataele
         self.codesets = codesets
+        # Ignored finding keys: a code list kept apart from the map on purpose
+        # is not narrowed per occurrence either.
+        self.ignored = ignored or {}
+        # Propose every occurrence name from the map instead of keeping the
+        # names the spec already gives its occurrences.
+        self.fresh_names = fresh_names
         self.findings: list[Finding] = []
         self.patch: dict = {}
         self.unmapped: list[str] = []
         self.externals: dict[str, set[str]] = {}
+        # Spec loop name -> {occurrence name: occurrence} generated from the map.
+        self.generated: dict[str, dict] = {}
 
     def add(self, category, status, key, loops, message, spec_value=None, map_value=None,
             defined=False):
@@ -332,6 +429,7 @@ class Comparison:
     def run(self):
         self.compare_loops()
         self.compare_segments()
+        self.compare_occurrences()
         self.compare_elements()
         return self
 
@@ -400,7 +498,6 @@ class Comparison:
             listed = [ours.get("trigger", {}).get("segment")]
             listed += [o.get("segment") for o in ours.get("occurrences", {}).values()]
             listed += [ours["end"]] if ours.get("end") else []
-            missing = []
             for seg_id, usages in segments.items():
                 usage = "R" if "R" in usages else ("S" if "S" in usages else "N")
                 if seg_id in listed:
@@ -411,7 +508,6 @@ class Comparison:
                              f"loop {name} holds {seg_id}; pyx12 marks it not used",
                              seg_id, usage, defined=status != "match")
                 elif usage != "N":
-                    missing.append(seg_id)
                     self.add("segments", "lacks", f"segments:{name}:{seg_id}", name,
                              f"loop {name} does not hold {seg_id} (pyx12 usage {usage})",
                              None, usage)
@@ -420,9 +516,186 @@ class Comparison:
                     self.add("segments", "differs", f"segments:{name}:{seg_id}", name,
                              f"loop {name} holds {seg_id} in the spec; pyx12 does not "
                              "place it there", seg_id, None, defined=True)
-            for seg_id in missing:
-                self.set_patch(["loops", name, "occurrences", seg_id.lower()],
-                               {"segment": seg_id, "pos": 0})
+
+    # occurrences: generated from the map, matched with the spec's, compared
+    def compare_occurrences(self):
+        spec_loops = self.spec.get("loops", {})
+        held, repeat = {}, {}
+        for loop in self.loops:
+            name = LOOP_MAP.get(loop.xid)
+            if name is None or name not in spec_loops:
+                continue
+            if loop.kind != "wrapper":
+                repeat[name] = loop.repeat
+            end = spec_loops[name].get("end")
+            for seg in loop.segments:
+                if seg.id != end and seg.usage != "N":
+                    held.setdefault(name, []).append(seg)
+        for name, segs in held.items():
+            ours = spec_loops[name]
+            spec_occurrences = ours.get("occurrences", {})
+            declared = bool(spec_occurrences)
+            status = "differs" if declared else "lacks"
+            generated = self.generate(name, sorted(segs, key=lambda seg: seg.pos))
+            pairs = {} if self.fresh_names else self.match(spec_occurrences, generated)
+            named = self.name(generated, pairs)
+            self.generated[name] = named
+            if ours.get("max") == repeat.get(name):
+                self.add("occurrences", "match", f"occurrences:{name}:max", name, "loop max")
+            else:
+                self.add("occurrences", status, f"occurrences:{name}:max", name,
+                         f"loop {name}: max is {ours.get('max')!r} in the spec, "
+                         f"{repeat.get(name)!r} in pyx12", ours.get("max"), repeat.get(name),
+                         defined=declared)
+                self.set_patch(["loops", name, "max"], repeat.get(name))
+            proposed = list(named)
+            for index, (seg, occurrence, _) in enumerate(generated):
+                spec_name = pairs.get(index)
+                if spec_name is None:
+                    self.add("occurrences", status, f"occurrences:{name}:{proposed[index]}", name,
+                             f"loop {name}: pyx12 occurrence {proposed[index]} ({seg.id} "
+                             f"{seg.name!r}) has no counterpart in the spec",
+                             None, occurrence, defined=declared)
+                    continue
+                ours_normal, theirs = _normal(spec_occurrences[spec_name]), _normal(occurrence)
+                for field_name, value in ours_normal.items():
+                    key = f"occurrences:{name}:{spec_name}:{field_name}"
+                    if value == theirs[field_name]:
+                        self.add("occurrences", "match", key, name, field_name)
+                    else:
+                        self.add("occurrences", "differs", key, name,
+                                 f"loop {name} occurrence {spec_name}: {field_name} is {value!r} "
+                                 f"in the spec, {theirs[field_name]!r} in pyx12",
+                                 value, theirs[field_name], defined=True)
+            for spec_name in spec_occurrences:
+                if spec_name not in pairs.values():
+                    self.add("occurrences", "differs", f"occurrences:{name}:{spec_name}", name,
+                             f"loop {name}: spec occurrence {spec_name} has no counterpart in "
+                             "pyx12", spec_name, None, defined=True)
+            diff = merge_diff(spec_occurrences, named)
+            if diff:
+                self.set_patch(["loops", name, "occurrences"], diff)
+
+    def identity(self, seg):
+        """Where pyx12 reads the code that tells a segment's places apart, as
+        ``(element, component, codes)``; None when it has no such place."""
+        first = seg.elements.get(1)
+
+        def kind(element):
+            return self.dataele.get(element.data_ele, (None,))[0]
+
+        if first is not None and first.composite:
+            component = first.components.get(1)
+            if component is not None and component.codes and kind(component) == "ID":
+                return 1, 1, component.codes
+        elif first is not None and first.codes and kind(first) == "ID":
+            return 1, None, first.codes
+        third = seg.elements.get(3)
+        if seg.id == "HL" and third is not None and third.codes:
+            return 3, None, third.codes
+        return None
+
+    def generate(self, loop_name, segs):
+        """[(map segment, occurrence, identifying codes)] in position order. A
+        segment with several places in the loop gets a qualifier."""
+        counts = {}
+        for seg in segs:
+            counts[seg.id] = counts.get(seg.id, 0) + 1
+        out = []
+        for seg in segs:
+            occurrence = {"segment": seg.id, "pos": seg.pos,
+                          "usage": "required" if seg.usage == "R" else "situational"}
+            if seg.max_use is not None:
+                occurrence["max"] = seg.max_use
+            identity = self.identity(seg)
+            place = None
+            if counts[seg.id] > 1:
+                if identity is None:
+                    self.add("occurrences", "note", f"occurrences:{loop_name}:{seg.id}",
+                             loop_name, f"loop {loop_name}: {seg.id} {seg.name!r} has no "
+                             "identifying element to tell its places apart")
+                else:
+                    element, component, codes = identity
+                    place = (element, component)
+                    qualifier = {"element": element}
+                    if component is not None:
+                        qualifier["component"] = component
+                    qualifier["codes"] = sorted(set(codes))
+                    occurrence["qualifier"] = qualifier
+            codes = self.own_codes(seg, place)
+            if codes:
+                occurrence["codes"] = codes
+            out.append((seg, occurrence, set(identity[2]) if identity else set()))
+        return out
+
+    def own_codes(self, seg, place):
+        """The closed code lists of this place that are narrower than the
+        spec's list for the element, by codes key; the qualifier's place and
+        elements the spec does not define, or keeps apart on purpose, are left out."""
+        definitions = self.spec.get("segments", {}).get(seg.id, {}).get("elements", {})
+        out = {}
+        for position, element in sorted(seg.elements.items()):
+            if element.usage == "N":
+                continue
+            places = [(position, None, element, definitions.get(str(position)))]
+            for cseq, component in sorted(element.components.items()):
+                parent = definitions.get(str(position)) or {}
+                places.append((position, cseq, component,
+                               (parent.get("composite") or {}).get(str(cseq))))
+            for pos, comp, node, spec_def in places:
+                if node.usage == "N" or node.codes is None or spec_def is None:
+                    continue
+                if (pos, comp) == place or spec_def.get("composite"):
+                    continue
+                kind = spec_def.get("type", "")
+                if kind == "R" or re.fullmatch(r"N\d", kind):
+                    continue
+                if f"codes:{_ref(seg.id, pos, comp)}" in self.ignored:
+                    continue
+                mine = sorted(set(node.codes))
+                if spec_def.get("codes") is not None and sorted(spec_def["codes"]) == mine:
+                    continue
+                out[str(pos) if comp is None else f"{pos}-{comp}"] = mine
+        return out
+
+    @staticmethod
+    def match(spec_occurrences, generated):
+        """{generated index: spec occurrence name}: the only place of a segment
+        on both sides, or the one place whose identifying codes meet exactly
+        one occurrence's, and that occurrence's only those."""
+        pairs = {}
+        for segment in {occurrence["segment"] for _, occurrence, _ in generated}:
+            ours = [(name, occurrence) for name, occurrence in spec_occurrences.items()
+                    if occurrence.get("segment") == segment]
+            theirs = [i for i, (_, occurrence, _) in enumerate(generated)
+                      if occurrence["segment"] == segment]
+            if len(ours) == 1 and len(theirs) == 1:
+                pairs[theirs[0]] = ours[0][0]
+                continue
+            meets = {i: [name for name, occurrence in ours if _ident(occurrence) & generated[i][2]]
+                     for i in theirs}
+            for i, names in meets.items():
+                if len(names) == 1 and [j for j in theirs if names[0] in meets[j]] == [i]:
+                    pairs[i] = names[0]
+        return pairs
+
+    @staticmethod
+    def name(generated, pairs):
+        """{name: occurrence} in position order: the spec's name for a matched
+        place, otherwise the map's segment name in snake case, unique in the loop."""
+        taken = set(pairs.values())
+        names = []
+        for index, (seg, _, _) in enumerate(generated):
+            if index in pairs:
+                names.append(pairs[index])
+                continue
+            base = _snake(seg.name) if seg.name else seg.id.lower()
+            proposed, n = base, 2
+            while proposed in taken:
+                proposed, n = f"{base}_{n}", n + 1
+            taken.add(proposed)
+            names.append(proposed)
+        return {name: occurrence for name, (_, occurrence, _) in zip(names, generated)}
 
     # usage, types, lengths, codes
     def compare_elements(self):
@@ -631,6 +904,13 @@ def report(comparison, title, ignored):
                 continue
             lines += ["", f"## {category}: {heading}", ""]
             lines += [f"- `{f.key}` [{f.loops}] {f.message}" for f in found]
+    lines += ["", "## Occurrences generated from the map", ""]
+    for name, occurrences in comparison.generated.items():
+        lines.append(f"- {name}: " + "; ".join(
+            f"`{occ_name}` {occ['segment']}@{occ['pos']}"
+            + (f" {occ['qualifier']['codes']}" if occ.get("qualifier") else "")
+            + f" {occ['usage'][0].upper()}" + (f" max {occ['max']}" if "max" in occ else "")
+            for occ_name, occ in occurrences.items()))
     lines += ["", "## Left out on purpose", ""]
     for name, refs in sorted(comparison.externals.items()):
         size = comparison.codesets.get(name)
@@ -654,9 +934,10 @@ def failure_text(finding):
     return f"{finding.key}: loop {finding.loops}: {finding.message}"
 
 
-def compare(spec, map_path, dataele_path, codes_path):
+def compare(spec, map_path, dataele_path, codes_path, ignored=None, fresh_names=False):
     return Comparison(
-        spec, load_map(map_path), load_dataele(dataele_path), load_codesets(codes_path)
+        spec, load_map(map_path), load_dataele(dataele_path), load_codesets(codes_path),
+        ignored, fresh_names,
     ).run()
 
 
@@ -674,6 +955,9 @@ def main(argv=None):
     parser.add_argument("--patch", type=Path)
     parser.add_argument("--check", action="store_true",
                         help="exit 1 when what the spec defines disagrees with the map")
+    parser.add_argument("--fresh-names", action="store_true",
+                        help="propose every occurrence name from the map instead of keeping "
+                             "the spec's names")
     args = parser.parse_args(argv)
 
     version = VERSIONS[args.version]
@@ -686,13 +970,15 @@ def main(argv=None):
     needs_maps = args.map is None or args.dataele is None or args.codes is None
     maps = pyx12_maps() if needs_maps else None
     map_path = args.map or maps / version["map"]
+    ignored = load_ignore(args.ignore, Path(map_path).name)
     comparison = compare(
         load_spec(spec_path, patches),
         map_path,
         args.dataele or maps / "dataele.xml",
         args.codes or maps / "codes.xml",
+        ignored,
+        args.fresh_names,
     )
-    ignored = load_ignore(args.ignore, Path(map_path).name)
 
     if args.check:
         failed = failures(comparison, ignored)

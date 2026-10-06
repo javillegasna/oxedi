@@ -4,20 +4,12 @@ Snapshot for picking the project up cold. Update when a stage changes state.
 
 ## Pick up here (2026-10-05)
 
-- **Now:** Stage 5g (rename to `oxedi`, T70–T74) on branch `stage-5g-rename`, in PR. Stage 5f
-  (DuckDB extension) merged (#106), the extension has its own version (#111) and CI has path
-  filters (#112). The package, crates and module are `oxedi`, `oxedi_core`, `oxedi_py`; the
-  workspace version is 0.3.0; `Diagnostic.origin` of the parser's own findings is now `"oxedi"`.
-  Next after the merge:
-  1. Owner registers PyPI and TestPyPI pending publishers for `oxedi` (repo
-     `javillegasna/oxedi`, workflow `release.yml`, environments `pypi` and `testpypi`).
-  2. Release PR with a dated `## [0.3.0]` section and the `[0.3.0]` link.
-  3. `make release-check TAG=v0.3.0 && make tag` (optionally an rc through TestPyPI first;
-     TestPyPI was in maintenance).
-  4. T72: yank `oxedi835` 0.1.0, 0.2.0 and 0.2.1, set the description "renamed to oxedi", archive.
-  5. Tag `duckdb-v0.1.0` (`make duckdb-release-check TAG=duckdb-v0.1.0 && make duckdb-tag`), then
-     the community PR with `repo.ref` set to that tag's commit SHA
-     (`git rev-parse duckdb-v0.1.0^{commit}`).
+- **Now:** release 0.3.0, the first under the name `oxedi` (branch `release-0.3.0`, on top of the
+  rename PR #113). The PyPI pending publisher for `oxedi` is registered; TestPyPI's is pending
+  (TestPyPI was in maintenance), so 0.3.0 goes without a release candidate. After merge:
+  `make release-check TAG=v0.3.0 && make tag`, approve `pypi`; then on PyPI yank `oxedi835`
+  0.1.0/0.2.0/0.2.1, set its description to "renamed to oxedi" and archive it (T72); then the
+  `duckdb-v0.1.0` tag and the community PR with `repo.ref` = that tag's commit SHA.
 - **Released:** 0.2.1 on PyPI 2026-10-05 (#105: type stubs #102, quick-wins sprint #100, PLB
   codes #104); 0.2.0 on 2026-10-04 (#99).
 - **Stage 5e merged** (PR #80, 2026-10-04) with its amendment (PR #81: one diagnostic type,

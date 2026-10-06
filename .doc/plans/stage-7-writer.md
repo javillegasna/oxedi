@@ -97,6 +97,7 @@ occurrence/ancestor/pick). Branch `stage-7-writer`. Ledger `.superpowers/sdd/sta
 ## Batch C (Opus → Opus review): gate and docs
 
 ### Task 5: the round-trip and pyx12 gate
+- New synthetic valid fixtures (owner decision 2026-10-06; existing fixtures are never edited): at least one 5010 and one 4010 file that balance (several claims, services with CAS, a PLB), meet the guide's required occurrences, and validate clean with pyx12; with a README entry saying what each covers. Unbalanced existing fixtures (multi_claim, trizetto) and the excerpt samples (file, not_available_claim_id) are used for the strict-refusal and `allow_findings` cases.
 - Tests (Python, pyx12-dependent ones skipped without it) for every sample and valid fixture,
   5010 and 4010: parse → write → parse equal on written columns, no new diagnostics, pyx12
   validates the output with zero findings. If 4010 turns out disproportionate, stop and report

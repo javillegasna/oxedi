@@ -2,7 +2,7 @@
 # extension-ci-tools. The repository root delegates its configure_ci, release,
 # debug, test_release and test_debug targets here, so this directory is also
 # the working directory of every recipe below.
-.PHONY: clean clean_all
+.PHONY: clean clean_all test_oracle
 
 PROJ_DIR := $(dir $(abspath $(lastword $(MAKEFILE_LIST))))
 
@@ -40,6 +40,14 @@ release: build_extension_library_release build_extension_with_metadata_release
 test: test_release
 test_debug: test_extension_debug
 test_release: test_extension_release
+
+# The oracle test: read_835 of the release build against oxedi835.parse_file
+# on every sample and fixture. It needs a Python with duckdb, pyarrow, pytest
+# and oxedi835, which DuckDB's CI venv does not have, so test_release leaves
+# it out; the repository's own CI runs it through the root `duckdb-oracle`.
+ORACLE_PYTHON ?= ../../.venv/bin/python
+test_oracle:
+	$(ORACLE_PYTHON) -m pytest -q -p no:cacheprovider test/python
 
 # DuckDB's CI calls this when it builds against another DuckDB repository; a
 # C API extension does not build DuckDB, so like set_duckdb_version it does

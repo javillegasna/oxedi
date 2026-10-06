@@ -17,7 +17,7 @@ WHEELS      := target/wheels
 CARGO_VERSION := $(shell sed -n 's/^version = "\(.*\)"/\1/p' Cargo.toml | head -n 1)
 VERSION     := $(shell echo '$(CARGO_VERSION)' | sed -E 's/-(a|b|rc)\.?/\1/; s/-dev\.?/.dev/')
 
-.PHONY: help version release-check configure_ci set_duckdb_version set_duckdb_tag set_duckdb_repository debug release test_debug test_release sdist-check wheel-check gates test clippy fmt fmt-check bench-check doc venv py-dev py-test stubs stubtest compat-oracle dist smoke publish-test publish-test-verify publish tag clean-dist
+.PHONY: help version release-check configure_ci set_duckdb_version set_duckdb_tag set_duckdb_repository debug release test_debug test_release duckdb-oracle sdist-check wheel-check gates test clippy fmt fmt-check bench-check doc venv py-dev py-test stubs stubtest compat-oracle dist smoke publish-test publish-test-verify publish tag clean-dist
 
 help: ## list targets
 	@grep -E '^[a-z][a-z_-]*:.*##' $(MAKEFILE_LIST) | sed 's/:.*## /\t/'
@@ -137,6 +137,9 @@ test_release: ## DuckDB extension: run its SQLLogicTests against the release bui
 
 test_debug: ## DuckDB extension: run its SQLLogicTests against the debug build
 	$(MAKE) -C $(EXT_DIR) test_debug
+
+duckdb-oracle: py-dev release ## DuckDB extension: compare read_835 with oxedi835.parse_file on every sample and fixture
+	$(MAKE) -C $(EXT_DIR) test_oracle ORACLE_PYTHON=$(abspath $(PYTHON))
 
 # ---- Release ----
 version: ## print the PEP 440 version published by maturin

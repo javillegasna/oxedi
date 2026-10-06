@@ -103,8 +103,10 @@ def test_a_missing_column_is_named():
 
 
 def test_a_non_decimal_amount_is_named():
+    # The balancing rule that reads BPR02 as an amount goes with the change.
     spec = Spec.builtin().patch({"segments": {"BPR": {"elements": {"2": {
-        "name": "total_actual_provider_payment_amount", "type": "AN", "min": 1, "max": 18}}}}})
+        "name": "total_actual_provider_payment_amount", "type": "AN", "min": 1, "max": 18}}}},
+        "balancing": {"transaction_balance": None}})
     result = oxedi.parse(read("edi835_test_file.RMT"), spec=spec)
     with pytest.raises(TypeError) as info:
         result.sum_payments()
@@ -134,7 +136,7 @@ def test_a_table_reaches_polars_and_pandas():
     frame = tables["claims"].to_polars()
     assert frame.height == 1332
     assert frame.schema["charge_amount"] == pl.Decimal(38, 2)
-    assert tables["claims"].to_pandas().shape == (1332, 24)
+    assert tables["claims"].to_pandas().shape == (1332, 28)
     frames = tables.to_polars()
     assert list(frames) == tables.keys()
     assert frames["services"].height == 6192

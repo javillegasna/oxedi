@@ -2,6 +2,7 @@
 
 ``parse`` reads a whole file into a document, typed tables and diagnostics.
 ``stream`` yields the tables in batches, one per closed loop instance.
+``write`` turns tables back into an interchange.
 Tables export to Arrow through the PyCapsule interface, so Polars, pyarrow
 or DuckDB read them without copying.
 """
@@ -17,6 +18,7 @@ from ._core import (
     Delimiters,
     Diagnostic,
     Document,
+    Envelope,
     ParseError,
     Result,
     Segment,
@@ -25,9 +27,11 @@ from ._core import (
     Stream,
     Table,
     Tables,
+    WriteFinding,
     parse,
     stream,
 )
+from ._write import WriteError, write
 
 __version__ = importlib.metadata.version("oxedi")
 
@@ -36,6 +40,7 @@ __all__ = [
     "Delimiters",
     "Diagnostic",
     "Document",
+    "Envelope",
     "ParseError",
     "Result",
     "Segment",
@@ -44,10 +49,13 @@ __all__ = [
     "Stream",
     "Table",
     "Tables",
+    "WriteError",
+    "WriteFinding",
     "__version__",
     "parse",
     "parse_file",
     "stream",
+    "write",
 ]
 
 

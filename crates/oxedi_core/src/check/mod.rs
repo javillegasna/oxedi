@@ -9,7 +9,8 @@
 //!
 //! It also checks each loop instance against its loop's occurrences
 //! (`occurrences.rs`): required occurrences and child loops, repeat limits,
-//! position order and segments that match no occurrence.
+//! position order and segments that match no occurrence; and each instance
+//! against the spec's balancing rules (`balance.rs`): amounts that must add up.
 
 use crate::delimiters::Delimiters;
 use crate::diagnostic::{Diagnostic, LoopRef, Rule};
@@ -70,6 +71,8 @@ pub struct EnvelopeChecker<'s> {
     layouts: Vec<occurrences::Layout>,
     /// Per loop: the count slots that must not stay 0.
     required: Vec<Vec<usize>>,
+    /// The balancing rules and the totals of the open instances they check.
+    balances: Balances,
     diagnostics: Vec<Diagnostic>,
 }
 
@@ -78,6 +81,7 @@ impl<'s> EnvelopeChecker<'s> {
     /// component separator, which a control value read as one text keeps.
     pub fn new(spec: &'s Spec, delimiters: &Delimiters) -> Self {
         let (limits, first) = occurrences::limits(spec);
+        let balances = Balances::new(spec, &first);
         Self {
             spec,
             separator: delimiters.component,
@@ -90,6 +94,7 @@ impl<'s> EnvelopeChecker<'s> {
             first,
             layouts: occurrences::layouts(spec),
             required: occurrences::required(spec),
+            balances,
             diagnostics: Vec::new(),
         }
     }
@@ -200,6 +205,7 @@ impl<'s> EnvelopeChecker<'s> {
             last: None,
             inner: None,
         });
+        self.balance_opened(id);
         self.report_opening(id, opening, trigger, segment.id);
         if let Some(element) = missing_opener {
             self.report(
@@ -228,6 +234,7 @@ impl<'s> EnvelopeChecker<'s> {
 
     fn captured(&mut self, id: LoopId, segment: &Segment<'_>, matched: Option<usize>) {
         self.occurrence_captured(id, segment, matched);
+        self.balance_captured(id, segment, matched);
         let spec = self.spec;
         let def = spec.get(id);
         if def.end.as_deref() != Some(segment.id) {
@@ -329,6 +336,7 @@ impl<'s> EnvelopeChecker<'s> {
             );
         }
         self.occurrence_closed(at);
+        self.balance_closed();
         self.open.pop();
     }
 
@@ -389,7 +397,9 @@ fn parse_count(value: &[u8]) -> Option<usize> {
     })
 }
 
+mod balance;
 mod occurrences;
+use balance::Balances;
 use occurrences::Seen;
 #[cfg(test)]
 mod tests;

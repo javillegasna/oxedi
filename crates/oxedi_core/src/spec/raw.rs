@@ -20,6 +20,8 @@ pub(super) struct RawSpec {
     pub(super) _segments: BTreeMap<String, IgnoredAny>,
     #[serde(default, rename = "tables")]
     pub(super) _tables: BTreeMap<String, IgnoredAny>,
+    #[serde(default, rename = "balancing")]
+    pub(super) _balancing: BTreeMap<String, IgnoredAny>,
     pub(super) version: Option<RawVersion>,
 }
 
@@ -159,4 +161,23 @@ impl RawPick {
             RawPick::Named(name) => serde_json::to_string(name).unwrap_or_default(),
         }
     }
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(deny_unknown_fields, expecting = "a balancing rule object")]
+pub(super) struct RawBalance {
+    pub(super) per: String,
+    pub(super) target: Vec<RawTerm>,
+    pub(super) sum: Vec<RawTerm>,
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(deny_unknown_fields, expecting = "a balancing value object")]
+pub(super) struct RawTerm {
+    #[serde(rename = "loop")]
+    pub(super) loop_name: Option<String>,
+    pub(super) occurrence: String,
+    pub(super) elements: Vec<usize>,
+    pub(super) component: Option<usize>,
+    pub(super) sign: Option<String>,
 }

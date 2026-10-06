@@ -493,6 +493,11 @@
       "payee_city": {"loop": "1000B", "occurrence": "payee_city_state_zip_code", "element": 1},
       "payee_state": {"loop": "1000B", "occurrence": "payee_city_state_zip_code", "element": 2},
       "payee_zip": {"loop": "1000B", "occurrence": "payee_city_state_zip_code", "element": 3},
+      "payer_id_qualifier": {"loop": "1000A", "occurrence": "payer_identification", "element": 3},
+      "payee_id_qualifier": {"loop": "1000B", "occurrence": "payee_identification", "element": 3},
+      "payer_technical_contact_name": {"loop": "1000A", "segment": "PER", "where": {"1": "BL"}, "element": 2},
+      "payer_technical_contact_qualifier": {"loop": "1000A", "segment": "PER", "where": {"1": "BL"}, "element": 3},
+      "payer_technical_contact_number": {"loop": "1000A", "segment": "PER", "where": {"1": "BL"}, "element": 4},
       "receiver_id": {"occurrence": "receiver_identification", "element": 2},
       "production_date": {"segment": "DTM", "where": {"1": "405"}, "element": 2}
     } },
@@ -512,6 +517,10 @@
       "patient_last_name": {"occurrence": "patient_name", "element": 3},
       "patient_first_name": {"occurrence": "patient_name", "element": 4},
       "patient_id": {"occurrence": "patient_name", "element": 9},
+      "patient_id_qualifier": {"occurrence": "patient_name", "element": 8},
+      "header_number": {"loop": "2000", "occurrence": "header_number", "element": 1},
+      "rendering_provider_entity_type": {"occurrence": "service_provider_name", "element": 2},
+      "rendering_provider_id_qualifier": {"occurrence": "service_provider_name", "element": 8},
       "rendering_provider_name": {"occurrence": "service_provider_name", "element": 3},
       "rendering_provider_id": {"occurrence": "service_provider_name", "element": 9},
       "statement_from": {"segment": "DTM", "where": {"1": "232"}, "element": 2},
@@ -543,5 +552,38 @@
       "reference_id": {"group_element": 0, "component": 2},
       "amount": {"group_element": 1}
     } }
+  },
+  "balancing": {
+    "service_balance": {
+      "per": "2110",
+      "target": [
+        {"occurrence": "service_payment_information", "elements": [2]},
+        {"occurrence": "service_payment_information", "elements": [3], "sign": "-"}
+      ],
+      "sum": [
+        {"occurrence": "service_adjustment", "elements": [3, 6, 9, 12, 15, 18]}
+      ]
+    },
+    "claim_balance": {
+      "per": "2100",
+      "target": [
+        {"occurrence": "claim_payment_information", "elements": [3]},
+        {"occurrence": "claim_payment_information", "elements": [4], "sign": "-"}
+      ],
+      "sum": [
+        {"occurrence": "claim_adjustment", "elements": [3, 6, 9, 12, 15, 18]},
+        {"loop": "2110", "occurrence": "service_adjustment", "elements": [3, 6, 9, 12, 15, 18]}
+      ]
+    },
+    "transaction_balance": {
+      "per": "transaction",
+      "target": [
+        {"occurrence": "financial_information", "elements": [2]}
+      ],
+      "sum": [
+        {"loop": "2100", "occurrence": "claim_payment_information", "elements": [4]},
+        {"occurrence": "provider_adjustment", "elements": [4, 6, 8, 10, 12, 14], "sign": "-"}
+      ]
+    }
   }
 }

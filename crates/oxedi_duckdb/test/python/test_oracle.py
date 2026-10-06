@@ -184,7 +184,7 @@ def test_every_table_equals_parse_file(con: duckdb.DuckDBPyConnection, path: pat
 def test_every_sample_and_fixture_is_an_input() -> None:
     folders = [path.parent.name for path in FILES]
     assert folders.count("samples") == 6
-    assert folders.count("fixtures") == 5
+    assert folders.count("fixtures") == 7
 
 
 def test_the_unparsable_inputs_are_pinned() -> None:

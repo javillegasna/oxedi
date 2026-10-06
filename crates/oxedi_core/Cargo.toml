@@ -33,3 +33,7 @@ harness = false
 [[bench]]
 name = "process"
 harness = false
+
+[[bench]]
+name = "write"
+harness = false

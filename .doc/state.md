@@ -1,24 +1,30 @@
-# State — 2026-10-06 (0.3.0 as oxedi; Stage 7a in PR)
+# State — 2026-10-06 (0.3.0 as oxedi; Stage 7 in PR)
 
 Snapshot for picking the project up cold. Update when a stage changes state.
 
 ## Pick up here (2026-10-06)
 
-- **Now:** Stage 7a (occurrence model per loop) is complete on branch `stage-7a-occurrences`
-  and goes to PR against `master`. Loops declare `occurrences` (object keyed by name: `segment`,
-  `pos`, `usage`, `max`, `qualifier`, `codes`) plus loop `usage`/`max`; the 5010 and 4010
-  occurrences come from `pyx12` (`spec_vs_pyx12.py --check` covers them); reading emits six
-  SNIP 2 occurrence diagnostics and checks codes per occurrence; text cells tell absent
-  (`null`) from empty (`""`); a column may name an occurrence, read a loop above its anchor
-  and `pick` `first`/`last`/n-th. Table goldens changed only by T80; parity 113/113. After
-  merge: deferred minors to Project #8, copy the ledger to `.doc/analysis/stage-7a-ledger.md`,
-  then Stage 7 (writer).
-- **Now:** release 0.3.0, the first under the name `oxedi` (branch `release-0.3.0`, on top of the
-  rename PR #113). The PyPI pending publisher for `oxedi` is registered; TestPyPI's is pending
-  (TestPyPI was in maintenance), so 0.3.0 goes without a release candidate. After merge:
-  `make release-check TAG=v0.3.0 && make tag`, approve `pypi`; then on PyPI yank `oxedi835`
-  0.1.0/0.2.0/0.2.1, set its description to "renamed to oxedi" and archive it (T72); then the
-  `duckdb-v0.1.0` tag and the community PR with `repo.ref` = that tag's commit SHA.
+- **Now:** Stage 7 (writer) is complete on branch `stage-7-writer` and goes to PR against
+  `master`. Core `write`/`write_with_findings(spec, tables, envelope)` and Python
+  `oxedi.write(tables, envelope, spec=None, allow_findings=False)` with `oxedi.Envelope`,
+  `oxedi.WriteError` and `oxedi.WriteFinding`; balancing rules in the spec (`service_balance`,
+  `claim_balance`, `transaction_balance`) checked on write and read as SNIP 3 `BalanceMismatch`;
+  built-in tables gained the columns a valid file needs (payer `PER*BL`, `N103`, `LX01`, `NM108`,
+  `NM102`). Gate results: two new synthetic fixtures (`balanced_5010_sample.txt`,
+  `balanced_4010_sample.txt`; the existing ones stay untouched) and the six clean files of both
+  versions write back to the same tables with no diagnostic; `pyx12` finds in every written file
+  exactly what it finds in the original (nothing, except N402 on `united_healthcare_legacy` and
+  NM108/NM109 on eyemed, both real data); multi_claim, trizetto and the two excerpts are refused
+  strictly and written with the same findings under `allow_findings`. `duckdb-oracle` 18/18
+  (the two new fixtures), parity 113/113, `spec_vs_pyx12 --check` green for 5010 and 4010. The
+  claim rule does not model interest (`AMT*I`). After merge: deferred minors to Project #8, copy
+  the ledger to `.doc/analysis/stage-7-ledger.md`, then Stage 7b (DuckDB write through `COPY`).
+- **Merged:** Stage 7a (occurrence model per loop, PR #119). **Released:** 0.3.0, the first under
+  the name `oxedi` (tag `v0.3.0`, PR #114). `oxedi835` 0.1.0–0.2.1 are yanked on PyPI
+  (archiving the project is pending, T72). The DuckDB extension was submitted and
+  duckdb/community-extensions#2937 merged, but its community build failed on Windows on an
+  OS-specific test text; the fix (extension 0.1.1, PR #120) is pending, and until then
+  `INSTALL oxedi FROM community` is not available.
 - **Released:** 0.2.1 on PyPI 2026-10-05 (#105: type stubs #102, quick-wins sprint #100, PLB
   codes #104); 0.2.0 on 2026-10-04 (#99).
 - **Stage 5e merged** (PR #80, 2026-10-04) with its amendment (PR #81: one diagnostic type,

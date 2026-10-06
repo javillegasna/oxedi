@@ -127,6 +127,13 @@ impl fmt::Display for ControlError {
 }
 
 impl LoopDef {
+    /// Index of the occurrence the loop's trigger opens on, if any.
+    pub(crate) fn trigger_occurrence(&self) -> Option<usize> {
+        self.occurrences
+            .iter()
+            .position(|occurrence| occurrence.opens_on(&self.trigger))
+    }
+
     /// `true` when the loop holds `id` (as a listed segment or as its end).
     pub fn accepts(&self, id: &[u8]) -> bool {
         self.segments.iter().any(|segment| segment == id) || self.end.as_deref() == Some(id)

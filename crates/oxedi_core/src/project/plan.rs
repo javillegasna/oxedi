@@ -4,7 +4,10 @@ use std::collections::BTreeMap;
 
 use super::carry::Carried;
 use crate::column::ColumnType;
-use crate::spec::{ColumnSource, ElementDef, OccurrenceDef, Pick, Qualifier, Spec, TableDef};
+use crate::spec::{
+    ColumnSource, ElementDef, OccurrenceDef, Pick, Qualifier, ROW_COLUMN, SEGMENT_COLUMN, Spec,
+    TableDef,
+};
 
 /// One defined element, with what checking it needs worked out once.
 #[derive(Debug, Clone)]
@@ -265,6 +268,29 @@ impl<'s> Plans<'s> {
             None => self.long.entry(id.to_vec()).or_insert_with(empty),
         }
     }
+}
+
+/// Every column of a table the projector fills, with its type, in order:
+/// the row number, the anchor segment's index, a reference per table above
+/// (outermost first), then the declared columns in name order.
+pub fn table_columns(spec: &Spec, table: &TableDef) -> Vec<(String, ColumnType)> {
+    let index_column = ColumnType::Int64 { scale: 0 };
+    let mut columns = vec![
+        (ROW_COLUMN.to_string(), index_column),
+        (SEGMENT_COLUMN.to_string(), index_column),
+    ];
+    for &above in &table.ancestors {
+        if let Some(def) = spec.tables().get(above) {
+            columns.push((def.reference.clone(), index_column));
+        }
+    }
+    columns.extend(
+        table
+            .columns
+            .iter()
+            .map(|(name, source)| (name.clone(), column_type(spec, table, source))),
+    );
+    columns
 }
 
 /// The column type of a declared column: its element's type, `Int64` for a

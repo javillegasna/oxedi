@@ -3,9 +3,10 @@
 `oxedi` reads X12 EDI 835 remittance files as DuckDB tables, with the same parser and the
 same tables as the [oxedi](../../README.md) Python package. Every DuckDB client (Python,
 R, Java, Node, Go, .NET, Rust, the CLI) gets it. It is built on DuckDB's stable C API and
-loads on DuckDB 1.5.6 and later. It is not yet published to the community repository, so
-`INSTALL oxedi FROM community` works only once it is; until then build it (below) and
-`LOAD` the file.
+loads on DuckDB 1.5.6 and later. It is accepted in the community repository but not
+installable yet: its first community build failed on Windows on a test that pinned the
+operating system's error text, and the fixed release (0.1.1) is pending. Until then build it
+(below) and `LOAD` the file.
 
 ```sql
 INSTALL oxedi FROM community;

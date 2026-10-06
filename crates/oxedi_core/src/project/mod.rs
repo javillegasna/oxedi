@@ -73,6 +73,7 @@ use crate::spec::{LoopId, OccurrenceDef, ROW_COLUMN, SEGMENT_COLUMN, Spec};
 use carry::Carried;
 use check::Checked;
 use fill::append;
+pub use plan::table_columns;
 use plan::{Candidate, ElementPlan, Plans, column_type};
 
 /// A column value of a row being collected.

@@ -7,6 +7,7 @@ a stub that loosens or changes a type makes the check fail.
 
 from __future__ import annotations
 
+import datetime
 import decimal
 from collections.abc import Iterator
 
@@ -18,6 +19,7 @@ from oxedi import (
     Delimiters,
     Diagnostic,
     Document,
+    Envelope,
     ParseError,
     Result,
     Segment,
@@ -26,6 +28,8 @@ from oxedi import (
     Stream,
     Table,
     Tables,
+    WriteError,
+    WriteFinding,
 )
 from oxedi.pyx12 import validate
 
@@ -138,6 +142,53 @@ def validated(data: bytes, path: str) -> list[Diagnostic]:
     with open(path, "rb") as handle:
         from_file: list[Diagnostic] = validate(handle)
     return validate(data) + validate(path) + from_file
+
+
+def writes(result: Result, frames: dict[str, polars.DataFrame]) -> bytes:
+    envelope = Envelope(
+        sender_id="SENDER",
+        receiver_id="RECEIVER",
+        date=datetime.date(2024, 1, 1),
+        time=datetime.time(12, 30),
+        sender_qualifier="ZZ",
+        receiver_qualifier="ZZ",
+        usage_indicator="T",
+        control_number=1,
+        application_sender=None,
+        application_receiver=None,
+        delimiters=Delimiters(repetition=b"^"),
+        line_break=False,
+    )
+    sender: str = envelope.sender_id
+    print(sender, envelope.sender_qualifier, envelope.receiver_id, envelope.receiver_qualifier)
+    print(envelope.usage_indicator, envelope.delimiters, repr(envelope))
+    number: int = envelope.control_number
+    day: datetime.date = envelope.date
+    moment: datetime.time = envelope.time
+    app: str | None = envelope.application_sender
+    other: str | None = envelope.application_receiver
+    broken: bool = envelope.line_break
+    print(day, moment, app, other, broken)
+    data: bytes = oxedi.write(result.tables, envelope)
+    strict: bytes = oxedi.write(frames, envelope, spec=Spec.builtin(), allow_findings=False)
+    allowed: tuple[bytes, list[WriteFinding]] = oxedi.write(frames, envelope, allow_findings=True)
+    written, findings = allowed
+    for finding in findings:
+        kind: str = finding.kind
+        table: str | None = finding.table
+        row: int | None = finding.row
+        column: str | None = finding.column
+        field: str | None = finding.field
+        diagnostic: Diagnostic | None = finding.diagnostic
+        message: str = finding.message
+        print(kind, table, row, column, field, diagnostic, message, str(finding), repr(finding))
+    try:
+        oxedi.write(frames, envelope)
+    except WriteError as error:
+        problem: ValueError = error
+        reasons: list[WriteFinding] = error.findings
+        print(problem, reasons)
+    return data + strict + written + bytes(number)
 
 
 version: str = oxedi.__version__

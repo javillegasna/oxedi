@@ -166,12 +166,12 @@ pub fn parse(
         let document = document::index(bytes, delimiters)?;
         let spec = spec::given_or_selected(given, document.segments());
         let (tables, diagnostics) = Processor::run(&spec, &document);
-        Ok((document, tables, diagnostics))
+        Ok((document, PyTables::projected(tables, spec), diagnostics))
     })?;
     let diagnostics = diagnostic::to_list(py, diagnostics)?;
     Ok(PyParseResult {
         document: Py::new(py, PyDocument { inner: document })?,
-        tables: Py::new(py, PyTables::from(tables))?,
+        tables: Py::new(py, tables)?,
         diagnostics: diagnostics.unbind(),
     })
 }

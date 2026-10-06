@@ -108,7 +108,7 @@ fn days_from_civil(year: i32, month: i32, day: i32) -> i32 {
 
 /// The proleptic Gregorian date `days` after 1970-01-01 (H. Hinnant's
 /// `civil_from_days`), the inverse of [`days_from_civil`].
-pub(super) fn civil_from_days(days: i32) -> (i32, i32, i32) {
+pub(crate) fn civil_from_days(days: i32) -> (i32, i32, i32) {
     let shifted = days.saturating_add(719_468);
     let era = shifted.div_euclid(146_097);
     let day_of_era = shifted - era * 146_097;

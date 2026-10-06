@@ -19,6 +19,8 @@ and the extension has its own version.
   `RequiredOccurrenceMissing`, `OccurrenceOverMax`, `LoopOverMax`, `OutOfOrder`,
   `UnknownOccurrence` and `RequiredLoopMissing`; `CodeNotInList` may check an element against
   the code list of the occurrence its segment takes.
+- The diagnostics table carries the level-3 rule `BalanceMismatch`: a balancing rule of the spec
+  (service, claim and transaction balancing in the built-in 835) that does not add up.
 
 ### Changed
 - A text cell whose element is present but empty is now `''`; an absent element stays `NULL`

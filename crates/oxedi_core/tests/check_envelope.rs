@@ -89,7 +89,9 @@ fn every_diagnostic_points_at_a_segment_holding_its_datum() {
         for spec in [&five, &four] {
             for diagnostic in common::diagnostics_of(spec, &bytes, delims) {
                 let kind = diagnostic.rule.kind();
-                let expected = if OCCURRENCE_RULES.contains(&kind) {
+                let expected = if kind == "BalanceMismatch" {
+                    SnipLevel::L3
+                } else if OCCURRENCE_RULES.contains(&kind) {
                     SnipLevel::L2
                 } else {
                     SnipLevel::L1
@@ -132,7 +134,7 @@ fn the_checker_alone_and_inside_the_processor_raise_the_same_findings() {
             let inside: Vec<_> = all
                 .into_iter()
                 .filter(|diagnostic| {
-                    diagnostic.level == SnipLevel::L1
+                    diagnostic.level != SnipLevel::L2
                         || OCCURRENCE_RULES.contains(&diagnostic.rule.kind())
                 })
                 .collect();

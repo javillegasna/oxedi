@@ -6,6 +6,7 @@ use serde::Deserialize;
 use serde_json::Value;
 
 use super::Spec;
+use super::balance::compile_balancing;
 use super::compile::compile_tables;
 use super::error::SpecError;
 use super::loops::{Control, ControlCount, ControlError, LoopDef, LoopId, Trigger};
@@ -155,11 +156,13 @@ impl Spec {
             roots,
             segments,
             tables: Vec::new(),
+            balancing: Vec::new(),
             version,
             source,
         };
         spec.check_ambiguity()?;
         spec.tables = compile_tables(&spec, section(&spec.source, "tables"))?;
+        spec.balancing = compile_balancing(&spec, section(&spec.source, "balancing"))?;
         Ok(spec)
     }
 

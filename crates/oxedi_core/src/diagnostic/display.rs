@@ -4,10 +4,15 @@
 use std::fmt;
 
 use super::{Quoted, Rule};
+use crate::spec::render_amount;
 
 /// The longest code or name list a message spells out; longer lists keep
 /// the count.
 const MAX_LISTED_CODES: usize = 5;
+
+/// The most segment indexes a balancing message spells out; a longer list
+/// ends with the count of the rest.
+const MAX_LISTED_SEGMENTS: usize = 10;
 
 /// An element reference in X12 style: `CLP01`, or `SVC01-2` for a component.
 struct ElementRef<'a> {
@@ -324,6 +329,45 @@ impl fmt::Display for Rule {
                     f,
                     "closed without its required child loop {child:?} (trigger {expected_trigger})"
                 )
+            }
+            Rule::BalanceMismatch {
+                rule,
+                loop_name,
+                opened_at,
+                target,
+                sum,
+                expected,
+                computed,
+                scale,
+                segments,
+            } => {
+                write!(f, "balancing rule {rule:?} fails in loop {loop_name:?} ")?;
+                match opened_at {
+                    Some(opened_at) => write!(f, "opened at segment #{opened_at}")?,
+                    None => write!(f, "opened implicitly")?,
+                }
+                let difference = expected.checked_sub(*computed);
+                write!(
+                    f,
+                    ": {target} is {}, but {sum} adds up to {}",
+                    render_amount(*expected, *scale),
+                    render_amount(*computed, *scale),
+                )?;
+                if let Some(difference) = difference {
+                    write!(f, " (off by {})", render_amount(difference, *scale))?;
+                }
+                write!(f, "; read from segments ")?;
+                for (i, segment) in segments.iter().take(MAX_LISTED_SEGMENTS).enumerate() {
+                    if i > 0 {
+                        write!(f, ", ")?;
+                    }
+                    write!(f, "#{segment}")?;
+                }
+                let rest = segments.len().saturating_sub(MAX_LISTED_SEGMENTS);
+                if rest > 0 {
+                    write!(f, " and {rest} more")?;
+                }
+                Ok(())
             }
             Rule::External {
                 origin,

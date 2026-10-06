@@ -108,7 +108,7 @@ impl OccurrenceDef {
 }
 
 /// The type code of an element type, as a spec writes it.
-fn type_code(kind: ElementType) -> String {
+pub(super) fn type_code(kind: ElementType) -> String {
     match kind {
         ElementType::An => "AN".into(),
         ElementType::Id => "ID".into(),
@@ -120,7 +120,7 @@ fn type_code(kind: ElementType) -> String {
 }
 
 /// The definition of an element or component of `segment`, if any.
-fn element_def<'d>(
+pub(super) fn element_def<'d>(
     segments: &'d BTreeMap<Vec<u8>, SegmentDef>,
     segment: &[u8],
     element: usize,

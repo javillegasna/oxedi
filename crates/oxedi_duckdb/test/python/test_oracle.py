@@ -62,6 +62,14 @@ def input_files() -> list[pathlib.Path]:
 
 FILES = input_files()
 
+# The inputs the core cannot parse, each with the bytes found instead of ISA:
+# a fixture without an envelope and the extension's own non-835 file. Every
+# other input must parse.
+UNPARSABLE = {
+    "fixtures/blue_cross_nc_sample.txt": "ST*835*1",
+    "data/not_an_interchange.835": "hello, t",
+}
+
 
 def file_id(path: pathlib.Path) -> str:
     return f"{path.parent.name}/{path.name}"
@@ -150,11 +158,12 @@ def as_text(rows: list[tuple[Any, ...]]) -> list[tuple[Any, ...]] | None:
         return None
 
 
-@pytest.mark.parametrize("path", FILES, ids=file_id)
+PARSABLE = [path for path in FILES if file_id(path) not in UNPARSABLE]
+
+
+@pytest.mark.parametrize("path", PARSABLE, ids=file_id)
 def test_every_table_equals_parse_file(con: duckdb.DuckDBPyConnection, path: pathlib.Path) -> None:
-    result = parsed(path)
-    if result is None:
-        pytest.skip("not an X12 interchange; see test_an_unparsable_file")
+    result = oxedi835.parse_file(str(path))
     for table in tables_of(result):
         if table == DIAGNOSTICS:
             expected = oracle_diagnostics(result)
@@ -177,7 +186,13 @@ def test_every_sample_and_fixture_is_an_input() -> None:
     assert folders.count("fixtures") == 5
 
 
-@pytest.mark.parametrize("path", [p for p in FILES if parsed(p) is None], ids=file_id)
+def test_the_unparsable_inputs_are_pinned() -> None:
+    assert {file_id(path) for path in FILES if parsed(path) is None} == set(UNPARSABLE)
+
+
+@pytest.mark.parametrize(
+    "path", [path for path in FILES if file_id(path) in UNPARSABLE], ids=file_id
+)
 def test_an_unparsable_file(con: duckdb.DuckDBPyConnection, path: pathlib.Path) -> None:
     with pytest.raises(oxedi835.ParseError) as raised:
         oxedi835.parse_file(str(path))
@@ -189,6 +204,7 @@ def test_an_unparsable_file(con: duckdb.DuckDBPyConnection, path: pathlib.Path) 
         "SELECT * FROM read_835(?, table_name := 'diagnostics', ignore_errors := true)",
         [str(path)],
     ).fetchall()
-    assert [(r[0], r[1], r[2], r[8]) for r in rows] == [
-        (1, "NotAnInterchange", message, "read_835")
+    datum = UNPARSABLE[file_id(path)]
+    assert rows == [
+        (1, "NotAnInterchange", message, None, None, None, "", datum, "read_835", None)
     ]

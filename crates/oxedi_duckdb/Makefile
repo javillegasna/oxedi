@@ -37,16 +37,17 @@ configure: venv platform extension_version
 debug: build_extension_library_debug build_extension_with_metadata_debug
 release: build_extension_library_release build_extension_with_metadata_release
 
-test: test_release
+test: test_release test_oracle
 test_debug: test_extension_debug
 test_release: test_extension_release
 
 # The oracle test: read_835 of the release build against oxedi835.parse_file
 # on every sample and fixture. It needs a Python with duckdb, pyarrow, pytest
 # and oxedi835, which DuckDB's CI venv does not have, so test_release leaves
-# it out; the repository's own CI runs it through the root `duckdb-oracle`.
+# it out; `test` and the root `duckdb-oracle` run it. It rebuilds the release
+# extension first; the root target also rebuilds oxedi835 into the venv.
 ORACLE_PYTHON ?= ../../.venv/bin/python
-test_oracle:
+test_oracle: release
 	$(ORACLE_PYTHON) -m pytest -q -p no:cacheprovider test/python
 
 # DuckDB's CI calls this when it builds against another DuckDB repository; a

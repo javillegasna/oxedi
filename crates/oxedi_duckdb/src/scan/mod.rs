@@ -142,10 +142,10 @@ fn load(bound: &Bound, file: &str) -> Result<Table, ReadError> {
     let document = match Document::parse(bytes.as_slice()) {
         Ok(document) => document,
         Err(source) if bound.ignore_errors => {
-            let datum = diagnostics::datum(&source, &bytes).to_vec();
             if !bound.diagnostics {
                 return Ok(Table::new(bound.table.clone(), bound.columns.clone()));
             }
+            let datum = diagnostics::datum(&source, &bytes).to_vec();
             let error = ReadError::Parse {
                 file: file.to_owned(),
                 source,

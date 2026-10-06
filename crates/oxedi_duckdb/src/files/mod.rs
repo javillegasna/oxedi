@@ -76,6 +76,9 @@ impl FileSystem {
     /// by trying to open it; `None` when it does not, whether or not the
     /// path exists. A path that cannot be tried is refused too.
     pub fn refuses(&self, path: &str) -> Option<String> {
+        // Both refusals below are defensive: parameter text reaches the
+        // extension as a C string, so it cannot hold a NUL byte, and the read
+        // flag is a constant DuckDB always accepts.
         let Ok(c_path) = CString::new(path) else {
             return Some("the pattern holds a NUL byte".to_owned());
         };

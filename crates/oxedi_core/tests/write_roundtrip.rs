@@ -1,12 +1,13 @@
 //! Parse, write the tables back, parse again: the tables match on every
 //! column the writer consumes, and the written file reads without a
 //! diagnostic, for every sample and fixture that reads clean and balances.
-//! The others write only with `allow_findings`, and their findings are the
-//! ones their own read reports.
+//! The others are refused when written strictly, with exactly the findings
+//! that `allow_findings` returns along with a file that still parses into the
+//! spec's tables.
 
 mod common;
 
-use oxedi_core::write::{Envelope, write, write_with_findings};
+use oxedi_core::write::{Envelope, WriteError, write, write_with_findings};
 use oxedi_core::{Document, Processor, Spec, Tables};
 
 /// The files that read without a diagnostic.
@@ -107,13 +108,12 @@ fn files_with_findings_write_only_when_allowed() {
         let spec = common::select(&five, &four, &bytes, delims);
         let document = Document::with_delimiters(&bytes[..], delims).unwrap();
         let (tables, _) = Processor::run(spec, &document);
-        let refused = write(spec, &tables, &envelope());
         let (written, findings) = write_with_findings(spec, &tables, &envelope()).unwrap();
-        println!("{name}: {} findings", findings.len());
-        for finding in &findings {
-            println!("  {finding}");
+        assert!(!findings.is_empty(), "{name}");
+        match write(spec, &tables, &envelope()) {
+            Err(WriteError::Findings(refused)) => assert_eq!(refused, findings, "{name}"),
+            other => panic!("{name}: {other:?}"),
         }
-        assert!(refused.is_err() || findings.is_empty(), "{name}");
         let (again, _) = read(spec, &written);
         assert_eq!(again.len(), tables.len(), "{name}");
     }

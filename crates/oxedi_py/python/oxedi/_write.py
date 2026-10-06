@@ -69,9 +69,13 @@ def write(
     that parsed the tables, else the built-in 5010 spec. The written file is
     read back with the spec, and every diagnostic of that read is a finding.
 
+    A null cell in the middle of a segment is written as an empty element,
+    which reads back as empty text; only trailing nulls read back as null.
+
     Strict by default: any finding raises ``WriteError`` and nothing is
     returned. With ``allow_findings`` the bytes are returned with the
-    findings, ``(bytes, findings)``.
+    findings, ``(bytes, findings)``. When a value holds a delimiter the file
+    is not read back, so the findings then lack those of reading it.
     """
     data, findings = _write(tables, envelope, spec=spec, allow_findings=allow_findings)
     if allow_findings:

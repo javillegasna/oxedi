@@ -15,7 +15,7 @@ use crate::delimiters::Delimiters;
 use crate::spec::{ElementDef, ElementType, Spec};
 
 use super::finding::WriteError;
-use super::render::{date_text, time_text};
+use super::render::{envelope_date, envelope_time};
 
 /// The caller's part of the envelope.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -154,6 +154,8 @@ pub(super) struct EnvelopeValue {
     pub(super) field: Option<Field>,
     /// `false` for a delimiter written as the value itself.
     pub(super) checked: bool,
+    /// Why the field has no text the element can hold, when it has none.
+    pub(super) refused: Option<String>,
 }
 
 /// The delimiters the written file uses: those of the envelope, with the
@@ -168,7 +170,10 @@ pub(super) fn delimiters(
         (given.component, COMPONENT),
         (given.segment, SEGMENT),
     ];
-    if repetition && let Some(byte) = given.repetition {
+    if repetition {
+        let Some(byte) = given.repetition else {
+            return Err(WriteError::NoRepetition);
+        };
         all.push((byte, REPETITION));
     }
     for (i, &(byte, role)) in all.iter().enumerate() {
@@ -221,11 +226,16 @@ pub(super) fn trigger_values(
             .iter()
             .find(|(at, _)| *at == position)
             .map(|(_, field)| *field);
+        let mut refused = None;
         let (bytes, field, checked) = if position == opener_element {
             (control.to_vec(), Some(Field::ControlNumber), true)
         } else if let Some(field) = field {
             match field_value(field, def, envelope, any_version.as_deref()) {
-                Some((bytes, checked)) => (bytes, Some(field), checked),
+                Some(Ok((bytes, checked))) => (bytes, Some(field), checked),
+                Some(Err(reason)) => {
+                    refused = Some(reason);
+                    (Vec::new(), Some(field), true)
+                }
                 None => continue,
             }
         } else if let Some((_, value)) = version.as_ref().filter(|(at, _)| *at == position) {
@@ -237,23 +247,29 @@ pub(super) fn trigger_values(
         };
         values.push(EnvelopeValue {
             element: position,
-            bytes: pad(bytes, def),
+            bytes: if refused.is_some() {
+                bytes
+            } else {
+                pad(bytes, def)
+            },
             field,
             checked,
+            refused,
         });
     }
     values
 }
 
 /// The value of a caller's field for an element, and whether it is checked
-/// for delimiters; `None` when the field has nothing to write there.
+/// for delimiters; `None` when the field has nothing to write there, the
+/// reason when the field has no text the element can hold.
 fn field_value(
     field: Field,
     def: &ElementDef,
     envelope: &Envelope,
     version: Option<&[u8]>,
-) -> Option<(Vec<u8>, bool)> {
-    let text = |value: &str| Some((value.as_bytes().to_vec(), true));
+) -> Option<Result<(Vec<u8>, bool), String>> {
+    let text = |value: &str| Some(Ok((value.as_bytes().to_vec(), true)));
     let delimiters = &envelope.delimiters;
     match field {
         Field::SenderQualifier => text(&envelope.sender_qualifier),
@@ -272,15 +288,15 @@ fn field_value(
                 .as_deref()
                 .unwrap_or(envelope.receiver_id.trim_end()),
         ),
-        Field::Date => Some((date_text(envelope.date, def.max).unwrap_or_default(), true)),
-        Field::Time => Some((time_text(envelope.time, def.max).unwrap_or_default(), true)),
+        Field::Date => Some(envelope_date(envelope.date, def.max).map(|text| (text, true))),
+        Field::Time => Some(envelope_time(envelope.time, def.max).map(|text| (text, true))),
         Field::UsageIndicator => text(&envelope.usage_indicator),
         Field::Repetition => match def.codes.first() {
-            Some(code) => Some((code.as_bytes().to_vec(), true)),
-            None => delimiters.repetition.map(|byte| (vec![byte], false)),
+            Some(code) => Some(Ok((code.as_bytes().to_vec(), true))),
+            None => delimiters.repetition.map(|byte| Ok((vec![byte], false))),
         },
-        Field::Component => Some((vec![delimiters.component], false)),
-        Field::Version => version.map(|value| (value.to_vec(), true)),
+        Field::Component => Some(Ok((vec![delimiters.component], false))),
+        Field::Version => version.map(|value| Ok((value.to_vec(), true))),
         Field::ControlNumber => None,
     }
 }

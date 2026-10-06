@@ -13,12 +13,13 @@ use crate::column::Cell;
 use crate::spec::{ControlCount, LoopId, Spec};
 
 use super::data::Data;
-use super::envelope::{Envelope, control_text, trigger_values};
+use super::envelope::{Envelope, Field, control_text, trigger_values};
 use super::finding::{Finding, Origin};
 use super::layout::{Item, Layout};
 use super::nest::Nest;
 use super::plan::{Instances, SegmentPlan, SegmentSource, ValueSource, WritePlan};
-use super::render::{Part, Separators};
+use super::refusal::place;
+use super::render::{Part, Separators, date_display};
 use super::trace::{Src, Traces};
 use super::walk::Context;
 
@@ -109,6 +110,10 @@ impl Emitter<'_> {
             values.push((rule.closer_element, control.unwrap_or_default()));
             values.sort_by_key(|(element, _)| *element);
             for (element, text) in values {
+                if element == rule.closer_element {
+                    self.traces
+                        .entry(element, None, Src::Field(Field::ControlNumber));
+                }
                 self.push_text(element, None, &text);
             }
             let id = end.clone();
@@ -196,6 +201,18 @@ impl Emitter<'_> {
                 };
                 if value.checked {
                     self.check_delimiters(&origin, &trigger, value.element, None, &value.bytes);
+                }
+                if let Some(reason) = value.refused {
+                    let shown = match field {
+                        Field::Time => format!("time32({})", self.envelope.time),
+                        _ => date_display(self.envelope.date),
+                    };
+                    self.findings.push(Finding::NotWritable {
+                        origin: origin.clone(),
+                        place: place(&trigger, value.element, None),
+                        value: shown,
+                        reason,
+                    });
                 }
                 self.traces.entry(value.element, None, Src::Field(field));
             }

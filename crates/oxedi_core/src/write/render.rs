@@ -47,6 +47,38 @@ pub(super) fn time_text(seconds: i32, max: Option<usize>) -> Result<Vec<u8>, Str
     Ok(format!("{hours:02}{minutes:02}{rest:02}").into_bytes())
 }
 
+/// An envelope date as `CCYYMMDD`, or as `YYMMDD` (the century dropped)
+/// when the element holds six bytes at most; the reason when the date has
+/// no four-digit year.
+pub(super) fn envelope_date(days: i32, max: Option<usize>) -> Result<Vec<u8>, String> {
+    let full = date_text(days, None)?;
+    match max {
+        Some(max) if max < 8 => Ok(full.get(2..).unwrap_or_default().to_vec()),
+        _ => Ok(full),
+    }
+}
+
+/// An envelope time as `HHMM`, or `HHMMSS` when it has seconds and the
+/// element holds them (an element of four bytes drops them); the reason
+/// when the time falls outside one day.
+pub(super) fn envelope_time(seconds: i32, max: Option<usize>) -> Result<Vec<u8>, String> {
+    let held = match max {
+        Some(max) if max < 6 => seconds - seconds.rem_euclid(60),
+        _ => seconds,
+    };
+    time_text(held, max)
+}
+
+/// A date as a message shows it, `YYYY-MM-DD`, or its raw number when it
+/// is too far from 1970 to convert.
+pub(super) fn date_display(days: i32) -> String {
+    if days.checked_add(719_468).is_none() {
+        return format!("date32({days})");
+    }
+    let (year, month, day) = civil_from_days(days);
+    format!("{year:04}-{month:02}-{day:02}")
+}
+
 /// A scaled decimal in fixed point, without trailing zeros in the fraction
 /// and without a point when nothing follows it.
 fn decimal_text(value: i128, scale: u8, out: &mut Vec<u8>) {

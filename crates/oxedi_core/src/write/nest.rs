@@ -119,6 +119,7 @@ pub(super) fn nest(
                 let place = place.unwrap_or(Err((last.unwrap_or(index), None)));
                 match place {
                     Ok((anchor, owner, at)) => {
+                        contradictions(spec, data, index, row, owner, at, findings);
                         if let Some(map) = nest.repeats.get_mut(index) {
                             map.entry((anchor, at)).or_default().push(row);
                         }
@@ -146,6 +147,9 @@ pub(super) fn nest(
         for row in 0..table.rows {
             let value = table.reference(parent, row);
             let at = value.and_then(|value| keys.get(parent)?.get(&value).copied());
+            if let Some(at) = at {
+                contradictions(spec, data, index, row, parent, at, findings);
+            }
             match at.and_then(|at| lists.get_mut(at)) {
                 Some(list) => list.push(row),
                 None => findings.push(missing(spec, table, row, parent, value)),
@@ -156,6 +160,54 @@ pub(super) fn nest(
         }
     }
     nest
+}
+
+/// Reports each reference of row `row` of `table` to a table above
+/// `owner` that differs from the reference of the row it belongs to,
+/// `owner_row` of `owner`.
+fn contradictions(
+    spec: &Spec,
+    data: &[Data<'_>],
+    table: usize,
+    row: usize,
+    owner: usize,
+    owner_row: usize,
+    findings: &mut Vec<Finding>,
+) {
+    let (Some(rows), Some(owners)) = (data.get(table), data.get(owner)) else {
+        return;
+    };
+    let tables = spec.tables();
+    let Some(above) = tables.get(owner).map(|def| &def.ancestors) else {
+        return;
+    };
+    for &ancestor in above {
+        let (Some(value), Some(expected)) = (
+            rows.reference(ancestor, row),
+            owners.reference(ancestor, owner_row),
+        ) else {
+            continue;
+        };
+        if value == expected {
+            continue;
+        }
+        let reference = |at: usize| {
+            tables
+                .get(at)
+                .map(|def| def.reference.clone())
+                .unwrap_or_default()
+        };
+        findings.push(Finding::MismatchedReference {
+            table: rows.name.clone(),
+            row,
+            column: reference(ancestor),
+            value,
+            through: reference(owner),
+            parent: owners.name.clone(),
+            parent_row: owner_row,
+            expected,
+        });
+    }
 }
 
 fn missing(

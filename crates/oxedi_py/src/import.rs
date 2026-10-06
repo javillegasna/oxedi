@@ -4,8 +4,9 @@
 //! Polars and the tables of a parse export it); an object without it, such
 //! as a pandas frame, is read through `pyarrow.table`. Each column is
 //! converted to the type the spec gives it: text and bytes of any Arrow
-//! layout to bytes, integers (and whole floats) to integers, decimals
-//! rescaled exactly, dates and times from their Arrow units. A value that
+//! layout (dictionary-encoded too) to bytes, integers (and whole floats) to
+//! integers, decimals rescaled exactly (floats are refused for them), dates
+//! from dates or midnight timestamps, and times from their Arrow units. A value that
 //! would change on the way is refused with the table, column and row.
 
 use arrow_array::cast::AsArray;
@@ -13,7 +14,8 @@ use arrow_array::ffi_stream::{ArrowArrayStreamReader, FFI_ArrowArrayStream};
 use arrow_array::types::{
     Date32Type, Date64Type, Decimal128Type, Float32Type, Float64Type, Int8Type, Int16Type,
     Int32Type, Int64Type, Time32MillisecondType, Time32SecondType, Time64MicrosecondType,
-    Time64NanosecondType, UInt8Type, UInt16Type, UInt32Type, UInt64Type,
+    Time64NanosecondType, TimestampMicrosecondType, TimestampMillisecondType,
+    TimestampNanosecondType, TimestampSecondType, UInt8Type, UInt16Type, UInt32Type, UInt64Type,
 };
 use arrow_array::{Array, RecordBatch, RecordBatchReader};
 use arrow_schema::{DataType, TimeUnit};
@@ -144,8 +146,24 @@ fn cell(array: &dyn Array, row: usize, kind: ColumnType) -> Result<Cell<'_>, Str
             array.data_type()
         )
     };
+    if let Some(dictionary) = array.as_any_dictionary_opt() {
+        let index = integer(dictionary.keys(), row)
+            .and_then(Result::ok)
+            .and_then(|key| usize::try_from(key).ok())
+            .ok_or_else(unsupported)?;
+        return cell(dictionary.values().as_ref(), index, kind);
+    }
     match kind {
         ColumnType::Binary => bytes(array, row).ok_or_else(unsupported).map(Cell::Binary),
+        ColumnType::Decimal128 { .. }
+            if matches!(array.data_type(), DataType::Float32 | DataType::Float64) =>
+        {
+            Err(format!(
+                "an Arrow {} column is refused for the spec's {kind} values: a float may not \
+                 hold the amount exactly; give decimal values (decimal.Decimal in Python)",
+                array.data_type()
+            ))
+        }
         ColumnType::Int64 { .. } => integer(array, row)
             .ok_or_else(unsupported)?
             .map(Cell::Int64),
@@ -231,10 +249,39 @@ fn decimal(array: &dyn Array, row: usize, scale: u8) -> Option<Result<i128, Stri
     })
 }
 
-/// Days since 1970-01-01 from a date; `None` for another type.
+/// Days since 1970-01-01 from a date, or from a timestamp without a time
+/// zone at exactly midnight; `None` for another type.
 fn date(array: &dyn Array, row: usize) -> Option<Result<i32, String>> {
     const DAY: i64 = 86_400_000;
+    let midnight = |value: i64, per_day: i64| {
+        if value % per_day == 0 {
+            i32::try_from(value / per_day).map_err(|_| format!("{value} is out of range"))
+        } else {
+            Err(format!("timestamp {value} is not at midnight; give dates"))
+        }
+    };
     Some(match array.data_type() {
+        DataType::Timestamp(unit, None) => {
+            let per_day = match unit {
+                TimeUnit::Second => 86_400,
+                TimeUnit::Millisecond => DAY,
+                TimeUnit::Microsecond => DAY * 1_000,
+                TimeUnit::Nanosecond => DAY * 1_000_000,
+            };
+            let value = match unit {
+                TimeUnit::Second => array.as_primitive_opt::<TimestampSecondType>()?.value(row),
+                TimeUnit::Millisecond => array
+                    .as_primitive_opt::<TimestampMillisecondType>()?
+                    .value(row),
+                TimeUnit::Microsecond => array
+                    .as_primitive_opt::<TimestampMicrosecondType>()?
+                    .value(row),
+                TimeUnit::Nanosecond => array
+                    .as_primitive_opt::<TimestampNanosecondType>()?
+                    .value(row),
+            };
+            midnight(value, per_day)
+        }
         DataType::Date32 => Ok(array.as_primitive_opt::<Date32Type>()?.value(row)),
         DataType::Date64 => {
             let millis = array.as_primitive_opt::<Date64Type>()?.value(row);

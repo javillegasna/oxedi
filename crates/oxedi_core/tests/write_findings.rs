@@ -115,6 +115,12 @@ fn the_4010_interchange_writes_its_own_codes() {
     assert!(written.starts_with(
         "ISA*00*          *00*          *ZZ*SENDER         *ZZ*RECEIVER       *240101*1230*U*00401*000000001*0*P*:~GS*HP*SENDER*RECEIVER*20240101*1230*1*X*004010X091A1~ST*835*0001~"
     ));
+    let segments = written.matches('~').count();
+    // Every segment but ISA, GS, GE and IEA is in the transaction.
+    assert!(written.ends_with(&format!(
+        "~SE*{}*0001~GE*1*1~IEA*1*000000001~",
+        segments - 4
+    )));
 }
 
 #[test]
@@ -392,4 +398,222 @@ fn a_null_header_number_is_reported_on_its_column() {
         ),
         "{found:#?}"
     );
+}
+
+#[test]
+fn a_missing_occurrence_names_the_row_that_opened_its_instance() {
+    let (spec, tables) = emedny();
+    let nameless = rebuild(&tables, "claims", None, |name, at, cell| {
+        if at == 0 && name.starts_with("patient_") {
+            Cell::Null
+        } else {
+            cell
+        }
+    });
+    let found = findings(write(&spec, &nameless, &envelope()));
+    assert_eq!(found.len(), 1, "{found:#?}");
+    assert!(
+        found[0].starts_with(
+            "table \"claims\" row 0: SNIP 2 · loop \"2100\" opened at segment #13 closed without its required occurrence \"patient_name\""
+        ),
+        "{found:#?}"
+    );
+}
+
+#[test]
+fn envelope_dates_and_times_drop_what_the_interchange_header_cannot_hold() {
+    let (spec, tables) = emedny();
+    let mut envelope = envelope();
+    // 2050-06-15 at 08:05:09.
+    envelope.date = 29385;
+    envelope.time = 8 * 3600 + 5 * 60 + 9;
+    let written = text(&write(&spec, &tables, &envelope).unwrap());
+    assert!(written.contains("*500615*0805*^*"));
+    assert!(written.contains("~GS*HP*SENDER*RECEIVER*20500615*080509*1*X*"));
+    envelope.date = 3_000_000;
+    let found = findings(write(&spec, &tables, &envelope));
+    assert_eq!(
+        &found[..2],
+        [
+            "envelope field \"date\" holds 10183-09-21, which ISA09 cannot hold: a date needs a year from 1 to 9999",
+            "envelope field \"date\" holds 10183-09-21, which GS04 cannot hold: a date needs a year from 1 to 9999",
+        ]
+    );
+}
+
+#[test]
+fn a_control_number_too_long_is_named_on_every_envelope_segment() {
+    let (spec, tables) = emedny();
+    let mut envelope = envelope();
+    envelope.control_number = 1_000_000_000;
+    let (_, found) = write_with_findings(&spec, &tables, &envelope).unwrap();
+    assert!(!found.is_empty());
+    for finding in &found {
+        let Finding::ReadBack { origin, .. } = finding else {
+            panic!("{finding}");
+        };
+        assert_eq!(
+            origin.as_ref().map(ToString::to_string).as_deref(),
+            Some("envelope field \"control_number\""),
+            "{finding}"
+        );
+    }
+    let closers = found
+        .iter()
+        .filter(|f| {
+            f.to_string().contains("element IEA02") || f.to_string().contains("element GE02")
+        })
+        .count();
+    assert_eq!(closers, 2, "{found:#?}");
+}
+
+#[test]
+fn a_5010_interchange_needs_a_repetition_separator() {
+    let (spec, tables) = emedny();
+    let mut envelope = envelope();
+    envelope.delimiters = Delimiters::new(b'*', b':', b'~');
+    assert!(matches!(
+        write(&spec, &tables, &envelope),
+        Err(WriteError::NoRepetition)
+    ));
+}
+
+#[test]
+fn a_reference_that_contradicts_the_parent_row_is_a_finding() {
+    let (spec, tables) = emedny();
+    let edited = set(&tables, "services", "payment", 0, Cell::Int64(5));
+    let found = findings(write(&spec, &edited, &envelope()));
+    assert_eq!(
+        found,
+        vec![
+            "table \"services\" row 0 column \"payment\" is 5, but the row it belongs to by column \"claim\", row 0 of table \"claims\", has \"payment\" 0"
+        ]
+    );
+    // An adjustment of a service under claim 0 that names claim 1.
+    let adjustments = tables.get("adjustments").unwrap();
+    let at = (0..adjustments.len())
+        .find(|&row| adjustments.column("service").unwrap().get(row) != Some(Cell::Null))
+        .unwrap();
+    let claim = match adjustments.column("claim").unwrap().get(at) {
+        Some(Cell::Int64(claim)) => claim,
+        other => panic!("{other:?}"),
+    };
+    let edited = set(&tables, "adjustments", "claim", at, Cell::Int64(claim + 1));
+    let found = findings(write(&spec, &edited, &envelope()));
+    assert!(
+        found[0].starts_with(&format!(
+            "table \"adjustments\" row {at} column \"claim\" is {}, but the row it belongs to by column \"service\"",
+            claim + 1
+        )),
+        "{found:#?}"
+    );
+}
+
+#[test]
+fn two_payments_write_two_transactions_with_their_own_counts() {
+    let (spec, tables) = emedny();
+    let row_of = |at: usize| Cell::Int64(i64::try_from(at).unwrap());
+    // A second payment, and the last claim (row 2) with its rows moved to it.
+    let two = rebuild(&tables, "payments", Some(&[0, 0]), |name, at, cell| {
+        if name == "row" { row_of(at) } else { cell }
+    });
+    let claim_of = |tables: &Tables, table: &str, row: usize| {
+        tables.get(table).unwrap().column("claim").unwrap().get(row) == Some(Cell::Int64(2))
+    };
+    let moved = rebuild(&two, "claims", None, |name, at, cell| {
+        if name == "payment" && at == 2 {
+            Cell::Int64(1)
+        } else {
+            cell
+        }
+    });
+    let moved = rebuild(&moved, "services", None, |name, at, cell| {
+        if name == "payment" && claim_of(&tables, "services", at) {
+            Cell::Int64(1)
+        } else {
+            cell
+        }
+    });
+    let moved = rebuild(&moved, "adjustments", None, |name, at, cell| {
+        if name == "payment" && claim_of(&tables, "adjustments", at) {
+            Cell::Int64(1)
+        } else {
+            cell
+        }
+    });
+    // Three provider adjustments of the first payment: one PLB, three groups.
+    let mut plb = Table::new(
+        "provider_adjustments",
+        tables
+            .get("provider_adjustments")
+            .unwrap()
+            .columns()
+            .iter()
+            .map(|(name, data)| (name.clone(), data.kind()))
+            .collect::<Vec<_>>(),
+    );
+    for (at, reason) in [b"WO", b"FB", b"L6"].iter().enumerate() {
+        let cells: Vec<Cell> = plb
+            .columns()
+            .iter()
+            .map(|(name, _)| match name.as_str() {
+                "row" => row_of(at),
+                "segment" => Cell::Int64(1),
+                "payment" => Cell::Int64(0),
+                "provider_id" => Cell::Binary(b"P1"),
+                "fiscal_period_date" => Cell::Date32(19_723),
+                "reason_code" => Cell::Binary(&reason[..]),
+                "amount" => Cell::Decimal128(100),
+                _ => Cell::Null,
+            })
+            .collect();
+        plb.push_row(&cells).unwrap();
+    }
+    let all: Vec<Table> = moved
+        .iter()
+        .map(|table| {
+            if table.name() == "provider_adjustments" {
+                plb.clone()
+            } else {
+                table.clone()
+            }
+        })
+        .collect();
+    let all = Tables::new(all);
+    let mut envelope = envelope();
+    envelope.line_break = true;
+    let (bytes, found) = write_with_findings(&spec, &all, &envelope).unwrap();
+    // Only the amounts no longer balance.
+    assert!(
+        found
+            .iter()
+            .all(|f| f.to_string().contains("balancing rule")),
+        "{found:#?}"
+    );
+    let written = text(&bytes);
+    let lines: Vec<&str> = written.lines().collect();
+    let at = |prefix: &str| -> Vec<usize> {
+        lines
+            .iter()
+            .enumerate()
+            .filter(|(_, l)| l.starts_with(prefix))
+            .map(|(i, _)| i)
+            .collect()
+    };
+    let (starts, ends) = (at("ST*"), at("SE*"));
+    assert_eq!(lines[starts[0]], "ST*835*0001*005010X221A1~");
+    assert_eq!(lines[starts[1]], "ST*835*0002*005010X221A1~");
+    assert_eq!(
+        lines[ends[0]],
+        format!("SE*{}*0001~", ends[0] - starts[0] + 1)
+    );
+    assert_eq!(
+        lines[ends[1]],
+        format!("SE*{}*0002~", ends[1] - starts[1] + 1)
+    );
+    assert_eq!(lines[lines.len() - 2], "GE*2*1~");
+    assert_eq!(lines[lines.len() - 1], "IEA*1*000000001~");
+    assert_eq!(at("PLB*"), vec![ends[0] - 1]);
+    assert_eq!(lines[ends[0] - 1], "PLB*P1*20240101*WO*1*FB*1*L6*1~");
+    assert_eq!(at("CLP*").iter().filter(|&&i| i > starts[1]).count(), 1);
 }

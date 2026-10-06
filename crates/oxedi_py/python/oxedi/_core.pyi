@@ -201,15 +201,43 @@ class Envelope:
         The first control number.
         """
     @property
+    def date(self) -> datetime.date:
+        r"""
+        The date.
+        """
+    @property
+    def time(self) -> datetime.time:
+        r"""
+        The time.
+        """
+    @property
+    def application_sender(self) -> typing.Optional[builtins.str]:
+        r"""
+        The functional group's sender code, when it is not the sender id.
+        """
+    @property
+    def application_receiver(self) -> typing.Optional[builtins.str]:
+        r"""
+        The functional group's receiver code, when it is not the receiver id.
+        """
+    @property
+    def line_break(self) -> builtins.bool:
+        r"""
+        Whether a line break follows each segment.
+        """
+    @property
     def delimiters(self) -> Delimiters:
         r"""
         The delimiters written.
         """
     def __new__(cls, *, sender_id: builtins.str, receiver_id: builtins.str, date: datetime.date, time: datetime.time, sender_qualifier: builtins.str = "ZZ", receiver_qualifier: builtins.str = "ZZ", usage_indicator: builtins.str = "P", control_number: builtins.int = 1, application_sender: typing.Optional[builtins.str] = None, application_receiver: typing.Optional[builtins.str] = None, delimiters: typing.Optional[Delimiters] = None, line_break: builtins.bool = False) -> Envelope:
         r"""
-        `date` and `time` (whole seconds) stamp the interchange and the
-        group. `delimiters` defaults to `*`, `:`, `~` and the repetition
-        separator `^`; `line_break` adds a line break after each segment.
+        `date` (a `datetime.date`) and `time` (a `datetime.time` without a
+        time zone, whole seconds) stamp the interchange and the group: the
+        interchange header holds the date without its century and the time
+        without its seconds, the group header keeps both. `delimiters`
+        defaults to `*`, `:`, `~` and the repetition separator `^`;
+        `line_break` adds a line break after each segment.
         """
     def __repr__(self) -> builtins.str: ...
 

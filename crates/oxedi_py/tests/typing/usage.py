@@ -163,6 +163,12 @@ def writes(result: Result, frames: dict[str, polars.DataFrame]) -> bytes:
     print(sender, envelope.sender_qualifier, envelope.receiver_id, envelope.receiver_qualifier)
     print(envelope.usage_indicator, envelope.delimiters, repr(envelope))
     number: int = envelope.control_number
+    day: datetime.date = envelope.date
+    moment: datetime.time = envelope.time
+    app: str | None = envelope.application_sender
+    other: str | None = envelope.application_receiver
+    broken: bool = envelope.line_break
+    print(day, moment, app, other, broken)
     data: bytes = oxedi.write(result.tables, envelope)
     strict: bytes = oxedi.write(frames, envelope, spec=Spec.builtin(), allow_findings=False)
     allowed: tuple[bytes, list[WriteFinding]] = oxedi.write(frames, envelope, allow_findings=True)

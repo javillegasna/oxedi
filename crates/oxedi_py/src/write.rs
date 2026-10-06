@@ -35,9 +35,12 @@ pub struct PyEnvelope {
 #[gen_stub_pymethods]
 #[pymethods]
 impl PyEnvelope {
-    /// `date` and `time` (whole seconds) stamp the interchange and the
-    /// group. `delimiters` defaults to `*`, `:`, `~` and the repetition
-    /// separator `^`; `line_break` adds a line break after each segment.
+    /// `date` (a `datetime.date`) and `time` (a `datetime.time` without a
+    /// time zone, whole seconds) stamp the interchange and the group: the
+    /// interchange header holds the date without its century and the time
+    /// without its seconds, the group header keeps both. `delimiters`
+    /// defaults to `*`, `:`, `~` and the repetition separator `^`;
+    /// `line_break` adds a line break after each segment.
     #[new]
     #[pyo3(signature = (
         *,
@@ -76,6 +79,17 @@ impl PyEnvelope {
         #[gen_stub(override_type(type_repr = "builtins.bool", imports = ("builtins",)))]
         line_break: bool,
     ) -> PyResult<Self> {
+        let datetime = date.py().import("datetime")?;
+        if date.is_instance(&datetime.getattr("datetime")?)? {
+            return Err(PyValueError::new_err(format!(
+                "date {date} is a datetime; give a datetime.date (the envelope's time is its own field)"
+            )));
+        }
+        if !time.getattr("tzinfo")?.is_none() {
+            return Err(PyValueError::new_err(format!(
+                "time {time} has a time zone; give a datetime.time without one, as the envelope writes local time"
+            )));
+        }
         let ordinal: i64 = date.call_method0("toordinal")?.extract()?;
         let days = i32::try_from(ordinal - EPOCH_ORDINAL)
             .map_err(|_| PyValueError::new_err(format!("date {date} is out of range")))?;
@@ -141,6 +155,45 @@ impl PyEnvelope {
         self.inner.control_number
     }
 
+    /// The date.
+    #[getter]
+    #[gen_stub(override_return_type(type_repr = "datetime.date", imports = ("datetime",)))]
+    fn date<'py>(&self, py: Python<'py>) -> PyResult<Bound<'py, PyAny>> {
+        py.import("datetime")?
+            .getattr("date")?
+            .call_method1("fromordinal", (i64::from(self.inner.date) + EPOCH_ORDINAL,))
+    }
+
+    /// The time.
+    #[getter]
+    #[gen_stub(override_return_type(type_repr = "datetime.time", imports = ("datetime",)))]
+    fn time<'py>(&self, py: Python<'py>) -> PyResult<Bound<'py, PyAny>> {
+        let seconds = self.inner.time;
+        py.import("datetime")?.getattr("time")?.call1((
+            seconds / 3600,
+            seconds / 60 % 60,
+            seconds % 60,
+        ))
+    }
+
+    /// The functional group's sender code, when it is not the sender id.
+    #[getter]
+    fn application_sender(&self) -> Option<&str> {
+        self.inner.application_sender.as_deref()
+    }
+
+    /// The functional group's receiver code, when it is not the receiver id.
+    #[getter]
+    fn application_receiver(&self) -> Option<&str> {
+        self.inner.application_receiver.as_deref()
+    }
+
+    /// Whether a line break follows each segment.
+    #[getter]
+    fn line_break(&self) -> bool {
+        self.inner.line_break
+    }
+
     /// The delimiters written.
     #[getter]
     fn delimiters(&self) -> PyDelimiters {
@@ -187,6 +240,7 @@ impl PyWriteFinding {
             Finding::DelimiterInValue { .. } => "DelimiterInValue",
             Finding::UnwrittenValue { .. } => "UnwrittenValue",
             Finding::MissingParent { .. } => "MissingParent",
+            Finding::MismatchedReference { .. } => "MismatchedReference",
             Finding::DuplicateRowNumber { .. } => "DuplicateRowNumber",
             Finding::OutOfOrder { .. } => "OutOfOrder",
             Finding::NotWritable { .. } => "NotWritable",
@@ -199,6 +253,7 @@ impl PyWriteFinding {
     fn table(&self) -> Option<&str> {
         match &self.inner {
             Finding::MissingParent { table, .. }
+            | Finding::MismatchedReference { table, .. }
             | Finding::DuplicateRowNumber { table, .. }
             | Finding::OutOfOrder { table, .. } => Some(table),
             _ => match self.origin()? {
@@ -213,6 +268,7 @@ impl PyWriteFinding {
     fn row(&self) -> Option<usize> {
         match &self.inner {
             Finding::MissingParent { row, .. }
+            | Finding::MismatchedReference { row, .. }
             | Finding::DuplicateRowNumber { row, .. }
             | Finding::OutOfOrder { row, .. } => Some(*row),
             _ => match self.origin()? {
@@ -226,9 +282,9 @@ impl PyWriteFinding {
     #[getter]
     fn column(&self) -> Option<&str> {
         match &self.inner {
-            Finding::MissingParent { column, .. } | Finding::OutOfOrder { column, .. } => {
-                Some(column)
-            }
+            Finding::MissingParent { column, .. }
+            | Finding::MismatchedReference { column, .. }
+            | Finding::OutOfOrder { column, .. } => Some(column),
             _ => match self.origin()? {
                 Origin::Cell { column, .. } => Some(column),
                 _ => None,

@@ -75,6 +75,19 @@ fn findings_display_their_full_text() {
             "table \"services\" row 2 column \"claim\" is null, so the row has no place in the file",
         ),
         (
+            Finding::MismatchedReference {
+                table: "services".into(),
+                row: 4,
+                column: "payment".into(),
+                value: 1,
+                through: "claim".into(),
+                parent: "claims".into(),
+                parent_row: 2,
+                expected: 0,
+            },
+            "table \"services\" row 4 column \"payment\" is 1, but the row it belongs to by column \"claim\", row 2 of table \"claims\", has \"payment\" 0",
+        ),
+        (
             Finding::DuplicateRowNumber {
                 table: "claims".into(),
                 row: 4,
@@ -191,6 +204,10 @@ fn write_errors_display_their_full_text() {
                 byte: b' ',
             },
             "the component separator \" \" is a letter, a digit or white space, which values hold",
+        ),
+        (
+            WriteError::NoRepetition,
+            "the interchange header carries a repetition separator, but the envelope field \"delimiters.repetition\" is not set",
         ),
         (
             WriteError::Unreadable(DocumentError::Isa(IsaError::NotIsa {

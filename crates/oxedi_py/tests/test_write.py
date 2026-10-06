@@ -156,7 +156,7 @@ def test_tables_that_do_not_fit_the_spec_are_refused():
     assert info.value.findings == []
     with pytest.raises(oxedi.WriteError, match='has no column "color" in the spec'):
         oxedi.write({"claims": pyarrow.table({"color": ["red"]})}, envelope())
-    with pytest.raises(oxedi.WriteError, match=r'column "charge_amount" row 0: 1\.234 '):
+    with pytest.raises(oxedi.WriteError, match=r"column \"charge_amount\" row 0: an Arrow Float64"):
         oxedi.write(
             {"claims": pyarrow.table({"charge_amount": pyarrow.array([1.234])})},
             envelope(),
@@ -164,4 +164,77 @@ def test_tables_that_do_not_fit_the_spec_are_refused():
     with pytest.raises(oxedi.WriteError, match="tables must be the tables of a parse or a mapping"):
         oxedi.write([tables], envelope())
     with pytest.raises(oxedi.WriteError, match="both"):
-        oxedi.write(tables, envelope(delimiters=oxedi.Delimiters(component=b"*")))
+        oxedi.write(
+            tables, envelope(delimiters=oxedi.Delimiters(component=b"*", repetition=b"^"))
+        )
+    with pytest.raises(oxedi.WriteError, match='"delimiters.repetition" is not set'):
+        oxedi.write(tables, envelope(delimiters=oxedi.Delimiters()))
+
+
+def test_the_envelope_returns_its_date_time_and_options():
+    given = envelope(application_sender="APP", line_break=True)
+    assert given.date == datetime.date(2024, 1, 1)
+    assert given.time == datetime.time(12, 30)
+    assert (given.application_sender, given.application_receiver) == ("APP", None)
+    assert given.line_break is True
+    with pytest.raises(ValueError, match="is a datetime; give a datetime.date"):
+        envelope(date=datetime.datetime(2024, 1, 1, 12, 30))
+    with pytest.raises(ValueError, match="has a time zone"):
+        envelope(time=datetime.time(12, 30, tzinfo=datetime.timezone.utc))
+
+
+def test_the_interchange_header_drops_the_century_and_the_seconds():
+    tables = parse_named("emedny_sample.txt").tables
+    data = oxedi.write(
+        tables, envelope(date=datetime.date(2050, 6, 15), time=datetime.time(8, 5, 9))
+    )
+    assert b"*500615*0805*^*" in data
+    assert b"~GS*HP*SENDER*RECEIVER*20500615*080509*1*X*" in data
+
+
+def test_frames_with_categories_and_timestamps_write_like_the_tables():
+    import polars
+
+    result = parse_named("emedny_sample.txt")
+    tables = result.tables
+    frames = {name: tables[name].to_polars() for name in tables.keys()}
+    claims = frames["claims"]
+    frames["claims"] = claims.with_columns(
+        polars.col("claim_status").cast(polars.String).cast(polars.Categorical),
+        polars.col("statement_from").cast(polars.Datetime("ns")),
+    )
+    assert oxedi.write(frames, envelope()) == oxedi.write(tables, envelope())
+    pandas_claims = tables["claims"].to_pandas()
+    pandas_claims["statement_from"] = pandas_claims["statement_from"].astype("datetime64[ns]")
+    pandas_frames = {name: tables[name].to_pandas() for name in tables.keys()}
+    pandas_frames["claims"] = pandas_claims
+    assert oxedi.write(pandas_frames, envelope()) == oxedi.write(tables, envelope())
+
+
+def test_a_float_for_a_decimal_column_is_refused():
+    with pytest.raises(oxedi.WriteError, match=r"float may not hold the amount exactly; give decimal values \(decimal.Decimal"):
+        oxedi.write({"claims": pyarrow.table({"charge_amount": [1.5]})}, envelope())
+    with pytest.raises(oxedi.WriteError, match="is not at midnight"):
+        oxedi.write(
+            {"claims": pyarrow.table({"statement_from": [datetime.datetime(2024, 1, 1, 1)]})},
+            envelope(),
+        )
+
+
+def test_a_reference_against_the_parent_chain_is_a_finding():
+    result = parse_named("emedny_sample.txt")
+    frames = {name: result.tables[name].to_polars() for name in result.tables.keys()}
+    import polars
+
+    services = frames["services"]
+    frames["services"] = services.with_columns(
+        polars.when(polars.int_range(polars.len()) == 0)
+        .then(5)
+        .otherwise(polars.col("payment"))
+        .alias("payment")
+    )
+    with pytest.raises(oxedi.WriteError) as info:
+        oxedi.write(frames, envelope())
+    [finding] = info.value.findings
+    assert finding.kind == "MismatchedReference"
+    assert (finding.table, finding.row, finding.column) == ("services", 0, "payment")

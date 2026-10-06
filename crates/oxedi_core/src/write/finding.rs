@@ -93,6 +93,26 @@ pub enum Finding {
         /// The table the reference points into.
         parent: String,
     },
+    /// A row's reference to a table further up contradicts the row it
+    /// belongs to: that row refers to another one.
+    MismatchedReference {
+        /// The table.
+        table: String,
+        /// The row.
+        row: usize,
+        /// The contradicting reference column.
+        column: String,
+        /// Its value.
+        value: i64,
+        /// The column that places the row.
+        through: String,
+        /// The table the row belongs to a row of.
+        parent: String,
+        /// That row.
+        parent_row: usize,
+        /// That row's reference in `column`.
+        expected: i64,
+    },
     /// Two rows of a table carry the same row number, so a reference to it
     /// cannot tell them apart.
     DuplicateRowNumber {
@@ -188,6 +208,21 @@ impl fmt::Display for Finding {
                 }
                 write!(f, ", so the row has no place in the file")
             }
+            Finding::MismatchedReference {
+                table,
+                row,
+                column,
+                value,
+                through,
+                parent,
+                parent_row,
+                expected,
+            } => write!(
+                f,
+                "table {table:?} row {row} column {column:?} is {value}, but the row it belongs \
+                 to by column {through:?}, row {parent_row} of table {parent:?}, has {column:?} \
+                 {expected}"
+            ),
             Finding::DuplicateRowNumber {
                 table,
                 row,
@@ -277,6 +312,9 @@ pub enum WriteError {
         /// The byte.
         byte: u8,
     },
+    /// The interchange header carries a repetition separator, and the
+    /// envelope's delimiters have none.
+    NoRepetition,
     /// The written file could not be read back.
     Unreadable(DocumentError),
     /// The tables do not make a valid file; nothing was written.
@@ -329,6 +367,11 @@ impl fmt::Display for WriteError {
                 f,
                 "the {role} {} is a letter, a digit or white space, which values hold",
                 Quoted(&[*byte])
+            ),
+            WriteError::NoRepetition => write!(
+                f,
+                "the interchange header carries a repetition separator, but the envelope field \
+                 \"delimiters.repetition\" is not set"
             ),
             WriteError::Unreadable(error) => {
                 write!(f, "the written file could not be read back: {error}")

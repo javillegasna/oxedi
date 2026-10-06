@@ -8,6 +8,7 @@
 //! splits where the data does not.
 
 use crate::column::{Cell, Tables};
+use crate::diagnostic::Rule;
 use crate::document::Document;
 use crate::process::Processor;
 use crate::spec::Spec;
@@ -28,6 +29,11 @@ use super::trace::Traces;
 /// `tables` hold the spec's tables by name, with the columns and types a
 /// parse with the spec gives; a table left out has no rows and a column
 /// left out is null.
+///
+/// A null cell writes nothing, so its element is left out at the end of a
+/// segment; in the middle of a segment it is written as an empty element,
+/// which a parse reads back as empty text, not null. Only trailing nulls
+/// read back as null.
 pub fn write(spec: &Spec, tables: &Tables, envelope: &Envelope) -> Result<Vec<u8>, WriteError> {
     let (bytes, findings) = write_with_findings(spec, tables, envelope)?;
     if findings.is_empty() {
@@ -41,6 +47,10 @@ pub fn write(spec: &Spec, tables: &Tables, envelope: &Envelope) -> Result<Vec<u8
 /// the findings instead of refusing them. Errors that leave nothing to
 /// write (a spec that cannot be written, tables or delimiters that do not
 /// fit) are still returned.
+///
+/// When a value holds a delimiter the written file splits where the data
+/// does not, so it is not read back: the findings then list what the
+/// writer itself found, without those of reading the file.
 pub fn write_with_findings(
     spec: &Spec,
     tables: &Tables,
@@ -158,9 +168,23 @@ fn read_back(
             .unwrap_or_default(),
     };
     for diagnostic in diagnostics {
-        let origin = diagnostic.segment.and_then(|segment| {
-            traces.origin(segment, diagnostic.element, diagnostic.component, &names)
-        });
+        // A rule about a whole instance, reported where it closes, names the
+        // row that opened it.
+        let opened = match &diagnostic.rule {
+            Rule::RequiredOccurrenceMissing { opened_at, .. }
+            | Rule::RequiredLoopMissing { opened_at, .. }
+            | Rule::UnterminatedLoop { opened_at, .. }
+            | Rule::ControlNumberMismatch { opened_at, .. } => Some(*opened_at),
+            _ => None,
+        };
+        let origin = match opened {
+            Some(opened_at) => {
+                opened_at.and_then(|segment| traces.origin(segment, None, None, &names))
+            }
+            None => diagnostic.segment.and_then(|segment| {
+                traces.origin(segment, diagnostic.element, diagnostic.component, &names)
+            }),
+        };
         findings.push(Finding::ReadBack { origin, diagnostic });
     }
     Ok(())

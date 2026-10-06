@@ -2,14 +2,15 @@
 
 Snapshot for picking the project up cold. Update when a stage changes state.
 
-## Pick up here (2026-10-04, end of session)
+## Pick up here (2026-10-05)
 
 - **Now:** Stage 5f (DuckDB extension, read) on branch `stage-5f-duckdb`: implemented, in PR.
   Extension `oxedi` (`crates/oxedi_duckdb`, `read_835(..., table_name :=, filename :=, version :=,
   binary :=, ignore_errors :=)`) on DuckDB's stable C API >= 1.5.6; CI job `duckdb` builds it and
   runs SQLLogicTest and the oracle on DuckDB 1.5.6 and `next`. Results: oracle equal on 11 parsable
-  files x 6 tables, 0 mismatches; SQLLogicTest files in `crates/oxedi_duckdb/test/sql`; gates
-  green. Next: owner merges; then submit `crates/oxedi_duckdb/description.yml` (fill `repo.ref`) to
+  files x 6 tables, 0 mismatches, 15 oracle tests passed; 5 SQLLogicTest files in `crates/oxedi_duckdb/test/sql`;
+  both CI legs green (stable 1.5.6 and next 2.0.0.dev loading the 1.5.6-ABI binary); gates green. Next: owner merges; then submit `crates/oxedi_duckdb/description.yml` (set `repo.ref` to the
+  release tag `v<version>` after a version bump, so the git tag and EXTENSION_VERSION agree) to
   duckdb/community-extensions.
 - **Released:** 0.2.1 on PyPI 2026-10-05 (#105: type stubs #102, quick-wins sprint #100, PLB
   codes #104); 0.2.0 on 2026-10-04 (#99).

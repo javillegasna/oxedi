@@ -10,8 +10,10 @@ EXTENSION_NAME=oxedi
 
 # The extension version is the workspace's, as `v<version>`. Left to itself the
 # ci-tools take a git tag at HEAD or the commit hash. configure/extension_version.txt
-# is written once: delete it (or `make clean_all`) to pick up a new value.
+# is regenerated when the workspace Cargo.toml is newer.
 EXTENSION_VERSION ?= v$(shell sed -n 's/^version = "\(.*\)"/\1/p' $(PROJ_DIR)../../Cargo.toml | head -n 1)
+
+configure/extension_version.txt: $(PROJ_DIR)../../Cargo.toml
 
 # 0 builds ABI C_STRUCT: the binary loads on TARGET_DUCKDB_VERSION and every
 # later DuckDB. 1 would pin it to TARGET_DUCKDB_VERSION exactly.
@@ -42,10 +44,12 @@ configure: venv platform extension_version
 debug: build_extension_library_debug build_extension_with_metadata_debug
 release: build_extension_library_release build_extension_with_metadata_release
 
-test: test_release test_oracle
+# release first, so a local run never tests a stale binary.
+test: release test_release test_oracle
 test_debug: test_extension_debug
-# release first, so the tests never run against a stale binary.
-test_release: release test_extension_release
+# Must not build: DuckDB's CI runs it on a different host than the build.
+# Our CI runs `make release` first.
+test_release: test_extension_release
 
 # The oracle test: read_835 of the release build against oxedi835.parse_file
 # on every sample and fixture. It needs a Python with duckdb, pyarrow, pytest

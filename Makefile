@@ -17,7 +17,7 @@ WHEELS      := target/wheels
 CARGO_VERSION := $(shell sed -n 's/^version = "\(.*\)"/\1/p' Cargo.toml | head -n 1)
 VERSION     := $(shell echo '$(CARGO_VERSION)' | sed -E 's/-(a|b|rc)\.?/\1/; s/-dev\.?/.dev/')
 
-.PHONY: help version release-check configure_ci set_duckdb_version set_duckdb_tag set_duckdb_repository debug release test_debug test_release duckdb-oracle sdist-check wheel-check gates test clippy fmt fmt-check bench-check doc venv py-dev py-test stubs stubtest compat-oracle dist smoke publish-test publish-test-verify publish tag clean-dist
+.PHONY: help version release-check configure_ci set_duckdb_version set_duckdb_tag set_duckdb_repository debug release test_debug test_release duckdb-oracle duckdb-version-check sdist-check wheel-check gates test clippy fmt fmt-check bench-check doc venv py-dev py-test stubs stubtest compat-oracle dist smoke publish-test publish-test-verify publish tag clean-dist
 
 help: ## list targets
 	@grep -E '^[a-z][a-z_-]*:.*##' $(MAKEFILE_LIST) | sed 's/:.*## /\t/'
@@ -138,6 +138,10 @@ test_release: ## DuckDB extension: run its SQLLogicTests against the release bui
 test_debug: ## DuckDB extension: run its SQLLogicTests against the debug build
 	$(MAKE) -C $(EXT_DIR) test_debug
 
+duckdb-version-check: ## fail unless the community descriptor's version equals the workspace version
+	@d=$$(sed -n 's/^  version: *\(.*\)$$/\1/p' $(EXT_DIR)/description.yml | head -n 1); \
+	test "$$d" = "$(CARGO_VERSION)" || { echo "duckdb-version-check: $(EXT_DIR)/description.yml has version $$d but Cargo.toml has $(CARGO_VERSION)"; exit 1; }
+
 duckdb-oracle: py-dev ## DuckDB extension: compare read_835 with oxedi835.parse_file on every sample and fixture
 	$(MAKE) -C $(EXT_DIR) test_oracle ORACLE_PYTHON=$(abspath $(PYTHON))
 
@@ -145,7 +149,7 @@ duckdb-oracle: py-dev ## DuckDB extension: compare read_835 with oxedi835.parse_
 version: ## print the PEP 440 version published by maturin
 	@echo $(VERSION)
 
-release-check: ## fail unless TAG is v<version>, the tree is clean and CHANGELOG.md has the version
+release-check: duckdb-version-check ## fail unless TAG is v<version>, the tree is clean and CHANGELOG.md has the version
 	@test -n "$(TAG)" || { echo "usage: make release-check TAG=v<version>"; exit 1; }
 	@test -n "$(VERSION)" || { echo "release-check: no version in Cargo.toml [workspace.package]"; exit 1; }
 	@test "$(TAG)" = "v$(VERSION)" || { echo "release-check: tag $(TAG) differs from v$(VERSION) (Cargo.toml version $(CARGO_VERSION))"; exit 1; }

@@ -28,7 +28,7 @@ per call. Parameters:
 |---|---|---|
 | `table_name` | `'claims'` | `payments`, `claims`, `services`, `adjustments`, `provider_adjustments` or `diagnostics` |
 | `filename` | `false` | add a `filename` column with the path each row came from |
-| `version` | the file's own | force the built-in spec, `'5010'` or `'4010'`; by default each file uses the version it declares |
+| `version` | the file's own | force the built-in spec, `'5010'` or `'4010'`; by default each file uses the version it declares (5010 if none) |
 | `binary` | `false` | return text columns as `BLOB` (the raw bytes) instead of `VARCHAR` |
 | `ignore_errors` | `false` | report a file that is not an X12 interchange as a `diagnostics` row and go on |
 
@@ -42,7 +42,7 @@ file contributes no rows to any table but one `diagnostics` row whose `rule` is 
 so run the query with `table_name := 'diagnostics'` as well to see what was skipped.
 
 Glob patterns are expanded by a private in-memory DuckDB that honours your settings:
-`enable_external_access` and `disabled_filesystems` apply. A remote pattern such as
+`enable_external_access` and `disabled_filesystems` apply: with `enable_external_access` off, a glob pattern is an error. A remote pattern such as
 `s3://bucket/*.835` sees persistent secrets only, not temporary `CREATE SECRET` ones. Plain
 paths and lists are read through your own file system and secrets.
 

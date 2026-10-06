@@ -2,6 +2,7 @@ SNIP 1 · loop "interchange" opened without its own trigger ("ISA" with no condi
 SNIP 1 · loop "group" opened without its own trigger ("GS" with no conditions) to hold segment "ST" · segment #0 · at interchange#1/group#1 · datum "ST"
 SNIP 2 · element TRN03 (payer_identifier) has length 9; the spec allows 10 to 10 · segment #2, element 3 · at interchange#1/group#1/transaction#1 · datum "560894904"
 SNIP 2 · element PER03 (communication_number_qualifier) has length 10; the spec allows 2 to 2 · segment #8, element 3 · at interchange#1/group#1/transaction#1/1000A#1 · datum "8005554844"
+SNIP 2 · loop "1000A" opened at segment #5 closed without its required occurrence "payer_technical_contact_information" ("PER" where PER01 is "BL") · segment #9 · at interchange#1/group#1/transaction#1/1000A#1 · datum "N1"
 SNIP 2 · required element SVC02 (line_item_charge_amount) is missing or empty · segment #27, element 2 · at interchange#1/group#1/transaction#1/2000#1/2100#1/2110#3 · datum ""
 SNIP 2 · required element SVC03 (line_item_provider_payment_amount) is missing or empty · segment #27, element 3 · at interchange#1/group#1/transaction#1/2000#1/2100#1/2110#3 · datum ""
 SNIP 1 · SE01 declares "33" but the count is 32 · segment #31, element 1 · at interchange#1/group#1/transaction#1 · datum "33"

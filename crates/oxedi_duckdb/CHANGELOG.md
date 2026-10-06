@@ -7,6 +7,16 @@ and the extension has its own version.
 
 ## [Unreleased]
 
+### Added
+- The diagnostics table carries six new level-2 rules from the loop structure:
+  `RequiredOccurrenceMissing`, `OccurrenceOverMax`, `LoopOverMax`, `OutOfOrder`,
+  `UnknownOccurrence` and `RequiredLoopMissing`; `CodeNotInList` may check an element against
+  the code list of the occurrence its segment takes.
+
+### Changed
+- A text cell whose element is present but empty is now `''`; an absent element stays `NULL`
+  (both used to be `NULL`). Numeric and date columns keep `NULL` for both.
+
 ## [0.1.0] - 2026-10-05
 
 ### Added

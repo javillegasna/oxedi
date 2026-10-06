@@ -6,14 +6,17 @@
 //! owned values only, so it can be printed, stored or sent elsewhere without
 //! the spec or the document that produced it.
 //!
-//! The folder holds: this file (the rule, loop and diagnostic types, the SNIP
-//! levels and the byte quoting helper), `display.rs` (the message text of each
-//! rule) and `tests.rs`.
+//! The folder holds: this file (the loop and diagnostic types, the SNIP
+//! levels and the byte quoting helper), `rule.rs` (the rules, their levels
+//! and variant names), `display.rs` (the message text of each rule) and
+//! `tests.rs`.
 
 use std::fmt;
 
 use crate::document::{Document, Span};
-use crate::spec::{ElementType, render_key};
+use crate::spec::render_key;
+
+pub use rule::Rule;
 
 /// The SNIP validation level a rule belongs to.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
@@ -50,206 +53,6 @@ pub struct LoopRef {
 impl fmt::Display for LoopRef {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(f, "{}#{}", render_key(&self.name), self.ordinal)
-    }
-}
-
-/// The rule a diagnostic reports, with the values its message needs.
-#[derive(Debug, Clone, PartialEq, Eq)]
-#[non_exhaustive]
-pub enum Rule {
-    /// The input starts with a UTF-8 byte order mark, read as leading trivia
-    /// of the first segment. Informational: nothing else changes.
-    ByteOrderMark,
-    /// No open loop holds the segment and it opens no loop.
-    UnknownSegment {
-        /// The segment id.
-        id: Vec<u8>,
-    },
-    /// A loop was opened without its own trigger, to hold a descendant.
-    ImplicitLoop {
-        /// The loop that was opened.
-        loop_name: String,
-        /// The loop's own trigger as the spec writes it, e.g.
-        /// `"GS" with no conditions` or `"N1" where {1: "PR"}`.
-        expected_trigger: String,
-        /// Id of the segment whose loop needed it.
-        caused_by: Vec<u8>,
-    },
-    /// A loop that declares an end segment closed without capturing it.
-    UnterminatedLoop {
-        /// The loop.
-        loop_name: String,
-        /// The end segment the spec declares for it.
-        expected_end: Vec<u8>,
-        /// Index of the segment that opened the instance; `None` for an
-        /// instance opened implicitly.
-        opened_at: Option<usize>,
-    },
-    /// A closing segment's count element does not match what it counts.
-    ControlCountMismatch {
-        /// The closing segment id, e.g. `SE`.
-        segment_id: Vec<u8>,
-        /// 1-based position of the count element.
-        element: usize,
-        /// The count observed in the stream.
-        expected: usize,
-        /// The count element as written.
-        found: Vec<u8>,
-    },
-    /// A control or count element the spec names is absent from its segment.
-    ControlElementMissing {
-        /// The segment id, e.g. `SE`.
-        segment_id: Vec<u8>,
-        /// 1-based position of the absent element.
-        element: usize,
-    },
-    /// A closing segment's control number differs from its opener's.
-    ControlNumberMismatch {
-        /// The opening segment id, e.g. `ST`.
-        opener: Vec<u8>,
-        /// 1-based position of the control number in the opener.
-        opener_element: usize,
-        /// The closing segment id, e.g. `SE`.
-        closer: Vec<u8>,
-        /// 1-based position of the control number in the closer.
-        closer_element: usize,
-        /// The opener's control number as written.
-        opener_value: Vec<u8>,
-        /// The closer's control number as written.
-        closer_value: Vec<u8>,
-        /// Index of the opening segment; `None` for an instance opened implicitly.
-        opened_at: Option<usize>,
-    },
-    /// A required element (or component) is absent or empty.
-    RequiredElementMissing {
-        /// The segment id.
-        segment_id: Vec<u8>,
-        /// 1-based element position.
-        element: usize,
-        /// 1-based component position, when the definition is a component.
-        component: Option<usize>,
-        /// The element's name in the spec.
-        name: String,
-    },
-    /// A value does not parse as its declared type.
-    TypeMismatch {
-        /// The segment id.
-        segment_id: Vec<u8>,
-        /// 1-based element position.
-        element: usize,
-        /// 1-based component position, when the definition is a component.
-        component: Option<usize>,
-        /// The element's name in the spec.
-        name: String,
-        /// The declared type.
-        expected: ElementType,
-    },
-    /// A value is shorter or longer than its definition allows.
-    LengthOutOfRange {
-        /// The segment id.
-        segment_id: Vec<u8>,
-        /// 1-based element position.
-        element: usize,
-        /// 1-based component position, when the definition is a component.
-        component: Option<usize>,
-        /// The element's name in the spec.
-        name: String,
-        /// Declared minimum length.
-        min: Option<usize>,
-        /// Declared maximum length.
-        max: Option<usize>,
-        /// The value's length.
-        length: usize,
-    },
-    /// A text value was not stored: its column cannot address more bytes.
-    ValueDropped {
-        /// The table.
-        table: String,
-        /// The column.
-        column: String,
-        /// The column's byte length the value would have produced.
-        bytes: usize,
-    },
-    /// A composite element has more components than its definition declares.
-    CompositeShape {
-        /// The segment id.
-        segment_id: Vec<u8>,
-        /// 1-based element position.
-        element: usize,
-        /// The element's name in the spec.
-        name: String,
-        /// Highest component position the definition declares.
-        declared: usize,
-        /// Components found in the file.
-        found: usize,
-    },
-    /// A value is not in its element's code list.
-    CodeNotInList {
-        /// The segment id.
-        segment_id: Vec<u8>,
-        /// 1-based element position.
-        element: usize,
-        /// 1-based component position, when the definition is a component.
-        component: Option<usize>,
-        /// The element's name in the spec.
-        name: String,
-        /// The codes the spec lists, sorted by their bytes.
-        codes: Vec<String>,
-    },
-    /// A finding reported by a validator outside this crate, carried as that
-    /// validator states it.
-    External {
-        /// Who reported the finding, e.g. the validator's name.
-        origin: String,
-        /// The validator's own code for the finding, when it gives one.
-        code: Option<String>,
-        /// The validator's description of the finding.
-        message: String,
-        /// The SNIP level the caller assigns to the finding.
-        level: SnipLevel,
-    },
-}
-
-impl Rule {
-    /// The SNIP level the rule belongs to.
-    pub fn level(&self) -> SnipLevel {
-        match self {
-            Rule::ByteOrderMark
-            | Rule::UnknownSegment { .. }
-            | Rule::ImplicitLoop { .. }
-            | Rule::UnterminatedLoop { .. }
-            | Rule::ControlCountMismatch { .. }
-            | Rule::ControlElementMissing { .. }
-            | Rule::ControlNumberMismatch { .. } => SnipLevel::L1,
-            Rule::RequiredElementMissing { .. }
-            | Rule::TypeMismatch { .. }
-            | Rule::LengthOutOfRange { .. }
-            | Rule::CompositeShape { .. }
-            | Rule::CodeNotInList { .. }
-            | Rule::ValueDropped { .. } => SnipLevel::L2,
-            Rule::External { level, .. } => *level,
-        }
-    }
-
-    /// The name of the rule's variant, e.g. `RequiredElementMissing`, so a
-    /// caller can filter findings without parsing messages.
-    pub fn kind(&self) -> &'static str {
-        match self {
-            Rule::ByteOrderMark => "ByteOrderMark",
-            Rule::UnknownSegment { .. } => "UnknownSegment",
-            Rule::ImplicitLoop { .. } => "ImplicitLoop",
-            Rule::UnterminatedLoop { .. } => "UnterminatedLoop",
-            Rule::ControlCountMismatch { .. } => "ControlCountMismatch",
-            Rule::ControlElementMissing { .. } => "ControlElementMissing",
-            Rule::ControlNumberMismatch { .. } => "ControlNumberMismatch",
-            Rule::RequiredElementMissing { .. } => "RequiredElementMissing",
-            Rule::TypeMismatch { .. } => "TypeMismatch",
-            Rule::LengthOutOfRange { .. } => "LengthOutOfRange",
-            Rule::ValueDropped { .. } => "ValueDropped",
-            Rule::CompositeShape { .. } => "CompositeShape",
-            Rule::CodeNotInList { .. } => "CodeNotInList",
-            Rule::External { .. } => "External",
-        }
     }
 }
 
@@ -351,6 +154,7 @@ impl fmt::Display for Diagnostic {
 }
 
 mod display;
+mod rule;
 
 #[cfg(test)]
 mod tests;

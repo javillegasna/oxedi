@@ -84,3 +84,9 @@ def test_an_integer_with_implied_decimals_keeps_its_scale_in_the_field_metadata(
     assert field.type == pa.int64()
     assert field.metadata == {b"scale": b"2"}
     assert "control: int64 (scale 2)" in groups.render()
+
+
+def test_a_text_element_written_empty_is_empty_bytes_and_an_absent_one_is_null():
+    payments = pa.table(parse_named("edi835_test_davisvision.RMT").tables["payments"])
+    assert payments.column("payment_format").to_pylist() == [b""]
+    assert payments.column("receiver_id").to_pylist() == [None]

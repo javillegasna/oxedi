@@ -5,73 +5,93 @@ use crate::column::{Cell, CellError, ColumnType, RowError, Table};
 use crate::diagnostic::{Diagnostic, LoopRef, Rule};
 use crate::element::Element;
 use crate::segment::Segment;
-use crate::spec::{ColumnSource, LoopId};
+use crate::spec::{ColumnSource, LoopId, Pick};
 
 use super::check::{Checked, Parsed, parse};
+use super::plan::Watcher;
 use super::{Projector, Row, Slot};
 
 impl<'s> Projector<'s> {
-    /// Fills the open rows whose columns read this segment and have no value yet.
+    /// Fills the columns that read this segment: in the open rows, or in
+    /// the values carried for rows still to open. `watchers` come from the
+    /// plan of the segment's id, so only the occurrence the segment matched
+    /// (or the column's conditions) and the pick are left to check.
     pub(super) fn fill(
         &mut self,
-        watchers: &[(usize, usize)],
+        watchers: &[Watcher],
         segment: &Segment<'_>,
         joined: &mut Vec<u8>,
     ) {
         let spec = self.spec;
-        for &(index, column) in watchers {
-            let state = &mut self.tables[index];
-            if !state.open || state.row.cells.get(column) != Some(&Slot::Unset) {
+        for watcher in watchers {
+            let state = &mut self.tables[watcher.table];
+            let (slot, seen, bytes) = match watcher.carried {
+                Some(at) => {
+                    let Some(carried) = state.carried.get_mut(at) else {
+                        continue;
+                    };
+                    (&mut carried.slot, &mut carried.seen, &mut carried.bytes)
+                }
+                None => {
+                    let row = &mut state.row;
+                    let (Some(slot), Some(seen), true) = (
+                        row.cells.get_mut(watcher.column),
+                        row.seen.get_mut(watcher.column),
+                        state.open,
+                    ) else {
+                        continue;
+                    };
+                    (slot, seen, &mut row.bytes)
+                }
+            };
+            if watcher.pick == Pick::First && *slot != Slot::Unset {
                 continue;
             }
-            let Some((_, source)) = spec.tables()[index].columns.get(column) else {
+            let Some((_, source)) = spec.tables()[watcher.table].columns.get(watcher.column) else {
                 continue;
             };
-            let slot = match source {
+            let (conditions, at) = match source {
                 ColumnSource::Element {
-                    segment: wanted,
                     conditions,
                     element,
                     component,
                     ..
-                } => {
-                    if !matches(segment, wanted, conditions) {
-                        continue;
-                    }
+                } => (conditions, Some((*element, *component))),
+                ColumnSource::SegmentIndex { conditions, .. } => (conditions, None),
+                ColumnSource::GroupElement { .. } => continue,
+            };
+            let matches = match watcher.occurrence {
+                Some(wanted) => self.matched == Some(wanted),
+                None => segment.holds(conditions),
+            };
+            if !matches {
+                continue;
+            }
+            if let Pick::Nth(nth) = watcher.pick {
+                *seen = seen.saturating_add(1);
+                if *seen != nth {
+                    continue;
+                }
+            }
+            if watcher.carried.is_some() {
+                bytes.clear();
+            }
+            *slot = match at {
+                Some((element, component)) => {
                     let kind = state
                         .kinds
-                        .get(column)
+                        .get(watcher.column)
                         .copied()
                         .unwrap_or(ColumnType::Binary);
                     let at = Place {
-                        element: *element,
-                        component: *component,
+                        element,
+                        component,
                         kind,
                     };
-                    read(
-                        &self.checked,
-                        segment,
-                        at,
-                        self.separator,
-                        joined,
-                        &mut state.row.bytes,
-                    )
+                    read(&self.checked, segment, at, self.separator, joined, bytes)
                 }
-                ColumnSource::SegmentIndex {
-                    segment: wanted,
-                    conditions,
-                    ..
-                } => {
-                    if !matches(segment, wanted, conditions) {
-                        continue;
-                    }
-                    i64::try_from(segment.index).map_or(Slot::Null, Slot::Int)
-                }
-                ColumnSource::GroupElement { .. } => continue,
+                None => i64::try_from(segment.index).map_or(Slot::Null, Slot::Int),
             };
-            if let Some(cell) = state.row.cells.get_mut(column) {
-                *cell = slot;
-            }
         }
     }
 
@@ -211,14 +231,6 @@ impl<'s> Projector<'s> {
     }
 }
 
-/// `true` when the segment has the id and every condition holds.
-fn matches(segment: &Segment<'_>, id: &[u8], conditions: &[(usize, Vec<u8>)]) -> bool {
-    segment.id == id
-        && conditions.iter().all(|(position, value)| {
-            segment.element(*position).and_then(Element::simple) == Some(value.as_slice())
-        })
-}
-
 /// `true` when an element has a non-empty value or component.
 fn has_content(element: &Element<'_>) -> bool {
     match element {
@@ -238,23 +250,20 @@ pub(super) fn leaf_text<'a>(
     separator: u8,
     joined: &'a mut Vec<u8>,
 ) -> &'a [u8] {
-    match (segment.element(element), component) {
-        (None, _) | (Some(Element::Simple(_)), Some(2..)) => &[],
-        (Some(Element::Simple(value)), _) => value,
-        (Some(Element::Composite(parts)), Some(component)) => component
-            .checked_sub(1)
-            .and_then(|at| parts.get(at))
-            .map_or(&[][..], |part| part.as_ref()),
-        (Some(Element::Composite(parts)), None) => {
-            joined.clear();
-            for (at, part) in parts.iter().enumerate() {
-                if at > 0 {
-                    joined.push(separator);
-                }
-                joined.extend_from_slice(part);
-            }
-            joined
-        }
+    match component {
+        None => segment.text(element, separator, joined),
+        Some(_) => segment.leaf(element, component),
+    }
+    .unwrap_or_default()
+}
+
+/// `true` when the segment has the element, or the component, a column
+/// reads, even if it is empty. Component 1 of a simple element is the
+/// element itself; no other component of it is present.
+fn is_present(segment: &Segment<'_>, at: Place) -> bool {
+    match at.component {
+        None => segment.element(at.element).is_some(),
+        Some(_) => segment.leaf(at.element, at.component).is_some(),
     }
 }
 
@@ -269,7 +278,8 @@ struct Place {
 /// The column value at `at`: the checked value when the definition there
 /// maps to the column's type, otherwise the text parsed as that type (an
 /// element the spec does not define, or a group whose definition differs).
-/// Text is copied into `bytes`.
+/// Text is copied into `bytes`; an empty text that is present in the
+/// segment is an empty value, not null.
 fn read(
     checked: &[Checked],
     segment: &Segment<'_>,
@@ -293,6 +303,11 @@ fn read(
         }
     };
     match value {
+        // A text column tells a present but empty value (`""`) from an
+        // absent one (null); other types have no empty value.
+        Parsed::Null if at.kind == ColumnType::Binary && is_present(segment, at) => {
+            Slot::Bytes(bytes.len(), bytes.len())
+        }
         Parsed::Null => Slot::Null,
         Parsed::Text => {
             let text = leaf_text(segment, at.element, at.component, separator, joined);

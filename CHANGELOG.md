@@ -9,6 +9,42 @@ This file covers the Python package; the DuckDB extension has its own changelog 
 
 ## [Unreleased]
 
+### Added
+- Six level-2 (SNIP 2) diagnostics from the loop structure, raised while reading:
+  `RequiredOccurrenceMissing` (a loop instance closed without a required occurrence),
+  `OccurrenceOverMax` (an occurrence repeats past its maximum in one instance), `LoopOverMax`
+  (a loop has more instances than its maximum under one parent), `OutOfOrder` (a segment comes
+  after one with a higher position), `UnknownOccurrence` (a segment the loop holds matches none
+  of its occurrences, e.g. an unknown qualifier) and `RequiredLoopMissing` (a required child
+  loop is absent). Each names the loop and its path, the occurrence and the segment; the
+  segment stays in the document.
+- Code lists per occurrence: an element is checked against the list of the occurrence its
+  segment takes (e.g. the seven NM1 of loop 2100, told apart by NM101); the element's own list
+  still applies to a segment that matches no occurrence. `CodeNotInList` names the occurrence
+  whose list it used.
+- A table column can name an occurrence instead of `segment` + `where`
+  (`{"occurrence": "patient_name", "element": 3}`), read a loop above the table's anchor
+  (`{"loop": "2100", "occurrence": "claim_payment_information", "element": 1}` in a services
+  table gives each service its claim's id), and choose among repeated matches with `pick`:
+  `"first"` (the default), `"last"` or a 1-based position. A loop above the anchor offers the
+  segments its enclosing instance read before the row's instance opened. Invalid sources are
+  rejected when the spec loads, naming the table, the column and the value. Existing `segment`
+  + `where` columns work as before; several built-in columns now name occurrences, with
+  identical cells.
+
+### Changed
+- In text columns, an element (or component) the segment does not have is `null` and one it
+  has but leaves empty is `""`; both used to be `null`. Number and date columns keep `null` for
+  both. The `oxedi.edi_835_parser` layer keeps the library's values.
+- A spec loop now declares its segments as `occurrences`, an object keyed by occurrence name:
+  each occurrence names its `segment`, its position `pos`, and optionally its `usage`
+  (`required` or `situational`), its maximum repeat `max`, a `qualifier` (the element and
+  codes that tell it apart from other occurrences of the same segment) and code lists of its
+  own (`codes`). A loop may also declare its maximum repeat `max` and its `usage`. The
+  occurrence the loop opens on must have the lowest `pos`. The `segments` list of a
+  loop is removed: a patch of your own that redefines a loop's `segments` must move to
+  `occurrences`, where it can add, change or remove one occurrence by name.
+
 ## [0.3.0] - 2026-10-05
 
 The project is renamed to `oxedi`; the code is the same as 0.2.1 apart from the name.

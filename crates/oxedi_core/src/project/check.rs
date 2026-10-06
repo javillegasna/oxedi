@@ -4,7 +4,7 @@ use crate::column::{ColumnType, is_dt, parse_dt, parse_n, parse_r, parse_tm};
 use crate::diagnostic::Rule;
 use crate::element::Element;
 use crate::segment::Segment;
-use crate::spec::ElementDef;
+use crate::spec::{ElementDef, rejects_code};
 
 use super::Projector;
 use super::fill::leaf_text;
@@ -208,16 +208,29 @@ impl<'s> Projector<'s> {
                 component,
                 text,
             );
-        } else if def.rejects_code(text) {
+        } else {
+            // The occurrence the segment matched may list its own codes for
+            // the element; otherwise the element's own list applies.
+            let own = self.occurrence.and_then(|occurrence| {
+                occurrence
+                    .codes
+                    .get(&(element, component))
+                    .map(|codes| (codes, occurrence))
+            });
+            let codes = own.map_or(&def.codes, |(codes, _)| codes);
             // Every code fits the element's lengths, so a value of the wrong
             // length is reported once, as a length.
+            if !rejects_code(codes, text) {
+                return value;
+            }
             self.report(
                 Rule::CodeNotInList {
                     segment_id: segment.id.to_vec(),
                     element,
                     component,
                     name: def.name.clone(),
-                    codes: def.codes.clone(),
+                    codes: codes.clone(),
+                    occurrence: own.map(|(_, occurrence)| occurrence.name.clone()),
                 },
                 segment.index,
                 element,

@@ -102,12 +102,27 @@ spec = oxedi.Spec.builtin().patch({
 result = oxedi.parse(data, spec=spec)   # claims now has a contract_class column
 ```
 
-Objects merge key by key, while arrays are replaced whole: to allow an extra segment in a
-loop, list the loop's full `segments`:
+Objects merge key by key, while arrays are replaced whole. A loop's segments are named
+occurrences, so a patch adds one (or changes or removes it with `null`) by its name:
 
 ```json
-{"loops": {"1000A": {"segments": ["N3", "N4", "REF", "PER", "XX"]}}}
+{"loops": {"1000A": {"occurrences": {"xx": {"segment": "XX", "pos": 11400}}}}}
 ```
+
+`pos` orders the occurrences of a loop. The transaction and every loop below it share one
+position space: the built-in spec numbers a segment of the transaction's n-th table at
+n × 10000 plus its implementation-guide position (1000A's N1 is 10800, 2100's CLP 20100), and
+a child loop's occurrences sit at their own positions inside that space. The occurrence a
+loop opens on comes first: every other occurrence of the loop has a higher `pos`.
+
+A column reads an element of a segment chosen by `segment` and optional `where`
+conditions, or of a named occurrence (`{"occurrence": "patient_name", "element": 3}`). `loop`
+reads a loop inside the table's anchor or above it: in the services table,
+`{"loop": "2100", "occurrence": "claim_payment_information", "element": 1}` gives each service
+its claim's id. When an occurrence repeats, `pick` chooses `"first"` (the default), `"last"` or
+the n-th match, counting from 1, among the segments read while the row's loop instance is
+open; a loop above the anchor offers the segments its enclosing instance read before the row's
+instance opened.
 
 `parse` and `stream` both accept `spec=`.
 

@@ -4,10 +4,10 @@ use proptest::prelude::*;
 
 pub(super) const SPEC: &str = r#"{"name":"t",
     "loops":{
-        "head":{"trigger":{"segment":"HD"},"segments":["ZZ"],"end":"TR"},
+        "head":{"trigger":{"segment":"HD"},"occurrences":{"hd":{"segment":"HD","pos":0},"zz":{"segment":"ZZ","pos":1}},"end":"TR"},
         "note":{"parent":"head","trigger":{"segment":"NM","where":{"1":"P"}}},
-        "claim":{"parent":"head","trigger":{"segment":"CL"},"segments":["DT","AJ","RF"]},
-        "line":{"parent":"claim","trigger":{"segment":"LN"},"segments":["DT","AJ"]}
+        "claim":{"parent":"head","trigger":{"segment":"CL"},"occurrences":{"cl":{"segment":"CL","pos":0},"dt":{"segment":"DT","pos":1},"aj":{"segment":"AJ","pos":2},"rf":{"segment":"RF","pos":3}}},
+        "line":{"parent":"claim","trigger":{"segment":"LN"},"occurrences":{"ln":{"segment":"LN","pos":0},"dt":{"segment":"DT","pos":1},"aj":{"segment":"AJ","pos":2}}}
     },
     "segments":{
         "HD":{"elements":{"1":{"name":"batch","type":"AN","required":true,"min":1,"max":5}}},
@@ -84,7 +84,7 @@ pub(super) fn project(spec: &Spec, input: &str) -> (Tables, Vec<Diagnostic>) {
 }
 
 /// A table as text: the column names, then one line per row.
-fn rows(tables: &Tables, name: &str) -> Vec<String> {
+pub(super) fn rows(tables: &Tables, name: &str) -> Vec<String> {
     let table = tables.get(name).unwrap();
     let header = table
         .columns()
@@ -184,7 +184,7 @@ fn a_text_value_past_the_limit_in_a_segment_row_is_reported() {
 fn segment_ids_of_any_length_are_checked_and_read() {
     let spec = Spec::from_json(
         r#"{"name":"t",
-            "loops":{"head":{"trigger":{"segment":"A"},"segments":["LONGSEGMENT","\u0000A"],"end":"Z"}},
+            "loops":{"head":{"trigger":{"segment":"A"},"occurrences":{"a":{"segment":"A","pos":0},"longsegment":{"segment":"LONGSEGMENT","pos":1},"\u0000a":{"segment":"\u0000A","pos":2}},"end":"Z"}},
             "segments":{
                 "LONGSEGMENT":{"elements":{"1":{"name":"n","type":"N0","required":true}}},
                 "\u0000A":{"elements":{"1":{"name":"m","type":"AN"}}}
@@ -217,6 +217,31 @@ fn a_column_no_segment_matches_is_null() {
         "0 | 1 | 0 | 1.00 | C1 | ∅ | ∅ | ∅ | ∅ | ∅ | ∅"
     );
     assert_eq!(rows(&tables, "heads")[1], "0 | 0 | B1 | ∅");
+}
+
+#[test]
+fn a_text_cell_is_empty_when_its_element_is_written_empty_and_null_when_absent() {
+    let spec = spec();
+    // CL01, CL04-2 and RF02 are written empty: empty text. CL03 is written
+    // empty too, but a number has no empty value: null.
+    let (tables, _) = project(&spec, "HD*B1~CL**1**HC:~RF*Q*~TR~");
+    assert_eq!(
+        rows(&tables, "claims")[1],
+        "0 | 1 | 0 | 1.00 |  |  | ∅ | ∅ | HC: |  | ∅"
+    );
+    // The segments stop before CL04-2 and RF02, and CL has no CL05: null.
+    let (tables, _) = project(&spec, "HD*B1~CL*C1*1**HC~RF*Q~TR~");
+    assert_eq!(
+        rows(&tables, "claims")[1],
+        "0 | 1 | 0 | 1.00 | C1 | ∅ | ∅ | ∅ | HC | ∅ | ∅"
+    );
+    let table = tables.get("claims").unwrap();
+    let (_, code) = &table.columns()[5];
+    assert_eq!(code.get(0), Some(crate::column::Cell::Null));
+    let (tables, _) = project(&spec, "HD*B1~CL**1~TR~");
+    let table = tables.get("claims").unwrap();
+    let (_, claim_id) = &table.columns()[4];
+    assert_eq!(claim_id.get(0), Some(crate::column::Cell::Binary(&b""[..])));
 }
 
 #[test]

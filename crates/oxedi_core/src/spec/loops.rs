@@ -4,7 +4,7 @@ use std::fmt;
 
 #[cfg(doc)]
 use super::Spec;
-use crate::element::Element;
+use super::occurrences::{OccurrenceDef, Usage};
 use crate::segment::Segment;
 
 /// Index of a loop definition inside a [`Spec`]. A `LoopId` is only
@@ -27,16 +27,16 @@ pub struct Trigger {
     /// Segment id, e.g. `CLP`.
     pub segment: Vec<u8>,
     /// `(1-based element position, required value)`, sorted by position.
+    /// A condition holds only on a simple element: a composite never
+    /// satisfies it, unlike an occurrence's qualifier, which reads a
+    /// composite named without a component at its first component.
     pub conditions: Vec<(usize, Vec<u8>)>,
 }
 
 impl Trigger {
     /// `true` when the segment has this id and every condition holds.
     pub fn matches(&self, segment: &Segment<'_>) -> bool {
-        segment.id == self.segment.as_slice()
-            && self.conditions.iter().all(|(position, value)| {
-                segment.element(*position).and_then(Element::simple) == Some(value.as_slice())
-            })
+        segment.id == self.segment.as_slice() && segment.holds(&self.conditions)
     }
 }
 
@@ -49,7 +49,18 @@ pub struct LoopDef {
     pub parent: Option<LoopId>,
     /// What opens the loop. The trigger segment is captured by the loop.
     pub trigger: Trigger,
-    /// Segments the loop holds after its trigger.
+    /// The named places segments take in the loop, by position, the one its
+    /// trigger opens on included. Empty when the loop declares none: it then
+    /// holds only its trigger and its end.
+    pub occurrences: Vec<OccurrenceDef>,
+    /// Whether every instance of the parent holds an instance of the loop.
+    pub usage: Usage,
+    /// Most instances the loop may have under one parent instance; `None`
+    /// for no limit.
+    pub max: Option<usize>,
+    /// Segment ids the loop holds after its trigger, derived from the
+    /// occurrences: each id once, in position order, leaving out the
+    /// occurrences the trigger opens on.
     pub segments: Vec<Vec<u8>>,
     /// Segment that is captured and then closes the loop, e.g. `SE`.
     pub end: Option<Vec<u8>>,
@@ -119,5 +130,15 @@ impl LoopDef {
     /// `true` when the loop holds `id` (as a listed segment or as its end).
     pub fn accepts(&self, id: &[u8]) -> bool {
         self.segments.iter().any(|segment| segment == id) || self.end.as_deref() == Some(id)
+    }
+
+    /// Index in `occurrences` of the occurrence `segment` takes in the loop:
+    /// the one with its id whose qualifier, when it has one, holds. `None`
+    /// when no occurrence matches. Qualifiers of one segment never share a
+    /// code, so at most one occurrence matches.
+    pub fn occurrence_of(&self, segment: &Segment<'_>) -> Option<usize> {
+        self.occurrences
+            .iter()
+            .position(|occurrence| occurrence.matches(segment))
     }
 }

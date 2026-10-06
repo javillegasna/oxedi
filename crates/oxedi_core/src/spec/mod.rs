@@ -1,31 +1,38 @@
 //! Loop specifications: the data that tells the engine how a file is structured.
 //!
 //! A spec is plain JSON: a map of loops, each naming its parent, the segment
-//! (and optional element conditions) that opens it, the segments it may hold
-//! and an optional segment that closes it. An optional `segments` section
-//! names and types the elements of each segment id, wherever the segment
-//! appears. Loading compiles that into index-based definitions so the engine
+//! (and optional element conditions) that opens it, the occurrences of
+//! segments it may hold (named, with position, usage, maximum repeat,
+//! qualifier and own code lists) and an optional segment that closes it. An
+//! optional `segments` section names and types the elements of each segment
+//! id, wherever the segment appears. Loading compiles that into index-based definitions so the engine
 //! never compares strings, and keeps the JSON value so patches can be applied
 //! on top. Patches follow RFC 7386: objects merge key by key, while arrays and
 //! scalars replace wholesale; see [`Spec::merge_patch`] for what that means
-//! when extending a loop's segment list.
+//! for a loop's occurrences.
 //!
-//! The module is split by responsibility: `loops`, `segments` and `tables`
-//! hold the definitions; `raw` the deserialization shapes; `shape` the JSON
-//! shape checks; `build` and `compile` the construction of a [`Spec`];
+//! The module is split by responsibility: `loops`, `occurrences`, `segments`
+//! and `tables` hold the definitions, `occurrence_error` and `table_error`
+//! why an occurrence or a table is rejected; `raw` the deserialization shapes;
+//! `shape` the JSON shape checks; `build` and `compile` the construction of a [`Spec`],
+//! `columns` the compilation of one table column;
 //! `error` the load error; `render` the text used in messages; `patch` the
 //! merge patch; `version` the version declaration and the choice of a spec
 //! by it.
 
 mod build;
+mod columns;
 mod compile;
 mod error;
 mod loops;
+mod occurrence_error;
+mod occurrences;
 mod patch;
 mod raw;
 mod render;
 mod segments;
 mod shape;
+mod table_error;
 mod tables;
 #[cfg(test)]
 mod tests;
@@ -33,14 +40,18 @@ mod version;
 
 pub use error::SpecError;
 pub use loops::{Control, ControlCount, ControlError, LoopDef, LoopId, Trigger};
+pub use occurrence_error::OccurrenceError;
+pub use occurrences::{OccurrenceDef, Qualifier, Usage};
 pub use patch::merge_patch;
 pub use segments::{
     ElementDef, ElementDefError, ElementType, ROW_COLUMN, SEGMENT_COLUMN, SegmentDef,
 };
-pub use tables::{AnchorChains, ColumnSource, Repeat, TableDef, TableDefError};
+pub use table_error::{AnchorChains, AnchorPositions, LoopSegments, TableDefError};
+pub use tables::{ColumnSource, Pick, Repeat, TableDef};
 pub use version::{DeclaredVersion, VersionError};
 
-pub(crate) use render::{render_key, render_trigger};
+pub(crate) use render::{render_key, render_selector, render_trigger};
+pub(crate) use segments::rejects_code;
 
 use std::cmp::Reverse;
 use std::collections::BTreeMap;
@@ -96,12 +107,11 @@ impl Spec {
     /// `null` deletes. The result is validated like any spec; every failure,
     /// including unparsable patch text, is wrapped in [`SpecError::Patch`].
     ///
-    /// Because `segments` is an array, a patch that touches it replaces the whole
-    /// list rather than appending. To add a segment to a loop, the patch must
-    /// list the loop's complete segment list, including the built-in entries that
-    /// would otherwise be lost. Patches that only change `trigger`, `parent`, or
-    /// `end` leave `segments` untouched, since objects merge key by key. The
-    /// current segment list is visible through [`Self::to_json()`] or [`Self::get()`].
+    /// A loop's `occurrences` is an object keyed by occurrence name, so a
+    /// patch adds, changes or removes (with `null`) one occurrence by its name
+    /// and leaves the others as they are. Arrays, such as an element's
+    /// `codes` or a qualifier's `codes`, are replaced whole. The current spec
+    /// is visible through [`Self::to_json()`] or [`Self::get()`].
     ///
     /// # Example
     ///
@@ -109,11 +119,11 @@ impl Spec {
     /// # use oxedi_core::Spec;
     /// let spec = Spec::builtin_835();
     /// let patched = spec.merge_patch(
-    ///     r#"{"loops":{"1000A":{"segments":["N3","N4","REF","PER","XX"]}}}"#
+    ///     r#"{"loops":{"1000A":{"occurrences":{"extra":{"segment":"XX","pos":11400}}}}}"#
     /// ).unwrap();
     /// let loop_1000a = patched.get(patched.loop_id("1000A").unwrap());
-    /// assert_eq!(loop_1000a.segments.len(), 5);
     /// assert!(loop_1000a.segments.contains(&b"XX".to_vec()));
+    /// assert!(loop_1000a.occurrences.iter().any(|o| o.name == "extra"));
     /// ```
     pub fn merge_patch(&self, patch_json: &str) -> Result<Spec, SpecError> {
         let patched = serde_json::from_str::<Value>(patch_json)

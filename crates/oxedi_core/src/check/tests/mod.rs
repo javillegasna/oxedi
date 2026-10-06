@@ -1,11 +1,25 @@
+//! Envelope and structure checks; the occurrence checks are in
+//! `occurrences.rs`.
+
 use super::*;
+
+mod occurrences;
 use crate::{Delimiters, LoopEngine, Tokenizer};
 
 const ISA: &str = "ISA*00*          *00*          *ZZ*SENDER         *ZZ*RECEIVER       *240101*1200*^*00501*000000001*0*P*>~";
 
 /// Runs the engine and the checker over `input` (with `*`, `:` and `~`)
-/// and returns every diagnostic, `finish` included.
+/// and returns the envelope and structure diagnostics (SNIP 1), `finish`
+/// included. The bodies here are not complete transactions; what they lack
+/// of their occurrences is tested in `tests/occurrences.rs`.
 fn check(spec: &Spec, input: &str) -> Vec<Diagnostic> {
+    let mut out = check_all(spec, input);
+    out.retain(|diagnostic| diagnostic.level == crate::SnipLevel::L1);
+    out
+}
+
+/// [`check`] with every diagnostic, the occurrence ones included.
+pub(super) fn check_all(spec: &Spec, input: &str) -> Vec<Diagnostic> {
     let mut engine = LoopEngine::new(spec);
     let delims = Delimiters::new(b'*', b':', b'~');
     let mut checker = EnvelopeChecker::new(spec, &delims);
@@ -306,7 +320,7 @@ fn loops_still_open_at_the_end_of_the_stream_are_unterminated() {
 fn envelope_rules_come_from_the_spec() {
     let spec = Spec::from_json(
         r#"{"name":"t","loops":{
-            "batch":{"trigger":{"segment":"HDR"},"segments":["LN"],"end":"TRL",
+            "batch":{"trigger":{"segment":"HDR"},"occurrences":{"hdr":{"segment":"HDR","pos":0},"ln":{"segment":"LN","pos":1}},"end":"TRL",
                 "control":{"opener_element":1,"closer_element":2,"count_element":1,"count":"segments"}}
         }}"#,
     )
@@ -347,7 +361,7 @@ fn empty_segments_are_not_counted() {
 fn finishing_resets_the_checker() {
     let spec = Spec::builtin_835();
     let input = interchange("ZZZ~", "3");
-    let first = check(&spec, &input);
+    let first = check_all(&spec, &input);
     let mut engine = LoopEngine::new(&spec);
     let delims = Delimiters::new(b'*', b':', b'~');
     let mut checker = EnvelopeChecker::new(&spec, &delims);

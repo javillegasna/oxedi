@@ -1,9 +1,18 @@
-# State — 2026-10-05 (0.2.1 on PyPI as oxedi835; Stage 5g in PR)
+# State — 2026-10-06 (0.3.0 as oxedi; Stage 7a in PR)
 
 Snapshot for picking the project up cold. Update when a stage changes state.
 
-## Pick up here (2026-10-05)
+## Pick up here (2026-10-06)
 
+- **Now:** Stage 7a (occurrence model per loop) is complete on branch `stage-7a-occurrences`
+  and goes to PR against `master`. Loops declare `occurrences` (object keyed by name: `segment`,
+  `pos`, `usage`, `max`, `qualifier`, `codes`) plus loop `usage`/`max`; the 5010 and 4010
+  occurrences come from `pyx12` (`spec_vs_pyx12.py --check` covers them); reading emits six
+  SNIP 2 occurrence diagnostics and checks codes per occurrence; text cells tell absent
+  (`null`) from empty (`""`); a column may name an occurrence, read a loop above its anchor
+  and `pick` `first`/`last`/n-th. Table goldens changed only by T80; parity 113/113. After
+  merge: deferred minors to Project #8, copy the ledger to `.doc/analysis/stage-7a-ledger.md`,
+  then Stage 7 (writer).
 - **Now:** release 0.3.0, the first under the name `oxedi` (branch `release-0.3.0`, on top of the
   rename PR #113). The PyPI pending publisher for `oxedi` is registered; TestPyPI's is pending
   (TestPyPI was in maintenance), so 0.3.0 goes without a release candidate. After merge:

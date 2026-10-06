@@ -108,12 +108,17 @@ pub struct ElementDef {
 impl ElementDef {
     /// `true` when the element has a code list and `value` is not in it.
     pub(crate) fn rejects_code(&self, value: &[u8]) -> bool {
-        !self.codes.is_empty()
-            && self
-                .codes
-                .binary_search_by(|code| code.as_bytes().cmp(value))
-                .is_err()
+        rejects_code(&self.codes, value)
     }
+}
+
+/// `true` when `codes` (sorted by bytes) is a code list and `value` is not
+/// in it; an empty list rejects nothing.
+pub(crate) fn rejects_code(codes: &[String], value: &[u8]) -> bool {
+    !codes.is_empty()
+        && codes
+            .binary_search_by(|code| code.as_bytes().cmp(value))
+            .is_err()
 }
 
 /// The elements of one segment id.
@@ -391,7 +396,7 @@ pub(super) fn compile_elements(
 
 /// Validates a code list against its element's type and lengths and returns
 /// it sorted by bytes, the order the element check searches.
-fn compile_codes(
+pub(super) fn compile_codes(
     codes: &[String],
     kind: ElementType,
     min: Option<usize>,

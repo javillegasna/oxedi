@@ -46,6 +46,7 @@ enum Leaf {
     Flag,
     Count,
     Byte,
+    Pick,
 }
 
 impl Leaf {
@@ -55,14 +56,15 @@ impl Leaf {
             Leaf::Flag => "a boolean",
             Leaf::Count => "a non-negative integer",
             Leaf::Byte => "an integer from 0 to 255",
+            Leaf::Pick => "\"first\", \"last\" or a positive integer",
         }
     }
 
     /// What `value` is, in words, when it is not this kind; `None` when it is.
     fn mismatch(self, value: &Value) -> Option<&'static str> {
         match (self, value) {
-            (Leaf::Text, Value::String(_)) | (Leaf::Flag, Value::Bool(_)) => None,
-            (Leaf::Count | Leaf::Byte, Value::Number(number)) => {
+            (Leaf::Text | Leaf::Pick, Value::String(_)) | (Leaf::Flag, Value::Bool(_)) => None,
+            (Leaf::Count | Leaf::Byte | Leaf::Pick, Value::Number(number)) => {
                 if let Some(n) = number.as_u64() {
                     if matches!(self, Leaf::Byte) && n > 255 {
                         Some("a number above 255")
@@ -206,12 +208,24 @@ pub(super) fn check_shape(source: &Value) -> Result<(), SpecError> {
             check_keys(
                 def,
                 &at,
-                &["parent", "trigger", "segments", "end", "control"],
+                &[
+                    "parent",
+                    "trigger",
+                    "occurrences",
+                    "max",
+                    "usage",
+                    "end",
+                    "control",
+                ],
                 &["trigger"],
             )?;
             check_member(def, &at, "parent", Leaf::Text, true)?;
             check_member(def, &at, "end", Leaf::Text, true)?;
-            check_member_texts(def, &at, "segments")?;
+            check_member(def, &at, "max", Leaf::Count, true)?;
+            check_member(def, &at, "usage", Leaf::Text, true)?;
+            if let Some(occurrences) = def.get("occurrences") {
+                check_occurrences_shape(occurrences, &child(&at, "occurrences"))?;
+            }
             if let Some(trigger) = def.get("trigger") {
                 let at = child(&at, "trigger");
                 let trigger = object_at(trigger, &at)?;
@@ -263,6 +277,8 @@ pub(super) fn check_shape(source: &Value) -> Result<(), SpecError> {
                             "loop",
                             "segment",
                             "where",
+                            "occurrence",
+                            "pick",
                             "element",
                             "component",
                             "group_element",
@@ -273,6 +289,8 @@ pub(super) fn check_shape(source: &Value) -> Result<(), SpecError> {
                     check_member(def, &at, "loop", Leaf::Text, true)?;
                     check_member(def, &at, "segment", Leaf::Text, true)?;
                     check_member_map(def, &at, "where", Leaf::Text)?;
+                    check_member(def, &at, "occurrence", Leaf::Text, true)?;
+                    check_member(def, &at, "pick", Leaf::Pick, true)?;
                     for key in ["element", "component", "group_element"] {
                         check_member(def, &at, key, Leaf::Count, true)?;
                     }
@@ -288,6 +306,46 @@ pub(super) fn check_shape(source: &Value) -> Result<(), SpecError> {
             check_keys(def, &at, &["elements"], &[])?;
             if let Some(elements) = def.get("elements") {
                 check_elements_shape(elements, &child(&at, "elements"))?;
+            }
+        }
+    }
+    Ok(())
+}
+
+/// Requires every occurrence of a loop to be an object with the keys and
+/// scalar kinds the schema defines.
+fn check_occurrences_shape(occurrences: &Value, at: &str) -> Result<(), SpecError> {
+    for (name, def) in object_at(occurrences, at)? {
+        let at = child(at, name);
+        let def = object_at(def, &at)?;
+        check_keys(
+            def,
+            &at,
+            &["segment", "pos", "usage", "max", "qualifier", "codes"],
+            &["segment", "pos"],
+        )?;
+        check_member(def, &at, "segment", Leaf::Text, false)?;
+        check_member(def, &at, "pos", Leaf::Count, false)?;
+        check_member(def, &at, "usage", Leaf::Text, true)?;
+        check_member(def, &at, "max", Leaf::Count, true)?;
+        if let Some(qualifier) = def.get("qualifier") {
+            let at = child(&at, "qualifier");
+            let qualifier = object_at(qualifier, &at)?;
+            check_keys(
+                qualifier,
+                &at,
+                &["element", "component", "codes"],
+                &["element", "codes"],
+            )?;
+            check_member(qualifier, &at, "element", Leaf::Count, false)?;
+            check_member(qualifier, &at, "component", Leaf::Count, true)?;
+            check_member_texts(qualifier, &at, "codes")?;
+        }
+        if let Some(codes) = def.get("codes") {
+            let at = child(&at, "codes");
+            let lists = object_at(codes, &at)?;
+            for key in lists.keys() {
+                check_member_texts(lists, &at, key)?;
             }
         }
     }

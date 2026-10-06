@@ -6,13 +6,15 @@ use serde::Deserialize;
 use serde_json::Value;
 
 use super::Spec;
+use super::columns::{check_held, compile_column};
 use super::error::SpecError;
 use super::loops::LoopId;
 use super::raw::{RawColumn, RawTable};
 use super::render::render_key;
-use super::segments::{ROW_COLUMN, SEGMENT_COLUMN, parse_position};
+use super::segments::{ROW_COLUMN, SEGMENT_COLUMN};
 use super::shape::section;
-use super::tables::{AnchorChains, ColumnSource, Repeat, TableDef, TableDefError};
+use super::table_error::{AnchorChains, TableDefError};
+use super::tables::{Repeat, TableDef};
 
 /// Compiles the `tables` section against the loops of `spec`, then links
 /// every table to the tables above it.
@@ -128,160 +130,6 @@ fn compile_table(
         parent: None,
         ancestors: Vec::new(),
     })
-}
-
-fn compile_column(
-    spec: &Spec,
-    table: &str,
-    column: &str,
-    raw: &RawColumn,
-    anchors: &[LoopId],
-    anchor_segment: Option<&[u8]>,
-    repeat: Option<Repeat>,
-) -> Result<ColumnSource, SpecError> {
-    let fail = |reason| SpecError::BadTable {
-        table: table.to_string(),
-        column: Some(column.to_string()),
-        reason,
-    };
-    if column.is_empty() {
-        return Err(fail(TableDefError::EmptyName {
-            what: "column name",
-        }));
-    }
-    if column == ROW_COLUMN || column == SEGMENT_COLUMN {
-        return Err(fail(TableDefError::ReservedName {
-            name: column.to_string(),
-        }));
-    }
-    let found = usize::from(raw.element.is_some())
-        + usize::from(raw.group_element.is_some())
-        + usize::from(raw.segment_index);
-    if found != 1 {
-        return Err(fail(TableDefError::SourceCount { found }));
-    }
-    if raw.segment_index && raw.component.is_some() {
-        return Err(fail(TableDefError::ComponentOnIndex));
-    }
-    if raw.element == Some(0) {
-        return Err(fail(TableDefError::ZeroPosition { key: "element" }));
-    }
-    if raw.component == Some(0) {
-        return Err(fail(TableDefError::ZeroPosition { key: "component" }));
-    }
-    if anchor_segment.is_some() {
-        let keys = [
-            ("segment", raw.segment.is_some()),
-            ("loop", raw.loop_name.is_some()),
-            ("where", !raw.conditions.is_empty()),
-        ];
-        if let Some(&(key, _)) = keys.iter().find(|(_, present)| *present) {
-            let value = match key {
-                "segment" => serde_json::to_string(&raw.segment),
-                "loop" => serde_json::to_string(&raw.loop_name),
-                _ => serde_json::to_string(&raw.conditions),
-            };
-            return Err(fail(TableDefError::AnchorSegmentOnly {
-                key,
-                anchor_segment: String::from_utf8_lossy(anchor_segment.unwrap_or_default())
-                    .into_owned(),
-                written: value.unwrap_or_default(),
-            }));
-        }
-    }
-    if let Some(offset) = raw.group_element {
-        let Some(repeat) = repeat else {
-            return Err(fail(TableDefError::GroupWithoutRepeat));
-        };
-        if offset >= repeat.step {
-            return Err(fail(TableDefError::OffsetBeyondStep {
-                offset,
-                step: repeat.step,
-            }));
-        }
-        return Ok(ColumnSource::GroupElement {
-            offset,
-            component: raw.component,
-        });
-    }
-    let (loop_id, segment, conditions) = match anchor_segment {
-        Some(anchor) => (None, anchor.to_vec(), Vec::new()),
-        None => {
-            let segment = match raw.segment.as_deref() {
-                None => return Err(fail(TableDefError::NeedsSegment)),
-                Some("") => {
-                    return Err(SpecError::EmptySegmentId {
-                        loop_name: None,
-                        key: format!(
-                            "tables.{}.columns.{}.segment",
-                            render_key(table),
-                            render_key(column)
-                        ),
-                    });
-                }
-                Some(id) => id.as_bytes().to_vec(),
-            };
-            let loop_id = match &raw.loop_name {
-                None => None,
-                Some(name) => {
-                    let id = spec
-                        .loop_id(name)
-                        .ok_or_else(|| fail(TableDefError::UnknownLoop { name: name.clone() }))?;
-                    if let Some(&anchor) = anchors
-                        .iter()
-                        .find(|&&anchor| !spec.ancestors(id).contains(&anchor))
-                    {
-                        return Err(fail(TableDefError::NotADescendant {
-                            loop_name: name.clone(),
-                            anchor: spec.loop_name(anchor).to_string(),
-                        }));
-                    }
-                    Some(id)
-                }
-            };
-            let mut conditions = Vec::with_capacity(raw.conditions.len());
-            for (key, value) in &raw.conditions {
-                let position = parse_position(key)
-                    .ok_or_else(|| fail(TableDefError::BadPosition { key: key.clone() }))?;
-                conditions.push((position, value.as_bytes().to_vec()));
-            }
-            conditions.sort();
-            if raw.element.is_some() || raw.segment_index {
-                let readers = loop_id.map_or_else(|| anchors.to_vec(), |id| vec![id]);
-                check_held(spec, &readers, &segment).map_err(fail)?;
-            }
-            (loop_id, segment, conditions)
-        }
-    };
-    Ok(match raw.element {
-        Some(element) => ColumnSource::Element {
-            loop_id,
-            segment,
-            conditions,
-            element,
-            component: raw.component,
-        },
-        None => ColumnSource::SegmentIndex {
-            loop_id,
-            segment,
-            conditions,
-        },
-    })
-}
-
-/// Fails with the first loop of `readers` that neither triggers on `segment`
-/// nor holds it.
-fn check_held(spec: &Spec, readers: &[LoopId], segment: &[u8]) -> Result<(), TableDefError> {
-    for &id in readers {
-        let def = spec.get(id);
-        if def.trigger.segment != segment && !def.accepts(segment) {
-            return Err(TableDefError::SegmentNotHeld {
-                segment: String::from_utf8_lossy(segment).into_owned(),
-                loop_name: def.name.clone(),
-            });
-        }
-    }
-    Ok(())
 }
 
 /// Rejects a loop anchoring two tables without `segment` and a `ref` used

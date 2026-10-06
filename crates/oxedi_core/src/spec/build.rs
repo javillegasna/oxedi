@@ -9,6 +9,7 @@ use super::Spec;
 use super::compile::compile_tables;
 use super::error::SpecError;
 use super::loops::{Control, ControlCount, ControlError, LoopDef, LoopId, Trigger};
+use super::occurrences::{check_trigger, compile_occurrences, parse_usage};
 use super::raw::{RawControl, RawLoop, RawSegment, RawSpec};
 use super::render::render_trigger;
 use super::segments::{SegmentDef, compile_elements, parse_position};
@@ -47,11 +48,18 @@ impl Spec {
             if def.trigger.segment.is_empty() {
                 return Err(empty_at("trigger.segment".into()));
             }
-            if let Some(i) = def.segments.iter().position(String::is_empty) {
-                return Err(empty_at(format!("segments[{i}]")));
-            }
             if def.end.as_deref() == Some("") {
                 return Err(empty_at("end".into()));
+            }
+            let usage =
+                parse_usage(def.usage.as_deref()).map_err(|found| SpecError::UnknownLoopUsage {
+                    loop_name: name.clone(),
+                    found,
+                })?;
+            if def.max == Some(0) {
+                return Err(SpecError::ZeroLoopMax {
+                    loop_name: name.clone(),
+                });
             }
             if def.end.as_deref() == Some(def.trigger.segment.as_str()) {
                 return Err(SpecError::EndIsTrigger {
@@ -91,7 +99,10 @@ impl Spec {
                     segment: def.trigger.segment.as_bytes().to_vec(),
                     conditions,
                 },
-                segments: def.segments.iter().map(|s| s.as_bytes().to_vec()).collect(),
+                occurrences: Vec::new(),
+                usage,
+                max: def.max,
+                segments: Vec::new(),
                 end: def.end.as_ref().map(|s| s.as_bytes().to_vec()),
                 control,
                 children: Vec::new(),
@@ -123,6 +134,18 @@ impl Spec {
             })?;
             let elements = compile_elements(id, &def.elements, None)?;
             segments.insert(id.as_bytes().to_vec(), SegmentDef { elements });
+        }
+
+        for ((name, def), compiled) in defs.iter().zip(loops.iter_mut()) {
+            compiled.occurrences = compile_occurrences(name, &def.occurrences, &segments)?;
+            check_trigger(name, &compiled.occurrences, &compiled.trigger)?;
+            for occurrence in &compiled.occurrences {
+                if !occurrence.opens_on(&compiled.trigger)
+                    && !compiled.segments.contains(&occurrence.segment)
+                {
+                    compiled.segments.push(occurrence.segment.clone());
+                }
+            }
         }
 
         let version = raw.version.as_ref().map(compile_version).transpose()?;

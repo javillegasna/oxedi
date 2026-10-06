@@ -77,15 +77,18 @@ def objects(values):
 
 def text(column):
     """A binary column as text decoded as the library's ``open()`` decodes
-    (``None`` for null)."""
+    (``None`` for null and for empty; ``holds`` tells an element written
+    empty from one the segment stops before)."""
     import pyarrow as pa
 
     if UTF8:
         try:
-            return column.cast(pa.string()).to_numpy(zero_copy_only=False)
+            values = column.cast(pa.string()).to_numpy(zero_copy_only=False)
+            values[np.equal(values, "")] = None
+            return values
         except pa.ArrowInvalid:
             pass
-    return objects([None if v is None else v.decode(ENCODING) for v in column.to_pylist()])
+    return objects([v.decode(ENCODING) if v else None for v in column.to_pylist()])
 
 
 def money(column):
@@ -338,15 +341,19 @@ class Transaction:
 
     @functools.cached_property
     def service_raws(self):
-        """The raw bytes of the SVC segments of the services with a null cell
-        among the columns whose null depends on how the segment was written,
-        and each service's position among them (-1 for none)."""
+        """The raw bytes of the SVC segments of the services with a null or
+        empty cell among the columns whose value depends on how the segment
+        was written, and each service's position among them (-1 for none)."""
+        import pyarrow.compute as pc
+
         services = self.services
         segments = ints(services.column("segment"))
         need = segments >= 0
         null = np.zeros(len(segments), dtype=bool)
         for column in ("modifier", "allowed_units", "billed_units"):
-            null |= services.column(column).is_null().to_numpy(zero_copy_only=False)
+            cells = services.column(column)
+            null |= cells.is_null().to_numpy(zero_copy_only=False)
+            null |= np.equal(pc.binary_length(cells).to_numpy(zero_copy_only=False), 0)
         rows = np.flatnonzero(need & null)
         where = np.full(len(segments), -1)
         where[rows] = np.arange(len(rows))

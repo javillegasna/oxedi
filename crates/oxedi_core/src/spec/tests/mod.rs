@@ -1,9 +1,11 @@
 //! Unit tests of the spec module, one file per topic.
 
 mod codes;
+mod columns;
 mod controls;
 mod display;
 mod loading;
+mod occurrences;
 mod patch;
 mod segments;
 mod shape;
@@ -20,7 +22,7 @@ pub(super) fn segs(input: &[u8]) -> Vec<Segment<'_>> {
 }
 
 pub(super) const CLP_ONLY: &str = r#"{"name":"t",
-        "loops":{"2100":{"trigger":{"segment":"CLP"},"segments":["ZZ1"]}},
+        "loops":{"2100":{"trigger":{"segment":"CLP"},"occurrences":{"clp":{"segment":"CLP","pos":0},"zz1":{"segment":"ZZ1","pos":1}}}},
         "segments":{"CLP":{"elements":{
             "1":{"name":"claim_submitter_id","type":"AN","required":true,"min":1,"max":38},
             "3":{"name":"total_claim_charge_amount","type":"R","required":true},
@@ -44,9 +46,9 @@ pub(super) fn element_error(elements: &str) -> SpecError {
 
 pub(super) const TABLED: &str = r#"{"name":"t",
         "loops":{
-            "A":{"trigger":{"segment":"AA"},"segments":["A1"],"end":"AE"},
-            "B":{"parent":"A","trigger":{"segment":"BB"},"segments":["B1","AJ"]},
-            "C":{"parent":"B","trigger":{"segment":"CC"},"segments":["C1","AJ"]},
+            "A":{"trigger":{"segment":"AA"},"occurrences":{"aa":{"segment":"AA","pos":0},"a1":{"segment":"A1","pos":1}},"end":"AE"},
+            "B":{"parent":"A","trigger":{"segment":"BB"},"occurrences":{"bb":{"segment":"BB","pos":0},"b1":{"segment":"B1","pos":1},"aj":{"segment":"AJ","pos":2}}},
+            "C":{"parent":"B","trigger":{"segment":"CC"},"occurrences":{"cc":{"segment":"CC","pos":0},"c1":{"segment":"C1","pos":1},"aj":{"segment":"AJ","pos":2}}},
             "D":{"parent":"A","trigger":{"segment":"DD"}}
         },
         "segments":{
@@ -79,8 +81,8 @@ pub(super) fn table_error(tables: &str) -> SpecError {
         r#"{{"name":"t","loops":{{
                 "A":{{"trigger":{{"segment":"AA"}}}},
                 "B":{{"parent":"A","trigger":{{"segment":"BB"}}}},
-                "C":{{"parent":"B","trigger":{{"segment":"CC"}},"segments":["XX"]}},
-                "D":{{"parent":"A","trigger":{{"segment":"DD"}},"segments":["XX"]}}
+                "C":{{"parent":"B","trigger":{{"segment":"CC"}},"occurrences":{{"cc":{{"segment":"CC","pos":0}},"xx":{{"segment":"XX","pos":1}}}}}},
+                "D":{{"parent":"A","trigger":{{"segment":"DD"}},"occurrences":{{"dd":{{"segment":"DD","pos":0}},"xx":{{"segment":"XX","pos":1}}}}}}
             }},"tables":{tables}}}"#
     );
     Spec::from_json(&json).unwrap_err()

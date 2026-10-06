@@ -116,11 +116,11 @@ fn no_loops_displays_the_spec_name() {
 fn empty_segment_id_displays_the_loop_and_the_key() {
     let err = SpecError::EmptySegmentId {
         loop_name: Some("2100".into()),
-        key: "segments[3]".into(),
+        key: "occurrences.ref.segment".into(),
     };
     assert_eq!(
         err.to_string(),
-        "loop \"2100\" has an empty segment id at segments[3]"
+        "loop \"2100\" has an empty segment id at occurrences.ref.segment"
     );
     let err = SpecError::EmptySegmentId {
         loop_name: None,

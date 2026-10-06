@@ -13,7 +13,7 @@ fn a_missing_required_key_is_rejected_with_its_key_path() {
             "spec: missing required key \"name\" at the top level",
         ),
         (
-            loop_json(r#"{"segments":["AA"]}"#),
+            loop_json(r#"{"occurrences":{}}"#),
             "spec: missing required key \"trigger\" at loops.env",
         ),
         (
@@ -278,6 +278,18 @@ fn a_table_scalar_of_the_wrong_kind_is_rejected_with_its_key_path() {
             r#"{"claims":{"loops":["A"],"columns":{"x":{"segment":"AA","element":1,"where":{"1":2}}}}}"#,
             "spec: the value at tables.claims.columns.x.where.1 must be a string; found a number (2)",
         ),
+        (
+            r#"{"claims":{"loops":["A"],"columns":{"x":{"occurrence":7,"element":1}}}}"#,
+            "spec: the value at tables.claims.columns.x.occurrence must be a string; found a number (7)",
+        ),
+        (
+            r#"{"claims":{"loops":["A"],"columns":{"x":{"occurrence":"o","pick":true,"element":1}}}}"#,
+            "spec: the value at tables.claims.columns.x.pick must be \"first\", \"last\" or a positive integer; found a boolean (true)",
+        ),
+        (
+            r#"{"claims":{"loops":["A"],"columns":{"x":{"occurrence":"o","pick":-2,"element":1}}}}"#,
+            "spec: the value at tables.claims.columns.x.pick must be \"first\", \"last\" or a positive integer; found a negative number (-2)",
+        ),
     ];
     for (tables, expected) in cases {
         let err = table_error(tables);
@@ -316,7 +328,7 @@ fn wrong_type_displays_the_path_what_is_required_and_what_was_found() {
 #[test]
 fn patch_adds_a_loop() {
     let spec = Spec::builtin_835().merge_patch(
-        r#"{"loops":{"2100-ZZ":{"parent":"2100","trigger":{"segment":"ZZ1"},"segments":["ZZ2"]}}}"#,
+        r#"{"loops":{"2100-ZZ":{"parent":"2100","trigger":{"segment":"ZZ1"},"occurrences":{"zz1":{"segment":"ZZ1","pos":0},"zz2":{"segment":"ZZ2","pos":1}}}}}"#,
     )
     .unwrap();
     assert_eq!(spec.loops().len(), 9);

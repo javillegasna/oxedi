@@ -286,8 +286,8 @@ fn only_the_synthetic_fixtures_raise_element_findings() {
     assert_eq!(
         found,
         BTreeMap::from([
-            ("blue_cross_nc_sample.txt".to_string(), 4),
-            ("multi_claim_sample.txt".to_string(), 17),
+            ("blue_cross_nc_sample.txt".to_string(), 5),
+            ("multi_claim_sample.txt".to_string(), 18),
             ("trizetto_sample.rmt".to_string(), 5),
         ])
     );

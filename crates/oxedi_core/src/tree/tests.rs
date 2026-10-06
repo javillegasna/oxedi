@@ -2,8 +2,8 @@ use super::*;
 use crate::{Delimiters, Spec, Tokenizer};
 
 const TINY: &str = r#"{"name":"t","loops":{
-    "A":{"trigger":{"segment":"AA"},"segments":["A1"],"end":"AE"},
-    "B":{"parent":"A","trigger":{"segment":"BB"},"segments":["B1"]}
+    "A":{"trigger":{"segment":"AA"},"occurrences":{"aa":{"segment":"AA","pos":0},"a1":{"segment":"A1","pos":1}},"end":"AE"},
+    "B":{"parent":"A","trigger":{"segment":"BB"},"occurrences":{"bb":{"segment":"BB","pos":0},"b1":{"segment":"B1","pos":1}}}
 }}"#;
 
 fn tree(input: &[u8]) -> (Spec, LoopTree) {

@@ -62,12 +62,17 @@ impl<'s> Processor<'s> {
         self.output.diagnostics.clear();
         let events = self.engine.feed(segment);
         self.output.events.extend_from_slice(events);
+        // The projector matches the captured segment to its occurrence and
+        // the checker reuses the match; the checker's findings still come
+        // first.
+        self.projector.on(segment, events);
+        let matched = self.projector.matched();
         self.output
             .diagnostics
-            .extend_from_slice(self.checker.on(segment, events));
+            .extend_from_slice(self.checker.on_matched(segment, events, matched));
         self.output
             .diagnostics
-            .extend_from_slice(self.projector.on(segment, events));
+            .extend_from_slice(self.projector.diagnostics());
         &self.output
     }
 

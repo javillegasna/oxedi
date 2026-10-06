@@ -6,12 +6,13 @@
 //! count or control number disagrees with the loop they close. Which loops are
 //! envelopes, and which elements carry the count and the control number, is
 //! read from each loop's `control` in the spec.
-
-use std::borrow::Cow;
+//!
+//! It also checks each loop instance against its loop's occurrences
+//! (`occurrences.rs`): required occurrences and child loops, repeat limits,
+//! position order and segments that match no occurrence.
 
 use crate::delimiters::Delimiters;
 use crate::diagnostic::{Diagnostic, LoopRef, Rule};
-use crate::element::Element;
 use crate::engine::Event;
 use crate::frame::BYTE_ORDER_MARK;
 use crate::segment::Segment;
@@ -33,6 +34,16 @@ struct Open {
     control_number: Option<Vec<u8>>,
     /// `true` once the loop's end segment has been captured.
     ended: bool,
+    /// Where the instance's counts start in the checker's `counts`: one per
+    /// occurrence of its loop, then one per child loop.
+    counts: usize,
+    /// The occurrence with the highest position seen in the instance, as
+    /// `(loop, index in its occurrences, position)`.
+    last: Option<Seen>,
+    /// The highest position reached inside the closed child instances that
+    /// share the instance's position space: an occurrence of the instance
+    /// itself must not come before it.
+    inner: Option<Seen>,
 }
 
 /// Turns the engine's events into structural diagnostics, one segment at a time.
@@ -46,6 +57,19 @@ pub struct EnvelopeChecker<'s> {
     ordinals: Vec<usize>,
     /// Non-empty segments consumed so far.
     seen: usize,
+    /// The occurrence and child loop counts of every open instance.
+    counts: Vec<usize>,
+    /// Instances of each root loop so far.
+    root_counts: Vec<usize>,
+    /// Position and maximum (`None` for no limit) of every occurrence of
+    /// every loop, loop after loop.
+    limits: Vec<(usize, Option<usize>)>,
+    /// Per loop: where its occurrences start in `limits`.
+    first: Vec<usize>,
+    /// Per loop: what the occurrence checks need of it.
+    layouts: Vec<occurrences::Layout>,
+    /// Per loop: the count slots that must not stay 0.
+    required: Vec<Vec<usize>>,
     diagnostics: Vec<Diagnostic>,
 }
 
@@ -53,12 +77,19 @@ impl<'s> EnvelopeChecker<'s> {
     /// A checker at the root, with nothing open. `delimiters` gives the
     /// component separator, which a control value read as one text keeps.
     pub fn new(spec: &'s Spec, delimiters: &Delimiters) -> Self {
+        let (limits, first) = occurrences::limits(spec);
         Self {
             spec,
             separator: delimiters.component,
             open: Vec::new(),
             ordinals: vec![0; spec.loops().len()],
             seen: 0,
+            counts: Vec::new(),
+            root_counts: vec![0; spec.roots().len()],
+            limits,
+            first,
+            layouts: occurrences::layouts(spec),
+            required: occurrences::required(spec),
             diagnostics: Vec::new(),
         }
     }
@@ -68,6 +99,22 @@ impl<'s> EnvelopeChecker<'s> {
     /// first segment of a stream whose `raw` starts with a UTF-8 byte order
     /// mark also raises [`Rule::ByteOrderMark`], before anything else.
     pub fn on(&mut self, segment: &Segment<'_>, events: &[Event]) -> &[Diagnostic] {
+        let spec = self.spec;
+        let matched = events.iter().find_map(|event| match *event {
+            Event::Captured { id, .. } => spec.get(id).occurrence_of(segment),
+            _ => None,
+        });
+        self.on_matched(segment, events, matched)
+    }
+
+    /// [`on`](Self::on) with the occurrence the captured segment matched in
+    /// its loop already resolved, as the index in the loop's occurrences.
+    pub(crate) fn on_matched(
+        &mut self,
+        segment: &Segment<'_>,
+        events: &[Event],
+        matched: Option<usize>,
+    ) -> &[Diagnostic] {
         self.diagnostics.clear();
         if segment.index == 0 && segment.raw.starts_with(BYTE_ORDER_MARK) {
             self.report(Rule::ByteOrderMark, Some(0), None, BYTE_ORDER_MARK.to_vec());
@@ -81,7 +128,7 @@ impl<'s> EnvelopeChecker<'s> {
                 } => self.opened(id, implicit, trigger, segment),
                 Event::Captured { id, .. } => {
                     self.seen = self.seen.saturating_add(1);
-                    self.captured(id, segment);
+                    self.captured(id, segment, matched);
                 }
                 Event::Unmatched { segment: index } => {
                     self.seen = self.seen.saturating_add(1);
@@ -111,6 +158,7 @@ impl<'s> EnvelopeChecker<'s> {
         }
         self.seen = 0;
         self.ordinals.iter_mut().for_each(|count| *count = 0);
+        self.root_counts.iter_mut().for_each(|count| *count = 0);
         &self.diagnostics
     }
 
@@ -122,6 +170,12 @@ impl<'s> EnvelopeChecker<'s> {
         if !implicit && let Some(parent) = self.open.last_mut() {
             parent.children = parent.children.saturating_add(1);
         }
+        let opening = self.count_instance(id, implicit);
+        let counts = self.counts.len();
+        let slots = self.layouts.get(id.index()).map_or(0, |layout| {
+            layout.occurrences.saturating_add(layout.children)
+        });
+        self.counts.resize(counts.saturating_add(slots), 0);
         let mut missing_opener = None;
         let control_number = match def.control {
             Some(control) if !implicit => {
@@ -129,7 +183,7 @@ impl<'s> EnvelopeChecker<'s> {
                 if value.is_none() {
                     missing_opener = Some(control.opener_element);
                 }
-                value.map(Cow::into_owned)
+                value
             }
             _ => None,
         };
@@ -142,7 +196,11 @@ impl<'s> EnvelopeChecker<'s> {
             children: 0,
             control_number,
             ended: false,
+            counts,
+            last: None,
+            inner: None,
         });
+        self.report_opening(id, opening, trigger, segment.id);
         if let Some(element) = missing_opener {
             self.report(
                 Rule::ControlElementMissing {
@@ -168,7 +226,8 @@ impl<'s> EnvelopeChecker<'s> {
         }
     }
 
-    fn captured(&mut self, id: LoopId, segment: &Segment<'_>) {
+    fn captured(&mut self, id: LoopId, segment: &Segment<'_>, matched: Option<usize>) {
+        self.occurrence_captured(id, segment, matched);
         let spec = self.spec;
         let def = spec.get(id);
         if def.end.as_deref() != Some(segment.id) {
@@ -210,7 +269,7 @@ impl<'s> EnvelopeChecker<'s> {
                 },
                 Some(segment.index),
                 Some(control.count_element),
-                found.into_owned(),
+                found,
             ),
             Some(_) => {}
         }
@@ -225,21 +284,20 @@ impl<'s> EnvelopeChecker<'s> {
                     Some(control.closer_element),
                     Vec::new(),
                 ),
-                Some(closer_value) if closer_value.as_ref() != opener_value.as_slice() => self
-                    .report(
-                        Rule::ControlNumberMismatch {
-                            opener: def.trigger.segment.clone(),
-                            opener_element: control.opener_element,
-                            closer: segment.id.to_vec(),
-                            closer_element: control.closer_element,
-                            opener_value,
-                            closer_value: closer_value.to_vec(),
-                            opened_at,
-                        },
-                        Some(segment.index),
-                        Some(control.closer_element),
-                        closer_value.into_owned(),
-                    ),
+                Some(closer_value) if closer_value != opener_value => self.report(
+                    Rule::ControlNumberMismatch {
+                        opener: def.trigger.segment.clone(),
+                        opener_element: control.opener_element,
+                        closer: segment.id.to_vec(),
+                        closer_element: control.closer_element,
+                        opener_value,
+                        closer_value: closer_value.to_vec(),
+                        opened_at,
+                    },
+                    Some(segment.index),
+                    Some(control.closer_element),
+                    closer_value,
+                ),
                 Some(_) => {}
             }
         }
@@ -270,6 +328,7 @@ impl<'s> EnvelopeChecker<'s> {
                 at.map(|segment| segment.id.to_vec()).unwrap_or_default(),
             );
         }
+        self.occurrence_closed(at);
         self.open.pop();
     }
 
@@ -278,6 +337,17 @@ impl<'s> EnvelopeChecker<'s> {
         rule: Rule,
         segment: Option<usize>,
         element: Option<usize>,
+        datum: Vec<u8>,
+    ) {
+        self.report_at(rule, segment, element, None, datum);
+    }
+
+    fn report_at(
+        &mut self,
+        rule: Rule,
+        segment: Option<usize>,
+        element: Option<usize>,
+        component: Option<usize>,
         datum: Vec<u8>,
     ) {
         let spec = self.spec;
@@ -289,27 +359,19 @@ impl<'s> EnvelopeChecker<'s> {
                 ordinal: open.ordinal,
             })
             .collect();
-        self.diagnostics
-            .push(Diagnostic::new(rule, segment, element, None, path, datum));
+        self.diagnostics.push(Diagnostic::new(
+            rule, segment, element, component, path, datum,
+        ));
     }
 }
 
 /// The whole text of the element at a 1-based position, components re-joined
 /// with `separator`; `None` when the segment has no such element.
-fn text_at<'a>(segment: &'a Segment<'_>, position: usize, separator: u8) -> Option<Cow<'a, [u8]>> {
-    Some(match segment.element(position)? {
-        Element::Simple(value) => Cow::Borrowed(value.as_ref()),
-        Element::Composite(parts) => {
-            let mut joined = Vec::new();
-            for (at, part) in parts.iter().enumerate() {
-                if at > 0 {
-                    joined.push(separator);
-                }
-                joined.extend_from_slice(part);
-            }
-            Cow::Owned(joined)
-        }
-    })
+fn text_at(segment: &Segment<'_>, position: usize, separator: u8) -> Option<Vec<u8>> {
+    let mut joined = Vec::new();
+    segment
+        .text(position, separator, &mut joined)
+        .map(<[u8]>::to_vec)
 }
 
 /// A count written as ASCII digits (leading zeros allowed); `None` for
@@ -327,5 +389,7 @@ fn parse_count(value: &[u8]) -> Option<usize> {
     })
 }
 
+mod occurrences;
+use occurrences::Seen;
 #[cfg(test)]
 mod tests;

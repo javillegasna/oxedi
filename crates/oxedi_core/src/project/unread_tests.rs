@@ -130,7 +130,7 @@ proptest! {
 /// Each segment has a table that reads every element and component, so the
 /// full spec parses every value and the spec without tables only validates.
 const TYPED_SPEC: &str = r#"{"name":"typed",
-    "loops":{"head":{"trigger":{"segment":"HD"},"segments":["NA","RS","CP","TX"],"end":"TR"}},
+    "loops":{"head":{"trigger":{"segment":"HD"},"occurrences":{"hd":{"segment":"HD","pos":0},"na":{"segment":"NA","pos":1},"rs":{"segment":"RS","pos":2},"cp":{"segment":"CP","pos":3},"tx":{"segment":"TX","pos":4}},"end":"TR"}},
     "segments":{
         "NA":{"elements":{
             "1":{"name":"n0","type":"N0","min":2,"max":4},
@@ -385,7 +385,7 @@ proptest! {
 /// Code lists on a required element, an optional one, a time and a
 /// component; each segment has a table that reads every element.
 const CODED_SPEC: &str = r#"{"name":"coded",
-    "loops":{"head":{"trigger":{"segment":"HD"},"segments":["CD","PX"],"end":"TR"}},
+    "loops":{"head":{"trigger":{"segment":"HD"},"occurrences":{"hd":{"segment":"HD","pos":0},"cd":{"segment":"CD","pos":1},"px":{"segment":"PX","pos":2}},"end":"TR"}},
     "segments":{
         "CD":{"elements":{
             "1":{"name":"qualifier","type":"ID","required":true,"min":2,"max":3,"codes":["PE","PR"]},
@@ -493,6 +493,99 @@ proptest! {
         let read_spec = Spec::from_json(CODED_SPEC).unwrap();
         let (_, read) = project(&read_spec, &input);
         let (_, unread) = project(&without_tables(CODED_SPEC), &input);
+        prop_assert_eq!(unread, read);
+    }
+}
+
+/// Two qualified `NM` occurrences with their own lists for `NM02`, and one
+/// unqualified `DT` occurrence whose own list for `DT01` narrows the
+/// element's. Each segment has a table that reads every element.
+const OCCURRENCE_SPEC: &str = r#"{"name":"occurrence codes",
+    "loops":{"head":{"trigger":{"segment":"HD"},"end":"TR","occurrences":{
+        "hd":{"segment":"HD","pos":0},
+        "patient":{"segment":"NM","pos":1,"qualifier":{"element":1,"codes":["QC"]},"codes":{"2":["1"]}},
+        "insured":{"segment":"NM","pos":1,"qualifier":{"element":1,"codes":["IL"]},"codes":{"2":["1","2"],"3-1":["A"]}},
+        "service_date":{"segment":"DT","pos":2,"codes":{"1":["472"]}}
+    }}},
+    "segments":{
+        "NM":{"elements":{
+            "1":{"name":"entity","type":"ID","codes":["IL","PR","QC"]},
+            "2":{"name":"entity_type","type":"ID","codes":["1","2"]},
+            "3":{"name":"id","type":"AN","composite":{
+                "1":{"name":"kind","type":"ID","codes":["A","B"]},
+                "2":{"name":"value","type":"AN"}
+            }}
+        }},
+        "DT":{"elements":{
+            "1":{"name":"qualifier","type":"ID","codes":["150","151","472"]},
+            "2":{"name":"date","type":"DT"}
+        }}
+    },
+    "tables":{
+        "nm":{"loops":["head"],"segment":"NM","columns":{
+            "entity":{"element":1},"entity_type":{"element":2},
+            "kind":{"element":3,"component":1},"value":{"element":3,"component":2}
+        }},
+        "dt":{"loops":["head"],"segment":"DT","columns":{"qualifier":{"element":1},"date":{"element":2}}}
+    }
+}"#;
+
+fn occurrence_parity(input: &str) -> Vec<Diagnostic> {
+    let read_spec = Spec::from_json(OCCURRENCE_SPEC).unwrap();
+    let bare = without_tables(OCCURRENCE_SPEC);
+    let (_, read) = project(&read_spec, input);
+    let (_, unread) = project(&bare, input);
+    assert_eq!(rendered(&unread), rendered(&read));
+    assert_eq!(unread, read);
+    read
+}
+
+#[test]
+fn an_occurrence_list_replaces_the_element_list_read_or_unread() {
+    // `NM*QC*2` is valid for the element but not for `patient`; `NM*IL*2`
+    // is valid for `insured`; `NM*PR` matches no occurrence and keeps the
+    // element's lists; `DT*150` is valid for the element but not for the
+    // loop's single `DT` occurrence, which has no qualifier.
+    let input = "HD~\
+        NM*QC*2*B:X~\
+        NM*IL*2*B:X~\
+        NM*PR*2*B:X~\
+        DT*150*20240101~\
+        DT*472*20240101~\
+        TR~";
+    let diagnostics = occurrence_parity(input);
+    assert_eq!(
+        rendered(&diagnostics),
+        vec![
+            "SNIP 2 · element NM02 (entity_type) is not the one code the spec lists for it in occurrence \"patient\" (\"1\") · segment #1, element 2 · at head#1 · datum \"2\"",
+            "SNIP 2 · element NM03-1 (kind) is not the one code the spec lists for it in occurrence \"insured\" (\"A\") · segment #2, element 3, component 1 · at head#1 · datum \"B\"",
+            "SNIP 2 · element DT01 (qualifier) is not the one code the spec lists for it in occurrence \"service_date\" (\"472\") · segment #4, element 1 · at head#1 · datum \"150\"",
+        ]
+    );
+}
+
+proptest! {
+    #[test]
+    fn occurrence_code_diagnostics_do_not_depend_on_what_columns_read(
+        values in proptest::collection::vec(
+            proptest::collection::vec(
+                proptest::sample::select(b"QCILPR12AB47:".to_vec()),
+                0..4,
+            ),
+            5,
+        ),
+    ) {
+        let text: Vec<String> = values
+            .iter()
+            .map(|value| String::from_utf8(value.clone()).unwrap())
+            .collect();
+        let input = format!(
+            "HD~NM*{}*{}*{}~DT*{}*{}~TR~",
+            text[0], text[1], text[2], text[3], text[4],
+        );
+        let read_spec = Spec::from_json(OCCURRENCE_SPEC).unwrap();
+        let (_, read) = project(&read_spec, &input);
+        let (_, unread) = project(&without_tables(OCCURRENCE_SPEC), &input);
         prop_assert_eq!(unread, read);
     }
 }

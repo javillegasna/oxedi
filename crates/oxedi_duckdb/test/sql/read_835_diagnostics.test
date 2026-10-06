@@ -85,7 +85,7 @@ FROM read_835('test/data/*.835', table_name := 'diagnostics', ignore_errors := t
 GROUP BY origin
 ORDER BY origin;
 ----
-oxedi	23
+oxedi	24
 read_835	2
 
 # A binary file: VARCHAR mode escapes the bytes found instead of ISA, so the row survives;
@@ -126,7 +126,7 @@ SETTLE
 statement error
 SELECT * FROM read_835('test/data/latin1_patient.835', table_name := 'diagnostics');
 ----
-read_835: "test/data/latin1_patient.835", table "diagnostics", column "datum", row index 5: a VARCHAR must be valid UTF-8; found b"Z\xfc"; pass binary := true to read text columns as BLOB
+read_835: "test/data/latin1_patient.835", table "diagnostics", column "datum", row index 6: a VARCHAR must be valid UTF-8; found b"Z\xfc"; pass binary := true to read text columns as BLOB
 
 query TT
 SELECT kind, datum

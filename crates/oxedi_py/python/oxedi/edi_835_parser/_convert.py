@@ -28,8 +28,10 @@ def readable(data):
 
 
 def text(value):
-    """Text cell as ``str``; null stays ``None``."""
-    return None if value is None else value.decode(ENCODING)
+    """Text cell as ``str``; null and empty are ``None``. Where the library
+    tells an element written empty from one the segment stops before,
+    ``written`` asks the document."""
+    return None if not value else value.decode(ENCODING)
 
 
 def money(value):
@@ -90,8 +92,9 @@ def date(value, document, index, element, file_path):
 def integer(value):
     """Text cell as ``int`` when it reads as one, else the text, as the
     library's ``int()`` with its fallback; a decimal column cannot give this
-    back, since it reads ``"1.0"`` and ``"1"`` as the same number."""
-    if value is None:
+    back, since it reads ``"1.0"`` and ``"1"`` as the same number. An empty
+    cell is ``None``, as a null one."""
+    if not value:
         return None
     value = text(value)
     try:
@@ -102,8 +105,10 @@ def integer(value):
 
 def has(document, index, element, component=None):
     """Whether segment ``index`` holds the element (and component), even
-    empty: a null cell cannot tell an element written empty from one the
-    segment stops before, and the library gives the two different values."""
+    empty. A text cell itself tells the two apart (``""`` written empty,
+    null absent), but this layer reads ``""`` as ``None`` to match the
+    library and asks the document where the library gives the two
+    different values."""
     if index is None:
         return False
     elements = document[index].elements

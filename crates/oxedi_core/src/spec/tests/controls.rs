@@ -167,12 +167,32 @@ fn a_scalar_of_the_wrong_kind_is_rejected_with_its_key_path() {
             "spec: the value at loops.env.trigger.segment must be a string; found a number (7)",
         ),
         (
-            loop_json(r#"{"trigger":{"segment":"HD"},"segments":["A",null]}"#),
-            "spec: the value at loops.env.segments[1] must be a string; found null",
+            loop_json(
+                r#"{"trigger":{"segment":"HD"},"occurrences":{"a":{"segment":null,"pos":1}}}"#,
+            ),
+            "spec: the value at loops.env.occurrences.a.segment must be a string; found null",
         ),
         (
-            loop_json(r#"{"trigger":{"segment":"HD"},"segments":"A"}"#),
-            "spec: the value at loops.env.segments must be an array of strings; found a string (\"A\")",
+            loop_json(
+                r#"{"trigger":{"segment":"HD"},"occurrences":{"a":{"segment":"A","pos":"1"}}}"#,
+            ),
+            "spec: the value at loops.env.occurrences.a.pos must be a non-negative integer; found a string (\"1\")",
+        ),
+        (
+            loop_json(r#"{"trigger":{"segment":"HD"},"max":-1}"#),
+            "spec: the value at loops.env.max must be a non-negative integer; found a negative number (-1)",
+        ),
+        (
+            loop_json(
+                r#"{"trigger":{"segment":"HD"},"occurrences":{"a":{"segment":"A","pos":1,"codes":{"1":"X"}}}}"#,
+            ),
+            "spec: the value at loops.env.occurrences.a.codes.1 must be an array of strings; found a string (\"X\")",
+        ),
+        (
+            loop_json(
+                r#"{"trigger":{"segment":"HD"},"occurrences":{"a":{"segment":"A","pos":1,"qualifier":{"element":1,"codes":[2]}}}}"#,
+            ),
+            "spec: the value at loops.env.occurrences.a.qualifier.codes[0] must be a string; found a number (2)",
         ),
         (
             loop_json(r#"{"trigger":{"segment":"HD"},"end":true}"#),

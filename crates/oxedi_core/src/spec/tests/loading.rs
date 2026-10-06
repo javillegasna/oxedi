@@ -305,8 +305,8 @@ fn empty_segment_ids_are_rejected_with_the_loop_and_the_key() {
     let cases = [
         (r#"{"trigger":{"segment":""}}"#, "trigger.segment"),
         (
-            r#"{"trigger":{"segment":"AA"},"segments":["A1",""]}"#,
-            "segments[1]",
+            r#"{"trigger":{"segment":"AA"},"occurrences":{"aa":{"segment":"AA","pos":0},"a1":{"segment":"","pos":1}}}"#,
+            "occurrences.a1.segment",
         ),
         (r#"{"trigger":{"segment":"AA"},"end":""}"#, "end"),
     ];

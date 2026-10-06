@@ -46,7 +46,7 @@ pub use patch::merge_patch;
 pub use segments::{
     ElementDef, ElementDefError, ElementType, ROW_COLUMN, SEGMENT_COLUMN, SegmentDef,
 };
-pub use table_error::{AnchorChains, LoopSegments, TableDefError};
+pub use table_error::{AnchorChains, AnchorPositions, LoopSegments, TableDefError};
 pub use tables::{ColumnSource, Pick, Repeat, TableDef};
 pub use version::{DeclaredVersion, VersionError};
 

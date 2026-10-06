@@ -284,11 +284,11 @@ fn a_table_scalar_of_the_wrong_kind_is_rejected_with_its_key_path() {
         ),
         (
             r#"{"claims":{"loops":["A"],"columns":{"x":{"occurrence":"o","pick":true,"element":1}}}}"#,
-            "spec: the value at tables.claims.columns.x.pick must be \"first\", \"last\" or a non-negative integer; found a boolean (true)",
+            "spec: the value at tables.claims.columns.x.pick must be \"first\", \"last\" or a positive integer; found a boolean (true)",
         ),
         (
             r#"{"claims":{"loops":["A"],"columns":{"x":{"occurrence":"o","pick":-2,"element":1}}}}"#,
-            "spec: the value at tables.claims.columns.x.pick must be \"first\", \"last\" or a non-negative integer; found a negative number (-2)",
+            "spec: the value at tables.claims.columns.x.pick must be \"first\", \"last\" or a positive integer; found a negative number (-2)",
         ),
     ];
     for (tables, expected) in cases {

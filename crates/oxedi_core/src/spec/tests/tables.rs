@@ -673,6 +673,18 @@ fn table_errors_display_the_table_the_column_and_every_reason() {
             "occurrence \"amount\" is segment \"AMT\" in anchor loop \"2100\" but segment \"QTY\" in anchor loop \"2110\"; name the loop to read with \"loop\"",
         ),
         (
+            TableDefError::AfterAnchor {
+                occurrence: "provider_adjustment".into(),
+                positions: Box::new(AnchorPositions {
+                    loop_name: "transaction".into(),
+                    pos: 30100,
+                    anchor: "2100".into(),
+                    anchor_pos: 20100,
+                }),
+            },
+            "occurrence \"provider_adjustment\" (position 30100) of loop \"transaction\" comes after anchor loop \"2100\" opens (position 20100): its segments arrive after the rows are appended, so the column never fills",
+        ),
+        (
             TableDefError::PickNeedsOccurrence {
                 written: r#""last""#.into(),
             },

@@ -3,10 +3,11 @@
 use super::Spec;
 use super::error::SpecError;
 use super::loops::LoopId;
+use super::occurrences::OccurrenceDef;
 use super::raw::{RawColumn, RawPick};
 use super::render::render_key;
 use super::segments::{ROW_COLUMN, SEGMENT_COLUMN, parse_position};
-use super::table_error::{LoopSegments, TableDefError};
+use super::table_error::{AnchorPositions, LoopSegments, TableDefError};
 use super::tables::{ColumnSource, Pick, Repeat};
 
 /// Compiles the column `column` of table `table`, anchored in `anchors` (on
@@ -100,6 +101,9 @@ pub(super) fn compile_column(
             }
         }
     };
+    if let Some(id) = read.loop_id {
+        check_reached(spec, id, anchors, &read).map_err(fail)?;
+    }
     let Read {
         loop_id,
         segment,
@@ -142,7 +146,11 @@ fn json<T: serde::Serialize + ?Sized>(value: &T) -> String {
 }
 
 /// The column's `loop`: `None` when it names none or names the anchor loop
-/// itself; otherwise a loop inside every anchor loop or above every one.
+/// itself; otherwise a loop in line with each anchor loop. Each anchor is
+/// checked on its own here; that the loop is then inside every anchor or
+/// above every one follows from anchors never nesting (`NestedAnchors`) and
+/// from this check rejecting a loop out of line with any anchor
+/// (`UnrelatedLoop`).
 fn reading_loop(
     spec: &Spec,
     raw: &RawColumn,
@@ -164,6 +172,75 @@ fn reading_loop(
         });
     }
     Ok((!anchors.contains(&id)).then_some(id))
+}
+
+/// The occurrence a loop's trigger opens on, if the loop declares one.
+fn trigger_occurrence(spec: &Spec, id: LoopId) -> Option<&OccurrenceDef> {
+    let def = spec.get(id);
+    def.occurrences.iter().find(|o| o.opens_on(&def.trigger))
+}
+
+/// Rejects a source in loop `id` above an anchor whose segments all come
+/// after the position where the anchor opens: they arrive once the anchor's
+/// rows are appended, so the column would never fill. Positions compare
+/// only when every loop from `id` down to the anchor shares one position
+/// space (each trigger occurrence after its parent's).
+fn check_reached(
+    spec: &Spec,
+    id: LoopId,
+    anchors: &[LoopId],
+    read: &Read,
+) -> Result<(), TableDefError> {
+    let def = spec.get(id);
+    let candidates: Vec<&OccurrenceDef> = match &read.occurrence {
+        Some(name) => def.occurrences.iter().filter(|o| o.name == *name).collect(),
+        None => def
+            .occurrences
+            .iter()
+            .filter(|o| o.segment == read.segment)
+            .collect(),
+    };
+    let Some(earliest) = candidates.into_iter().min_by_key(|o| o.pos) else {
+        return Ok(());
+    };
+    for &anchor in anchors {
+        if !spec.ancestors(anchor).contains(&id) {
+            continue;
+        }
+        let Some(anchor_pos) = shared_trigger_pos(spec, id, anchor) else {
+            continue;
+        };
+        if earliest.pos > anchor_pos {
+            return Err(TableDefError::AfterAnchor {
+                occurrence: earliest.name.clone(),
+                positions: Box::new(AnchorPositions {
+                    loop_name: def.name.clone(),
+                    pos: earliest.pos,
+                    anchor: spec.loop_name(anchor).to_string(),
+                    anchor_pos,
+                }),
+            });
+        }
+    }
+    Ok(())
+}
+
+/// The position of `anchor`'s trigger occurrence when every loop from
+/// `above` down to `anchor` shares one position space; `None` otherwise.
+fn shared_trigger_pos(spec: &Spec, above: LoopId, anchor: LoopId) -> Option<usize> {
+    let anchor_pos = trigger_occurrence(spec, anchor)?.pos;
+    let mut child = anchor;
+    let mut child_pos = anchor_pos;
+    while child != above {
+        let parent = spec.get(child).parent?;
+        let parent_pos = trigger_occurrence(spec, parent)?.pos;
+        if child_pos <= parent_pos {
+            return None;
+        }
+        child = parent;
+        child_pos = parent_pos;
+    }
+    Some(anchor_pos)
 }
 
 /// The pick as compiled: `first`, `last` or a position from 1.

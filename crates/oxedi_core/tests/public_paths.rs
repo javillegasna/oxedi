@@ -48,6 +48,7 @@ mod by_module {
     use oxedi_core::segment::Segment;
     use oxedi_core::segment::WriteError;
     use oxedi_core::spec::AnchorChains;
+    use oxedi_core::spec::AnchorPositions;
     use oxedi_core::spec::ColumnSource;
     use oxedi_core::spec::Control;
     use oxedi_core::spec::ControlCount;
@@ -83,9 +84,10 @@ use oxedi_core::EnvelopeChecker;
 use oxedi_core::Projector;
 use oxedi_core::Tokenizer;
 use oxedi_core::{
-    AnchorChains, ColumnSource, Control, ControlCount, ControlError, DeclaredVersion, ElementDef,
-    ElementDefError, ElementType, LoopDef, LoopId, LoopSegments, Pick, Repeat, SegmentDef, Spec,
-    SpecError, TableDef, TableDefError, Trigger, VersionError, merge_patch,
+    AnchorChains, AnchorPositions, ColumnSource, Control, ControlCount, ControlError,
+    DeclaredVersion, ElementDef, ElementDefError, ElementType, LoopDef, LoopId, LoopSegments, Pick,
+    Repeat, SegmentDef, Spec, SpecError, TableDef, TableDefError, Trigger, VersionError,
+    merge_patch,
 };
 use oxedi_core::{
     Bitmap, Cell, CellError, Column, ColumnData, ColumnType, RowError, Table, Tables, parse_dt,

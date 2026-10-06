@@ -9,11 +9,13 @@ const SPEC: &str = r#"{"name":"t",
             "aa":{"segment":"AA","pos":0},
             "names":{"segment":"NM","pos":1,"max":3,"qualifier":{"element":1,"codes":["P"]}},
             "other":{"segment":"NM","pos":1,"max":1,"qualifier":{"element":1,"codes":["X"]}},
-            "free":{"segment":"FR","pos":2}
+            "free":{"segment":"FR","pos":2},
+            "late":{"segment":"LT","pos":9}
         }},
         "B":{"parent":"A","trigger":{"segment":"BB"},"occurrences":{"bb":{"segment":"BB","pos":3},"names":{"segment":"NM","pos":4}}},
         "C":{"parent":"A","trigger":{"segment":"CC"},"occurrences":{"cc":{"segment":"CC","pos":3},"names":{"segment":"QT","pos":4}}},
-        "D":{"parent":"B","trigger":{"segment":"DD"},"occurrences":{"dd":{"segment":"DD","pos":5}}}
+        "D":{"parent":"B","trigger":{"segment":"DD"},"occurrences":{"dd":{"segment":"DD","pos":5}}},
+        "E":{"parent":"A","trigger":{"segment":"EE"},"occurrences":{"ee":{"segment":"EE","pos":0}}}
     },
     "segments":{"NM":{"elements":{"1":{"name":"kind","type":"ID"},"2":{"name":"name","type":"AN"}}}},
     "tables":TABLES
@@ -230,4 +232,47 @@ fn a_pick_displays_as_a_spec_writes_it() {
     assert_eq!(Pick::Last.to_string(), "\"last\"");
     assert_eq!(Pick::Nth(3).to_string(), "3");
     assert_eq!(Pick::default(), Pick::First);
+}
+
+#[test]
+fn a_column_above_the_anchor_at_segments_after_the_anchor_opens_is_rejected() {
+    let after = TableDefError::AfterAnchor {
+        occurrence: "late".into(),
+        positions: Box::new(AnchorPositions {
+            loop_name: "A".into(),
+            pos: 9,
+            anchor: "B".into(),
+            anchor_pos: 3,
+        }),
+    };
+    for column in [
+        r#"{"loop":"A","occurrence":"late","element":1}"#,
+        r#"{"loop":"A","segment":"LT","segment_index":true}"#,
+    ] {
+        assert_eq!(
+            column_error(column),
+            (Some("c".into()), after.clone()),
+            "{column}"
+        );
+    }
+    let spec = load(
+        r#"{"t":{"loops":["E"],"columns":{"c":{"loop":"A","occurrence":"late","element":1}}}}"#,
+    );
+    assert!(
+        spec.is_ok(),
+        "a loop numbering its own positions is not compared: {spec:?}"
+    );
+}
+
+#[test]
+fn the_built_in_claims_cannot_read_the_transaction_after_the_claims() {
+    let err = Spec::builtin_835()
+        .merge_patch(
+            r#"{"tables":{"claims":{"columns":{"plb":{"loop":"transaction","occurrence":"provider_adjustment","element":1}}}}}"#,
+        )
+        .unwrap_err();
+    assert_eq!(
+        err.to_string(),
+        "applying patch: table \"claims\" column \"plb\": occurrence \"provider_adjustment\" (position 30100) of loop \"transaction\" comes after anchor loop \"2100\" opens (position 20100): its segments arrive after the rows are appended, so the column never fills"
+    );
 }

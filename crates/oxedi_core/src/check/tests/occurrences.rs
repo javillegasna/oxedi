@@ -228,11 +228,10 @@ fn an_occurrence_after_a_closed_child_comes_after_every_position_inside_it() {
     // Before the child it is in order, and the child opening after it is
     // what comes out of order.
     assert_eq!(
-        check_all(&spec(), "EV~HD~RF*A~MD~IT~QT~TR~EE~")
-            .iter()
-            .map(|diagnostic| diagnostic.rule.kind())
-            .collect::<Vec<_>>(),
-        vec!["OutOfOrder"]
+        rendered("EV~HD~RF*A~MD~IT~QT~TR~EE~"),
+        vec![
+            "SNIP 2 · occurrence \"it\" (position 40) of loop \"item\" comes after occurrence \"md\" (position 45) of loop \"head\" · segment #4 · at env#1/head#1/item#1 · datum \"IT\""
+        ]
     );
     // Sibling instances of a child repeat at its trigger position.
     assert_eq!(

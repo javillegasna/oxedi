@@ -269,6 +269,10 @@ impl<'s> EnvelopeChecker<'s> {
 
     /// Reports the required occurrences and child loops the instance on top
     /// of the stack never held; `at` is the segment whose arrival closes it.
+    /// When the loop shares its parent's position space (and was not opened
+    /// implicitly), it also writes the highest position the instance reached
+    /// back into the parent, so the parent's later segments are ordered after
+    /// everything inside it.
     pub(super) fn occurrence_closed(&mut self, at: Option<&Segment<'_>>) {
         let Some(top) = self.open.last() else {
             return;

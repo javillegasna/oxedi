@@ -27,6 +27,20 @@ pub struct LoopSegments {
     pub segment: String,
 }
 
+/// Where a column's occurrence above the anchor sits, and where the anchor
+/// opens, in one position space.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct AnchorPositions {
+    /// The loop above the anchor.
+    pub loop_name: String,
+    /// The occurrence's position.
+    pub pos: usize,
+    /// The anchor loop.
+    pub anchor: String,
+    /// The position of the anchor's trigger occurrence.
+    pub anchor_pos: usize,
+}
+
 /// Why a table definition was rejected.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum TableDefError {
@@ -134,6 +148,15 @@ pub enum TableDefError {
         occurrence: String,
         /// The two anchor loops and the occurrence's segment in each.
         segments: Box<LoopSegments>,
+    },
+    /// A column reads a loop above the anchor at segments that all come
+    /// after the position where the anchor opens, so they arrive only after
+    /// the anchor's rows are appended.
+    AfterAnchor {
+        /// The earliest occurrence the column can read.
+        occurrence: String,
+        /// Its loop and position, and the anchor's.
+        positions: Box<AnchorPositions>,
     },
     /// `pick` is given without `occurrence`.
     PickNeedsOccurrence {
@@ -278,6 +301,14 @@ impl fmt::Display for TableDefError {
                 f,
                 "occurrence {occurrence:?} is segment {:?} in anchor loop {:?} but segment {:?} in anchor loop {:?}; name the loop to read with \"loop\"",
                 segments.first_segment, segments.first_loop, segments.segment, segments.loop_name
+            ),
+            TableDefError::AfterAnchor {
+                occurrence,
+                positions,
+            } => write!(
+                f,
+                "occurrence {occurrence:?} (position {}) of loop {:?} comes after anchor loop {:?} opens (position {}): its segments arrive after the rows are appended, so the column never fills",
+                positions.pos, positions.loop_name, positions.anchor, positions.anchor_pos
             ),
             TableDefError::PickNeedsOccurrence { written } => write!(
                 f,

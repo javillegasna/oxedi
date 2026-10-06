@@ -7,6 +7,13 @@ and the extension has its own version.
 
 ## [Unreleased]
 
+## [0.1.2] - 2026-10-06
+
+### Fixed
+- A test compared the file names a glob returns with forward slashes; on Windows the operating
+  system writes them with backslashes. The test now normalizes the separators, so the community
+  build passes on Windows. 0.1.1 was never published because of it.
+
 ## [0.1.1] - 2026-10-06
 
 ### Fixed
@@ -31,6 +38,7 @@ and the extension has its own version.
   `read_835(...)` returns the payments, claims, services, adjustments, provider adjustments and
   diagnostics tables in SQL.
 
-[Unreleased]: https://github.com/javillegasna/oxedi/compare/duckdb-v0.1.1...HEAD
+[Unreleased]: https://github.com/javillegasna/oxedi/compare/duckdb-v0.1.2...HEAD
+[0.1.2]: https://github.com/javillegasna/oxedi/releases/tag/duckdb-v0.1.2
 [0.1.1]: https://github.com/javillegasna/oxedi/releases/tag/duckdb-v0.1.1
 [0.1.0]: https://github.com/javillegasna/oxedi/releases/tag/duckdb-v0.1.0

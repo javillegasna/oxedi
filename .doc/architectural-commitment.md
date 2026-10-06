@@ -1682,7 +1682,7 @@ escritor, que es quien las usa para calcular totales); L3 de #53; la 837 (Stage 
 parche de la capa `oxedi.edi_835_parser` las reglas que hoy calcula en Python (el último AMT, los
 datos del claim en la fila del servicio) usando T79, que queda como mejora opcional.
 
-### Stage 7 · Escritor — PROPUESTA 2026-10-06
+### Stage 7 · Escritor — APROBADO 2026-10-06
 
 El stage que cierra el ciclo leer → transformar → escribir (D7): a partir de tablas, el escritor
 genera un archivo 835 válido, guiado por la misma spec que las proyecta. El 7a dejó en la spec lo

@@ -69,3 +69,42 @@ jobs:
         run: pytest crates/oxedi835_py/tests
       - name: Wheel in a clean environment
         run: scripts/smoke_wheel.sh
+
+  duckdb:
+    name: DuckDB extension (${{ matrix.duckdb.name }})
+    runs-on: ubuntu-latest
+    # `next` is a moving pre-release of DuckDB: it reports, it does not block.
+    continue-on-error: ${{ matrix.duckdb.name == 'next' }}
+    strategy:
+      fail-fast: false
+      matrix:
+        duckdb:
+          # stable: the extension's minimum DuckDB (TARGET_DUCKDB_VERSION in its Makefile).
+          # next: the newest pre-release on PyPI.
+          - name: stable
+            test_version: "1.5.6"
+            pip: "duckdb==1.5.6"
+          - name: next
+            test_version: main
+            pip: "--pre duckdb"
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: true
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: astral-sh/setup-uv@v6
+      - name: Environment
+        run: |
+          uv venv --python 3.13 .venv
+          echo "VIRTUAL_ENV=$PWD/.venv" >> "$GITHUB_ENV"
+          echo "$PWD/.venv/bin" >> "$GITHUB_PATH"
+      - name: Tools
+        run: uv pip install "maturin>=1.9.4,<2" pytest pyarrow ${{ matrix.duckdb.pip }}
+      - name: Configure
+        run: make configure_ci DUCKDB_TEST_VERSION=${{ matrix.duckdb.test_version }}
+      - name: Build the extension
+        run: make release
+      - name: SQLLogicTest
+        run: make test_release DUCKDB_TEST_VERSION=${{ matrix.duckdb.test_version }}
+      - name: Oracle against oxedi835.parse_file
+        run: make duckdb-oracle

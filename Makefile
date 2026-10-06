@@ -138,7 +138,7 @@ test_release: ## DuckDB extension: run its SQLLogicTests against the release bui
 test_debug: ## DuckDB extension: run its SQLLogicTests against the debug build
 	$(MAKE) -C $(EXT_DIR) test_debug
 
-duckdb-oracle: py-dev release ## DuckDB extension: compare read_835 with oxedi835.parse_file on every sample and fixture
+duckdb-oracle: py-dev ## DuckDB extension: compare read_835 with oxedi835.parse_file on every sample and fixture
 	$(MAKE) -C $(EXT_DIR) test_oracle ORACLE_PYTHON=$(abspath $(PYTHON))
 
 # ---- Release ----

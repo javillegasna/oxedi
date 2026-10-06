@@ -68,6 +68,17 @@ pub enum OccurrenceError {
         /// The segment id both hold.
         segment: String,
     },
+    /// Another occurrence holds the same segment with a qualifier on a
+    /// different element or component: every occurrence of one segment in a
+    /// loop reads its qualifier at the same place.
+    QualifierPlaces {
+        /// The other occurrence.
+        other: String,
+        /// The place this occurrence's qualifier reads, e.g. `NM02`.
+        place: String,
+        /// The place the other's qualifier reads, e.g. `NM01`.
+        other_place: String,
+    },
     /// Another occurrence holds the same segment and both qualifiers accept a code.
     SharedCode {
         /// The other occurrence.
@@ -135,6 +146,16 @@ impl fmt::Display for OccurrenceError {
                 f,
                 "holds segment {segment:?} like occurrence {other:?}, and the two have no \
                  qualifier on one shared element to tell them apart"
+            ),
+            OccurrenceError::QualifierPlaces {
+                other,
+                place,
+                other_place,
+            } => write!(
+                f,
+                "reads its qualifier at {place} but occurrence {other:?} of the same segment \
+                 reads it at {other_place}; every occurrence of one segment in a loop reads \
+                 its qualifier at the same place"
             ),
             OccurrenceError::SharedCode {
                 other,

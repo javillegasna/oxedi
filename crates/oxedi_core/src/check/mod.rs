@@ -39,7 +39,11 @@ struct Open {
     counts: usize,
     /// The occurrence with the highest position seen in the instance, as
     /// `(loop, index in its occurrences, position)`.
-    last: Option<(LoopId, usize, usize)>,
+    last: Option<Seen>,
+    /// The highest position reached inside the closed child instances that
+    /// share the instance's position space: an occurrence of the instance
+    /// itself must not come before it.
+    inner: Option<Seen>,
 }
 
 /// Turns the engine's events into structural diagnostics, one segment at a time.
@@ -57,9 +61,9 @@ pub struct EnvelopeChecker<'s> {
     counts: Vec<usize>,
     /// Instances of each root loop so far.
     root_counts: Vec<usize>,
-    /// Position and maximum (`usize::MAX` for none) of every occurrence of
+    /// Position and maximum (`None` for no limit) of every occurrence of
     /// every loop, loop after loop.
-    limits: Vec<(usize, usize)>,
+    limits: Vec<(usize, Option<usize>)>,
     /// Per loop: where its occurrences start in `limits`.
     first: Vec<usize>,
     /// Per loop: what the occurrence checks need of it.
@@ -168,11 +172,10 @@ impl<'s> EnvelopeChecker<'s> {
         }
         let opening = self.count_instance(id, implicit);
         let counts = self.counts.len();
-        let slots = self
-            .layouts
-            .get(id.index())
-            .map_or(0, |layout| layout.occurrences + layout.children);
-        self.counts.resize(counts + slots, 0);
+        let slots = self.layouts.get(id.index()).map_or(0, |layout| {
+            layout.occurrences.saturating_add(layout.children)
+        });
+        self.counts.resize(counts.saturating_add(slots), 0);
         let mut missing_opener = None;
         let control_number = match def.control {
             Some(control) if !implicit => {
@@ -195,6 +198,7 @@ impl<'s> EnvelopeChecker<'s> {
             ended: false,
             counts,
             last: None,
+            inner: None,
         });
         self.report_opening(id, opening, trigger, segment.id);
         if let Some(element) = missing_opener {
@@ -385,8 +389,7 @@ fn parse_count(value: &[u8]) -> Option<usize> {
     })
 }
 
-#[cfg(test)]
-mod occurrence_tests;
 mod occurrences;
+use occurrences::Seen;
 #[cfg(test)]
 mod tests;

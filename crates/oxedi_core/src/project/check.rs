@@ -4,7 +4,7 @@ use crate::column::{ColumnType, is_dt, parse_dt, parse_n, parse_r, parse_tm};
 use crate::diagnostic::Rule;
 use crate::element::Element;
 use crate::segment::Segment;
-use crate::spec::ElementDef;
+use crate::spec::{ElementDef, rejects_code};
 
 use super::Projector;
 use super::fill::leaf_text;
@@ -43,14 +43,6 @@ fn is_valid(kind: ColumnType, text: &[u8]) -> bool {
         ColumnType::Date32 => is_dt(text),
         ColumnType::Time32 => parse_tm(text).is_some(),
     }
-}
-
-/// `true` when `codes` is a code list and `value` is not in it.
-fn rejects(codes: &[String], value: &[u8]) -> bool {
-    !codes.is_empty()
-        && codes
-            .binary_search_by(|code| code.as_bytes().cmp(value))
-            .is_err()
 }
 
 /// A non-empty text as a value of the column type; `None` when it does not parse.
@@ -228,7 +220,7 @@ impl<'s> Projector<'s> {
             let codes = own.map_or(&def.codes, |(codes, _)| codes);
             // Every code fits the element's lengths, so a value of the wrong
             // length is reported once, as a length.
-            if !rejects(codes, text) {
+            if !rejects_code(codes, text) {
                 return value;
             }
             self.report(

@@ -117,3 +117,32 @@ fn points_at_its_datum(name: &str, document: &Document<'_>, diagnostic: &oxedi_c
         String::from_utf8_lossy(body)
     );
 }
+
+/// The processor shares its occurrence match with the checker; the checker
+/// alone matches by itself. Both paths raise the same findings.
+#[test]
+fn the_checker_alone_and_inside_the_processor_raise_the_same_findings() {
+    let (five, four) = common::builtins();
+    let mut occurrence_findings = 0;
+    for (name, bytes, delims) in common::all_files() {
+        let document = Document::with_delimiters(&bytes[..], delims).unwrap();
+        for spec in [&five, &four] {
+            let alone = common::diagnostics_of(spec, &bytes, delims);
+            let (_, all) = oxedi_core::Processor::run(spec, &document);
+            let inside: Vec<_> = all
+                .into_iter()
+                .filter(|diagnostic| {
+                    diagnostic.level == SnipLevel::L1
+                        || OCCURRENCE_RULES.contains(&diagnostic.rule.kind())
+                })
+                .collect();
+            assert_eq!(alone, inside, "{name} under {}", spec.name());
+            occurrence_findings += alone
+                .iter()
+                .filter(|diagnostic| diagnostic.level == SnipLevel::L2)
+                .count();
+        }
+    }
+    // Some files raise occurrence findings, so the comparison covers them.
+    assert!(occurrence_findings > 0);
+}

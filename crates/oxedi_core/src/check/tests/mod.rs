@@ -1,4 +1,9 @@
+//! Envelope and structure checks; the occurrence checks are in
+//! `occurrences.rs`.
+
 use super::*;
+
+mod occurrences;
 use crate::{Delimiters, LoopEngine, Tokenizer};
 
 const ISA: &str = "ISA*00*          *00*          *ZZ*SENDER         *ZZ*RECEIVER       *240101*1200*^*00501*000000001*0*P*>~";
@@ -6,7 +11,7 @@ const ISA: &str = "ISA*00*          *00*          *ZZ*SENDER         *ZZ*RECEIVE
 /// Runs the engine and the checker over `input` (with `*`, `:` and `~`)
 /// and returns the envelope and structure diagnostics (SNIP 1), `finish`
 /// included. The bodies here are not complete transactions; what they lack
-/// of their occurrences is tested in `occurrence_tests.rs`.
+/// of their occurrences is tested in `tests/occurrences.rs`.
 fn check(spec: &Spec, input: &str) -> Vec<Diagnostic> {
     let mut out = check_all(spec, input);
     out.retain(|diagnostic| diagnostic.level == crate::SnipLevel::L1);

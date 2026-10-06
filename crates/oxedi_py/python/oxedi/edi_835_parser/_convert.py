@@ -105,8 +105,10 @@ def integer(value):
 
 def has(document, index, element, component=None):
     """Whether segment ``index`` holds the element (and component), even
-    empty: a null cell cannot tell an element written empty from one the
-    segment stops before, and the library gives the two different values."""
+    empty. A text cell itself tells the two apart (``""`` written empty,
+    null absent), but this layer reads ``""`` as ``None`` to match the
+    library and asks the document where the library gives the two
+    different values."""
     if index is None:
         return False
     elements = document[index].elements

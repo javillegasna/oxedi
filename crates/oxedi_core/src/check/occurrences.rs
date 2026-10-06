@@ -22,18 +22,30 @@ use crate::spec::{LoopId, Spec, Usage, render_selector, render_trigger};
 
 use super::EnvelopeChecker;
 
+/// An occurrence seen in an instance: `(loop, index in its occurrences,
+/// position)`.
+pub(super) type Seen = (LoopId, usize, usize);
+
+/// The one of two seen occurrences with the higher position.
+fn highest(a: Option<Seen>, b: Option<Seen>) -> Option<Seen> {
+    match (a, b) {
+        (Some(a), Some(b)) => Some(if b.2 > a.2 { b } else { a }),
+        (a, b) => a.or(b),
+    }
+}
+
 /// What the occurrence checks need of one loop, worked out once so that
 /// opening an instance and capturing a segment read no more than this.
 #[derive(Debug, Clone, Copy)]
 pub(super) struct Layout {
     /// Index of the loop among its parent's children, or among the roots.
-    slot: usize,
+    slot: Option<usize>,
     /// Number of occurrences the loop declares.
     pub(super) occurrences: usize,
     /// Number of child loops.
     pub(super) children: usize,
-    /// Most instances under one parent instance; `usize::MAX` for no limit.
-    max: usize,
+    /// Most instances under one parent instance; `None` for no limit.
+    max: Option<usize>,
     /// Position of the trigger occurrence, when the loop shares its
     /// parent's position space.
     shared_pos: Option<usize>,
@@ -53,13 +65,10 @@ pub(super) fn layouts(spec: &Spec) -> Vec<Layout> {
             let own = def.occurrences.first().map(|o| o.pos);
             let parent = def.parent.and_then(first_pos);
             Layout {
-                slot: siblings
-                    .iter()
-                    .position(|sibling| sibling.index() == index)
-                    .unwrap_or(usize::MAX),
+                slot: siblings.iter().position(|sibling| sibling.index() == index),
                 occurrences: def.occurrences.len(),
                 children: def.children.len(),
-                max: def.max.unwrap_or(usize::MAX),
+                max: def.max,
                 shared_pos: own.filter(|&own| parent.is_some_and(|parent| own > parent)),
             }
         })
@@ -73,7 +82,7 @@ pub(super) struct Opening {
     /// The instance's count under its parent, when past the loop's maximum.
     over_max: Option<usize>,
     /// The parent's occurrence the instance's trigger comes after.
-    out_of_order: Option<(LoopId, usize, usize)>,
+    out_of_order: Option<Seen>,
 }
 
 impl<'s> EnvelopeChecker<'s> {
@@ -85,17 +94,24 @@ impl<'s> EnvelopeChecker<'s> {
         let Some(&layout) = self.layouts.get(id.index()) else {
             return Opening::default();
         };
-        let counter = match self.open.last() {
-            Some(parent) => self.layouts.get(parent.id.index()).and_then(|above| {
-                self.counts
-                    .get_mut(parent.counts + above.occurrences + layout.slot)
-            }),
-            None => self.root_counts.get_mut(layout.slot),
+        let counter = match (self.open.last(), layout.slot) {
+            (Some(parent), Some(slot)) => self
+                .layouts
+                .get(parent.id.index())
+                .and_then(|above| {
+                    parent
+                        .counts
+                        .checked_add(above.occurrences)?
+                        .checked_add(slot)
+                })
+                .and_then(|at| self.counts.get_mut(at)),
+            (None, Some(slot)) => self.root_counts.get_mut(slot),
+            (_, None) => None,
         };
         let mut opening = Opening::default();
         if let Some(count) = counter {
             *count = count.saturating_add(1);
-            if *count > layout.max {
+            if layout.max.is_some_and(|max| *count > max) {
                 opening.over_max = Some(*count);
             }
         }
@@ -165,24 +181,30 @@ impl<'s> EnvelopeChecker<'s> {
         let Some(&(pos, max)) = self
             .first
             .get(id.index())
-            .and_then(|&first| self.limits.get(first + index))
+            .and_then(|&first| self.limits.get(first.checked_add(index)?))
         else {
             return;
         };
         let Some(top) = self.open.last_mut().filter(|top| top.id == id) else {
             return;
         };
-        let Some(count) = self.counts.get_mut(top.counts + index) else {
+        let Some(count) = top
+            .counts
+            .checked_add(index)
+            .and_then(|at| self.counts.get_mut(at))
+        else {
             return;
         };
         *count = count.saturating_add(1);
         let count = *count;
-        let after = top.last;
+        // An occurrence of the instance itself comes after every position
+        // reached so far, those inside its closed children included.
+        let after = highest(top.last, top.inner);
         let before = after.is_some_and(|(_, _, last)| last > pos);
         if !before {
             top.last = Some((id, index, pos));
         }
-        if count > max {
+        if max.is_some_and(|max| count > max) {
             self.over_max(id, index, segment, count);
         }
         if before && let Some(after) = after {
@@ -252,11 +274,26 @@ impl<'s> EnvelopeChecker<'s> {
             return;
         };
         let (id, start, implicit) = (top.id, top.counts, top.implicit);
+        let reached = highest(top.last, top.inner);
+        let shared = self
+            .layouts
+            .get(id.index())
+            .is_some_and(|layout| layout.shared_pos.is_some());
+        if shared
+            && !implicit
+            && let Some(parent) = self
+                .open
+                .len()
+                .checked_sub(2)
+                .and_then(|at| self.open.get_mut(at))
+        {
+            parent.inner = highest(parent.inner, reached);
+        }
         let missing = !implicit
             && self.required.get(id.index()).is_some_and(|slots| {
-                slots
-                    .iter()
-                    .any(|&slot| self.counts.get(start + slot) == Some(&0))
+                slots.iter().any(|&slot| {
+                    start.checked_add(slot).and_then(|at| self.counts.get(at)) == Some(&0)
+                })
             });
         if missing {
             self.report_missing(at);
@@ -309,9 +346,9 @@ impl<'s> EnvelopeChecker<'s> {
     }
 }
 
-/// The position and maximum (`usize::MAX` for none) of every occurrence of
+/// The position and maximum (`None` for no limit) of every occurrence of
 /// every loop, loop after loop, and per loop where its occurrences start.
-pub(super) fn limits(spec: &Spec) -> (Vec<(usize, usize)>, Vec<usize>) {
+pub(super) fn limits(spec: &Spec) -> (Vec<(usize, Option<usize>)>, Vec<usize>) {
     let mut limits = Vec::new();
     let mut first = Vec::with_capacity(spec.loops().len());
     for def in spec.loops() {
@@ -319,7 +356,7 @@ pub(super) fn limits(spec: &Spec) -> (Vec<(usize, usize)>, Vec<usize>) {
         limits.extend(
             def.occurrences
                 .iter()
-                .map(|occurrence| (occurrence.pos, occurrence.max.unwrap_or(usize::MAX))),
+                .map(|occurrence| (occurrence.pos, occurrence.max)),
         );
     }
     (limits, first)
@@ -342,7 +379,7 @@ pub(super) fn required(spec: &Spec) -> Vec<Vec<usize>> {
                 .iter()
                 .enumerate()
                 .filter(|(_, child)| spec.get(**child).usage == Usage::Required)
-                .map(|(at, _)| def.occurrences.len() + at);
+                .map(|(at, _)| def.occurrences.len().saturating_add(at));
             occurrences.chain(children).collect()
         })
         .collect()
@@ -350,7 +387,7 @@ pub(super) fn required(spec: &Spec) -> Vec<Vec<usize>> {
 
 /// The order finding for occurrence `index` of loop `id`, which comes after
 /// `after`, the `(loop, occurrence index, position)` seen highest so far.
-fn out_of_order(spec: &Spec, id: LoopId, index: usize, after: (LoopId, usize, usize)) -> Rule {
+fn out_of_order(spec: &Spec, id: LoopId, index: usize, after: Seen) -> Rule {
     let def = spec.get(id);
     let after_def = spec.get(after.0);
     let name = |def: &crate::spec::LoopDef, at: usize| {

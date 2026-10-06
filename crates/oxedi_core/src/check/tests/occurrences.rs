@@ -2,8 +2,8 @@
 //! numbers its own positions, and two children of `head` that share its
 //! position space.
 
-use super::tests::check_all;
-use super::*;
+use super::check_all;
+use crate::check::*;
 use crate::{Delimiters, SnipLevel};
 
 const SPEC: &str = r#"{"name":"o",
@@ -17,6 +17,7 @@ const SPEC: &str = r#"{"name":"o",
             "nt":{"segment":"NT","pos":20,"max":2},
             "rf_a":{"segment":"RF","pos":30,"usage":"required","max":1,"qualifier":{"element":1,"codes":["A"]}},
             "rf_b":{"segment":"RF","pos":30,"qualifier":{"element":1,"codes":["B","C"]}},
+            "md":{"segment":"MD","pos":45},
             "sm":{"segment":"SM","pos":90}
         }},
         "item":{"parent":"head","trigger":{"segment":"IT"},"usage":"required","max":2,"occurrences":{
@@ -212,4 +213,30 @@ fn finishing_restarts_the_root_counts() {
         out.extend_from_slice(checker.finish());
         assert_eq!(out, Vec::new());
     }
+}
+
+#[test]
+fn an_occurrence_after_a_closed_child_comes_after_every_position_inside_it() {
+    // `md` (45) sits between `item`'s trigger (40) and its `qt` (50): after
+    // an `item` instance that reached `qt`, it is out of order.
+    assert_eq!(
+        rendered("EV~HD~RF*A~IT~QT~MD~TR~EE~"),
+        vec![
+            "SNIP 2 · occurrence \"md\" (position 45) of loop \"head\" comes after occurrence \"qt\" (position 50) of loop \"item\" · segment #5 · at env#1/head#1 · datum \"MD\""
+        ]
+    );
+    // Before the child it is in order, and the child opening after it is
+    // what comes out of order.
+    assert_eq!(
+        check_all(&spec(), "EV~HD~RF*A~MD~IT~QT~TR~EE~")
+            .iter()
+            .map(|diagnostic| diagnostic.rule.kind())
+            .collect::<Vec<_>>(),
+        vec!["OutOfOrder"]
+    );
+    // Sibling instances of a child repeat at its trigger position.
+    assert_eq!(
+        rendered("EV~HD~RF*A~IT~QT~IT~QT~OP~SM~TR~EE~"),
+        Vec::<String>::new()
+    );
 }

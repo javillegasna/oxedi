@@ -121,7 +121,10 @@ impl<'a> Segment<'a> {
     }
 
     /// `true` when every `(position, value)` holds: the element at the
-    /// position is simple and equal to the value.
+    /// position is simple and equal to the value. Trigger and column
+    /// conditions read this way on purpose: a composite never satisfies a
+    /// condition, whereas [`leaf`](Self::leaf), which qualifiers read, takes
+    /// a composite's first component.
     #[inline]
     pub(crate) fn holds(&self, conditions: &[(usize, Vec<u8>)]) -> bool {
         conditions.iter().all(|(position, value)| {

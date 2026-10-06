@@ -250,9 +250,10 @@ pub(super) fn compile_occurrences(
                 }));
             };
             if (a.element, a.component) != (b.element, b.component) {
-                return Err(fail(OccurrenceError::Indistinct {
+                return Err(fail(OccurrenceError::QualifierPlaces {
                     other: first.name.clone(),
-                    segment,
+                    place: place(&segment, b.element, b.component),
+                    other_place: place(&segment, a.element, a.component),
                 }));
             }
             if let Some(code) = a.codes.iter().find(|code| b.codes.contains(code)) {

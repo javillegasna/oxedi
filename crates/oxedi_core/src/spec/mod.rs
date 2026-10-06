@@ -47,6 +47,7 @@ pub use tables::{AnchorChains, ColumnSource, Repeat, TableDef, TableDefError};
 pub use version::{DeclaredVersion, VersionError};
 
 pub(crate) use render::{render_key, render_selector, render_trigger};
+pub(crate) use segments::rejects_code;
 
 use std::cmp::Reverse;
 use std::collections::BTreeMap;

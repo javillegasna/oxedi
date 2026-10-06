@@ -321,7 +321,7 @@ fn invalid_occurrences_are_rejected_naming_loop_occurrence_rule_and_datum() {
         ),
         (
             r#"{"loops":{"head":{"occurrences":{"insured":{"qualifier":{"element":2,"codes":["1"]}}}}}}"#,
-            "loop \"head\" occurrence \"patient\": holds segment \"NM\" like occurrence \"insured\", and the two have no qualifier on one shared element to tell them apart",
+            "loop \"head\" occurrence \"patient\": reads its qualifier at NM01 but occurrence \"insured\" of the same segment reads it at NM02; every occurrence of one segment in a loop reads its qualifier at the same place",
         ),
         (
             r#"{"loops":{"head":{"occurrences":{"insured":{"qualifier":{"codes":["IL","QC"]}}}}}}"#,

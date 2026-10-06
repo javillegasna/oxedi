@@ -27,6 +27,9 @@ pub struct Trigger {
     /// Segment id, e.g. `CLP`.
     pub segment: Vec<u8>,
     /// `(1-based element position, required value)`, sorted by position.
+    /// A condition holds only on a simple element: a composite never
+    /// satisfies it, unlike an occurrence's qualifier, which reads a
+    /// composite named without a component at its first component.
     pub conditions: Vec<(usize, Vec<u8>)>,
 }
 

@@ -1439,3 +1439,78 @@ reemplaza.
 
 **Fuera de alcance.** Loop path para hallazgos externos; rango de bytes dentro de `Diagnostic`;
 otros validadores externos.
+
+### Stage 5f · Extensión de DuckDB (lectura) — APROBADO 2026-10-05
+
+El stage que lleva oxedi835 a todos los lenguajes con cliente de DuckDB (Python, R, Java, Node,
+Go, .NET, Rust) sin mantener un binding por lenguaje (D17). Una extensión comunitaria expone
+`read_835(...)` como función de tabla. El spike (`spikes/duckdb-extension.md`, PR #79) confirmó
+que es viable: con la API C estable (ABI `C_STRUCT`, objetivo DuckDB v1.5.6) la extensión en Rust
+carga sin recompilar en v1.5.6 y en 2.0-dev, y `read_835` coincidió con `parse_file` en 30 de 30
+tablas. Desde el spike, los importes ya salen como `decimal128(38, s)` en Arrow, de modo que pasan
+a `DECIMAL(38, s)` en DuckDB sin decisión aparte, y hay dos specs built-in (5010 y 4010)
+elegidas por versión.
+
+**Decisiones de diseño (cada una con la alternativa descartada).**
+- **T62 · Nombre `oxedi` (resuelve D15 para la extensión).** El nombre en el repositorio
+  comunitario es prácticamente permanente: los usuarios no pueden instalar versiones antiguas y
+  cambiarlo exige otra extensión. `oxedi` es la marca del proyecto y es neutro para la familia X12:
+  hoy `read_835`, mañana `read_837` en la misma extensión. El crate es `crates/oxedi_duckdb`.
+  Descartados `oxedi835` (choca con la 837) y `x12` o `edi` (genéricos, reclaman un espacio de
+  nombres que no es solo nuestro). El paquete de PyPI conserva su nombre.
+- **T63 · Una función con parámetros.** `read_835(path | lista | glob, table := 'claims',
+  filename := false, version := NULL, binary := false, ignore_errors := false)`. `table` acepta
+  las tablas que define la spec y `'diagnostics'`; las tablas vienen de la spec, así que una tabla
+  nueva no añade funciones. Descartada una función por tabla (`read_835_claims`, …).
+- **T64 · Texto como VARCHAR, con salida exacta opcional.** Las columnas que en Arrow son
+  `binary` (bytes tal cual) salen como VARCHAR, lo natural en SQL. Una celda que no es UTF-8
+  válido hace fallar la consulta con un error P10 (archivo, tabla, columna, fila y bytes) que
+  sugiere `binary := true`; con esa opción esas columnas salen como BLOB, sin alterar nada.
+  Descartados BLOB por defecto (obliga a conversiones en cada comparación) y sustituir bytes
+  inválidos (alteraría datos en silencio).
+- **T65 · Errores por archivo como `read_csv`.** Un archivo que no se puede parsear (sin ISA, por
+  ejemplo) hace fallar la consulta con un error P10 que nombra el archivo, la regla y el dato. Con
+  `ignore_errors := true` el fallo se convierte en una fila de `diagnostics` y la consulta sigue
+  con los demás archivos. Descartado continuar siempre: en un glob de mil archivos escondería el
+  fallo.
+- **T66 · Spec por versión, como en Python.** Sin `version`, cada archivo usa la spec built-in de
+  la versión que declara (GS08), y la 5010 si no declara ninguna conocida. `version := '4010'` o
+  `'5010'` fuerza una; otro valor es un error P10. Las specs propias quedan para después.
+- **T67 · Diagnósticos con la forma de `Diagnostic`.** `table := 'diagnostics'` devuelve una fila
+  por hallazgo con `level`, `kind`, `rule` (el texto completo), `segment`, `element`, `component`,
+  `path`, `datum` (VARCHAR o BLOB según T64), `origin` y `code`, más `filename` si se pide.
+- **T68 · E/S por el sistema de archivos de DuckDB, un archivo a la vez.** La extensión lee con
+  el sistema de archivos de DuckDB, así que `s3://`, `https://` y lo que DuckDB monte funcionan, y
+  nunca usa `std::fs`. En un glob procesa un archivo a la vez, así que la memoria queda acotada por
+  el archivo más grande. El paralelismo entre archivos y el *projection pushdown* esperan a una
+  medición: el parseo domina (unos 16 ms en united). El núcleo no cambia y sigue sans-IO.
+- **T69 · Rust sobre `duckdb-rs` con la API C estable, DuckDB ≥ 1.5.6.** La plantilla oficial con
+  `USE_UNSTABLE_C_API=0`, con `duckdb-rs` fijado en `Cargo.lock` y subido solo tras comprobar que
+  no usa la cola inestable. El estado (conexión o base) va en el `extra_info` de cada función, sin
+  globales de proceso. Plataformas: la matriz por defecto sin musl ni WASM, como las demás
+  extensiones en Rust. Descartados la vía C (más código, solo necesaria para la línea 1.4) y el
+  soporte de 1.4 LTS.
+
+**Entregable / contrato.**
+- `crates/oxedi_duckdb`: `read_835` según T63–T68, sin `unwrap`/`expect`/`panic!` ni indexado
+  falible sobre la entrada, errores P10 con un test por mensaje.
+- Tests SQLLogicTest sobre los samples y los fixtures, y el andamiaje de la plantilla
+  (`make release`, `make test_release`) con `extension-ci-tools`.
+- Un job de CI en Linux que construye la extensión y corre sus tests contra la estable vigente y
+  contra `next`.
+- El descriptor `description.yml` listo para `duckdb/community-extensions`. La versión de la
+  extensión es la del workspace. Abrir el PR al repositorio comunitario lo hace el dueño.
+- README: sección corta sobre DuckDB (`INSTALL oxedi FROM community; LOAD oxedi;`, ejemplos de
+  `read_835` y de `COPY ... TO 'x.parquet'`).
+
+**Gate de verificación.**
+- Igualdad fila a fila (md5 por tabla) entre `read_835` y `oxedi835.parse_file` en los seis
+  samples y en los fixtures, para todas las tablas y para `diagnostics`.
+- Un test SQLLogicTest por mensaje de error (T64, T65, T66 y parámetros inválidos).
+- Carga verificada en la estable vigente (≥ 1.5.6) y en `next`.
+- `make gates` en verde con el crate nuevo (clippy `-D warnings`, fmt), y el núcleo sin
+  dependencias nuevas.
+
+**Fuera de alcance.** `write_835` y el formato de `COPY` (Stage 7b); WASM y musl; la API C del
+núcleo para otros lenguajes (D17 a); specs propias; paralelismo entre archivos y *projection
+pushdown* hasta medirlos; funciones *table in-out*.

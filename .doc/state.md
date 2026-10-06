@@ -1,14 +1,15 @@
-# State — 2026-10-04 (0.2.0 on PyPI; 0.2.1 in preparation)
+# State — 2026-10-05 (0.2.1 on PyPI; Stage 5f §7 proposed)
 
 Snapshot for picking the project up cold. Update when a stage changes state.
 
 ## Pick up here (2026-10-04, end of session)
 
-- **Now:** release 0.2.1 (branch `release-0.2.1`): type stubs generated with `pyo3-stub-gen`
-  (#102), the quick-wins sprint (#100) and PLB reason codes in every adjustment composite (#104).
-  After merge: `make release-check TAG=v0.2.1 && make tag`, approve `pypi`. 0.2.0 is on PyPI
-  (#99). Next work: 5f DuckDB extension; #82 moved to Stage 7 with D11 and #53; open issues are
-  on Project #8 (#101 stub metadata size, #103 pyright/ty evaluation among them).
+- **Now:** Stage 5f (DuckDB extension, read) on branch `stage-5f-duckdb`: §7 proposed
+  (T62–T69: extension `oxedi`, one `read_835` with `table :=`, VARCHAR text with `binary := true`,
+  per-file errors with `ignore_errors := true`, spec by declared version, DuckDB file system,
+  Rust on `duckdb-rs` stable C API ≥ 1.5.6). Next: owner approves §7, then the plan.
+- **Released:** 0.2.1 on PyPI 2026-10-05 (#105: type stubs #102, quick-wins sprint #100, PLB
+  codes #104); 0.2.0 on 2026-10-04 (#99).
 - **Stage 5e merged** (PR #80, 2026-10-04) with its amendment (PR #81: one diagnostic type,
   T58–T61): `scripts/spec_vs_pyx12.py` with `--check` in CI for 5010 and 4010; `codes` and
   `version` in the spec format; 5010 spec completed from pyx12's map (12 `required` flips, TA1,

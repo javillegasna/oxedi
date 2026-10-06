@@ -1773,18 +1773,23 @@ de Python no cambian.
   `FORMAT oxedi` con una opción `transaction` (más largo para el único caso de hoy) y una función
   `write_835` que lea tablas por nombre (el spike mostró que solo ve tablas persistentes y
   confirmadas: ni temporales, ni objetos del cliente, ni la transacción en curso).
-- **T89 · La entrada: una columna `LIST<STRUCT>` por tabla.** La consulta devuelve columnas con los
-  nombres de las tablas de la spec (`payments`, `claims`, `services`, `adjustments`,
-  `provider_adjustments`); cada una es una lista de structs cuyos campos son las columnas de esa
-  tabla, como las devuelve `read_835` (`SELECT list(c) FROM claims c`). Es el mismo contrato que
-  `oxedi.write`: las mismas tablas, columnas y referencias al padre (T82), y las mismas reglas del
-  núcleo para tablas o columnas que faltan o sobran. Si la consulta devuelve varias filas, las
-  listas de cada tabla se concatenan en orden (sirve una fila por pago o un `UNION ALL`, porque las
-  referencias al padre son globales). Una columna que no es lista de structs, o un campo con un tipo
-  que no se puede convertir al de la columna de la spec, es un error P10 que nombra la columna, el
-  campo, el tipo recibido y el esperado. Descartados un formato largo con una columna `table` y la
-  fila serializada (pierde los tipos), un esquema aplanado (ambiguo para ajustes y PLB) y la función
-  por nombres (T88).
+- **T89 · La entrada: una columna `STRUCT` cuyos campos son las tablas** (enmendado 2026-10-06:
+  la API C estable no da a un formato de `COPY` los nombres de las columnas de la consulta, solo
+  su número y sus tipos; los nombres de los campos de un `STRUCT` sí viajan en el tipo). La
+  consulta devuelve una sola columna de tipo `STRUCT` cuyos campos llevan los nombres de las tablas
+  de la spec (`payments`, `claims`, `services`, `adjustments`, `provider_adjustments`); cada campo
+  es una lista de structs cuyos campos son las columnas de esa tabla, como las devuelve `read_835`
+  (`SELECT {'payments': (SELECT list(p) FROM payments p), 'claims': (SELECT list(c) FROM claims c),
+  …}`). Es el mismo contrato que `oxedi.write`: las mismas tablas, columnas y referencias al padre
+  (T82), y los mismos mensajes para una tabla o una columna que no están en la spec. Si la consulta
+  devuelve varias filas, las listas de cada tabla se concatenan en orden (sirve una fila por pago o
+  un `UNION ALL`, porque las referencias al padre son globales). Una consulta con otra forma (más de
+  una columna, una columna que no es `STRUCT`, un campo que no es lista de structs) o un campo con
+  un tipo que no se puede convertir al de la columna de la spec es un error P10 que nombra la tabla,
+  el campo, el tipo recibido y el esperado. Descartados reconocer cada tabla por sus campos con una
+  columna por tabla (el nombre `AS` no llega y un subconjunto de columnas puede encajar en varias
+  tablas), un formato largo con una columna `table` y la fila serializada (pierde los tipos), un
+  esquema aplanado (ambiguo para ajustes y PLB) y la función por nombres (T88).
 - **T90 · El sobre en las opciones de `COPY`.** Las opciones llevan los nombres de los campos de
   `oxedi.Envelope`: `sender_id`, `receiver_id`, `date`, `time` (obligatorias), `sender_qualifier`,
   `receiver_qualifier`, `usage_indicator`, `control_number`, `application_sender`,
@@ -1804,8 +1809,13 @@ de Python no cambian.
   válidos. Sin specs personalizadas, igual que en la lectura.
 - **T93 · La salida por el sistema de archivos de DuckDB.** Los bytes se escriben con el sistema de
   archivos de DuckDB, igual que la lectura (T68): rutas locales y remotas con la configuración de
-  quien llama, sin `std::fs`. Un archivo por `COPY`; `PARTITION_BY`, `PER_THREAD_OUTPUT` y opciones
-  de archivo que no aplican (por ejemplo `COMPRESSION`) son un error P10 que lo dice. Sin estado
+  quien llama, sin `std::fs`. Un archivo por `COPY`: `PARTITION_BY` y `PER_THREAD_OUTPUT` los
+  consume DuckDB antes del formato, así que se rechaza una salida que pida un segundo archivo (con
+  un solo archivo se escribe normal); una opción que llega y no aplica (por ejemplo `COMPRESSION`)
+  es un error P10 que lo dice. El archivo de destino se abre solo después de una escritura sin
+  hallazgos; con una ruta local y el archivo temporal de DuckDB (`USE_TMP_FILE`, por defecto) un
+  archivo existente queda intacto si el `COPY` falla, y en los demás casos DuckDB borra el destino
+  al fallar, como con cualquier formato. Sin estado
   global: todo vive en el bind y en el estado global del `COPY`; ningún pánico cruza la frontera
   FFI.
 

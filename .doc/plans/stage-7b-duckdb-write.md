@@ -4,7 +4,7 @@
 > tasks, one review per batch, Opus triage at the end.
 
 **Goal:** the `oxedi` DuckDB extension registers a `COPY` format `edi835` that takes the spec's
-tables (one `LIST<STRUCT>` column per table) and writes an 835 with the core writer, byte for
+tables (one `STRUCT` column whose fields are the tables, each a list of structs) and writes an 835 with the core writer, byte for
 byte equal to `oxedi.write` with the same envelope.
 
 **Architecture:** a new module in `crates/oxedi_duckdb` registers a copy function through the
@@ -69,8 +69,9 @@ only). Branch `stage-7b-duckdb-write`. Ledger `.superpowers/sdd/stage-7b/progres
   expected), unknown version (valid values), and the file options that do not apply
   (`PARTITION_BY`, `PER_THREAD_OUTPUT`, `COMPRESSION`, others DuckDB passes: find out exactly
   which reach the bind and which DuckDB rejects itself; test what reaches us).
-- Input schema (T89): every input column must be named after a spec table (message as Python's),
-  of type `LIST(STRUCT(...))`; every struct field must be a column of that table (message as
+- Input schema (T89, amended: the C API gives no column names): exactly one input column of type
+  `STRUCT` whose fields are named after spec tables (message as Python's), each of type
+  `LIST(STRUCT(...))`; every struct field must be a column of that table (message as
   Python's) with a DuckDB type convertible to the column's type (P10 error naming table, field,
   received type and expected type). Unconvertible types fail at bind, before any row is read.
 - Rust unit tests for option parsing and schema checks (full-text messages); one SQLLogicTest per

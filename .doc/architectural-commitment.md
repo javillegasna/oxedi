@@ -1589,7 +1589,7 @@ crates.io. Todavía no hay usuarios, así que no hace falta paquete de transici�
 
 **Fuera de alcance.** Publicar en crates.io; la 837 (Stage 9); cambios de API más allá del nombre.
 
-### Stage 7a · Modelo de ocurrencias por loop — PROPUESTA 2026-10-06
+### Stage 7a · Modelo de ocurrencias por loop — APROBADO 2026-10-06
 
 El stage que da a la spec lo que el escritor (Stage 7) necesita y la lectura ya aprovecha: qué
 segmentos lleva cada loop, en qué orden, cuántas veces y cuál es cuál. Hoy cada loop declara solo
@@ -1662,7 +1662,10 @@ actuales.
   camino de elementos no leídos.
 - Fuentes de columna por ocurrencia, con ancestro y selector; distinción ausente y vacío.
 - La extensión de DuckDB y el binding de Python reflejan los cambios (los diagnósticos nuevos y
-  las celdas `""`), con su CHANGELOG.
+  las celdas `""`), con su CHANGELOG. El CHANGELOG avisa que un parche propio que redefina la
+  lista `segments` de un loop debe pasar al formato de ocurrencias.
+- La capa `oxedi.edi_835_parser` se adapta a T80 donde dependía de que un elemento vacío llegara
+  como `null` (convierte `""` a `None` donde la librería lo hace).
 
 **Gate de verificación.**
 - `--check` pasa para 5010 y 4010, con las exclusiones listadas y razonadas.
@@ -1670,7 +1673,11 @@ actuales.
   real, spec demasiado estricta o bug) antes de regenerar goldens; lo mismo para cada celda que
   pasa de `null` a `""`.
 - Las tablas de los seis samples no cambian salvo por T80.
+- El test de paridad de `oxedi.edi_835_parser` con `edi-835-parser` 1.8.0 sigue en verde, sin
+  ninguna celda distinta.
 - `make gates`, `make py-test` con y sin `pyx12`, los tests de la extensión y su oráculo en verde.
 
 **Fuera de alcance.** El escritor (Stage 7); las reglas de cuadre de D11 (se diseñan con el
-escritor, que es quien las usa para calcular totales); L3 de #53; la 837 (Stage 9).
+escritor, que es quien las usa para calcular totales); L3 de #53; la 837 (Stage 9); migrar al
+parche de la capa `oxedi.edi_835_parser` las reglas que hoy calcula en Python (el último AMT, los
+datos del claim en la fila del servicio) usando T79, que queda como mejora opcional.

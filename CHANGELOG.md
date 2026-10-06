@@ -9,6 +9,8 @@ This file covers the Python package; the DuckDB extension has its own changelog 
 
 ## [Unreleased]
 
+## [0.4.0rc1] - 2026-10-06
+
 ### Added
 - `oxedi.write(tables, envelope, spec=None, allow_findings=False)` writes an 835 from tables:
   the tables of a parse, or a mapping of Arrow, Polars or pandas tables with the spec's columns.
@@ -188,7 +190,8 @@ First usable version of oxedi835.
 
 Release candidate of 0.1.0, published to TestPyPI only. Same code as 0.1.0.
 
-[Unreleased]: https://github.com/javillegasna/oxedi/compare/v0.3.0...HEAD
+[Unreleased]: https://github.com/javillegasna/oxedi/compare/v0.4.0rc1...HEAD
+[0.4.0rc1]: https://github.com/javillegasna/oxedi/releases/tag/v0.4.0rc1
 [0.3.0]: https://github.com/javillegasna/oxedi/releases/tag/v0.3.0
 [0.2.1]: https://github.com/javillegasna/oxedi835/releases/tag/v0.2.1
 [0.2.0]: https://github.com/javillegasna/oxedi835/releases/tag/v0.2.0

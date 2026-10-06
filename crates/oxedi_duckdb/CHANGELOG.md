@@ -7,6 +7,13 @@ and the extension has its own version.
 
 ## [Unreleased]
 
+## [0.1.1] - 2026-10-06
+
+### Fixed
+- The test of a file that cannot be opened no longer pins the operating system's error text, so
+  the extension's tests pass on Windows and DuckDB's community build publishes it on every
+  platform. 0.1.0 was never published because that test failed on Windows.
+
 ### Added
 - The diagnostics table carries six new level-2 rules from the loop structure:
   `RequiredOccurrenceMissing`, `OccurrenceOverMax`, `LoopOverMax`, `OutOfOrder`,
@@ -24,5 +31,6 @@ and the extension has its own version.
   `read_835(...)` returns the payments, claims, services, adjustments, provider adjustments and
   diagnostics tables in SQL.
 
-[Unreleased]: https://github.com/javillegasna/oxedi/compare/duckdb-v0.1.0...HEAD
+[Unreleased]: https://github.com/javillegasna/oxedi/compare/duckdb-v0.1.1...HEAD
+[0.1.1]: https://github.com/javillegasna/oxedi/releases/tag/duckdb-v0.1.1
 [0.1.0]: https://github.com/javillegasna/oxedi/releases/tag/duckdb-v0.1.0

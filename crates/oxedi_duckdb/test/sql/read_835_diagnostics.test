@@ -103,12 +103,13 @@ FROM read_835('test/data/not_text.835', table_name := 'diagnostics', ignore_erro
 ----
 NotAnInterchange	\x1F\x8B\x08\x00\x00\x00\x00\x00
 
-# ignore_errors does not cover a file that cannot be opened.
+# ignore_errors does not cover a file that cannot be opened. The operating system's own reason
+# follows the last colon and differs by platform, so it is not pinned.
 
 statement error
 SELECT * FROM read_835('test/data/missing.835', ignore_errors := true);
 ----
-read_835: "test/data/missing.835" could not be opened: Cannot open file "test/data/missing.835": No such file or directory
+read_835: "test/data/missing.835" could not be opened: Cannot open file "test/data/missing.835"
 
 # ---- text that is not UTF-8 ----
 

@@ -1,0 +1,136 @@
+# name: test/sql/read_835_diagnostics.test
+# description: the diagnostics table, files that cannot be parsed with and without ignore_errors,
+#              and text that is not UTF-8
+# group: [oxedi]
+
+require oxedi
+
+# ---- diagnostics: one row per finding, with the attributes of oxedi835.Diagnostic ----
+
+query TT
+SELECT column_name, column_type
+FROM (DESCRIBE SELECT * FROM read_835('../edi835_core/tests/fixtures/multi_claim_sample.txt',
+                                      table_name := 'diagnostics', filename := true));
+----
+level	BIGINT
+kind	VARCHAR
+rule	VARCHAR
+segment	BIGINT
+element	BIGINT
+component	BIGINT
+path	VARCHAR
+datum	VARCHAR
+origin	VARCHAR
+code	VARCHAR
+filename	VARCHAR
+
+query ITTIIITTTT
+SELECT * FROM read_835('../edi835_core/tests/fixtures/multi_claim_sample.txt', table_name := 'diagnostics')
+LIMIT 2;
+----
+2	LengthOutOfRange	element ISA06 (interchange_sender_id) has length 14; the spec allows 15 to 15	0	6	NULL	interchange#1	RUSHMORE      	oxedi835	NULL
+2	LengthOutOfRange	element BPR10 (originating_company_identifier) has length 9; the spec allows 10 to 10	3	10	NULL	interchange#1/group#1/transaction#1	111333555	oxedi835	NULL
+
+# binary := true turns datum, and only datum, into a BLOB.
+
+query TT
+SELECT column_name, column_type
+FROM (DESCRIBE SELECT * FROM read_835('../edi835_core/tests/fixtures/multi_claim_sample.txt',
+                                      table_name := 'diagnostics', binary := true))
+WHERE column_type <> 'VARCHAR';
+----
+level	BIGINT
+segment	BIGINT
+element	BIGINT
+component	BIGINT
+datum	BLOB
+
+# ---- a file that is not an X12 interchange ----
+
+statement error
+SELECT * FROM read_835('test/data/not_an_interchange.835');
+----
+read_835: "test/data/not_an_interchange.835" is not an X12 interchange: input does not start with an ISA segment (found bytes [68 65 6c 6c 6f 2c 20 74])
+
+statement error
+SELECT * FROM read_835('test/data/not_an_interchange.835', table_name := 'diagnostics');
+----
+read_835: "test/data/not_an_interchange.835" is not an X12 interchange: input does not start with an ISA segment (found bytes [68 65 6c 6c 6f 2c 20 74])
+
+# With ignore_errors it adds no rows to a table and the scan goes on with the next file.
+
+query TI
+SELECT filename, count(*)
+FROM read_835(['test/data/not_an_interchange.835',
+               '../edi835_core/tests/fixtures/multi_claim_sample.txt'],
+              ignore_errors := true, filename := true)
+GROUP BY filename;
+----
+../edi835_core/tests/fixtures/multi_claim_sample.txt	2
+
+# ...and it becomes one diagnostics row naming the file, the rule and the datum.
+
+query ITTIIITTTTT
+SELECT *
+FROM read_835(['test/data/not_an_interchange.835',
+               '../edi835_core/tests/fixtures/multi_claim_sample.txt'],
+              table_name := 'diagnostics', ignore_errors := true, filename := true)
+WHERE origin = 'read_835';
+----
+1	NotAnInterchange	read_835: "test/data/not_an_interchange.835" is not an X12 interchange: input does not start with an ISA segment (found bytes [68 65 6c 6c 6f 2c 20 74])	NULL	NULL	NULL	(empty)	hello, t	read_835	NULL	test/data/not_an_interchange.835
+
+query TI
+SELECT origin, count(*)
+FROM read_835('test/data/*.835', table_name := 'diagnostics', ignore_errors := true, binary := true)
+GROUP BY origin
+ORDER BY origin;
+----
+oxedi835	23
+read_835	2
+
+# A binary file: VARCHAR mode escapes the bytes found instead of ISA, so the row survives;
+# binary := true keeps them raw.
+
+query TT
+SELECT kind, datum
+FROM read_835('test/data/not_text.835', table_name := 'diagnostics', ignore_errors := true);
+----
+NotAnInterchange	\x1f\x8b\x08\x00\x00\x00\x00\x00
+
+query TT
+SELECT kind, datum
+FROM read_835('test/data/not_text.835', table_name := 'diagnostics', ignore_errors := true, binary := true);
+----
+NotAnInterchange	\x1F\x8B\x08\x00\x00\x00\x00\x00
+
+# ignore_errors does not cover a file that cannot be opened.
+
+statement error
+SELECT * FROM read_835('test/data/missing.835', ignore_errors := true);
+----
+read_835: "test/data/missing.835" could not be opened: Cannot open file "test/data/missing.835": No such file or directory
+
+# ---- text that is not UTF-8 ----
+
+statement error
+SELECT * FROM read_835('test/data/latin1_patient.835');
+----
+read_835: "test/data/latin1_patient.835", table "claims", column "patient_last_name", row 0: a VARCHAR must be valid UTF-8; found b"M\xfcLLER"; pass binary := true to read text columns as BLOB
+
+query T
+SELECT patient_last_name FROM read_835('test/data/latin1_patient.835', binary := true) ORDER BY "row";
+----
+M\xFCLLER
+SETTLE
+
+statement error
+SELECT * FROM read_835('test/data/latin1_patient.835', table_name := 'diagnostics');
+----
+read_835: "test/data/latin1_patient.835", table "diagnostics", column "datum", row index 5: a VARCHAR must be valid UTF-8; found b"Z\xfc"; pass binary := true to read text columns as BLOB
+
+query TT
+SELECT kind, datum
+FROM read_835('test/data/latin1_patient.835', table_name := 'diagnostics', binary := true)
+WHERE datum = 'Z\xFC'::BLOB;
+----
+UnknownSegment	Z\xFC

@@ -1,0 +1,27 @@
+[package]
+name = "oxedi_duckdb"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+authors.workspace = true
+repository.workspace = true
+description = "DuckDB extension `oxedi`: read_835 over the oxedi835 EDI 835 parser core"
+publish = false
+
+# The library is named after the extension: the build looks for liboxedi.so and
+# DuckDB calls the `oxedi_init_c_api` entry point.
+[lib]
+name = "oxedi"
+crate-type = ["cdylib", "rlib"]
+doctest = false
+bench = false
+
+[lints]
+workspace = true
+
+[dependencies]
+edi835_core = { path = "../edi835_core" }
+# The C API, reached through the function table DuckDB hands the extension.
+# Pinned: upgrade only after checking that the struct it generates has no
+# unstable tail this crate calls into.
+libduckdb-sys = { version = "=1.10506.0", default-features = false, features = ["loadable-extension"] }

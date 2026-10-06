@@ -1,14 +1,19 @@
-# State — 2026-10-04 (0.2.0 on PyPI; 0.2.1 in preparation)
+# State — 2026-10-05 (0.2.1 on PyPI; Stage 5f in PR)
 
 Snapshot for picking the project up cold. Update when a stage changes state.
 
-## Pick up here (2026-10-04, end of session)
+## Pick up here (2026-10-05)
 
-- **Now:** release 0.2.1 (branch `release-0.2.1`): type stubs generated with `pyo3-stub-gen`
-  (#102), the quick-wins sprint (#100) and PLB reason codes in every adjustment composite (#104).
-  After merge: `make release-check TAG=v0.2.1 && make tag`, approve `pypi`. 0.2.0 is on PyPI
-  (#99). Next work: 5f DuckDB extension; #82 moved to Stage 7 with D11 and #53; open issues are
-  on Project #8 (#101 stub metadata size, #103 pyright/ty evaluation among them).
+- **Now:** Stage 5f (DuckDB extension, read) on branch `stage-5f-duckdb`: implemented, in PR.
+  Extension `oxedi` (`crates/oxedi_duckdb`, `read_835(..., table_name :=, filename :=, version :=,
+  binary :=, ignore_errors :=)`) on DuckDB's stable C API >= 1.5.6; CI job `duckdb` builds it and
+  runs SQLLogicTest and the oracle on DuckDB 1.5.6 and `next`. Results: oracle equal on 11 parsable
+  files x 6 tables, 0 mismatches, 15 oracle tests passed; 5 SQLLogicTest files in `crates/oxedi_duckdb/test/sql`;
+  three CI legs green (stable 1.5.6, latest and next 2.0.0.dev loading the 1.5.6-ABI binary); gates green. Next: owner merges; then submit `crates/oxedi_duckdb/description.yml` (set `repo.ref` to the
+  release tag `v<version>` after a version bump, so the git tag and EXTENSION_VERSION agree) to
+  duckdb/community-extensions.
+- **Released:** 0.2.1 on PyPI 2026-10-05 (#105: type stubs #102, quick-wins sprint #100, PLB
+  codes #104); 0.2.0 on 2026-10-04 (#99).
 - **Stage 5e merged** (PR #80, 2026-10-04) with its amendment (PR #81: one diagnostic type,
   T58–T61): `scripts/spec_vs_pyx12.py` with `--check` in CI for 5010 and 4010; `codes` and
   `version` in the spec format; 5010 spec completed from pyx12's map (12 `required` flips, TA1,

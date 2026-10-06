@@ -1,0 +1,121 @@
+# name: test/sql/read_835_paths.test
+# description: read_835 over a list of paths, a glob pattern, the filename column and a forced version
+# group: [oxedi]
+
+require oxedi
+
+# A list is read in order, one file at a time.
+
+query TI
+SELECT filename, count(*)
+FROM read_835(['../edi835_core/tests/samples/edi835_test_united.rmt',
+               '../edi835_core/tests/samples/edi835_test_eyemed.RMT'], filename := true)
+GROUP BY filename
+ORDER BY filename;
+----
+../edi835_core/tests/samples/edi835_test_eyemed.RMT	82
+../edi835_core/tests/samples/edi835_test_united.rmt	1332
+
+# filename comes last, as a VARCHAR.
+
+query TT
+SELECT column_name, column_type
+FROM (DESCRIBE SELECT * FROM read_835('../edi835_core/tests/samples/edi835_test_united.rmt', filename := true))
+WHERE column_name IN ('statement_to', 'filename');
+----
+statement_to	DATE
+filename	VARCHAR
+
+# A glob is expanded through DuckDB, sorted; each file uses the spec of the version it declares.
+
+query TII
+SELECT filename, count(*), sum(payment_amount)
+FROM read_835('../edi835_core/tests/samples/*.RMT', filename := true)
+GROUP BY filename
+ORDER BY filename;
+----
+../edi835_core/tests/samples/edi835_test_davisvision.RMT	1	-170.00
+../edi835_core/tests/samples/edi835_test_eyemed.RMT	82	8982.00
+../edi835_core/tests/samples/edi835_test_file.RMT	4	369.00
+../edi835_core/tests/samples/edi835_test_not_available_claim_id.RMT	18	3350.00
+../edi835_core/tests/samples/edi835_test_versant.RMT	648	124445.65
+
+query I
+SELECT count(*) FROM read_835('../edi835_core/tests/samples/*.rmt', table_name := 'services');
+----
+6192
+
+# A list may mix plain paths and patterns.
+
+query I
+SELECT count(*)
+FROM read_835(['../edi835_core/tests/samples/edi835_test_united.rmt',
+               '../edi835_core/tests/samples/edi835_test_e*.RMT']);
+----
+1414
+
+# version forces one built-in spec for every file.
+
+query I
+SELECT count(*) FROM read_835('../edi835_core/tests/samples/edi835_test_eyemed.RMT', version := '4010');
+----
+82
+
+query I
+SELECT count(*) FROM read_835('../edi835_core/tests/samples/edi835_test_eyemed.RMT', version := '5010');
+----
+82
+
+# Paths and patterns that match nothing, or arguments of the wrong kind, fail at bind.
+
+statement error
+SELECT * FROM read_835('../edi835_core/tests/samples/*.nope');
+----
+read_835: no file matches the pattern "../edi835_core/tests/samples/*.nope"
+
+statement error
+SELECT * FROM read_835(42);
+----
+read_835: the path must be a VARCHAR or a list of VARCHAR; found INTEGER
+
+statement error
+SELECT * FROM read_835(['../edi835_core/tests/samples/edi835_test_united.rmt', NULL]);
+----
+read_835: every path of the list must be a string; path 2 is NULL
+
+statement error
+SELECT * FROM read_835('../edi835_core/tests/samples/edi835_test_united.rmt', version := '3070');
+----
+read_835: unknown version "3070"; version must be one of "5010", "4010"
+
+statement error
+SELECT * FROM read_835('../edi835_core/tests/samples/edi835_test_united.rmt', table_name := 'nope');
+----
+read_835: unknown table "nope"; table_name must be one of "adjustments", "claims", "payments", "provider_adjustments", "services", "diagnostics"
+
+statement error
+SELECT * FROM read_835('../edi835_core/tests/samples/edi835_test_united.rmt', table_name := NULL);
+----
+read_835: table_name must not be NULL; leave it out to use its default
+
+statement error
+SELECT * FROM read_835([42, 43]);
+----
+read_835: the path must be a VARCHAR or a list of VARCHAR; found INTEGER[]
+
+# An https URL is a path even when it holds ?, * or [: it is opened, not expanded.
+
+statement error
+SELECT * FROM read_835('https://127.0.0.1:9/remit.835?sig=a*b');
+----
+read_835: "https://127.0.0.1:9/remit.835?sig=a*b" could not be opened
+
+# With external access off, a pattern is refused: listing files is external access.
+
+statement ok
+SET enable_external_access = false;
+
+statement error
+SELECT * FROM read_835('../edi835_core/tests/samples/*.rmt');
+----
+read_835: the pattern "../edi835_core/tests/samples/*.rmt" cannot be expanded while enable_external_access is false; list the files instead

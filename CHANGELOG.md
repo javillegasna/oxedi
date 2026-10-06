@@ -6,6 +6,11 @@ versioning; while the version is `0.x`, a minor release may break the API.
 
 ## [Unreleased]
 
+### Added
+- The DuckDB extension `oxedi` (`crates/oxedi_duckdb`): `read_835(...)` returns the payments,
+  claims, services, adjustments, provider adjustments and diagnostics tables in SQL. It is
+  not yet published to the community repository.
+
 ## [0.2.1] - 2026-10-04
 
 Type stubs, stricter PLB checks and small fixes.

@@ -1,0 +1,15 @@
+# name: test/sql/read_835_disabled_filesystems.test
+# description: a glob cannot list through a file system the caller disabled
+# group: [oxedi]
+
+require oxedi
+
+# A file system the caller disabled is disabled for the glob too.
+
+statement ok
+SET disabled_filesystems = 'LocalFileSystem';
+
+statement error
+SELECT * FROM read_835('../edi835_core/tests/samples/*.rmt');
+----
+read_835: the pattern "../edi835_core/tests/samples/*.rmt" could not be expanded: File system LocalFileSystem has been disabled by configuration

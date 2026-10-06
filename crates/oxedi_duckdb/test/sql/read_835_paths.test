@@ -28,11 +28,14 @@ filename	VARCHAR
 
 # A glob is expanded through DuckDB, sorted; each file uses the spec of the version it declares.
 
+# A glob gives paths as the operating system writes them (backslashes on Windows); the
+# separators are normalized so the expected rows hold on every platform.
+
 query TII
-SELECT filename, count(*), sum(payment_amount)
+SELECT replace(filename, '\', '/') AS file, count(*), sum(payment_amount)
 FROM read_835('../oxedi_core/tests/samples/*.RMT', filename := true)
-GROUP BY filename
-ORDER BY filename;
+GROUP BY file
+ORDER BY file;
 ----
 ../oxedi_core/tests/samples/edi835_test_davisvision.RMT	1	-170.00
 ../oxedi_core/tests/samples/edi835_test_eyemed.RMT	82	8982.00

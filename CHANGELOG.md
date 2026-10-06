@@ -12,8 +12,9 @@ This file covers the Python package; the DuckDB extension has its own changelog 
 ### Changed
 - The package is now `oxedi` (`pip install oxedi`, `import oxedi`, native module `oxedi._core`)
   and the version line continues at 0.3.0. The extras keep their names (`oxedi[pyx12]`,
-  `oxedi[edi-835-parser]`, `oxedi[polars]`, `oxedi[pandas]`) and the API is unchanged. The
-  `oxedi835` project on PyPI is retired; releases 0.1.0 to 0.2.1 stay under that name.
+  `oxedi[edi-835-parser]`, `oxedi[polars]`, `oxedi[pandas]`) and the API is otherwise unchanged. `Diagnostic.origin` for the parser's own
+  findings is now `"oxedi"` (was `"oxedi835"`), also in the DuckDB extension's diagnostics.
+  The `oxedi835` project on PyPI will be retired; releases 0.1.0 to 0.2.1 stay under that name.
 
 ## [0.2.1] - 2026-10-04
 

@@ -49,4 +49,4 @@ assert pathlib.Path(oxedi.__file__).resolve().is_relative_to(pathlib.Path(r'$wor
 assert m.version('oxedi') == '$version', m.version('oxedi')
 print('verify:', oxedi.__file__, m.version('oxedi'))
 "
-OXEDI835_CORE_TESTS="$repo/crates/oxedi_core/tests" "$py" -m pytest -q -rs -p no:cacheprovider "$work/tests"
+OXEDI_CORE_TESTS="$repo/crates/oxedi_core/tests" "$py" -m pytest -q -rs -p no:cacheprovider "$work/tests"

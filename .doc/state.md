@@ -1,19 +1,23 @@
-# State — 2026-10-05 (0.2.1 on PyPI; Stage 5f in PR)
+# State — 2026-10-05 (0.2.1 on PyPI as oxedi835; Stage 5g in PR)
 
 Snapshot for picking the project up cold. Update when a stage changes state.
 
 ## Pick up here (2026-10-05)
 
-- **Now:** Stage 5f (DuckDB extension, read) on branch `stage-5f-duckdb`: implemented, in PR.
-  Extension `oxedi` (`crates/oxedi_duckdb`, `read_835(..., table_name :=, filename :=, version :=,
-  binary :=, ignore_errors :=)`) on DuckDB's stable C API >= 1.5.6; CI job `duckdb` builds it and
-  runs SQLLogicTest and the oracle on DuckDB 1.5.6 and `next`. Results: oracle equal on 11 parsable
-  files x 6 tables, 0 mismatches, 15 oracle tests passed; 5 SQLLogicTest files in `crates/oxedi_duckdb/test/sql`;
-  three CI legs green (stable 1.5.6, latest and next 2.0.0.dev loading the 1.5.6-ABI binary); gates green. Next: owner merges; then run
-  `make duckdb-release-check TAG=duckdb-v0.1.0 && make duckdb-tag`, then open the community PR
-  (`crates/oxedi_duckdb/description.yml` with `repo.ref` set to the commit SHA from
-  `git rev-parse duckdb-v0.1.0^{commit}`) to duckdb/community-extensions.
-  The extension has its own version; `duckdb-v*` tags do not start the PyPI workflow.
+- **Now:** Stage 5g (rename to `oxedi`, T70–T74) on branch `stage-5g-rename`, in PR. Stage 5f
+  (DuckDB extension) merged (#106), the extension has its own version (#111) and CI has path
+  filters (#112). The package, crates and module are `oxedi`, `oxedi_core`, `oxedi_py`; the
+  workspace version is 0.3.0; `Diagnostic.origin` of the parser's own findings is now `"oxedi"`.
+  Next after the merge:
+  1. Owner registers PyPI and TestPyPI pending publishers for `oxedi` (repo
+     `javillegasna/oxedi`, workflow `release.yml`, environments `pypi` and `testpypi`).
+  2. Release PR with a dated `## [0.3.0]` section and the `[0.3.0]` link.
+  3. `make release-check TAG=v0.3.0 && make tag` (optionally an rc through TestPyPI first;
+     TestPyPI was in maintenance).
+  4. T72: yank `oxedi835` 0.1.0, 0.2.0 and 0.2.1, set the description "renamed to oxedi", archive.
+  5. Tag `duckdb-v0.1.0` (`make duckdb-release-check TAG=duckdb-v0.1.0 && make duckdb-tag`), then
+     the community PR with `repo.ref` set to that tag's commit SHA
+     (`git rev-parse duckdb-v0.1.0^{commit}`).
 - **Released:** 0.2.1 on PyPI 2026-10-05 (#105: type stubs #102, quick-wins sprint #100, PLB
   codes #104); 0.2.0 on 2026-10-04 (#99).
 - **Stage 5e merged** (PR #80, 2026-10-04) with its amendment (PR #81: one diagnostic type,
@@ -112,7 +116,7 @@ less memory than `parse`; two threads run in ~0.5× the sequential time; 16–24
 `edi-835-parser`. D8 closed as T24 (keep `Cow`). Deferred findings: #47–#49. PR #44 (#28,
 `isa11`) merged too.
 
-PyPI: `oxedi 0.0.1a1` is published on TestPyPI and PyPI (2026-10-03; wheel
+PyPI: `oxedi835 0.0.1a1` is published on TestPyPI and PyPI (2026-10-03; wheel
 `cp311-abi3-manylinux_2_34_x86_64` + sdist; tag `v0.0.1a1` on 5c03a76). PR #51 (pre-release
 metadata, root `Makefile` with gates/py-dev/py-test/dist/smoke/publish via twine/tag) awaits
 merge. `0.1.0` comes after 5b and the Stage 6 wheel matrix; `1.0` once the API holds for two
@@ -171,7 +175,7 @@ Stage 5c is merged (PR #75, 2026-10-04): the core is one folder per module
 denies the `x.rs` + `x/` form); `spec` and `project` are split by responsibility; a test names
 every public item by its module path; benches are one file per layer with unchanged group ids.
 No behaviour change: same tests (lib 300, pytest 270), goldens untouched, rustdoc pages
-identical, bench within +3.3% of master. Closes #64 and #71 (`oxedi.__version__`); new board
+identical, bench within +3.3% of master. Closes #64 and #71 (`oxedi835.__version__`); new board
 items #73 (type stubs) and #74 (Changelog link). Stage 5d is merged (PR #78): compact index, 37 MiB/s, #76 holds the next performance step. Order decided 2026-10-04: 5e (`pyx12`: spec cross-check and `validate`) → 5f (DuckDB extension, read) → 7 (D11 and the writer, in the core and Python, `pyx12` as gate) → 7b (DuckDB write via `COPY`) → 8 → 9.
 
 Release path: `make release-check TAG=v0.1.0rc1 && make tag` → approve `testpypi` → bump to `0.1.0`

@@ -6,7 +6,7 @@ import pytest
 # The variable is set when the tests run from a copy outside the repository.
 CORE_TESTS = Path(
     os.environ.get(
-        "OXEDI835_CORE_TESTS",
+        "OXEDI_CORE_TESTS",
         Path(__file__).resolve().parents[2] / "oxedi_core" / "tests",
     )
 )

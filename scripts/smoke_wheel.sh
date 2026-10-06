@@ -21,4 +21,4 @@ assert pathlib.Path(oxedi.__file__).is_relative_to(pathlib.Path('$work/venv')), 
 result = oxedi.parse_file('$repo/crates/oxedi_core/tests/samples/edi835_test_united.rmt')
 print('smoke:', result)
 "
-OXEDI835_CORE_TESTS="$repo/crates/oxedi_core/tests" "$work/venv/bin/python" -m pytest -q -p no:cacheprovider "$work/tests"
+OXEDI_CORE_TESTS="$repo/crates/oxedi_core/tests" "$work/venv/bin/python" -m pytest -q -p no:cacheprovider "$work/tests"

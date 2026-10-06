@@ -1,4 +1,4 @@
-# Compromiso Arquitectónico y Mapa de Ruta — oxedi835
+# Compromiso Arquitectónico y Mapa de Ruta — oxedi (antes oxedi835)
 
 > Documento vivo. Es el contrato de diseño del proyecto. Se construye stage por stage:
 > cada stage añade su sección de compromiso (§7) tras ser aprobada. Las decisiones del

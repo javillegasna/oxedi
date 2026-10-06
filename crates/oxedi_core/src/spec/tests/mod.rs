@@ -1,6 +1,7 @@
 //! Unit tests of the spec module, one file per topic.
 
 mod codes;
+mod columns;
 mod controls;
 mod display;
 mod loading;

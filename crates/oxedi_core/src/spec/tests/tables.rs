@@ -22,6 +22,8 @@ fn tables_are_read_in_name_order_with_their_sources() {
                     loop_id: None,
                     segment: b"AA".to_vec(),
                     conditions: Vec::new(),
+                    occurrence: None,
+                    pick: Pick::First,
                     element: 1,
                     component: None,
                 }
@@ -32,6 +34,8 @@ fn tables_are_read_in_name_order_with_their_sources() {
                     loop_id: Some(id("D")),
                     segment: b"DD".to_vec(),
                     conditions: vec![(1, b"N".to_vec())],
+                    occurrence: None,
+                    pick: Pick::First,
                     element: 2,
                     component: None,
                 }
@@ -44,6 +48,8 @@ fn tables_are_read_in_name_order_with_their_sources() {
             loop_id: Some(id("C")),
             segment: b"C1".to_vec(),
             conditions: Vec::new(),
+            occurrence: None,
+            pick: Pick::First,
         }
     );
     let adjustments = spec.table("adjustments").unwrap();
@@ -70,6 +76,8 @@ fn tables_are_read_in_name_order_with_their_sources() {
                     loop_id: None,
                     segment: b"AJ".to_vec(),
                     conditions: Vec::new(),
+                    occurrence: None,
+                    pick: Pick::First,
                     element: 1,
                     component: None,
                 }
@@ -317,18 +325,18 @@ fn bad_tables_are_rejected_with_the_table_the_column_and_the_reason() {
             r#"{"t":{"loops":["B","D"],"columns":{"c":{"loop":"C","segment":"CC","element":1}}}}"#,
             "t",
             Some("c"),
-            TableDefError::NotADescendant {
+            TableDefError::UnrelatedLoop {
                 loop_name: "C".into(),
                 anchor: "D".into(),
             },
         ),
         (
-            r#"{"t":{"loops":["A"],"columns":{"c":{"loop":"A","segment":"AA","element":1}}}}"#,
+            r#"{"t":{"loops":["C"],"columns":{"c":{"loop":"D","segment":"DD","element":1}}}}"#,
             "t",
             Some("c"),
-            TableDefError::NotADescendant {
-                loop_name: "A".into(),
-                anchor: "A".into(),
+            TableDefError::UnrelatedLoop {
+                loop_name: "D".into(),
+                anchor: "C".into(),
             },
         ),
         (
@@ -623,11 +631,75 @@ fn table_errors_display_the_table_the_column_and_every_reason() {
             "anchor loops \"2110\" and \"1000A\" sit under tables that are not one chain: \"2110\" under \"a b\", \"1000A\" under no table",
         ),
         (
-            TableDefError::NotADescendant {
+            TableDefError::UnrelatedLoop {
                 loop_name: "1000A".into(),
                 anchor: "2100".into(),
             },
-            "loop \"1000A\" is not inside anchor loop \"2100\"",
+            "loop \"1000A\" is neither anchor loop \"2100\", a loop inside it nor a loop above it",
+        ),
+        (
+            TableDefError::UnknownOccurrence {
+                loop_name: "2100".into(),
+                occurrence: "patient".into(),
+                known: Box::new(["claim".into(), "patient_name".into()]),
+            },
+            "loop \"2100\" has no occurrence \"patient\"; it declares \"claim\", \"patient_name\"",
+        ),
+        (
+            TableDefError::UnknownOccurrence {
+                loop_name: "2100".into(),
+                occurrence: "patient".into(),
+                known: Box::new([]),
+            },
+            "loop \"2100\" has no occurrence \"patient\"; it declares none",
+        ),
+        (
+            TableDefError::OccurrenceAndSegment {
+                key: "where",
+                written: r#"{"1":"QC"}"#.into(),
+            },
+            "\"occurrence\" already names the segment and its qualifier; \"where\" ({\"1\":\"QC\"}) does not go with it",
+        ),
+        (
+            TableDefError::OccurrenceSegments {
+                occurrence: "amount".into(),
+                segments: Box::new(LoopSegments {
+                    first_loop: "2100".into(),
+                    first_segment: "AMT".into(),
+                    loop_name: "2110".into(),
+                    segment: "QTY".into(),
+                }),
+            },
+            "occurrence \"amount\" is segment \"AMT\" in anchor loop \"2100\" but segment \"QTY\" in anchor loop \"2110\"; name the loop to read with \"loop\"",
+        ),
+        (
+            TableDefError::PickNeedsOccurrence {
+                written: r#""last""#.into(),
+            },
+            "\"pick\" (\"last\") requires \"occurrence\": only a named occurrence has a known repeat",
+        ),
+        (
+            TableDefError::BadPick {
+                written: r#""middle""#.into(),
+            },
+            "\"pick\" must be \"first\", \"last\" or a 1-based position; found \"middle\"",
+        ),
+        (
+            TableDefError::PickOnSingle {
+                loop_name: "2100".into(),
+                occurrence: "patient_name".into(),
+                pick: Pick::Nth(2),
+            },
+            "occurrence \"patient_name\" of loop \"2100\" appears at most once, so \"pick\" (2) has nothing to choose from",
+        ),
+        (
+            TableDefError::PickBeyondMax {
+                nth: 3,
+                loop_name: "2110".into(),
+                occurrence: "service_date".into(),
+                max: 2,
+            },
+            "\"pick\" 3 is past occurrence \"service_date\" of loop \"2110\", which repeats at most 2 times",
         ),
         (
             TableDefError::SegmentNotHeld {
@@ -654,7 +726,7 @@ fn table_errors_display_the_table_the_column_and_every_reason() {
         ),
         (
             TableDefError::NeedsSegment,
-            "the column names no \"segment\" to read",
+            "the column names no \"segment\" or \"occurrence\" to read",
         ),
         (
             TableDefError::GroupWithoutRepeat,

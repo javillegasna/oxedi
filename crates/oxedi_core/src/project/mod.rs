@@ -3,8 +3,12 @@
 //! The projector follows the loops the engine opens and closes and fills the
 //! tables of the spec. A table without a `segment` gets one row per instance
 //! of its anchor loops: the row number is taken when the instance opens, each
-//! column fills from the first captured segment that matches its source while
+//! column fills from the captured segment its pick chooses among those that
+//! match its source (the first by default; see [`crate::spec::Pick`]) while
 //! the instance is open, and the row is appended when the instance closes. A
+//! column that reads a loop above the anchor keeps the value it picks from
+//! the enclosing instance of that loop, which starts over when an instance
+//! of the loop opens, and each row copies it when it opens. A
 //! table anchored on a segment gets its rows when that segment is captured,
 //! one per element group when the segment repeats a group. Every row also
 //! carries its number, the index of its anchor segment and, for each table
@@ -44,12 +48,16 @@
 //! The module is split by responsibility: `plan` holds the per-table plans
 //! built from the spec; `check` the element check and the parsed values it
 //! hands to the columns; `fill` the row filling, the diagnostic helpers and
-//! the text read of an element. This file holds the projector, its event
+//! the text read of an element; `carry` the values read from loops above a
+//! table's anchor. This file holds the projector, its event
 //! handlers and the row and slot state.
 
+mod carry;
 mod check;
 mod fill;
 mod plan;
+#[cfg(test)]
+mod source_tests;
 #[cfg(test)]
 mod tests;
 #[cfg(test)]
@@ -60,8 +68,9 @@ use crate::delimiters::Delimiters;
 use crate::diagnostic::Diagnostic;
 use crate::engine::Event;
 use crate::segment::Segment;
-use crate::spec::{ColumnSource, LoopId, OccurrenceDef, ROW_COLUMN, SEGMENT_COLUMN, Spec};
+use crate::spec::{LoopId, OccurrenceDef, ROW_COLUMN, SEGMENT_COLUMN, Spec};
 
+use carry::Carried;
 use check::Checked;
 use fill::append;
 use plan::{Candidate, ElementPlan, Plans, column_type};
@@ -87,6 +96,9 @@ struct Row {
     segment: usize,
     parents: Vec<Option<usize>>,
     cells: Vec<Slot>,
+    /// Per column: how many segments have matched its source, for a column
+    /// that picks the n-th.
+    seen: Vec<usize>,
     bytes: Vec<u8>,
 }
 
@@ -101,6 +113,9 @@ struct TableState {
     /// `segment` only).
     open: bool,
     row: Row,
+    /// The values of the columns that read a loop above the anchor, kept
+    /// from the enclosing instance of that loop until a row opens.
+    carried: Vec<Carried>,
     table: Table,
 }
 
@@ -117,6 +132,9 @@ pub struct Projector<'s> {
     plans: Plans<'s>,
     /// Per loop: the tables anchored on a segment inside it.
     segment_tables: Vec<Vec<usize>>,
+    /// Per loop: `(table, carried value)` for the values read from that
+    /// loop, which start over when an instance of it opens.
+    resets: Vec<Vec<(usize, usize)>>,
     /// Open loop instances with their ordinals, outermost first.
     open: Vec<(LoopId, usize)>,
     /// Instances opened so far, per loop index.
@@ -161,6 +179,7 @@ impl<'s> Projector<'s> {
             }
         }
         let mut segment_tables = vec![Vec::new(); loops];
+        let mut resets = vec![Vec::new(); loops];
         let mut tables = Vec::with_capacity(spec.tables().len());
         for (index, def) in spec.tables().iter().enumerate() {
             let kinds: Vec<ColumnType> = def
@@ -188,34 +207,18 @@ impl<'s> Projector<'s> {
                     None => anchored[id.index()] = Some(index),
                 }
             }
-            if def.segment.is_none() {
-                for (column, (_, source)) in def.columns.iter().enumerate() {
-                    let (reader, segment) = match source {
-                        ColumnSource::Element {
-                            loop_id, segment, ..
-                        }
-                        | ColumnSource::SegmentIndex {
-                            loop_id, segment, ..
-                        } => (*loop_id, segment),
-                        ColumnSource::GroupElement { .. } => continue,
-                    };
-                    let plan = plans.entry(segment, loops);
-                    match reader {
-                        Some(id) => plan.watchers[id.index()].push((index, column)),
-                        None => {
-                            for &id in &def.loops {
-                                plan.watchers[id.index()].push((index, column));
-                            }
-                        }
-                    }
-                }
-            }
+            let carried = if def.segment.is_none() {
+                plans.watch_columns(spec, index, &mut resets)
+            } else {
+                Vec::new()
+            };
             plans.mark_columns(def);
             tables.push(TableState {
                 kinds,
                 next: 0,
                 open: false,
                 row: Row::default(),
+                carried,
                 table: Table::new(def.name.clone(), columns),
             });
         }
@@ -226,6 +229,7 @@ impl<'s> Projector<'s> {
             anchored,
             plans,
             segment_tables,
+            resets,
             open: Vec::new(),
             ordinals: vec![0; loops],
             checked: Vec::new(),
@@ -267,7 +271,10 @@ impl<'s> Projector<'s> {
             self.closed();
         }
         self.ordinals.iter_mut().for_each(|count| *count = 0);
-        self.tables.iter_mut().for_each(|state| state.next = 0);
+        for state in &mut self.tables {
+            state.next = 0;
+            state.carried.iter_mut().for_each(Carried::clear);
+        }
         &self.diagnostics
     }
 
@@ -288,6 +295,7 @@ impl<'s> Projector<'s> {
         let ordinal = self.ordinals[id.index()].saturating_add(1);
         self.ordinals[id.index()] = ordinal;
         self.open.push((id, ordinal));
+        self.reset_carried(id);
         let Some(index) = self.anchored[id.index()] else {
             return;
         };
@@ -299,9 +307,14 @@ impl<'s> Projector<'s> {
             .extend(def.ancestors.iter().map(|&above| self.open_row(above)));
         row.cells.clear();
         row.cells.resize(def.columns.len(), Slot::Unset);
+        row.seen.clear();
+        row.seen.resize(def.columns.len(), 0);
         row.bytes.clear();
         row.segment = trigger;
         let state = &mut self.tables[index];
+        for carried in &state.carried {
+            carried.copy_into(&mut row);
+        }
         row.ordinal = state.next;
         state.next = state.next.saturating_add(1);
         state.row = row;

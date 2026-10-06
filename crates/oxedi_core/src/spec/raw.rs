@@ -133,9 +133,30 @@ pub(super) struct RawColumn {
     pub(super) segment: Option<String>,
     #[serde(default, rename = "where")]
     pub(super) conditions: BTreeMap<String, String>,
+    pub(super) occurrence: Option<String>,
+    pub(super) pick: Option<RawPick>,
     pub(super) element: Option<usize>,
     pub(super) component: Option<usize>,
     pub(super) group_element: Option<usize>,
     #[serde(default)]
     pub(super) segment_index: bool,
+}
+
+// A pick is a name (`first`, `last`) or a 1-based position; which names are
+// valid is checked when the column compiles, so the error can show the value.
+#[derive(Debug, Clone, Deserialize)]
+#[serde(untagged, expecting = "a pick")]
+pub(super) enum RawPick {
+    Nth(usize),
+    Named(String),
+}
+
+impl RawPick {
+    /// The pick as the spec writes it, in JSON.
+    pub(super) fn written(&self) -> String {
+        match self {
+            RawPick::Nth(nth) => nth.to_string(),
+            RawPick::Named(name) => serde_json::to_string(name).unwrap_or_default(),
+        }
+    }
 }

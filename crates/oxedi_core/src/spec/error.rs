@@ -5,7 +5,7 @@ use std::fmt;
 use super::loops::ControlError;
 use super::occurrence_error::OccurrenceError;
 use super::segments::ElementDefError;
-use super::tables::TableDefError;
+use super::table_error::TableDefError;
 use super::version::VersionError;
 
 /// Why a spec could not be loaded. Each variant names where in the spec the fault is.

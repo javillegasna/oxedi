@@ -84,7 +84,7 @@ pub(super) fn project(spec: &Spec, input: &str) -> (Tables, Vec<Diagnostic>) {
 }
 
 /// A table as text: the column names, then one line per row.
-fn rows(tables: &Tables, name: &str) -> Vec<String> {
+pub(super) fn rows(tables: &Tables, name: &str) -> Vec<String> {
     let table = tables.get(name).unwrap();
     let header = table
         .columns()

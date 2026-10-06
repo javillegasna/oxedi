@@ -5,70 +5,93 @@ use crate::column::{Cell, CellError, ColumnType, RowError, Table};
 use crate::diagnostic::{Diagnostic, LoopRef, Rule};
 use crate::element::Element;
 use crate::segment::Segment;
-use crate::spec::{ColumnSource, LoopId};
+use crate::spec::{ColumnSource, LoopId, Pick};
 
 use super::check::{Checked, Parsed, parse};
+use super::plan::Watcher;
 use super::{Projector, Row, Slot};
 
 impl<'s> Projector<'s> {
-    /// Fills the open rows whose columns read this segment and have no value
-    /// yet. `watchers` come from the plan of the segment's id, so only the
-    /// columns' conditions are left to check.
+    /// Fills the columns that read this segment: in the open rows, or in
+    /// the values carried for rows still to open. `watchers` come from the
+    /// plan of the segment's id, so only the occurrence the segment matched
+    /// (or the column's conditions) and the pick are left to check.
     pub(super) fn fill(
         &mut self,
-        watchers: &[(usize, usize)],
+        watchers: &[Watcher],
         segment: &Segment<'_>,
         joined: &mut Vec<u8>,
     ) {
         let spec = self.spec;
-        for &(index, column) in watchers {
-            let state = &mut self.tables[index];
-            if !state.open || state.row.cells.get(column) != Some(&Slot::Unset) {
+        for watcher in watchers {
+            let state = &mut self.tables[watcher.table];
+            let (slot, seen, bytes) = match watcher.carried {
+                Some(at) => {
+                    let Some(carried) = state.carried.get_mut(at) else {
+                        continue;
+                    };
+                    (&mut carried.slot, &mut carried.seen, &mut carried.bytes)
+                }
+                None => {
+                    let row = &mut state.row;
+                    let (Some(slot), Some(seen), true) = (
+                        row.cells.get_mut(watcher.column),
+                        row.seen.get_mut(watcher.column),
+                        state.open,
+                    ) else {
+                        continue;
+                    };
+                    (slot, seen, &mut row.bytes)
+                }
+            };
+            if watcher.pick == Pick::First && *slot != Slot::Unset {
                 continue;
             }
-            let Some((_, source)) = spec.tables()[index].columns.get(column) else {
+            let Some((_, source)) = spec.tables()[watcher.table].columns.get(watcher.column) else {
                 continue;
             };
-            let slot = match source {
+            let (conditions, at) = match source {
                 ColumnSource::Element {
                     conditions,
                     element,
                     component,
                     ..
-                } => {
-                    if !segment.holds(conditions) {
-                        continue;
-                    }
+                } => (conditions, Some((*element, *component))),
+                ColumnSource::SegmentIndex { conditions, .. } => (conditions, None),
+                ColumnSource::GroupElement { .. } => continue,
+            };
+            let matches = match watcher.occurrence {
+                Some(wanted) => self.matched == Some(wanted),
+                None => segment.holds(conditions),
+            };
+            if !matches {
+                continue;
+            }
+            if let Pick::Nth(nth) = watcher.pick {
+                *seen = seen.saturating_add(1);
+                if *seen != nth {
+                    continue;
+                }
+            }
+            if watcher.carried.is_some() {
+                bytes.clear();
+            }
+            *slot = match at {
+                Some((element, component)) => {
                     let kind = state
                         .kinds
-                        .get(column)
+                        .get(watcher.column)
                         .copied()
                         .unwrap_or(ColumnType::Binary);
                     let at = Place {
-                        element: *element,
-                        component: *component,
+                        element,
+                        component,
                         kind,
                     };
-                    read(
-                        &self.checked,
-                        segment,
-                        at,
-                        self.separator,
-                        joined,
-                        &mut state.row.bytes,
-                    )
+                    read(&self.checked, segment, at, self.separator, joined, bytes)
                 }
-                ColumnSource::SegmentIndex { conditions, .. } => {
-                    if !segment.holds(conditions) {
-                        continue;
-                    }
-                    i64::try_from(segment.index).map_or(Slot::Null, Slot::Int)
-                }
-                ColumnSource::GroupElement { .. } => continue,
+                None => i64::try_from(segment.index).map_or(Slot::Null, Slot::Int),
             };
-            if let Some(cell) = state.row.cells.get_mut(column) {
-                *cell = slot;
-            }
         }
     }
 

@@ -16,6 +16,15 @@ pub(super) fn render_chain(chain: &[String]) -> String {
     names.join("/")
 }
 
+/// Names quoted and joined with commas.
+pub(super) fn render_names(names: &[String]) -> String {
+    names
+        .iter()
+        .map(|name| format!("{name:?}"))
+        .collect::<Vec<_>>()
+        .join(", ")
+}
+
 /// A trigger as `"N1" where {1: "PR", 2: "X"}`, or `"N1" with no conditions`.
 pub(crate) fn render_trigger(trigger: &Trigger) -> String {
     let segment = String::from_utf8_lossy(&trigger.segment);

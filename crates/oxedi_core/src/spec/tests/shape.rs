@@ -278,6 +278,18 @@ fn a_table_scalar_of_the_wrong_kind_is_rejected_with_its_key_path() {
             r#"{"claims":{"loops":["A"],"columns":{"x":{"segment":"AA","element":1,"where":{"1":2}}}}}"#,
             "spec: the value at tables.claims.columns.x.where.1 must be a string; found a number (2)",
         ),
+        (
+            r#"{"claims":{"loops":["A"],"columns":{"x":{"occurrence":7,"element":1}}}}"#,
+            "spec: the value at tables.claims.columns.x.occurrence must be a string; found a number (7)",
+        ),
+        (
+            r#"{"claims":{"loops":["A"],"columns":{"x":{"occurrence":"o","pick":true,"element":1}}}}"#,
+            "spec: the value at tables.claims.columns.x.pick must be \"first\", \"last\" or a non-negative integer; found a boolean (true)",
+        ),
+        (
+            r#"{"claims":{"loops":["A"],"columns":{"x":{"occurrence":"o","pick":-2,"element":1}}}}"#,
+            "spec: the value at tables.claims.columns.x.pick must be \"first\", \"last\" or a non-negative integer; found a negative number (-2)",
+        ),
     ];
     for (tables, expected) in cases {
         let err = table_error(tables);

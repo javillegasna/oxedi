@@ -12,14 +12,16 @@
 //! for a loop's occurrences.
 //!
 //! The module is split by responsibility: `loops`, `occurrences`, `segments`
-//! and `tables` hold the definitions, `occurrence_error` why an occurrence
-//! is rejected; `raw` the deserialization shapes;
-//! `shape` the JSON shape checks; `build` and `compile` the construction of a [`Spec`];
+//! and `tables` hold the definitions, `occurrence_error` and `table_error`
+//! why an occurrence or a table is rejected; `raw` the deserialization shapes;
+//! `shape` the JSON shape checks; `build` and `compile` the construction of a [`Spec`],
+//! `columns` the compilation of one table column;
 //! `error` the load error; `render` the text used in messages; `patch` the
 //! merge patch; `version` the version declaration and the choice of a spec
 //! by it.
 
 mod build;
+mod columns;
 mod compile;
 mod error;
 mod loops;
@@ -30,6 +32,7 @@ mod raw;
 mod render;
 mod segments;
 mod shape;
+mod table_error;
 mod tables;
 #[cfg(test)]
 mod tests;
@@ -43,7 +46,8 @@ pub use patch::merge_patch;
 pub use segments::{
     ElementDef, ElementDefError, ElementType, ROW_COLUMN, SEGMENT_COLUMN, SegmentDef,
 };
-pub use tables::{AnchorChains, ColumnSource, Repeat, TableDef, TableDefError};
+pub use table_error::{AnchorChains, LoopSegments, TableDefError};
+pub use tables::{ColumnSource, Pick, Repeat, TableDef};
 pub use version::{DeclaredVersion, VersionError};
 
 pub(crate) use render::{render_key, render_selector, render_trigger};

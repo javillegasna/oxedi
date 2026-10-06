@@ -46,6 +46,7 @@ enum Leaf {
     Flag,
     Count,
     Byte,
+    Pick,
 }
 
 impl Leaf {
@@ -55,14 +56,15 @@ impl Leaf {
             Leaf::Flag => "a boolean",
             Leaf::Count => "a non-negative integer",
             Leaf::Byte => "an integer from 0 to 255",
+            Leaf::Pick => "\"first\", \"last\" or a non-negative integer",
         }
     }
 
     /// What `value` is, in words, when it is not this kind; `None` when it is.
     fn mismatch(self, value: &Value) -> Option<&'static str> {
         match (self, value) {
-            (Leaf::Text, Value::String(_)) | (Leaf::Flag, Value::Bool(_)) => None,
-            (Leaf::Count | Leaf::Byte, Value::Number(number)) => {
+            (Leaf::Text | Leaf::Pick, Value::String(_)) | (Leaf::Flag, Value::Bool(_)) => None,
+            (Leaf::Count | Leaf::Byte | Leaf::Pick, Value::Number(number)) => {
                 if let Some(n) = number.as_u64() {
                     if matches!(self, Leaf::Byte) && n > 255 {
                         Some("a number above 255")
@@ -275,6 +277,8 @@ pub(super) fn check_shape(source: &Value) -> Result<(), SpecError> {
                             "loop",
                             "segment",
                             "where",
+                            "occurrence",
+                            "pick",
                             "element",
                             "component",
                             "group_element",
@@ -285,6 +289,8 @@ pub(super) fn check_shape(source: &Value) -> Result<(), SpecError> {
                     check_member(def, &at, "loop", Leaf::Text, true)?;
                     check_member(def, &at, "segment", Leaf::Text, true)?;
                     check_member_map(def, &at, "where", Leaf::Text)?;
+                    check_member(def, &at, "occurrence", Leaf::Text, true)?;
+                    check_member(def, &at, "pick", Leaf::Pick, true)?;
                     for key in ["element", "component", "group_element"] {
                         check_member(def, &at, key, Leaf::Count, true)?;
                     }

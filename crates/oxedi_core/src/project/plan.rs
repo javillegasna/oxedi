@@ -2,8 +2,9 @@
 
 use std::collections::BTreeMap;
 
+use super::carry::Carried;
 use crate::column::ColumnType;
-use crate::spec::{ColumnSource, ElementDef, OccurrenceDef, Qualifier, Spec, TableDef};
+use crate::spec::{ColumnSource, ElementDef, OccurrenceDef, Pick, Qualifier, Spec, TableDef};
 
 /// One defined element, with what checking it needs worked out once.
 #[derive(Debug, Clone)]
@@ -58,12 +59,31 @@ impl<'s> ElementPlan<'s> {
 pub(super) struct SegmentPlan<'s> {
     /// The defined elements to check, by position.
     pub(super) elements: Vec<ElementPlan<'s>>,
-    /// Per loop: `(table, column)` for the columns that read this segment
-    /// when it is captured in that loop.
-    pub(super) watchers: Vec<Vec<(usize, usize)>>,
+    /// Per loop: the columns that read this segment when it is captured in
+    /// that loop.
+    pub(super) watchers: Vec<Vec<Watcher>>,
     /// Per loop: the loop's occurrences of this segment id, the only ones a
     /// captured segment can match.
     pub(super) occurrences: Vec<Vec<Candidate<'s>>>,
+}
+
+/// A column that reads the segments of one id a loop captures.
+#[derive(Debug, Clone, Copy)]
+pub(super) struct Watcher {
+    /// The table, as an index into the spec's tables.
+    pub(super) table: usize,
+    /// The column, as an index into the table's declared columns.
+    pub(super) column: usize,
+    /// For a column that names an occurrence, its index in the capturing
+    /// loop's occurrences: the segment must match it, and the column's
+    /// conditions are not read.
+    pub(super) occurrence: Option<usize>,
+    /// Which matching segment gives the value.
+    pub(super) pick: Pick,
+    /// For a column that reads a loop above the table's anchor, its index
+    /// in the table's carried values: the value is kept there until a row
+    /// opens, instead of going to the open row.
+    pub(super) carried: Option<usize>,
 }
 
 /// An occurrence a segment id can match in a loop, with what matching it
@@ -157,6 +177,79 @@ impl<'s> Plans<'s> {
                 ColumnSource::SegmentIndex { .. } => {}
             }
         }
+    }
+
+    /// Makes every column of table `index` (one without `segment`) watch the
+    /// segment id it reads in each loop it reads from. A column that reads
+    /// a loop above the anchor gets a carried value, which an instance of
+    /// that loop opening starts over (recorded in `resets`, per loop); the
+    /// carried values are returned in column order.
+    pub(super) fn watch_columns(
+        &mut self,
+        spec: &'s Spec,
+        index: usize,
+        resets: &mut [Vec<(usize, usize)>],
+    ) -> Vec<Carried> {
+        let def = &spec.tables()[index];
+        let loops = spec.loops().len();
+        let mut carried = Vec::new();
+        for (column, (_, source)) in def.columns.iter().enumerate() {
+            let (reader, segment, occurrence, pick) = match source {
+                ColumnSource::Element {
+                    loop_id,
+                    segment,
+                    occurrence,
+                    pick,
+                    ..
+                }
+                | ColumnSource::SegmentIndex {
+                    loop_id,
+                    segment,
+                    occurrence,
+                    pick,
+                    ..
+                } => (*loop_id, segment, occurrence.as_deref(), *pick),
+                ColumnSource::GroupElement { .. } => continue,
+            };
+            let above = reader.filter(|&id| {
+                def.loops
+                    .iter()
+                    .any(|&anchor| spec.ancestors(anchor).contains(&id))
+            });
+            let slot = match above.and_then(|id| resets.get_mut(id.index())) {
+                Some(reset) => {
+                    reset.push((index, carried.len()));
+                    carried.push(Carried::new(column));
+                    Some(carried.len() - 1)
+                }
+                None => None,
+            };
+            let readers = reader.map_or_else(|| def.loops.clone(), |id| vec![id]);
+            let plan = self.entry(segment, loops);
+            for id in readers {
+                let occurrence = match occurrence {
+                    None => None,
+                    // Compilation checked that every reading loop declares
+                    // the occurrence.
+                    Some(name) => {
+                        match spec.get(id).occurrences.iter().position(|o| o.name == name) {
+                            Some(found) => Some(found),
+                            None => continue,
+                        }
+                    }
+                };
+                if let Some(watchers) = plan.watchers.get_mut(id.index()) {
+                    watchers.push(Watcher {
+                        table: index,
+                        column,
+                        occurrence,
+                        pick,
+                        carried: slot,
+                    });
+                }
+            }
+        }
+        carried
     }
 
     /// The plan of `id`, created empty (with room for `loops` watcher lists)

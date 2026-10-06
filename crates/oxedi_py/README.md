@@ -113,10 +113,9 @@ data = oxedi.write(frames, envelope)  # bytes, one interchange
 ```
 
 The spec is the one that parsed the tables, else the built-in 5010 spec. A dictionary of frames,
-as above, no longer carries the parse's spec, so pass the one that matches the file's version:
-for a 4010 file, `oxedi.write(frames, envelope, spec=oxedi.Spec.builtin("4010"))`; otherwise it
-is written as 5010 and refused. A table left out has no rows and
-a column left out is null. Rows nest by their `payment`, `claim` and `service` columns, the row
+as above, does not carry the parse's spec, so pass the one that matches the file's version: for
+a 4010 file, `oxedi.write(frames, envelope, spec=oxedi.Spec.builtin("4010"))`; otherwise it is
+written as 5010 and refused. A table left out has no rows and a column left out is null. Rows nest by their `payment`, `claim` and `service` columns, the row
 number of their parent. Only what the tables hold is written: segments no column reads (for
 example the payer's `PER*CX` or the bank details of `BPR`) are left out. To reproduce a parsed
 file byte for byte, use `result.document.write()` instead.

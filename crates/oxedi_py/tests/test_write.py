@@ -33,12 +33,12 @@ REFUSED = [
     "edi835_test_not_available_claim_id.RMT",
 ]
 
-# The clean files whose originals pyx12 already reports: a payee state code
-# outside its list, and a rendering provider without its identifier.
 # The excerpts: only their payment's balance fails, so every other cell
 # writes back as it was read.
 EXCERPTS = {"edi835_test_file.RMT", "edi835_test_not_available_claim_id.RMT"}
 
+# The clean files whose originals pyx12 already reports: a payee state code
+# outside its list, and a rendering provider without its identifier.
 PYX12_FINDINGS = {
     "united_healthcare_legacy_sample.txt": ["N402"],
     "edi835_test_eyemed.RMT": ["NM108", "NM109"],

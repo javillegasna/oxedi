@@ -74,10 +74,14 @@ impl FileSystem {
     /// DuckDB's message when this file system refuses `path` outright (a
     /// permission error, such as a file system the caller disabled), found
     /// by trying to open it; `None` when it does not, whether or not the
-    /// path exists.
+    /// path exists. A path that cannot be tried is refused too.
     pub fn refuses(&self, path: &str) -> Option<String> {
-        let c_path = CString::new(path).ok()?;
-        let options = OpenOptions::read()?;
+        let Ok(c_path) = CString::new(path) else {
+            return Some("the pattern holds a NUL byte".to_owned());
+        };
+        let Some(options) = OpenOptions::read() else {
+            return Some("DuckDB refused the read flag".to_owned());
+        };
         let mut handle: ffi::duckdb_file_handle = std::ptr::null_mut();
         // SAFETY: the file system, path and options are live handles; DuckDB
         // writes a new file handle (or null) into `handle`.

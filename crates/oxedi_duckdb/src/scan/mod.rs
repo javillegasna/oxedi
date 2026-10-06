@@ -14,6 +14,7 @@ use edi835_core::{ColumnType, Document, Processor, Table};
 use libduckdb_sys as ffi;
 
 use crate::builtins::Builtins;
+use crate::diagnostics;
 use crate::error::ReadError;
 use crate::files::FileSystem;
 use crate::schema::SqlType;
@@ -44,6 +45,11 @@ pub struct Bound {
     pub forced: bool,
     /// Whether a `filename` column follows the table's columns.
     pub filename: bool,
+    /// Whether the table is `diagnostics`, which every spec shares.
+    pub diagnostics: bool,
+    /// Whether a file that cannot be parsed is reported instead of failing:
+    /// as one row of `diagnostics`, and as no rows of any other table.
+    pub ignore_errors: bool,
 }
 
 /// The bound table of the file being emitted.
@@ -129,13 +135,30 @@ impl Scan {
 }
 
 /// Reads and parses one file, checks that its spec projects the bound table
-/// with the bound columns, and keeps that table only.
+/// with the bound columns, and keeps that table only (or its findings, for
+/// `diagnostics`).
 fn load(bound: &Bound, file: &str) -> Result<Table, ReadError> {
     let bytes = bound.file_system.read_all(file)?;
-    let document = Document::parse(bytes).map_err(|source| ReadError::Parse {
-        file: file.to_owned(),
-        source,
-    })?;
+    let document = match Document::parse(bytes.as_slice()) {
+        Ok(document) => document,
+        Err(source) if bound.ignore_errors => {
+            let datum = diagnostics::datum(&source, &bytes).to_vec();
+            if !bound.diagnostics {
+                return Ok(Table::new(bound.table.clone(), bound.columns.clone()));
+            }
+            let error = ReadError::Parse {
+                file: file.to_owned(),
+                source,
+            };
+            return diagnostics::of_unparsable(&error, &datum);
+        }
+        Err(source) => {
+            return Err(ReadError::Parse {
+                file: file.to_owned(),
+                source,
+            });
+        }
+    };
     let builtin = if bound.forced {
         bound.builtins.by_version(bound.bound_version)
     } else {
@@ -144,6 +167,10 @@ fn load(bound: &Bound, file: &str) -> Result<Table, ReadError> {
     .ok_or_else(|| ReadError::Internal {
         message: format!("no built-in spec for version {}", bound.bound_version),
     })?;
+    if bound.diagnostics {
+        let (_tables, findings) = Processor::run(&builtin.spec, &document);
+        return diagnostics::of_findings(&findings);
+    }
     let same = builtin
         .table(&bound.table)
         .is_some_and(|table| table.columns == bound.columns);

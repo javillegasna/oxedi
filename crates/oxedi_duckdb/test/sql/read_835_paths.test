@@ -91,7 +91,7 @@ read_835: unknown version "3070"; version must be one of "5010", "4010"
 statement error
 SELECT * FROM read_835('../edi835_core/tests/samples/edi835_test_united.rmt', table_name := 'nope');
 ----
-read_835: unknown table "nope"; table_name must be one of "adjustments", "claims", "payments", "provider_adjustments", "services"
+read_835: unknown table "nope"; table_name must be one of "adjustments", "claims", "payments", "provider_adjustments", "services", "diagnostics"
 
 statement error
 SELECT * FROM read_835('../edi835_core/tests/samples/edi835_test_united.rmt', table_name := NULL);

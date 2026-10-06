@@ -12,6 +12,13 @@
 //! version it declares (or `version`), and the rows of one projected table
 //! are returned with the column types the core declares.
 //!
+//! `table_name := 'diagnostics'` returns the core's findings instead, one
+//! row per finding (`level`, `kind`, `rule`, `segment`, `element`,
+//! `component`, `path`, `datum`, `origin`, `code`). A file that is not an X12
+//! interchange fails the query, unless `ignore_errors := true`: then it adds
+//! one `diagnostics` row whose `rule` is the error's text and no rows to any
+//! other table, and the scan goes on with the next file.
+//!
 //! Glob patterns are expanded by a private in-memory DuckDB that follows the
 //! caller's settings (see `files::glob`): with `enable_external_access` off a
 //! pattern is an error, and a remote pattern (`s3://bucket/*.835`) sees the
@@ -23,6 +30,7 @@
 //! state of its own: the built-in specs live in the function's extra info.
 //!
 //! - `builtins`: the built-in specs and the schema of their tables.
+//! - `diagnostics`: the `diagnostics` table.
 //! - `error`: the errors `read_835` reports.
 //! - `files`: reading files through DuckDB's file system.
 //! - `function`: registration and the bind, init and scan callbacks.
@@ -32,6 +40,7 @@
 //! - `value`: owned DuckDB values read through the C API.
 
 mod builtins;
+mod diagnostics;
 mod error;
 mod files;
 mod function;

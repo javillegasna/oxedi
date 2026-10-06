@@ -10,6 +10,7 @@ use std::sync::{Arc, Mutex};
 use libduckdb_sys as ffi;
 
 use crate::builtins::Builtins;
+use crate::diagnostics;
 use crate::error::{FUNCTION, ReadError};
 use crate::files::{self, CallerSettings, ClientContext};
 use crate::options::{NAMED, Options};
@@ -155,18 +156,31 @@ unsafe fn bind_with(info: ffi::duckdb_bind_info) -> Result<(), ReadError> {
             })?,
         None => builtins.default(),
     };
-    let table = builtin
-        .table(&options.table_name)
-        .ok_or_else(|| ReadError::UnknownTable {
-            table: options.table_name.clone(),
-            known: builtin.table_names(),
-        })?;
-    let types = table
-        .columns
-        .iter()
-        .map(|(column, kind)| SqlType::of(&table.name, column, *kind, options.binary))
-        .collect::<Result<Vec<_>, _>>()?;
-    for ((column, _), sql) in table.columns.iter().zip(&types) {
+    let (table, columns, types) = if options.table_name == diagnostics::TABLE {
+        (
+            diagnostics::TABLE.to_owned(),
+            diagnostics::columns(),
+            diagnostics::types(options.binary)?,
+        )
+    } else {
+        let table = builtin
+            .table(&options.table_name)
+            .ok_or_else(|| ReadError::UnknownTable {
+                table: options.table_name.clone(),
+                known: builtin
+                    .table_names()
+                    .into_iter()
+                    .chain([diagnostics::TABLE.to_owned()])
+                    .collect(),
+            })?;
+        let types = table
+            .columns
+            .iter()
+            .map(|(column, kind)| SqlType::of(&table.name, column, *kind, options.binary))
+            .collect::<Result<Vec<_>, _>>()?;
+        (table.name.clone(), table.columns.clone(), types)
+    };
+    for ((column, _), sql) in columns.iter().zip(&types) {
         // SAFETY: `info` is the live bind info (caller contract).
         unsafe { add_column(info, column, *sql) }?;
     }
@@ -191,12 +205,14 @@ unsafe fn bind_with(info: ffi::duckdb_bind_info) -> Result<(), ReadError> {
         files,
         file_system,
         builtins: Arc::clone(builtins),
-        table: table.name.clone(),
-        columns: table.columns.clone(),
+        diagnostics: table == diagnostics::TABLE,
+        table,
+        columns,
         types,
         bound_version: builtin.version,
         forced: options.version.is_some(),
         filename: options.filename,
+        ignore_errors: options.ignore_errors,
     };
     // SAFETY: `info` is live; DuckDB owns the box from here and frees it
     // with `drop_box::<Bound>`.

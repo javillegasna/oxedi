@@ -11,3 +11,6 @@ __pycache__/
 crates/oxedi835_py/python/oxedi835/*.so
 .pytest_cache/
 .mypy_cache/
+
+# DuckDB extension artifacts copied to the root for DuckDB's CI.
+/build/

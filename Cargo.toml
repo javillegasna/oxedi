@@ -1,6 +1,6 @@
 [workspace]
 resolver = "3"
-members = ["crates/edi835_core", "crates/oxedi835_py"]
+members = ["crates/edi835_core", "crates/oxedi835_py", "crates/oxedi_duckdb"]
 
 [workspace.package]
 version = "0.2.1"

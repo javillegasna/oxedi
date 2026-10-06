@@ -3,6 +3,7 @@
 
 import builtins
 import collections.abc
+import datetime
 import decimal
 import pandas
 import polars
@@ -14,6 +15,7 @@ __all__ = [
     "Diagnostic",
     "Document",
     "EDI_835_PARSER_PATCH",
+    "Envelope",
     "ParseError",
     "Result",
     "Segment",
@@ -22,7 +24,9 @@ __all__ = [
     "Stream",
     "Table",
     "Tables",
+    "WriteFinding",
     "_external_diagnostic",
+    "_write",
     "parse",
     "stream",
 ]
@@ -158,6 +162,56 @@ class Document:
         """
     def __repr__(self) -> builtins.str: ...
     def __getitem__(self, index: builtins.int, /) -> Segment: ...
+
+@typing.final
+class Envelope:
+    r"""
+    Who sends and receives an interchange, when, its first control number
+    and its delimiters. The writer derives the rest of the envelope: counts,
+    later control numbers, codes and fixed widths.
+    """
+    @property
+    def sender_id(self) -> builtins.str:
+        r"""
+        The sender id.
+        """
+    @property
+    def sender_qualifier(self) -> builtins.str:
+        r"""
+        The sender id's qualifier.
+        """
+    @property
+    def receiver_id(self) -> builtins.str:
+        r"""
+        The receiver id.
+        """
+    @property
+    def receiver_qualifier(self) -> builtins.str:
+        r"""
+        The receiver id's qualifier.
+        """
+    @property
+    def usage_indicator(self) -> builtins.str:
+        r"""
+        The usage indicator, e.g. `P` (production) or `T` (test).
+        """
+    @property
+    def control_number(self) -> builtins.int:
+        r"""
+        The first control number.
+        """
+    @property
+    def delimiters(self) -> Delimiters:
+        r"""
+        The delimiters written.
+        """
+    def __new__(cls, *, sender_id: builtins.str, receiver_id: builtins.str, date: datetime.date, time: datetime.time, sender_qualifier: builtins.str = "ZZ", receiver_qualifier: builtins.str = "ZZ", usage_indicator: builtins.str = "P", control_number: builtins.int = 1, application_sender: typing.Optional[builtins.str] = None, application_receiver: typing.Optional[builtins.str] = None, delimiters: typing.Optional[Delimiters] = None, line_break: builtins.bool = False) -> Envelope:
+        r"""
+        `date` and `time` (whole seconds) stamp the interchange and the
+        group. `delimiters` defaults to `*`, `:`, `~` and the repetition
+        separator `^`; `line_break` adds a line break after each segment.
+        """
+    def __repr__(self) -> builtins.str: ...
 
 class ParseError(builtins.ValueError):
     r"""
@@ -371,9 +425,58 @@ class Tables:
     def __contains__(self, name: builtins.object, /) -> builtins.bool: ...
     def __getitem__(self, name: builtins.str, /) -> Table: ...
 
+@typing.final
+class WriteFinding:
+    r"""
+    One reason tables do not make a valid file. A value, never raised.
+    """
+    @property
+    def kind(self) -> builtins.str:
+        r"""
+        The kind of finding, e.g. `MissingParent` or `ReadBack`.
+        """
+    @property
+    def table(self) -> typing.Optional[builtins.str]:
+        r"""
+        The table at fault, when a table is.
+        """
+    @property
+    def row(self) -> typing.Optional[builtins.int]:
+        r"""
+        The row at fault (its position in the table), when a row is.
+        """
+    @property
+    def column(self) -> typing.Optional[builtins.str]:
+        r"""
+        The column at fault, when a column is.
+        """
+    @property
+    def field(self) -> typing.Optional[builtins.str]:
+        r"""
+        The envelope field at fault, when one is.
+        """
+    @property
+    def diagnostic(self) -> typing.Optional[Diagnostic]:
+        r"""
+        The diagnostic of reading the written file back, for a `ReadBack`.
+        """
+    @property
+    def message(self) -> builtins.str:
+        r"""
+        The finding as one sentence: the rule, where and the value.
+        """
+    def __str__(self) -> builtins.str: ...
+    def __repr__(self) -> builtins.str: ...
+
 def _external_diagnostic(origin: builtins.str, message: builtins.str, level: builtins.int, code: typing.Optional[builtins.str] = None, segment: typing.Optional[builtins.int] = None, element: typing.Optional[builtins.int] = None, component: typing.Optional[builtins.int] = None, datum: bytes = b"") -> Diagnostic:
     r"""
     Builds a `Diagnostic` for a finding reported by an external validator; internal.
+    """
+
+def _write(tables: Tables | collections.abc.Mapping[builtins.str, typing.Any], envelope: Envelope, spec: typing.Optional[Spec] = None, allow_findings: builtins.bool = False) -> tuple[bytes, builtins.list[WriteFinding]]:
+    r"""
+    Writes tables as one interchange; internal, see `oxedi.write`. Returns
+    the bytes and the findings, which are empty unless `allow_findings`.
     """
 
 def parse(data: typing_extensions.Buffer, spec: typing.Optional[Spec] = None, delimiters: typing.Optional[Delimiters] = None) -> Result:

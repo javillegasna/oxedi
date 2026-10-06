@@ -1,8 +1,9 @@
 //! Python binding of the EDI 835 parser core.
 //!
 //! Every class delegates to the core. The only logic of its own is the bridge
-//! from the core's columns to Arrow record batches (module `arrow`) and the
-//! conversion of diagnostics to Python attributes (module `diagnostic`).
+//! from the core's columns to Arrow record batches (module `arrow`) and back
+//! for writing (module `import`), and the conversion of diagnostics and
+//! write findings to Python attributes (modules `diagnostic` and `write`).
 //! Parsing, streaming and exporting run with the GIL released. It also carries
 //! the text of the core's `edi_835_parser.json` patch, so the Python layer that
 //! reproduces edi-835-parser applies the same file the core's goldens test.
@@ -43,11 +44,13 @@ macro_rules! native_exception {
 mod arrow;
 mod diagnostic;
 mod document;
+mod import;
 mod native;
 mod parse;
 mod spec;
 mod stream;
 mod tables;
+mod write;
 
 /// The name of the module attribute holding the text of `edi_835_parser.json`.
 const EDI_835_PARSER_PATCH: &str = "EDI_835_PARSER_PATCH";
@@ -71,9 +74,12 @@ fn core_module(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_class::<stream::PyStream>()?;
     m.add_class::<tables::PyTable>()?;
     m.add_class::<tables::PyTables>()?;
+    m.add_class::<write::PyEnvelope>()?;
+    m.add_class::<write::PyWriteFinding>()?;
     m.add_function(wrap_pyfunction!(diagnostic::external_diagnostic, m)?)?;
     m.add_function(wrap_pyfunction!(parse::parse, m)?)?;
     m.add_function(wrap_pyfunction!(stream::stream, m)?)?;
+    m.add_function(wrap_pyfunction!(write::write_tables, m)?)?;
     m.add(
         EDI_835_PARSER_PATCH,
         include_str!("../../oxedi_core/specs/edi_835_parser.json"),

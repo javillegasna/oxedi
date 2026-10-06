@@ -41,8 +41,9 @@ self_cell!(
     }
 );
 
-/// One batch: the tables and diagnostics produced since the previous one.
-type Produced = (Tables, Vec<Diagnostic>);
+/// One batch: the tables and diagnostics produced since the previous one,
+/// and the spec that projected them.
+type Produced = (Tables, Vec<Diagnostic>, Arc<Spec>);
 
 struct State {
     walk: Walk,
@@ -58,17 +59,18 @@ impl State {
             return None;
         }
         let by = self.by;
-        let (produced, done) = self.walk.with_dependent_mut(|_, pass| {
+        let (produced, done) = self.walk.with_dependent_mut(|source, pass| {
+            let spec = Arc::clone(&source.spec);
             let mut diagnostics = Vec::new();
             for segment in pass.segments.by_ref() {
                 let output = pass.processor.feed(&segment);
                 diagnostics.extend_from_slice(output.diagnostics());
                 if output.events().contains(&Event::LoopClosed { id: by }) {
-                    return ((pass.processor.take_tables(), diagnostics), false);
+                    return ((pass.processor.take_tables(), diagnostics, spec), false);
                 }
             }
             diagnostics.extend_from_slice(pass.processor.finish().diagnostics());
-            ((pass.processor.take_tables(), diagnostics), true)
+            ((pass.processor.take_tables(), diagnostics, spec), true)
         });
         self.done = done;
         let empty = produced.0.iter().all(|table| table.is_empty()) && produced.1.is_empty();
@@ -141,12 +143,12 @@ impl PyStream {
                 "Stream.__next__: a previous step of this stream panicked, so it cannot be advanced",
             ),
         });
-        let Some((tables, diagnostics)) = stepped.map_err(PyRuntimeError::new_err)? else {
+        let Some((tables, diagnostics, spec)) = stepped.map_err(PyRuntimeError::new_err)? else {
             return Ok(None);
         };
         let diagnostics = diagnostic::to_list(py, diagnostics)?;
         Ok(Some(PyBatch {
-            tables: Py::new(py, PyTables::from(tables))?,
+            tables: Py::new(py, PyTables::projected(tables, spec))?,
             diagnostics: diagnostics.unbind(),
         }))
     }

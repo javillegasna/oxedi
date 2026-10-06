@@ -2,7 +2,7 @@
 
 use std::sync::Arc;
 
-use oxedi_core::{Table, Tables};
+use oxedi_core::{Spec, Table, Tables};
 use pyo3::exceptions::{PyImportError, PyKeyError, PyRuntimeError};
 use pyo3::prelude::*;
 use pyo3::types::{PyCapsule, PyDict, PyIterator, PyTuple};
@@ -12,7 +12,7 @@ use crate::arrow;
 
 /// Imports `module`, or raises an `ImportError` that names the method, the
 /// module and the extra that provides it, with the original error as cause.
-fn extra<'py>(
+pub(crate) fn extra<'py>(
     py: Python<'py>,
     owner: &str,
     method: &str,
@@ -57,17 +57,33 @@ fn to_pandas<'py>(
 #[pyclass(name = "Tables", module = "oxedi", frozen, mapping)]
 pub struct PyTables {
     tables: Arc<Tables>,
+    /// The spec that projected them, which writing them back uses by default.
+    spec: Option<Arc<Spec>>,
 }
 
 impl From<Tables> for PyTables {
     fn from(tables: Tables) -> Self {
         Self {
             tables: Arc::new(tables),
+            spec: None,
         }
     }
 }
 
 impl PyTables {
+    /// Tables projected with `spec`.
+    pub fn projected(tables: Tables, spec: Arc<Spec>) -> Self {
+        Self {
+            tables: Arc::new(tables),
+            spec: Some(spec),
+        }
+    }
+
+    /// The spec that projected the tables, when known.
+    pub fn spec(&self) -> Option<&Arc<Spec>> {
+        self.spec.as_ref()
+    }
+
     /// The number of tables.
     pub fn count(&self) -> usize {
         self.tables.len()

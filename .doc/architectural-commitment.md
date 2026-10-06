@@ -1510,8 +1510,10 @@ elegidas por versión.
   (`make release`, `make test_release`) con `extension-ci-tools`.
 - Un job de CI en Linux que construye la extensión y corre sus tests contra la estable vigente y
   contra `next`.
-- El descriptor `description.yml` listo para `duckdb/community-extensions`. La versión de la
-  extensión es la del workspace. Abrir el PR al repositorio comunitario lo hace el dueño.
+- El descriptor `description.yml` listo para `duckdb/community-extensions`. La extensión tiene
+  versión propia (empieza en 0.1.0) y se publica con tags `duckdb-v*`, que no disparan la
+  publicación en PyPI (enmienda del dueño, 2026-10-05). Abrir el PR al repositorio comunitario lo
+  hace el dueño.
 - README: sección corta sobre DuckDB (`INSTALL oxedi FROM community; LOAD oxedi;`, ejemplos de
   `read_835` y de `COPY ... TO 'x.parquet'`).
 

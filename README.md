@@ -135,6 +135,9 @@ off, a glob pattern is an error. A remote pattern such as
 `s3://bucket/*.835` sees persistent secrets only, not temporary `CREATE SECRET` ones. Plain
 paths and lists are read through your own file system and secrets.
 
+Versions: the extension is versioned separately from the Python package, and its releases are
+tagged `duckdb-v*`.
+
 ## Extending the spec
 
 The structure of the 835 and the columns of each table are defined by a JSON spec. A patch

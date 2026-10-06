@@ -49,13 +49,18 @@ off, a glob pattern is an error. A remote pattern such as
 `s3://bucket/*.835` sees persistent secrets only, not temporary `CREATE SECRET` ones. Plain
 paths and lists are read through your own file system and secrets.
 
+## Versions
+
+The extension is versioned separately from the Python package (its version is in this
+crate's `Cargo.toml`), and its releases are tagged `duckdb-v*`.
+
 ## Build and test
 
 From the repository root (Rust, Python 3 and the `extension-ci-tools` submodule are needed):
 
 ```bash
 git submodule update --init
-make configure_ci          # test venv, platform and version (the workspace's, as v<version>)
+make configure_ci          # test venv, platform and version (the crate's, as v<version>)
 make release               # build/release/extension/oxedi/oxedi.duckdb_extension
 make test_release          # SQLLogicTest files in crates/oxedi_duckdb/test/sql
 make duckdb-oracle         # read_835 against oxedi835.parse_file, row by row

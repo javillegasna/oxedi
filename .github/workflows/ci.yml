@@ -6,6 +6,45 @@ on:
   pull_request:
 
 jobs:
+  changes:
+    name: Changes
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: read
+    outputs:
+      python: ${{ steps.filter.outputs.python }}
+      duckdb: ${{ steps.filter.outputs.duckdb }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dorny/paths-filter@ceb8a2b8f2d89434be7ff52d3de7ec3738c5cc9d # v4.0.3
+        id: filter
+        with:
+          filters: |
+            python:
+              - 'crates/edi835_core/**'
+              - 'crates/oxedi835_py/**'
+              - 'scripts/**'
+              - 'Cargo.toml'
+              - 'Cargo.lock'
+              - 'Makefile'
+              - 'rust-toolchain.toml'
+              - '.cargo/**'
+              - 'LICENSE'
+              - 'THIRD_PARTY_NOTICES'
+              - '.github/workflows/ci.yml'
+            duckdb:
+              - 'crates/edi835_core/**'
+              - 'crates/oxedi_duckdb/**'
+              - 'crates/oxedi835_py/**'
+              - 'Cargo.toml'
+              - 'Cargo.lock'
+              - 'Makefile'
+              - 'rust-toolchain.toml'
+              - '.cargo/**'
+              - '.gitmodules'
+              - '.github/workflows/ci.yml'
+
   lint:
     name: Lint
     runs-on: ubuntu-latest
@@ -38,6 +77,8 @@ jobs:
 
   python:
     name: Python ${{ matrix.python }}
+    needs: changes
+    if: github.event_name != 'pull_request' || needs.changes.outputs.python == 'true'
     runs-on: ubuntu-latest
     strategy:
       matrix:
@@ -72,6 +113,8 @@ jobs:
 
   duckdb:
     name: DuckDB extension (${{ matrix.duckdb.name }})
+    needs: changes
+    if: github.event_name != 'pull_request' || needs.changes.outputs.duckdb == 'true'
     runs-on: ubuntu-latest
     # `next` is a moving pre-release of DuckDB: it reports, it does not block.
     continue-on-error: ${{ matrix.duckdb.name == 'next' }}

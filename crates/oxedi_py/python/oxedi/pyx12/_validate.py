@@ -10,7 +10,7 @@ from typing import Any, BinaryIO, Optional, Union
 from .. import Diagnostic, parse
 from .._core import _external_diagnostic, _loop_paths
 from . import _capture
-from ._tree import ENVELOPE_LEVEL, Finding, collect
+from ._tree import Finding, collect
 
 # The arguments of one finding for ``_external_diagnostic``, but its loop path.
 Draft = dict[str, Any]
@@ -140,11 +140,11 @@ def _datum(value: Any) -> bytes:
 def _diagnostic(found: Finding, positions: _Positions, document: Any) -> Draft:
     segment = positions.locate(found.line)
     datum = _datum(found.value)
-    if found.value is None and segment is not None:
+    if not found.value and segment is not None:
         if found.element is not None:
             separator = bytes(document.delimiters.component)
             datum = _element_bytes(document[segment], found.element, found.component, separator)
-        elif found.level == ENVELOPE_LEVEL:
+        else:
             datum = bytes(document[segment].id)
     return dict(
         message=found.text,
@@ -265,8 +265,10 @@ def validate(source: Source) -> list[Diagnostic]:
     Every error pyx12's engine records is returned: interchange, group and
     transaction errors, segment errors and element errors, including those
     of the envelope segments. They are read from the error tree pyx12
-    builds; pyx12's logging is not used and no logging configuration is
-    changed, so loggers, levels, handlers and ``logging.disable`` stay as
+    builds; pyx12's logging is not used. The ``pyx12`` logger gets a
+    ``logging.NullHandler`` the first time, when it has none, so pyx12's
+    records are not printed by default and still reach the handlers the
+    caller configures; levels, propagation and ``logging.disable`` stay as
     the caller set them.
 
     Each finding is an :class:`oxedi.Diagnostic`, the type ``parse``
@@ -283,7 +285,7 @@ def validate(source: Source) -> list[Diagnostic]:
     duplicate or missing control structure lands on the header, at its
     control number when that is the offending value. ``datum`` is the value
     pyx12 reports, or else the bytes of the element in the file, or the
-    segment id for an envelope finding with no element. Findings come in
+    segment id for a finding with no element. Findings come in
     segment order. ``path`` names the loops open at that segment, as in the
     diagnostics ``parse`` gives about the same segment.
 

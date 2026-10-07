@@ -8,12 +8,15 @@ behaves as the original; a handler constructed on a thread inside
 original tree loses: where each element error of an envelope segment was
 raised, and the segment errors it cannot attach to any node. Handlers
 built on other threads, or outside :func:`recording`, only behave as the
-original. Nothing here touches logging.
+original. :func:`install` also gives the ``pyx12`` logger a ``NullHandler``
+when it has no handler, so its records are not printed when nothing is
+configured; levels, propagation and ``logging.disable`` are not touched.
 """
 
 from __future__ import annotations
 
 import contextlib
+import logging
 import threading
 from dataclasses import dataclass
 from typing import Any, Iterator, Optional
@@ -38,8 +41,14 @@ class Dropped:
 
 def install(module: Any) -> None:
     """Puts the recording handler in ``module`` (``pyx12.error_handler``)
-    unless it is already there; a reloaded module gets it again."""
+    unless it is already there; a reloaded module gets it again. The
+    ``pyx12`` logger gets a ``NullHandler`` when it has no handler, so the
+    records pyx12 logs reach only the handlers the caller configures and are
+    not printed by Python's last-resort handler."""
     with _INSTALL:
+        logger = logging.getLogger("pyx12")
+        if not logger.handlers:
+            logger.addHandler(logging.NullHandler())
         current = module.err_handler
         if getattr(current, _MARK, False):
             return

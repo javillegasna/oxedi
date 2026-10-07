@@ -195,6 +195,17 @@ def test_loop_paths_count_instances_from_the_start_of_the_stream():
     assert claims == [("2100", n) for n in range(1, len(clps) + 1)]
 
 
+def test_loop_paths_of_no_segment_is_empty():
+    assert oxedi._core._loop_paths(parse_named("multi_claim_sample.txt"), []) == []
+
+
+def test_loop_paths_keep_the_order_and_repeats_asked_for():
+    result = parse_named("multi_claim_sample.txt")
+    every = oxedi._core._loop_paths(result, list(range(len(result.document))))
+    picked = [5, 0, 5, 2]
+    assert oxedi._core._loop_paths(result, picked) == [every[i] for i in picked]
+
+
 def test_loop_paths_refuse_a_segment_past_the_last():
     result = parse_named("multi_claim_sample.txt")
     count = len(result.document)

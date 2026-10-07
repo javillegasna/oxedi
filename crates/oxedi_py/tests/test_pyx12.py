@@ -349,7 +349,9 @@ def test_a_handler_on_a_pyx12_logger_receives_its_records():
 def test_the_logger_is_left_alone_after_an_exception(monkeypatch):
     import pyx12.x12n_document
 
+    validate(read(LEGACY))
     before = logger_state()
+    real = pyx12.x12n_document.apply_segment_errors
 
     def breaks(*args):
         raise RuntimeError("boom")
@@ -358,6 +360,49 @@ def test_the_logger_is_left_alone_after_an_exception(monkeypatch):
     (failure,) = validate(read(EYEMED))
     assert "RuntimeError: boom" in failure.rule
     assert logger_state() == before
+    monkeypatch.setattr(pyx12.x12n_document, "apply_segment_errors", real)
+    seen = handlers_seen(monkeypatch)
+    plain_run(read(LEGACY))
+    assert seen["main"][0]._oxedi_recording is False
+
+
+def test_the_pyx12_logger_gets_a_null_handler_once():
+    import logging
+
+    validate(read(LEGACY))
+    validate(read(LEGACY))
+    handlers = logging.getLogger("pyx12").handlers
+    assert [type(h) for h in handlers].count(logging.NullHandler) == 1
+
+
+def test_validate_prints_nothing_when_no_logging_is_configured():
+    script = (
+        "import sys; from oxedi.pyx12 import validate; "
+        "print(len(validate(open(sys.argv[1], 'rb').read())), len(validate(open(sys.argv[2], 'rb').read())))"
+    )
+    done = subprocess.run(
+        [sys.executable, "-c", script, str(path_of(LEGACY)), str(path_of("multi_claim_sample.txt"))],
+        check=True,
+        capture_output=True,
+        text=True,
+    )
+    assert (done.stdout, done.stderr) == ("1 1\n", "")
+
+
+def test_records_still_reach_a_handler_configured_on_the_root():
+    script = (
+        "import logging, sys; logging.basicConfig(level=logging.ERROR, format='%(message)s'); "
+        "from oxedi.pyx12 import validate; validate(open(sys.argv[1], 'rb').read())"
+    )
+    done = subprocess.run(
+        [sys.executable, "-c", script, str(path_of(LEGACY))],
+        check=True,
+        capture_output=True,
+        text=True,
+    )
+    assert done.stderr == (
+        "Line:16 ELE:7 - (NP) is not a valid code for Payee State Code (N402) (NP)\n"
+    )
 
 
 def test_overlapping_validations_do_not_mix_their_findings():
@@ -499,6 +544,7 @@ def test_segment_errors_pyx12_cannot_attach_to_an_envelope_node_are_reported():
     findings = validate(data)
     on_header = [(f.level, f.code, f.segment, f.element) for f in findings if f.element is None]
     assert on_header == [(2, "SEG1", 2, None), (2, "8", 2, None)]
+    assert [f.datum for f in findings if f.element is None] == [b"ST", b"ST"]
     assert findings[1].rule == (
         "Segment contains trailing element terminators (reported by pyx12, code SEG1)"
     )

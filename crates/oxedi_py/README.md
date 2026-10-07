@@ -235,9 +235,10 @@ transaction findings are level 1, segment and element findings level 2. A count 
 number that does not match lands on the trailer segment, at the element holding it, with that
 value as `datum`. A file pyx12 cannot read, or an exception inside pyx12, comes back as one
 level 1 finding with no `code` whose `rule` starts with `could not finish validating`,
-instead of a traceback; a file pyx12 rejects points at its `ISA` segment. `validate` leaves
-logging as you configured it: pyx12 logs its findings as it always does, under the `pyx12`
-logger.
+instead of a traceback; a file pyx12 rejects points at its `ISA` segment. pyx12 also logs
+what it finds under the `pyx12` logger; `validate` gives that logger a `NullHandler`, so the
+records are not printed by default and reach any handler you configure. No level, propagation
+or `logging.disable` setting is changed.
 
 ## Coming from another library
 

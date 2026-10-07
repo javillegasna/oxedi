@@ -28,7 +28,8 @@ Known quirks, kept on purpose:
 
 Two synthetic files written by hand for the writer's round-trip and `pyx12` gate, the first
 fixtures that are valid end to end: they balance, carry every occurrence the implementation
-guide requires, parse with zero diagnostics and validate with zero `pyx12` findings. Same rule
+guide requires and parse with zero diagnostics. `pyx12` finds nothing in the 4010 file and one
+thing in the 5010 file: its `ST03`, which pyx12's 5010 map marks Not Used. Same rule
 as above: **never edit them**. Every name, identifier and amount is invented.
 
 | File | Bytes | Segments | Version | Repetition | Line endings | Claims | Services | CAS rows | PLB groups |

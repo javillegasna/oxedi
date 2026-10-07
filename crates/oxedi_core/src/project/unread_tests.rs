@@ -333,6 +333,7 @@ fn lengths_at_and_one_past_each_bound_raise_the_same_diagnostics_read_or_unread(
     let input = "HD~\
         TX*ab*AB*240101*1230~\
         TX*abcd*ABCD*20240101*123045~\
+        TX*ab*AB*240101*123~\
         TX*a*A*240101*1230~\
         TX*abcde*ABCDE*20240101*1230451~\
         TX***~\
@@ -341,6 +342,8 @@ fn lengths_at_and_one_past_each_bound_raise_the_same_diagnostics_read_or_unread(
     assert_eq!(
         kinds(&diagnostics),
         vec![
+            // `123` is below TM's own minimum of four digits: a type error.
+            ("TypeMismatch", Some(4), None),
             ("LengthOutOfRange", Some(1), None),
             ("LengthOutOfRange", Some(2), None),
             ("LengthOutOfRange", Some(1), None),
@@ -361,10 +364,22 @@ proptest! {
                 proptest::sample::select(b"0159-.:A".to_vec()),
                 0..8,
             ),
-            20,
+            18,
+        ),
+        // 0 to 7 components: the spec defines 6, so 7 is a shape error.
+        composite in proptest::collection::vec(
+            proptest::collection::vec(
+                proptest::sample::select(b"0159-.A".to_vec()),
+                0..8,
+            ),
+            0..8,
         ),
     ) {
         let text: Vec<String> = values
+            .iter()
+            .map(|value| String::from_utf8(value.clone()).unwrap())
+            .collect();
+        let components: Vec<String> = composite
             .iter()
             .map(|value| String::from_utf8(value.clone()).unwrap())
             .collect();
@@ -372,8 +387,8 @@ proptest! {
             "HD~NA*{}~RS*{}~CP*{}~TX*{}~TR~",
             text[..10].join("*"),
             text[10..14].join("*"),
-            text[14..17].join(":"),
-            text[17..].join("*"),
+            components.join(":"),
+            text[14..].join("*"),
         );
         let read_spec = Spec::from_json(TYPED_SPEC).unwrap();
         let (_, read) = project(&read_spec, &input);

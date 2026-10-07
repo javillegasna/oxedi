@@ -363,7 +363,7 @@ fn tables_and_delimiters_that_do_not_fit_are_errors() {
         .unwrap();
     let error = write(&plan, &Tables::default(), &envelope()).unwrap_err();
     assert!(matches!(error, WriteError::Plan(_)));
-    assert!(std::error::Error::source(&error).is_some());
+    assert!(std::error::Error::source(&error).is_none());
 }
 
 #[test]

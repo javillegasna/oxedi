@@ -318,6 +318,16 @@ def test_a_float_for_a_decimal_column_is_refused():
         )
 
 
+def test_a_decimal_of_negative_scale_that_overflows_is_reported_as_overflow():
+    raw = (1).to_bytes(16, "little", signed=True)
+    amount = pyarrow.Array.from_buffers(
+        pyarrow.decimal128(38, -40), 1, [None, pyarrow.py_buffer(raw)]
+    )
+    with pytest.raises(oxedi.WriteError, match=r"overflows scale 2") as info:
+        oxedi.write({"claims": pyarrow.table({"charge_amount": amount})}, envelope())
+    assert "more decimals" not in str(info.value)
+
+
 def test_a_dictionary_key_outside_its_values_is_refused():
     keys = pyarrow.array([0, 5], type=pyarrow.int32())
     status = pyarrow.DictionaryArray.from_arrays(keys, pyarrow.array([b"1", b"2"]), safe=False)

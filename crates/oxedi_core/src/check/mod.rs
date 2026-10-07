@@ -184,7 +184,9 @@ impl<'s> EnvelopeChecker<'s> {
         let mut missing_opener = None;
         let control_number = match def.control {
             Some(control) if !implicit => {
-                let value = text_at(segment, control.opener_element, self.separator);
+                let mut joined = Vec::new();
+                let value = text_at(segment, control.opener_element, self.separator, &mut joined)
+                    .map(<[u8]>::to_vec);
                 if value.is_none() {
                     missing_opener = Some(control.opener_element);
                 }
@@ -257,7 +259,8 @@ impl<'s> EnvelopeChecker<'s> {
         // number is no longer needed.
         let opener_value = top.control_number.take();
 
-        match text_at(segment, control.count_element, self.separator) {
+        let mut joined = Vec::new();
+        match text_at(segment, control.count_element, self.separator, &mut joined) {
             None => self.report(
                 Rule::ControlElementMissing {
                     segment_id: segment.id.to_vec(),
@@ -267,7 +270,7 @@ impl<'s> EnvelopeChecker<'s> {
                 Some(control.count_element),
                 Vec::new(),
             ),
-            Some(found) if parse_count(&found) != Some(counted) => self.report(
+            Some(found) if parse_count(found) != Some(counted) => self.report(
                 Rule::ControlCountMismatch {
                     segment_id: segment.id.to_vec(),
                     element: control.count_element,
@@ -276,12 +279,13 @@ impl<'s> EnvelopeChecker<'s> {
                 },
                 Some(segment.index),
                 Some(control.count_element),
-                found,
+                found.to_vec(),
             ),
             Some(_) => {}
         }
         if let Some(opener_value) = opener_value {
-            match text_at(segment, control.closer_element, self.separator) {
+            let mut joined = Vec::new();
+            match text_at(segment, control.closer_element, self.separator, &mut joined) {
                 None => self.report(
                     Rule::ControlElementMissing {
                         segment_id: segment.id.to_vec(),
@@ -303,7 +307,7 @@ impl<'s> EnvelopeChecker<'s> {
                     },
                     Some(segment.index),
                     Some(control.closer_element),
-                    closer_value,
+                    closer_value.to_vec(),
                 ),
                 Some(_) => {}
             }
@@ -375,11 +379,13 @@ impl<'s> EnvelopeChecker<'s> {
 
 /// The whole text of the element at a 1-based position, components re-joined
 /// with `separator`; `None` when the segment has no such element.
-fn text_at(segment: &Segment<'_>, position: usize, separator: u8) -> Option<Vec<u8>> {
-    let mut joined = Vec::new();
-    segment
-        .text(position, separator, &mut joined)
-        .map(<[u8]>::to_vec)
+fn text_at<'a>(
+    segment: &'a Segment<'_>,
+    position: usize,
+    separator: u8,
+    joined: &'a mut Vec<u8>,
+) -> Option<&'a [u8]> {
+    segment.text(position, separator, joined)
 }
 
 /// A count written as ASCII digits (leading zeros allowed); `None` for

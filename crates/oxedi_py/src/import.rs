@@ -248,8 +248,8 @@ fn decimal(array: &dyn Array, row: usize, scale: u8) -> Option<Result<i128, Stri
     let shift = i32::from(scale) - from;
     let factor = 10i128.checked_pow(shift.unsigned_abs());
     Some(match factor {
-        Some(factor) if shift >= 0 => value
-            .checked_mul(factor)
+        _ if shift >= 0 => factor
+            .and_then(|factor| value.checked_mul(factor))
             .ok_or_else(|| format!("{value} at scale {from} overflows scale {scale}")),
         Some(factor) if value % factor == 0 => Ok(value / factor),
         _ => Err(format!(

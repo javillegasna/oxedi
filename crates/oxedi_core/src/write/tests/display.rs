@@ -252,3 +252,20 @@ fn write_errors_display_their_full_text() {
     );
     assert!(std::error::Error::source(&one).is_none());
 }
+
+#[test]
+fn errors_that_print_their_inner_error_do_not_chain_to_it() {
+    use std::error::Error;
+    let plan = WriteError::Plan(PlanError {
+        spec: "s".into(),
+        refusals: Vec::new(),
+    });
+    assert!(plan.source().is_none());
+    let unreadable = WriteError::Unreadable(DocumentError::Isa(IsaError::NotIsa {
+        found: b"GS".to_vec(),
+        byte_order_mark: false,
+        whitespace: 0,
+    }));
+    assert!(unreadable.to_string().contains("found bytes [47 53]"));
+    assert!(unreadable.source().is_none());
+}

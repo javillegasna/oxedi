@@ -360,7 +360,7 @@ def test_a_zero_decimal_of_negative_scale_writes_as_zero():
     _, findings = oxedi.write(
         {"claims": pyarrow.table({"charge_amount": amount})}, envelope(), allow_findings=True
     )
-    assert all("overflows" not in f.message for f in findings)
+    assert not any("charge_amount" in f.message for f in findings)
 
 
 def test_a_dictionary_key_outside_its_values_is_refused():

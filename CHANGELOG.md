@@ -17,7 +17,7 @@ This file covers the Python package; the DuckDB extension has its own changelog 
 ### Fixed
 - Writing a decimal that cannot be rescaled up to the column's scale (a negative scale, for
   example) reports that it overflows the scale instead of claiming it has too many decimals, and
-  a zero decimal is accepted at any scale.
+  a zero decimal is accepted when it only needs scaling up.
 
 ### Changed
 - `Segment.raw` and `Segment.id` read from the segment's span without parsing its elements.

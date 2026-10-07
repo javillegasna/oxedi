@@ -540,7 +540,7 @@ def test_envelope_findings_are_level_1_and_segment_and_element_findings_level_2(
     findings = validate(crafted())
     by_rule = {d.rule.split(" (reported by")[0]: d for d in findings}
     transaction = by_rule["SE count of 61 for SE02=000000064 is wrong. I count 62"]
-    assert (transaction.level, transaction.element) == (1, None)
+    assert (transaction.level, transaction.element, transaction.datum) == (1, 1, b"61")
     segment = next(d for d in findings if d.rule.startswith("Segment ZZZ*1 not found"))
     assert (segment.level, segment.element) == (2, None)
     element = next(d for d in findings if d.datum == b"NP")
@@ -638,3 +638,73 @@ def test_user_configuration_does_not_change_the_findings(tmp_path, monkeypatch):
     )
     assert reports_error(json.loads(errors.getvalue()))
     assert [facts(f) for f in validate(data)] == expected
+
+
+def five_cut(start, end=None):
+    """The balanced 5010 fixture without the bytes from ``start`` up to ``end``
+    (both searched for), or to its end."""
+    data = balanced_5010()
+    at = data.index(start)
+    return data[:at] + (data[data.index(end):] if end is not None else b"")
+
+
+def two_groups():
+    """The balanced 5010 fixture with its group repeated, control number included."""
+    data = balanced_5010()
+    group = data[data.index(b"GS*") : data.index(b"IEA*")]
+    return data.replace(group, group + group).replace(b"IEA*1*", b"IEA*2*")
+
+
+def two_transactions():
+    """The balanced 5010 fixture with its transaction set repeated, control number included."""
+    data = balanced_5010()
+    transaction = data[data.index(b"ST*") : data.index(b"GE*")]
+    return data.replace(transaction, transaction + transaction).replace(b"GE*1*", b"GE*2*")
+
+
+# Each envelope error code of pyx12, on a file that raises it, with the
+# segment it lands on (by id and occurrence), the element and the datum.
+ENVELOPE_CASES = {
+    "ST 4": (lambda: balanced_5010().replace(b"SE*58*", b"SE*57*"), "4", (b"SE", 0), 1, b"57"),
+    "ST 3": (lambda: balanced_5010().replace(b"SE*58*0001", b"SE*58*0009"), "3", (b"SE", 0), 2, b"0009"),
+    "ST 23": (two_transactions, "23", (b"ST", 1), 2, b"0001"),
+    "ST 2": (lambda: five_cut(b"SE*58"), "2", (b"ST", 0), 2, b"0001"),
+    "GS 5": (lambda: balanced_5010().replace(b"GE*1*101", b"GE*2*101"), "5", (b"GE", 0), 1, b"2"),
+    "GS 4": (lambda: balanced_5010().replace(b"GE*1*101", b"GE*1*102"), "4", (b"GE", 0), 2, b"102"),
+    "GS 3 at the trailer": (lambda: five_cut(b"SE*58", b"GE*"), "3", (b"GE", 0), None, b"GE"),
+    "GS 3 without a trailer": (lambda: five_cut(b"GE*"), "3", (b"GS", 0), None, b"GS"),
+    "GS 6": (two_groups, "6", (b"GS", 1), 6, b"101"),
+    "ISA 021": (lambda: balanced_5010().replace(b"IEA*1*", b"IEA*2*"), "021", (b"IEA", 0), 1, b"2"),
+    "ISA 001": (
+        lambda: balanced_5010().replace(b"IEA*1*000000101", b"IEA*1*000000102"),
+        "001",
+        (b"IEA", 0),
+        2,
+        b"000000102",
+    ),
+    "ISA 024": (lambda: five_cut(b"GE*", b"IEA*"), "024", (b"IEA", 0), None, b"IEA"),
+    "ISA 023": (lambda: five_cut(b"IEA*"), "023", (b"ISA", 0), 13, b"000000101"),
+    "ISA 025": (lambda: balanced_5010() + balanced_5010(), "025", (b"ISA", 1), 13, b"000000101"),
+}
+
+
+@pytest.mark.parametrize("case", sorted(ENVELOPE_CASES))
+def test_an_envelope_finding_lands_where_its_code_places_it(case):
+    make, code, (segment_id, occurrence), element, datum = ENVELOPE_CASES[case]
+    data = make()
+    document = oxedi.parse(data).document
+    matching = [f for f in validate(data) if f.level == 1 and f.code == code]
+    assert len(matching) == 1, matching
+    (finding,) = matching
+    with_id = [i for i in range(len(document)) if document[i].id == segment_id]
+    assert finding.segment == with_id[occurrence]
+    assert (finding.element, finding.datum) == (element, datum)
+    if element is not None:
+        assert document[finding.segment].elements[element - 1] == datum
+
+
+def test_every_placed_code_is_pinned_by_a_case():
+    from oxedi.pyx12._tree import PLACES
+
+    pinned = {(case.split()[0], ENVELOPE_CASES[case][1]) for case in ENVELOPE_CASES}
+    assert pinned == set(PLACES)

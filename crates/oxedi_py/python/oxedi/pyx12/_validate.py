@@ -10,7 +10,7 @@ from typing import Any, BinaryIO, Optional, Union
 from .. import Diagnostic, parse
 from .._core import _external_diagnostic
 from . import _capture
-from ._tree import Finding, collect
+from ._tree import ENVELOPE_LEVEL, Finding, collect
 
 Source = Union[bytes, bytearray, memoryview, str, "os.PathLike[str]", BinaryIO]
 
@@ -137,9 +137,12 @@ def _datum(value: Any) -> bytes:
 def _diagnostic(found: Finding, positions: _Positions, document: Any) -> Diagnostic:
     segment = positions.locate(found.line)
     datum = _datum(found.value)
-    if found.value is None and segment is not None and found.element is not None:
-        separator = bytes(document.delimiters.component)
-        datum = _element_bytes(document[segment], found.element, found.component, separator)
+    if found.value is None and segment is not None:
+        if found.element is not None:
+            separator = bytes(document.delimiters.component)
+            datum = _element_bytes(document[segment], found.element, found.component, separator)
+        elif found.level == ENVELOPE_LEVEL:
+            datum = bytes(document[segment].id)
     return _external_diagnostic(
         _ORIGIN,
         found.text,
@@ -260,8 +263,14 @@ def validate(source: Source) -> list[Diagnostic]:
     transaction findings are level 1, segment and element findings level 2.
     ``segment`` is the index of the segment at fault in the file's document
     (``None`` when pyx12 names none), and ``document[d.segment].span`` gives
-    its byte range. ``datum`` is the value pyx12 reports, or else the
-    element's bytes in the file. Findings come in segment order.
+    its byte range. An interchange, group or transaction finding about a
+    trailer (a count or a control number that does not match) lands on the
+    trailer segment at the element holding that value; one about a
+    duplicate or missing control structure lands on the header, at its
+    control number when that is the offending value. ``datum`` is the value
+    pyx12 reports, or else the bytes of the element in the file, or the
+    segment id for an envelope finding with no element. Findings come in
+    segment order.
 
     A file pyx12 cannot read, or an exception inside pyx12, gives one
     level 1 finding with no ``code`` whose ``rule`` starts with ``could

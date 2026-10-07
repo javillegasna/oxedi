@@ -201,6 +201,16 @@ fn field_type() {
         "edi835: table \"claims\" field \"charge_amount\" is VARCHAR; the spec's column is \
          decimal128(38, 2), which takes DECIMAL or an integer type"
     );
+    assert_eq!(
+        text(CopyError::FieldType {
+            table: "interchanges".to_owned(),
+            field: "transmission_time".to_owned(),
+            found: "VARCHAR".to_owned(),
+            expected: ColumnType::Time32,
+        }),
+        "edi835: table \"interchanges\" field \"transmission_time\" is VARCHAR; the spec's \
+         column is time32 (seconds), which takes TIME or TIME_NS in whole seconds"
+    );
 }
 
 #[test]

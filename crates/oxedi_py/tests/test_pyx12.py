@@ -71,7 +71,8 @@ def test_the_samples_have_as_many_findings_as_x12valid_reports(name, tmp_path):
     findings = validate(read(name))
     assert len(findings) == cli_count(copy)
     assert all(isinstance(f, oxedi.Diagnostic) for f in findings)
-    assert all((f.origin, f.kind, f.path) == ("pyx12", "External", "") for f in findings)
+    assert all((f.origin, f.kind) == ("pyx12", "External") for f in findings)
+    assert all(f.path.startswith("interchange#1") for f in findings)
 
 
 @pytest.mark.parametrize("name", ["edi835_test_united.rmt", "edi835_test_davisvision.RMT"])
@@ -106,7 +107,8 @@ def test_a_finding_with_a_datum_names_it():
     assert data[start:end].startswith(b"N4*")
     assert str(finding) == (
         "SNIP 2 · (NP) is not a valid code for Payee State Code (N402) (reported by pyx12, code 7)"
-        ' · segment #15, element 2 · at the root · datum "NP"'
+        " · segment #15, element 2 · at interchange#1/group#1/transaction#1/1000B#1"
+        ' · datum "NP"'
     )
 
 
@@ -708,3 +710,35 @@ def test_every_placed_code_is_pinned_by_a_case():
 
     pinned = {(case.split()[0], ENVELOPE_CASES[case][1]) for case in ENVELOPE_CASES}
     assert pinned == set(PLACES)
+
+
+@pytest.mark.parametrize(
+    "make",
+    [crafted, lambda: read(EYEMED), lambda: balanced_5010().replace(b"SE*58*", b"SE*57*")],
+    ids=["crafted", "eyemed", "se-count"],
+)
+def test_a_finding_names_the_loops_parse_names_at_its_segment(make):
+    data = make()
+    result = oxedi.parse(data)
+    findings = validate(data)
+    assert findings
+    paths = oxedi._core._loop_paths(result, [f.segment for f in findings])
+    for finding, path in zip(findings, paths):
+        assert finding.path == "/".join(f"{name}#{ordinal}" for name, ordinal in path)
+    ours = {d.segment: d.path for d in result.diagnostics if d.segment is not None}
+    shared = [f for f in findings if f.segment in ours]
+    assert all(f.path == ours[f.segment] for f in shared)
+
+
+def test_the_crafted_findings_name_their_loops():
+    paths = {(f.code, f.segment): f.path for f in validate(crafted())}
+    assert paths == {
+        ("1", 3): "interchange#1/group#1/transaction#1",
+        ("7", 16): "interchange#1/group#1/transaction#1/1000B#1",
+        ("4", 63): "interchange#1/group#1/transaction#1",
+    }
+
+
+def test_a_failure_names_the_loops_at_its_segment():
+    (failure,) = validate(read("multi_claim_sample.txt"))
+    assert failure.path == "interchange#1"

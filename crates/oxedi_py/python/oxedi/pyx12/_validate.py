@@ -8,9 +8,12 @@ from bisect import bisect_right
 from typing import Any, BinaryIO, Optional, Union
 
 from .. import Diagnostic, parse
-from .._core import _external_diagnostic
+from .._core import _external_diagnostic, _loop_paths
 from . import _capture
 from ._tree import ENVELOPE_LEVEL, Finding, collect
+
+# The arguments of one finding for ``_external_diagnostic``, but its loop path.
+Draft = dict[str, Any]
 
 Source = Union[bytes, bytearray, memoryview, str, "os.PathLike[str]", BinaryIO]
 
@@ -134,7 +137,7 @@ def _datum(value: Any) -> bytes:
     return b"" if value is None else str(value).encode("latin-1", "replace")
 
 
-def _diagnostic(found: Finding, positions: _Positions, document: Any) -> Diagnostic:
+def _diagnostic(found: Finding, positions: _Positions, document: Any) -> Draft:
     segment = positions.locate(found.line)
     datum = _datum(found.value)
     if found.value is None and segment is not None:
@@ -143,10 +146,9 @@ def _diagnostic(found: Finding, positions: _Positions, document: Any) -> Diagnos
             datum = _element_bytes(document[segment], found.element, found.component, separator)
         elif found.level == ENVELOPE_LEVEL:
             datum = bytes(document[segment].id)
-    return _external_diagnostic(
-        _ORIGIN,
-        found.text,
-        found.level,
+    return dict(
+        message=found.text,
+        level=found.level,
         code=found.code,
         segment=segment,
         element=found.element,
@@ -176,7 +178,7 @@ def _completed(track: list[int], positions: _Positions) -> Optional[int]:
     return positions.locate(track[-1]) if track else None
 
 
-def _failure(reason: str, track: list[int], positions: _Positions, document: Any) -> Diagnostic:
+def _failure(reason: str, track: list[int], positions: _Positions, document: Any) -> Draft:
     """One failure finding, with no code: pyx12 did not report it, it stopped.
 
     ``track`` holds the segment numbers pyx12 finished. When a segment
@@ -197,16 +199,15 @@ def _failure(reason: str, track: list[int], positions: _Positions, document: Any
         segment = None
         where = "it reached no segment"
     datum = bytes(document[segment].id) if segment is not None else b""
-    return _external_diagnostic(
-        _ORIGIN,
-        f"could not finish validating: {reason}; {where}",
-        _FAILURE_LEVEL,
+    return dict(
+        message=f"could not finish validating: {reason}; {where}",
+        level=_FAILURE_LEVEL,
         segment=segment,
         datum=datum,
     )
 
 
-def _rejection(text: str, positions: _Positions, document: Any) -> Diagnostic:
+def _rejection(text: str, positions: _Positions, document: Any) -> Draft:
     """The failure for a file pyx12 refuses to read as X12: at the segment
     holding the ISA, with its bytes as the datum. pyx12 only logs that it
     refused, so the reason is read again from its reader."""
@@ -224,17 +225,30 @@ def _rejection(text: str, positions: _Positions, document: Any) -> Diagnostic:
         raw = bytes(document[segment].raw)
         datum = raw[max(raw.find(b"ISA"), 0):].rstrip(b"\r\n")
     where = f"it rejected segment #{segment}" if segment is not None else "it reached no segment"
-    return _external_diagnostic(
-        _ORIGIN,
-        f"could not finish validating: {reason}; {where}",
-        _FAILURE_LEVEL,
+    return dict(
+        message=f"could not finish validating: {reason}; {where}",
+        level=_FAILURE_LEVEL,
         segment=segment,
         datum=datum,
     )
 
 
-def _by_segment(diagnostic: Diagnostic) -> tuple[bool, int]:
-    return (diagnostic.segment is None, diagnostic.segment or 0)
+def _by_segment(draft: Draft) -> tuple[bool, int]:
+    return (draft["segment"] is None, draft["segment"] or 0)
+
+
+def _finish(result: Any, drafts: list[Draft]) -> list[Diagnostic]:
+    """The diagnostics of ``drafts`` in segment order, each with the loop
+    path ``parse`` gives its segment."""
+    drafts = sorted(drafts, key=_by_segment)
+    segments = [d["segment"] for d in drafts if d["segment"] is not None]
+    paths = iter(_loop_paths(result, segments))
+    return [
+        _external_diagnostic(
+            _ORIGIN, path=next(paths) if d["segment"] is not None else None, **d
+        )
+        for d in drafts
+    ]
 
 
 def validate(source: Source) -> list[Diagnostic]:
@@ -270,7 +284,8 @@ def validate(source: Source) -> list[Diagnostic]:
     control number when that is the offending value. ``datum`` is the value
     pyx12 reports, or else the bytes of the element in the file, or the
     segment id for an envelope finding with no element. Findings come in
-    segment order.
+    segment order. ``path`` names the loops open at that segment, as in the
+    diagnostics ``parse`` gives about the same segment.
 
     A file pyx12 cannot read, or an exception inside pyx12, gives one
     level 1 finding with no ``code`` whose ``rule`` starts with ``could
@@ -284,22 +299,23 @@ def validate(source: Source) -> list[Diagnostic]:
     """
     _import_pyx12()
     data = _read(source)
-    document = parse(data).document
+    result = parse(data)
+    document = result.document
     base = data.find(b"ISA")
     text = data[max(base, 0):].decode("latin-1")
     positions = _Positions.build(document, max(base, 0), text)
     run = _run(text)
     if run.failure is not None:
         reason = f"{type(run.failure).__name__}: {run.failure}"
-        return [_failure(reason, run.track, positions, document)]
+        return _finish(result, [_failure(reason, run.track, positions, document)])
     if run.handler is None:
-        return [_failure("pyx12 built no error handler", run.track, positions, document)]
+        failure = _failure("pyx12 built no error handler", run.track, positions, document)
+        return _finish(result, [failure])
     try:
         found = collect(run.handler)
     except Exception as err:  # pyx12's tree is not ours: report it, do not raise
         reason = f"its error tree could not be read ({type(err).__name__}: {err})"
-        return [_failure(reason, run.track, positions, document)]
+        return _finish(result, [_failure(reason, run.track, positions, document)])
     if not found and not run.ok and not run.track:
-        return [_rejection(text, positions, document)]
-    out = [_diagnostic(f, positions, document) for f in found]
-    return sorted(out, key=_by_segment)
+        return _finish(result, [_rejection(text, positions, document)])
+    return _finish(result, [_diagnostic(f, positions, document) for f in found])

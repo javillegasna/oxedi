@@ -1,6 +1,6 @@
 //! `Diagnostic`: one finding about a file's data, as Python attributes.
 
-use oxedi_core::{Diagnostic, Rule, SnipLevel};
+use oxedi_core::{Diagnostic, LoopRef, Rule, SnipLevel};
 use pyo3::exceptions::PyValueError;
 use pyo3::prelude::*;
 use pyo3::types::{PyBytes, PyInt, PyList};
@@ -142,13 +142,14 @@ fn position_arg(name: &str, value: Option<&Bound<'_, PyAny>>) -> PyResult<Option
 /// Builds a `Diagnostic` for a finding reported by an external validator.
 ///
 /// Internal: adapters to external validators call it; it is not part of the
-/// public API. The finding has no loop path; `level` must be 1, 2 or 3.
+/// public API. `path` holds the open loops as `(name, ordinal)` pairs,
+/// outermost first, as `_loop_paths` returns them; `level` must be 1, 2 or 3.
 // `text_signature` mirrors `signature =`, as the stub description below does.
 #[pyfunction]
 #[pyo3(
     name = "_external_diagnostic",
-    signature = (origin, message, level, code=None, segment=None, element=None, component=None, datum=b"".to_vec()),
-    text_signature = "(origin, message, level, code=None, segment=None, element=None, component=None, datum=b'')"
+    signature = (origin, message, level, code=None, segment=None, element=None, component=None, datum=b"".to_vec(), path=None),
+    text_signature = "(origin, message, level, code=None, segment=None, element=None, component=None, datum=b'', path=None)"
 )]
 #[allow(clippy::too_many_arguments)]
 pub fn external_diagnostic(
@@ -160,6 +161,7 @@ pub fn external_diagnostic(
     element: Option<&Bound<'_, PyAny>>,
     component: Option<&Bound<'_, PyAny>>,
     datum: Vec<u8>,
+    path: Option<Vec<(String, usize)>>,
 ) -> PyResult<PyDiagnostic> {
     let segment = position_arg("segment", segment)?;
     let element = position_arg("element", element)?;
@@ -190,13 +192,13 @@ pub fn external_diagnostic(
         message,
         level,
     };
+    let path = path
+        .unwrap_or_default()
+        .into_iter()
+        .map(|(name, ordinal)| LoopRef { name, ordinal })
+        .collect();
     Ok(PyDiagnostic::from(Diagnostic::new(
-        rule,
-        segment,
-        element,
-        component,
-        Vec::new(),
-        datum,
+        rule, segment, element, component, path, datum,
     )))
 }
 
@@ -248,6 +250,7 @@ pyo3_stub_gen::inventory::submit! {
             defaulted("element", <Option<usize> as PyStubType>::type_input, none),
             defaulted("component", <Option<usize> as PyStubType>::type_input, none),
             defaulted("datum", <Py<PyBytes> as PyStubType>::type_input, || "b\"\"".to_string()),
+            defaulted("path", <Option<Vec<(String, usize)>> as PyStubType>::type_input, none),
         ],
         r#return: <PyDiagnostic as PyStubType>::type_output,
         doc: "Builds a `Diagnostic` for a finding reported by an external validator; internal.",

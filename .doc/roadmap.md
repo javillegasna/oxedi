@@ -30,6 +30,7 @@ Order after Stage 5b (owner, 2026-10-04): backlog sprint 2 → **Stage 6 → `0.
 | 8 · Durable documentation | Human-readable book of the ideas, concepts and patterns that govern the project (no code snippets, no line references, nothing that rots); user guides for the Python library and the DuckDB extension | Not started (after the roadmap closes, D14) | — |
 | 9 · X12 family toolkit | The engine, spec format and projection serve other transaction sets of the same family (837 first: same loop logic, different segment definitions); 835 becomes one spec among several. Includes the `pyx12` map cross-check and spec generator (D16, part 1) | Not started (D15, D16) | — |
 | 9b · `pyx12` interop (optional) | `oxedi.pyx12.validate` (done in 5e); `oxedi.pyx12.ContextReader` as a read-only `X12ContextReader`-shaped view, only on demand; behind the extra `oxedi[pyx12]` | Optional (D16, parts 2–3) | — |
+| 10 · AI access | An MCP server (`oxedi[mcp]`) whose tools summarize a file, run SQL over its tables, return a claim with its services and adjustments, and report diagnostics and `validate`; a mode that masks patient fields (on by default) since an 835 carries PHI; an `llms.txt` and assistant-oriented guides; later, model-oriented output with code meanings (D18) | Not started (candidate; D18 open) | — |
 
 ## What each stage unlocks
 
@@ -56,6 +57,8 @@ Order after Stage 5b (owner, 2026-10-04): backlog sprint 2 → **Stage 6 → `0.
   beyond the 835; `pyx12`'s maps cross-check our specs and seed the new ones.
 - After **7**: a payer or a clearinghouse writes an 835 from its database with one SQL per
   table and the same spec that reads it; the round trip is the proof.
+- After **10**: an AI assistant answers questions about a remittance (totals, denials, a claim's
+  adjustments) through precise local tools, with patient fields masked unless asked otherwise.
 - After **9b** (optional): a single diagnostics list covers SNIP 1–7 by delegating 3–7 to
   `pyx12`; code written against its context reader runs on our document.
 - After **5c**: every module is short enough to read in one sitting and findable from
@@ -77,6 +80,7 @@ Order after Stage 5b (owner, 2026-10-04): backlog sprint 2 → **Stage 6 → `0.
 | D15 · X12 family toolkit (837…) | 9 | Naming resolved by T70 (`oxedi`); still open: one spec per transaction set, audit of which 835 assumptions leaked into code |
 | D16 · `pyx12` interop | 5e (835 maps as spec oracle and `oxedi.pyx12.validate`, moved forward by the owner 2026-10-04), 9 (maps as generator for the 837 and others), 9b (`ContextReader`, optional) | Complement, not imitate: their maps and validation, our speed and tables; no Rust equivalent exists (`.superpowers/x12-validators-rust-survey.md`) |
 | D17 · Bindings for other languages | After Stage 7, D15 naming and API stability (1.0 criteria) | Owner's choice (2026-10-04): first a **DuckDB extension** (`read_835(...)` as a table function; DuckDB's clients in Python, R, Java, Node, Go, .NET and Rust carry it to every language, and `COPY ... TO 'x.parquet'` covers file export), after a spike that confirms Rust extensions are viable; a C API with the Arrow C Data Interface only for in-process cases DuckDB does not reach; WASM only for browser or sandbox. A standalone CLI is dropped: DuckDB's own CLI does the conversion. Spike questions first: does DuckDB's stable C extension API cover a table function with typed columns (ideally Arrow)? If yes, a thin C extension over our C API (stable across DuckDB versions); if not, the Rust template on the unstable API, rebuilt per DuckDB release by the community CI. Our CI: Linux-only SQL tests against Python's tables, a DuckDB-version watcher that opens PRs, a PR to the community repo per release; no unsigned self-hosted builds. Surveys: `.superpowers/835-parsers-other-languages-survey.md`, `.superpowers/duckdb-adoption-survey.md`. The extension can also expose the Stage 7 writer (`write_835`); a time-boxed spike (owner, 2026-10-04) answers read and write viability before Stage 7 |
+| D18 · AI access | 10 | MCP server over the library (summary, SQL over the tables, claim lookup, diagnostics, validate) with patient-field masking on by default; DuckDB MCP servers with the extension as a no-code path; `llms.txt`; code-meaning output later (CARC/RARC text subject to its license) |
 | D13 · Module layout | 5c | Resolved by T37–T44 (2026-10-04) |
 | D3 · WASM/Extism extensions | never, unless data patches prove insufficient | — |
 

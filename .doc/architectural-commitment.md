@@ -426,6 +426,20 @@ carga su prueba de costura con la capa inferior (N7).
   extensión. Escritura: el formato de `COPY` funciona completo y ve tablas temporales y objetos
   del cliente; una función que lee tablas por nombre solo ve tablas persistentes confirmadas. Vía
   recomendada: plantilla de Rust con ABI estable; riesgos y esquema de §7 en el documento.
+- **D18 · Acceso para IA** (anotada 2026-10-06, abierta). Que un asistente de IA obtenga
+  información de un RMT con herramientas precisas en vez de leer el archivo crudo. Opciones
+  discutidas, de menos a más trabajo: (1) un servidor MCP en Python detrás de un extra
+  (`oxedi[mcp]`) con herramientas que delegan en la librería: resumen de un archivo, SQL sobre
+  sus tablas con DuckDB en memoria, un claim con sus servicios y ajustes, diagnósticos y
+  `validate`; (2) los servidores MCP de DuckDB existentes con la extensión `oxedi` cargada (casi
+  sin código propio; depende de que la extensión esté en la comunidad y de que el esquema sea
+  descubrible, #138); (3) una salida pensada para modelos (JSON o markdown compacto con el
+  significado de los códigos: estado del claim, grupos CO/PR/OA y, si su licencia lo permite,
+  descripciones CARC/RARC); (4) un `llms.txt` y guías para asistentes que escriben código con
+  oxedi. Restricción: un 835 lleva PHI (nombres, ids y fechas de pacientes); el procesamiento es
+  local, se devuelve solo lo pedido y hay un modo que enmascara los campos del paciente, activo
+  por defecto. Recomendación inicial: (1) con enmascaramiento y (4); (3) después si la IA
+  necesita interpretar códigos. Se cierra en el §7 de su stage.
 - **D7 · Stage 7, Escritor** → programado el 2026-10-03, tras 5b y Stage 6, con un caso real:
   generar un 835 (`.RMT`) a partir de datos en bases relacionales. Contrato acordado: la
   entrada es nuestro esquema de tablas (`Tables` del core o Arrow por el mismo protocolo

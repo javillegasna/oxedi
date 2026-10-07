@@ -4,17 +4,24 @@ Snapshot for picking the project up cold. Update when a stage changes state.
 
 ## Pick up here (2026-10-06)
 
-- **In PR:** Stage 7b, DuckDB write (branch `stage-7b-duckdb-write`, extension 0.2.0): the
-  `edi835` copy format over the core writer, byte for byte equal to `oxedi.write`; oracle
-  `test/python/test_write.py` (8 accepted, 16 refused with Python's text, default and
-  non-default envelope); README sections "Writing" and "From your own tables". Gates:
-  `make gates`, `make test_release`, `make duckdb-oracle`, `make duckdb-version-check`. After
-  merge: issue on Project #8 for `allow_findings` from DuckDB, the deferred minors, tag
-  `duckdb-v0.2.0`.
+- **Now:** choose the next work. Open issues (~24 on Project #8) are medium or stage-sized and
+  need decisions; `.doc/analysis/` is stale since 5d (missing 5e, 5f, 5g, 7a, 7, 7b). The
+  DuckDB extension 0.2.0 (copy format) is merged but not tagged: the owner tags `duckdb-v0.2.0`
+  in a few days and then updates duckdb/community-extensions#2942 (still at 0.1.2, build green,
+  awaiting maintainers) to the new commit, so no extra PR is opened there meanwhile.
+- **Merged:** backlog sprint 4 (PR #143): closed #141 #110 #142 #134 #77 #128 #132 #66, part 1
+  of #124 (part 2 open), #53 and #82 closed as resolved by 7a; `Result.spec`/`Tables.spec`,
+  spans for `Segment.raw`/`id`, `TIME_NS` in the DuckDB format, PyPI metadata (description,
+  keywords, classifiers, URLs; on PyPI with the next release), core `publish = false`. New
+  issues #140 #141 #142 #144. Ledger `analysis/backlog-sprint-4-ledger.md`.
+- **Merged:** Stage 7b, DuckDB write (PR #139, extension 0.2.0 untagged): the `edi835` copy
+  format over the core writer, byte for byte equal to `oxedi.write` (oracle: 8 accepted, 16
+  refused with Python's text); README "Writing" and "From your own tables". Ledger
+  `analysis/stage-7b-ledger.md`.
 - **Released:** 0.4.0, the first version with the writer (`oxedi.write`, `oxedi.Envelope`,
   balancing rules and SNIP 3, the new table columns); tag `v0.4.0`. The DuckDB extension 0.1.2
   (tag `duckdb-v0.1.2`, PR #135) fixes the Windows community build and is pending in
-  duckdb/community-extensions#2942. Next: merge 7b, update `.doc/analysis/` (stale since 5d).
+  duckdb/community-extensions#2942.
 - **Merged:** Stage 7 (writer, PR #121): core `write`/`write_with_findings(spec, tables,
   envelope)` and Python `oxedi.write`; balancing rules checked on write and read as
   `BalanceMismatch`; gate results in `analysis/stage-7-ledger.md`.

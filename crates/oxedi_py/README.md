@@ -144,6 +144,7 @@ COPY (
 ## Validate with pyx12
 
 ```python
+import oxedi
 from oxedi.pyx12 import validate
 
 result = oxedi.parse_file("remittance.835")

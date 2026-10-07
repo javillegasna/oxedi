@@ -52,8 +52,8 @@ holding only `None` to `float64` with NaN.
 
 ## Edge cases
 
-These matter only for unusual files. The compatibility layer gives an empty result where the
-library reads on or raises:
+These matter only for unusual files. The compatibility layer gives an empty result for these;
+the library reads on or raises:
 
 - Arbitrary non-whitespace bytes before the ISA (other than a UTF-8 BOM followed by ASCII
   whitespace), a doubled BOM, or non-ASCII whitespace after a BOM give an empty result where

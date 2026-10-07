@@ -1,11 +1,8 @@
 use super::*;
+use crate::delimiters::test_support::plain as delimiters;
 use crate::{SnipLevel, Tokenizer};
 
 const ISA: &str = "ISA*00*          *00*          *ZZ*SENDER         *ZZ*RECEIVER       *240101*1200*^*00501*000000001*0*P*>~";
-
-fn delimiters() -> Delimiters {
-    Delimiters::new(b'*', b':', b'~')
-}
 
 /// A complete interchange holding the given transactions, each written
 /// between its `ST` and its `SE`.

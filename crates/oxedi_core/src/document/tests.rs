@@ -1,12 +1,9 @@
 use super::*;
-use crate::{Delimiters, IsaError, Tokenizer};
+use crate::delimiters::test_support::plain;
+use crate::{IsaError, Tokenizer};
 
 const ISA: &[u8] =
     b"ISA*00*          *00*          *ZZ*EMEDNYBAT      *ZZ*ETIN           *100101*1000*^*00501*006000600*0*T*:~";
-
-fn plain() -> Delimiters {
-    Delimiters::new(b'*', b':', b'~')
-}
 
 #[test]
 fn with_delimiters_indexes_every_frame() {

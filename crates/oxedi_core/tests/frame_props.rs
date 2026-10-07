@@ -1,5 +1,8 @@
 //! Property: framing is lossless for *any* input, with or without a release byte.
 
+mod common;
+
+use common::delimiters;
 use oxedi_core::{Delimiters, Frame, next_frame};
 use proptest::prelude::*;
 
@@ -10,15 +13,6 @@ fn all_frames<'a>(mut input: &'a [u8], delims: &Delimiters) -> Vec<Frame<'a>> {
         input = rest;
     }
     frames
-}
-
-fn delimiters(use_release: bool) -> Delimiters {
-    let delims = Delimiters::new(b'*', b':', b'~');
-    if use_release {
-        delims.with_release(b'?')
-    } else {
-        delims
-    }
 }
 
 proptest! {

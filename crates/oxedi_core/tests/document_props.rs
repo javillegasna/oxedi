@@ -4,6 +4,8 @@
 
 mod common;
 
+use common::delimiters;
+
 use oxedi_core::frame::{BYTE_ORDER_MARK, first_frame, next_frame};
 use oxedi_core::{Delimiters, Document, Span, Tokenizer};
 use proptest::prelude::*;
@@ -82,15 +84,6 @@ fn derived_spans_equal_recorded_spans_at_the_edges() {
         assert_spans_match_reference(bytes, delimiters(true), &format!("{name}, release"));
     }
     assert_spans_match_reference(b"ST?~~SE~?", delimiters(true), "escaped terminators");
-}
-
-fn delimiters(use_release: bool) -> Delimiters {
-    let delims = Delimiters::new(b'*', b':', b'~');
-    if use_release {
-        delims.with_release(b'?')
-    } else {
-        delims
-    }
 }
 
 proptest! {

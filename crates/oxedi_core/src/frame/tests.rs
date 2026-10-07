@@ -1,9 +1,6 @@
 use super::*;
 use crate::Delimiters;
-
-fn plain() -> Delimiters {
-    Delimiters::new(b'*', b':', b'~')
-}
+use crate::delimiters::test_support::plain;
 
 fn with_release() -> Delimiters {
     plain().with_release(b'?')

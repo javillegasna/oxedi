@@ -1,20 +1,10 @@
 use super::*;
+use crate::delimiters::test_support::{concat_raw, plain};
 use crate::{Delimiters, Element, IsaError};
 use std::borrow::Cow;
 
 const ISA: &[u8] =
     b"ISA*00*          *00*          *ZZ*EMEDNYBAT      *ZZ*ETIN           *100101*1000*^*00501*006000600*0*T*:~";
-
-fn plain() -> Delimiters {
-    Delimiters::new(b'*', b':', b'~')
-}
-
-fn concat_raw(segments: &[Segment<'_>]) -> Vec<u8> {
-    segments
-        .iter()
-        .flat_map(|s| s.raw.iter().copied())
-        .collect()
-}
 
 #[test]
 fn with_delimiters_yields_segments_in_order_with_consecutive_indices() {

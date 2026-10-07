@@ -9,6 +9,7 @@ use pyo3::types::{PyCapsule, PyDict, PyIterator, PyTuple};
 use pyo3_stub_gen::derive::{gen_methods_from_python, gen_stub_pyclass, gen_stub_pymethods};
 
 use crate::arrow;
+use crate::spec::PySpec;
 
 /// Imports `module`, or raises an `ImportError` that names the method, the
 /// module and the extra that provides it, with the original error as cause.
@@ -112,6 +113,15 @@ impl PyTables {
 #[gen_stub_pymethods]
 #[pymethods]
 impl PyTables {
+    /// The spec that projected the tables, which `write` uses by default;
+    /// `None` for tables built from a mapping.
+    #[getter(spec)]
+    fn spec_of_parse(&self) -> Option<PySpec> {
+        self.spec.as_ref().map(|inner| PySpec {
+            inner: Arc::clone(inner),
+        })
+    }
+
     /// The table names, in spec order.
     fn keys(&self) -> Vec<String> {
         self.names()

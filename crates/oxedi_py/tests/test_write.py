@@ -176,6 +176,30 @@ def test_the_spec_that_parsed_the_tables_writes_them():
     assert oxedi.write(frames, envelope(), spec=oxedi.Spec.builtin("4010")) == data
 
 
+def test_the_result_and_its_tables_expose_the_spec_that_parsed_them():
+    result = parse_named("edi835_test_davisvision.RMT")
+    assert result.spec is not None
+    assert result.tables.spec is not None
+    assert result.spec.to_json() == result.tables.spec.to_json()
+    assert result.spec.to_json() == oxedi.Spec.builtin("4010").to_json()
+    frames = {name: result.tables[name].to_polars() for name in result.tables.keys()}
+    assert oxedi.write(frames, envelope(), spec=result.spec) == oxedi.write(
+        result.tables, envelope()
+    )
+
+
+def test_a_given_spec_is_the_one_the_result_exposes():
+    given = oxedi.Spec.builtin("4010").patch({"name": "mine"})
+    result = oxedi.parse(read("emedny_sample.txt"), spec=given)
+    assert result.spec.to_json() == given.to_json()
+
+
+def test_the_batches_of_a_stream_expose_their_spec():
+    data = read("emedny_sample.txt")
+    [batch, *_] = oxedi.stream(data)
+    assert batch.tables.spec is not None
+
+
 def test_the_batches_of_a_stream_write_each_transaction():
     data = parse_named("emedny_sample.txt").document
     batches = list(oxedi.stream(bytes(b"".join(s.raw for s in data))))

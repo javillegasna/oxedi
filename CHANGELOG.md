@@ -9,6 +9,15 @@ This file covers the Python package; the DuckDB extension has its own changelog 
 
 ## [Unreleased]
 
+### Added
+- `Result.spec` and `Tables.spec`: the spec that projected the tables, the one given to `parse` or
+  `stream`, or the built-in selected from the file's version. `oxedi.write(frames, envelope,
+  spec=result.spec)` writes your own frames with the spec of the file they came from.
+
+### Changed
+- Package metadata on PyPI: a description that names the 835 and the writer, keywords, the
+  healthcare-industry, libraries and typed classifiers, and Homepage and Documentation links.
+
 ## [0.4.0] - 2026-10-06
 
 ### Added

@@ -249,3 +249,21 @@ fn compare_goldens_reports_orphan_files_and_unlisted_subdirectories() {
     assert!(failures.iter().any(|f| f.contains("orphan.txt")));
     assert!(failures.iter().any(|f| f.contains("stray")));
 }
+
+/// Every segment's `raw` bytes, back to back.
+pub fn concat_raw(segments: &[oxedi_core::Segment<'_>]) -> Vec<u8> {
+    segments
+        .iter()
+        .flat_map(|s| s.raw.iter().copied())
+        .collect()
+}
+
+/// The plain test dialect (`*`, `:`, `~`), with `?` as release when asked.
+pub fn delimiters(use_release: bool) -> oxedi_core::Delimiters {
+    let delims = oxedi_core::Delimiters::new(b'*', b':', b'~');
+    if use_release {
+        delims.with_release(b'?')
+    } else {
+        delims
+    }
+}

@@ -1,12 +1,9 @@
 use super::*;
-use crate::{Delimiters, IsaError, Tokenizer};
+use crate::delimiters::test_support::plain;
+use crate::{IsaError, Tokenizer};
 
 const ISA: &[u8] =
     b"ISA*00*          *00*          *ZZ*EMEDNYBAT      *ZZ*ETIN           *100101*1000*^*00501*006000600*0*T*:~";
-
-fn plain() -> Delimiters {
-    Delimiters::new(b'*', b':', b'~')
-}
 
 #[test]
 fn with_delimiters_indexes_every_frame() {
@@ -318,4 +315,22 @@ fn segment_into_one_buffer_equals_segment_and_stops_past_the_end() {
     let last = buffer.clone();
     assert!(!doc.segment_into(doc.len(), &mut buffer));
     assert_eq!(buffer, last, "a miss leaves the buffer untouched");
+}
+
+#[test]
+fn raw_and_segment_id_equal_the_parsed_segment_without_parsing_it() {
+    let delims = Delimiters {
+        release: Some(b'?'),
+        ..plain()
+    };
+    let input = &b"\nA?*B*1~\n\nSE~X"[..];
+    let doc = Document::with_delimiters(input, delims).unwrap();
+    for index in 0..doc.len() {
+        let segment = doc.segment(index).unwrap();
+        assert_eq!(doc.raw(index), Some(segment.raw), "raw of segment {index}");
+        assert_eq!(doc.segment_id(index), Some(segment.id), "id of {index}");
+    }
+    assert_eq!(doc.segment_id(0), Some(&b"A?*B"[..]));
+    assert_eq!(doc.raw(doc.len()), None);
+    assert_eq!(doc.segment_id(doc.len()), None);
 }

@@ -361,9 +361,7 @@ pub fn write_tables<'py>(
     let given = spec::given(spec);
     let (shared, spec): (Arc<Tables>, Arc<Spec>) = if let Ok(parsed) = tables.cast::<PyTables>() {
         let parsed = parsed.get();
-        let spec = given
-            .or_else(|| parsed.spec().cloned())
-            .unwrap_or_else(spec::builtin);
+        let spec = given.unwrap_or_else(|| Arc::clone(parsed.spec()));
         (Arc::clone(parsed.tables()), spec)
     } else {
         let mapping = tables.cast::<PyMapping>().map_err(|_| {

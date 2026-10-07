@@ -5,6 +5,10 @@
 //! never trusted: element separators are counted instead. The separator right
 //! after `ISA` is #1; ISA16 (the component separator) is the single byte after
 //! separator #16, and the segment terminator is the byte after that.
+//!
+//! `test_support` (test builds only) holds the helpers the unit tests of the
+//! modules that read segments share: the plain `*`, `:`, `~` dialect and the
+//! concatenation of every segment's `raw` bytes.
 
 use std::fmt;
 
@@ -274,5 +278,7 @@ impl Delimiters {
     }
 }
 
+#[cfg(test)]
+pub(crate) mod test_support;
 #[cfg(test)]
 mod tests;

@@ -394,10 +394,18 @@ impl fmt::Display for WriteError {
 
 impl std::error::Error for WriteError {
     fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
+        // `Plan` and `Unreadable` print their inner error in full, so the
+        // chain stops here instead of printing it a second time.
         match self {
-            WriteError::Plan(error) => Some(error),
-            WriteError::Unreadable(error) => Some(error),
-            _ => None,
+            WriteError::Plan(_)
+            | WriteError::UnknownTable { .. }
+            | WriteError::UnknownColumn { .. }
+            | WriteError::ColumnType { .. }
+            | WriteError::SameDelimiter { .. }
+            | WriteError::DelimiterNotAllowed { .. }
+            | WriteError::NoRepetition
+            | WriteError::Unreadable(_)
+            | WriteError::Findings(_) => None,
         }
     }
 }

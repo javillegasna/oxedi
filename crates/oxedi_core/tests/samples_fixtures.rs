@@ -3,7 +3,9 @@
 
 mod common;
 
-use oxedi_core::{Document, Segment, Tokenizer, frame::is_trivia};
+use common::concat_raw;
+
+use oxedi_core::{Document, Tokenizer, frame::is_trivia};
 
 /// (file, segments including a trailing trivia-only one, repetition separator).
 const SAMPLES: &[(&str, usize, Option<u8>)] = &[
@@ -14,13 +16,6 @@ const SAMPLES: &[(&str, usize, Option<u8>)] = &[
     ("edi835_test_united.rmt", 30302, Some(b'^')),
     ("edi835_test_versant.RMT", 10177, None),
 ];
-
-fn concat_raw(segments: &[Segment<'_>]) -> Vec<u8> {
-    segments
-        .iter()
-        .flat_map(|s| s.raw.iter().copied())
-        .collect()
-}
 
 #[test]
 fn samples_tokenize_losslessly_from_their_isa() {

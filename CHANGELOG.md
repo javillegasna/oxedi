@@ -9,6 +9,21 @@ This file covers the Python package; the DuckDB extension has its own changelog 
 
 ## [Unreleased]
 
+### Added
+- `Result.spec` and `Tables.spec`: the spec that projected the tables, the one given to `parse` or
+  `stream`, or the built-in selected from the file's version. `oxedi.write(frames, envelope,
+  spec=result.spec)` writes your own frames with the spec of the file they came from.
+
+### Fixed
+- Writing a decimal that cannot be rescaled up to the column's scale (a negative scale, for
+  example) reports that it overflows the scale instead of claiming it has too many decimals, and
+  a zero decimal is accepted when it only needs scaling up.
+
+### Changed
+- `Segment.raw` and `Segment.id` read from the segment's span without parsing its elements.
+- Package metadata on PyPI: a description that names the 835 and the writer, keywords, the
+  healthcare-industry, libraries and typed classifiers, and Homepage and Documentation links.
+
 ## [0.4.0] - 2026-10-06
 
 ### Added

@@ -1,6 +1,8 @@
 //! `parse`: one pass over a whole file, with the GIL released.
 
 use oxedi_core::Processor;
+use std::sync::Arc;
+
 use pyo3::buffer::PyBuffer;
 use pyo3::exceptions::PyTypeError;
 use pyo3::prelude::*;
@@ -74,6 +76,15 @@ impl PyParseResult {
     #[getter]
     fn tables(&self, py: Python<'_>) -> Py<PyTables> {
         self.tables.clone_ref(py)
+    }
+
+    /// The spec that projected the tables: the one given, or the built-in
+    /// selected from the file's version.
+    #[getter]
+    fn spec(&self, py: Python<'_>) -> PySpec {
+        PySpec {
+            inner: Arc::clone(self.tables.bind(py).get().spec()),
+        }
     }
 
     /// Every diagnostic, in stream order.

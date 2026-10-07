@@ -263,6 +263,12 @@ class Result:
         The projected tables, by name.
         """
     @property
+    def spec(self) -> Spec:
+        r"""
+        The spec that projected the tables: the one given, or the built-in
+        selected from the file's version.
+        """
+    @property
     def diagnostics(self) -> builtins.list[Diagnostic]:
         r"""
         Every diagnostic, in stream order.
@@ -431,6 +437,11 @@ class Tables:
     r"""
     The tables of one parse or one batch, by name. Shared, never copied.
     """
+    @property
+    def spec(self) -> Spec:
+        r"""
+        The spec that projected the tables, which `write` uses by default.
+        """
     def keys(self) -> builtins.list[builtins.str]:
         r"""
         The table names, in spec order.

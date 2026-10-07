@@ -9,6 +9,7 @@ use pyo3::types::{PyCapsule, PyDict, PyIterator, PyTuple};
 use pyo3_stub_gen::derive::{gen_methods_from_python, gen_stub_pyclass, gen_stub_pymethods};
 
 use crate::arrow;
+use crate::spec::PySpec;
 
 /// Imports `module`, or raises an `ImportError` that names the method, the
 /// module and the extra that provides it, with the original error as cause.
@@ -58,16 +59,7 @@ fn to_pandas<'py>(
 pub struct PyTables {
     tables: Arc<Tables>,
     /// The spec that projected them, which writing them back uses by default.
-    spec: Option<Arc<Spec>>,
-}
-
-impl From<Tables> for PyTables {
-    fn from(tables: Tables) -> Self {
-        Self {
-            tables: Arc::new(tables),
-            spec: None,
-        }
-    }
+    spec: Arc<Spec>,
 }
 
 impl PyTables {
@@ -75,13 +67,13 @@ impl PyTables {
     pub fn projected(tables: Tables, spec: Arc<Spec>) -> Self {
         Self {
             tables: Arc::new(tables),
-            spec: Some(spec),
+            spec,
         }
     }
 
-    /// The spec that projected the tables, when known.
-    pub fn spec(&self) -> Option<&Arc<Spec>> {
-        self.spec.as_ref()
+    /// The spec that projected the tables.
+    pub fn spec(&self) -> &Arc<Spec> {
+        &self.spec
     }
 
     /// The number of tables.
@@ -112,6 +104,14 @@ impl PyTables {
 #[gen_stub_pymethods]
 #[pymethods]
 impl PyTables {
+    /// The spec that projected the tables, which `write` uses by default.
+    #[getter(spec)]
+    fn spec_of_parse(&self) -> PySpec {
+        PySpec {
+            inner: Arc::clone(&self.spec),
+        }
+    }
+
     /// The table names, in spec order.
     fn keys(&self) -> Vec<String> {
         self.names()

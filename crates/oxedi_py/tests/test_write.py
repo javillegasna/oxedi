@@ -176,6 +176,28 @@ def test_the_spec_that_parsed_the_tables_writes_them():
     assert oxedi.write(frames, envelope(), spec=oxedi.Spec.builtin("4010")) == data
 
 
+def test_the_result_and_its_tables_expose_the_spec_that_parsed_them():
+    result = parse_named("edi835_test_davisvision.RMT")
+    assert result.spec.to_json() == result.tables.spec.to_json()
+    assert result.spec.to_json() == oxedi.Spec.builtin("4010").to_json()
+    frames = {name: result.tables[name].to_polars() for name in result.tables.keys()}
+    assert oxedi.write(frames, envelope(), spec=result.spec) == oxedi.write(
+        result.tables, envelope()
+    )
+
+
+def test_a_given_spec_is_the_one_the_result_exposes():
+    given = oxedi.Spec.builtin("4010").patch({"name": "mine"})
+    result = oxedi.parse(read("emedny_sample.txt"), spec=given)
+    assert result.spec.to_json() == given.to_json()
+
+
+def test_the_batches_of_a_stream_expose_their_spec():
+    data = read("emedny_sample.txt")
+    [batch, *_] = oxedi.stream(data)
+    assert batch.tables.spec.to_json() == oxedi.Spec.builtin().to_json()
+
+
 def test_the_batches_of_a_stream_write_each_transaction():
     data = parse_named("emedny_sample.txt").document
     batches = list(oxedi.stream(bytes(b"".join(s.raw for s in data))))
@@ -316,6 +338,29 @@ def test_a_float_for_a_decimal_column_is_refused():
             {"claims": pyarrow.table({"statement_from": [datetime.datetime(2024, 1, 1, 1)]})},
             envelope(),
         )
+
+
+def test_a_decimal_of_negative_scale_that_overflows_is_reported_as_overflow():
+    raw = (1).to_bytes(16, "little", signed=True)
+    amount = pyarrow.Array.from_buffers(
+        pyarrow.decimal128(38, -40), 1, [None, pyarrow.py_buffer(raw)]
+    )
+    with pytest.raises(oxedi.WriteError) as info:
+        oxedi.write({"claims": pyarrow.table({"charge_amount": amount})}, envelope())
+    assert str(info.value) == (
+        'table "claims" column "charge_amount" row 0: 1 at scale -40 overflows scale 2'
+    )
+
+
+def test_a_zero_decimal_of_negative_scale_writes_as_zero():
+    raw = (0).to_bytes(16, "little", signed=True)
+    amount = pyarrow.Array.from_buffers(
+        pyarrow.decimal128(38, -40), 1, [None, pyarrow.py_buffer(raw)]
+    )
+    _, findings = oxedi.write(
+        {"claims": pyarrow.table({"charge_amount": amount})}, envelope(), allow_findings=True
+    )
+    assert not any("charge_amount" in f.message for f in findings)
 
 
 def test_a_dictionary_key_outside_its_values_is_refused():

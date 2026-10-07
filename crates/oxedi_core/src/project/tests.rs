@@ -65,9 +65,7 @@ pub(super) fn spec() -> Spec {
     Spec::from_json(SPEC).unwrap()
 }
 
-pub(super) fn delimiters() -> Delimiters {
-    Delimiters::new(b'*', b':', b'~')
-}
+pub(super) use crate::delimiters::test_support::plain as delimiters;
 
 /// Runs the engine and a projector over `input`, `finish` included.
 pub(super) fn project(spec: &Spec, input: &str) -> (Tables, Vec<Diagnostic>) {

@@ -64,6 +64,11 @@ fn timestamps_must_be_at_midnight() {
 #[test]
 fn times_must_be_whole_seconds() {
     assert_eq!(whole_seconds(37_800_000_000, 1_000_000), Ok(37_800));
+    assert_eq!(whole_seconds(37_800_000_000_000, 1_000_000_000), Ok(37_800));
+    assert_eq!(
+        whole_seconds(37_800_500_000_000, 1_000_000_000),
+        Err("37800500000000 is not a whole second".to_owned())
+    );
     assert_eq!(
         whole_seconds(1_500_000, 1_000_000),
         Err("1500000 is not a whole second".to_owned())

@@ -302,7 +302,7 @@ pub fn accepted(kind: ColumnType) -> &'static str {
         ColumnType::Int64 { .. } => "an integer type or a FLOAT or DOUBLE holding whole numbers",
         ColumnType::Decimal128 { .. } => "DECIMAL or an integer type",
         ColumnType::Date32 => "DATE, or TIMESTAMP at midnight",
-        ColumnType::Time32 => "TIME in whole seconds",
+        ColumnType::Time32 => "TIME or TIME_NS in whole seconds",
     }
 }
 

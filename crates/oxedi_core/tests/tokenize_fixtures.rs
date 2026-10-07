@@ -3,6 +3,8 @@
 
 mod common;
 
+use common::concat_raw;
+
 use oxedi_core::{Delimiters, IsaError, Segment, Tokenizer, next_frame};
 
 /// (fixture, number of `~` in it). Terminated segments must match exactly.
@@ -13,13 +15,6 @@ const ENVELOPED: &[(&str, usize)] = &[
     ("trizetto_sample.rmt", 22),
 ];
 const FRAGMENT: (&str, usize) = ("blue_cross_nc_sample.txt", 32);
-
-fn concat_raw(segments: &[Segment<'_>]) -> Vec<u8> {
-    segments
-        .iter()
-        .flat_map(|s| s.raw.iter().copied())
-        .collect()
-}
 
 fn count_frames(mut input: &[u8], delims: &Delimiters) -> usize {
     let mut n = 0;

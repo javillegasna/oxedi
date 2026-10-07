@@ -18,7 +18,19 @@ fn assert_matches_tokenizer(doc: &Document<'_>, bytes: &[u8], delims: Delimiters
     assert_eq!(doc.len(), expected.len(), "{name}: segment count");
     for (i, segment) in expected.iter().enumerate() {
         assert_eq!(doc.segment(i).as_ref(), Some(segment), "{name} segment {i}");
+        assert_eq!(doc.raw(i), Some(segment.raw), "{name} raw of segment {i}");
+        assert_eq!(
+            doc.segment_id(i),
+            Some(segment.id),
+            "{name} id of segment {i}"
+        );
     }
+    assert_eq!(doc.raw(expected.len()), None, "{name}: raw past the end");
+    assert_eq!(
+        doc.segment_id(expected.len()),
+        None,
+        "{name}: id past the end"
+    );
     let from_iter: Vec<_> = doc.segments().collect();
     assert_eq!(
         from_iter, expected,

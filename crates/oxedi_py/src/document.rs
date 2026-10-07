@@ -303,7 +303,12 @@ impl PySegment {
     /// The segment identifier; empty for an empty frame.
     #[getter]
     fn id<'py>(&self, py: Python<'py>) -> PyResult<Bound<'py, PyBytes>> {
-        self.with(py, |segment| PyBytes::new(py, segment.id))
+        let document = self.document.bind(py).get();
+        document
+            .inner
+            .segment_id(self.index)
+            .map(|id| PyBytes::new(py, id))
+            .ok_or_else(|| out_of_range(self.index, document.inner.len()))
     }
 
     /// The elements in X12 order (`elements[0]` is `XX01`): `bytes` for a
@@ -332,7 +337,12 @@ impl PySegment {
     /// The exact bytes of the segment: leading trivia, body and terminator.
     #[getter]
     fn raw<'py>(&self, py: Python<'py>) -> PyResult<Bound<'py, PyBytes>> {
-        self.with(py, |segment| PyBytes::new(py, segment.raw))
+        let document = self.document.bind(py).get();
+        document
+            .inner
+            .raw(self.index)
+            .map(|raw| PyBytes::new(py, raw))
+            .ok_or_else(|| out_of_range(self.index, document.inner.len()))
     }
 
     /// The segment's byte range in the input, `(start, end)` with `end`

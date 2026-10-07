@@ -84,7 +84,7 @@ rows of the query concatenate into one interchange. A table left out has no rows
 | Option | Default | Meaning |
 |---|---|---|
 | `sender_id`, `receiver_id` | required | interchange sender and receiver ids |
-| `date`, `time` | required | the interchange date (`DATE`) and time (`TIME`) |
+| `date`, `time` | required | the interchange date (`DATE`) and time (`TIME` or `TIME_NS`) |
 | `sender_qualifier`, `receiver_qualifier` | `'ZZ'` | ISA qualifiers |
 | `usage_indicator` | `'P'` | `'P'` production or `'T'` test |
 | `control_number` | `1` | first interchange control number |
@@ -114,7 +114,7 @@ table, row and column, and nothing is written. There is no `allow_findings` here
 - Accepted types, per column of the spec: text takes `VARCHAR`, `ENUM` or `BLOB`; an integer
   column any integer type, or a `FLOAT` or `DOUBLE` holding a whole number; a decimal column
   any `DECIMAL` or integer type that holds the value exactly (never `FLOAT` or `DOUBLE`); a date
-  column `DATE`, or `TIMESTAMP` at midnight; a time column `TIME` in whole seconds.
+  column `DATE`, or `TIMESTAMP` at midnight; a time column `TIME` or `TIME_NS` in whole seconds.
 
 ### From your own tables
 

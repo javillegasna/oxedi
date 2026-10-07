@@ -1,4 +1,5 @@
-//! Owned DuckDB values (parameters and settings) read through the C API.
+//! Owned DuckDB values (parameters and settings) and C strings read through
+//! the C API.
 
 use std::ffi::CStr;
 
@@ -24,6 +25,11 @@ impl Value {
         (!null).then_some(value)
     }
 
+    /// The raw handle, valid while `self` lives.
+    pub fn raw(&self) -> ffi::duckdb_value {
+        self.0
+    }
+
     /// The value's type id.
     pub fn type_id(&self) -> ffi::DUCKDB_TYPE {
         // SAFETY: the value is live; the type it returns is borrowed from
@@ -41,16 +47,8 @@ impl Value {
     /// The value cast to text.
     pub fn text(&self) -> String {
         // SAFETY: the value is live; DuckDB returns a new string (or null)
-        // that is freed below with `duckdb_free`.
-        unsafe {
-            let raw = ffi::duckdb_get_varchar(self.0);
-            if raw.is_null() {
-                return String::new();
-            }
-            let text = CStr::from_ptr(raw).to_string_lossy().into_owned();
-            ffi::duckdb_free(raw.cast());
-            text
-        }
+        // that `take_text` frees.
+        unsafe { take_text(ffi::duckdb_get_varchar(self.0)) }
     }
 
     /// The value cast to a boolean.
@@ -79,6 +77,25 @@ impl Drop for Value {
     fn drop(&mut self) {
         // SAFETY: the handle is owned and destroyed once.
         unsafe { ffi::duckdb_destroy_value(&mut self.0) };
+    }
+}
+
+/// A C string DuckDB allocated for the caller, copied and then freed; empty
+/// for a null pointer. Invalid UTF-8 is replaced.
+///
+/// # Safety
+///
+/// `text` must be null or a NUL-terminated string allocated by DuckDB that
+/// the caller gives up.
+pub unsafe fn take_text(text: *mut std::os::raw::c_char) -> String {
+    if text.is_null() {
+        return String::new();
+    }
+    // SAFETY: `text` is a live C string (caller contract), freed once.
+    unsafe {
+        let owned = CStr::from_ptr(text).to_string_lossy().into_owned();
+        ffi::duckdb_free(text.cast());
+        owned
     }
 }
 
@@ -124,6 +141,12 @@ pub fn primitive_name(id: ffi::DUCKDB_TYPE) -> &'static str {
         ffi::DUCKDB_TYPE_DUCKDB_TYPE_DATE => "DATE",
         ffi::DUCKDB_TYPE_DUCKDB_TYPE_TIME => "TIME",
         ffi::DUCKDB_TYPE_DUCKDB_TYPE_TIMESTAMP => "TIMESTAMP",
+        ffi::DUCKDB_TYPE_DUCKDB_TYPE_TIMESTAMP_S => "TIMESTAMP_S",
+        ffi::DUCKDB_TYPE_DUCKDB_TYPE_TIMESTAMP_MS => "TIMESTAMP_MS",
+        ffi::DUCKDB_TYPE_DUCKDB_TYPE_TIMESTAMP_NS => "TIMESTAMP_NS",
+        ffi::DUCKDB_TYPE_DUCKDB_TYPE_TIMESTAMP_TZ => "TIMESTAMP WITH TIME ZONE",
+        ffi::DUCKDB_TYPE_DUCKDB_TYPE_TIME_TZ => "TIME WITH TIME ZONE",
+        ffi::DUCKDB_TYPE_DUCKDB_TYPE_TIME_NS => "TIME_NS",
         ffi::DUCKDB_TYPE_DUCKDB_TYPE_INTERVAL => "INTERVAL",
         ffi::DUCKDB_TYPE_DUCKDB_TYPE_VARCHAR => "VARCHAR",
         ffi::DUCKDB_TYPE_DUCKDB_TYPE_BLOB => "BLOB",

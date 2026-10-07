@@ -1,16 +1,20 @@
-# State — 2026-10-06 (0.3.0 as oxedi; Stage 7 in PR)
+# State — 2026-10-06 (0.4.0 as oxedi; Stage 7b in PR)
 
 Snapshot for picking the project up cold. Update when a stage changes state.
 
 ## Pick up here (2026-10-06)
 
-- **Now:** releasing 0.4.0, the first version with the writer (`oxedi.write`, `oxedi.Envelope`,
-  balancing rules and SNIP 3, the new table columns). `v0.4.0rc1` is on TestPyPI and its install
-  was verified (a balanced 5010 fixture written with `oxedi.write` reads back with no diagnostic
-  and the same tables apart from segment positions); `v0.4.0` goes to PyPI. The DuckDB extension
-  0.1.2 (tag `duckdb-v0.1.2`, PR #135) fixes the Windows community build and is pending in
-  duckdb/community-extensions#2942. Next: update `.doc/analysis/` (stale since 5d), then
-  Stage 7b (DuckDB write through `COPY`).
+- **In PR:** Stage 7b, DuckDB write (branch `stage-7b-duckdb-write`, extension 0.2.0): the
+  `edi835` copy format over the core writer, byte for byte equal to `oxedi.write`; oracle
+  `test/python/test_write.py` (8 accepted, 16 refused with Python's text, default and
+  non-default envelope); README sections "Writing" and "From your own tables". Gates:
+  `make gates`, `make test_release`, `make duckdb-oracle`, `make duckdb-version-check`. After
+  merge: issue on Project #8 for `allow_findings` from DuckDB, the deferred minors, tag
+  `duckdb-v0.2.0`.
+- **Released:** 0.4.0, the first version with the writer (`oxedi.write`, `oxedi.Envelope`,
+  balancing rules and SNIP 3, the new table columns); tag `v0.4.0`. The DuckDB extension 0.1.2
+  (tag `duckdb-v0.1.2`, PR #135) fixes the Windows community build and is pending in
+  duckdb/community-extensions#2942. Next: merge 7b, update `.doc/analysis/` (stale since 5d).
 - **Merged:** Stage 7 (writer, PR #121): core `write`/`write_with_findings(spec, tables,
   envelope)` and Python `oxedi.write`; balancing rules checked on write and read as
   `BalanceMismatch`; gate results in `analysis/stage-7-ledger.md`.

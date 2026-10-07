@@ -7,6 +7,15 @@ and the extension has its own version.
 
 ## [Unreleased]
 
+## [0.2.0] - 2026-10-06
+
+### Added
+- The copy format `edi835`: `COPY (SELECT {'payments': ..., 'claims': ...}) TO 'out.835' (FORMAT
+  edi835, sender_id ..., receiver_id ..., date ..., time ...)` writes the tables of the spec
+  back into an 835 with the core writer, byte for byte equal to `oxedi.write` with the same
+  envelope. Its options are those of `oxedi.Envelope` and `version`. It is strict: any finding
+  fails the `COPY` with the listing `oxedi.WriteError` shows and nothing is written.
+
 ## [0.1.2] - 2026-10-06
 
 ### Fixed
@@ -40,7 +49,8 @@ and the extension has its own version.
   `read_835(...)` returns the payments, claims, services, adjustments, provider adjustments and
   diagnostics tables in SQL.
 
-[Unreleased]: https://github.com/javillegasna/oxedi/compare/duckdb-v0.1.2...HEAD
+[Unreleased]: https://github.com/javillegasna/oxedi/compare/duckdb-v0.2.0...HEAD
+[0.2.0]: https://github.com/javillegasna/oxedi/releases/tag/duckdb-v0.2.0
 [0.1.2]: https://github.com/javillegasna/oxedi/releases/tag/duckdb-v0.1.2
 [0.1.1]: https://github.com/javillegasna/oxedi/releases/tag/duckdb-v0.1.1
 [0.1.0]: https://github.com/javillegasna/oxedi/releases/tag/duckdb-v0.1.0

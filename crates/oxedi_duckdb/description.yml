@@ -1,7 +1,7 @@
 extension:
   name: oxedi
-  description: Read X12 EDI 835 remittance files as tables, losslessly, with the findings as a table
-  version: 0.1.2
+  description: Read X12 EDI 835 remittance files as tables, losslessly, and write tables back into an 835
+  version: 0.2.0
   language: Rust
   build: cargo
   license: MIT
@@ -34,3 +34,8 @@ docs:
     -- Export to Parquet
     COPY (SELECT * FROM read_835('remits/*.835', table_name := 'claims'))
       TO 'claims.parquet';
+
+    -- Write tables back into an 835 (one STRUCT column keyed by table)
+    COPY (SELECT {'payments': (SELECT list(t ORDER BY t."row") FROM payments t), ...})
+      TO 'out.835' (FORMAT edi835, sender_id 'ACMEPAYER', receiver_id 'SUNRISECLINIC',
+                    date DATE '2024-01-10', time TIME '09:00');

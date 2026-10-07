@@ -1,11 +1,13 @@
-//! Reading whole files through the file system of the query's client
+//! Reading and writing whole files through the file system of the query's client
 //! context, so every path DuckDB can open (local, `s3://`, `https://`, ...)
 //! works and nothing here touches the operating system directly.
 //!
 //! - `mod.rs`: [`FileSystem`], opening and reading one file.
 //! - `glob.rs`: expanding glob patterns into the files they match.
+//! - `write.rs`: writing one whole file.
 
 mod glob;
+mod write;
 
 pub use glob::{CallerSettings, resolve};
 
@@ -34,6 +36,18 @@ impl ClientContext {
         // SAFETY: `info` is a live bind info (caller contract); DuckDB writes
         // a new context wrapper into `context`.
         unsafe { ffi::duckdb_table_function_get_client_context(info, &mut context) };
+        (!context.is_null()).then_some(ClientContext(context))
+    }
+
+    /// Takes ownership of a client context wrapper DuckDB created for the
+    /// caller; `None` for a null handle.
+    ///
+    /// # Safety
+    ///
+    /// `context` must be null or a wrapper the caller owns and gives up, and
+    /// the returned value must be dropped before the callback that received
+    /// it returns.
+    pub unsafe fn owned(context: ffi::duckdb_client_context) -> Option<ClientContext> {
         (!context.is_null()).then_some(ClientContext(context))
     }
 

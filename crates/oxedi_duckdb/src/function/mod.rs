@@ -1,6 +1,7 @@
 //! Registration of `read_835` on the C API, and its bind, init and scan
 //! callbacks. Every callback catches panics, so none unwinds into DuckDB;
-//! errors are reported through the callback's info.
+//! errors are reported through the callback's info. The panic guard and the
+//! message conversion are shared with the copy format.
 
 use std::any::Any;
 use std::ffi::{CString, c_void};
@@ -89,7 +90,7 @@ impl Drop for TableFunction {
 }
 
 /// Drops a `Box<T>` DuckDB held as a raw pointer.
-unsafe extern "C" fn drop_box<T>(pointer: *mut c_void) {
+pub(crate) unsafe extern "C" fn drop_box<T>(pointer: *mut c_void) {
     if !pointer.is_null() {
         // SAFETY: `pointer` came from `Box::<T>::into_raw` and DuckDB
         // releases it once.
@@ -97,13 +98,22 @@ unsafe extern "C" fn drop_box<T>(pointer: *mut c_void) {
     }
 }
 
+/// An error a callback can report a caught panic as.
+pub(crate) trait FromPanic {
+    /// The error for a panic with this message.
+    fn from_panic(message: String) -> Self;
+}
+
+impl FromPanic for ReadError {
+    fn from_panic(message: String) -> Self {
+        ReadError::Internal { message }
+    }
+}
+
 /// Runs `body`, turning a panic into an error.
-fn guarded<T>(body: impl FnOnce() -> Result<T, ReadError>) -> Result<T, ReadError> {
-    catch_unwind(AssertUnwindSafe(body)).unwrap_or_else(|payload| {
-        Err(ReadError::Internal {
-            message: panic_message(payload.as_ref()),
-        })
-    })
+pub(crate) fn guarded<T, E: FromPanic>(body: impl FnOnce() -> Result<T, E>) -> Result<T, E> {
+    catch_unwind(AssertUnwindSafe(body))
+        .unwrap_or_else(|payload| Err(E::from_panic(panic_message(payload.as_ref()))))
 }
 
 fn panic_message(payload: &(dyn Any + Send)) -> String {
@@ -117,7 +127,7 @@ fn panic_message(payload: &(dyn Any + Send)) -> String {
 }
 
 /// The error's message as a C string; a NUL byte is written `\0`.
-fn c_message(error: &ReadError) -> CString {
+pub(crate) fn c_message(error: &impl std::fmt::Display) -> CString {
     let text = error.to_string().replace('\0', "\\0");
     CString::new(text).unwrap_or_default()
 }
@@ -248,7 +258,7 @@ unsafe fn add_column(
 }
 
 unsafe extern "C" fn init(info: ffi::duckdb_init_info) {
-    let result = guarded(|| {
+    let result = guarded(|| -> Result<(), ReadError> {
         let state = Box::new(Mutex::new(Scan::default()));
         // SAFETY: DuckDB passes a live init info; it owns the box from here
         // and frees it with `drop_box`.

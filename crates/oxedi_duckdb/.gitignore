@@ -2,3 +2,6 @@
 /build
 /configure
 /duckdb_unittest_tempdir
+# Files the COPY tests write: the Python SQLLogicTest runner points
+# __TEST_DIR__ at the test directory itself.
+/test/sql/*.835

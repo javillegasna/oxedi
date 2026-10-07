@@ -1755,3 +1755,86 @@ pérdidas.
 **Fuera de alcance.** Escribir desde DuckDB (Stage 7b); calcular totales por el usuario; editar un
 archivo existente conservando lo que las tablas no traen (camino del `Document`); la 837 (Stage 9);
 L3 de #53.
+
+### Stage 7b · Escritura desde DuckDB — APROBADO 2026-10-06
+
+El stage que lleva el escritor del Stage 7 a todos los lenguajes con cliente de DuckDB (D17): la
+extensión `oxedi` registra un formato de `COPY` que recibe las tablas de la spec y escribe un 835.
+Cierra en SQL el ciclo leer (`read_835`) → transformar → escribir, y el caso original de D7 (de una
+base relacional al `.RMT`, con DuckDB leyendo Postgres, MySQL o SQLite) sin conectores propios. El
+spike (`spikes/duckdb-extension.md` §4) probó que un formato de `COPY` funciona con la API C
+estable de v1.5.6 y que su consulta corre en el contexto de quien llama, así que ve tablas
+temporales, objetos registrados desde un cliente y la transacción en curso. El núcleo y el paquete
+de Python no cambian.
+
+**Decisiones de diseño (cada una con la alternativa descartada).**
+- **T88 · Formato `edi835` en `COPY … TO`.** `COPY (consulta) TO 'ruta' (FORMAT edi835, …)`. El
+  nombre deja sitio a `edi837` en la misma extensión y no choca con formatos de DuckDB. Descartados
+  `FORMAT oxedi` con una opción `transaction` (más largo para el único caso de hoy) y una función
+  `write_835` que lea tablas por nombre (el spike mostró que solo ve tablas persistentes y
+  confirmadas: ni temporales, ni objetos del cliente, ni la transacción en curso).
+- **T89 · La entrada: una columna `STRUCT` cuyos campos son las tablas** (enmendado 2026-10-06:
+  la API C estable no da a un formato de `COPY` los nombres de las columnas de la consulta, solo
+  su número y sus tipos; los nombres de los campos de un `STRUCT` sí viajan en el tipo). La
+  consulta devuelve una sola columna de tipo `STRUCT` cuyos campos llevan los nombres de las tablas
+  de la spec (`payments`, `claims`, `services`, `adjustments`, `provider_adjustments`); cada campo
+  es una lista de structs cuyos campos son las columnas de esa tabla, como las devuelve `read_835`
+  (`SELECT {'payments': (SELECT list(p) FROM payments p), 'claims': (SELECT list(c) FROM claims c),
+  …}`). Es el mismo contrato que `oxedi.write`: las mismas tablas, columnas y referencias al padre
+  (T82), y los mismos mensajes para una tabla o una columna que no están en la spec. Si la consulta
+  devuelve varias filas, las listas de cada tabla se concatenan en orden (sirve una fila por pago o
+  un `UNION ALL`, porque las referencias al padre son globales). Una consulta con otra forma (más de
+  una columna, una columna que no es `STRUCT`, un campo que no es lista de structs) o un campo con
+  un tipo que no se puede convertir al de la columna de la spec es un error P10 que nombra la tabla,
+  el campo, el tipo recibido y el esperado. Descartados reconocer cada tabla por sus campos con una
+  columna por tabla (el nombre `AS` no llega y un subconjunto de columnas puede encajar en varias
+  tablas), un formato largo con una columna `table` y la fila serializada (pierde los tipos), un
+  esquema aplanado (ambiguo para ajustes y PLB) y la función por nombres (T88).
+- **T90 · El sobre en las opciones de `COPY`.** Las opciones llevan los nombres de los campos de
+  `oxedi.Envelope`: `sender_id`, `receiver_id`, `date`, `time` (obligatorias), `sender_qualifier`,
+  `receiver_qualifier`, `usage_indicator`, `control_number`, `application_sender`,
+  `application_receiver`, `delimiters`, `line_break`, con los mismos valores por defecto que en
+  Python. `date` y `time` no tienen valor por defecto: la salida es determinista (dos ejecuciones
+  iguales dan los mismos bytes). Una opción desconocida, una obligatoria que falta o un valor de
+  tipo equivocado es un error P10 que nombra la opción, el valor y la lista de opciones válidas.
+  Descartado tomar la hora actual por defecto.
+- **T91 · Solo modo estricto.** Si el escritor encuentra hallazgos (T85), el `COPY` falla y no
+  escribe nada; el error lista todos los hallazgos con el mismo texto que `oxedi.WriteError` (tabla,
+  fila, columna o campo del sobre, tipo y diagnóstico). `COPY` no devuelve filas y la API C no tiene
+  un canal de advertencias, así que no hay dónde entregar hallazgos junto a un archivo escrito.
+  Descartado `allow_findings` con un archivo de hallazgos aparte (más superficie sin un caso real;
+  queda como issue en el Project #8).
+- **T92 · La spec por versión.** Una opción `version` con los valores de `read_835` (`'5010'` por
+  defecto, `'4010'`) elige la spec integrada; un valor desconocido es un error P10 con los valores
+  válidos. Sin specs personalizadas, igual que en la lectura.
+- **T93 · La salida por el sistema de archivos de DuckDB.** Los bytes se escriben con el sistema de
+  archivos de DuckDB, igual que la lectura (T68): rutas locales y remotas con la configuración de
+  quien llama, sin `std::fs`. Un archivo por `COPY`: `PARTITION_BY` y `PER_THREAD_OUTPUT` los
+  consume DuckDB antes del formato, así que se rechaza una salida que pida un segundo archivo (con
+  un solo archivo se escribe normal); una opción que llega y no aplica (por ejemplo `COMPRESSION`)
+  es un error P10 que lo dice. El archivo de destino se abre solo después de una escritura sin
+  hallazgos; con una ruta local y el archivo temporal de DuckDB (`USE_TMP_FILE`, por defecto) un
+  archivo existente queda intacto si el `COPY` falla, y en los demás casos lo que pase con el destino
+  al fallar lo decide DuckDB (según la versión puede borrarlo). Sin estado
+  global: todo vive en el bind y en el estado global del `COPY`; ningún pánico cruza la frontera
+  FFI.
+
+**Entregable / contrato.**
+- El formato `edi835` en la extensión: bind (opciones, sobre, spec, esquema de entrada), sink
+  (acumula las filas), finalize (llama al escritor del núcleo y escribe los bytes), con errores P10
+  y una prueba SQLLogicTest de texto completo por mensaje.
+- README de la extensión y del repositorio con el patrón de consulta y las opciones; CHANGELOG de
+  la extensión; versión de la extensión 0.2.0 (el paquete de Python no se publica).
+
+**Gate de verificación.**
+- Oráculo de bytes: en cada sample y fixture que `oxedi.write` acepta, de las dos versiones, el
+  archivo que sale de `COPY` desde las tablas de `read_835` es idéntico byte a byte al de
+  `oxedi.write` con el mismo sobre; y el archivo escrito, leído con `read_835`, da las mismas tablas
+  que la escritura de Python.
+- Los archivos que `oxedi.write` rechaza fallan en `COPY` con el mismo listado de hallazgos.
+- Una consulta desde una tabla `TEMP` y otra desde varias filas (`UNION ALL`) escriben lo esperado.
+- Carga en DuckDB stable (≥ 1.5.6) y `next`; `make gates`, `make duckdb-oracle` y las pruebas de la
+  extensión en verde.
+
+**Fuera de alcance.** `allow_findings` desde DuckDB (T91); `COPY … FROM` (para leer está
+`read_835`); specs personalizadas; particiones; WASM y musl; la 837 (Stage 9).

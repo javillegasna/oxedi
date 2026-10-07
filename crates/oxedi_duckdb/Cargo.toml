@@ -1,11 +1,11 @@
 [package]
 name = "oxedi_duckdb"
-version = "0.1.2"
+version = "0.2.0"
 edition.workspace = true
 license.workspace = true
 authors.workspace = true
 repository.workspace = true
-description = "DuckDB extension `oxedi`: read_835 over the oxedi EDI 835 parser core"
+description = "DuckDB extension `oxedi`: read_835 and the edi835 copy format over the oxedi EDI 835 parser core"
 publish = false
 
 # The library is named after the extension: the build looks for liboxedi.so and

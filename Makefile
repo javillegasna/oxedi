@@ -19,7 +19,7 @@ CARGO_VERSION := $(shell sed -n 's/^version = "\(.*\)"/\1/p' Cargo.toml | head -
 DUCKDB_VERSION := $(shell sed -n 's/^version = "\(.*\)"/\1/p' crates/oxedi_duckdb/Cargo.toml | head -n 1)
 VERSION     := $(shell echo '$(CARGO_VERSION)' | sed -E 's/-(a|b|rc)\.?/\1/; s/-dev\.?/.dev/')
 
-.PHONY: help version release-check configure_ci set_duckdb_version set_duckdb_tag set_duckdb_repository debug release test_debug test_release duckdb-oracle duckdb-version-check duckdb-release-check duckdb-tag sdist-check wheel-check gates test clippy fmt fmt-check bench-check doc venv py-dev py-test stubs stubtest compat-oracle dist smoke publish-test publish-test-verify publish tag clean-dist
+.PHONY: help version release-check configure_ci set_duckdb_version set_duckdb_tag set_duckdb_repository debug release test_debug test_release duckdb-oracle duckdb-version-check duckdb-release-check duckdb-tag sdist-check wheel-check gates test clippy fmt fmt-check bench-check doc venv py-dev py-test stubs stubtest compat-oracle dist smoke readme-py readme-py-check publish-test publish-test-verify publish tag clean-dist
 
 help: ## list targets
 	@grep -E '^[a-z][a-z_-]*:.*##' $(MAKEFILE_LIST) | sed 's/:.*## /\t/'
@@ -27,8 +27,8 @@ help: ## list targets
 	@echo "Python releases use release-check and tag (tags v*, which start the PyPI workflow)."
 	@echo "The DuckDB extension uses duckdb-release-check and duckdb-tag (tags duckdb-v*, which do not)."
 
-# ---- Rust gates (the same four CI runs, plus rustdoc) ----
-gates: fmt-check clippy test bench-check doc ## run every commit gate
+# ---- Rust gates (the same four CI runs, plus rustdoc and the PyPI README check) ----
+gates: fmt-check clippy test bench-check doc readme-py-check ## run every commit gate
 
 test: ## cargo test --workspace --locked
 	cargo test --workspace --locked
@@ -99,6 +99,14 @@ wheel-check: ## fail if the built wheel lacks the type stub, py.typed or the lic
 	@wheel=$$(ls $(WHEELS)/oxedi-*.whl 2>/dev/null | head -n 1); \
 	  test -n "$$wheel" || { echo "wheel-check: no oxedi-*.whl in $(WHEELS); run make dist first"; exit 1; }; \
 	  $(PYTHON) scripts/check_wheel.py "$$wheel" .
+
+readme-py: ## regenerate the PyPI README from README.md (relative links become absolute)
+	sed -E 's#\]\(([^):\#][^):]*)\)#](https://github.com/javillegasna/oxedi/blob/master/\1)#g' README.md > crates/oxedi_py/README.md
+
+readme-py-check: ## fail if crates/oxedi_py/README.md is not what make readme-py generates
+	@sed -E 's#\]\(([^):\#][^):]*)\)#](https://github.com/javillegasna/oxedi/blob/master/\1)#g' README.md \
+	  | diff -u crates/oxedi_py/README.md - \
+	  || { echo "readme-py-check: crates/oxedi_py/README.md is stale; run make readme-py"; exit 1; }
 
 smoke: ## install the built wheel in a clean venv outside the repo and run the suite
 	scripts/smoke_wheel.sh

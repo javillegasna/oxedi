@@ -41,6 +41,8 @@ This file covers the Python package; the DuckDB extension has its own changelog 
 - `Segment.raw` and `Segment.id` read from the segment's span without parsing its elements.
 - Package metadata on PyPI: a description that names the 835 and the writer, keywords, the
   healthcare-industry, libraries and typed classifiers, and Homepage and Documentation links.
+- Documentation reorganized into a shorter README and guides under `docs/`, with a
+  `CONTRIBUTING.md` for development.
 
 ## [0.4.0] - 2026-10-06
 

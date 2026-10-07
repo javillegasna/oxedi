@@ -117,7 +117,9 @@ impl Field {
 
 /// The caller's fields in the X12 envelope layout, by depth among the
 /// envelope loops (interchange, functional group, transaction set) and
-/// element position.
+/// element position. The transaction set header takes none: its optional
+/// implementation convention reference is not written, since nothing in the
+/// tables or the envelope carries it.
 const LAYOUT: [&[(usize, Field)]; 3] = [
     &[
         (5, Field::SenderQualifier),
@@ -136,7 +138,7 @@ const LAYOUT: [&[(usize, Field)]; 3] = [
         (4, Field::Date),
         (5, Field::Time),
     ],
-    &[(3, Field::Version)],
+    &[],
 ];
 
 /// The role of each delimiter, as messages name it.
@@ -218,9 +220,6 @@ pub(super) fn trigger_values(
             .then_some(version)
             .map(|v| (v.element, v.values.first().cloned().unwrap_or_default()))
     });
-    let any_version = spec
-        .version()
-        .and_then(|version| version.values.first().cloned());
     for (&position, def) in &segment.elements {
         let field = layout
             .iter()
@@ -230,7 +229,7 @@ pub(super) fn trigger_values(
         let (bytes, field, checked) = if position == opener_element {
             (control.to_vec(), Some(Field::ControlNumber), true)
         } else if let Some(field) = field {
-            match field_value(field, def, envelope, any_version.as_deref()) {
+            match field_value(field, def, envelope) {
                 Some(Ok((bytes, checked))) => (bytes, Some(field), checked),
                 Some(Err(reason)) => {
                     refused = Some(reason);
@@ -267,7 +266,6 @@ fn field_value(
     field: Field,
     def: &ElementDef,
     envelope: &Envelope,
-    version: Option<&[u8]>,
 ) -> Option<Result<(Vec<u8>, bool), String>> {
     let text = |value: &str| Some(Ok((value.as_bytes().to_vec(), true)));
     let delimiters = &envelope.delimiters;
@@ -296,8 +294,7 @@ fn field_value(
             None => delimiters.repetition.map(|byte| Ok((vec![byte], false))),
         },
         Field::Component => Some(Ok((vec![delimiters.component], false))),
-        Field::Version => version.map(|value| Ok((value.to_vec(), true))),
-        Field::ControlNumber => None,
+        Field::Version | Field::ControlNumber => None,
     }
 }
 

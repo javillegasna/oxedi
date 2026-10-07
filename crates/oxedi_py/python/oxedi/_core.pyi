@@ -26,6 +26,7 @@ __all__ = [
     "Tables",
     "WriteFinding",
     "_external_diagnostic",
+    "_loop_paths",
     "_write",
     "parse",
     "stream",
@@ -507,9 +508,21 @@ class WriteFinding:
     def __str__(self) -> builtins.str: ...
     def __repr__(self) -> builtins.str: ...
 
-def _external_diagnostic(origin: builtins.str, message: builtins.str, level: builtins.int, code: typing.Optional[builtins.str] = None, segment: typing.Optional[builtins.int] = None, element: typing.Optional[builtins.int] = None, component: typing.Optional[builtins.int] = None, datum: bytes = b"") -> Diagnostic:
+def _external_diagnostic(origin: builtins.str, message: builtins.str, level: builtins.int, code: typing.Optional[builtins.str] = None, segment: typing.Optional[builtins.int] = None, element: typing.Optional[builtins.int] = None, component: typing.Optional[builtins.int] = None, datum: bytes = b"", path: typing.Optional[typing.Sequence[tuple[builtins.str, builtins.int]]] = None) -> Diagnostic:
     r"""
     Builds a `Diagnostic` for a finding reported by an external validator; internal.
+    """
+
+def _loop_paths(result: Result, segments: typing.Sequence[builtins.int]) -> builtins.list[builtins.list[tuple[builtins.str, builtins.int]]]:
+    r"""
+    The open loops at each of `segments`, outermost first, as `(name,
+    ordinal)` pairs: the loops `parse` names in the `path` of a diagnostic
+    about that segment. The ordinal of an instance counts every instance of
+    its loop from the start of the stream.
+    
+    Internal: adapters to external validators call it to place their
+    findings; it is not part of the public API. An index past the last
+    segment is a `ValueError` naming it.
     """
 
 def _write(tables: Tables | collections.abc.Mapping[builtins.str, typing.Any], envelope: Envelope, spec: typing.Optional[Spec] = None, allow_findings: builtins.bool = False) -> tuple[bytes, builtins.list[WriteFinding]]:

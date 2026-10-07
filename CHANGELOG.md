@@ -15,11 +15,29 @@ This file covers the Python package; the DuckDB extension has its own changelog 
   spec=result.spec)` writes your own frames with the spec of the file they came from.
 
 ### Fixed
+- `oxedi.pyx12.validate` reports every error pyx12's engine records, read from its error tree
+  instead of its JSON report: element errors of the envelope segments (`ST`, `SE`, `GS`, `GE`,
+  `ISA`, `IEA`) and segment errors pyx12 cannot attach to an envelope node are no longer lost.
+  It no longer changes logging state (`logging.disable`, levels, propagation) while it runs. On
+  first use it attaches a `logging.NullHandler` to the `pyx12` logger when that logger has no
+  handler, so pyx12's records are not printed by default and reach the handlers you configure;
+  this also applies to code that runs pyx12 directly in the same process.
+- `oxedi.pyx12.validate` places a count or control number that does not match on the trailer
+  segment, at its element, with the value as `datum`; a duplicate control number on the header
+  at its element. A file pyx12 rejects points at its `ISA` segment with the `ISA` bytes as
+  `datum`, and a failure after the last segment names the last segment pyx12 completed.
+- `oxedi.pyx12.validate` fills `path` with the loops open at the finding's segment, as `parse`
+  names them, and `datum` with the element's bytes, or the segment id for a finding with no
+  element, when pyx12 gives no value.
 - Writing a decimal that cannot be rescaled up to the column's scale (a negative scale, for
   example) reports that it overflows the scale instead of claiming it has too many decimals, and
   a zero decimal is accepted when it only needs scaling up.
 
 ### Changed
+- `oxedi.write` no longer writes the transaction set header's implementation convention reference
+  (`ST03`): no table column or envelope field carries it, the 5010 835 map pyx12 validates
+  against marks it Not Used, and the writer does not invent envelope data. A written 5010 header
+  is now `ST*835*0001~`.
 - `Segment.raw` and `Segment.id` read from the segment's span without parsing its elements.
 - Package metadata on PyPI: a description that names the 835 and the writer, keywords, the
   healthcare-industry, libraries and typed classifiers, and Homepage and Documentation links.

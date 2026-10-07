@@ -100,7 +100,7 @@ fn the_envelope_has_fixed_widths_counts_and_matching_control_numbers() {
         lines[1],
         "GS*HP*APP*RECEIVER*20240101*1230*42*X*005010X221A1~"
     );
-    assert_eq!(lines[2], "ST*835*0042*005010X221A1~");
+    assert_eq!(lines[2], "ST*835*0042~");
     let transaction = lines.len() - 4;
     assert_eq!(lines[lines.len() - 3], format!("SE*{transaction}*0042~"));
     assert_eq!(lines[lines.len() - 2], "GE*1*42~");
@@ -616,8 +616,8 @@ fn two_payments_write_two_transactions_with_their_own_counts() {
             .collect()
     };
     let (starts, ends) = (at("ST*"), at("SE*"));
-    assert_eq!(lines[starts[0]], "ST*835*0001*005010X221A1~");
-    assert_eq!(lines[starts[1]], "ST*835*0002*005010X221A1~");
+    assert_eq!(lines[starts[0]], "ST*835*0001~");
+    assert_eq!(lines[starts[1]], "ST*835*0002~");
     assert_eq!(
         lines[ends[0]],
         format!("SE*{}*0001~", ends[0] - starts[0] + 1)

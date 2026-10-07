@@ -543,7 +543,7 @@ statement error
 COPY (SELECT * FROM tables_4010) TO '__TEST_DIR__/copy_kept.835'
     (FORMAT edi835, sender_id 'SENDER', receiver_id 'RECEIVER', date '2024-01-02', time '10:30', version '4010', use_tmp_file false);
 ----
-<REGEX>:.*edi835: ".*copy_kept\.835" could not be opened for writing: it already holds 1450 bytes, more than the 1404 to write, and DuckDB's file system cannot truncate a file from an extension; remove it first, or leave USE_TMP_FILE at its default.*
+<REGEX>:.*edi835: ".*copy_kept\.835" could not be opened for writing: it already holds 1437 bytes, more than the 1404 to write, and DuckDB's file system cannot truncate a file from an extension; remove it first, or leave USE_TMP_FILE at its default.*
 
 statement error
 COPY (SELECT * FROM tables_5010) TO '__TEST_DIR__/no_such_directory/out.835' (FORMAT edi835, sender_id 'SENDER', receiver_id 'RECEIVER', date '2024-01-02', time '10:30');

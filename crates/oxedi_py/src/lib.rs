@@ -2,8 +2,10 @@
 //!
 //! Every class delegates to the core. The only logic of its own is the bridge
 //! from the core's columns to Arrow record batches (module `arrow`) and back
-//! for writing (module `import`), and the conversion of diagnostics and
-//! write findings to Python attributes (modules `diagnostic` and `write`).
+//! for writing (module `import`), the conversion of diagnostics and write
+//! findings to Python attributes (modules `diagnostic` and `write`), and the
+//! loops open at each segment, read from the core's loop engine for adapters
+//! to external validators (module `parse`).
 //! Parsing, streaming and exporting run with the GIL released. It also carries
 //! the text of the core's `edi_835_parser.json` patch, so the Python layer that
 //! reproduces edi-835-parser applies the same file the core's goldens test.
@@ -78,6 +80,7 @@ fn core_module(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_class::<write::PyWriteFinding>()?;
     m.add_function(wrap_pyfunction!(diagnostic::external_diagnostic, m)?)?;
     m.add_function(wrap_pyfunction!(parse::parse, m)?)?;
+    m.add_function(wrap_pyfunction!(parse::loop_paths, m)?)?;
     m.add_function(wrap_pyfunction!(stream::stream, m)?)?;
     m.add_function(wrap_pyfunction!(write::write_tables, m)?)?;
     m.add(

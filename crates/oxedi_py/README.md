@@ -226,12 +226,19 @@ for d in sorted(findings, key=lambda d: d.level):
 ```
 
 `validate` returns `oxedi.Diagnostic`, the type `parse` returns, so the two lists mix, sort
-by `level` and filter by `origin`. A pyx12 finding has `kind == "External"`,
-`origin == "pyx12"`, `code` set to pyx12's error code and an empty `path` (pyx12 does not report
-the loop); interchange, group and transaction findings are level 1, segment and element
-findings level 2. A file pyx12 cannot read, or an exception inside pyx12, comes back as one
+by `level` and filter by `origin`. It reports every error pyx12's engine records, read from
+the error tree pyx12 builds: interchange, group and transaction errors, and segment and
+element errors, those of the envelope segments included. A pyx12 finding has
+`kind == "External"`, `origin == "pyx12"` and `code` set to pyx12's error code; its `path`
+names the loops open at its segment, as `parse` names them. Interchange, group and
+transaction findings are level 1, segment and element findings level 2. A count or control
+number that does not match lands on the trailer segment, at the element holding it, with that
+value as `datum`. A file pyx12 cannot read, or an exception inside pyx12, comes back as one
 level 1 finding with no `code` whose `rule` starts with `could not finish validating`,
-instead of a traceback.
+instead of a traceback; a file pyx12 rejects points at its `ISA` segment. pyx12 also logs
+what it finds under the `pyx12` logger; `validate` gives that logger a `NullHandler`, so the
+records are not printed by default and reach any handler you configure. No level, propagation
+or `logging.disable` setting is changed.
 
 ## Coming from another library
 

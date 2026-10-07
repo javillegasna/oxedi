@@ -1,43 +1,37 @@
-"""``validate``: run pyx12's validation in-process and translate its findings."""
+"""``validate``: run pyx12's validation in-process and translate its error tree."""
 
 from __future__ import annotations
 
-import contextlib
 import io
-import json
-import logging
 import os
-import re
-import threading
 from bisect import bisect_right
-from collections import defaultdict, deque
-from typing import Any, BinaryIO, Iterator, Union
+from typing import Any, BinaryIO, Optional, Union
 
 from .. import Diagnostic, parse
-from .._core import _external_diagnostic
+from .._core import _external_diagnostic, _loop_paths
+from . import _capture
+from ._tree import Finding, collect
+
+# The arguments of one finding for ``_external_diagnostic``, but its loop path.
+Draft = dict[str, Any]
 
 Source = Union[bytes, bytearray, memoryview, str, "os.PathLike[str]", BinaryIO]
 
 _ISA_LENGTH = 106
-_NODE_LOG = re.compile(r"^Line:(\d+) (ISA|GS|ST):(\S+) - (.*)$", re.DOTALL)
-_OBJECT_REPR = re.compile(r'"<_io\.StringIO object at 0x[0-9a-f]+>"')
 _ORIGIN = "pyx12"
-# Levels follow where pyx12 reports a finding, never its error code: envelope
-# findings (interchange, group, transaction) and failures are integrity
-# findings, segment and element findings are requirement findings.
-_ENVELOPE_LEVEL = 1
-_SEGMENT_LEVEL = 2
 _FAILURE_LEVEL = 1
 
 
 def _import_pyx12() -> Any:
     try:
+        import pyx12.error_handler
         import pyx12.params
         import pyx12.x12n_document
     except ImportError as err:
         raise ImportError(
             "oxedi.pyx12 needs the pyx12 package: pip install 'oxedi[pyx12]'"
         ) from err
+    _capture.install(pyx12.error_handler)
     return pyx12
 
 
@@ -94,7 +88,7 @@ class _Positions:
             position = found + 1
         return cls(ends, base, starts)
 
-    def locate(self, line: int | None) -> int | None:
+    def locate(self, line: Optional[int]) -> Optional[int]:
         """The segment index of pyx12's 1-based segment ``line``."""
         if line is None or not 1 <= line <= len(self.piece_starts):
             return None
@@ -103,189 +97,158 @@ class _Positions:
         return index if index < len(self.ends) else None
 
 
-class _LogCapture(logging.Handler):
-    """Collects what pyx12 logs at error level while it validates."""
+class _Run:
+    """What one run of pyx12 left: its verdict, the error handler it built,
+    the segment numbers it finished, and the exception it raised, if any."""
 
     def __init__(self) -> None:
-        super().__init__(logging.ERROR)
-        self.messages: list[str] = []
-
-    def emit(self, record: logging.LogRecord) -> None:
-        self.messages.append(record.getMessage())
-
-
-_LOCK = threading.Lock()
+        self.ok = False
+        self.handler: Any = None
+        self.track: list[int] = []
+        self.failure: Optional[BaseException] = None
 
 
-def _pyx12_loggers() -> list[logging.Logger]:
-    names = [n for n in list(logging.root.manager.loggerDict) if n == "pyx12" or n.startswith("pyx12.")]
-    return [logging.getLogger(n) for n in names if isinstance(logging.root.manager.loggerDict[n], logging.Logger)]
-
-
-@contextlib.contextmanager
-def _isolated_logging(capture: logging.Handler) -> Iterator[None]:
-    """Routes pyx12's error records to ``capture`` whatever the caller's logging
-    configuration, and restores that configuration on exit. Callers hold ``_LOCK``."""
-    root = logging.getLogger("pyx12")
-    loggers = _pyx12_loggers()
-    saved = [(lg, lg.level, lg.disabled) for lg in loggers]
-    propagate = root.propagate
-    disabled_below = logging.root.manager.disable
-    # process-wide for the duration of the call (a global switch); restored on exit
-    logging.disable(logging.NOTSET)
-    for lg in loggers:
-        lg.disabled = False
-        lg.setLevel(logging.NOTSET)
-    root.setLevel(logging.ERROR)
-    root.propagate = False
-    root.addHandler(capture)
-    try:
-        yield
-    finally:
-        root.removeHandler(capture)
-        root.propagate = propagate
-        for lg, level, disabled in saved:
-            lg.setLevel(level)
-            lg.disabled = disabled
-        logging.disable(disabled_below)
-
-
-def _run(text: str, track: list[int]) -> tuple[bool, Any, list[str], BaseException | None]:
+def _run(text: str) -> _Run:
     import pyx12.params
     import pyx12.x12n_document
 
-    def callback(_seg: Any, src: Any, _node: Any, _valid: bool) -> None:
-        track.append(src.get_cur_line())
+    run = _Run()
 
-    capture = _LogCapture()
-    errors = io.StringIO()
-    failure: BaseException | None = None
-    ok = False
-    with _LOCK, _isolated_logging(capture):
+    def callback(_seg: Any, src: Any, _node: Any, _valid: bool) -> None:
+        run.track.append(src.get_cur_line())
+
+    with _capture.recording() as handlers:
         try:
             # the base class holds the defaults and reads no configuration file
-            ok = pyx12.x12n_document.x12n_document(
+            run.ok = pyx12.x12n_document.x12n_document(
                 param=pyx12.params.ParamsBase(),
                 src_file=io.StringIO(text),
                 fd_997=None,
                 fd_html=None,
-                fd_json=errors,
                 callback=callback,
             )
         except Exception as err:  # pyx12 is third-party: any failure is a finding
-            failure = err
-    tree = None
-    if failure is None and errors.getvalue():
-        try:
-            tree = json.loads(errors.getvalue())
-        except ValueError as err:
-            failure = err
-    return ok, tree, capture.messages, failure
+            run.failure = err
+    run.handler = handlers[0] if handlers else None
+    return run
 
 
 def _datum(value: Any) -> bytes:
     return b"" if value is None else str(value).encode("latin-1", "replace")
 
 
-def _node_lines(messages: list[str]) -> dict[tuple[str, str, str], deque[int]]:
-    lines: dict[tuple[str, str, str], deque[int]] = defaultdict(deque)
-    for message in messages:
-        match = _NODE_LOG.match(message)
-        if match:
-            lines[(match[2], match[3], match[4])].append(int(match[1]))
-    return lines
+def _diagnostic(found: Finding, positions: _Positions, document: Any) -> Draft:
+    segment = positions.locate(found.line)
+    datum = _datum(found.value)
+    if not found.value and segment is not None:
+        if found.element is not None:
+            separator = bytes(document.delimiters.component)
+            datum = _element_bytes(document[segment], found.element, found.component, separator)
+        else:
+            datum = bytes(document[segment].id)
+    return dict(
+        message=found.text,
+        level=found.level,
+        code=found.code,
+        segment=segment,
+        element=found.element,
+        component=found.component,
+        datum=datum,
+    )
 
 
-def _finding(message: str, level: int, **place: Any) -> Diagnostic:
-    return _external_diagnostic(_ORIGIN, message, level, **place)
+def _element_bytes(
+    segment: Any, element: int, component: Optional[int], separator: bytes
+) -> bytes:
+    """The bytes of a 1-based element, or of one of its components, of
+    ``segment``, a composite's components joined by ``separator``; empty
+    when the segment has no such position."""
+    elements = segment.elements
+    if not 1 <= element <= len(elements):
+        return b""
+    value = elements[element - 1]
+    if isinstance(value, list):
+        if component is None:
+            return separator.join(value)
+        return value[component - 1] if 1 <= component <= len(value) else b""
+    return value if component in (None, 1) else b""
 
 
-def _translate(
-    tree: dict[str, Any], messages: list[str], positions: _Positions
-) -> list[Diagnostic]:
-    lines = _node_lines(messages)
-    out: list[Diagnostic] = []
-
-    def node(scope: str, entry: dict[str, Any]) -> None:
-        for error in entry["errors"]:
-            code, text = error["err_cde"], error["err_str"]
-            pending = lines.get((scope, code, text))
-            line = pending.popleft() if pending else entry["cur_line"]
-            out.append(
-                _finding(text, _ENVELOPE_LEVEL, code=code, segment=positions.locate(line))
-            )
-
-    for isa in tree["interchanges"]:
-        node("ISA", isa)
-        for group in isa["groups"]:
-            node("GS", group)
-            for transaction in group["transactions"]:
-                node("ST", transaction)
-                for seg in transaction["segments"]:
-                    segment = positions.locate(seg["cur_line"])
-                    for error in seg["errors"]:
-                        out.append(
-                            _finding(
-                                error["err_str"],
-                                _SEGMENT_LEVEL,
-                                code=error["err_cde"],
-                                segment=segment,
-                                datum=_datum(error["err_val"]),
-                            )
-                        )
-                    for element in seg["elements"]:
-                        for error in element["errors"]:
-                            out.append(
-                                _finding(
-                                    error["err_str"],
-                                    _SEGMENT_LEVEL,
-                                    code=error["err_cde"],
-                                    segment=segment,
-                                    element=element["ele_pos"],
-                                    component=element["subele_pos"],
-                                    datum=_datum(error["err_val"]),
-                                )
-                            )
-    return out
+def _completed(track: list[int], positions: _Positions) -> Optional[int]:
+    return positions.locate(track[-1]) if track else None
 
 
-def _failure(
-    reason: str, track: list[int], positions: _Positions, document: Any, started: bool = True
-) -> Diagnostic:
+def _failure(reason: str, track: list[int], positions: _Positions, document: Any) -> Draft:
     """One failure finding, with no code: pyx12 did not report it, it stopped.
 
-    ``track`` holds the segment numbers pyx12 finished; the segment it was
-    working on when it failed is the one after the last."""
-    current = (track[-1] + 1 if track else 1) if started else None
-    segment = positions.locate(current)
-    if segment is None:
-        where = "it reached no segment"
-        datum = b""
-    else:
-        datum = bytes(document[segment].id)
-        done = positions.locate(track[-1]) if track else None
-        where = f"it was processing segment #{segment}" + (
+    ``track`` holds the segment numbers pyx12 finished. When a segment
+    follows the last of them, that is the one pyx12 was working on; when
+    none does, pyx12 had read the whole file and the finding names the last
+    segment it completed."""
+    done = _completed(track, positions)
+    current = positions.locate(track[-1] + 1 if track else 1)
+    if current is not None:
+        segment: Optional[int] = current
+        where = f"it was processing segment #{current}" + (
             f"; the last it completed is #{done}" if done is not None else ""
         )
-    return _finding(
-        f"could not finish validating: {reason}; {where}",
-        _FAILURE_LEVEL,
+    elif done is not None:
+        segment = done
+        where = f"it had read every segment; the last it completed is #{done}"
+    else:
+        segment = None
+        where = "it reached no segment"
+    datum = bytes(document[segment].id) if segment is not None else b""
+    return dict(
+        message=f"could not finish validating: {reason}; {where}",
+        level=_FAILURE_LEVEL,
         segment=segment,
         datum=datum,
     )
 
 
-def _rejection(text: str, fallback: str) -> str:
-    """The reason pyx12 refuses to read ``text`` as X12, which it logs without the
-    exception text."""
+def _rejection(text: str, positions: _Positions, document: Any) -> Draft:
+    """The failure for a file pyx12 refuses to read as X12: at the segment
+    holding the ISA, with its bytes as the datum. pyx12 only logs that it
+    refused, so the reason is read again from its reader."""
     import pyx12.errors
     import pyx12.rawx12file
 
+    reason = "pyx12 does not read it as an X12 file"
     try:
         pyx12.rawx12file.RawX12File(io.StringIO(text))
     except pyx12.errors.X12Error as err:
-        return f"X12Error: {str(err).strip()}"
-    return fallback
+        reason = f"X12Error: {str(err).strip()}"
+    segment = positions.locate(1)
+    datum = b""
+    if segment is not None:
+        raw = bytes(document[segment].raw)
+        datum = raw[max(raw.find(b"ISA"), 0):].rstrip(b"\r\n")
+    where = f"it rejected segment #{segment}" if segment is not None else "it reached no segment"
+    return dict(
+        message=f"could not finish validating: {reason}; {where}",
+        level=_FAILURE_LEVEL,
+        segment=segment,
+        datum=datum,
+    )
+
+
+def _by_segment(draft: Draft) -> tuple[bool, int]:
+    return (draft["segment"] is None, draft["segment"] or 0)
+
+
+def _finish(result: Any, drafts: list[Draft]) -> list[Diagnostic]:
+    """The diagnostics of ``drafts`` in segment order, each with the loop
+    path ``parse`` gives its segment."""
+    drafts = sorted(drafts, key=_by_segment)
+    segments = [d["segment"] for d in drafts if d["segment"] is not None]
+    paths = iter(_loop_paths(result, segments))
+    return [
+        _external_diagnostic(
+            _ORIGIN, path=next(paths) if d["segment"] is not None else None, **d
+        )
+        for d in drafts
+    ]
 
 
 def validate(source: Source) -> list[Diagnostic]:
@@ -299,6 +262,15 @@ def validate(source: Source) -> list[Diagnostic]:
     ``<prefix>/etc/pyx12.conf.xml``) are not read, so findings do not
     depend on the machine.
 
+    Every error pyx12's engine records is returned: interchange, group and
+    transaction errors, segment errors and element errors, including those
+    of the envelope segments. They are read from the error tree pyx12
+    builds; pyx12's logging is not used. The ``pyx12`` logger gets a
+    ``logging.NullHandler`` the first time, when it has none, so pyx12's
+    records are not printed by default and still reach the handlers the
+    caller configures; levels, propagation and ``logging.disable`` stay as
+    the caller set them.
+
     Each finding is an :class:`oxedi.Diagnostic`, the type ``parse``
     returns, so both lists mix, sort by ``level`` and filter by ``origin``.
     A pyx12 finding has ``kind == "External"``, ``origin == "pyx12"`` and
@@ -307,32 +279,45 @@ def validate(source: Source) -> list[Diagnostic]:
     transaction findings are level 1, segment and element findings level 2.
     ``segment`` is the index of the segment at fault in the file's document
     (``None`` when pyx12 names none), and ``document[d.segment].span`` gives
-    its byte range. ``path`` is empty: pyx12 does not report the loop.
+    its byte range. An interchange, group or transaction finding about a
+    trailer (a count or a control number that does not match) lands on the
+    trailer segment at the element holding that value; one about a
+    duplicate or missing control structure lands on the header, at its
+    control number when that is the offending value. ``datum`` is the value
+    pyx12 reports, or else the bytes of the element in the file, or the
+    segment id for a finding with no element. Findings come in
+    segment order. ``path`` names the loops open at that segment, as in the
+    diagnostics ``parse`` gives about the same segment.
 
-    A file pyx12 cannot read, an exception inside pyx12, or a report that
-    cannot be translated gives one level 1 finding with no ``code`` whose
-    ``rule`` starts with ``could not finish validating``, instead of
-    raising. A file with no ISA to read the delimiters from raises
-    ``oxedi.ParseError``, as ``oxedi.parse`` does. Nothing is written to
-    disk and no acknowledgement is generated.
+    A file pyx12 cannot read, or an exception inside pyx12, gives one
+    level 1 finding with no ``code`` whose ``rule`` starts with ``could
+    not finish validating``, instead of raising: a file pyx12 rejects
+    points at the segment holding the ISA with its bytes as the datum; a
+    failure while reading names the segment pyx12 was processing, and one
+    after the last segment names the last segment it completed. A file
+    with no ISA to read the delimiters from raises ``oxedi.ParseError``,
+    as ``oxedi.parse`` does. Nothing is written to disk and no
+    acknowledgement is generated.
     """
     _import_pyx12()
     data = _read(source)
-    document = parse(data).document
+    result = parse(data)
+    document = result.document
     base = data.find(b"ISA")
     text = data[max(base, 0):].decode("latin-1")
     positions = _Positions.build(document, max(base, 0), text)
-    track: list[int] = []
-    ok, tree, messages, failure = _run(text, track)
-    if failure is not None:
-        return [_failure(f"{type(failure).__name__}: {failure}", track, positions, document)]
-    if tree is None:
-        if ok:
-            return []
-        detail = _OBJECT_REPR.sub("the input", messages[-1]) if messages else "no reason given"
-        return [_failure(_rejection(text, detail), track, positions, document, started=False)]
+    run = _run(text)
+    if run.failure is not None:
+        reason = f"{type(run.failure).__name__}: {run.failure}"
+        return _finish(result, [_failure(reason, run.track, positions, document)])
+    if run.handler is None:
+        failure = _failure("pyx12 built no error handler", run.track, positions, document)
+        return _finish(result, [failure])
     try:
-        return _translate(tree, messages, positions)
-    except Exception as err:  # pyx12's JSON shape is not ours: report it, do not raise
-        reason = f"its report could not be translated ({type(err).__name__}: {err})"
-        return [_failure(reason, track, positions, document, started=False)]
+        found = collect(run.handler)
+    except Exception as err:  # pyx12's tree is not ours: report it, do not raise
+        reason = f"its error tree could not be read ({type(err).__name__}: {err})"
+        return _finish(result, [_failure(reason, run.track, positions, document)])
+    if not found and not run.ok and not run.track:
+        return _finish(result, [_rejection(text, positions, document)])
+    return _finish(result, [_diagnostic(f, positions, document) for f in found])

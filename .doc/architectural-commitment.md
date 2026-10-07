@@ -439,7 +439,15 @@ carga su prueba de costura con la capa inferior (N7).
   oxedi. Restricción: un 835 lleva PHI (nombres, ids y fechas de pacientes); el procesamiento es
   local, se devuelve solo lo pedido y hay un modo que enmascara los campos del paciente, activo
   por defecto. Recomendación inicial: (1) con enmascaramiento y (4); (3) después si la IA
-  necesita interpretar códigos. Se cierra en el §7 de su stage.
+  necesita interpretar códigos. Fuente (dueño, 2026-10-07): no un solo archivo sino una carpeta,
+  un glob o un prefijo de S3 (o GCS, Azure, HTTP) con muchos RMT; el servidor la lee por DuckDB
+  con la extensión `oxedi` (`read_835` ya acepta globs y rutas remotas con los secretos de quien
+  llama, `filename` y `ignore_errors`), sin dependencias de I/O nuevas en Python. Con muchos
+  archivos: caché por sesión que relee solo lo que cambió (fecha o ETag) y, a escala, tablas
+  materializadas en una base DuckDB local. Credenciales desde el entorno (perfil de AWS,
+  variables, secretos de DuckDB), nunca como parámetro de la IA; solo lectura; la fuente se fija
+  al configurar el servidor. Depende de que la extensión 0.2.0 esté publicada en la comunidad.
+  Se cierra en el §7 de su stage.
 - **D7 · Stage 7, Escritor** → programado el 2026-10-03, tras 5b y Stage 6, con un caso real:
   generar un 835 (`.RMT`) a partir de datos en bases relacionales. Contrato acordado: la
   entrada es nuestro esquema de tablas (`Tables` del core o Arrow por el mismo protocolo

@@ -46,15 +46,12 @@ const FILE_OPTIONS: &[(&str, &str)] = &[(
 const TEXT: &str = "text (VARCHAR)";
 const CONTROL_NUMBER: &str = "a whole number from 0 to 18446744073709551615";
 const DATE: &str = "a DATE, or text in the form YYYY-MM-DD";
-const TIME: &str = "a TIME, or text in the form HH:MM, HHMM or HH:MM:SS";
+const TIME: &str = "a TIME or TIME_NS, or text in the form HH:MM, HHMM or HH:MM:SS";
 const BOOLEAN: &str = "a BOOLEAN";
 const DELIMITERS: &str = "a STRUCT of one-byte texts with any of the fields element, component, \
                           segment, repetition and release, such as {'element': '|'}";
 const DELIMITER: &str = "a one-byte VARCHAR or BLOB";
 const VERSION: &str = "text (VARCHAR) naming a version";
-
-/// Microseconds in a second: DuckDB's `TIME` counts microseconds.
-const MICROS_PER_SECOND: i64 = 1_000_000;
 
 /// One option value as DuckDB gave it.
 #[derive(Debug, Clone, PartialEq)]
@@ -81,8 +78,9 @@ pub enum Kind {
     Integer(i128),
     /// A DATE, as days since 1970-01-01.
     Date(i32),
-    /// A TIME, as microseconds since midnight.
-    Time(i64),
+    /// A TIME or TIME_NS: `value` counted `per_second` to the second since
+    /// midnight (microseconds, or nanoseconds).
+    Time { value: i64, per_second: i64 },
     /// A STRUCT, its fields in order.
     Struct(Vec<(String, OptionValue)>),
     /// Any other type, or several values.
@@ -229,17 +227,20 @@ fn date(value: &OptionValue) -> Result<i32, CopyError> {
     }
 }
 
-/// Seconds since midnight of a TIME or of `HH:MM`, `HHMM` or `HH:MM:SS`
+/// Seconds since midnight of a TIME, a TIME_NS or of `HH:MM`, `HHMM` or `HH:MM:SS`
 /// text.
 fn time(value: &OptionValue) -> Result<i32, CopyError> {
     match &value.kind {
-        Kind::Time(micros) => {
-            if micros % MICROS_PER_SECOND != 0 {
+        Kind::Time {
+            value: ticks,
+            per_second,
+        } => {
+            if ticks % per_second != 0 {
                 return Err(CopyError::FractionalTime {
                     value: value.shown.clone(),
                 });
             }
-            i32::try_from(micros / MICROS_PER_SECOND)
+            i32::try_from(ticks / per_second)
                 .ok()
                 .filter(|seconds| (0..86_400).contains(seconds))
                 .ok_or_else(|| CopyError::TimeOutOfRange {

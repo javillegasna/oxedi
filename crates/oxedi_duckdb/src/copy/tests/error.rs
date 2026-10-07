@@ -203,12 +203,12 @@ fn field_type() {
     );
     assert_eq!(
         text(CopyError::FieldType {
-            table: "interchanges".to_owned(),
+            table: "synthetic_table".to_owned(),
             field: "transmission_time".to_owned(),
             found: "VARCHAR".to_owned(),
             expected: ColumnType::Time32,
         }),
-        "edi835: table \"interchanges\" field \"transmission_time\" is VARCHAR; the spec's \
+        "edi835: table \"synthetic_table\" field \"transmission_time\" is VARCHAR; the spec's \
          column is time32 (seconds), which takes TIME or TIME_NS in whole seconds"
     );
 }

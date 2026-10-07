@@ -104,7 +104,13 @@ fn typed_date_and_time_and_a_bare_line_break() {
         ),
         (
             "time".to_owned(),
-            value(Kind::Time(37_815_000_000), "TIME 10:30:15"),
+            value(
+                Kind::Time {
+                    value: 37_815_000_000,
+                    per_second: 1_000_000,
+                },
+                "TIME 10:30:15",
+            ),
         ),
         ("line_break".to_owned(), value(Kind::Null, "NULL")),
     ];
@@ -211,7 +217,13 @@ fn a_date_is_a_date_or_iso_text() {
 fn a_time_is_whole_seconds() {
     let mut all = given(Vec::new());
     if let Some(slot) = all.get_mut(3) {
-        slot.1 = value(Kind::Time(37_800_500_000), "TIME 10:30:00.5");
+        slot.1 = value(
+            Kind::Time {
+                value: 37_800_500_000,
+                per_second: 1_000_000,
+            },
+            "TIME 10:30:00.5",
+        );
     }
     assert_eq!(
         Settings::parse(&all).map_err(|error| error.to_string()),
@@ -222,7 +234,13 @@ fn a_time_is_whole_seconds() {
         )
     );
     if let Some(slot) = all.get_mut(3) {
-        slot.1 = value(Kind::Time(86_400_000_000), "TIME 24:00:00");
+        slot.1 = value(
+            Kind::Time {
+                value: 86_400_000_000,
+                per_second: 1_000_000,
+            },
+            "TIME 24:00:00",
+        );
     }
     assert_eq!(
         Settings::parse(&all).map_err(|error| error.to_string()),
@@ -238,8 +256,49 @@ fn a_time_is_whole_seconds() {
     assert_eq!(
         Settings::parse(&all).map_err(|error| error.to_string()),
         Err(
-            "edi835: the option \"time\" is VARCHAR \"25:00\"; it must be a TIME, or text in \
+            "edi835: the option \"time\" is VARCHAR \"25:00\"; it must be a TIME or TIME_NS, or text in \
              the form HH:MM, HHMM or HH:MM:SS"
+                .to_owned()
+        )
+    );
+}
+
+#[test]
+fn a_time_ns_is_whole_seconds_too() {
+    let ns = |value_ns: i64, shown: &str| {
+        value(
+            Kind::Time {
+                value: value_ns,
+                per_second: 1_000_000_000,
+            },
+            shown,
+        )
+    };
+    let mut all = given(Vec::new());
+    if let Some(slot) = all.get_mut(3) {
+        slot.1 = ns(37_815_000_000_000, "TIME_NS 10:30:15");
+    }
+    let envelope = Settings::parse(&all).map(|settings| settings.envelope).ok();
+    assert_eq!(envelope.map(|envelope| envelope.time), Some(37_815));
+    if let Some(slot) = all.get_mut(3) {
+        slot.1 = ns(37_800_500_000_000, "TIME_NS 10:30:00.5");
+    }
+    assert_eq!(
+        Settings::parse(&all).map_err(|error| error.to_string()),
+        Err(
+            "edi835: the option \"time\" is TIME_NS 10:30:00.5, which has a fraction of a \
+             second; the envelope holds whole seconds"
+                .to_owned()
+        )
+    );
+    if let Some(slot) = all.get_mut(3) {
+        slot.1 = ns(86_400_000_000_000, "TIME_NS 24:00:00");
+    }
+    assert_eq!(
+        Settings::parse(&all).map_err(|error| error.to_string()),
+        Err(
+            "edi835: the option \"time\" is TIME_NS 24:00:00, which is out of range for an X12 \
+             time; it must be from 00:00:00 to 23:59:59"
                 .to_owned()
         )
     );

@@ -73,7 +73,7 @@ statement error
 COPY (SELECT {'claims': list(c)} FROM claims c) TO '__TEST_DIR__/options.835'
     (FORMAT edi835, sender_id 'SENDER', receiver_id 'RECEIVER', date '2024-01-02', time '10.30');
 ----
-edi835: the option "time" is VARCHAR "10.30"; it must be a TIME, or text in the form HH:MM, HHMM or HH:MM:SS
+edi835: the option "time" is VARCHAR "10.30"; it must be a TIME or TIME_NS, or text in the form HH:MM, HHMM or HH:MM:SS
 
 statement error
 COPY (SELECT {'claims': list(c)} FROM claims c) TO '__TEST_DIR__/options.835'
@@ -81,6 +81,13 @@ COPY (SELECT {'claims': list(c)} FROM claims c) TO '__TEST_DIR__/options.835'
      time TIME '10:30:00.5');
 ----
 edi835: the option "time" is TIME 10:30:00.5, which has a fraction of a second; the envelope holds whole seconds
+
+statement error
+COPY (SELECT {'claims': list(c)} FROM claims c) TO '__TEST_DIR__/options.835'
+    (FORMAT edi835, sender_id 'SENDER', receiver_id 'RECEIVER', date '2024-01-02',
+     time TIME_NS '10:30:00.5');
+----
+edi835: the option "time" is TIME_NS 10:30:00.5, which has a fraction of a second; the envelope holds whole seconds
 
 statement error
 COPY (SELECT {'claims': list(c)} FROM claims c) TO '__TEST_DIR__/options.835'

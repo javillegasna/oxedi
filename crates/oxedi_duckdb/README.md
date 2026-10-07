@@ -84,7 +84,7 @@ rows of the query concatenate into one interchange. A table left out has no rows
 | Option | Default | Meaning |
 |---|---|---|
 | `sender_id`, `receiver_id` | required | interchange sender and receiver ids |
-| `date`, `time` | required | the interchange date (`DATE`) and time (`TIME`) |
+| `date`, `time` | required | the interchange date (`DATE`) and time (`TIME` or `TIME_NS`) |
 | `sender_qualifier`, `receiver_qualifier` | `'ZZ'` | ISA qualifiers |
 | `usage_indicator` | `'P'` | `'P'` production or `'T'` test |
 | `control_number` | `1` | first interchange control number |

@@ -182,6 +182,17 @@ SELECT content[1:106] FROM read_text('__TEST_DIR__/copy_4010.835');
 ----
 ISA*00*          *00*          *ZZ*SENDER         *ZZ*RECEIVER       *240102*1030*U*00401*000000001*0*P*:~
 
+# The time option takes a TIME_NS as well.
+
+statement ok
+COPY (SELECT * FROM tables_5010) TO '__TEST_DIR__/copy_time_ns.835'
+    (FORMAT edi835, sender_id 'SENDER', receiver_id 'RECEIVER', date '2024-01-02', time TIME_NS '10:30:15');
+
+query I
+SELECT contains(content, 'GS*HP*SENDER*RECEIVER*20240102*103015*1*X*') FROM read_text('__TEST_DIR__/copy_time_ns.835');
+----
+true
+
 # Every option reaches the envelope; a bare line_break means true.
 
 statement ok

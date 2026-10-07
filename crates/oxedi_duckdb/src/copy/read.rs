@@ -120,7 +120,14 @@ unsafe fn option_value(value: &Value) -> OptionValue {
                 Kind::Integer((i128::from(value.upper) << 64) | i128::from(value.lower))
             }
             ffi::DUCKDB_TYPE_DUCKDB_TYPE_DATE => Kind::Date(ffi::duckdb_get_date(raw).days),
-            ffi::DUCKDB_TYPE_DUCKDB_TYPE_TIME => Kind::Time(ffi::duckdb_get_time(raw).micros),
+            ffi::DUCKDB_TYPE_DUCKDB_TYPE_TIME => Kind::Time {
+                value: ffi::duckdb_get_time(raw).micros,
+                per_second: 1_000_000,
+            },
+            ffi::DUCKDB_TYPE_DUCKDB_TYPE_TIME_NS => Kind::Time {
+                value: ffi::duckdb_get_time_ns(raw).nanos,
+                per_second: 1_000_000_000,
+            },
             ffi::DUCKDB_TYPE_DUCKDB_TYPE_STRUCT => match struct_children(value) {
                 Some(children) => Kind::Struct(children),
                 None => Kind::Other,

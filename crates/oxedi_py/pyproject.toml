@@ -5,7 +5,8 @@ build-backend = "maturin"
 [project]
 name = "oxedi"
 dynamic = ["version"]
-description = "Lossless, fast, data-driven EDI 835 parser"
+description = "Lossless, fast X12 EDI 835 (healthcare remittance) parser and writer for Python, written in Rust"
+keywords = ["edi", "x12", "edi-835", "835", "era", "remittance", "healthcare", "parser", "arrow", "polars", "duckdb"]
 requires-python = ">=3.11"
 license = "MIT"
 license-files = ["LICENSE", "THIRD_PARTY_NOTICES"]
@@ -21,9 +22,14 @@ classifiers = [
     "Operating System :: MacOS",
     "Operating System :: Microsoft :: Windows",
     "Topic :: Office/Business :: Financial",
+    "Intended Audience :: Healthcare Industry",
+    "Topic :: Software Development :: Libraries",
+    "Typing :: Typed",
 ]
 
 [project.urls]
+Homepage = "https://github.com/javillegasna/oxedi"
+Documentation = "https://github.com/javillegasna/oxedi#readme"
 Repository = "https://github.com/javillegasna/oxedi"
 Issues = "https://github.com/javillegasna/oxedi/issues"
 Changelog = "https://github.com/javillegasna/oxedi/blob/master/CHANGELOG.md"

@@ -2,7 +2,7 @@
 # extension-ci-tools. The repository root delegates its configure_ci, release,
 # debug, test_release and test_debug targets here, so this directory is also
 # the working directory of every recipe below.
-.PHONY: clean clean_all test_oracle oracle_run
+.PHONY: clean clean_all test_oracle oracle_run check_test_version
 
 PROJ_DIR := $(dir $(abspath $(lastword $(MAKEFILE_LIST))))
 
@@ -53,6 +53,27 @@ test_debug: test_extension_debug
 # Must not build: DuckDB's CI runs it on a different host than the build.
 # Our CI runs `make release` first.
 test_release: test_extension_release
+
+# The ci-tools install DuckDB into configure/venv only when the venv does not
+# exist, so DUCKDB_TEST_VERSION is ignored once it does. When the variable is
+# set, the sqllogic tests refuse to run on a venv holding another DuckDB
+# rather than test the wrong one without a word; a fresh venv, as in CI,
+# always passes. `main` asks for a pre-release.
+test_extension_release_internal test_extension_debug_internal: check_test_version
+check_test_version:
+	@if [ -n "$(DUCKDB_TEST_VERSION)" ] && [ -x "$(PYTHON_VENV_BIN)" ]; then \
+	  requested="$(DUCKDB_TEST_VERSION)"; \
+	  installed=$$($(PYTHON_VENV_BIN) -c 'import duckdb; print(duckdb.__version__)') || exit 1; \
+	  if [ "$$requested" = main ]; then \
+	    case "$$installed" in *dev*) ok=1 ;; *) ok=0 ;; esac; \
+	  else \
+	    [ "$$installed" = "$${requested#v}" ] && ok=1 || ok=0; \
+	  fi; \
+	  if [ "$$ok" != 1 ]; then \
+	    echo "oxedi: configure/venv has DuckDB $$installed but DUCKDB_TEST_VERSION asks for $$requested, and the venv is only built once; run 'rm -rf configure/venv' and 'make configure_ci DUCKDB_TEST_VERSION=$$requested', or install that DuckDB into configure/venv with pip" >&2; \
+	    exit 1; \
+	  fi; \
+	fi
 
 # The oracle test: read_835 of the release build against oxedi.parse_file
 # on every sample and fixture. It needs a Python with duckdb, pyarrow, pytest

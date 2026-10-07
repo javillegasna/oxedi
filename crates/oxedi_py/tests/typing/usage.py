@@ -170,8 +170,8 @@ def writes(result: Result, frames: dict[str, polars.DataFrame]) -> bytes:
     broken: bool = envelope.line_break
     print(day, moment, app, other, broken)
     data: bytes = oxedi.write(result.tables, envelope)
-    parsed_with: Spec | None = result.spec
-    tables_spec: Spec | None = result.tables.spec
+    parsed_with: Spec = result.spec
+    tables_spec: Spec = result.tables.spec
     again: bytes = oxedi.write(frames, envelope, spec=result.spec)
     print(parsed_with, tables_spec, again)
     strict: bytes = oxedi.write(frames, envelope, spec=Spec.builtin(), allow_findings=False)

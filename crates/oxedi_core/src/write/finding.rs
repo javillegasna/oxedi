@@ -396,7 +396,17 @@ impl std::error::Error for WriteError {
     fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
         // `Plan` and `Unreadable` print their inner error in full, so the
         // chain stops here instead of printing it a second time.
-        None
+        match self {
+            WriteError::Plan(_)
+            | WriteError::UnknownTable { .. }
+            | WriteError::UnknownColumn { .. }
+            | WriteError::ColumnType { .. }
+            | WriteError::SameDelimiter { .. }
+            | WriteError::DelimiterNotAllowed { .. }
+            | WriteError::NoRepetition
+            | WriteError::Unreadable(_)
+            | WriteError::Findings(_) => None,
+        }
     }
 }
 

@@ -263,7 +263,7 @@ class Result:
         The projected tables, by name.
         """
     @property
-    def spec(self) -> typing.Optional[Spec]:
+    def spec(self) -> Spec:
         r"""
         The spec that projected the tables: the one given, or the built-in
         selected from the file's version.
@@ -438,10 +438,9 @@ class Tables:
     The tables of one parse or one batch, by name. Shared, never copied.
     """
     @property
-    def spec(self) -> typing.Optional[Spec]:
+    def spec(self) -> Spec:
         r"""
-        The spec that projected the tables, which `write` uses by default;
-        `None` for tables built from a mapping.
+        The spec that projected the tables, which `write` uses by default.
         """
     def keys(self) -> builtins.list[builtins.str]:
         r"""

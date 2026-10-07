@@ -81,10 +81,10 @@ impl PyParseResult {
     /// The spec that projected the tables: the one given, or the built-in
     /// selected from the file's version.
     #[getter]
-    fn spec(&self, py: Python<'_>) -> Option<PySpec> {
-        self.tables.bind(py).get().spec().map(|inner| PySpec {
-            inner: Arc::clone(inner),
-        })
+    fn spec(&self, py: Python<'_>) -> PySpec {
+        PySpec {
+            inner: Arc::clone(self.tables.bind(py).get().spec()),
+        }
     }
 
     /// Every diagnostic, in stream order.

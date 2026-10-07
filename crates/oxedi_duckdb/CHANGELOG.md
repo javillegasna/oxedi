@@ -14,7 +14,9 @@ and the extension has its own version.
   edi835, sender_id ..., receiver_id ..., date ..., time ...)` writes the tables of the spec
   back into an 835 with the core writer, byte for byte equal to `oxedi.write` with the same
   envelope. Its options are those of `oxedi.Envelope` and `version`. It is strict: any finding
-  fails the `COPY` with the listing `oxedi.WriteError` shows and nothing is written.
+  fails the `COPY` with the listing `oxedi.WriteError` shows and nothing is written. The `time`
+  option takes a `TIME`, a `TIME_NS` or text, and a time column takes `TIME` or `TIME_NS` in
+  whole seconds.
 
 ## [0.1.2] - 2026-10-06
 

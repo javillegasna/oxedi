@@ -20,6 +20,10 @@ This file covers the Python package; the DuckDB extension has its own changelog 
   a zero decimal is accepted when it only needs scaling up.
 
 ### Changed
+- `oxedi.write` no longer writes the transaction set header's implementation convention reference
+  (`ST03`): no table column or envelope field carries it, the 5010 835 map pyx12 validates
+  against marks it Not Used, and the writer does not invent envelope data. A written 5010 header
+  is now `ST*835*0001~`.
 - `Segment.raw` and `Segment.id` read from the segment's span without parsing its elements.
 - Package metadata on PyPI: a description that names the 835 and the writer, keywords, the
   healthcare-industry, libraries and typed classifiers, and Homepage and Documentation links.

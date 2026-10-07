@@ -17,6 +17,8 @@ and the extension has its own version.
   fails the `COPY` with the listing `oxedi.WriteError` shows and nothing is written. The `time`
   option takes a `TIME`, a `TIME_NS` or text, and a time column takes `TIME` or `TIME_NS` in
   whole seconds.
+  The transaction set header is written without its implementation convention reference
+  (`ST03`), as `oxedi.write` writes it.
 
 ## [0.1.2] - 2026-10-06
 

@@ -14,12 +14,21 @@ make gates      # format, clippy, Rust tests, benches compile, docs
 make py-test    # build and run the Python test suite
 make dist       # build the sdist and the release wheel into target/wheels
 make smoke      # install the built wheel in a clean venv and run the suite
+make stubs      # regenerate the native module's type stub (CI fails on drift)
+make stubtest   # check the stub against the built module and the public API
 ```
 
 ## Test files
 
 The files under `crates/oxedi_core/tests/fixtures/` and `crates/oxedi_core/tests/samples/` are
 never edited.
+
+## Golden files
+
+```bash
+UPDATE_GOLDEN=1 cargo test -p oxedi_core --test engine_golden    # regenerate, then inspect the diff
+UPDATE_GOLDEN=1 cargo test -p oxedi_core --test project_golden   # table and diagnostic goldens
+```
 
 ## DuckDB extension
 
@@ -42,7 +51,8 @@ Load a local build with `duckdb -unsigned` and
 `README.md` is for GitHub and links to the guides under `docs/` with relative links.
 `crates/oxedi_py/README.md` is the PyPI page and has the same content with absolute
 `https://github.com/javillegasna/oxedi/blob/master/...` links, because relative links break on
-PyPI. Change the root `README.md` and regenerate the other with `make readme-py`.
+PyPI. Change the root `README.md` and regenerate the other with `make readme-py`; `make gates` and CI
+run `make readme-py-check`, which fails when the two differ.
 
 ## Releases
 

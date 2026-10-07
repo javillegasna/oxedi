@@ -35,7 +35,13 @@ docs:
     COPY (SELECT * FROM read_835('remits/*.835', table_name := 'claims'))
       TO 'claims.parquet';
 
-    -- Write tables back into an 835 (one STRUCT column keyed by table)
-    COPY (SELECT {'payments': (SELECT list(t ORDER BY t."row") FROM payments t), ...})
+    -- Write tables back into an 835: one STRUCT column, a list of rows per table
+    COPY (SELECT {
+        'payments':             (SELECT list(t ORDER BY t."row") FROM read_835('remittance.835', table_name := 'payments') t),
+        'claims':               (SELECT list(t ORDER BY t."row") FROM read_835('remittance.835', table_name := 'claims') t),
+        'services':             (SELECT list(t ORDER BY t."row") FROM read_835('remittance.835', table_name := 'services') t),
+        'adjustments':          (SELECT list(t ORDER BY t."row") FROM read_835('remittance.835', table_name := 'adjustments') t),
+        'provider_adjustments': (SELECT list(t ORDER BY t."row") FROM read_835('remittance.835', table_name := 'provider_adjustments') t)
+      })
       TO 'out.835' (FORMAT edi835, sender_id 'ACMEPAYER', receiver_id 'SUNRISECLINIC',
                     date DATE '2024-01-10', time TIME '09:00');

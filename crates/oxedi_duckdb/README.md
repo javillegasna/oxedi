@@ -26,7 +26,7 @@ FROM read_835('remits/*.835', table_name := 'services', filename := true);
 FROM read_835('remits/*.835', table_name := 'diagnostics', ignore_errors := true);
 ```
 
-Write tables back into an 835 with `COPY`. `payments`, `claims` and the rest are tables or
+Write tables back into an 835 with `COPY` (extension 0.2.0 or later). `payments`, `claims` and the rest are tables or
 views of those names:
 
 ```sql
@@ -43,7 +43,7 @@ COPY (
 ```
 
 Parameters, options, types, limits and writing from your own tables are in the
-[DuckDB guide](https://github.com/javillegasna/oxedi/blob/master/docs/duckdb.md).
+[DuckDB guide](../../docs/duckdb.md).
 
 ## Versions
 

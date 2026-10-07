@@ -123,9 +123,10 @@ FROM read_835('remits/*.835', table_name := 'services', filename := true);
 FROM read_835('remits/*.835', table_name := 'diagnostics', ignore_errors := true);
 ```
 
-Write tables back with `COPY`. `payments`, `claims` and the rest are tables or views of
-those names, for example `CREATE TEMP TABLE claims AS FROM read_835('remittance.835',
-table_name := 'claims')` after a change in SQL:
+Write tables back with `COPY`. This needs extension 0.2.0 or later; until it reaches the
+community repository, build the extension. `payments`, `claims` and the rest are tables or
+views with those names, for example `CREATE TEMP TABLE claims AS FROM read_835('remittance.835',
+table_name := 'claims')`, changed in SQL before writing:
 
 ```sql
 COPY (
@@ -145,7 +146,8 @@ COPY (
 ```python
 from oxedi.pyx12 import validate
 
-findings = result.diagnostics + validate(data)   # bytes, a path or a binary file object
+result = oxedi.parse_file("remittance.835")
+findings = result.diagnostics + validate("remittance.835")   # bytes, a path or a binary file
 for d in sorted(findings, key=lambda d: d.level):
     print(d.origin, d.code, d)                   # "oxedi" or "pyx12"
 ```

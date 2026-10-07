@@ -60,7 +60,7 @@ decimals, dates and times.
 Without `ignore_errors`, a file that is not an interchange fails the query. With it, the file
 contributes no rows to any table but one `diagnostics` row whose `rule` is the error, so run
 the query with `table_name := 'diagnostics'` as well to see what was skipped. In that row
-`datum` holds the bytes found instead of `ISA`: as `escape_ascii` text (always valid UTF-8) by
+`datum` holds the bytes found instead of `ISA`: as escaped ASCII text (other bytes written as `\xNN`, always valid UTF-8) by
 default, and raw with `binary := true`.
 
 ### Globs and remote paths
@@ -72,6 +72,9 @@ only, not temporary `CREATE SECRET` ones. Plain paths and lists are read through
 system and secrets.
 
 ## Writing
+
+Writing with `COPY` needs extension 0.2.0 or later; until it reaches the community repository,
+build the extension.
 
 `COPY ... TO ... (FORMAT edi835, ...)` writes an 835 with the same writer as the Python
 package's `oxedi.write`; the file is byte for byte what `oxedi.write` gives for the same
@@ -91,9 +94,9 @@ COPY (
                 date DATE '2024-01-10', time TIME '09:00');
 ```
 
-Here `payments`, `claims` and the rest are tables or views of the same names, for example
-`CREATE TEMP TABLE claims AS FROM read_835('remittance.835', table_name := 'claims')` after a
-change in SQL. Temporary tables, views and the open transaction are visible. The lists of
+Here `payments`, `claims` and the rest are tables or views with those names, for example
+`CREATE TEMP TABLE claims AS FROM read_835('remittance.835', table_name := 'claims')`, changed
+in SQL before writing. Temporary tables, views and the open transaction are visible. The lists of
 several rows of the query concatenate into one interchange. A table left out has no rows and a
 column left out is null.
 
@@ -135,13 +138,15 @@ Per column of the spec:
 - A date column takes `DATE`, or `TIMESTAMP` at midnight.
 - A time column takes `TIME` or `TIME_NS` in whole seconds.
 
+### From your own tables
+
 The writer asks for the spec's names and nothing else, so tables built elsewhere work when they
-follow them:
+follow them (see [Writing](writing.md#from-your-own-tables)):
 
 - **Tolerated:** a missing table (no rows), a missing column (null), a column of a narrower or
   compatible type (`INTEGER` for `BIGINT`, a `DECIMAL` of another scale that holds the value,
   `ENUM` or `BLOB` for text).
-- **Refused, naming the table and column:** a table or column that is not in the spec, a float
+- **Refused, naming the table, row and column:** a table or column that is not in the spec, a float
   for money, a value that would change in the conversion (a decimal that does not fit, a number
   outside the column's range), and a file that does not balance or is missing a required
   element.

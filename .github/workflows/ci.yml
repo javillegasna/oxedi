@@ -74,6 +74,8 @@ jobs:
         run: |
           cargo run --locked -p oxedi_py --bin stub_gen
           git diff --exit-code crates/oxedi_py/python/oxedi/_core.pyi
+      - name: PyPI README drift
+        run: make readme-py-check
 
   python:
     name: Python ${{ matrix.python }}

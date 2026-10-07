@@ -14,6 +14,10 @@ print(result.count_claims(), result.sum_payments())  # sum_payments() is a Decim
 print(result.payer["name"], result.payee["name"])
 ```
 
+`result.payer` and `result.payee` are dicts of text values (`name`, `identification_code`,
+`address`, `city`, `state`, `zip_code`). They are `None` when the file has no such party, and
+raise `ValueError` when `payments` has more than one row.
+
 A file that is not an 835 at all (for example, one that does not start with an `ISA`
 segment) raises `oxedi.ParseError`. Anything else that parses is returned, with its problems
 as diagnostics.

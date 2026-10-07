@@ -160,34 +160,64 @@ def test_nothing_is_written_next_to_the_input(tmp_path):
     assert [p.name for p in tmp_path.iterdir()] == ["copy.rmt"]
 
 
-def test_a_file_pyx12_cannot_read_gives_one_failure():
-    (failure,) = validate(read("multi_claim_sample.txt"))
+def test_a_file_pyx12_cannot_read_gives_one_failure_at_its_isa():
+    data = read("multi_claim_sample.txt")
+    (failure,) = validate(data)
     assert is_failure(failure)
-    assert (failure.segment, failure.element, failure.datum) == (None, None, b"")
+    isa = (
+        b"ISA*00*          *00*          *ZZ*RUSHMORE      *ZZ*ACME_MED"
+        b"       *190316*1615*U*00401*000001234*0*P*>~"
+    )
+    assert (failure.segment, failure.element, failure.datum) == (0, None, isa)
+    assert data.startswith(isa)
     assert failure.rule == (
         "could not finish validating: X12Error: ISA Interchange Control Version Number"
         " is unknown: 0401* for ISA*00*          *00*          *ZZ*RUSHMORE      *ZZ*ACME_MED"
-        "       *190316*1615*U*00401*000001234*0*P*>~; it reached no segment (reported by pyx12)"
+        "       *190316*1615*U*00401*000001234*0*P*>~; it rejected segment #0 (reported by pyx12)"
     )
 
 
-def test_a_report_pyx12_shape_change_becomes_one_failure(monkeypatch):
+def test_a_rejected_file_with_leading_trivia_keeps_the_isa_as_datum():
+    data = b"\xef\xbb\xbf\r\n" + read("multi_claim_sample.txt")
+    (failure,) = validate(data)
+    assert failure.segment == 0
+    assert failure.datum.startswith(b"ISA*00*") and failure.datum.endswith(b"*P*>~")
+
+
+def test_an_error_tree_pyx12_shape_change_becomes_one_failure(monkeypatch):
     import oxedi.pyx12._validate as module
 
-    real = json.loads
+    def reshaped(handler):
+        raise KeyError("errors")
 
-    def reshaped(text):
-        tree = real(text)
-        tree["interchanges"] = [{"groups": []}]
-        return tree
-
-    monkeypatch.setattr(module.json, "loads", reshaped)
-    (failure,) = validate(read(EYEMED))
+    monkeypatch.setattr(module, "collect", reshaped)
+    data = read(EYEMED)
+    (failure,) = validate(data)
     assert is_failure(failure)
-    assert failure.segment is None
+    last = len(oxedi.parse(data).document) - 1
+    assert failure.segment == last
     assert failure.rule == (
-        "could not finish validating: its report could not be translated"
-        " (KeyError: 'errors'); it reached no segment (reported by pyx12)"
+        "could not finish validating: its error tree could not be read"
+        f" (KeyError: 'errors'); it had read every segment; the last it completed is #{last}"
+        " (reported by pyx12)"
+    )
+    assert failure.datum == b"IEA"
+
+
+def test_a_failure_after_the_last_segment_names_the_last_one_completed(monkeypatch):
+    import pyx12.x12file
+
+    def breaks(self):
+        raise RuntimeError("cleanup exploded")
+
+    monkeypatch.setattr(pyx12.x12file.X12Reader, "cleanup", breaks)
+    data = read(EYEMED)
+    (failure,) = validate(data)
+    last = len(oxedi.parse(data).document) - 1
+    assert (failure.segment, failure.datum) == (last, b"IEA")
+    assert failure.rule == (
+        "could not finish validating: RuntimeError: cleanup exploded;"
+        f" it had read every segment; the last it completed is #{last} (reported by pyx12)"
     )
 
 
@@ -269,7 +299,52 @@ def test_results_do_not_depend_on_the_callers_logging_configuration(config):
     assert any("X12Error: ISA Interchange Control Version Number is unknown" in e[4] for e in expected)
 
 
-def test_the_logger_is_restored_after_an_exception(monkeypatch):
+def test_logging_disabled_by_the_caller_stays_disabled_during_the_call(monkeypatch):
+    import logging
+
+    import pyx12.x12n_document
+
+    real = pyx12.x12n_document.apply_segment_errors
+    seen = []
+
+    def watches(node, seg, errh):
+        seen.append(logging.root.manager.disable)
+        return real(node, seg, errh)
+
+    monkeypatch.setattr(pyx12.x12n_document, "apply_segment_errors", watches)
+    logging.disable(logging.CRITICAL)
+    try:
+        assert len(validate(read(LEGACY))) == 1
+    finally:
+        logging.disable(logging.NOTSET)
+    assert seen and set(seen) == {logging.CRITICAL}
+
+
+def test_a_handler_on_a_pyx12_logger_receives_its_records():
+    import logging
+
+    class Keep(logging.Handler):
+        def __init__(self):
+            super().__init__(logging.ERROR)
+            self.messages = []
+
+        def emit(self, record):
+            self.messages.append(record.getMessage())
+
+    keep = Keep()
+    logger = logging.getLogger("pyx12.error_handler")
+    logger.addHandler(keep)
+    try:
+        (finding,) = validate(read(LEGACY))
+    finally:
+        logger.removeHandler(keep)
+    assert finding.code == "7"
+    assert keep.messages == [
+        "Line:16 ELE:7 - (NP) is not a valid code for Payee State Code (N402) (NP)"
+    ]
+
+
+def test_the_logger_is_left_alone_after_an_exception(monkeypatch):
     import pyx12.x12n_document
 
     before = logger_state()
@@ -290,7 +365,151 @@ def test_overlapping_validations_do_not_mix_their_findings():
     with ThreadPoolExecutor(4) as pool:
         results = list(pool.map(lambda _: reference(), range(8)))
     assert all(r == expected for r in results)
-    assert logger_state()[0][2] is True
+
+
+def plain_run(data):
+    """pyx12 run directly, as user code would."""
+    import pyx12.params
+    import pyx12.x12n_document
+
+    pyx12.x12n_document.x12n_document(
+        param=pyx12.params.ParamsBase(),
+        src_file=io.StringIO(data.decode("latin-1")),
+        fd_997=None,
+        fd_html=None,
+    )
+
+
+def handlers_seen(monkeypatch, on_main=None):
+    """The error handlers pyx12 passes to its segment checks, by thread;
+    ``on_main`` runs once on the main thread at the first check there."""
+    import threading
+
+    import pyx12.x12n_document
+
+    real = pyx12.x12n_document.apply_segment_errors
+    main = threading.current_thread()
+    seen = {"main": [], "other": []}
+
+    def watches(node, seg, errh):
+        here = "main" if threading.current_thread() is main else "other"
+        if here == "main" and on_main is not None and not seen["main"]:
+            on_main()
+        seen[here].append(errh)
+        return real(node, seg, errh)
+
+    monkeypatch.setattr(pyx12.x12n_document, "apply_segment_errors", watches)
+    return seen
+
+
+def test_a_plain_pyx12_run_is_not_recorded(monkeypatch):
+    import pyx12.error_handler
+
+    validate(read(LEGACY))
+    seen = handlers_seen(monkeypatch)
+    plain_run(read(LEGACY))
+    handler = seen["main"][0]
+    assert isinstance(handler, pyx12.error_handler.err_handler)
+    assert handler._oxedi_recording is False
+    assert handler.oxedi_dropped == [] and handler.oxedi_element_lines == {}
+    assert handler.get_error_count() == 1
+
+
+def test_a_pyx12_run_on_another_thread_during_validate_is_not_recorded(monkeypatch):
+    import threading
+
+    def another():
+        thread = threading.Thread(target=plain_run, args=(read(EYEMED),))
+        thread.start()
+        thread.join()
+
+    seen = handlers_seen(monkeypatch, on_main=another)
+    (finding,) = validate(read(LEGACY))
+    assert finding.code == "7"
+    assert seen["main"][0]._oxedi_recording is True
+    assert seen["other"] and seen["other"][0]._oxedi_recording is False
+    assert seen["other"][0].get_error_count() == 1
+
+
+def test_a_reloaded_error_handler_module_is_patched_again():
+    import importlib
+
+    import pyx12.error_handler
+
+    validate(read(LEGACY))
+    importlib.reload(pyx12.error_handler)
+    assert not getattr(pyx12.error_handler.err_handler, "_oxedi_recorder", False)
+    assert [facts(f) for f in validate(read(LEGACY))] == [facts(f) for f in validate(read(LEGACY))]
+    assert getattr(pyx12.error_handler.err_handler, "_oxedi_recorder", False)
+    (finding,) = validate(read(LEGACY))
+    assert finding.code == "7"
+
+
+def test_the_patch_is_installed_once_and_keeps_the_original_name():
+    import pyx12.error_handler
+
+    from oxedi.pyx12 import _capture
+
+    validate(read(LEGACY))
+    patched = pyx12.error_handler.err_handler
+    _capture.install(pyx12.error_handler)
+    assert pyx12.error_handler.err_handler is patched
+    assert patched.__name__ == "err_handler"
+    assert patched.__module__ == "pyx12.error_handler"
+
+
+def balanced_5010():
+    return read("balanced_5010_sample.txt")
+
+
+def test_an_element_error_of_the_transaction_header_is_reported():
+    data = balanced_5010()
+    (finding,) = validate(data)
+    assert (finding.level, finding.code, finding.segment, finding.element, finding.component) == (
+        2,
+        "10",
+        2,
+        3,
+        None,
+    )
+    assert oxedi.parse(data).document[2].id == b"ST"
+    assert finding.datum == b"005010X221A1"
+    assert finding.rule == (
+        'Data element "Implementation Convention Reference" (ST03) is marked as Not Used'
+        " (reported by pyx12, code 10)"
+    )
+
+
+def test_an_element_error_of_the_transaction_trailer_is_reported_at_the_trailer():
+    data = balanced_5010().replace(b"SE*58*0001", b"SE*5X*0001")
+    findings = validate(data)
+    document = oxedi.parse(data).document
+    trailer = next(f for f in findings if f.code == "6")
+    assert document[trailer.segment].id == b"SE"
+    assert (trailer.level, trailer.element, trailer.datum) == (2, 1, b"5X")
+    assert trailer.rule.startswith('Data element "Transaction Segment Count" (SE01) is type N0')
+
+
+def test_segment_errors_pyx12_cannot_attach_to_an_envelope_node_are_reported():
+    data = balanced_5010().replace(
+        b"ST*835*0001*005010X221A1~", b"ST*835*0001*005010X221A1*~"
+    )
+    findings = validate(data)
+    on_header = [(f.level, f.code, f.segment, f.element) for f in findings if f.element is None]
+    assert on_header == [(2, "SEG1", 2, None), (2, "8", 2, None)]
+    assert findings[1].rule == (
+        "Segment contains trailing element terminators (reported by pyx12, code SEG1)"
+    )
+    assert findings[2].rule == (
+        'Too many elements in segment "Transaction Set Header" (ST). Has 4, should have 3'
+        " (reported by pyx12, code 8)"
+    )
+
+
+def test_findings_come_in_segment_order():
+    data = balanced_5010().replace(b"SE*58*0001", b"SE*5X*0001*X")
+    segments = [f.segment for f in validate(data)]
+    assert segments == sorted(segments)
 
 
 def crafted():

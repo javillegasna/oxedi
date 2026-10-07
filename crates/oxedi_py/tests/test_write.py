@@ -38,11 +38,17 @@ REFUSED = [
 EXCERPTS = {"edi835_test_file.RMT", "edi835_test_not_available_claim_id.RMT"}
 
 # The clean files whose originals pyx12 already reports: a payee state code
-# outside its list, and a rendering provider without its identifier.
+# outside its list, a rendering provider without its identifier, and the
+# implementation convention reference pyx12's 5010 map marks Not Used.
 PYX12_FINDINGS = {
     "united_healthcare_legacy_sample.txt": ["N402"],
     "edi835_test_eyemed.RMT": ["NM108", "NM109"],
+    "balanced_5010_sample.txt": ["ST03"],
 }
+
+# What the writer leaves out, so pyx12 cannot find it in the written file:
+# the transaction set header's implementation convention reference.
+UNWRITTEN = {"ST03"}
 
 requires_pyx12 = pytest.mark.skipif(
     importlib.util.find_spec("pyx12") is None, reason="pyx12 is not installed"
@@ -102,10 +108,14 @@ def pyx12_findings(data):
 def test_pyx12_finds_in_the_written_file_exactly_what_it_finds_in_the_original(name):
     original = pyx12_findings(read(name))
     written = pyx12_findings(oxedi.write(parse_named(name).tables, envelope()))
-    assert written == original
     element = re.compile(r"\(([A-Z0-9]{2,3}\d{2})\)")
-    named = sorted(element.findall(rule)[-1] for _, _, _, rule, *_ in original.elements())
-    assert named == PYX12_FINDINGS.get(name, [])
+
+    def named(finding):
+        return element.findall(finding[3])[-1]
+
+    assert sorted(named(f) for f in original.elements()) == PYX12_FINDINGS.get(name, [])
+    kept = collections.Counter({f: n for f, n in original.items() if named(f) not in UNWRITTEN})
+    assert written == kept
 
 
 @pytest.mark.parametrize("name", REFUSED)

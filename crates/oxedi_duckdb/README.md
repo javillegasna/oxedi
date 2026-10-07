@@ -12,9 +12,7 @@ INSTALL oxedi FROM community;
 LOAD oxedi;
 ```
 
-The community build is not available yet: it waits for the maintainers to merge
-duckdb/community-extensions#2942 (the fixed release is 0.1.2, PR #135). Until then, build the
-extension (see [Build and test](#build-and-test)) and `LOAD` the file.
+The extension installs from DuckDB's community repository on DuckDB 1.5.6 or later.
 
 ## Use
 

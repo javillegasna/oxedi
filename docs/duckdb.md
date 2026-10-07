@@ -12,12 +12,7 @@ INSTALL oxedi FROM community;
 LOAD oxedi;
 ```
 
-The extension was accepted into DuckDB's community repository
-(duckdb/community-extensions#2937), but its first community build failed on Windows on a test
-that pinned the operating system's error text. The fixed release (0.1.2, PR #135) is built and
-green and waits for the maintainers to merge duckdb/community-extensions#2942. Until then
-`INSTALL oxedi FROM community` is not available: build the extension (see
-[CONTRIBUTING](../CONTRIBUTING.md#duckdb-extension)) and load the file.
+The extension installs from DuckDB's community repository on DuckDB 1.5.6 or later.
 
 ## Reading
 
@@ -73,8 +68,7 @@ system and secrets.
 
 ## Writing
 
-Writing with `COPY` needs extension 0.2.0 or later; until it reaches the community repository,
-build the extension.
+Writing with `COPY` needs extension 0.2.0 or later; the community repository has 0.1.2 today, so until 0.2.0 is published there, build the extension (see [CONTRIBUTING](../CONTRIBUTING.md#duckdb-extension)).
 
 `COPY ... TO ... (FORMAT edi835, ...)` writes an 835 with the same writer as the Python
 package's `oxedi.write`; the file is byte for byte what `oxedi.write` gives for the same

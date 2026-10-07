@@ -30,9 +30,7 @@ INSTALL oxedi FROM community;
 LOAD oxedi;
 ```
 
-The community build is not available yet: it waits for the maintainers to merge
-duckdb/community-extensions#2942. Until then, build the extension and `LOAD` the file; see
-[DuckDB](docs/duckdb.md).
+The extension installs from DuckDB's community repository on DuckDB 1.5.6 or later.
 
 ## Read
 
@@ -123,8 +121,7 @@ FROM read_835('remits/*.835', table_name := 'services', filename := true);
 FROM read_835('remits/*.835', table_name := 'diagnostics', ignore_errors := true);
 ```
 
-Write tables back with `COPY`. This needs extension 0.2.0 or later; until it reaches the
-community repository, build the extension. `payments`, `claims` and the rest are tables or
+Write tables back with `COPY`. This needs extension 0.2.0 or later; the community repository has 0.1.2 today, so until 0.2.0 is published there, build the extension (see [CONTRIBUTING](CONTRIBUTING.md#duckdb-extension) or [DuckDB](docs/duckdb.md)). `payments`, `claims` and the rest are tables or
 views with those names, for example `CREATE TEMP TABLE claims AS FROM read_835('remittance.835',
 table_name := 'claims')`, changed in SQL before writing:
 

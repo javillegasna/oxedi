@@ -58,19 +58,21 @@ test_release: test_extension_release
 # exist, so DUCKDB_TEST_VERSION is ignored once it does. When the variable is
 # set, the sqllogic tests refuse to run on a venv holding another DuckDB
 # rather than test the wrong one without a word; a fresh venv, as in CI,
-# always passes. `main` asks for a pre-release.
+# always passes. `main` asks for a development build: any .dev version passes,
+# an older one included.
 test_extension_release_internal test_extension_debug_internal: check_test_version
 check_test_version:
 	@if [ -n "$(DUCKDB_TEST_VERSION)" ] && [ -x "$(PYTHON_VENV_BIN)" ]; then \
 	  requested="$(DUCKDB_TEST_VERSION)"; \
 	  installed=$$($(PYTHON_VENV_BIN) -c 'import duckdb; print(duckdb.__version__)') || exit 1; \
 	  if [ "$$requested" = main ]; then \
+	    need=", which needs a DuckDB development build (a .dev version)"; \
 	    case "$$installed" in *dev*) ok=1 ;; *) ok=0 ;; esac; \
 	  else \
 	    [ "$$installed" = "$${requested#v}" ] && ok=1 || ok=0; \
 	  fi; \
 	  if [ "$$ok" != 1 ]; then \
-	    echo "oxedi: configure/venv has DuckDB $$installed but DUCKDB_TEST_VERSION asks for $$requested, and the venv is only built once; run 'rm -rf configure/venv' and 'make configure_ci DUCKDB_TEST_VERSION=$$requested', or install that DuckDB into configure/venv with pip" >&2; \
+	    echo "oxedi: $(PROJ_DIR)configure/venv has DuckDB $$installed but DUCKDB_TEST_VERSION asks for $$requested$$need, and the venv is only built once; run 'rm -rf $(PROJ_DIR)configure/venv' and 'make configure_ci DUCKDB_TEST_VERSION=$$requested' in $(PROJ_DIR), or install that DuckDB into $(PROJ_DIR)configure/venv with pip" >&2; \
 	    exit 1; \
 	  fi; \
 	fi

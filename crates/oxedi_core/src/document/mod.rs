@@ -13,6 +13,7 @@ use std::borrow::Cow;
 use std::ops::Range;
 
 use crate::delimiters::Delimiters;
+use crate::element::Pieces;
 use crate::frame::{Frame, first_frame, next_frame};
 use crate::segment::Segment;
 
@@ -130,6 +131,21 @@ impl<'a> Document<'a> {
     /// The segment at `index` (0-based, same as [`Segment::index`]), parsed on demand.
     pub fn segment(&self, index: usize) -> Option<Segment<'_>> {
         Some(Segment::parse(index, self.frame(index)?, &self.delims))
+    }
+
+    /// The exact bytes of the segment at `index`, as [`Segment::raw`] holds
+    /// them, without parsing its elements; `None` past the last segment.
+    pub fn raw(&self, index: usize) -> Option<&[u8]> {
+        self.bytes.get(self.span(index)?.raw)
+    }
+
+    /// The identifier of the segment at `index`, as [`Segment::id`] holds it,
+    /// without parsing its elements; `None` past the last segment. Empty for
+    /// an empty or trivia-only segment.
+    pub fn segment_id(&self, index: usize) -> Option<&[u8]> {
+        let body = self.bytes.get(self.span(index)?.body)?;
+        let mut pieces = Pieces::new(body, self.delims.element, self.delims.release);
+        Some(pieces.next().unwrap_or_default())
     }
 
     /// Parses the segment at `index` into `segment`, reusing its buffers.

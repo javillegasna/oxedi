@@ -316,3 +316,21 @@ fn segment_into_one_buffer_equals_segment_and_stops_past_the_end() {
     assert!(!doc.segment_into(doc.len(), &mut buffer));
     assert_eq!(buffer, last, "a miss leaves the buffer untouched");
 }
+
+#[test]
+fn raw_and_segment_id_equal_the_parsed_segment_without_parsing_it() {
+    let delims = Delimiters {
+        release: Some(b'?'),
+        ..plain()
+    };
+    let input = &b"\nA?*B*1~\n\nSE~X"[..];
+    let doc = Document::with_delimiters(input, delims).unwrap();
+    for index in 0..doc.len() {
+        let segment = doc.segment(index).unwrap();
+        assert_eq!(doc.raw(index), Some(segment.raw), "raw of segment {index}");
+        assert_eq!(doc.segment_id(index), Some(segment.id), "id of {index}");
+    }
+    assert_eq!(doc.segment_id(0), Some(&b"A?*B"[..]));
+    assert_eq!(doc.raw(doc.len()), None);
+    assert_eq!(doc.segment_id(doc.len()), None);
+}

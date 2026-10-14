@@ -1,12 +1,12 @@
 name: CI
 
-# Runs each area (Rust, Python, DuckDB, Docs, Viewer, Workflows) only when files it depends on
-# changed: on a pull request against its base, on a push against the previous commit of the
-# branch. A draft pull request runs Rust only; the rest runs once it is ready for review.
-# nightly.yml runs every area on master. Runs of a pull request share a group and a new push
-# cancels the running one; each push to a branch has its own group, so no push is replaced by a
-# later one. `CI result` is the one check to require: it fails when any area failed or was
-# cancelled and passes when each one passed or was not needed.
+# Runs each area (Rust, Python, DuckDB, Docs, Viewer, and Workflows, which also holds the
+# complexity ratchet) only when files it depends on changed: on a pull request against its base,
+# on a push against the previous commit of the branch. A draft pull request runs Rust only; the
+# rest runs once it is ready for review. nightly.yml runs every area on master. Runs of a pull
+# request share a group and a new push cancels the running one; each push to a branch has its own
+# group, so no push is replaced by a later one. `CI result` is the one check to require: it
+# fails when any area failed or was cancelled and passes when each one passed or was not needed.
 on:
   push:
     branches: [main, master]
@@ -49,6 +49,7 @@ jobs:
               - 'Cargo.lock'
               - 'rust-toolchain.toml'
               - '.cargo/**'
+              - 'clippy.toml'
               - 'Makefile'
               # make readme-py-check compares it with crates/oxedi_py/README.md.
               - 'README.md'
@@ -120,6 +121,13 @@ jobs:
             workflows:
               - '.github/workflows/**'
               - '.github/scripts/**'
+              - '.github/actions/setup-uv/**'
+              # The complexity ratchet measures these against .github/complexity-baseline.txt.
+              - '.github/complexity-baseline.txt'
+              - 'crates/*/src/**'
+              - 'crates/*/python/**'
+              - 'crates/*/scripts/**'
+              - 'viewer/js/**'
 
   rust:
     name: Rust

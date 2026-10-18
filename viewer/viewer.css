@@ -69,6 +69,7 @@ button.link {
   text-decoration: underline; font-family: var(--mono); font-size: inherit;
 }
 
+.mask-toggle { display: flex; gap: 8px; align-items: center; cursor: pointer; }
 .intake { display: flex; flex-wrap: wrap; gap: 12px; align-items: stretch; }
 .drop {
   flex: 1 1 18rem;

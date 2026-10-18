@@ -176,6 +176,16 @@ export function createTables(root, { onJump }) {
         choose(first.name);
       }
     },
+    /** The selected table and the filter text, to put back after the same file is parsed again. */
+    state() {
+      return table ? { table: table.name, filter: filter.value } : null;
+    },
+    restore(saved) {
+      if (!saved || !view || !view.tables.some((t) => t.name === saved.table)) return;
+      select.value = saved.table;
+      filter.value = saved.filter;
+      choose(saved.table);
+    },
     /** Called when the tab becomes visible: the grid can only measure itself then. */
     onShow() {
       if (list) list.refresh();

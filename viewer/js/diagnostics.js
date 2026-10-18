@@ -90,6 +90,15 @@ export function createDiagnostics(root, { onJump }) {
       renderTools();
       renderList();
     },
+    state() {
+      return { level };
+    },
+    restore(saved) {
+      if (!saved || (saved.level !== 'all' && !LEVELS.includes(saved.level))) return;
+      level = saved.level;
+      renderTools();
+      renderList();
+    },
     clear() {
       diagnostics = [];
       tools.textContent = '';

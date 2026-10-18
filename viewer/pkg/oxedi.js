@@ -1,27 +1,31 @@
 /**
  * Parses an 835 and returns the viewer's JSON; throws with the core's
- * message when the bytes are not an X12 interchange.
+ * message when the bytes are not an X12 interchange or the key is too short.
+ * With a key, the columns the spec flags as patient data are masked.
  * @param {Uint8Array} bytes
+ * @param {Uint8Array | null} [mask_key]
  * @returns {string}
  */
-export function parse(bytes) {
-    let deferred3_0;
-    let deferred3_1;
+export function parse(bytes, mask_key) {
+    let deferred4_0;
+    let deferred4_1;
     try {
         const ptr0 = passArray8ToWasm0(bytes, wasm.__wbindgen_malloc);
         const len0 = WASM_VECTOR_LEN;
-        const ret = wasm.parse(ptr0, len0);
-        var ptr2 = ret[0];
-        var len2 = ret[1];
+        var ptr1 = isLikeNone(mask_key) ? 0 : passArray8ToWasm0(mask_key, wasm.__wbindgen_malloc);
+        var len1 = WASM_VECTOR_LEN;
+        const ret = wasm.parse(ptr0, len0, ptr1, len1);
+        var ptr3 = ret[0];
+        var len3 = ret[1];
         if (ret[3]) {
-            ptr2 = 0; len2 = 0;
+            ptr3 = 0; len3 = 0;
             throw takeFromExternrefTable0(ret[2]);
         }
-        deferred3_0 = ptr2;
-        deferred3_1 = len2;
-        return getStringFromWasm0(ptr2, len2);
+        deferred4_0 = ptr3;
+        deferred4_1 = len3;
+        return getStringFromWasm0(ptr3, len3);
     } finally {
-        wasm.__wbindgen_free(deferred3_0, deferred3_1, 1);
+        wasm.__wbindgen_free(deferred4_0, deferred4_1, 1);
     }
 }
 
@@ -74,6 +78,10 @@ function getUint8ArrayMemory0() {
         cachedUint8ArrayMemory0 = new Uint8Array(wasm.memory.buffer);
     }
     return cachedUint8ArrayMemory0;
+}
+
+function isLikeNone(x) {
+    return x === undefined || x === null;
 }
 
 function passArray8ToWasm0(arg, malloc) {

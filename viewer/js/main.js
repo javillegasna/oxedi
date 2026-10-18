@@ -65,13 +65,32 @@ function clearViews() {
   for (const name of ['tables', 'diagnostics', 'text', 'loops']) views[name].clear();
 }
 
+// The tab and filters to put back once the file they belong to is shown again.
+let saved = null;
+
 function showLoaded(file) {
   loaded = file;
   renderSummary(panels.summary, file);
   for (const name of ['tables', 'diagnostics', 'text', 'loops']) views[name].show(file);
   $('diag-count').textContent = String(file.view.diagnostics.length);
   $('results').hidden = false;
-  selectTab('summary');
+  const keep = saved && saved.source === file.source ? saved.state : null;
+  saved = null;
+  if (keep) {
+    views.tables.restore(keep.tables);
+    views.diagnostics.restore(keep.diagnostics);
+  }
+  selectTab(keep ? keep.tab : 'summary');
+}
+
+/** Remembers the view of the open file, once per file, across quick repeated toggles. */
+function remember(source) {
+  if (saved && saved.source === source) return;
+  const open = loaded && loaded.source === source;
+  saved = {
+    source,
+    state: open ? { tab: current, tables: views.tables.state(), diagnostics: views.diagnostics.state() } : null,
+  };
 }
 
 function fail(message) {
@@ -91,12 +110,22 @@ async function start() {
   }
   $('version').textContent = `v${module.version()}`;
 
+  // One random key per page load: masked values match within a session only.
+  const key = crypto.getRandomValues(new Uint8Array(32));
+  const mask = $('mask');
   const loader = createLoader({
     parse: module.parse,
+    maskKey: () => (mask.checked ? key : undefined),
     status: $('status'),
     alert: $('alert'),
     onLoad: showLoaded,
     onClear: clearViews,
+  });
+
+  mask.addEventListener('change', () => {
+    $('mask-note').hidden = !mask.checked;
+    remember(loader.current());
+    loader.reparse();
   });
 
   const input = $('file');

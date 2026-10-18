@@ -9,7 +9,7 @@ This file covers the Python package; the DuckDB extension has its own changelog 
 
 ## [Unreleased]
 
-## [0.6.0] - 2026-10-16
+## [0.6.0] - 2026-10-18
 
 ### Added
 - `oxedi.Mask(key, dates="year")` and the `mask=` argument of `parse`, `parse_file` and `stream`:

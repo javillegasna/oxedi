@@ -1,0 +1,3087 @@
+
+<!doctype html>
+<html lang="en" class="no-js">
+  <head>
+    
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width,initial-scale=1">
+      
+        <meta name="description" content="Lossless, fast X12 EDI 835 parser and writer for Python and DuckDB">
+      
+      
+      
+        <link rel="canonical" href="https://javillegas.dev/oxedi/0.6/reference/glossary/">
+      
+      
+        <link rel="prev" href="../tables/">
+      
+      
+        <link rel="next" href="../api/parsing/">
+      
+      
+        
+      
+      
+      <link rel="icon" href="../../assets/images/favicon.png">
+      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.7">
+    
+    
+      
+        <title>Glossary - oxedi</title>
+      
+    
+    
+      <link rel="stylesheet" href="../../assets/stylesheets/main.ec1eaa64.min.css">
+      
+        
+        <link rel="stylesheet" href="../../assets/stylesheets/palette.ab4e12ef.min.css">
+      
+      
+
+
+    
+    
+      
+    
+    
+      
+        
+        
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+        <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Roboto:300,300i,400,400i,700,700i%7CRoboto+Mono:400,400i,700,700i&display=fallback">
+        <style>:root{--md-text-font:"Roboto";--md-code-font:"Roboto Mono"}</style>
+      
+    
+    
+      <link rel="stylesheet" href="../../assets/_mkdocstrings.css">
+    
+    <script>__md_scope=new URL("../..",location),__md_hash=e=>[...e].reduce(((e,_)=>(e<<5)-e+_.charCodeAt(0)),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
+    
+      
+
+    
+    
+  </head>
+  
+  
+    
+    
+      
+    
+    
+    
+    
+    <body dir="ltr" data-md-color-scheme="default" data-md-color-primary="indigo" data-md-color-accent="indigo">
+  
+    
+    <input class="md-toggle" data-md-toggle="drawer" type="checkbox" id="__drawer" autocomplete="off">
+    <input class="md-toggle" data-md-toggle="search" type="checkbox" id="__search" autocomplete="off">
+    <label class="md-overlay" for="__drawer"></label>
+    <div data-md-component="skip">
+      
+        
+        <a href="#glossary" class="md-skip">
+          Skip to content
+        </a>
+      
+    </div>
+    <div data-md-component="announce">
+      
+    </div>
+    
+      <div data-md-color-scheme="default" data-md-component="outdated" hidden>
+        
+      </div>
+    
+    
+      
+
+<header class="md-header" data-md-component="header">
+  <nav class="md-header__inner md-grid" aria-label="Header">
+    <a href="../.." title="oxedi" class="md-header__button md-logo" aria-label="oxedi" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54"/></svg>
+
+    </a>
+    <label class="md-header__button md-icon" for="__drawer">
+      
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M3 6h18v2H3zm0 5h18v2H3zm0 5h18v2H3z"/></svg>
+    </label>
+    <div class="md-header__title" data-md-component="header-title">
+      <div class="md-header__ellipsis">
+        <div class="md-header__topic">
+          <span class="md-ellipsis">
+            oxedi
+          </span>
+        </div>
+        <div class="md-header__topic" data-md-component="header-topic">
+          <span class="md-ellipsis">
+            
+              Glossary
+            
+          </span>
+        </div>
+      </div>
+    </div>
+    
+      
+        <form class="md-header__option" data-md-component="palette">
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="(prefers-color-scheme: light)" data-md-color-scheme="default" data-md-color-primary="indigo" data-md-color-accent="indigo"  aria-label="Switch to dark mode"  type="radio" name="__palette" id="__palette_0">
+    
+      <label class="md-header__button md-icon" title="Switch to dark mode" for="__palette_1" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="m17.75 4.09-2.53 1.94.91 3.06-2.63-1.81-2.63 1.81.91-3.06-2.53-1.94L12.44 4l1.06-3 1.06 3zm3.5 6.91-1.64 1.25.59 1.98-1.7-1.17-1.7 1.17.59-1.98L15.75 11l2.06-.05L18.5 9l.69 1.95zm-2.28 4.95c.83-.08 1.72 1.1 1.19 1.85-.32.45-.66.87-1.08 1.27C15.17 23 8.84 23 4.94 19.07c-3.91-3.9-3.91-10.24 0-14.14.4-.4.82-.76 1.27-1.08.75-.53 1.93.36 1.85 1.19-.27 2.86.69 5.83 2.89 8.02a9.96 9.96 0 0 0 8.02 2.89m-1.64 2.02a12.08 12.08 0 0 1-7.8-3.47c-2.17-2.19-3.33-5-3.49-7.82-2.81 3.14-2.7 7.96.31 10.98 3.02 3.01 7.84 3.12 10.98.31"/></svg>
+      </label>
+    
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="(prefers-color-scheme: dark)" data-md-color-scheme="slate" data-md-color-primary="indigo" data-md-color-accent="indigo"  aria-label="Switch to light mode"  type="radio" name="__palette" id="__palette_1">
+    
+      <label class="md-header__button md-icon" title="Switch to light mode" for="__palette_0" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 7a5 5 0 0 1 5 5 5 5 0 0 1-5 5 5 5 0 0 1-5-5 5 5 0 0 1 5-5m0 2a3 3 0 0 0-3 3 3 3 0 0 0 3 3 3 3 0 0 0 3-3 3 3 0 0 0-3-3m0-7 2.39 3.42C13.65 5.15 12.84 5 12 5s-1.65.15-2.39.42zM3.34 7l4.16-.35A7.2 7.2 0 0 0 5.94 8.5c-.44.74-.69 1.5-.83 2.29zm.02 10 1.76-3.77a7.131 7.131 0 0 0 2.38 4.14zM20.65 7l-1.77 3.79a7.02 7.02 0 0 0-2.38-4.15zm-.01 10-4.14.36c.59-.51 1.12-1.14 1.54-1.86.42-.73.69-1.5.83-2.29zM12 22l-2.41-3.44c.74.27 1.55.44 2.41.44.82 0 1.63-.17 2.37-.44z"/></svg>
+      </label>
+    
+  
+</form>
+      
+    
+    
+      <script>var palette=__md_get("__palette");if(palette&&palette.color){if("(prefers-color-scheme)"===palette.color.media){var media=matchMedia("(prefers-color-scheme: light)"),input=document.querySelector(media.matches?"[data-md-color-media='(prefers-color-scheme: light)']":"[data-md-color-media='(prefers-color-scheme: dark)']");palette.color.media=input.getAttribute("data-md-color-media"),palette.color.scheme=input.getAttribute("data-md-color-scheme"),palette.color.primary=input.getAttribute("data-md-color-primary"),palette.color.accent=input.getAttribute("data-md-color-accent")}for(var[key,value]of Object.entries(palette.color))document.body.setAttribute("data-md-color-"+key,value)}</script>
+    
+    
+    
+      
+      
+        <label class="md-header__button md-icon" for="__search">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        </label>
+        <div class="md-search" data-md-component="search" role="dialog">
+  <label class="md-search__overlay" for="__search"></label>
+  <div class="md-search__inner" role="search">
+    <form class="md-search__form" name="search">
+      <input type="text" class="md-search__input" name="query" aria-label="Search" placeholder="Search" autocapitalize="off" autocorrect="off" autocomplete="off" spellcheck="false" data-md-component="search-query" required>
+      <label class="md-search__icon md-icon" for="__search">
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11z"/></svg>
+      </label>
+      <nav class="md-search__options" aria-label="Search">
+        
+        <button type="reset" class="md-search__icon md-icon" title="Clear" aria-label="Clear" tabindex="-1">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+        </button>
+      </nav>
+      
+        <div class="md-search__suggest" data-md-component="search-suggest"></div>
+      
+    </form>
+    <div class="md-search__output">
+      <div class="md-search__scrollwrap" tabindex="0" data-md-scrollfix>
+        <div class="md-search-result" data-md-component="search-result">
+          <div class="md-search-result__meta">
+            Initializing search
+          </div>
+          <ol class="md-search-result__list" role="presentation"></ol>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+      
+    
+    
+      <div class="md-header__source">
+        <a href="https://github.com/javillegasna/oxedi" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M439.6 236.1 244 40.5c-5.4-5.5-12.8-8.5-20.4-8.5s-15 3-20.4 8.4L162.5 81l51.5 51.5c27.1-9.1 52.7 16.8 43.4 43.7l49.7 49.7c34.2-11.8 61.2 31 35.5 56.7-26.5 26.5-70.2-2.9-56-37.3L240.3 199v121.9c25.3 12.5 22.3 41.8 9.1 55-6.4 6.4-15.2 10.1-24.3 10.1s-17.8-3.6-24.3-10.1c-17.6-17.6-11.1-46.9 11.2-56v-123c-20.8-8.5-24.6-30.7-18.6-45L142.6 101 8.5 235.1C3 240.6 0 247.9 0 255.5s3 15 8.5 20.4l195.6 195.7c5.4 5.4 12.7 8.4 20.4 8.4s15-3 20.4-8.4l194.7-194.7c5.4-5.4 8.4-12.8 8.4-20.4s-3-15-8.4-20.4"/></svg>
+  </div>
+  <div class="md-source__repository">
+    javillegasna/oxedi
+  </div>
+</a>
+      </div>
+    
+  </nav>
+  
+</header>
+    
+    <div class="md-container" data-md-component="container">
+      
+      
+        
+          
+            
+<nav class="md-tabs" aria-label="Tabs" data-md-component="tabs">
+  <div class="md-grid">
+    <ul class="md-tabs__list">
+      
+        
+  
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href="../.." class="md-tabs__link">
+        
+  
+  
+    
+  
+  Home
+
+      </a>
+    </li>
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../../start/" class="md-tabs__link">
+          
+  
+  
+    
+  
+  Get started
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../../python/reading/" class="md-tabs__link">
+          
+  
+  
+    
+  
+  Python
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../../duckdb/" class="md-tabs__link">
+          
+  
+  
+    
+  
+  DuckDB
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../../recipes/lakehouse/" class="md-tabs__link">
+          
+  
+  
+    
+  
+  Recipes
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+    
+  
+  
+    
+    
+      <li class="md-tabs__item md-tabs__item--active">
+        <a href="../tables/" class="md-tabs__link">
+          
+  
+  
+    
+  
+  Reference
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../../migrating-from-edi-835-parser/" class="md-tabs__link">
+          
+  
+  
+    
+  
+  About
+
+        </a>
+      </li>
+    
+  
+
+      
+    </ul>
+  </div>
+</nav>
+          
+        
+      
+      <main class="md-main" data-md-component="main">
+        <div class="md-main__inner md-grid">
+          
+            
+              
+              <div class="md-sidebar md-sidebar--primary" data-md-component="sidebar" data-md-type="navigation" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+
+  
+
+
+<nav class="md-nav md-nav--primary md-nav--lifted" aria-label="Navigation" data-md-level="0">
+  <label class="md-nav__title" for="__drawer">
+    <a href="../.." title="oxedi" class="md-nav__button md-logo" aria-label="oxedi" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54"/></svg>
+
+    </a>
+    oxedi
+  </label>
+  
+    <div class="md-nav__source">
+      <a href="https://github.com/javillegasna/oxedi" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M439.6 236.1 244 40.5c-5.4-5.5-12.8-8.5-20.4-8.5s-15 3-20.4 8.4L162.5 81l51.5 51.5c27.1-9.1 52.7 16.8 43.4 43.7l49.7 49.7c34.2-11.8 61.2 31 35.5 56.7-26.5 26.5-70.2-2.9-56-37.3L240.3 199v121.9c25.3 12.5 22.3 41.8 9.1 55-6.4 6.4-15.2 10.1-24.3 10.1s-17.8-3.6-24.3-10.1c-17.6-17.6-11.1-46.9 11.2-56v-123c-20.8-8.5-24.6-30.7-18.6-45L142.6 101 8.5 235.1C3 240.6 0 247.9 0 255.5s3 15 8.5 20.4l195.6 195.7c5.4 5.4 12.7 8.4 20.4 8.4s15-3 20.4-8.4l194.7-194.7c5.4-5.4 8.4-12.8 8.4-20.4s-3-15-8.4-20.4"/></svg>
+  </div>
+  <div class="md-source__repository">
+    javillegasna/oxedi
+  </div>
+</a>
+    </div>
+  
+  <ul class="md-nav__list" data-md-scrollfix>
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../.." class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Home
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+      
+        
+          
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_2" >
+        
+          
+          <div class="md-nav__link md-nav__container">
+            <a href="../../start/" class="md-nav__link ">
+              
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Get started
+  
+
+    
+  </span>
+  
+  
+
+            </a>
+            
+              
+              <label class="md-nav__link " for="__nav_2" id="__nav_2_label" tabindex="0">
+                <span class="md-nav__icon md-icon"></span>
+              </label>
+            
+          </div>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_2_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_2">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Get started
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../start/install/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Install
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../start/the-835/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    The 835 in five minutes
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../start/viewer/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Try it in your browser
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3" >
+        
+          
+          <label class="md-nav__link" for="__nav_3" id="__nav_3_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Python
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_3_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_3">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Python
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../python/reading/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Reading
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../python/large-files/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Large files
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../python/diagnostics/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Diagnostics
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../python/without-patient-data/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Without patient data
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../python/writing/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Writing
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../python/own-tables/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Writing from your tables
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../python/when-write-refuses/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    When the writer refuses
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../python/pyx12/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Validating with pyx12
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../customize/spec/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Customizing the spec
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+      
+        
+          
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_4" >
+        
+          
+          <div class="md-nav__link md-nav__container">
+            <a href="../../duckdb/" class="md-nav__link ">
+              
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    DuckDB
+  
+
+    
+  </span>
+  
+  
+
+            </a>
+            
+              
+              <label class="md-nav__link " for="__nav_4" id="__nav_4_label" tabindex="0">
+                <span class="md-nav__icon md-icon"></span>
+              </label>
+            
+          </div>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_4_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_4">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    DuckDB
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../duckdb/reading/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Reading with SQL
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../duckdb/writing/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Writing with COPY
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../duckdb/limits/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Types and limits
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_5" >
+        
+          
+          <label class="md-nav__link" for="__nav_5" id="__nav_5_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Recipes
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_5_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_5">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Recipes
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../recipes/lakehouse/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    A Parquet lakehouse
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../recipes/polars/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Analytics with Polars
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../recipes/pipelines/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    oxedi in a pipeline
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+    
+  
+  
+  
+    
+    
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+        
+        
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--active md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_6" checked>
+        
+          
+          <label class="md-nav__link" for="__nav_6" id="__nav_6_label" tabindex="">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Reference
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_6_label" aria-expanded="true">
+          <label class="md-nav__title" for="__nav_6">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Reference
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../tables/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Tables and columns
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+    
+  
+  
+  
+    <li class="md-nav__item md-nav__item--active">
+      
+      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
+      
+      
+        
+      
+      
+        <label class="md-nav__link md-nav__link--active" for="__toc">
+          
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Glossary
+  
+
+    
+  </span>
+  
+  
+
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <a href="./" class="md-nav__link md-nav__link--active">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Glossary
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+      
+        
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#the-file-and-its-parts" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        The file and its parts
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="The file and its parts">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#interchange" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Interchange
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#functional-group" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Functional group
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#transaction-set" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Transaction set
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#segment" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Segment
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#element" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Element
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#component" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Component
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#delimiters" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Delimiters
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#qualifier" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Qualifier
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#loop" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Loop
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#implementation-guide" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Implementation guide
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#spec" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Spec
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#control-number" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Control number
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#5010-and-4010" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        5010 and 4010
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#payments-and-claims" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Payments and claims
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Payments and claims">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#era" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        ERA
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#payer" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Payer
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#payee" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Payee
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#check-and-eft" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Check and EFT
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#trace-number" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Trace number
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#claim" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Claim
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#claim-status" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Claim status
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#service-line" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Service line
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#adjustment" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Adjustment
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#group-code" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Group code
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#carc" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        CARC
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#rarc" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        RARC
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#provider-adjustment" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Provider adjustment
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#balancing" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Balancing
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#reading-and-validating" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Reading and validating
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Reading and validating">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#diagnostic" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Diagnostic
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#snip-level" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        SNIP level
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#document" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Document
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#envelope" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Envelope
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#lossless" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Lossless
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#segment-ids" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Segment ids
+      
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    
+    
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+      
+        
+          
+          
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_6_3" >
+        
+          
+          <label class="md-nav__link" for="__nav_6_3" id="__nav_6_3_label" tabindex="">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Python API
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_6_3_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_6_3">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Python API
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../api/parsing/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Parsing and results
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../api/writing/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Writing
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../api/spec/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Spec
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../api/diagnostics/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Diagnostics
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../api/pyx12/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    pyx12
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../api/edi_835_parser/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    edi_835_parser
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_7" >
+        
+          
+          <label class="md-nav__link" for="__nav_7" id="__nav_7_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    About
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_7_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_7">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    About
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../migrating-from-edi-835-parser/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Migrating from edi-835-parser
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../roadmap/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Roadmap
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="https://github.com/javillegasna/oxedi/blob/master/CHANGELOG.md" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Changelog
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="https://github.com/javillegasna/oxedi/blob/master/CONTRIBUTING.md" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Contributing
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+  </ul>
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+            
+              
+              <div class="md-sidebar md-sidebar--secondary" data-md-component="sidebar" data-md-type="toc" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#the-file-and-its-parts" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        The file and its parts
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="The file and its parts">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#interchange" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Interchange
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#functional-group" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Functional group
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#transaction-set" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Transaction set
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#segment" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Segment
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#element" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Element
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#component" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Component
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#delimiters" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Delimiters
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#qualifier" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Qualifier
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#loop" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Loop
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#implementation-guide" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Implementation guide
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#spec" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Spec
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#control-number" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Control number
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#5010-and-4010" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        5010 and 4010
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#payments-and-claims" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Payments and claims
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Payments and claims">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#era" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        ERA
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#payer" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Payer
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#payee" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Payee
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#check-and-eft" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Check and EFT
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#trace-number" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Trace number
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#claim" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Claim
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#claim-status" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Claim status
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#service-line" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Service line
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#adjustment" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Adjustment
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#group-code" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Group code
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#carc" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        CARC
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#rarc" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        RARC
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#provider-adjustment" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Provider adjustment
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#balancing" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Balancing
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#reading-and-validating" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Reading and validating
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Reading and validating">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#diagnostic" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Diagnostic
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#snip-level" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        SNIP level
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#document" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Document
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#envelope" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Envelope
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#lossless" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Lossless
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#segment-ids" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Segment ids
+      
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+          
+          
+            <div class="md-content" data-md-component="content">
+              
+              <article class="md-content__inner md-typeset">
+                
+                  
+
+
+  
+  
+
+
+<h1 id="glossary">Glossary<a class="headerlink" href="#glossary" title="Permanent link">&para;</a></h1>
+<p>The terms these pages use, in plain language. For a walk through a real file, read
+<a href="../../start/the-835/">The 835 in five minutes</a>.</p>
+<h2 id="the-file-and-its-parts">The file and its parts<a class="headerlink" href="#the-file-and-its-parts" title="Permanent link">&para;</a></h2>
+<h3 id="interchange">Interchange<a class="headerlink" href="#interchange" title="Permanent link">&para;</a></h3>
+<p>The outer envelope of a file, from <code>ISA</code> to <code>IEA</code>. It names the sender and the receiver, the
+date and time, and carries a control number. It holds one or more functional groups.
+<code>oxedi.write</code> produces one interchange.</p>
+<h3 id="functional-group">Functional group<a class="headerlink" href="#functional-group" title="Permanent link">&para;</a></h3>
+<p>A group of transactions inside an interchange, from <code>GS</code> to <code>GE</code>. <code>GS08</code> names the version of
+the format, such as <code>005010X221A1</code>.</p>
+<h3 id="transaction-set">Transaction set<a class="headerlink" href="#transaction-set" title="Permanent link">&para;</a></h3>
+<p>One 835, from <code>ST</code> to <code>SE</code>. Also called a transaction. In an 835 it is one payment, so it is one
+row of <code>payments</code>. <a href="../../python/large-files/"><code>oxedi.stream</code></a> yields one batch per transaction.</p>
+<h3 id="segment">Segment<a class="headerlink" href="#segment" title="Permanent link">&para;</a></h3>
+<p>One record of the file: an id such as <code>CLP</code>, then its elements, then the segment terminator
+(<code>~</code> by default). Every byte of a file belongs to exactly one segment, which is how oxedi
+writes a file back unchanged.</p>
+<h3 id="element">Element<a class="headerlink" href="#element" title="Permanent link">&para;</a></h3>
+<p>One value inside a segment. Elements are separated by the element separator (<code>*</code> by default)
+and numbered from 1, so <code>CLP02</code> is the second element of <code>CLP</code>.</p>
+<h3 id="component">Component<a class="headerlink" href="#component" title="Permanent link">&para;</a></h3>
+<p>One part of a composite element. Components are separated by the component separator (<code>:</code> by
+default). <code>SVC01-2</code> is the second component of the first element of <code>SVC</code>, as in
+<code>SVC*HC:99213</code>.</p>
+<h3 id="delimiters">Delimiters<a class="headerlink" href="#delimiters" title="Permanent link">&para;</a></h3>
+<p>The characters that split a file: element separator, component separator, segment terminator,
+and the optional repetition separator and release character. A file declares them in its <code>ISA</code>
+segment, and oxedi reads them from there.</p>
+<h3 id="qualifier">Qualifier<a class="headerlink" href="#qualifier" title="Permanent link">&para;</a></h3>
+<p>An element that says what the next value means. <code>N1*PR</code> is the payer and <code>N1*PE</code> the payee.
+<code>DTM*232</code> is a statement start date. The docs write a segment with its qualifier this way.</p>
+<h3 id="loop">Loop<a class="headerlink" href="#loop" title="Permanent link">&para;</a></h3>
+<p>A group of segments that repeats together, named by the implementation guide: <code>1000A</code> (the
+payer), <code>1000B</code> (the payee), <code>2000</code> (a group of claims), <code>2100</code> (a claim), <code>2110</code> (a service
+line). A diagnostic's path names the open loops, with the instance number: <code>2100#2</code> is the
+second claim.</p>
+<h3 id="implementation-guide">Implementation guide<a class="headerlink" href="#implementation-guide" title="Permanent link">&para;</a></h3>
+<p>The published rules for using the 835 in health care: which segments, loops, elements and codes
+a file has. The 5010 guide is <code>005010X221A1</code> and the 4010 guide <code>004010X091A1</code>.</p>
+<h3 id="spec">Spec<a class="headerlink" href="#spec" title="Permanent link">&para;</a></h3>
+<p>oxedi's description of the format, in JSON: loops, segments, elements, code lists, balancing
+rules and the tables to fill. oxedi ships a 5010 and a 4010 spec, and you can patch them. See
+<a href="../../customize/spec/">Customizing the spec</a>.</p>
+<h3 id="control-number">Control number<a class="headerlink" href="#control-number" title="Permanent link">&para;</a></h3>
+<p>A number that must match between a header and its trailer: <code>ISA13</code> and <code>IEA02</code>, <code>GS06</code> and
+<code>GE02</code>, <code>ST02</code> and <code>SE02</code>. The trailers also carry counts (<code>SE01</code>, <code>GE01</code>, <code>IEA01</code>), so a
+receiver can check that nothing is missing.</p>
+<h3 id="5010-and-4010">5010 and 4010<a class="headerlink" href="#5010-and-4010" title="Permanent link">&para;</a></h3>
+<p>The two versions of the 835 that oxedi reads and writes. 5010 is the default. A file declares
+its version in <code>ISA12</code> and <code>GS08</code>.</p>
+<h2 id="payments-and-claims">Payments and claims<a class="headerlink" href="#payments-and-claims" title="Permanent link">&para;</a></h2>
+<h3 id="era"><abbr title="Electronic remittance advice, another name for the 835">ERA</abbr><a class="headerlink" href="#era" title="Permanent link">&para;</a></h3>
+<p>Electronic remittance advice: another name for the 835.</p>
+<h3 id="payer">Payer<a class="headerlink" href="#payer" title="Permanent link">&para;</a></h3>
+<p>Who pays: usually a health plan. It sends the 835. Its loop is <code>1000A</code>, opened by <code>N1*PR</code>.</p>
+<h3 id="payee">Payee<a class="headerlink" href="#payee" title="Permanent link">&para;</a></h3>
+<p>Who is paid: usually the provider that sent the claims. It receives the 835. Its loop is
+<code>1000B</code>, opened by <code>N1*PE</code>.</p>
+<h3 id="check-and-eft">Check and <abbr title="Electronic funds transfer">EFT</abbr><a class="headerlink" href="#check-and-eft" title="Permanent link">&para;</a></h3>
+<p>The two usual ways the money moves: a paper check, or an electronic funds transfer (<abbr title="Electronic funds transfer">EFT</abbr>). The
+money travels apart from the 835. <code>BPR04</code> holds the payment method as a code, such as <code>CHK</code> or
+<code>ACH</code>.</p>
+<h3 id="trace-number">Trace number<a class="headerlink" href="#trace-number" title="Permanent link">&para;</a></h3>
+<p><code>TRN02</code>, the check or <abbr title="Electronic funds transfer">EFT</abbr> trace number. It lets the payee match the 835 to the money it
+received. It is the <code>trace_number</code> column of <code>payments</code>.</p>
+<h3 id="claim">Claim<a class="headerlink" href="#claim" title="Permanent link">&para;</a></h3>
+<p>A request for payment the provider sent for some care. In the 835, each claim is a <code>CLP</code>
+segment and its loop <code>2100</code>, and one row of <code>claims</code>.</p>
+<h3 id="claim-status">Claim status<a class="headerlink" href="#claim-status" title="Permanent link">&para;</a></h3>
+<p><code>CLP02</code>, a code for how the payer processed the claim. The 5010 spec lists ten codes. The
+<a href="../../recipes/polars/">Polars recipe</a> counts status <code>4</code> as a denial.</p>
+<h3 id="service-line">Service line<a class="headerlink" href="#service-line" title="Permanent link">&para;</a></h3>
+<p>One billed procedure or service of a claim: an <code>SVC</code> segment and its loop <code>2110</code>, and one row
+of <code>services</code>.</p>
+<h3 id="adjustment">Adjustment<a class="headerlink" href="#adjustment" title="Permanent link">&para;</a></h3>
+<p>A reason the paid amount differs from the billed one, with its amount: a <code>CAS</code> segment on a
+claim or on a service line. Each reason in a <code>CAS</code> is one row of <code>adjustments</code>.</p>
+<h3 id="group-code">Group code<a class="headerlink" href="#group-code" title="Permanent link">&para;</a></h3>
+<p><code>CAS01</code>, who bears an adjustment: <code>CO</code> contractual obligation, <code>PR</code> patient responsibility,
+<code>OA</code> other adjustment, <code>PI</code> payer-initiated reduction, and <code>CR</code> correction in 4010 files.</p>
+<h3 id="carc"><abbr title="Claim adjustment reason code">CARC</abbr><a class="headerlink" href="#carc" title="Permanent link">&para;</a></h3>
+<p>Claim adjustment reason code: the reason of an adjustment, in <code>CAS02</code>, <code>CAS05</code> and so on. It is
+the <code>reason_code</code> column of <code>adjustments</code>. The codes come from an external code list whose
+texts are licensed, so these pages do not reproduce them. Look a code up in the official list.</p>
+<h3 id="rarc"><abbr title="Remittance advice remark code">RARC</abbr><a class="headerlink" href="#rarc" title="Permanent link">&para;</a></h3>
+<p>Remittance advice remark code: a remark that adds detail to an adjustment, also from an
+external, licensed code list. In the 835 they sit in <code>LQ</code> (on a service line) and in <code>MIA</code> and
+<code>MOA</code> (on a claim). The built-in tables have no column for them. The segments stay in the
+document, and a <a href="../../customize/spec/">spec patch</a> can add a column.</p>
+<h3 id="provider-adjustment">Provider adjustment<a class="headerlink" href="#provider-adjustment" title="Permanent link">&para;</a></h3>
+<p>An amount added to or taken from the whole payment, not from one claim: a <code>PLB</code> segment. Each
+adjustment in a <code>PLB</code> is one row of <code>provider_adjustments</code>.</p>
+<h3 id="balancing">Balancing<a class="headerlink" href="#balancing" title="Permanent link">&para;</a></h3>
+<p>The amounts of an 835 must add up. A service line's charge minus its payment equals its
+adjustments. A claim's charge minus its payment equals its adjustments and those of its service
+lines. <code>BPR02</code> equals the claims' payments minus the provider adjustments. A rule that fails is
+a level 3 diagnostic.</p>
+<h2 id="reading-and-validating">Reading and validating<a class="headerlink" href="#reading-and-validating" title="Permanent link">&para;</a></h2>
+<h3 id="diagnostic">Diagnostic<a class="headerlink" href="#diagnostic" title="Permanent link">&para;</a></h3>
+<p>One finding about the data of a file: the rule that failed, where, and the value. oxedi returns
+diagnostics as data instead of raising. See <a href="../../python/diagnostics/">Diagnostics</a>.</p>
+<h3 id="snip-level"><abbr title="Validation level (1, 2 or 3) of a rule, reported as the level of a diagnostic">SNIP</abbr> level<a class="headerlink" href="#snip-level" title="Permanent link">&para;</a></h3>
+<p>The level a validation rule belongs to. oxedi reports three:</p>
+<ul>
+<li><strong>Level 1, integrity:</strong> envelopes, control numbers and counts, segment structure.</li>
+<li><strong>Level 2, requirements:</strong> required elements, types, lengths, codes and the loop structure.</li>
+<li><strong>Level 3, balancing:</strong> amounts that must add up.</li>
+</ul>
+<h3 id="document">Document<a class="headerlink" href="#document" title="Permanent link">&para;</a></h3>
+<p>The file as oxedi holds it, indexed into segments and kept byte for byte.
+<code>result.document.write()</code> returns the file unchanged.</p>
+<h3 id="envelope">Envelope<a class="headerlink" href="#envelope" title="Permanent link">&para;</a></h3>
+<p>What the writer needs besides the tables: sender, receiver, date, time and control number. In
+Python it is <code>oxedi.Envelope</code>. See <a href="../../python/writing/#fill-in-the-envelope">Writing</a>.</p>
+<h3 id="lossless">Lossless<a class="headerlink" href="#lossless" title="Permanent link">&para;</a></h3>
+<p>Nothing in the file is dropped or changed. Unknown segments stay in the document, and a file
+writes back exactly as it was read.</p>
+<h2 id="segment-ids">Segment ids<a class="headerlink" href="#segment-ids" title="Permanent link">&para;</a></h2>
+<table>
+<thead>
+<tr>
+<th>Id</th>
+<th>Name</th>
+<th>What it holds in an 835</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>ISA</code></td>
+<td>Interchange control header</td>
+<td>Sender, receiver, date, time, version, control number and the delimiters.</td>
+</tr>
+<tr>
+<td><code>IEA</code></td>
+<td>Interchange control trailer</td>
+<td>The number of groups and the interchange control number.</td>
+</tr>
+<tr>
+<td><code>GS</code></td>
+<td>Functional group header</td>
+<td>Application sender and receiver, date, time, control number, version.</td>
+</tr>
+<tr>
+<td><code>GE</code></td>
+<td>Functional group trailer</td>
+<td>The number of transactions and the group control number.</td>
+</tr>
+<tr>
+<td><code>ST</code></td>
+<td>Transaction set header</td>
+<td>Starts one 835 and its control number.</td>
+</tr>
+<tr>
+<td><code>SE</code></td>
+<td>Transaction set trailer</td>
+<td>The number of segments and the transaction control number.</td>
+</tr>
+<tr>
+<td><code>BPR</code></td>
+<td>Financial information</td>
+<td>The total paid, credit or debit, method, format and date.</td>
+</tr>
+<tr>
+<td><code>TRN</code></td>
+<td>Reassociation trace number</td>
+<td>The trace number and the payer identifier.</td>
+</tr>
+<tr>
+<td><code>REF</code></td>
+<td>Reference identification</td>
+<td>An id, with a qualifier that says which one.</td>
+</tr>
+<tr>
+<td><code>DTM</code></td>
+<td>Date or time reference</td>
+<td>A date, with a qualifier that says which one.</td>
+</tr>
+<tr>
+<td><code>N1</code></td>
+<td>Party identification</td>
+<td>The payer (<code>N1*PR</code>) or the payee (<code>N1*PE</code>): name and id.</td>
+</tr>
+<tr>
+<td><code>N3</code></td>
+<td>Address</td>
+<td>A street address.</td>
+</tr>
+<tr>
+<td><code>N4</code></td>
+<td>City, state and ZIP code</td>
+<td>City, state and postal code.</td>
+</tr>
+<tr>
+<td><code>PER</code></td>
+<td>Contact information</td>
+<td>A contact name and number.</td>
+</tr>
+<tr>
+<td><code>LX</code></td>
+<td>Header number</td>
+<td>Starts a group of claims (loop <code>2000</code>).</td>
+</tr>
+<tr>
+<td><code>CLP</code></td>
+<td>Claim payment information</td>
+<td>A claim: id, status, charge, payment, patient responsibility.</td>
+</tr>
+<tr>
+<td><code>NM1</code></td>
+<td>Individual or organization name</td>
+<td>A person or organization of the claim, such as the patient (<code>NM1*QC</code>).</td>
+</tr>
+<tr>
+<td><code>MIA</code>, <code>MOA</code></td>
+<td>Inpatient and outpatient adjudication information</td>
+<td>Adjudication amounts and remark codes of a claim.</td>
+</tr>
+<tr>
+<td><code>AMT</code></td>
+<td>Supplemental amount</td>
+<td>An amount, with a qualifier that says which one.</td>
+</tr>
+<tr>
+<td><code>SVC</code></td>
+<td>Service payment information</td>
+<td>A service line: procedure, charge, payment, units.</td>
+</tr>
+<tr>
+<td><code>CAS</code></td>
+<td>Claim or service adjustment</td>
+<td>Up to six adjustments of one group: reason, amount, quantity.</td>
+</tr>
+<tr>
+<td><code>LQ</code></td>
+<td>Health care remark codes</td>
+<td>Remark codes of a service line.</td>
+</tr>
+<tr>
+<td><code>PLB</code></td>
+<td>Provider adjustment</td>
+<td>Up to six adjustments of the whole payment.</td>
+</tr>
+</tbody>
+</table>
+
+
+
+
+
+
+
+
+
+
+
+
+                
+              </article>
+            </div>
+          
+          
+  <script>var tabs=__md_get("__tabs");if(Array.isArray(tabs))e:for(var set of document.querySelectorAll(".tabbed-set")){var labels=set.querySelector(".tabbed-labels");for(var tab of tabs)for(var label of labels.getElementsByTagName("label"))if(label.innerText.trim()===tab){var input=document.getElementById(label.htmlFor);input.checked=!0;continue e}}</script>
+
+<script>var target=document.getElementById(location.hash.slice(1));target&&target.name&&(target.checked=target.name.startsWith("__tabbed_"))</script>
+        </div>
+        
+          <button type="button" class="md-top md-icon" data-md-component="top" hidden>
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M13 20h-2V8l-5.5 5.5-1.42-1.42L12 4.16l7.92 7.92-1.42 1.42L13 8z"/></svg>
+  Back to top
+</button>
+        
+      </main>
+      
+        <footer class="md-footer">
+  
+    
+      
+      <nav class="md-footer__inner md-grid" aria-label="Footer" >
+        
+          
+          <a href="../tables/" class="md-footer__link md-footer__link--prev" aria-label="Previous: Tables and columns">
+            <div class="md-footer__button md-icon">
+              
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11z"/></svg>
+            </div>
+            <div class="md-footer__title">
+              <span class="md-footer__direction">
+                Previous
+              </span>
+              <div class="md-ellipsis">
+                Tables and columns
+              </div>
+            </div>
+          </a>
+        
+        
+          
+          <a href="../api/parsing/" class="md-footer__link md-footer__link--next" aria-label="Next: Parsing and results">
+            <div class="md-footer__title">
+              <span class="md-footer__direction">
+                Next
+              </span>
+              <div class="md-ellipsis">
+                Parsing and results
+              </div>
+            </div>
+            <div class="md-footer__button md-icon">
+              
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M4 11v2h12l-5.5 5.5 1.42 1.42L19.84 12l-7.92-7.92L10.5 5.5 16 11z"/></svg>
+            </div>
+          </a>
+        
+      </nav>
+    
+  
+  <div class="md-footer-meta md-typeset">
+    <div class="md-footer-meta__inner md-grid">
+      <div class="md-copyright">
+  
+  
+    Made with
+    <a href="https://squidfunk.github.io/mkdocs-material/" target="_blank" rel="noopener">
+      Material for MkDocs
+    </a>
+  
+</div>
+      
+    </div>
+  </div>
+</footer>
+      
+    </div>
+    <div class="md-dialog" data-md-component="dialog">
+      <div class="md-dialog__inner md-typeset"></div>
+    </div>
+    
+    
+    
+      
+      
+      <script id="__config" type="application/json">{"annotate": null, "base": "../..", "features": ["navigation.tabs", "navigation.indexes", "navigation.sections", "navigation.top", "navigation.footer", "content.tabs.link", "content.code.copy", "search.highlight", "search.suggest"], "search": "../../assets/javascripts/workers/search.2c215733.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": {"provider": "mike"}}</script>
+    
+    
+      <script src="../../assets/javascripts/bundle.d7400e89.min.js"></script>
+      
+    
+  </body>
+</html>

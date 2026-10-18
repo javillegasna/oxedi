@@ -1,0 +1,59 @@
+# oxedi
+
+> oxedi is a lossless, fast parser and writer for X12 EDI 835 healthcare remittance files, for Python and DuckDB. Every input byte is kept, and problems come back as diagnostics instead of errors.
+
+Read an 835 into payment, claim, service line and adjustment tables for Polars, pandas, pyarrow or DuckDB, validate it, and write an 835 back from tables. Install with `pip install oxedi`. The browser viewer reads files locally and never uploads them.
+
+## Get started
+
+- [Get started](https://javillegas.dev/oxedi/latest/start/): What oxedi is and where to begin
+- [Install](https://javillegas.dev/oxedi/latest/start/install/): Install the Python package
+- [The 835 in five minutes](https://javillegas.dev/oxedi/latest/start/the-835/): What an 835 remittance contains and how oxedi models it
+- [Try it in your browser](https://javillegas.dev/oxedi/latest/start/viewer/): Read an 835 in the browser viewer without installing anything
+
+## Python
+
+- [Reading 835 files](https://javillegas.dev/oxedi/latest/python/reading/): Parse files into payment, claim, service line and adjustment tables
+- [Reading large files](https://javillegas.dev/oxedi/latest/python/large-files/): Stream tables one transaction or claim at a time, and parse many files in parallel
+- [Diagnostics](https://javillegas.dev/oxedi/latest/python/diagnostics/): The problems oxedi reports instead of raising errors
+- [Writing 835 files](https://javillegas.dev/oxedi/latest/python/writing/): Write an 835 from tables with checked control numbers, counts and balancing
+- [Writing from your own tables](https://javillegas.dev/oxedi/latest/python/own-tables/): Build an 835 from your own DataFrames
+- [When the writer refuses a file](https://javillegas.dev/oxedi/latest/python/when-write-refuses/): Why the writer rejects input and how to fix it
+- [Sharing data without patient information](https://javillegas.dev/oxedi/latest/python/without-patient-data/): Mask patient names, ids and dates in the tables and diagnostics with a key
+- [Validating with pyx12](https://javillegas.dev/oxedi/latest/python/pyx12/): Run pyx12 validation and get findings as oxedi diagnostics
+- [Customizing the spec](https://javillegas.dev/oxedi/latest/customize/spec/): Adapt parsing to your payers by changing the spec, which is plain data
+
+## DuckDB
+
+- [DuckDB extension](https://javillegas.dev/oxedi/latest/duckdb/): Overview of the DuckDB extension
+- [Reading with SQL](https://javillegas.dev/oxedi/latest/duckdb/reading/): read_835 over files, folders, globs and cloud storage
+- [Writing with COPY](https://javillegas.dev/oxedi/latest/duckdb/writing/): Write an 835 with COPY
+- [Types and limits](https://javillegas.dev/oxedi/latest/duckdb/limits/): Column types and known limits of the extension
+
+## Recipes
+
+- [A Parquet lakehouse with DuckDB](https://javillegas.dev/oxedi/latest/recipes/lakehouse/): Turn remittances into a Parquet lakehouse
+- [Analytics with Polars](https://javillegas.dev/oxedi/latest/recipes/polars/): Analyze payments and denials with Polars
+- [oxedi in a pipeline](https://javillegas.dev/oxedi/latest/recipes/pipelines/): Use oxedi in batch and scheduled pipelines
+
+## Reference
+
+- [Tables and columns](https://javillegas.dev/oxedi/latest/reference/tables/): Every table and column oxedi produces
+- [Glossary](https://javillegas.dev/oxedi/latest/reference/glossary/): 835 and X12 terms used in the docs
+- [Python API: parsing and results](https://javillegas.dev/oxedi/latest/reference/api/parsing/): Parsing functions and result types
+- [Python API: writing](https://javillegas.dev/oxedi/latest/reference/api/writing/): Writing functions
+- [Python API: spec](https://javillegas.dev/oxedi/latest/reference/api/spec/): Spec types
+- [Python API: diagnostics](https://javillegas.dev/oxedi/latest/reference/api/diagnostics/): Diagnostic types
+- [Python API: pyx12](https://javillegas.dev/oxedi/latest/reference/api/pyx12/): pyx12 integration
+- [Python API: edi_835_parser](https://javillegas.dev/oxedi/latest/reference/api/edi_835_parser/): Drop-in compatible API of edi-835-parser
+
+## About
+
+- [Migrating from edi-835-parser](https://javillegas.dev/oxedi/latest/migrating-from-edi-835-parser/): Move existing code to oxedi
+- [Roadmap](https://javillegas.dev/oxedi/latest/roadmap/): What is available now, next and being considered
+
+## Optional
+
+- [Browser viewer](https://javillegas.dev/oxedi/viewer/): Drop an 835 on the page to see payments, tables, problems and loops; nothing is uploaded
+- [Source code](https://github.com/javillegasna/oxedi): Repository, issues and contributing
+- [Changelog](https://github.com/javillegasna/oxedi/blob/master/CHANGELOG.md): Release notes

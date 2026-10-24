@@ -149,9 +149,10 @@ impl Mask {
         i32::try_from(u32::from_be_bytes(head) % 365).unwrap_or(0) - 182
     }
 
-    /// January 1 of the year containing `days` (days since 1970-01-01), as days.
-    pub fn year_start(days: i32) -> i32 {
-        crate::value::year_start(days).unwrap_or(days)
+    /// January 1 of the year containing `days` (days since 1970-01-01), as
+    /// days; `None` when that January 1 is before `i32::MIN`.
+    pub fn year_start(days: i32) -> Option<i32> {
+        crate::value::year_start(days)
     }
 
     fn digest(&self, tag: &[u8], value: &[u8]) -> [u8; 32] {

@@ -36,8 +36,7 @@ fn a_time_of_day_is_below_one_day() {
     assert_eq!(time_of_day(-1), None);
 }
 
-/// The year start the mask computed before the calendar was shared, kept as
-/// the reference the checked path must equal.
+/// An independent `i64` year start, the reference the checked path must equal.
 fn reference_year_start(days: i32) -> i32 {
     let days_i64 = i64::from(days);
     let z = days_i64 + 719_468;

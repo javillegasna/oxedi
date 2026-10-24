@@ -13,7 +13,7 @@ use oxedi_core::{Cell, ColumnType, Table};
 
 use super::convert;
 use super::error::CopyError;
-use super::input::{BoundTable, EnumIndex, FieldType, Integer, Unit};
+use super::input::{BoundTable, EnumIndex, FieldType, Integer};
 
 /// Appends the rows of `chunk` to `tables`, one per bound table.
 ///
@@ -184,24 +184,14 @@ impl Field<'_> {
         // SAFETY: the data holds values of the field's physical type
         // (caller contract) and `row` is in range.
         let raw = unsafe { self.raw(row) };
-        let mismatch = || {
-            format!(
-                "an internal mismatch: a {:?} field for a {} column",
-                self.input, self.kind
-            )
-        };
+        self.convert(raw)
+    }
+
+    /// `raw` as a cell of the column's type, or why it does not convert.
+    fn convert<'a>(&'a self, raw: Raw<'a>) -> Result<Cell<'a>, String> {
         match (self.kind, raw) {
             (ColumnType::Binary, Raw::Bytes(bytes)) => Ok(Cell::Binary(bytes)),
-            (ColumnType::Binary, Raw::Key(key)) => usize::try_from(key)
-                .ok()
-                .and_then(|index| self.dictionary.get(index))
-                .map(|bytes| Cell::Binary(bytes))
-                .ok_or_else(|| {
-                    format!(
-                        "the dictionary key {key} is outside the column's {} dictionary values",
-                        self.dictionary.len()
-                    )
-                }),
+            (ColumnType::Binary, Raw::Key(key)) => self.dictionary_cell(key),
             (ColumnType::Int64 { .. }, Raw::Signed(value)) => {
                 convert::wide_integer(value).map(Cell::Int64)
             }
@@ -212,12 +202,10 @@ impl Field<'_> {
                 convert::float_integer(value).map(Cell::Int64)
             }
             (ColumnType::Decimal128 { scale, .. }, Raw::Signed(value)) => {
-                let value = convert::wide_integer(value)?;
-                convert::rescale(i128::from(value), 0, scale).map(Cell::Decimal128)
+                integer_decimal(convert::wide_integer(value), scale)
             }
             (ColumnType::Decimal128 { scale, .. }, Raw::Unsigned(value)) => {
-                let value = convert::unsigned_integer(value)?;
-                convert::rescale(i128::from(value), 0, scale).map(Cell::Decimal128)
+                integer_decimal(convert::unsigned_integer(value), scale)
             }
             (ColumnType::Decimal128 { scale, .. }, Raw::Decimal(value, from)) => {
                 convert::rescale(value, from, scale).map(Cell::Decimal128)
@@ -229,8 +217,31 @@ impl Field<'_> {
             (ColumnType::Time32, Raw::Time(value, unit)) => {
                 convert::whole_seconds(value, unit).map(Cell::Time32)
             }
-            _ => Err(mismatch()),
+            _ => Err(self.mismatch()),
         }
+    }
+
+    /// The dictionary value an `ENUM` key names, or why there is none.
+    fn dictionary_cell(&self, key: u32) -> Result<Cell<'_>, String> {
+        usize::try_from(key)
+            .ok()
+            .and_then(|index| self.dictionary.get(index))
+            .map(|bytes| Cell::Binary(bytes))
+            .ok_or_else(|| {
+                format!(
+                    "the dictionary key {key} is outside the column's {} dictionary values",
+                    self.dictionary.len()
+                )
+            })
+    }
+
+    /// The message for a value the field's input type should not produce for
+    /// the column's type.
+    fn mismatch(&self) -> String {
+        format!(
+            "an internal mismatch: a {:?} field for a {} column",
+            self.input, self.kind
+        )
     }
 
     /// The value at `row` as DuckDB stores it.
@@ -254,15 +265,16 @@ impl Field<'_> {
                 FieldType::Integer(Integer::I32) => Raw::Signed(at::<i32>(data, row).into()),
                 FieldType::Integer(Integer::I64) => Raw::Signed(at::<i64>(data, row).into()),
                 FieldType::Integer(Integer::I128) => {
-                    Raw::Signed(hugeint(at::<ffi::duckdb_hugeint>(data, row)))
+                    Raw::Signed(convert::from_hugeint(at::<ffi::duckdb_hugeint>(data, row)))
                 }
                 FieldType::Integer(Integer::U8) => Raw::Unsigned(at::<u8>(data, row).into()),
                 FieldType::Integer(Integer::U16) => Raw::Unsigned(at::<u16>(data, row).into()),
                 FieldType::Integer(Integer::U32) => Raw::Unsigned(at::<u32>(data, row).into()),
                 FieldType::Integer(Integer::U64) => Raw::Unsigned(at::<u64>(data, row).into()),
                 FieldType::Integer(Integer::U128) => {
-                    let value = at::<ffi::duckdb_uhugeint>(data, row);
-                    Raw::Unsigned((u128::from(value.upper) << 64) | u128::from(value.lower))
+                    Raw::Unsigned(convert::from_uhugeint(at::<ffi::duckdb_uhugeint>(
+                        data, row,
+                    )))
                 }
                 FieldType::Float => Raw::Float(at::<f32>(data, row).into()),
                 FieldType::Double => Raw::Float(at::<f64>(data, row)),
@@ -277,6 +289,13 @@ impl Field<'_> {
             }
         }
     }
+}
+
+/// An integer, or why it is refused, as a decimal cell of `scale`.
+fn integer_decimal(value: Result<i64, String>, scale: u8) -> Result<Cell<'static>, String> {
+    value
+        .and_then(|value| convert::rescale(i128::from(value), 0, scale))
+        .map(Cell::Decimal128)
 }
 
 /// The `row`-th value of the data, read as `T`.
@@ -321,7 +340,7 @@ unsafe fn decimal_at(data: *mut c_void, row: usize, width: u8) -> i128 {
             0..=4 => at::<i16>(data, row).into(),
             5..=9 => at::<i32>(data, row).into(),
             10..=18 => at::<i64>(data, row).into(),
-            _ => hugeint(at::<ffi::duckdb_hugeint>(data, row)),
+            _ => convert::from_hugeint(at::<ffi::duckdb_hugeint>(data, row)),
         }
     }
 }
@@ -340,11 +359,7 @@ enum Raw<'a> {
     Date(i32),
     /// A time and the unit it is counted in.
     Time(i64, TimeUnit),
-    Timestamp(i64, Unit),
+    /// A timestamp and the unit it is counted in.
+    Timestamp(i64, TimeUnit),
     None,
-}
-
-/// A DuckDB `hugeint` as `i128`.
-fn hugeint(value: ffi::duckdb_hugeint) -> i128 {
-    (i128::from(value.upper) << 64) | i128::from(value.lower)
 }

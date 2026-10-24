@@ -6,16 +6,16 @@
 
 use oxedi_core::value;
 
-use super::input::Unit;
+use libduckdb_sys as ffi;
 
-/// The core's unit for a timestamp's.
-fn core_unit(unit: Unit) -> value::TimeUnit {
-    match unit {
-        Unit::Second => value::TimeUnit::Second,
-        Unit::Milli => value::TimeUnit::Millisecond,
-        Unit::Micro => value::TimeUnit::Microsecond,
-        Unit::Nano => value::TimeUnit::Nanosecond,
-    }
+/// A DuckDB `hugeint` as `i128`.
+pub fn from_hugeint(value: ffi::duckdb_hugeint) -> i128 {
+    (i128::from(value.upper) << 64) | i128::from(value.lower)
+}
+
+/// A DuckDB `uhugeint` as `u128`.
+pub fn from_uhugeint(value: ffi::duckdb_uhugeint) -> u128 {
+    (u128::from(value.upper) << 64) | u128::from(value.lower)
 }
 
 /// An integer as `i64`, or why it does not fit.
@@ -40,8 +40,8 @@ pub fn rescale(value: i128, from: u8, scale: u8) -> Result<i128, String> {
 }
 
 /// Days since 1970-01-01 of a timestamp at exactly midnight.
-pub fn timestamp_date(value: i64, unit: Unit) -> Result<i32, String> {
-    value::date_from_midnight(value, core_unit(unit)).map_err(|error| error.to_string())
+pub fn timestamp_date(value: i64, unit: value::TimeUnit) -> Result<i32, String> {
+    value::date_from_midnight(value, unit).map_err(|error| error.to_string())
 }
 
 /// Seconds since midnight of a time counted in `unit`.

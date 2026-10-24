@@ -2,6 +2,7 @@ use super::super::{
     ConvertError, MAX_SCALE, TimeUnit, date_from_midnight, date_from_millis, integer_from_f64,
     integer_from_i128, integer_from_u128, rescale, seconds_from,
 };
+use crate::column::DECIMAL_PRECISION;
 use std::error::Error;
 
 #[test]
@@ -48,10 +49,6 @@ fn every_variant_explains_itself() {
             "5 ms is out of range",
         ),
         (ConvertError::OutOfRange { value: 9 }, "9 is out of range"),
-        (
-            ConvertError::UnitNotPositive { unit: 0 },
-            "the unit 0 is not positive; ticks per day or per second must be at least 1",
-        ),
         (
             ConvertError::NotWholeSecond { value: 1_500_000 },
             "1500000 is not a whole second",
@@ -127,7 +124,7 @@ fn rescale_cases() {
 
 #[test]
 fn every_reachable_shift_has_a_power() {
-    for from in 0..=38i32 {
+    for from in 0..=i32::from(DECIMAL_PRECISION) {
         for scale in 0..=MAX_SCALE {
             let shift = (i32::from(scale) - from).unsigned_abs();
             assert!(10i128.checked_pow(shift).is_some(), "{from} {scale}");
@@ -137,16 +134,23 @@ fn every_reachable_shift_has_a_power() {
 
 #[test]
 fn timestamps_must_be_at_midnight() {
-    assert_eq!(date_from_midnight(86_400, 86_400), Ok(1));
-    assert_eq!(date_from_midnight(86_400_000, 86_400_000), Ok(1));
-    assert_eq!(date_from_midnight(-86_400_000_000, 86_400_000_000), Ok(-1));
+    assert_eq!(date_from_midnight(86_400, TimeUnit::Second), Ok(1));
+    assert_eq!(date_from_midnight(86_400_000, TimeUnit::Millisecond), Ok(1));
     assert_eq!(
-        date_from_midnight(1, 86_400_000_000),
+        date_from_midnight(-86_400_000_000, TimeUnit::Microsecond),
+        Ok(-1)
+    );
+    assert_eq!(
+        date_from_midnight(1, TimeUnit::Microsecond),
         Err(ConvertError::NotMidnight { value: 1 })
+    );
+    assert_eq!(
+        date_from_midnight(i64::MIN, TimeUnit::Second),
+        Err(ConvertError::NotMidnight { value: i64::MIN })
     );
     let far = i64::MAX / 86_400 * 86_400;
     assert_eq!(
-        date_from_midnight(far, 86_400),
+        date_from_midnight(far, TimeUnit::Second),
         Err(ConvertError::OutOfRange { value: far })
     );
 }
@@ -167,26 +171,19 @@ fn millisecond_dates_must_be_whole_days() {
 
 #[test]
 fn times_must_be_whole_seconds() {
-    assert_eq!(seconds_from(37_800_000_000, 1_000_000), Ok(37_800));
     assert_eq!(
-        seconds_from(1_500_000, 1_000_000),
+        seconds_from(37_800_000_000, TimeUnit::Microsecond),
+        Ok(37_800)
+    );
+    assert_eq!(
+        seconds_from(1_500_000, TimeUnit::Microsecond),
         Err(ConvertError::NotWholeSecond { value: 1_500_000 })
     );
     let far = i64::MAX - i64::MAX % 1_000;
     assert_eq!(
-        seconds_from(far, 1_000),
+        seconds_from(far, TimeUnit::Millisecond),
         Err(ConvertError::OutOfRange { value: far })
     );
-}
-
-#[test]
-fn zero_or_negative_units_are_refused() {
-    let refused = |unit| Err(ConvertError::UnitNotPositive { unit });
-    assert_eq!(seconds_from(1, 0), refused(0));
-    assert_eq!(seconds_from(1, -1), refused(-1));
-    assert_eq!(date_from_midnight(1, -1), refused(-1));
-    assert_eq!(date_from_midnight(1, 0), refused(0));
-    assert!(date_from_midnight(i64::MIN, 86_400).is_err());
 }
 
 #[test]

@@ -1,6 +1,7 @@
 //! Conversions from the numbers a caller holds to the values of a column
 //! type. Each one either keeps the value exactly or says why it cannot.
 
+use super::TimeUnit;
 use std::fmt;
 
 /// The largest decimal scale a spec's `R` element takes;
@@ -33,8 +34,6 @@ pub enum ConvertError {
     DayOutOfRange { millis: i64 },
     /// A count of days or seconds that does not fit 32 bits.
     OutOfRange { value: i64 },
-    /// A number of ticks per day or per second below 1.
-    UnitNotPositive { unit: i64 },
     /// A time that is not a whole number of seconds.
     NotWholeSecond { value: i64 },
 }
@@ -58,10 +57,6 @@ impl fmt::Display for ConvertError {
             Self::NotWholeDay { millis } => write!(f, "{millis} ms is not a whole day"),
             Self::DayOutOfRange { millis } => write!(f, "{millis} ms is out of range"),
             Self::OutOfRange { value } => write!(f, "{value} is out of range"),
-            Self::UnitNotPositive { unit } => write!(
-                f,
-                "the unit {unit} is not positive; ticks per day or per second must be at least 1"
-            ),
             Self::NotWholeSecond { value } => write!(f, "{value} is not a whole second"),
         }
     }
@@ -90,8 +85,8 @@ pub fn integer_from_f64(value: f64) -> Result<i64, ConvertError> {
 }
 
 /// `value` at scale `from` (decimal places, negative for powers of ten)
-/// rescaled to `scale`, or why it does not rescale exactly. Zero scales up to
-/// zero at any distance.
+/// rescaled to `scale`, or why it does not rescale exactly. Zero rescales to
+/// zero at any distance, up or down.
 pub fn rescale(value: i128, from: i32, scale: u8) -> Result<i128, ConvertError> {
     let shift = i32::from(scale).saturating_sub(from);
     let factor = 10i128.checked_pow(shift.unsigned_abs());
@@ -121,18 +116,16 @@ fn scaled_down(value: i128, factor: Option<i128>) -> Option<i128> {
     })
 }
 
-/// `value` divided by `unit` when `unit` is positive and divides it.
+/// `value` divided by `unit` when `unit` divides it. `unit` is a positive
+/// constant, so `checked_rem` fails only where `value / unit` would overflow.
 fn whole_units(value: i64, unit: i64) -> Option<i64> {
-    (unit > 0 && value.checked_rem(unit) == Some(0)).then(|| value / unit)
+    (value.checked_rem(unit) == Some(0)).then(|| value / unit)
 }
 
-/// Days since 1970-01-01 of a timestamp at exactly midnight, `per_day` ticks
-/// to the day (see [`crate::value::TimeUnit::ticks_per_day`]).
-pub fn date_from_midnight(value: i64, per_day: i64) -> Result<i32, ConvertError> {
-    if per_day <= 0 {
-        return Err(ConvertError::UnitNotPositive { unit: per_day });
-    }
-    let days = whole_units(value, per_day).ok_or(ConvertError::NotMidnight { value })?;
+/// Days since 1970-01-01 of a timestamp counted in `unit` at exactly midnight.
+pub fn date_from_midnight(value: i64, unit: TimeUnit) -> Result<i32, ConvertError> {
+    let days =
+        whole_units(value, unit.ticks_per_day()).ok_or(ConvertError::NotMidnight { value })?;
     i32::try_from(days).map_err(|_| ConvertError::OutOfRange { value })
 }
 
@@ -142,11 +135,9 @@ pub fn date_from_millis(millis: i64) -> Result<i32, ConvertError> {
     i32::try_from(days).map_err(|_| ConvertError::DayOutOfRange { millis })
 }
 
-/// Seconds since midnight of a time counted `per_second` ticks to the second.
-pub fn seconds_from(value: i64, per_second: i64) -> Result<i32, ConvertError> {
-    if per_second <= 0 {
-        return Err(ConvertError::UnitNotPositive { unit: per_second });
-    }
-    let seconds = whole_units(value, per_second).ok_or(ConvertError::NotWholeSecond { value })?;
+/// Seconds since midnight of a time counted in `unit`.
+pub fn seconds_from(value: i64, unit: TimeUnit) -> Result<i32, ConvertError> {
+    let seconds = whole_units(value, unit.ticks_per_second())
+        .ok_or(ConvertError::NotWholeSecond { value })?;
     i32::try_from(seconds).map_err(|_| ConvertError::OutOfRange { value })
 }

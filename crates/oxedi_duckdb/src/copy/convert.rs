@@ -41,11 +41,10 @@ pub fn rescale(value: i128, from: u8, scale: u8) -> Result<i128, String> {
 
 /// Days since 1970-01-01 of a timestamp at exactly midnight.
 pub fn timestamp_date(value: i64, unit: Unit) -> Result<i32, String> {
-    value::date_from_midnight(value, core_unit(unit).ticks_per_day())
-        .map_err(|error| error.to_string())
+    value::date_from_midnight(value, core_unit(unit)).map_err(|error| error.to_string())
 }
 
-/// Seconds since midnight of a time counted `per_second` to the second.
-pub fn whole_seconds(value: i64, per_second: i64) -> Result<i32, String> {
-    value::seconds_from(value, per_second).map_err(|error| error.to_string())
+/// Seconds since midnight of a time counted in `unit`.
+pub fn whole_seconds(value: i64, unit: value::TimeUnit) -> Result<i32, String> {
+    value::seconds_from(value, unit).map_err(|error| error.to_string())
 }

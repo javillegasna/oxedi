@@ -8,6 +8,7 @@
 use std::ffi::c_void;
 
 use libduckdb_sys as ffi;
+use oxedi_core::value::TimeUnit;
 use oxedi_core::{Cell, ColumnType, Table};
 
 use super::convert;
@@ -225,8 +226,8 @@ impl Field<'_> {
             (ColumnType::Date32, Raw::Timestamp(value, unit)) => {
                 convert::timestamp_date(value, unit).map(Cell::Date32)
             }
-            (ColumnType::Time32, Raw::Time(value, per_second)) => {
-                convert::whole_seconds(value, per_second).map(Cell::Time32)
+            (ColumnType::Time32, Raw::Time(value, unit)) => {
+                convert::whole_seconds(value, unit).map(Cell::Time32)
             }
             _ => Err(mismatch()),
         }
@@ -239,30 +240,12 @@ impl Field<'_> {
     /// `row` must be below the vector's row count; the vector must be flat
     /// and of the field's input type.
     unsafe fn raw(&self, row: usize) -> Raw<'_> {
-        /// The `row`-th value of the data, read as `T`.
-        ///
-        /// # Safety
-        ///
-        /// `data` must hold more than `row` values of type `T`.
-        unsafe fn at<T: Copy>(data: *mut c_void, row: usize) -> T {
-            // SAFETY: caller contract.
-            unsafe { *data.cast::<T>().add(row) }
-        }
         let data = self.data;
         // SAFETY: each arm reads the physical type DuckDB stores for the
         // field's type (caller contract).
         unsafe {
             match self.input {
-                FieldType::Varchar | FieldType::Blob => {
-                    let string = data.cast::<ffi::duckdb_string_t>().add(row);
-                    let len = ffi::duckdb_string_t_length(*string) as usize;
-                    let start = ffi::duckdb_string_t_data(string).cast::<u8>();
-                    Raw::Bytes(if len == 0 || start.is_null() {
-                        &[]
-                    } else {
-                        std::slice::from_raw_parts(start, len)
-                    })
-                }
+                FieldType::Varchar | FieldType::Blob => Raw::Bytes(bytes_at(data, row)),
                 FieldType::Enum(EnumIndex::U8) => Raw::Key(at::<u8>(data, row).into()),
                 FieldType::Enum(EnumIndex::U16) => Raw::Key(at::<u16>(data, row).into()),
                 FieldType::Enum(EnumIndex::U32) => Raw::Key(at::<u32>(data, row)),
@@ -283,21 +266,62 @@ impl Field<'_> {
                 }
                 FieldType::Float => Raw::Float(at::<f32>(data, row).into()),
                 FieldType::Double => Raw::Float(at::<f64>(data, row)),
-                FieldType::Decimal { width, scale } => Raw::Decimal(
-                    match width {
-                        0..=4 => at::<i16>(data, row).into(),
-                        5..=9 => at::<i32>(data, row).into(),
-                        10..=18 => at::<i64>(data, row).into(),
-                        _ => hugeint(at::<ffi::duckdb_hugeint>(data, row)),
-                    },
-                    scale,
-                ),
+                FieldType::Decimal { width, scale } => {
+                    Raw::Decimal(decimal_at(data, row, width), scale)
+                }
                 FieldType::Date => Raw::Date(at::<i32>(data, row)),
-                FieldType::Time => Raw::Time(at::<i64>(data, row), 1_000_000),
-                FieldType::TimeNs => Raw::Time(at::<i64>(data, row), 1_000_000_000),
+                FieldType::Time => Raw::Time(at::<i64>(data, row), TimeUnit::Microsecond),
+                FieldType::TimeNs => Raw::Time(at::<i64>(data, row), TimeUnit::Nanosecond),
                 FieldType::Timestamp(unit) => Raw::Timestamp(at::<i64>(data, row), unit),
                 FieldType::Null | FieldType::Other => Raw::None,
             }
+        }
+    }
+}
+
+/// The `row`-th value of the data, read as `T`.
+///
+/// # Safety
+///
+/// `data` must hold more than `row` values of type `T`.
+unsafe fn at<T: Copy>(data: *mut c_void, row: usize) -> T {
+    // SAFETY: caller contract.
+    unsafe { *data.cast::<T>().add(row) }
+}
+
+/// The bytes of the `row`-th string of the data.
+///
+/// # Safety
+///
+/// `data` must hold more than `row` values of type `duckdb_string_t`.
+unsafe fn bytes_at<'a>(data: *mut c_void, row: usize) -> &'a [u8] {
+    // SAFETY: caller contract; the string's data holds `len` bytes.
+    unsafe {
+        let string = data.cast::<ffi::duckdb_string_t>().add(row);
+        let len = ffi::duckdb_string_t_length(*string) as usize;
+        let start = ffi::duckdb_string_t_data(string).cast::<u8>();
+        if len == 0 || start.is_null() {
+            &[]
+        } else {
+            std::slice::from_raw_parts(start, len)
+        }
+    }
+}
+
+/// The integer of the `row`-th decimal of the data, stored as DuckDB stores
+/// a decimal of `width` digits.
+///
+/// # Safety
+///
+/// `data` must hold more than `row` decimals of width `width`.
+unsafe fn decimal_at(data: *mut c_void, row: usize, width: u8) -> i128 {
+    // SAFETY: caller contract; each arm reads the type of its width.
+    unsafe {
+        match width {
+            0..=4 => at::<i16>(data, row).into(),
+            5..=9 => at::<i32>(data, row).into(),
+            10..=18 => at::<i64>(data, row).into(),
+            _ => hugeint(at::<ffi::duckdb_hugeint>(data, row)),
         }
     }
 }
@@ -314,8 +338,8 @@ enum Raw<'a> {
     Decimal(i128, u8),
     /// Days since 1970-01-01.
     Date(i32),
-    /// A time and its count per second.
-    Time(i64, i64),
+    /// A time and the unit it is counted in.
+    Time(i64, TimeUnit),
     Timestamp(i64, Unit),
     None,
 }

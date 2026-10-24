@@ -6,7 +6,10 @@ default seccomp profile and limits on processes, memory and CPUs. It sees the ch
 with the files the host executes later (Makefile, make/, tools/, ...) bound read-only on top and
 the maintainers' notes masked, and its own storage under ${XDG_CACHE_HOME:-~/.cache}/oxedi-sandbox:
 target/ and .venv/ per checkout, the cargo registry shared. No host variable and no part of the
-host home other than that storage reaches it. The command runs with no network.
+host home other than that storage reaches it. Two phases, each in its own containers:
+- fetch: with network, the checkout read-only, no project code run: `cargo fetch --locked` and
+  wheels only for the venv, written to the shared caches; it never falls back to them offline;
+- run: the command, with no network and the cargo registry read-only.
 
 usage: sandbox.py --image TAG --checkout DIR
 The command comes from SANDBOX_CMD. SANDBOX_CPUS (default: the daemon's CPUs minus one),
@@ -43,6 +46,11 @@ HOST_EXECUTED = (
 MASKED = (".doc", ".workflow-kit", ".doc/scratch")
 # Characters that would break a `--mount` field list or a log line.
 UNSAFE_IN_PATH = (",", '"', "\n")
+VENV = f"{WORK}/.venv"
+# The Python the venv is made with, and the dependency group the fetch installs into it.
+VENV_PYTHON = "3.13"
+DEV_GROUP = "crates/oxedi_py/pyproject.toml:dev"
+FETCH_BUDGET_S = 600
 DEFAULT_TIMEOUT_S = 3600
 KILL_GRACE_S = 10
 STDERR_TAIL_BYTES = 4096
@@ -185,6 +193,8 @@ def fetch_delta(checkout: Checkout, storage: Storage) -> list[str]:
         *env_args({
             "HOME": HOME, "CARGO_HOME": CARGO_HOME, "CARGO_BUILD_RUSTC_WRAPPER": "",
             "CARGO_BUILD_RUSTC_WORKSPACE_WRAPPER": "", "UV_CACHE_DIR": UV_CACHE,
+            # The cache and the venv are separate mounts, so uv copies instead of hardlinking.
+            "UV_LINK_MODE": "copy",
         }),
         *bind(checkout.root, WORK, True), *read_only_set(checkout, (".cargo",)), *cargo_mask,
         *bind(storage.venv, f"{WORK}/.venv", False),
@@ -215,6 +225,30 @@ def docker_args(
 ) -> list[str]:
     """The `docker run` options of a phase: the hardened base, then what the phase changes."""
     return hardened_base(checkout, uid, gid, runtime, limits) + PHASE_DELTA[phase](checkout, storage)
+
+
+def fetch_commands(venv_current: bool) -> list[list[str]]:
+    """The fetch phase, fixed here: it never runs make, a repository script, a build script or an
+    sdist. `cargo fetch` builds nothing; `--no-build` lets uv install wheels only."""
+    venv = [] if venv_current else [["uv", "venv", "--python", VENV_PYTHON, VENV]]
+    install = ["uv", "pip", "install", "--python", f"{VENV}/bin/python", "--no-build", "--group", DEV_GROUP]
+    return [["cargo", "fetch", "--locked"], *venv, install]
+
+
+def venv_is_current(pyvenv_cfg: Path) -> bool:
+    """Whether the venv was made with the image's CPython 3.13. uv records the minor version and
+    links the venv through the install's minor-version directory, so a patch bump keeps it."""
+    if not pyvenv_cfg.is_file():
+        return False
+    lines = pyvenv_cfg.read_text().splitlines()
+    fields = dict(tuple(part.strip() for part in line.partition("=")[::2]) for line in lines)
+    return fields.get("version_info", "").split(".")[:2] == VENV_PYTHON.split(".")
+
+
+def reset_dir(directory: Path) -> None:
+    """Empties a storage directory, so `uv venv` starts from nothing; links inside are not followed."""
+    shutil.rmtree(directory)
+    directory.mkdir(mode=0o700)
 
 
 def run_command(command: str) -> list[str]:
@@ -348,15 +382,17 @@ def run_container(argv: list[str], name: str, timeout_s: float) -> Outcome:
     return Outcome(status, tee.last_line(), False)
 
 
-def explain(outcome: Outcome, limits: Limits) -> str:
+def explain(outcome: Outcome, limits: Limits, budget: str, failure: str) -> str:
+    """The line for a container that did not exit 0. `budget` names the time limit and `failure`
+    says what failed when neither docker nor the memory limit is the cause."""
     if outcome.timed_out:
-        return f"the command ran past SANDBOX_TIMEOUT={limits.timeout_s} s; the container was killed"
+        return f"{budget}; the container was killed"
     if outcome.status == 125:
         return f"docker could not start the container: {outcome.cause}"
     if outcome.status == 137:
         return (f"the container was killed (exit 137), most likely by its {limits.memory_gb} GB memory limit; "
                 "raise it with SANDBOX_MEMORY=<GB>")
-    return f"command exited {outcome.status}"
+    return failure
 
 
 @dataclass(frozen=True)
@@ -387,12 +423,33 @@ def describe(plan: Plan, labels: dict[str, str]) -> str:
     ])
 
 
+def fetch_phase(plan: Plan) -> int:
+    """Runs the fetch commands, each in its own container, within one budget; stops at the first
+    failure."""
+    started = time.monotonic()
+    current = venv_is_current(plan.storage.venv / "pyvenv.cfg")
+    if not current:
+        reset_dir(plan.storage.venv)
+    for command in fetch_commands(current):
+        remaining = FETCH_BUDGET_S - (time.monotonic() - started)
+        outcome = run_container(plan.argv(Phase.FETCH, command), plan.checkout.name, max(1.0, remaining))
+        if outcome.status != 0:
+            budget = f"the fetch ran past its {FETCH_BUDGET_S} s budget"
+            failure = (f"fetch failed: {' '.join(command)} exited {outcome.status}; the fetch needs the network "
+                       "and never falls back to the caches offline")
+            print(f"sandbox: {explain(outcome, plan.limits, budget, failure)}", file=sys.stderr)
+            return outcome.status
+    print(f"sandbox: fetch took {time.monotonic() - started:.1f} s", file=sys.stderr)
+    return 0
+
+
 def run_phase(plan: Plan, command: str) -> int:
     started = time.monotonic()
     outcome = run_container(plan.argv(Phase.RUN, run_command(command)), plan.checkout.name, plan.limits.timeout_s)
     print(f"sandbox: run took {time.monotonic() - started:.1f} s", file=sys.stderr)
     if outcome.status != 0:
-        print(f"sandbox: {explain(outcome, plan.limits)}", file=sys.stderr)
+        budget = f"the command ran past SANDBOX_TIMEOUT={plan.limits.timeout_s} s"
+        print(f"sandbox: {explain(outcome, plan.limits, budget, f'command exited {outcome.status}')}", file=sys.stderr)
     return outcome.status
 
 
@@ -413,7 +470,8 @@ def sandbox(image: str, checkout_dir: Path, env: dict[str, str]) -> int:
     refuse_if_running(checkout.name)
     prepare(plan.storage, checkout)
     print(describe(plan, labels), file=sys.stderr)
-    return run_phase(plan, command)
+    status = fetch_phase(plan)
+    return status if status != 0 else run_phase(plan, command)
 
 
 def main(argv: list[str]) -> int:

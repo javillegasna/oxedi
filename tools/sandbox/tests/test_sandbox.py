@@ -166,6 +166,8 @@ class Arguments(World):
         self.assertNotIn("readonly", uv[0])
         self.assertIn("CARGO_BUILD_RUSTC_WRAPPER=", envs(fetch))
         self.assertIn("CARGO_BUILD_RUSTC_WORKSPACE_WRAPPER=", envs(fetch))
+        self.assertIn(f"UV_CACHE_DIR={sandbox.UV_CACHE}", envs(fetch))
+        self.assertIn(f"CARGO_HOME={sandbox.CARGO_HOME}", envs(fetch))
         run = self.phase_args(sandbox.Phase.RUN, checkout)
         self.assertTrue(has_pair(run, "--network", "none"))
         self.assertNotIn("readonly", mount_at(run, "/work"))
@@ -408,6 +410,77 @@ class Runner(World):
     def test_no_kill_after_a_normal_exit(self):
         self.assertEqual(self.sandbox(self.checkout()).returncode, 0)
         self.assertFalse([c for c in self.calls() if c["argv"][:1] == ["kill"]])
+
+
+def command_of(argv: list[str]) -> list[str]:
+    return argv[argv.index("oxedi-sandbox:test") + 1:]
+
+
+CARGO_FETCH = ["cargo", "fetch", "--locked"]
+UV_VENV = ["uv", "venv", "--python", "3.13", "/work/.venv"]
+UV_INSTALL = [
+    "uv", "pip", "install", "--python", "/work/.venv/bin/python", "--no-build",
+    "--group", "crates/oxedi_py/pyproject.toml:dev",
+]
+
+
+class Fetch(World):
+    def fetches(self) -> list[list[str]]:
+        return [c["argv"] for c in self.runs() if "bash" not in c["argv"]]
+
+    def venv(self, checkout: Path) -> Path:
+        return self.home / ".cache" / "oxedi-sandbox" / sandbox.path_hash(checkout) / "venv"
+
+    def test_fetch_commands_fixed(self):
+        self.assertEqual(sandbox.fetch_commands(False), [CARGO_FETCH, UV_VENV, UV_INSTALL])
+        self.assertEqual(sandbox.fetch_commands(True), [CARGO_FETCH, UV_INSTALL])
+
+    def test_fetch_runs_before_the_command(self):
+        result = self.sandbox(self.checkout())
+        self.assertEqual(result.returncode, 0, result.stderr)
+        runs = [c["argv"] for c in self.runs()]
+        self.assertEqual([command_of(a) for a in runs[:3]], [CARGO_FETCH, UV_VENV, UV_INSTALL])
+        self.assertEqual(command_of(runs[3])[:2], ["bash", "-c"])
+        for argv in runs[:3]:
+            self.assertNotIn("--network", argv)
+            self.assertIn("readonly", mount_at(argv, "/work"))
+        self.assertIn("sandbox: fetch took", result.stderr)
+
+    def test_fetch_keeps_a_current_venv(self):
+        checkout = self.checkout()
+        venv = self.venv(checkout)
+        venv.mkdir(parents=True)
+        (venv / "kept").touch()
+        for version in ("3.13", "3.13.13"):
+            with self.subTest(version=version):
+                (self.fake / "calls.jsonl").unlink(missing_ok=True)
+                home = "home = /opt/python/cpython-3.13-linux-x86_64-gnu/bin"
+                (venv / "pyvenv.cfg").write_text(f"{home}\nversion_info = {version}\n")
+                self.assertEqual(self.sandbox(checkout).returncode, 0)
+                self.assertEqual([command_of(a) for a in self.fetches()], [CARGO_FETCH, UV_INSTALL])
+                self.assertTrue((venv / "kept").exists())
+
+    def test_fetch_replaces_a_venv_of_another_python(self):
+        checkout = self.checkout()
+        venv = self.venv(checkout)
+        venv.mkdir(parents=True)
+        (venv / "pyvenv.cfg").write_text("version_info = 3.12.9\n")
+        (venv / "stale").touch()
+        self.assertEqual(self.sandbox(checkout).returncode, 0)
+        self.assertEqual([command_of(a) for a in self.fetches()], [CARGO_FETCH, UV_VENV, UV_INSTALL])
+        self.assertFalse((venv / "stale").exists())
+        self.assertTrue(venv.is_dir())
+
+    def test_fetch_failure_stops_without_offline_fallback(self):
+        result = self.sandbox(self.checkout(), FAKE_FETCH_EXIT="101")
+        self.assertEqual(result.returncode, 101)
+        self.assertEqual(len(self.fetches()), 1)
+        self.assertFalse([c for c in self.runs() if "bash" in c["argv"]])
+        self.assertIn(
+            "sandbox: fetch failed: cargo fetch --locked exited 101; the fetch needs the network "
+            "and never falls back to the caches offline",
+            result.stderr,
+        )
 
 
 if __name__ == "__main__":

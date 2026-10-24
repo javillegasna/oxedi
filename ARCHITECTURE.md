@@ -222,7 +222,7 @@ Internal words used in the code. X12 and payment terms for users are in
 | document | The whole input plus one span per segment; segments parsed on demand. | `document/` |
 | spec | The JSON description of loops, segments, tables and balancing, compiled to index-based definitions. | `spec/`, `specs/*.json` |
 | patch | An RFC 7386 JSON Merge Patch over a spec (`835.4010.json`, `edi_835_parser.json`). | `spec/patch.rs` |
-| built-in | The shipped 5010 spec and its 4010 patch, chosen by `Builtin::select` from `GS08`; the registry is `Builtin::all`. | `spec/builtin.rs`, `spec/version.rs` |
+| built-in | The shipped 5010 spec and its 4010 patch, chosen by `Builtin::select` from `GS08`; the registry is `Builtin::all`, each entry with a typed `Version`. | `spec/builtin.rs`, `spec/version.rs` |
 | trigger | The segment (and element conditions) that opens a loop. | `spec/loops.rs` |
 | occurrence | A named segment slot of a loop: position, usage, maximum repeat, qualifier, code lists. The JSON key is `occurrences`. | `spec/occurrences.rs` |
 | end / closer, opener | A loop's end segment (JSON `end`). For control checks, the trigger (opener) and end (closer) segments whose control numbers must match. | `spec/loops.rs` (`Control`) |

@@ -2,12 +2,13 @@
 
 use std::sync::Arc;
 
-use oxedi_core::{Builtin, Segment, Spec};
+use oxedi_core::{Builtin, Segment, Spec, UnknownVersion, Version};
 use pyo3::exceptions::{PyTypeError, PyValueError};
 use pyo3::prelude::*;
 use pyo3::types::{PyCapsule, PyDict, PyString};
 
-use pyo3_stub_gen::derive::{gen_stub_pyclass, gen_stub_pymethods};
+use pyo3_stub_gen::derive::{gen_stub_pyclass, gen_stub_pyclass_enum, gen_stub_pymethods};
+use pyo3_stub_gen::{PyStubType, TypeInfo};
 
 use crate::arrow;
 use crate::tables::extra;
@@ -52,6 +53,124 @@ pub fn given_or_selected<'s>(
     Arc::clone(&Builtin::select(segments).spec)
 }
 
+/// An X12 release a built-in spec covers.
+#[gen_stub_pyclass_enum(module = "oxedi._core")]
+#[pyclass(
+    name = "Version",
+    module = "oxedi",
+    eq,
+    eq_int,
+    frozen,
+    hash,
+    from_py_object
+)]
+#[derive(Clone, Copy, PartialEq, Eq, Hash)]
+pub enum PyVersion {
+    /// Release 5010.
+    V5010,
+    /// Release 4010.
+    V4010,
+}
+
+impl From<Version> for PyVersion {
+    fn from(version: Version) -> PyVersion {
+        match version {
+            Version::V5010 => PyVersion::V5010,
+            Version::V4010 => PyVersion::V4010,
+        }
+    }
+}
+
+impl From<PyVersion> for Version {
+    fn from(version: PyVersion) -> Version {
+        match version {
+            PyVersion::V5010 => Version::V5010,
+            PyVersion::V4010 => Version::V4010,
+        }
+    }
+}
+
+#[gen_stub_pymethods]
+#[pymethods]
+impl PyVersion {
+    /// The release number as text.
+    #[getter]
+    fn text(&self) -> &'static str {
+        Version::from(*self).text()
+    }
+
+    fn __str__(&self) -> &'static str {
+        self.text()
+    }
+}
+
+/// A version argument: a `Version`, or the text of one for code written
+/// before `Version` existed.
+pub enum VersionArg {
+    Version(Version),
+    Text(String),
+}
+
+impl VersionArg {
+    /// The version `Spec.builtin` uses when none is given.
+    const DEFAULT: VersionArg = VersionArg::Version(Builtin::DEFAULT_VERSION);
+
+    /// The built-in of `transaction` the argument names.
+    fn find(&self, transaction: &str) -> Result<&'static Builtin, UnknownVersion> {
+        match self {
+            VersionArg::Version(version) => Builtin::find(transaction, *version),
+            VersionArg::Text(text) => Builtin::find_text(transaction, text),
+        }
+    }
+}
+
+impl<'a, 'py> FromPyObject<'a, 'py> for VersionArg {
+    type Error = PyErr;
+
+    fn extract(object: Borrowed<'a, 'py, PyAny>) -> PyResult<VersionArg> {
+        if let Ok(version) = object.extract::<PyVersion>() {
+            return Ok(VersionArg::Version(version.into()));
+        }
+        object
+            .extract::<String>()
+            .map(VersionArg::Text)
+            .map_err(|_| {
+                PyTypeError::new_err(format!(
+                    "version must be an oxedi.Version, not {}",
+                    object
+                        .get_type()
+                        .name()
+                        .map_or_else(|_| "?".into(), |n| n.to_string())
+                ))
+            })
+    }
+}
+
+impl<'py> IntoPyObject<'py> for VersionArg {
+    type Target = PyAny;
+    type Output = Bound<'py, PyAny>;
+    type Error = PyErr;
+
+    fn into_pyobject(self, py: Python<'py>) -> PyResult<Bound<'py, PyAny>> {
+        match self {
+            VersionArg::Version(version) => {
+                Ok(PyVersion::from(version).into_pyobject(py)?.into_any())
+            }
+            VersionArg::Text(text) => Ok(PyString::new(py, &text).into_any()),
+        }
+    }
+}
+
+impl PyStubType for VersionArg {
+    fn type_output() -> TypeInfo {
+        PyVersion::type_output()
+    }
+
+    fn type_input() -> TypeInfo {
+        PyVersion::type_input()
+    }
+}
+
 /// The loop structure, element definitions and tables of a file format.
 #[gen_stub_pyclass(module = "oxedi._core")]
 #[pyclass(name = "Spec", module = "oxedi", frozen)]
@@ -64,16 +183,24 @@ pub struct PySpec {
 impl PySpec {
     /// The version of the default built-in spec.
     #[classattr]
-    const DEFAULT_VERSION: &'static str = Builtin::DEFAULT_VERSION;
+    #[pyo3(name = "DEFAULT_VERSION")]
+    fn default_version() -> PyVersion {
+        Builtin::DEFAULT_VERSION.into()
+    }
 
     /// The built-in spec of `version`; it defaults to `Spec.DEFAULT_VERSION`.
     /// Raises `ValueError` for a version no built-in covers.
     #[staticmethod]
-    #[pyo3(signature = (version = Builtin::DEFAULT_VERSION))]
-    fn builtin(version: &str) -> PyResult<PySpec> {
-        let found = Builtin::find(Builtin::fallback().transaction, version).map_err(|error| {
-            PyValueError::new_err(format!("Spec.builtin(version={version:?}): {error}"))
-        })?;
+    #[pyo3(signature = (version = VersionArg::DEFAULT))]
+    fn builtin(version: VersionArg) -> PyResult<PySpec> {
+        let found = version
+            .find(Builtin::fallback().transaction)
+            .map_err(|error| {
+                PyValueError::new_err(format!(
+                    "Spec.builtin(version={:?}): {error}",
+                    error.version
+                ))
+            })?;
         Ok(PySpec {
             inner: Arc::clone(&found.spec),
         })

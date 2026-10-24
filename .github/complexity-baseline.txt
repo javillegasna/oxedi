@@ -144,7 +144,6 @@ crates/oxedi_py/src/import.rs	decimal	13	3
 crates/oxedi_py/src/import.rs	integer	24	1
 crates/oxedi_py/src/import.rs	stream	9	1
 crates/oxedi_py/src/import.rs	time	10	1
-crates/oxedi_py/src/lib.rs	core_module	29	0
 crates/oxedi_py/src/parse.rs	parse	8	0
 crates/oxedi_py/src/parse.rs	paths_at	9	3
 crates/oxedi_py/src/spec.rs	patch	8	2

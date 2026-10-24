@@ -47,7 +47,7 @@ mod version;
 
 pub use balance::{BalanceRule, BalanceTerm, render_amount};
 pub use balance_error::BalanceError;
-pub use builtin::{Builtin, UnknownVersion};
+pub use builtin::{Builtin, UnknownVersion, Version};
 pub use error::SpecError;
 pub use loops::{Control, ControlCount, ControlError, LoopDef, LoopId, Trigger};
 pub use occurrence_error::OccurrenceError;

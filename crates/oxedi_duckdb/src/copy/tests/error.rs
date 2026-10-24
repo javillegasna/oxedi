@@ -113,7 +113,7 @@ fn output_when_the_size_cannot_be_measured() {
 fn unknown_version() {
     assert_eq!(
         text(CopyError::UnknownVersion {
-            source: oxedi_core::Builtin::find("835", "3070").unwrap_err(),
+            source: oxedi_core::Builtin::find_text("835", "3070").unwrap_err(),
         }),
         "edi835: unknown version \"3070\"; version must be one of \"5010\", \"4010\""
     );

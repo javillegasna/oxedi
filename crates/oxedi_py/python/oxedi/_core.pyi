@@ -5,6 +5,7 @@ import builtins
 import collections.abc
 import datetime
 import decimal
+import enum
 import pandas
 import polars
 import pyarrow
@@ -26,6 +27,7 @@ __all__ = [
     "Stream",
     "Table",
     "Tables",
+    "Version",
     "WriteFinding",
     "_external_diagnostic",
     "_loop_paths",
@@ -362,12 +364,12 @@ class Spec:
     r"""
     The loop structure, element definitions and tables of a file format.
     """
-    DEFAULT_VERSION: builtins.str = '5010'
+    DEFAULT_VERSION: Version
     r"""
     The version of the default built-in spec.
     """
     @staticmethod
-    def builtin(version: builtins.str = '5010') -> Spec:
+    def builtin(version: Version = Version.V5010) -> Spec:
         r"""
         The built-in spec of `version`; it defaults to `Spec.DEFAULT_VERSION`.
         Raises `ValueError` for a version no built-in covers.
@@ -540,6 +542,27 @@ class WriteFinding:
         """
     def __str__(self) -> builtins.str: ...
     def __repr__(self) -> builtins.str: ...
+
+@typing.final
+class Version(enum.Enum):
+    r"""
+    An X12 release a built-in spec covers.
+    """
+    V5010 = ...
+    r"""
+    Release 5010.
+    """
+    V4010 = ...
+    r"""
+    Release 4010.
+    """
+
+    @property
+    def text(self) -> builtins.str:
+        r"""
+        The release number as text.
+        """
+    def __str__(self) -> builtins.str: ...
 
 def _external_diagnostic(origin: builtins.str, message: builtins.str, level: builtins.int, code: typing.Optional[builtins.str] = None, segment: typing.Optional[builtins.int] = None, element: typing.Optional[builtins.int] = None, component: typing.Optional[builtins.int] = None, datum: bytes = b"", path: typing.Optional[typing.Sequence[tuple[builtins.str, builtins.int]]] = None) -> Diagnostic:
     r"""

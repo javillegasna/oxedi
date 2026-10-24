@@ -195,6 +195,8 @@ def fetch_delta(checkout: Checkout, storage: Storage) -> list[str]:
             "CARGO_BUILD_RUSTC_WORKSPACE_WRAPPER": "", "UV_CACHE_DIR": UV_CACHE,
             # The cache and the venv are separate mounts, so uv copies instead of hardlinking.
             "UV_LINK_MODE": "copy",
+            # A uv.toml or [tool.uv] the run phase left in the checkout must not steer the fetch.
+            "UV_NO_CONFIG": "1",
         }),
         *bind(checkout.root, WORK, True), *read_only_set(checkout, (".cargo",)), *cargo_mask,
         *bind(storage.venv, f"{WORK}/.venv", False),
@@ -227,28 +229,24 @@ def docker_args(
     return hardened_base(checkout, uid, gid, runtime, limits) + PHASE_DELTA[phase](checkout, storage)
 
 
-def fetch_commands(venv_current: bool) -> list[list[str]]:
+def fetch_commands() -> list[list[str]]:
     """The fetch phase, fixed here: it never runs make, a repository script, a build script or an
-    sdist. `cargo fetch` builds nothing; `--no-build` lets uv install wheels only."""
-    venv = [] if venv_current else [["uv", "venv", "--python", VENV_PYTHON, VENV]]
+    sdist. `cargo fetch` builds nothing; `--no-build` lets uv install wheels only. The venv is made
+    anew from the image's own CPython (`--managed-python`: the one under /opt/python), so the only
+    interpreter the fetch executes is one no run has written."""
+    venv = ["uv", "venv", "--managed-python", "--python", VENV_PYTHON, VENV]
     install = ["uv", "pip", "install", "--python", f"{VENV}/bin/python", "--no-build", "--group", DEV_GROUP]
-    return [["cargo", "fetch", "--locked"], *venv, install]
+    return [["cargo", "fetch", "--locked"], venv, install]
 
 
-def venv_is_current(pyvenv_cfg: Path) -> bool:
-    """Whether the venv was made with the image's CPython 3.13. uv records the minor version and
-    links the venv through the install's minor-version directory, so a patch bump keeps it."""
-    if not pyvenv_cfg.is_file():
-        return False
-    lines = pyvenv_cfg.read_text().splitlines()
-    fields = dict(tuple(part.strip() for part in line.partition("=")[::2]) for line in lines)
-    return fields.get("version_info", "").split(".")[:2] == VENV_PYTHON.split(".")
-
-
-def reset_dir(directory: Path) -> None:
-    """Empties a storage directory, so `uv venv` starts from nothing; links inside are not followed."""
-    shutil.rmtree(directory)
-    directory.mkdir(mode=0o700)
+def empty_dir(directory: Path) -> None:
+    """Removes what a directory holds and keeps the directory (a mount point). Links are removed,
+    never followed."""
+    for entry in directory.iterdir():
+        if entry.is_dir() and not entry.is_symlink():
+            shutil.rmtree(entry)
+        else:
+            entry.unlink()
 
 
 def run_command(command: str) -> list[str]:
@@ -427,10 +425,9 @@ def fetch_phase(plan: Plan) -> int:
     """Runs the fetch commands, each in its own container, within one budget; stops at the first
     failure."""
     started = time.monotonic()
-    current = venv_is_current(plan.storage.venv / "pyvenv.cfg")
-    if not current:
-        reset_dir(plan.storage.venv)
-    for command in fetch_commands(current):
+    # The run phase writes the venv: a planted interpreter or .pth must never run with the network.
+    empty_dir(plan.storage.venv)
+    for command in fetch_commands():
         remaining = FETCH_BUDGET_S - (time.monotonic() - started)
         outcome = run_container(plan.argv(Phase.FETCH, command), plan.checkout.name, max(1.0, remaining))
         if outcome.status != 0:

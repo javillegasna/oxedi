@@ -47,7 +47,11 @@ def bind_sources(argv: list[str]) -> dict:
         fields = dict(part.partition("=")[::2] for part in spec.split(","))
         if fields.get("type") == "bind":
             path = Path(fields["src"])
-            sources[fields["src"]] = {"exists": path.exists(), "uid": path.stat().st_uid if path.exists() else -1}
+            sources[fields["src"]] = {
+                "exists": path.exists(),
+                "uid": path.stat().st_uid if path.exists() else -1,
+                "entries": sorted(os.listdir(path)) if path.is_dir() else [],
+            }
     return sources
 
 

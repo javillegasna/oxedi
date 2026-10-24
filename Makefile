@@ -26,4 +26,4 @@ help: ## list targets
 	@echo "Python releases use release-check and tag (tags v*, which start the PyPI workflow)."
 	@echo "The DuckDB extension uses duckdb-release-check and duckdb-tag (tags duckdb-v*, which do not)."
 
-gates: fmt-check clippy test bench-check doc readme-py-check ## run every commit gate
+gates: fmt-check clippy test bench-check doc readme-py-check deps-check ## run every commit gate

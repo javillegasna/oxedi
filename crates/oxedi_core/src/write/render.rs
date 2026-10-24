@@ -10,15 +10,14 @@ use std::ops::Range;
 
 use crate::column::{Cell, ColumnData};
 use crate::value::ColumnType;
-use crate::value::civil_from_days;
+use crate::value::{civil_from_days, time_of_day};
 
 /// A date as `CCYYMMDD`, or `YYMMDD` when the element holds six bytes at
 /// most; the reason when the date has no such text.
 pub(super) fn date_text(days: i32, max: Option<usize>) -> Result<Vec<u8>, String> {
-    if days.checked_add(719_468).is_none() {
+    let Some((year, month, day)) = civil_from_days(days) else {
         return Err("a date needs a year from 1 to 9999".to_string());
-    }
-    let (year, month, day) = civil_from_days(days);
+    };
     if max.is_some_and(|max| max < 8) {
         if !(1950..=2049).contains(&year) {
             return Err(format!(
@@ -36,7 +35,7 @@ pub(super) fn date_text(days: i32, max: Option<usize>) -> Result<Vec<u8>, String
 /// A time as `HHMM`, or `HHMMSS` when it has seconds and the element holds
 /// them; the reason when the time has no such text.
 pub(super) fn time_text(seconds: i32, max: Option<usize>) -> Result<Vec<u8>, String> {
-    if !(0..86_400).contains(&seconds) {
+    if time_of_day(i64::from(seconds)).is_none() {
         return Err("a time must fall within one day".to_string());
     }
     let (hours, minutes, rest) = (seconds / 3600, seconds / 60 % 60, seconds % 60);
@@ -64,7 +63,7 @@ pub(super) fn envelope_date(days: i32, max: Option<usize>) -> Result<Vec<u8>, St
 /// element holds them (an element of four bytes drops them); the reason
 /// when the time falls outside one day.
 pub(super) fn envelope_time(seconds: i32, max: Option<usize>) -> Result<Vec<u8>, String> {
-    if !(0..86_400).contains(&seconds) {
+    if time_of_day(i64::from(seconds)).is_none() {
         return time_text(seconds, max);
     }
     let held = match max {
@@ -77,10 +76,9 @@ pub(super) fn envelope_time(seconds: i32, max: Option<usize>) -> Result<Vec<u8>,
 /// A date as a message shows it, `YYYY-MM-DD`, or its raw number when it
 /// is too far from 1970 to convert.
 pub(super) fn date_display(days: i32) -> String {
-    if days.checked_add(719_468).is_none() {
+    let Some((year, month, day)) = civil_from_days(days) else {
         return format!("date32({days})");
-    }
-    let (year, month, day) = civil_from_days(days);
+    };
     format!("{year:04}-{month:02}-{day:02}")
 }
 

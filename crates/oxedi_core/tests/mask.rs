@@ -81,7 +81,11 @@ fn a_mask_keeps_the_shape_and_every_column_it_does_not_flag() {
                                 );
                             }
                             (Some(Phi::Date), Cell::Date32(days)) => {
-                                assert_eq!(now, Cell::Date32(Mask::year_start(days)), "{at}");
+                                assert_eq!(
+                                    now,
+                                    Cell::Date32(Mask::year_start(days).unwrap()),
+                                    "{at}"
+                                );
                             }
                             (Some(kind), other) => panic!("{at}: {kind:?} column holds {other:?}"),
                         }
@@ -184,7 +188,7 @@ fn originals(spec: &Spec, plain: &Tables) -> Vec<Original> {
                     Some(Cell::Date32(days)) => {
                         let rendered = data.render(row).unwrap();
                         push(rendered.replace('-', ""), row);
-                        if Mask::year_start(days) != days {
+                        if Mask::year_start(days) != Some(days) {
                             push(rendered, row);
                         }
                     }
@@ -470,7 +474,7 @@ fn shifted_dates_equal_their_own_date_plus_the_rows_offset() {
                             seeded += 1;
                             was + mask.shift_days(seed)
                         }
-                        None => Mask::year_start(was),
+                        None => Mask::year_start(was).unwrap(),
                     };
                     assert_eq!(
                         now, expected,

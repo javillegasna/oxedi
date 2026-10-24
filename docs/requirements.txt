@@ -4,21 +4,18 @@ babel==2.18.0
     # via mkdocs-material
 backrefs==8.1
     # via mkdocs-material
-certifi==2026.7.22
+certifi==2026.10.19
     # via requests
 charset-normalizer==3.5.2
     # via requests
 click==8.5.0
     # via mkdocs
 colorama==0.4.6
-    # via
-    #   mkdocs
-    #   mkdocs-material
-    #   pytest
+    # via mkdocs-material
 defusedxml==0.7.1
     # via pyx12
 duckdb==1.5.6
-    # via -r docs/requirements.in
+    # via -r requirements.in
 ghp-import==2.1.0
     # via mkdocs
 greenlet==3.5.6
@@ -49,16 +46,16 @@ markupsafe==3.0.4
     #   mkdocs-autorefs
     #   mkdocstrings
 maturin==1.15.0
-    # via -r docs/requirements.in
+    # via -r requirements.in
 mergedeep==1.3.4
     # via
     #   mkdocs
     #   mkdocs-get-deps
 mike==2.2.0
-    # via -r docs/requirements.in
+    # via -r requirements.in
 mkdocs==1.6.1
     # via
-    #   -r docs/requirements.in
+    #   -r requirements.in
     #   mike
     #   mkdocs-autorefs
     #   mkdocs-material
@@ -71,22 +68,20 @@ mkdocs-autorefs==1.4.4
 mkdocs-get-deps==0.2.2
     # via mkdocs
 mkdocs-material==9.7.7
-    # via -r docs/requirements.in
+    # via -r requirements.in
 mkdocs-material-extensions==1.3.1
     # via mkdocs-material
 mkdocs-redirects==1.2.2
-    # via -r docs/requirements.in
-mkdocstrings==1.0.7
+    # via -r requirements.in
+mkdocstrings[python]==1.0.7
     # via
-    #   -r docs/requirements.in
+    #   -r requirements.in
     #   mkdocstrings-python
 mkdocstrings-python==2.0.9
     # via
-    #   -r docs/requirements.in
+    #   -r requirements.in
     #   mkdocstrings
-numpy==2.4.6 ; python_full_version < '3.12'
-    # via pandas
-numpy==2.5.4 ; python_full_version >= '3.12'
+numpy==2.5.4
     # via pandas
 packaging==26.3
     # via
@@ -95,7 +90,7 @@ packaging==26.3
 paginate==0.5.7
     # via mkdocs-material
 pandas==2.3.3
-    # via -r docs/requirements.in
+    # via -r requirements.in
 pathspec==1.1.1
     # via mkdocs
 platformdirs==4.13.0
@@ -105,11 +100,11 @@ playwright==1.63.0
 pluggy==1.6.0
     # via pytest
 polars==2.0.0
-    # via -r docs/requirements.in
+    # via -r requirements.in
 polars-runtime-32==2.0.0
     # via polars
 pyarrow==26.0.0
-    # via -r docs/requirements.in
+    # via -r requirements.in
 pyee==13.0.1
     # via playwright
 pygments==2.21.0
@@ -124,13 +119,13 @@ pyparsing==3.3.3
     # via mike
 pytest==9.1.1
     # via
-    #   -r docs/requirements.in
+    #   -r requirements.in
     #   pytest-base-url
     #   pytest-playwright
 pytest-base-url==2.1.0
     # via pytest-playwright
 pytest-playwright==0.7.2
-    # via -r docs/requirements.in
+    # via -r requirements.in
 python-dateutil==2.9.0.post0
     # via
     #   ghp-import
@@ -140,7 +135,7 @@ python-slugify==8.0.4
 pytz==2026.5
     # via pandas
 pyx12==4.0.0
-    # via -r docs/requirements.in
+    # via -r requirements.in
 pyyaml==6.0.3
     # via
     #   mike
@@ -157,7 +152,7 @@ requests==2.34.2
     #   mkdocs-material
     #   pytest-base-url
 ruff==0.17.0
-    # via -r docs/requirements.in
+    # via -r requirements.in
 six==1.17.0
     # via python-dateutil
 text-unidecode==1.3

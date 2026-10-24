@@ -101,14 +101,8 @@ impl fmt::Display for UnknownVersion {
                 self.transaction
             );
         }
-        write!(f, "version must be one of ")?;
-        for (i, known) in self.known.iter().enumerate() {
-            if i > 0 {
-                f.write_str(", ")?;
-            }
-            write!(f, "{known:?}")?;
-        }
-        Ok(())
+        let known: Vec<String> = self.known.iter().map(|name| format!("{name:?}")).collect();
+        write!(f, "version must be one of {}", known.join(", "))
     }
 }
 

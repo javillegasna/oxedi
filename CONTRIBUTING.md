@@ -137,7 +137,9 @@ cargo fmt --all -- --check
 cargo bench --workspace --no-run --locked
 ```
 
-`make gates` runs these four plus rustdoc with warnings as errors and `make readme-py-check`.
+`make gates` runs these four plus rustdoc with warnings as errors, `make readme-py-check` and
+`make deps-check` (no development dependency in a published crate or in the wheel's
+`Requires-Dist`; the allowed lists are in `tools/deps/deps.py`).
 
 ## Tests and test data
 
@@ -317,6 +319,31 @@ when a change needs the full set before merging.
 passes when each one passed or was not needed. Caches are written only from `master`;
 pull requests read them. The checks of a push to `master` are never cancelled or replaced by
 a later push.
+
+## Profiling
+
+To find where time goes before changing anything, sample it. Unix only; nothing to install beyond
+`cargo` and `uv` (`make venv` brings `py-spy`).
+
+```bash
+make profile BENCH=process               # a core bench: tokenize, engine, check, process or write
+make profile BENCH=engine SECONDS=20     # longer sampling (default 10 seconds per benchmark)
+make profile-py SCRIPT=crates/oxedi_py/scripts/profile_parse.py ARGS='FILE 300'
+```
+
+- `make profile` runs `cargo bench -p oxedi_core --bench BENCH -- --profile-time SECONDS`. For each
+  benchmark it writes `flamegraph.svg` (open it in a browser) and `top.txt` (the 25 functions
+  with the most samples of their own, with their share) into
+  `target/criterion/<group>/<benchmark>/profile/`, and lists the files this run wrote. Without
+  `--profile-time`, the benches run as always and nothing is sampled.
+- `make profile-py` builds the extension in release mode into `.venv`, then runs the script
+  twice under `py-spy`: `target/profile-py/flamegraph.svg` and `target/profile-py/stacks.txt`
+  (one collapsed stack and its sample count per line). It sees Python frames; the time inside
+  the Rust extension shows as the call into it, so profile the Rust side with `make profile`.
+- The sampler is `pprof`, a development dependency of `oxedi_core` that only the benches use
+  (`crates/oxedi_core/benches/common/profiler.rs`); `py-spy` is in the `profile` dependency group
+  of `crates/oxedi_py/pyproject.toml`. Neither reaches a published artifact: `make deps-check`
+  proves it.
 
 ## Releases
 

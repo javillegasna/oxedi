@@ -23,7 +23,7 @@ SECONDS ?= 10
 PY_PROFILE_DIR := target/profile-py
 # tools/profile/py_spy_record.sh fails on a script error, a py-spy error or a missing output.
 define py-spy-record
-tools/profile/py_spy_record.sh $(VENV)/bin/py-spy $(1) $(PY_PROFILE_DIR)/$(2) $(PYTHON) $(SCRIPT) $(ARGS)
+tools/profile/py_spy_record.sh $(VENV)/bin/py-spy $(1) $(PY_PROFILE_DIR)/$(2) $(PYTHON) "$(SCRIPT)" $(ARGS)
 endef
 
 profile: ## profile a core bench under a sampler: BENCH=process [SECONDS=10]; writes flamegraph.svg and top.txt under target/criterion/
@@ -38,7 +38,7 @@ profile-py: ## profile a Python script with py-spy: SCRIPT=path [ARGS='...']; wr
 	@test -n "$(SCRIPT)" || { echo "usage: make profile-py SCRIPT=path/to/script.py [ARGS='...']"; exit 1; }
 	@test -x $(VENV)/bin/py-spy || { echo "profile-py: $(VENV)/bin/py-spy is missing; run make venv"; exit 1; }
 	VIRTUAL_ENV=$(VENV) $(MATURIN) develop --uv --release --manifest-path $(PY_MANIFEST)
-	mkdir -p $(PY_PROFILE_DIR)
+	mkdir -p $(PY_PROFILE_DIR) && rm -f $(PY_PROFILE_DIR)/flamegraph.svg $(PY_PROFILE_DIR)/stacks.txt
 	$(call py-spy-record,flamegraph,flamegraph.svg)
 	$(call py-spy-record,raw,stacks.txt)
 	@echo "profile-py: wrote $(PY_PROFILE_DIR)/flamegraph.svg and $(PY_PROFILE_DIR)/stacks.txt"

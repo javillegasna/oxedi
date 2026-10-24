@@ -101,6 +101,7 @@ class Wheels(unittest.TestCase):
     def test_requirements_gated_by_user_extras_pass(self):
         done = self.check("pandas>=2 ; extra == 'pandas'", "pyarrow>=14 ; extra == 'pandas'", 'polars>=1.0 ; extra == "polars"')
         self.assertEqual(done.returncode, 0, done.stderr)
+        self.assertEqual(done.stdout.strip(), "deps-check: wheel ok (checked wheel: oxedi-0.0.0-py3-none-any.whl)")
 
     def test_a_wheel_without_requirements_passes(self):
         self.assertEqual(self.check().returncode, 0)

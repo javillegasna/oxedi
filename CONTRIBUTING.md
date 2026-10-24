@@ -339,7 +339,7 @@ make profile-py SCRIPT=crates/oxedi_py/scripts/profile_parse.py ARGS='FILE 300'
 - `make profile-py` builds the extension in release mode into `.venv`, then runs the script
   twice under `py-spy`: `target/profile-py/flamegraph.svg` and `target/profile-py/stacks.txt`
   (one collapsed stack and its sample count per line). It sees Python frames; the time inside
-  the Rust extension shows as the call into it, so profile the Rust side with `make profile`.
+  the Rust extension shows as the call into it, so profile the Rust side with `make profile`. The target fails when the script exits non-zero.
 - The sampler is `pprof`, a development dependency of `oxedi_core` that only the benches use
   (`crates/oxedi_core/benches/common/profiler.rs`); `py-spy` is in the `profile` dependency group
   of `crates/oxedi_py/pyproject.toml`. Neither reaches a published artifact: `make deps-check`

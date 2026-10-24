@@ -133,7 +133,7 @@ def check_crates() -> list[str]:
 
 
 def check_wheels(paths: list[str]) -> tuple[list[str], list[str]]:
-    """The findings and the names of the wheels checked."""
+    """The findings and the names of the wheels checked (found in target/wheels when no path is given)."""
     wheels = [Path(p) for p in paths] or sorted(Path("target/wheels").glob("*.whl"))
     if not wheels:
         raise CannotCheck("no wheel given and none in target/wheels; run make dist first")
@@ -157,7 +157,8 @@ def main(argv: list[str]) -> int:
             findings, detail = check_crates(), ""
         else:
             findings, names = check_wheels(argv[1:])
-            detail = f" (checked existing wheel{'s' if len(names) > 1 else ''}: {', '.join(names)})"
+            source = "existing wheel" if not argv[1:] else "wheel"
+            detail = f" (checked {source}{'s' if len(names) > 1 else ''}: {', '.join(names)})"
     except CannotCheck as e:
         print(f"deps-check: {e}", file=sys.stderr)
         return 2

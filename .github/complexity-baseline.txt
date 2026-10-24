@@ -107,8 +107,6 @@ crates/oxedi_duckdb/src/copy/error.rs	fmt	21	0	flat
 crates/oxedi_duckdb/src/copy/input.rs	field_type	25	0
 crates/oxedi_duckdb/src/copy/mod.rs	global_init	10	1
 crates/oxedi_duckdb/src/copy/options.rs	delimiters	10	3
-crates/oxedi_duckdb/src/copy/options.rs	parse_date	17	1
-crates/oxedi_duckdb/src/copy/options.rs	parse_time	20	2
 crates/oxedi_duckdb/src/copy/read.rs	option_value	14	1
 crates/oxedi_duckdb/src/copy/sink.rs	append_table	9	3
 crates/oxedi_duckdb/src/copy/sink.rs	cell	18	1

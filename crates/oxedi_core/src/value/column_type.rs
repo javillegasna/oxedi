@@ -45,6 +45,18 @@ impl ColumnType {
             Some(ElementType::Tm) => ColumnType::Time32,
         }
     }
+
+    /// The decimal places of a `Decimal128` column; `None` for every other
+    /// type, an `Int64`'s implied places included.
+    pub const fn decimal_scale(self) -> Option<u8> {
+        match self {
+            ColumnType::Decimal128 { scale, .. } => Some(scale),
+            ColumnType::Binary
+            | ColumnType::Int64 { .. }
+            | ColumnType::Date32
+            | ColumnType::Time32 => None,
+        }
+    }
 }
 
 impl fmt::Display for ColumnType {

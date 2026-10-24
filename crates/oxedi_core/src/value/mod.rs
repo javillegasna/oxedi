@@ -9,13 +9,16 @@
 //! [`Parsed`], through [`ColumnType::parse`]), `convert.rs` (integers, decimals, dates and times that
 //! either keep their value on the way to a column type or say why not,
 //! [`ConvertError`]), `unit.rs` (the units a time is counted in), `calendar.rs` (days since 1970-01-01 and seconds of the
-//! day, checked), `column_type.rs` (the physical type of a column), `element_type.rs` (the element type, its code and its
+//! day, checked), `format.rs` (decimals, dates and times as text, in the
+//! display form tables and messages show and the element form an X12 element
+//! holds, [`ElementTextError`]), `column_type.rs` (the physical type of a column), `element_type.rs` (the element type, its code and its
 //! classification, [`TypeCodeError`]) and `tests/`.
 
 mod calendar;
 mod column_type;
 mod convert;
 mod element_type;
+mod format;
 mod parse;
 mod parsed;
 mod unit;
@@ -28,6 +31,10 @@ pub use convert::{
     integer_from_i128, integer_from_u128, rescale, seconds_from,
 };
 pub use element_type::{ElementType, TypeCodeError};
+pub use format::{
+    ElementTextError, date_display, date_element, decimal_display, decimal_element, time_display,
+    time_element,
+};
 pub(crate) use parse::parse_unsigned;
 pub use parse::{parse_dt, parse_n, parse_r, parse_tm};
 pub use parsed::Parsed;

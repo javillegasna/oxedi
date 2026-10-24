@@ -39,3 +39,19 @@ fn column_types_display_their_arrow_names() {
     assert_eq!(ColumnType::Date32.to_string(), "date32");
     assert_eq!(ColumnType::Time32.to_string(), "time32 (seconds)");
 }
+
+#[test]
+fn decimal_scale_of_each_column_type() {
+    assert_eq!(
+        ColumnType::Decimal128 {
+            precision: 38,
+            scale: 2
+        }
+        .decimal_scale(),
+        Some(2)
+    );
+    assert_eq!(ColumnType::Int64 { scale: 2 }.decimal_scale(), None);
+    assert_eq!(ColumnType::Binary.decimal_scale(), None);
+    assert_eq!(ColumnType::Date32.decimal_scale(), None);
+    assert_eq!(ColumnType::Time32.decimal_scale(), None);
+}

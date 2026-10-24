@@ -12,15 +12,18 @@ import time
 import unittest
 from itertools import pairwise
 from pathlib import Path
+from unittest import mock
 
 HERE = Path(__file__).resolve().parent
 SCRIPT = HERE.parent / "sandbox.py"
 REPO = HERE.parents[2]
 sys.path.insert(0, str(SCRIPT.parent))
-import sandbox  # noqa: E402
+import arguments  # noqa: E402
+import layout  # noqa: E402
+import storage  # noqa: E402
 
 UID, GID = os.getuid(), os.getgid()
-LIMITS = sandbox.Limits(cpus=3, memory_gb=4, timeout_s=60)
+LIMITS = arguments.Limits(cpus=3, memory_gb=4, timeout_s=60)
 SECRETS = {
     "GH_TOKEN": "ghs_sandboxtestsecret1",
     "AWS_SECRET_ACCESS_KEY": "awssandboxtestsecret2",
@@ -51,8 +54,12 @@ def has_pair(argv: list[str], flag: str, value: str) -> bool:
     return any(a == flag and b == value for a, b in pairwise(argv))
 
 
+GIT_ENV = {"GIT_CONFIG_NOSYSTEM": "1", "GIT_CONFIG_GLOBAL": os.devnull}
+
+
 def make_checkout(root: Path, *paths: str) -> Path:
-    """A checkout holding `paths`: a trailing slash makes a directory, anything else a file."""
+    """A git checkout holding `paths`: a trailing slash makes a directory, anything else a file.
+    Every file is added to the index unless the checkout's .gitignore ignores it."""
     root.mkdir(parents=True)
     for path in paths:
         target = root / path
@@ -60,13 +67,19 @@ def make_checkout(root: Path, *paths: str) -> Path:
             target.mkdir(parents=True, exist_ok=True)
         else:
             target.parent.mkdir(parents=True, exist_ok=True)
-            target.write_text("x\n")
+            target.write_text("x\n" if path != ".gitignore" else IGNORED)
+    env = dict(os.environ, **GIT_ENV)
+    for command in (["init", "-q"], ["add", "-A"]):
+        subprocess.run(["git", "-C", str(root), *command], env=env, check=True)
     return root
+
+
+IGNORED = ".venv-docs/\nnotes.log\n/target/\n/.venv/\n__pycache__/\n.pytest_cache/\n*.so\n"
 
 
 FULL_SET = [
     "Makefile", "make/", "tools/", ".cargo/", ".github/", "rust-toolchain.toml", "Cargo.toml",
-    "Cargo.lock", "CLAUDE.md", ".claude/", "crates/oxedi_py/pyproject.toml", ".git",
+    "Cargo.lock", "CLAUDE.md", ".claude/", "crates/oxedi_py/pyproject.toml",
 ]
 
 
@@ -77,6 +90,9 @@ class World(unittest.TestCase):
         self._tmp = tempfile.TemporaryDirectory()
         self.tmp = Path(self._tmp.name)
         self.home = self.tmp / "home"
+        isolated = mock.patch.dict(os.environ, GIT_ENV)
+        isolated.start()
+        self.addCleanup(isolated.stop)
         (self.home / ".ssh").mkdir(parents=True)
         self.fake = self.tmp / "fake"
         self.fake.mkdir()
@@ -95,6 +111,7 @@ class World(unittest.TestCase):
             "HOME": str(self.home),
             "FAKE_DIR": str(self.fake),
             "SANDBOX_CMD": "cargo test",
+            **GIT_ENV,
         }
         env.update(extra)
         return env
@@ -128,17 +145,17 @@ class World(unittest.TestCase):
         return runs[0]
 
     def phase_args(self, phase, checkout: Path) -> list[str]:
-        surveyed = sandbox.survey(checkout)
-        storage = sandbox.storage_for(self.home / ".cache" / "oxedi-sandbox", surveyed)
-        return sandbox.docker_args(phase, surveyed, UID, GID, sandbox.Runtime.RUNC, LIMITS, storage)
+        surveyed = layout.survey(checkout)
+        own = storage.storage_for(self.home / ".cache" / "oxedi-sandbox", surveyed)
+        return arguments.docker_args(phase, surveyed, UID, GID, arguments.Runtime.RUNC, LIMITS, own)
 
 
 class Arguments(World):
     def test_both_phases_hardened(self):
         checkout = self.checkout("c", "Makefile", ".cargo/config.toml")
-        name = f"oxedi-sandbox-{sandbox.path_hash(checkout)}"
+        name = f"oxedi-sandbox-{layout.path_hash(checkout)}"
         cache = self.home / ".cache" / "oxedi-sandbox"
-        for phase in sandbox.Phase:
+        for phase in arguments.Phase:
             with self.subTest(phase=phase):
                 argv = self.phase_args(phase, checkout)
                 for flag in ("--rm", "--init", "--read-only"):
@@ -153,7 +170,7 @@ class Arguments(World):
                 self.assertIn("HOME=/tmp/home", envs(argv))
                 self.assertFalse(any("seccomp" in a or "privileged" in a or "--cap-add" == a for a in argv))
                 self.assertFalse(any(a in ("-e", "-v", "--volume", "--env-file") for a in argv))
-        fetch = self.phase_args(sandbox.Phase.FETCH, checkout)
+        fetch = self.phase_args(arguments.Phase.FETCH, checkout)
         self.assertNotIn("--network", fetch)
         self.assertIn("readonly", mount_at(fetch, "/work"))
         self.assertEqual(mount_at(fetch, "/work/.cargo")["type"], "tmpfs")
@@ -168,9 +185,9 @@ class Arguments(World):
         self.assertIn("CARGO_BUILD_RUSTC_WORKSPACE_WRAPPER=", envs(fetch))
         self.assertIn("UV_NO_CONFIG=1", envs(fetch))
         self.assertFalse([m for m in mounts(fetch) if m.get("dst") == "/work/target"])
-        self.assertIn(f"UV_CACHE_DIR={sandbox.UV_CACHE}", envs(fetch))
-        self.assertIn(f"CARGO_HOME={sandbox.CARGO_HOME}", envs(fetch))
-        run = self.phase_args(sandbox.Phase.RUN, checkout)
+        self.assertIn(f"UV_CACHE_DIR={arguments.UV_CACHE}", envs(fetch))
+        self.assertIn(f"CARGO_HOME={arguments.CARGO_HOME}", envs(fetch))
+        run = self.phase_args(arguments.Phase.RUN, checkout)
         self.assertTrue(has_pair(run, "--network", "none"))
         self.assertNotIn("readonly", mount_at(run, "/work"))
         cargo = [m for m in mounts(run) if m.get("src") == str(cache / "cargo")]
@@ -182,13 +199,13 @@ class Arguments(World):
 
     def test_host_executed_set_read_only(self):
         checkout = self.checkout("c", *FULL_SET, ".doc/scratch/notes.md", ".workflow-kit/x/brief.md")
-        for phase in sandbox.Phase:
+        for phase in arguments.Phase:
             argv = self.phase_args(phase, checkout)
-            for path in (p.rstrip("/") for p in FULL_SET):
+            for path in [p.rstrip("/") for p in FULL_SET] + [".git"]:
                 with self.subTest(phase=phase, path=path):
                     mount = mount_at(argv, f"/work/{path}")
                     self.assertIn("readonly", mount)
-                    if phase is sandbox.Phase.FETCH and path == ".cargo":
+                    if phase is arguments.Phase.FETCH and path == ".cargo":
                         self.assertEqual(mount["type"], "tmpfs")
                     else:
                         self.assertEqual((mount["type"], mount["src"]), ("bind", str(checkout / path)))
@@ -199,9 +216,58 @@ class Arguments(World):
                     self.assertIn("readonly", mount)
             self.assertFalse([m for m in mounts(argv) if m.get("dst") == "/work/.doc/scratch"])
 
+    def test_configuration_anywhere_read_only(self):
+        configuration = [
+            "crates/m/Cargo.toml", "crates/m/uv.toml", "crates/p/pyproject.toml", "rust-toolchain",
+            "sub/.python-version",
+        ]
+        checkout = self.checkout("c", "Makefile", *configuration, "crates/m/.cargo/config.toml", "crates/m/src/lib.rs")
+        for phase in arguments.Phase:
+            argv = self.phase_args(phase, checkout)
+            for path in configuration + ["crates/m/.cargo"]:
+                with self.subTest(phase=phase, path=path):
+                    mount = mount_at(argv, f"/work/{path}")
+                    self.assertEqual((mount["type"], mount["src"]), ("bind", str(checkout / path)))
+                    self.assertIn("readonly", mount)
+            self.assertFalse([m for m in mounts(argv) if m.get("dst") == "/work/crates/m/src/lib.rs"])
+
+    def test_ignored_paths_masked_outputs_not(self):
+        outputs = [
+            "target/debug/x", ".venv/bin/python", "crates/a/__pycache__/x.cpython-313.pyc",
+            "crates/oxedi_py/.pytest_cache/v/x", "crates/oxedi_py/python/oxedi/_core.abi3.so",
+        ]
+        tracked = ["crates/a/lib.py", "crates/oxedi_py/README.md", "crates/oxedi_py/python/oxedi/__init__.py"]
+        ignored = [".venv-docs/bin/python", "notes.log"]
+        checkout = self.checkout("c", ".gitignore", "Makefile", *ignored, *tracked, *outputs)
+        for phase in arguments.Phase:
+            argv = self.phase_args(phase, checkout)
+            with self.subTest(phase=phase):
+                docs = mount_at(argv, "/work/.venv-docs")
+                self.assertEqual(docs["type"], "tmpfs")
+                self.assertIn("readonly", docs)
+                notes = mount_at(argv, "/work/notes.log")
+                self.assertEqual((notes["type"], notes["src"]), ("bind", str(checkout / "notes.log")))
+                self.assertIn("readonly", notes)
+                for path in outputs:
+                    self.assertFalse([m for m in mounts(argv) if f"/work/{path}".startswith(m["dst"] + "/")
+                                      and m["dst"] != "/work" and m["type"] == "tmpfs"], path)
+                    self.assertFalse([m for m in mounts(argv) if m["dst"] == f"/work/{path}"], path)
+        run = self.phase_args(arguments.Phase.RUN, checkout)
+        self.assertEqual(mount_at(run, "/work/target")["type"], "bind")
+        self.assertNotIn("readonly", mount_at(run, "/work/target"))
+
+    def test_not_a_git_checkout_refused(self):
+        checkout = self.tmp / "plain"
+        checkout.mkdir()
+        result = self.sandbox(checkout)
+        self.assertEqual(result.returncode, 2)
+        self.assertRegex(result.stderr, r"^sandbox: git ls-files .* failed in .*; the sandbox needs a git checkout")
+        self.assertEqual(len(result.stderr.splitlines()), 1)
+        self.assertFalse(self.runs())
+
     def test_masks_only_what_exists(self):
         checkout = self.checkout("c", "Makefile")
-        for phase in sandbox.Phase:
+        for phase in arguments.Phase:
             destinations = {m.get("dst") for m in mounts(self.phase_args(phase, checkout))}
             self.assertFalse(destinations & {"/work/.doc", "/work/.workflow-kit", "/work/.cargo", "/work/tools"})
 
@@ -272,10 +338,10 @@ class Runner(World):
         self.assertEqual(len(runs), 2)
         targets = [mount_at(c["argv"], "/work/target")["src"] for c in runs]
         venvs = [mount_at(c["argv"], "/work/.venv")["src"] for c in runs]
-        self.assertEqual(targets, [str(cache / sandbox.path_hash(c) / "target") for c in (first, second)])
-        self.assertEqual(venvs, [str(cache / sandbox.path_hash(c) / "venv") for c in (first, second)])
+        self.assertEqual(targets, [str(cache / layout.path_hash(c) / "target") for c in (first, second)])
+        self.assertEqual(venvs, [str(cache / layout.path_hash(c) / "venv") for c in (first, second)])
         self.assertNotEqual(targets[0], targets[1])
-        cargo = {m["src"] for c in runs for m in mounts(c["argv"]) if m.get("dst") == sandbox.CARGO_HOME}
+        cargo = {m["src"] for c in runs for m in mounts(c["argv"]) if m.get("dst") == arguments.CARGO_HOME}
         self.assertEqual(cargo, {str(cache / "cargo")})
         self.assertTrue((cache / "uv").is_dir())
         for call in runs:
@@ -291,7 +357,7 @@ class Runner(World):
         xdg = self.tmp / "xdg"
         self.assertEqual(self.sandbox(checkout, XDG_CACHE_HOME=str(xdg)).returncode, 0)
         target = mount_at(self.run_phase(), "/work/target")["src"]
-        self.assertEqual(target, str(xdg / "oxedi-sandbox" / sandbox.path_hash(checkout) / "target"))
+        self.assertEqual(target, str(xdg / "oxedi-sandbox" / layout.path_hash(checkout) / "target"))
 
     def test_runsc_when_listed(self):
         checkout = self.checkout()
@@ -342,7 +408,7 @@ class Runner(World):
 
     def test_already_running_refused(self):
         checkout = self.checkout()
-        name = f"oxedi-sandbox-{sandbox.path_hash(checkout)}"
+        name = f"oxedi-sandbox-{layout.path_hash(checkout)}"
         result = self.sandbox(checkout, FAKE_RUNNING=name)
         self.assertEqual(result.returncode, 2)
         self.assertIn(f"sandbox: {name} is already running for this checkout", result.stderr)
@@ -393,7 +459,7 @@ class Runner(World):
         self.assertLess(time.monotonic() - started, 20)
         self.assertEqual(result.returncode, 124)
         self.assertIn("sandbox: the command ran past SANDBOX_TIMEOUT=1 s; the container was killed", result.stderr)
-        name = f"oxedi-sandbox-{sandbox.path_hash(checkout)}"
+        name = f"oxedi-sandbox-{layout.path_hash(checkout)}"
         self.assertIn(["kill", name], [c["argv"] for c in self.calls()])
 
     def test_ctrl_c_kills(self):
@@ -406,12 +472,47 @@ class Runner(World):
         _, err = process.communicate(timeout=20)
         self.assertEqual(process.returncode, 130)
         self.assertIn("sandbox: interrupted; the container, if it had started, was killed", err)
-        name = f"oxedi-sandbox-{sandbox.path_hash(checkout)}"
+        name = f"oxedi-sandbox-{layout.path_hash(checkout)}"
         self.assertIn(["kill", name], [c["argv"] for c in self.calls()])
 
     def test_no_kill_after_a_normal_exit(self):
         self.assertEqual(self.sandbox(self.checkout()).returncode, 0)
         self.assertFalse([c for c in self.calls() if c["argv"][:1] == ["kill"]])
+
+
+class EmptyDir(unittest.TestCase):
+    def test_an_unreadable_directory_is_emptied(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            venv = Path(tmp) / "venv"
+            locked = venv / "x" / "deeper"
+            locked.mkdir(parents=True)
+            (locked / "file").write_text("x")
+            (venv / "x" / "file").write_text("x")
+            outside = Path(tmp) / "outside"
+            outside.mkdir()
+            (outside / "keep").write_text("x")
+            (venv / "link").symlink_to(outside)
+            locked.chmod(0)
+            (venv / "x").chmod(0)
+            venv.chmod(0)
+            storage.empty_dir(venv)
+            self.assertEqual(list(venv.iterdir()), [])
+            self.assertTrue((outside / "keep").exists())
+
+    def test_what_cannot_be_removed_is_one_line(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            venv = Path(tmp) / "venv"
+            venv.mkdir()
+            (venv / "pinned").write_text("x")
+            refused = PermissionError(1, "Operation not permitted", str(venv / "pinned"))
+            with mock.patch.object(Path, "unlink", side_effect=refused):
+                with self.assertRaises(layout.SandboxError) as caught:
+                    storage.empty_dir(venv)
+            self.assertEqual(
+                str(caught.exception),
+                f"cannot empty {venv} before the fetch: [Errno 1] Operation not permitted: "
+                f"'{venv / 'pinned'}'; remove that directory by hand",
+            )
 
 
 def command_of(argv: list[str]) -> list[str]:
@@ -431,10 +532,22 @@ class Fetch(World):
         return [c["argv"] for c in self.runs() if "bash" not in c["argv"]]
 
     def venv(self, checkout: Path) -> Path:
-        return self.home / ".cache" / "oxedi-sandbox" / sandbox.path_hash(checkout) / "venv"
+        return self.home / ".cache" / "oxedi-sandbox" / layout.path_hash(checkout) / "venv"
 
     def test_fetch_commands_fixed(self):
-        self.assertEqual(sandbox.fetch_commands(), [CARGO_FETCH, UV_VENV, UV_INSTALL])
+        self.assertEqual(arguments.fetch_commands(), [CARGO_FETCH, UV_VENV, UV_INSTALL])
+
+    def test_fetch_runs_before_the_command(self):
+        result = self.sandbox(self.checkout())
+        self.assertEqual(result.returncode, 0, result.stderr)
+        runs = [c["argv"] for c in self.runs()]
+        self.assertEqual([command_of(a) for a in runs[:3]], [CARGO_FETCH, UV_VENV, UV_INSTALL])
+        self.assertEqual(command_of(runs[3])[:2], ["bash", "-c"])
+        for argv in runs[:3]:
+            self.assertNotIn("--network", argv)
+            self.assertIn("readonly", mount_at(argv, "/work"))
+        self.assertRegex(result.stderr, r"(?m)^sandbox: fetch took \d+\.\d s$")
+        self.assertRegex(result.stderr, r"(?m)^sandbox: run took \d+\.\d s$")
 
     def test_what_a_run_leaves_never_reaches_the_next_fetch(self):
         checkout = self.checkout()

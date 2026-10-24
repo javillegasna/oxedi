@@ -85,7 +85,7 @@ impl PyDiagnostic {
     /// The open loops, outermost first, joined by `/`; empty at the root.
     #[getter]
     fn path(&self) -> String {
-        self.inner.flat().path
+        self.inner.path_text()
     }
 
     /// The offending value as it appears in the file.

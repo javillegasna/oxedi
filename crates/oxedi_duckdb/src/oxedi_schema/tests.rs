@@ -1,3 +1,5 @@
+use std::error::Error;
+
 use oxedi_core::ColumnType;
 
 use super::{Row, SchemaError, builtin, rows};
@@ -179,4 +181,15 @@ fn internal() {
         .to_string(),
         "oxedi_schema: internal error: the scan has no bind data"
     );
+}
+
+#[test]
+fn no_schema_error_has_a_source() {
+    let version = SchemaError::UnknownVersion {
+        source: oxedi_core::Builtin::find_text("835", "3070").unwrap_err(),
+    };
+    let null = SchemaError::NullOption { name: "binary" };
+    for error in [version, null] {
+        assert!(error.source().is_none(), "{error}");
+    }
 }

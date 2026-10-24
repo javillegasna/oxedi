@@ -399,8 +399,8 @@ impl fmt::Display for ReadError {
 
 impl std::error::Error for ReadError {
     fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
-        // `Parse` and `Mask` print the core error in full, so the chain
-        // stops here instead of printing it a second time.
+        // `Parse`, `Mask` and `UnknownVersion` print the core error in
+        // full, so the chain stops here instead of printing it a second time.
         match self {
             ReadError::PathType { .. }
             | ReadError::NullPath { .. }

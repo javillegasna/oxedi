@@ -116,12 +116,10 @@ crates/oxedi_duckdb/src/scan/write.rs	fill	21	3
 crates/oxedi_duckdb/src/types/mod.rs	try_of	10	1
 crates/oxedi_duckdb/src/value/mod.rs	primitive_name	34	0
 crates/oxedi_py/python/oxedi/edi_835_parser/_extended.py	frame	12	1
-crates/oxedi_py/python/oxedi/edi_835_parser/_frame.py	entity_names	10	3
 crates/oxedi_py/python/oxedi/edi_835_parser/_frame.py	extended	24	4
 crates/oxedi_py/python/oxedi/edi_835_parser/_frame.py	frame	12	2
 crates/oxedi_py/python/oxedi/edi_835_parser/_frame.py	library	11	2
 crates/oxedi_py/python/oxedi/edi_835_parser/_tables.py	load	18	2
-crates/oxedi_py/python/oxedi/edi_835_parser/_tables.py	unpad	30	5
 crates/oxedi_py/python/oxedi/pyx12/_capture.py	_recorder.seg_error	8	1
 crates/oxedi_py/python/oxedi/pyx12/_validate.py	_findings	8	1
 crates/oxedi_py/python/oxedi/pyx12/_validate.py	_finish	9	0

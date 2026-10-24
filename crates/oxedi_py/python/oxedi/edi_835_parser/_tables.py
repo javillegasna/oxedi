@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import dataclasses
 import decimal as decimal_module
 import functools
 import json
@@ -26,6 +27,45 @@ def spec() -> Spec:
 def interchange_trigger() -> bytes:
     """The segment id that opens an interchange, as the spec declares it."""
     return json.loads(spec().to_json())["loops"]["interchange"]["trigger"]["segment"].encode()
+
+
+@functools.cache
+def _loops():
+    """The compat spec's loops, as its JSON holds them."""
+    return json.loads(spec().to_json())["loops"]
+
+
+def _occurrence_segment(loop, name):
+    """The segment id of occurrence ``name`` in ``loop`` or the nearest of its
+    parents that declares it, or ``None``."""
+    loops = _loops()
+    while loop is not None:
+        declared = loops[loop]["occurrences"].get(name)
+        if declared is not None:
+            return declared["segment"].encode()
+        loop = loops[loop].get("parent")
+    return None
+
+
+def source_segment(table: str, column: str, source: dict) -> bytes:
+    """The segment id a column source reads: the ``segment`` it names, or the
+    segment of the ``occurrence`` it names, looked up in its ``loop`` or else in
+    the loops of ``table`` and their parents. A source naming neither, or an
+    occurrence no such loop declares, raises a ``ValueError`` naming the table,
+    the column and what was found."""
+    if "segment" in source:
+        return source["segment"].encode()
+    name = source.get("occurrence")
+    if name is None:
+        raise ValueError(f"table {table!r}, column {column!r}: the source {source} names neither a segment nor an occurrence")
+    starts = [source["loop"]] if "loop" in source else PATCH["tables"][table]["loops"]
+    for loop in starts:
+        found = _occurrence_segment(loop, name)
+        if found is not None:
+            return found
+    raise ValueError(
+        f"table {table!r}, column {column!r}: occurrence {name!r} is not declared by {starts} or their parents"
+    )
 
 
 def position(table: str, column: str) -> Tuple[int, Optional[int]]:
@@ -190,6 +230,169 @@ def _ending_in_blanks(column):
     return rows[_endings()[ends[rows]]]
 
 
+@dataclasses.dataclass(frozen=True)
+class _Anchoring:
+    """Where a table's rows sit in the document: each row's anchor segment
+    (-1 for none), the anchors in order, whether a row is the last of its
+    anchor, whether a segment the parser reported lies between a row's anchor
+    and the next row's, and the document's length."""
+
+    anchors: object
+    ordered: object
+    last_of_segment: object
+    flagged: object
+    size: int
+
+    @classmethod
+    def of(cls, table, diagnosed, size):
+        import numpy as np
+
+        anchors = ints(table.column("segment"))
+        ordered = np.sort(anchors[anchors >= 0])
+        last = np.r_[anchors[1:] != anchors[:-1], True] if len(anchors) else anchors.astype(bool)
+        # A row can read a cell the parser flagged only when a flagged
+        # segment lies between its anchor and the next row's anchor.
+        at = np.searchsorted(ordered, anchors, side="right")
+        following = ordered[np.minimum(at, len(ordered) - 1)] if len(ordered) else 0
+        bounds = np.where(at < len(ordered), following, size)
+        flagged = (np.searchsorted(diagnosed, bounds) > np.searchsorted(diagnosed, anchors)) & (anchors >= 0)
+        return cls(anchors, ordered, last, flagged, size)
+
+    def bound(self, row):
+        """The anchor after row ``row``'s own, or the document's length."""
+        import numpy as np
+
+        at = int(np.searchsorted(self.ordered, self.anchors[row], side="right"))
+        return int(self.ordered[at]) if at < len(self.ordered) else self.size
+
+
+def _same(stripped):
+    return stripped
+
+
+def _decimal(stripped):
+    """The float of a stripped decimal's text, or ``None`` when it is not one."""
+    try:
+        return float(decimal_module.Decimal(stripped.decode(ENCODING)))
+    except (ValueError, decimal_module.InvalidOperation):
+        return None
+
+
+@dataclasses.dataclass(frozen=True)
+class _Strategy:
+    """How one column kind is repaired: which rows to look at (``rows`` of
+    the column, its anchoring and whether it reads a repeated group) and how
+    to read the stripped text as the column's value."""
+
+    rows: object
+    convert: object
+
+
+def _blank_ended(column, anchoring, grouped):
+    return _ending_in_blanks(column)
+
+
+def _flagged_nulls(column, anchoring, grouped):
+    import numpy as np
+
+    nulls = column.is_null().to_numpy(zero_copy_only=False) & anchoring.flagged
+    return np.flatnonzero(nulls & anchoring.last_of_segment) if grouped else np.flatnonzero(nulls)
+
+
+def _strategy(kind, padded):
+    """The repair of a column of ``kind``: binary cells that may end in
+    whitespace (only when some segment can), and decimal cells the spec could
+    not read. ``None`` for any other kind."""
+    import pyarrow as pa
+
+    if pa.types.is_binary(kind):
+        return _Strategy(_blank_ended, _same) if padded else None
+    if pa.types.is_floating(kind):
+        return _Strategy(_flagged_nulls, _decimal)
+    return None
+
+
+@dataclasses.dataclass(frozen=True)
+class _Read:
+    """What a column reads from its row's segment: its source, the table's
+    repeat, the table's name when it is not anchored on that segment (else
+    ``None``), the column and whether it reads a repeated group."""
+
+    source: dict
+    repeat: object
+    unanchored: object
+    column: str
+    grouped: bool
+
+    @classmethod
+    def of(cls, name, config, column, source):
+        unanchored = None if config.get("segment") else name
+        return cls(source, config.get("repeat"), unanchored, column, "group_element" in source)
+
+    def raw(self, document, anchoring, row):
+        """The raw text row ``row`` reads when it is its segment's last
+        element (and component), or ``None``."""
+        anchor = int(anchoring.anchors[row])
+        if anchor < 0:
+            return None
+        if self.grouped:
+            return _group_last(document, anchor, self.source, self.repeat) if anchoring.last_of_segment[row] else None
+        index = _segment_of(document, anchoring.anchors, row, self._segment(), anchoring.bound(row))
+        if index is None:
+            return None
+        return _last(document, index, self.source["element"], self.source.get("component"))
+
+    def _segment(self):
+        """The id of the segment a column reads when the table is not
+        anchored on it, else ``None``."""
+        return None if self.unanchored is None else source_segment(self.unanchored, self.column, self.source)
+
+
+class _Unpadder:
+    """Reads, from the document, the cells whose segment ends in whitespace
+    and returns the tables with them replaced."""
+
+    def __init__(self, document, diagnosed, padded):
+        self.document = document
+        self.diagnosed = diagnosed
+        self.padded = padded
+
+    def run(self, arrow):
+        for name, config in PATCH["tables"].items():
+            if config is not None and name in arrow and "segment" in arrow[name].column_names:
+                arrow[name] = self._table(name, config, arrow[name])
+        return arrow
+
+    def _table(self, name, config, table):
+        anchoring = _Anchoring.of(table, self.diagnosed, len(self.document))
+        for column, source in config["columns"].items():
+            if source.get("element") is not None or "group_element" in source:
+                table = self._column(name, config, anchoring, table, column, source)
+        return table
+
+    def _column(self, name, config, anchoring, table, column, source):
+        kind = table.schema.field(column).type
+        strategy = _strategy(kind, self.padded)
+        if strategy is None:
+            return table
+        read = _Read.of(name, config, column, source)
+        rows = strategy.rows(table.column(column), anchoring, read.grouped)
+        changes = self._changes(strategy, anchoring, rows, read)
+        return _replace(table, column, changes, kind) if changes else table
+
+    def _changes(self, strategy, anchoring, rows, read):
+        """The new value of each row in ``rows`` whose raw text ends in
+        whitespace and reads as the column's kind once stripped."""
+        changes = {}
+        for row in rows.tolist():
+            raw = read.raw(self.document, anchoring, row)
+            stripped = None if raw is None else unpadded(raw)
+            value = None if stripped in (None, raw) else strategy.convert(stripped)
+            if value is not None:
+                changes[row] = value
+        return changes
+
+
 def unpad(document, diagnostics, arrow, padded=True):
     """edi-835-parser strips each segment, so whitespace before the
     terminator never reaches its last element. A binary cell that ends in
@@ -202,75 +405,12 @@ def unpad(document, diagnostics, arrow, padded=True):
     When no segment can end in whitespace (``padded`` false), binary cells
     are not looked at. Returns the tables with those cells replaced."""
     import numpy as np
-    import pyarrow as pa
 
     reported = [d.segment for d in diagnostics if d.segment is not None]
     diagnosed = np.unique(np.array(reported, dtype=np.int64))
     if not padded and not len(diagnosed):
         return arrow
-    for name, config in PATCH["tables"].items():
-        if config is None or name not in arrow:
-            continue
-        table = arrow[name]
-        if "segment" not in table.column_names:
-            continue
-        anchors = ints(table.column("segment"))
-        ordered = np.sort(anchors[anchors >= 0])
-        anchored = config.get("segment")
-        repeat = config.get("repeat")
-        last_of_segment = np.r_[anchors[1:] != anchors[:-1], True] if len(anchors) else anchors.astype(bool)
-        # A row can read a cell the parser flagged only when a flagged
-        # segment lies between its anchor and the next row's anchor.
-        at = np.searchsorted(ordered, anchors, side="right")
-        following = ordered[np.minimum(at, len(ordered) - 1)] if len(ordered) else 0
-        bounds = np.where(at < len(ordered), following, len(document))
-        flagged = (np.searchsorted(diagnosed, bounds) > np.searchsorted(diagnosed, anchors)) & (anchors >= 0)
-        for column, source in config["columns"].items():
-            grouped = "group_element" in source
-            if source.get("element") is None and not grouped:
-                continue
-            kind = table.schema.field(column).type
-            if pa.types.is_binary(kind):
-                if not padded:
-                    continue
-                candidates = _ending_in_blanks(table.column(column))
-            elif pa.types.is_floating(kind):
-                nulls = table.column(column).is_null().to_numpy(zero_copy_only=False) & flagged
-                candidates = np.flatnonzero(nulls & last_of_segment) if grouped else np.flatnonzero(nulls)
-            else:
-                continue
-            own = None if anchored else source["segment"].encode()
-            changes = {}
-            for row in candidates:
-                if anchors[row] < 0:
-                    continue
-                if grouped:
-                    if not last_of_segment[row]:
-                        continue
-                    raw = _group_last(document, int(anchors[row]), source, repeat)
-                else:
-                    at = int(np.searchsorted(ordered, anchors[row], side="right"))
-                    bound = int(ordered[at]) if at < len(ordered) else len(document)
-                    index = _segment_of(document, anchors, row, own, bound)
-                    if index is None:
-                        continue
-                    raw = _last(document, index, source["element"], source.get("component"))
-                if raw is None:
-                    continue
-                stripped = unpadded(raw)
-                if stripped == raw:
-                    continue
-                if pa.types.is_binary(kind):
-                    changes[int(row)] = stripped
-                else:
-                    try:
-                        changes[int(row)] = float(decimal_module.Decimal(stripped.decode(ENCODING)))
-                    except (ValueError, decimal_module.InvalidOperation):
-                        pass
-            if changes:
-                table = _replace(table, column, changes, kind)
-        arrow[name] = table
-    return arrow
+    return _Unpadder(document, diagnosed, padded).run(arrow)
 
 
 def _floats(table):

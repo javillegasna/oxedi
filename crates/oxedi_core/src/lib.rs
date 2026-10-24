@@ -23,7 +23,8 @@
 //!   tables, typed [`Table`]s of [`ColumnData`] laid out as Apache Arrow
 //!   lays out its arrays, with each row pointing at the rows that enclose it.
 //!   [`spec_schema`] gives those tables' columns, types and references from
-//!   the spec alone, without a file.
+//!   the spec alone, without a file. [`summarize`] computes the summaries
+//!   the spec declares (counts, sums, the fields of one row) over them.
 //! - [`write::write()`] turns tables with a spec's schema back into an
 //!   interchange: the spec's projection inverted, the loop tree rebuilt from
 //!   the tables' references, the envelope's counts and control numbers
@@ -48,6 +49,7 @@ pub mod process;
 pub mod project;
 pub mod segment;
 pub mod spec;
+pub mod summary;
 pub mod tokenizer;
 pub mod tree;
 pub mod value;
@@ -71,9 +73,11 @@ pub use segment::{Segment, SegmentWriteError};
 pub use spec::{
     AnchorChains, AnchorPositions, BalanceError, BalanceRule, BalanceTerm, Builtin, ColumnSource,
     Control, ControlCount, ControlError, DeclaredVersion, ElementDef, ElementDefError, ElementType,
-    LoopDef, LoopId, LoopSegments, Pick, Repeat, SegmentDef, Spec, SpecError, TableDef,
-    TableDefError, Trigger, UnknownVersion, Version, VersionError, merge_patch,
+    LoopDef, LoopId, LoopSegments, Pick, Repeat, SegmentDef, Spec, SpecError, Summary,
+    SummaryDefError, TableDef, TableDefError, Trigger, UnknownVersion, Version, VersionError,
+    merge_patch,
 };
+pub use summary::{SummaryError, SummaryValue, summarize};
 pub use tokenizer::Tokenizer;
 pub use tree::{LoopTree, Node, NodeId, TreeBuilder};
 pub use value::ConvertError;

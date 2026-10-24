@@ -18,6 +18,8 @@ and the extension has its own version.
   `parent` (the table a reference column points at, else NULL) and `position`, without a file.
 
 ### Changed
+- Without `table_name`, `read_835` returns the table the chosen spec declares as its
+  `default_table` (`claims` for the built-in 835, as before).
 - `read_835` fills only the table it reads instead of every table of the spec and then keeping
   one, so each scan of one table takes about a fifth less time (900 files, 127 MB, one thread:
   `table_name := 'claims'` from 4.6 s to 3.6 s). The rows are unchanged, and the `diagnostics`

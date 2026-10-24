@@ -75,6 +75,8 @@ mod by_module {
     use oxedi_core::spec::SegmentDef;
     use oxedi_core::spec::Spec;
     use oxedi_core::spec::SpecError;
+    use oxedi_core::spec::Summary;
+    use oxedi_core::spec::SummaryDefError;
     use oxedi_core::spec::TableDef;
     use oxedi_core::spec::TableDefError;
     use oxedi_core::spec::Trigger;
@@ -83,6 +85,9 @@ mod by_module {
     use oxedi_core::spec::VersionError;
     use oxedi_core::spec::merge_patch;
     use oxedi_core::spec::render_amount;
+    use oxedi_core::summary::SummaryError;
+    use oxedi_core::summary::SummaryValue;
+    use oxedi_core::summary::summarize;
     use oxedi_core::tokenizer::Tokenizer;
     use oxedi_core::tree::LoopTree;
     use oxedi_core::tree::Node;
@@ -128,6 +133,7 @@ use oxedi_core::{Frame, next_frame};
 use oxedi_core::{LoopTree, Node, NodeId, TreeBuilder};
 use oxedi_core::{Output, Processor};
 use oxedi_core::{Segment, SegmentWriteError};
+use oxedi_core::{Summary, SummaryDefError, SummaryError, SummaryValue, summarize};
 
 #[test]
 fn every_public_path_resolves() {}
@@ -139,6 +145,9 @@ fn spec_items(spec: &Spec) {
     let _: fn() -> Spec = Spec::builtin_835_4010;
     let _: for<'a> fn(&'a Spec) -> Option<&'a DeclaredVersion> = Spec::version;
     let _: &Spec = Spec::select(&[spec], spec, Vec::<Segment<'static>>::new());
+    let _: &[(String, Summary)] = spec.summaries();
+    let _: Option<&Summary> = spec.summary("count_claims");
+    let _: Option<&str> = spec.default_table();
 }
 
 // Associated items of `Builtin`, named so the build fails if one disappears.
@@ -182,4 +191,8 @@ fn binding_items(diagnostic: &Diagnostic) {
     ];
     let _: fn(TimeUnit) -> i64 = TimeUnit::ticks_per_second;
     let _: fn(TimeUnit) -> i64 = TimeUnit::ticks_per_day;
+    let _: usize = IsaError::ISA_LEN;
+    let _: fn(&IsaError) -> usize = IsaError::skipped;
+    let _: for<'a> fn(&'a IsaError, &'a [u8]) -> &'a [u8] = IsaError::datum;
+    let _: for<'a> fn(&'a Segment<'static>, usize, usize) -> Option<&'a [u8]> = Segment::component;
 }

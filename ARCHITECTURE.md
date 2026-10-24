@@ -62,7 +62,8 @@ flowchart LR
      envelope counts and control numbers (`check/mod.rs`), occurrence counts and order
      (`check/occurrences.rs`) and amounts that do not balance (`check/balance.rs`).
 5. The result is `Tables` (`column/`: Arrow-shaped columns, each row pointing at the row of the
-   table that encloses it) and a `Vec<Diagnostic>` (`diagnostic/`).
+   table that encloses it) and a `Vec<Diagnostic>` (`diagnostic/`). `summarize` (`summary/`)
+   computes the summaries the spec declares (`Spec::summaries`) over those tables.
 
 **The order inside `Processor::feed` is a contract.** The projector runs first, because it
 works out which occurrence the segment matched, and the checker reuses that match
@@ -111,19 +112,23 @@ The spec files live in `crates/oxedi_core/specs/`:
 
 | File | What it is | Who loads it |
 |---|---|---|
-| `835.json` | The 5010 spec: `name`, `version`, `loops`, `segments`, `tables`, `balancing`. | `Spec::builtin_835` (`include_str!` in `spec/mod.rs`) |
+| `835.json` | The 5010 spec: `name`, `version`, `loops`, `segments`, `tables`, `balancing`, `summaries`, `default_table`. | `Spec::builtin_835` (`include_str!` in `spec/mod.rs`) |
 | `835.4010.json` | A JSON Merge Patch (RFC 7386) over `835.json` that gives the 4010 version. | `Spec::builtin_835_4010` |
 | `edi_835_parser.json` | A patch with the tables of the `edi-835-parser` compatibility layer. | `crates/oxedi_py/src/lib.rs`, pinned by `tests/project_golden.rs` |
 
 Loading goes `Spec::from_json` → `Spec::from_value` (`spec/build.rs`):
 
-1. `shape.rs` checks the JSON shape, with errors that name the loop and key as written.
+1. `shape.rs` checks the JSON shape against `schema.rs`, the schema as data: one table of
+   keys per object, the root's rows being the sections. Its errors name the key path as
+   written and, for an unknown key, the keys allowed there.
 2. `raw.rs` deserializes each entry into serde structs (`RawSpec`, `RawLoop`, …).
-3. `build.rs` compiles loops, triggers and controls, and calls the other files for
-   occurrences, segments, tables, balancing, patient-data flags and the version;
-   `spec/mod.rs` lists which file holds what.
+3. `build.rs` runs the compile steps in order, one per section or structural check:
+   loops (`build_loops.rs`: keys, parent, trigger, control), segments, occurrences, the
+   version, trigger ambiguity, tables, balancing, summaries (`summaries.rs`) and the
+   default table; `spec/mod.rs` lists which file holds what.
 4. The result is index-based: `LoopDef` (by `LoopId`), `SegmentDef`, `ElementDef`, `TableDef`
-   with a `ColumnSource` per column, `BalanceRule`. The engine compares indices, never strings.
+   with a `ColumnSource` per column, `BalanceRule`, `Summary`. The engine compares indices,
+   never strings.
 
 `Spec::merge_patch` (`spec/patch.rs`) applies a patch to the spec's JSON and loads the result
 again, so a patched spec goes through the same checks as a new one.
@@ -163,13 +168,14 @@ The same concept, named in each binding. The Rust files are under `crates/oxedi_
 
 | Concept (core) | Python (`oxedi`) | DuckDB (SQL) | Viewer (WebAssembly) |
 |---|---|---|---|
-| Read a file (`Processor::run`) | `oxedi.parse(data)`, `oxedi.parse_file(path)` → `Result` (`parse.rs`) | `read_835(path, table_name := 'claims')` (`function/`, `scan/`) | `parse(bytes, mask_key)` → JSON `View` (`lib.rs`, `view/`) |
+| Read a file (`Processor::run`) | `oxedi.parse(data)`, `oxedi.parse_file(path)` → `Result` (`parse.rs`) | `read_835(path)`, the table named by `table_name :=` or else the spec's default table (`function/`, `scan/`) | `parse(bytes, mask_key)` → JSON `View` (`lib.rs`, `view/`) |
 | Read in batches (`Processor::feed`) | `oxedi.stream(data, by='transaction')` (`stream.rs`) | one file at a time (`scan/`) | — |
 | Choose the spec (`Builtin::select`, `Builtin::find`) | `Spec.builtin("4010")`, `Spec.from_json`, `Spec.patch` (`spec.rs`) | `version := '4010'` (`builtins/`, `BuiltinTable`) | by the file's declared version |
 | Tables (`Tables`, `Table`) | `Result.tables`, `Table.to_polars()` (`tables.rs`, `arrow.rs`) | the rows of `table_name` (`scan/`, `types/`) | `View.tables` (`TableView`, `ColumnView`) |
 | Table schema (`spec_schema`) | `Spec.schema()` | `oxedi_schema()` (`oxedi_schema/`) | — |
 | Diagnostics (`Diagnostic`) | `Result.diagnostics`, `Diagnostic.kind`, `.rule`, `.datum` (`diagnostic.rs`, reading `Diagnostic::flat`) | `table_name := 'diagnostics'` (`diagnostics/`) | `View.diagnostics` (`DiagnosticView`) |
-| Segments (`Document`, `Segment`) | `Result.document[i]` (`document.rs`) | — | `View.segments` (`SegmentView`) |
+| Segments (`Document`, `Segment`) | `Result.document[i]`, `Segment.element(position, component)`, `Segment.has(...)` over `Segment::component` (`document.rs`) | — | `View.segments` (`SegmentView`) |
+| Summaries (`summarize`, `Spec::summaries`) | `Result.count_claims()`, `count_patients()`, `sum_payments()`, `.payer`, `.payee` (`native.rs`) | — | — |
 | Delimiters (`Delimiters`) | `Delimiters` | — | `View.delimiters` (`DelimitersView`) |
 | Loop tree (`LoopTree`) | — | — | `View.nodes` (`NodeView`) |
 | Mask patient data (`Mask`) | `oxedi.Mask(key, dates='year')` (`mask.rs`) | `mask_key :=`, `mask_dates :=` (`options/`) | the page's mask switch (`mask_key`) |
@@ -244,6 +250,7 @@ Internal words used in the code. X12 and payment terms for users are in
 | path | The open loops at the diagnostic, outermost first, each with its ordinal. | `Diagnostic::path` |
 | origin | Which validator produced a diagnostic (`oxedi`, or for example `pyx12`). | `Rule::External` |
 | balancing | Amounts that must add up inside a loop instance (charge − payment = adjustments). | `spec/balance.rs`, `check/balance.rs` |
+| summary | A named figure the spec declares over its tables (a count, a distinct count, a sum, the fields of one row); `summarize` computes it. | `spec/summaries.rs`, `summary/` |
 | PHI / mask / phi seed | Patient-data columns flagged in the spec (`Phi`); a keyed digest replaces them; the seed column keys the date shift. User docs say "patient data". | `mask/`, `spec/phi.rs`, `project/mask.rs` |
 | write plan | Where each written loop instance and element value comes from; depends only on the spec, built at the start of each write. | `write/plan.rs`, `write/build.rs` |
 | refusal | Why a **spec** cannot be written (`Refusal`, collected in `PlanError`). | `write/refusal.rs` |
@@ -252,5 +259,6 @@ Internal words used in the code. X12 and payment terms for users are in
 | envelope (writer) | The caller's sender, receiver, date, time, control number and delimiters (`Envelope`). | `write/envelope.rs` |
 | processor / output | One pass feeding each segment to engine, checker and projector; `Output` is one step's events and diagnostics. | `process/` |
 | `ConvertError`, `TimeUnit`, `rescale`, `days_from_civil` | The write-side conversion rules and the calendar every binding shares. | `value/` |
+| `IsaError::datum`, `IsaError::skipped`, `IsaError::ISA_LEN` | The bytes an unreadable ISA is about, how many bytes precede it, and the most a truncated one keeps; Python's pyx12 adapter and the DuckDB `diagnostics` table share them. | `delimiters/` |
 | `parse_dt`, `parse_n`, `parse_r`, `parse_tm` | Parsers named after the X12 data types DT, N, R and TM. | `column/parse.rs` |
 | fixture / sample / golden | Synthetic test file / anonymized real file / generated expected output. | `crates/oxedi_core/tests/` |

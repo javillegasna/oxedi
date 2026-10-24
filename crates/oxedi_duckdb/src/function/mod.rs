@@ -15,7 +15,7 @@ use crate::builtins::{BuiltinSchema, Builtins};
 use crate::diagnostics;
 use crate::error::{FUNCTION, ReadError};
 use crate::files::{self, CallerSettings, ClientContext, FileSystem};
-use crate::options::{NAMED, Options};
+use crate::options::{NAMED, Options, TableChoice};
 use crate::scan::{Bound, Scan};
 use crate::types::{self, SqlType};
 
@@ -153,23 +153,22 @@ impl Shape {
     /// The shape of the table `options` names: the diagnostics, or one of
     /// `builtin`'s tables.
     fn of(builtin: &BuiltinSchema, options: &Options) -> Result<Shape, ReadError> {
-        if options.table_name == diagnostics::TABLE {
+        let name = table_name(builtin, &options.table_name)?;
+        if name == diagnostics::TABLE {
             return Ok(Shape {
                 table: diagnostics::TABLE.to_owned(),
                 columns: diagnostics::columns(),
                 types: diagnostics::types(options.binary)?,
             });
         }
-        let table = builtin
-            .table(&options.table_name)
-            .ok_or_else(|| ReadError::UnknownTable {
-                table: options.table_name.clone(),
-                known: builtin
-                    .table_names()
-                    .into_iter()
-                    .chain([diagnostics::TABLE.to_owned()])
-                    .collect(),
-            })?;
+        let table = builtin.table(name).ok_or_else(|| ReadError::UnknownTable {
+            table: name.to_owned(),
+            known: builtin
+                .table_names()
+                .into_iter()
+                .chain([diagnostics::TABLE.to_owned()])
+                .collect(),
+        })?;
         let types = table
             .columns
             .iter()
@@ -180,6 +179,27 @@ impl Shape {
             columns: table.columns.clone(),
             types,
         })
+    }
+}
+
+/// The table `table_name` names, or the default table of `builtin`'s spec.
+fn table_name<'a>(
+    builtin: &'a BuiltinSchema,
+    choice: &'a TableChoice,
+) -> Result<&'a str, ReadError> {
+    match choice {
+        TableChoice::Named(name) => Ok(name),
+        TableChoice::SpecDefault => {
+            builtin
+                .spec()
+                .default_table()
+                .ok_or_else(|| ReadError::Internal {
+                    message: format!(
+                        "the built-in spec for version {} declares no default table",
+                        builtin.version()
+                    ),
+                })
+        }
     }
 }
 

@@ -2,7 +2,7 @@
 //! with the attributes of the Python `Diagnostic`, and one row per file that
 //! could not be parsed when `ignore_errors` is on.
 
-use oxedi_core::{Cell, ColumnType, Diagnostic, DocumentError, FlatDiagnostic, IsaError, Table};
+use oxedi_core::{Cell, ColumnType, Diagnostic, DocumentError, FlatDiagnostic, Table};
 
 use crate::error::ReadError;
 use crate::types::SqlType;
@@ -15,12 +15,6 @@ const READER_ORIGIN: &str = "read_835";
 
 /// The kind of the row of a file that could not be parsed.
 const UNPARSABLE_KIND: &str = "NotAnInterchange";
-
-/// The most bytes of a truncated ISA kept as the datum: an ISA's length.
-const ISA_LEN: usize = 106;
-
-/// The bytes a UTF-8 byte order mark takes.
-const BOM_LEN: usize = 3;
 
 /// Each column's core type and whether its text is always valid UTF-8 (so a
 /// VARCHAR even with `binary := true`), in the order of
@@ -113,16 +107,7 @@ pub fn of_findings(diagnostics: &[Diagnostic]) -> Result<Table, ReadError> {
 /// start of a truncated ISA, or nothing for a file too long to index.
 pub fn datum<'a>(error: &'a DocumentError, bytes: &'a [u8]) -> &'a [u8] {
     match error {
-        DocumentError::Isa(IsaError::NotIsa { found, .. }) => found,
-        DocumentError::Isa(IsaError::Truncated {
-            byte_order_mark,
-            whitespace,
-            ..
-        }) => {
-            let skipped = if *byte_order_mark { BOM_LEN } else { 0 }.saturating_add(*whitespace);
-            let rest = bytes.get(skipped..).unwrap_or_default();
-            rest.get(..ISA_LEN).unwrap_or(rest)
-        }
+        DocumentError::Isa(error) => error.datum(bytes),
         DocumentError::Size(_) => &[],
     }
 }

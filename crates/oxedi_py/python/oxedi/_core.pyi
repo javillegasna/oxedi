@@ -31,6 +31,7 @@ __all__ = [
     "_external_diagnostic",
     "_loop_paths",
     "_mask_findings",
+    "_parse_document",
     "_write",
     "parse",
     "stream",
@@ -313,29 +314,34 @@ class Result:
     @property
     def payer(self) -> builtins.dict[builtins.str, builtins.str | None] | None:
         r"""
-        The payer organization from the `payer_*` columns of `payments`, or
-        `None` when the file has none.
+        The summary `payer` the spec declares (for the built-in 835: the
+        payer organization of the one transaction), or `None` when the file
+        has none.
         """
     @property
     def payee(self) -> builtins.dict[builtins.str, builtins.str | None] | None:
         r"""
-        The payee organization from the `payee_*` columns of `payments`, or
-        `None` when the file has none.
+        The summary `payee` the spec declares (for the built-in 835: the
+        payee organization of the one transaction), or `None` when the file
+        has none.
         """
     def count_claims(self) -> builtins.int:
         r"""
-        The rows of `claims`.
+        The summary `count_claims` the spec declares (for the built-in 835:
+        the number of claims).
         """
     def count_patients(self) -> builtins.int:
         r"""
-        The distinct non-null values of `claims.patient_id`. Ids are text:
+        The summary `count_patients` the spec declares (for the built-in 835:
+        the distinct patient ids of the claims). Values are compared as text:
         `0123` and `123` are two patients, where edi-835-parser reads both as
         the number 123 and counts one.
         """
     def sum_payments(self) -> decimal.Decimal:
         r"""
-        The sum of `payments.total_payment_amount`, as a `Decimal` at the
-        column's scale.
+        The summary `sum_payments` the spec declares (for the built-in 835:
+        the sum of the transactions' total payment amounts), as a `Decimal`
+        at the column's scale.
         """
     def __repr__(self) -> builtins.str: ...
 
@@ -370,6 +376,20 @@ class Segment:
         r"""
         The segment's byte range in the input, `(start, end)` with `end`
         exclusive: leading trivia, body and terminator, as `raw` holds them.
+        """
+    def element(self, position: int, component: typing.Optional[int] = None) -> builtins.bytes | builtins.list[builtins.bytes] | None:
+        r"""
+        The element at the 1-based `position` (`XX01` is 1), or one of its
+        components: as `elements` holds it without `component` (`bytes` for
+        a simple element, a list of `bytes` for a composite one), and the
+        bytes of that 1-based component with it (component 1 of a simple
+        element is the element). `None` when the segment has no such place.
+        """
+    def has(self, position: int, component: typing.Optional[int] = None) -> builtins.bool:
+        r"""
+        Whether the segment has the element at the 1-based `position`, or
+        that 1-based `component` of it, even when it is empty: `element(...)`
+        is not `None`.
         """
     def __repr__(self) -> builtins.str: ...
 
@@ -590,7 +610,7 @@ def _external_diagnostic(origin: builtins.str, message: builtins.str, level: bui
     Builds a `Diagnostic` for a finding reported by an external validator; internal.
     """
 
-def _loop_paths(result: Result, segments: typing.Sequence[builtins.int]) -> builtins.list[builtins.list[tuple[builtins.str, builtins.int]]]:
+def _loop_paths(document: Document, spec: Spec, segments: typing.Sequence[builtins.int]) -> builtins.list[builtins.list[tuple[builtins.str, builtins.int]]]:
     r"""
     The open loops at each of `segments`, outermost first, as `(name,
     ordinal)` pairs: the loops `parse` names in the `path` of a diagnostic
@@ -615,6 +635,18 @@ def _mask_findings(diagnostics: typing.Sequence[Diagnostic], document: Document,
     
     Internal: adapters to external validators call it; it is not part of the
     public API.
+    """
+
+def _parse_document(data: typing_extensions.Buffer, spec: typing.Optional[Spec] = None) -> tuple[Document, Spec, builtins.int]:
+    r"""
+    Indexes a whole file without running the loop engine or the projector:
+    the document, the spec a `parse` of the same arguments uses (the one
+    given, or the built-in of the version the file declares) and how many
+    bytes precede the first segment's text (the byte order mark and the
+    whitespace before the ISA).
+    
+    Internal: adapters to external validators read a file's document and
+    spec through it without paying for the tables.
     """
 
 def _write(tables: Tables | collections.abc.Mapping[builtins.str, typing.Any], envelope: Envelope, spec: typing.Optional[Spec] = None, allow_findings: builtins.bool = False) -> tuple[bytes, builtins.list[WriteFinding]]:

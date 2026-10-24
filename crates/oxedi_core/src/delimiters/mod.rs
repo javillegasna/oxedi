@@ -59,6 +59,46 @@ pub enum IsaError {
 impl IsaError {
     /// How many leading bytes [`IsaError::NotIsa`] keeps.
     pub const FOUND_LEN: usize = 8;
+
+    /// The nominal length of an ISA segment, the most bytes
+    /// [`datum`](Self::datum) keeps of a truncated one.
+    pub const ISA_LEN: usize = 106;
+
+    /// How many bytes precede the ISA in the input the error was read from:
+    /// the byte order mark and the whitespace skipped.
+    pub fn skipped(&self) -> usize {
+        let (byte_order_mark, whitespace) = match self {
+            IsaError::NotIsa {
+                byte_order_mark,
+                whitespace,
+                ..
+            }
+            | IsaError::Truncated {
+                byte_order_mark,
+                whitespace,
+                ..
+            } => (*byte_order_mark, *whitespace),
+        };
+        let mark = if byte_order_mark {
+            BYTE_ORDER_MARK.len()
+        } else {
+            0
+        };
+        mark.saturating_add(whitespace)
+    }
+
+    /// The bytes the error is about in `input`, the bytes it was read from:
+    /// what was found instead of `ISA`, or the first [`ISA_LEN`](Self::ISA_LEN)
+    /// bytes after the skipped ones of a truncated ISA.
+    pub fn datum<'a>(&'a self, input: &'a [u8]) -> &'a [u8] {
+        match self {
+            IsaError::NotIsa { found, .. } => found,
+            IsaError::Truncated { .. } => {
+                let rest = input.get(self.skipped()..).unwrap_or_default();
+                rest.get(..Self::ISA_LEN).unwrap_or(rest)
+            }
+        }
+    }
 }
 
 impl fmt::Display for IsaError {

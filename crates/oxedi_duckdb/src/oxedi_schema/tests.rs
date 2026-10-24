@@ -24,13 +24,13 @@ fn every_table_of_read_835_is_described_in_order() {
     let builtins = Builtins::load();
     for built in builtins.iter() {
         let Ok(rows) = rows(built, false) else {
-            panic!("version {} is described", built.version);
+            panic!("version {} is described", built.version());
         };
         let mut tables: Vec<&str> = rows.iter().map(|row| row.table.as_str()).collect();
         tables.dedup();
         let mut expected = built.table_names();
         expected.push("diagnostics".to_owned());
-        assert_eq!(tables, expected, "version {}", built.version);
+        assert_eq!(tables, expected, "version {}", built.version());
         for table in &built.tables {
             let described: Vec<(String, i32)> = rows
                 .iter()
@@ -90,11 +90,11 @@ fn types_are_the_ones_read_835_gives() {
 fn the_version_picks_the_builtin() {
     let builtins = Builtins::load();
     assert_eq!(
-        builtin(&builtins, None).map(|b| b.version).ok(),
+        builtin(&builtins, None).map(|b| b.version()).ok(),
         Some("5010")
     );
     assert_eq!(
-        builtin(&builtins, Some("4010")).map(|b| b.version).ok(),
+        builtin(&builtins, Some("4010")).map(|b| b.version()).ok(),
         Some("4010")
     );
     let Err(error) = builtin(&builtins, Some("3070")) else {
@@ -146,8 +146,7 @@ fn macro_parameter_without_a_name() {
 fn unknown_version() {
     assert_eq!(
         SchemaError::UnknownVersion {
-            version: "6020".to_owned(),
-            known: vec!["5010", "4010"],
+            source: oxedi_core::Builtin::find("835", "6020").unwrap_err(),
         }
         .to_string(),
         "oxedi_schema: unknown version \"6020\"; version must be one of \"5010\", \"4010\""

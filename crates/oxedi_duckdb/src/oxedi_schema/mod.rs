@@ -20,7 +20,7 @@ use std::sync::{Arc, Mutex};
 
 use libduckdb_sys as ffi;
 
-use crate::builtins::{Builtin, Builtins};
+use crate::builtins::{BuiltinSchema, Builtins};
 use crate::diagnostics;
 use crate::function::{TableFunction, c_message, drop_box, guarded};
 use crate::options::{Named, macro_parameter, named};
@@ -68,7 +68,7 @@ fn position(index: usize) -> Result<i32, SchemaError> {
 }
 
 /// Every column of every table `read_835` returns for `builtin`.
-pub fn rows(builtin: &Builtin, binary: bool) -> Result<Vec<Row>, SchemaError> {
+pub fn rows(builtin: &BuiltinSchema, binary: bool) -> Result<Vec<Row>, SchemaError> {
     let mut rows = Vec::new();
     for table in &builtin.tables {
         let parents = table.parents.iter().map(Option::as_ref);
@@ -107,16 +107,8 @@ pub fn rows(builtin: &Builtin, binary: bool) -> Result<Vec<Row>, SchemaError> {
 pub fn builtin<'b>(
     builtins: &'b Builtins,
     version: Option<&str>,
-) -> Result<&'b Builtin, SchemaError> {
-    match version {
-        None => Ok(builtins.default()),
-        Some(version) => builtins
-            .by_version(version)
-            .ok_or_else(|| SchemaError::UnknownVersion {
-                version: version.to_owned(),
-                known: builtins.versions(),
-            }),
-    }
+) -> Result<&'b BuiltinSchema, SchemaError> {
+    Ok(builtins.pick(version)?)
 }
 
 /// Registers `oxedi_schema` on `connection`, with `builtins` as the

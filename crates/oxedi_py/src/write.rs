@@ -8,7 +8,7 @@
 use std::sync::Arc;
 
 use oxedi_core::write::{Envelope, Finding, ValueOrigin, WriteError, write_with_findings};
-use oxedi_core::{Spec, Tables};
+use oxedi_core::{Builtin, Spec, Tables};
 use pyo3::exceptions::PyValueError;
 use pyo3::prelude::*;
 use pyo3::types::{PyBytes, PyList, PyMapping, PyTuple};
@@ -358,37 +358,49 @@ pub fn write_tables<'py>(
     #[gen_stub(override_type(type_repr = "builtins.bool", imports = ("builtins",)))]
     allow_findings: bool,
 ) -> PyResult<Bound<'py, PyTuple>> {
-    let given = spec::given(spec);
-    let (shared, spec): (Arc<Tables>, Arc<Spec>) = if let Ok(parsed) = tables.cast::<PyTables>() {
-        let parsed = parsed.get();
-        let spec = given.unwrap_or_else(|| Arc::clone(parsed.spec()));
-        (Arc::clone(parsed.tables()), spec)
-    } else {
-        let mapping = tables.cast::<PyMapping>().map_err(|_| {
-                refuse(
-                    py,
-                    "write: tables must be the tables of a parse or a mapping of table names to Arrow, Polars or pandas tables".to_string(),
-                    Vec::new(),
-                )
-            })?;
-        let spec = given.unwrap_or_else(spec::builtin);
-        match import::tables(&spec, mapping)? {
-            Ok(tables) => (Arc::new(tables), spec),
-            Err(message) => return Err(refuse(py, message, Vec::new())),
-        }
-    };
+    let (shared, spec) = resolve(py, tables, spec::given(spec))?;
     let envelope = envelope.get().inner.clone();
     let written = py.detach(|| write_with_findings(&spec, &shared, &envelope));
-    let (bytes, findings) = match written {
-        Ok(written) => written,
-        Err(error) => {
-            let findings = match &error {
-                WriteError::Findings(findings) => findings.clone(),
-                _ => Vec::new(),
-            };
-            return Err(refuse(py, error.to_string(), findings));
-        }
-    };
+    finish(py, written, allow_findings)
+}
+
+/// The tables to write and the spec to write them with: those of a parse
+/// (the given spec replacing its own), or a mapping read against the given
+/// spec, else the fallback built-in.
+fn resolve(
+    py: Python<'_>,
+    tables: &Bound<'_, PyAny>,
+    given: Option<Arc<Spec>>,
+) -> PyResult<(Arc<Tables>, Arc<Spec>)> {
+    if let Ok(parsed) = tables.cast::<PyTables>() {
+        let parsed = parsed.get();
+        let spec = given.unwrap_or_else(|| Arc::clone(parsed.spec()));
+        return Ok((Arc::clone(parsed.tables()), spec));
+    }
+    let mapping = tables.cast::<PyMapping>().map_err(|_| {
+        let message = "write: tables must be the tables of a parse or a mapping of table names to Arrow, Polars or pandas tables";
+        refuse(py, message.to_string(), Vec::new())
+    })?;
+    let spec = given.unwrap_or_else(|| Arc::clone(&Builtin::fallback().spec));
+    let imported = import::tables(&spec, mapping)?;
+    let tables = imported.map_err(|message| refuse(py, message, Vec::new()))?;
+    Ok((Arc::new(tables), spec))
+}
+
+/// The written bytes with their findings as a tuple; a failed write, or
+/// findings when they are not allowed, are refused with the findings.
+fn finish<'py>(
+    py: Python<'py>,
+    written: Result<(Vec<u8>, Vec<Finding>), WriteError>,
+    allow_findings: bool,
+) -> PyResult<Bound<'py, PyTuple>> {
+    let (bytes, findings) = written.map_err(|error| {
+        let findings = match &error {
+            WriteError::Findings(findings) => findings.clone(),
+            _ => Vec::new(),
+        };
+        refuse(py, error.to_string(), findings)
+    })?;
     if !allow_findings && !findings.is_empty() {
         let message = WriteError::Findings(findings.clone()).to_string();
         return Err(refuse(py, message, findings));

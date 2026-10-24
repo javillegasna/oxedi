@@ -13,6 +13,8 @@ This file covers the Python package; the DuckDB extension has its own changelog 
 - The `test` extra is gone (`pip install "oxedi[test]"` no longer resolves): it was a contributor
   list, not a feature. Contributors install the test tools from the package's dependency group:
   `uv pip install --group crates/oxedi_py/pyproject.toml:test`, or `make venv`.
+- `Spec.builtin`: the `ValueError` for a version no built-in covers now reads
+  `Spec.builtin(version="6020"): unknown version "6020"; version must be one of "5010", "4010"`.
 
 ## [0.6.0] - 2026-10-18
 

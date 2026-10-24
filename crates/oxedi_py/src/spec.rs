@@ -1,8 +1,8 @@
 //! `Spec`: the loop structure, element definitions and tables, as data.
 
-use std::sync::{Arc, OnceLock};
+use std::sync::Arc;
 
-use oxedi_core::{Segment, Spec};
+use oxedi_core::{Builtin, Segment, Spec};
 use pyo3::exceptions::{PyTypeError, PyValueError};
 use pyo3::prelude::*;
 use pyo3::types::{PyCapsule, PyDict, PyString};
@@ -34,23 +34,6 @@ impl SchemaExport {
     }
 }
 
-static BUILTIN: OnceLock<Arc<Spec>> = OnceLock::new();
-static BUILTIN_4010: OnceLock<Arc<Spec>> = OnceLock::new();
-
-/// The built-in spec, loaded once per process.
-pub fn builtin() -> Arc<Spec> {
-    BUILTIN
-        .get_or_init(|| Arc::new(Spec::builtin_835()))
-        .clone()
-}
-
-/// The built-in 4010 spec, loaded once per process.
-fn builtin_4010() -> Arc<Spec> {
-    BUILTIN_4010
-        .get_or_init(|| Arc::new(Spec::builtin_835_4010()))
-        .clone()
-}
-
 /// The spec given to a call, which it uses as is.
 pub fn given(spec: Option<&Bound<'_, PySpec>>) -> Option<Arc<Spec>> {
     spec.map(|spec| spec.get().inner.clone())
@@ -66,13 +49,7 @@ pub fn given_or_selected<'s>(
     if let Some(spec) = given {
         return spec;
     }
-    let (default, other) = (builtin(), builtin_4010());
-    let chosen = Spec::select(&[&default, &other], &default, segments);
-    if std::ptr::eq(chosen, &*other) {
-        other
-    } else {
-        default
-    }
+    Arc::clone(&Builtin::select(segments).spec)
 }
 
 /// The loop structure, element definitions and tables of a file format.
@@ -85,25 +62,17 @@ pub struct PySpec {
 #[gen_stub_pymethods]
 #[pymethods]
 impl PySpec {
-    /// The built-in 835 spec of `version`, `"5010"` (the default) or
-    /// `"4010"`; raises `ValueError` for any other version.
+    /// The built-in spec of `version`, the fallback built-in's version by
+    /// default; raises `ValueError` for a version no built-in covers.
     #[staticmethod]
-    #[pyo3(signature = (version = "5010"))]
-    fn builtin(
-        // Described as written so the stub carries the default value.
-        #[gen_stub(override_type(type_repr = "builtins.str", imports = ("builtins",)))]
-        version: &str,
-    ) -> PyResult<PySpec> {
-        let inner = match version {
-            "5010" => builtin(),
-            "4010" => builtin_4010(),
-            other => {
-                return Err(PyValueError::new_err(format!(
-                    "Spec.builtin(version={other:?}): no built-in spec for that version; the built-ins are \"5010\" and \"4010\""
-                )));
-            }
-        };
-        Ok(PySpec { inner })
+    #[pyo3(signature = (version = Builtin::DEFAULT_VERSION))]
+    fn builtin(version: &str) -> PyResult<PySpec> {
+        let found = Builtin::find(Builtin::fallback().transaction, version).map_err(|error| {
+            PyValueError::new_err(format!("Spec.builtin(version={version:?}): {error}"))
+        })?;
+        Ok(PySpec {
+            inner: Arc::clone(&found.spec),
+        })
     }
 
     /// The spec described by `json`; raises `SpecError` with the core message

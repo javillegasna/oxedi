@@ -56,6 +56,7 @@ mod by_module {
     use oxedi_core::segment::SegmentWriteError;
     use oxedi_core::spec::AnchorChains;
     use oxedi_core::spec::AnchorPositions;
+    use oxedi_core::spec::Builtin;
     use oxedi_core::spec::ColumnSource;
     use oxedi_core::spec::Control;
     use oxedi_core::spec::ControlCount;
@@ -77,6 +78,7 @@ mod by_module {
     use oxedi_core::spec::TableDef;
     use oxedi_core::spec::TableDefError;
     use oxedi_core::spec::Trigger;
+    use oxedi_core::spec::UnknownVersion;
     use oxedi_core::spec::VersionError;
     use oxedi_core::spec::merge_patch;
     use oxedi_core::tokenizer::Tokenizer;
@@ -91,10 +93,10 @@ use oxedi_core::Projector;
 use oxedi_core::StructureChecker;
 use oxedi_core::Tokenizer;
 use oxedi_core::{
-    AnchorChains, AnchorPositions, ColumnSource, Control, ControlCount, ControlError,
+    AnchorChains, AnchorPositions, Builtin, ColumnSource, Control, ControlCount, ControlError,
     DeclaredVersion, ElementDef, ElementDefError, ElementType, LoopDef, LoopId, LoopSegments, Pick,
-    Repeat, SegmentDef, Spec, SpecError, TableDef, TableDefError, Trigger, VersionError,
-    merge_patch,
+    Repeat, SegmentDef, Spec, SpecError, TableDef, TableDefError, Trigger, UnknownVersion,
+    VersionError, merge_patch,
 };
 use oxedi_core::{
     Bitmap, Cell, CellError, Column, ColumnData, ColumnType, RowError, Table, Tables, parse_dt,
@@ -121,4 +123,15 @@ fn spec_items(spec: &Spec) {
     let _: fn() -> Spec = Spec::builtin_835_4010;
     let _: for<'a> fn(&'a Spec) -> Option<&'a DeclaredVersion> = Spec::version;
     let _: &Spec = Spec::select(&[spec], spec, Vec::<Segment<'static>>::new());
+}
+
+// Associated items of `Builtin`, named so the build fails if one disappears.
+#[allow(dead_code)]
+fn builtin_items() {
+    let _: &str = Builtin::DEFAULT_VERSION;
+    let _: fn() -> &'static [Builtin] = Builtin::all;
+    let _: fn() -> &'static Builtin = Builtin::fallback;
+    let _: fn(&str, &str) -> Result<&'static Builtin, UnknownVersion> = Builtin::find;
+    let _: fn(&str) -> Vec<&'static str> = Builtin::versions;
+    let _: &Builtin = Builtin::select(Vec::<Segment<'static>>::new());
 }

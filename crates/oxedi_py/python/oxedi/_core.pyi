@@ -363,10 +363,10 @@ class Spec:
     The loop structure, element definitions and tables of a file format.
     """
     @staticmethod
-    def builtin(version: builtins.str = "5010") -> Spec:
+    def builtin(version: builtins.str = '5010') -> Spec:
         r"""
-        The built-in 835 spec of `version`, `"5010"` (the default) or
-        `"4010"`; raises `ValueError` for any other version.
+        The built-in spec of `version`, the fallback built-in's version by
+        default; raises `ValueError` for a version no built-in covers.
         """
     @staticmethod
     def from_json(json: builtins.str) -> Spec:

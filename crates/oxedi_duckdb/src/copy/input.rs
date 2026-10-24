@@ -11,7 +11,7 @@ use oxedi_core::ColumnType;
 use oxedi_core::write::WriteError;
 
 use super::error::CopyError;
-use crate::builtins::{Builtin, BuiltinTable};
+use crate::builtins::{BuiltinSchema, BuiltinTable};
 use crate::types::LogicalType;
 use crate::value::{primitive_name, take_text};
 
@@ -170,7 +170,10 @@ pub struct BoundTable {
 /// Binds the query's columns, which must be one STRUCT keyed by table, to
 /// the tables of `builtin`; one bound table per field of the STRUCT, in its
 /// order.
-pub fn bind(builtin: &Builtin, columns: &[InputColumn]) -> Result<Vec<BoundTable>, CopyError> {
+pub fn bind(
+    builtin: &BuiltinSchema,
+    columns: &[InputColumn],
+) -> Result<Vec<BoundTable>, CopyError> {
     let fields = match columns {
         [InputColumn::Tables(fields)] => fields,
         [InputColumn::Other(found)] => {

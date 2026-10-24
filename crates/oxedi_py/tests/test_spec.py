@@ -93,12 +93,16 @@ def test_the_builtins_by_version():
     assert json.loads(five.to_json())["version"]["values"] == ["005010X221A1"]
 
 
+def test_builtin_without_a_version_is_the_default():
+    assert Spec.builtin().to_json() == Spec.builtin("5010").to_json()
+
+
 def test_an_unknown_builtin_version_names_the_versions_there_are():
     with pytest.raises(ValueError) as info:
         Spec.builtin(version="6020")
     assert str(info.value) == (
-        'Spec.builtin(version="6020"): no built-in spec for that version; '
-        'the built-ins are "5010" and "4010"'
+        'Spec.builtin(version="6020"): unknown version "6020"; '
+        'version must be one of "5010", "4010"'
     )
 
 

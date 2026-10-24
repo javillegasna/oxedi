@@ -83,7 +83,7 @@ the structure. The Rust bindings (`crates/oxedi_py/src`, `crates/oxedi_duckdb/sr
 `crates/oxedi_wasm/src/view/mod.rs`:
 
 ```rust
-Spec::select(&[builtin(), builtin_4010()], builtin(), document.segments())
+&Builtin::select(document.segments()).spec
 ```
 
 **The core stays sans-IO.** `oxedi_core`'s `[dependencies]` are `serde`, `serde_json`, `hmac`

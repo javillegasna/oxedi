@@ -114,8 +114,7 @@ fn unknown_table() {
 fn unknown_version() {
     assert_eq!(
         text(ReadError::UnknownVersion {
-            version: "3070".to_owned(),
-            known: vec!["5010", "4010"],
+            source: oxedi_core::Builtin::find("835", "3070").unwrap_err(),
         }),
         "read_835: unknown version \"3070\"; version must be one of \"5010\", \"4010\""
     );

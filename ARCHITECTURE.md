@@ -111,19 +111,23 @@ The spec files live in `crates/oxedi_core/specs/`:
 
 | File | What it is | Who loads it |
 |---|---|---|
-| `835.json` | The 5010 spec: `name`, `version`, `loops`, `segments`, `tables`, `balancing`. | `Spec::builtin_835` (`include_str!` in `spec/mod.rs`) |
+| `835.json` | The 5010 spec: `name`, `version`, `loops`, `segments`, `tables`, `balancing`, `summaries`, `default_table`. | `Spec::builtin_835` (`include_str!` in `spec/mod.rs`) |
 | `835.4010.json` | A JSON Merge Patch (RFC 7386) over `835.json` that gives the 4010 version. | `Spec::builtin_835_4010` |
 | `edi_835_parser.json` | A patch with the tables of the `edi-835-parser` compatibility layer. | `crates/oxedi_py/src/lib.rs`, pinned by `tests/project_golden.rs` |
 
 Loading goes `Spec::from_json` → `Spec::from_value` (`spec/build.rs`):
 
-1. `shape.rs` checks the JSON shape, with errors that name the loop and key as written.
+1. `shape.rs` checks the JSON shape against `schema.rs`, the schema as data: one table of
+   keys per object, the root's rows being the sections. Its errors name the key path as
+   written and, for an unknown key, the keys allowed there.
 2. `raw.rs` deserializes each entry into serde structs (`RawSpec`, `RawLoop`, …).
-3. `build.rs` compiles loops, triggers and controls, and calls the other files for
-   occurrences, segments, tables, balancing, patient-data flags and the version;
-   `spec/mod.rs` lists which file holds what.
+3. `build.rs` runs the compile steps in order, one per section or structural check:
+   loops (`build_loops.rs`: keys, parent, trigger, control), segments, occurrences, the
+   version, trigger ambiguity, tables, balancing, summaries (`summaries.rs`) and the
+   default table; `spec/mod.rs` lists which file holds what.
 4. The result is index-based: `LoopDef` (by `LoopId`), `SegmentDef`, `ElementDef`, `TableDef`
-   with a `ColumnSource` per column, `BalanceRule`. The engine compares indices, never strings.
+   with a `ColumnSource` per column, `BalanceRule`, `Summary`. The engine compares indices,
+   never strings.
 
 `Spec::merge_patch` (`spec/patch.rs`) applies a patch to the spec's JSON and loads the result
 again, so a patched spec goes through the same checks as a new one.

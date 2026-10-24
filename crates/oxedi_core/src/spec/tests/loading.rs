@@ -287,7 +287,7 @@ fn a_misspelt_loop_key_is_named_with_the_loop() {
     .unwrap_err();
     assert_eq!(
         err.to_string(),
-        "spec: unknown key \"segmnts\" at loops.2100"
+        "spec: unknown key \"segmnts\" at loops.2100; the allowed keys are: control, end, max, occurrences, parent, trigger, usage"
     );
 }
 

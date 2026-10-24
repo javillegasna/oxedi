@@ -1,6 +1,6 @@
 //! Balancing rules: amounts that must add up inside one instance of a loop,
-//! their JSON shape check, their compilation against the loops and the
-//! `segments` section, and the text that describes them in messages.
+//! their compilation against the loops and the `segments` section, and the
+//! text that describes them in messages. Their JSON shape is in `schema`.
 //!
 //! A rule names the loop whose every instance it checks (`per`), a `target`
 //! and a `sum`, each a list of signed values. A value reads one or more
@@ -21,9 +21,8 @@ use super::loops::LoopId;
 use super::occurrence_error::place;
 use super::occurrences::{element_def, type_code};
 use super::raw::{RawBalance, RawTerm};
-use super::render::{child, render_key, render_value};
+use super::render::render_key;
 use super::segments::ElementType;
-use super::shape::{Leaf, check_keys, check_leaf, check_member, kind_of, object_at};
 
 /// One signed value of a balancing rule: elements of an occurrence.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -54,66 +53,6 @@ pub struct BalanceRule {
     pub sum: Vec<BalanceTerm>,
     /// Decimal places the rule adds at: the largest scale of its elements.
     pub scale: u8,
-}
-
-/// An array at `at`, or [`SpecError::WrongType`] naming it.
-fn array_at<'v>(
-    value: &'v Value,
-    at: &str,
-    expected: &'static str,
-) -> Result<&'v [Value], SpecError> {
-    match value {
-        Value::Array(items) => Ok(items),
-        other => Err(SpecError::WrongType {
-            path: at.to_string(),
-            expected,
-            found: kind_of(other),
-            value: render_value(other),
-        }),
-    }
-}
-
-/// Requires the `balancing` section to be an object of rule objects with the
-/// keys and scalar kinds the schema defines.
-pub(super) fn check_balancing_shape(balancing: &Value) -> Result<(), SpecError> {
-    for (name, rule) in object_at(balancing, "balancing")? {
-        let at = child("balancing", name);
-        let rule = object_at(rule, &at)?;
-        let keys = ["per", "target", "sum"];
-        check_keys(rule, &at, &keys, &keys)?;
-        check_member(rule, &at, "per", Leaf::Text, false)?;
-        for side in ["target", "sum"] {
-            let Some(terms) = rule.get(side) else {
-                continue;
-            };
-            let at = child(&at, side);
-            for (i, term) in array_at(terms, &at, "an array of objects")?
-                .iter()
-                .enumerate()
-            {
-                let at = format!("{at}[{i}]");
-                let term = object_at(term, &at)?;
-                check_keys(
-                    term,
-                    &at,
-                    &["loop", "occurrence", "elements", "component", "sign"],
-                    &["occurrence", "elements"],
-                )?;
-                check_member(term, &at, "loop", Leaf::Text, true)?;
-                check_member(term, &at, "occurrence", Leaf::Text, false)?;
-                check_member(term, &at, "component", Leaf::Count, true)?;
-                check_member(term, &at, "sign", Leaf::Text, true)?;
-                if let Some(elements) = term.get("elements") {
-                    let at = child(&at, "elements");
-                    let positions = array_at(elements, &at, "an array of non-negative integers")?;
-                    for (j, position) in positions.iter().enumerate() {
-                        check_leaf(position, &format!("{at}[{j}]"), Leaf::Count)?;
-                    }
-                }
-            }
-        }
-    }
-    Ok(())
 }
 
 /// Compiles the `balancing` section against the loops and segments of `spec`.

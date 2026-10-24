@@ -80,40 +80,41 @@ def test_a_file_without_a_payee_loop_has_none():
     assert result.payer is not None
 
 
-def test_a_missing_table_is_named():
-    spec = Spec.builtin().patch({"tables": {"payments": None}})
-    result = oxedi.parse(read("edi835_test_file.RMT"), spec=spec)
-    with pytest.raises(KeyError) as info:
-        result.sum_payments()
-    assert info.value.args[0] == (
-        'Result.sum_payments reads the table "payments"; the tables are: '
-        "adjustments, claims, provider_adjustments, services"
-    )
-
-
-def test_a_missing_column_is_named():
-    spec = Spec.builtin().patch(
-        {"tables": {"claims": {"columns": {"patient_id": None}, "phi_seed": None}}}
-    )
-    result = oxedi.parse(read("edi835_test_file.RMT"), spec=spec)
-    with pytest.raises(KeyError) as info:
-        result.count_patients()
-    assert info.value.args[0] == (
-        'Result.count_patients reads the column "patient_id" of the table "claims"; its columns are: '
-        + ", ".join(result.tables["claims"].columns)
-    )
-
-
-def test_a_non_decimal_amount_is_named():
-    # The balancing rule that reads BPR02 as an amount goes with the change.
-    spec = Spec.builtin().patch({"segments": {"BPR": {"elements": {"2": {
-        "name": "total_actual_provider_payment_amount", "type": "AN", "min": 1, "max": 18}}}},
-        "balancing": {"transaction_balance": None}})
-    result = oxedi.parse(read("edi835_test_file.RMT"), spec=spec)
-    with pytest.raises(TypeError) as info:
-        result.sum_payments()
+def test_a_patch_that_removes_a_summarized_table_fails_to_load():
+    with pytest.raises(oxedi.SpecError) as info:
+        Spec.builtin().patch({"tables": {"payments": None}})
     assert str(info.value) == (
-        'Result.sum_payments reads "total_payment_amount" of the table "payments" as a decimal; it is binary'
+        'applying patch: summary "payee": row.table names the table "payments", which the spec '
+        "does not define; its tables are: adjustments, claims, provider_adjustments, services"
+    )
+
+
+def test_a_patch_that_removes_a_summarized_column_fails_to_load():
+    with pytest.raises(oxedi.SpecError) as info:
+        Spec.builtin().patch(
+            {"tables": {"claims": {"columns": {"patient_id": None}, "phi_seed": None}}}
+        )
+    assert str(info.value) == (
+        'applying patch: summary "count_patients": distinct.column names the column "patient_id", '
+        'which the table "claims" does not declare; its columns are: charge_amount, claim_id, '
+        "claim_status, coverage_amount, discharge_fraction, drg_code, drg_weight, facility_type, "
+        "filing_indicator, frequency_code, group_number, header_number, patient_first_name, "
+        "patient_id_qualifier, patient_last_name, patient_responsibility, payer_control_number, "
+        "payment_amount, rendering_provider_entity_type, rendering_provider_id, "
+        "rendering_provider_id_qualifier, rendering_provider_name, statement_from, statement_to"
+    )
+
+
+def test_a_patch_that_makes_a_summed_column_text_fails_to_load():
+    # The balancing rule that reads BPR02 as an amount goes with the change.
+    with pytest.raises(oxedi.SpecError) as info:
+        Spec.builtin().patch({"segments": {"BPR": {"elements": {"2": {
+            "name": "total_actual_provider_payment_amount", "type": "AN", "min": 1, "max": 18}}}},
+            "balancing": {"transaction_balance": None}})
+    assert str(info.value) == (
+        'applying patch: summary "sum_payments": sum.column names the column '
+        '"total_payment_amount" of the table "payments", which reads AN (string); sum needs a '
+        "decimal (R) column"
     )
 
 

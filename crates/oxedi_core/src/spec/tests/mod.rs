@@ -12,6 +12,7 @@ mod patch;
 mod phi;
 mod segments;
 mod shape;
+mod summaries;
 mod tables;
 mod triggers;
 mod version;

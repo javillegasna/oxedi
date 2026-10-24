@@ -174,7 +174,7 @@ fn the_shape_of_the_section_is_checked_with_its_key_path() {
         ),
         (
             r#"{"r":{"per":"pay","target":[],"sum":[],"tolerance":0}}"#,
-            "spec: unknown key \"tolerance\" at balancing.r",
+            "spec: unknown key \"tolerance\" at balancing.r; the allowed keys are: per, sum, target",
         ),
         (
             r#"{"r":{"per":"pay","target":{},"sum":[]}}"#,

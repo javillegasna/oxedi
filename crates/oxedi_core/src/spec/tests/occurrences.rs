@@ -361,7 +361,7 @@ fn invalid_occurrences_are_rejected_naming_loop_occurrence_rule_and_datum() {
         ),
         (
             r#"{"loops":{"head":{"occurrences":{"note":{"maximum":2}}}}}"#,
-            "spec: unknown key \"maximum\" at loops.head.occurrences.note",
+            "spec: unknown key \"maximum\" at loops.head.occurrences.note; the allowed keys are: codes, max, pos, qualifier, segment, usage",
         ),
         (
             r#"{"loops":{"head":{"occurrences":{"extra":{"segment":"EX"}}}}}"#,

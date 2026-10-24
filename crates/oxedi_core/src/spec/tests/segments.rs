@@ -238,15 +238,15 @@ fn a_segment_key_the_schema_does_not_define_is_named_with_its_path() {
     let cases = [
         (
             r#"{"AA":{"elements":{"3":{"name":"a","type":"AN","lenght":3}}}}"#,
-            "spec: unknown key \"lenght\" at segments.AA.elements.3",
+            "spec: unknown key \"lenght\" at segments.AA.elements.3; the allowed keys are: codes, composite, max, min, name, required, scale, type",
         ),
         (
             r#"{"AA":{"elemnts":{}}}"#,
-            "spec: unknown key \"elemnts\" at segments.AA",
+            "spec: unknown key \"elemnts\" at segments.AA; the allowed keys are: elements",
         ),
         (
             r#"{"AA":{"elements":{"1":{"name":"c","type":"AN","composite":{"2":{"name":"x","typ":"AN"}}}}}}"#,
-            "spec: unknown key \"typ\" at segments.AA.elements.1.composite.2",
+            "spec: unknown key \"typ\" at segments.AA.elements.1.composite.2; the allowed keys are: codes, composite, max, min, name, required, scale, type",
         ),
         (
             r#"{"AA":{"elements":{"3":{"name":"a"}}}}"#,

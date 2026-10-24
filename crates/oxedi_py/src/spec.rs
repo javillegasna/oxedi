@@ -2,7 +2,7 @@
 
 use std::sync::Arc;
 
-use oxedi_core::{Builtin, Segment, Spec, UnknownVersion, Version};
+use oxedi_core::{Builtin, Segment, Spec, Version};
 use pyo3::exceptions::{PyTypeError, PyValueError};
 use pyo3::prelude::*;
 use pyo3::types::{PyCapsule, PyDict, PyString};
@@ -98,24 +98,43 @@ impl PyVersion {
             Version::V4010 => "Version.V4010",
         }
     }
+
+    /// Every version a built-in spec covers, the default first.
+    #[staticmethod]
+    fn all() -> Vec<PyVersion> {
+        Version::ALL.into_iter().map(PyVersion::from).collect()
+    }
 }
 
-/// A version argument: a `Version`, or its text.
+/// A version argument: a `Version`, its text, or anything else (kept as its
+/// repr and type name, so the call that received it can refuse it).
 pub enum VersionArg {
     Version(Version),
     Text(String),
+    Other { shown: String, kind: String },
 }
 
 impl VersionArg {
     /// The version `Spec.builtin` uses when none is given.
     const DEFAULT: VersionArg = VersionArg::Version(Builtin::DEFAULT_VERSION);
 
-    /// The built-in of `transaction` the argument names.
-    fn find(&self, transaction: &str) -> Result<&'static Builtin, UnknownVersion> {
-        match self {
+    /// The built-in of `transaction` the argument names, for the `call` that
+    /// received it (e.g. `Spec.builtin`): `TypeError` for an argument that is
+    /// neither a `Version` nor text, `ValueError` for a version no built-in
+    /// covers.
+    fn resolve(&self, call: &str, transaction: &str) -> PyResult<&'static Builtin> {
+        let found = match self {
             VersionArg::Version(version) => Builtin::find(transaction, *version),
             VersionArg::Text(text) => Builtin::find_text(transaction, text),
-        }
+            VersionArg::Other { shown, kind } => {
+                return Err(PyTypeError::new_err(format!(
+                    "{call}(version={shown}): version must be an oxedi.Version or its text, not {kind}"
+                )));
+            }
+        };
+        found.map_err(|error| {
+            PyValueError::new_err(format!("{call}(version={:?}): {error}", error.version))
+        })
     }
 }
 
@@ -126,25 +145,19 @@ impl<'a, 'py> FromPyObject<'a, 'py> for VersionArg {
         if let Ok(version) = object.extract::<PyVersion>() {
             return Ok(VersionArg::Version(version.0));
         }
-        object
-            .extract::<String>()
-            .map(VersionArg::Text)
-            .map_err(|_| wrong_type(object.as_any()))
+        if let Ok(text) = object.extract::<String>() {
+            return Ok(VersionArg::Text(text));
+        }
+        let shown = object.repr().map_or_else(
+            |_| "an object whose repr failed".to_owned(),
+            |text| text.to_string(),
+        );
+        let kind = object
+            .get_type()
+            .qualname()
+            .map_or_else(|_| "an unknown type".to_owned(), |name| name.to_string());
+        Ok(VersionArg::Other { shown, kind })
     }
-}
-
-/// The `TypeError` for a `version` that is neither a `Version` nor text.
-fn wrong_type(object: &Bound<'_, PyAny>) -> PyErr {
-    let shown = object
-        .repr()
-        .map_or_else(|_| "?".to_owned(), |text| text.to_string());
-    let kind = object
-        .get_type()
-        .qualname()
-        .map_or_else(|_| "an unknown type".to_owned(), |name| name.to_string());
-    PyTypeError::new_err(format!(
-        "Spec.builtin(version={shown}): version must be an oxedi.Version or its text, not {kind}"
-    ))
 }
 
 impl<'py> IntoPyObject<'py> for VersionArg {
@@ -158,6 +171,7 @@ impl<'py> IntoPyObject<'py> for VersionArg {
                 Ok(PyVersion::from(version).into_pyobject(py)?.into_any())
             }
             VersionArg::Text(text) => Ok(PyString::new(py, &text).into_any()),
+            VersionArg::Other { shown, .. } => Ok(PyString::new(py, &shown).into_any()),
         }
     }
 }
@@ -194,14 +208,7 @@ impl PySpec {
     #[staticmethod]
     #[pyo3(signature = (version = VersionArg::DEFAULT))]
     fn builtin(version: VersionArg) -> PyResult<PySpec> {
-        let found = version
-            .find(Builtin::fallback().transaction)
-            .map_err(|error| {
-                PyValueError::new_err(format!(
-                    "Spec.builtin(version={:?}): {error}",
-                    error.version
-                ))
-            })?;
+        let found = version.resolve("Spec.builtin", Builtin::fallback().transaction)?;
         Ok(PySpec {
             inner: Arc::clone(&found.spec),
         })

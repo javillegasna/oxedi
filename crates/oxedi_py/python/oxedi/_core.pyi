@@ -521,6 +521,11 @@ class Version:
     def __hash__(self) -> builtins.int: ...
     def __str__(self) -> builtins.str: ...
     def __repr__(self) -> builtins.str: ...
+    @staticmethod
+    def all() -> builtins.list[Version]:
+        r"""
+        Every version a built-in spec covers, the default first.
+        """
 
 @typing.final
 class WriteFinding:

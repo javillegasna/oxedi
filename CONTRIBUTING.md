@@ -35,8 +35,8 @@ Times are for a machine that has built once. Some notes:
 - The first `cargo test -p …` after a workspace build compiles the crate again, once (about a
   minute), because a single package builds with fewer features than the workspace.
 - `crates/oxedi_py` has no Rust tests (`test = false`): its tests are pytest, and `make py-dev`
-  builds the extension first. `make py-dev` installs into the active virtual environment when
-  one is active; deactivate any other one so it lands in `.venv`.
+  builds the extension first. `make py-dev` always installs into the checkout's own `.venv`,
+  whatever virtual environment is active in your shell; set `OXEDI_VENV=/path` to use another.
 - The SQL tests need the DuckDB tools once: `git submodule update --init && make configure_ci`.
   See [DuckDB extension](#duckdb-extension).
 
@@ -196,7 +196,7 @@ Python 3.11 or later, and [uv](https://docs.astral.sh/uv/). `make venv` creates 
 maturin and the test tools.
 
 ```bash
-make help       # list every target
+make help       # list every target, grouped by area (the targets live in make/*.mk)
 make venv       # create .venv with the dev tools
 make py-dev     # build the extension into .venv (debug)
 make gates      # format, clippy, Rust tests, benches compile, docs

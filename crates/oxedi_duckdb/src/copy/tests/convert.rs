@@ -43,6 +43,11 @@ fn decimals_rescale_exactly() {
         rescale(i128::MAX, 0, 2),
         Err(format!("{} at scale 0 overflows scale 2", i128::MAX))
     );
+    assert_eq!(rescale(0, 0, 39), Ok(0));
+    assert_eq!(
+        rescale(1, 0, 39),
+        Err("1 at scale 0 overflows scale 39".to_owned())
+    );
 }
 
 #[test]

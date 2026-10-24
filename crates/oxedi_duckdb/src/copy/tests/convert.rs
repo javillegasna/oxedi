@@ -1,7 +1,6 @@
 use super::super::convert::{
     float_integer, rescale, timestamp_date, unsigned_integer, whole_seconds, wide_integer,
 };
-use super::super::input::Unit;
 use oxedi_core::value::TimeUnit;
 
 #[test]
@@ -53,16 +52,22 @@ fn decimals_rescale_exactly() {
 
 #[test]
 fn timestamps_must_be_at_midnight() {
-    assert_eq!(timestamp_date(86_400, Unit::Second), Ok(1));
-    assert_eq!(timestamp_date(86_400_000, Unit::Milli), Ok(1));
-    assert_eq!(timestamp_date(-86_400_000_000, Unit::Micro), Ok(-1));
-    assert_eq!(timestamp_date(86_400_000_000_000, Unit::Nano), Ok(1));
+    assert_eq!(timestamp_date(86_400, TimeUnit::Second), Ok(1));
+    assert_eq!(timestamp_date(86_400_000, TimeUnit::Millisecond), Ok(1));
     assert_eq!(
-        timestamp_date(1, Unit::Micro),
+        timestamp_date(-86_400_000_000, TimeUnit::Microsecond),
+        Ok(-1)
+    );
+    assert_eq!(
+        timestamp_date(86_400_000_000_000, TimeUnit::Nanosecond),
+        Ok(1)
+    );
+    assert_eq!(
+        timestamp_date(1, TimeUnit::Microsecond),
         Err("timestamp 1 is not at midnight; give dates".to_owned())
     );
     assert_eq!(
-        timestamp_date(i64::MAX / 86_400 * 86_400, Unit::Second),
+        timestamp_date(i64::MAX / 86_400 * 86_400, TimeUnit::Second),
         Err(format!("{} is out of range", i64::MAX / 86_400 * 86_400))
     );
 }

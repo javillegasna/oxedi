@@ -4,6 +4,7 @@
 use libduckdb_sys as ffi;
 use oxedi_core::value::TimeUnit;
 
+use super::convert::from_hugeint;
 use super::options::{Kind, OptionValue};
 use crate::value::{Value, take_text};
 
@@ -70,6 +71,16 @@ unsafe fn struct_children(value: &Value) -> Option<Vec<(String, OptionValue)>> {
     Some(children)
 }
 
+/// A value as the messages show it: a VARCHAR quoted, any other type as its
+/// type name and text.
+fn shown(value: &Value, text: &str) -> String {
+    if value.type_id() == ffi::DUCKDB_TYPE_DUCKDB_TYPE_VARCHAR {
+        format!("VARCHAR {text:?}")
+    } else {
+        format!("{} {text}", value.type_name())
+    }
+}
+
 /// The bytes of a BLOB value, copied out and DuckDB's copy freed; `None`
 /// for a size this platform cannot address.
 ///
@@ -101,11 +112,7 @@ unsafe fn option_value(value: &Value) -> OptionValue {
     let id = value.type_id();
     let raw = value.raw();
     let text = value.text();
-    let shown = if id == ffi::DUCKDB_TYPE_DUCKDB_TYPE_VARCHAR {
-        format!("VARCHAR {text:?}")
-    } else {
-        format!("{} {text}", value.type_name())
-    };
+    let shown = shown(value, &text);
     // SAFETY: each getter is called on a live value of its own type.
     let kind = unsafe {
         match id {
@@ -125,8 +132,7 @@ unsafe fn option_value(value: &Value) -> OptionValue {
                 Kind::Integer(i128::from(ffi::duckdb_get_uint64(raw)))
             }
             ffi::DUCKDB_TYPE_DUCKDB_TYPE_HUGEINT => {
-                let value = ffi::duckdb_get_hugeint(raw);
-                Kind::Integer((i128::from(value.upper) << 64) | i128::from(value.lower))
+                Kind::Integer(from_hugeint(ffi::duckdb_get_hugeint(raw)))
             }
             ffi::DUCKDB_TYPE_DUCKDB_TYPE_DATE => Kind::Date(ffi::duckdb_get_date(raw).days),
             ffi::DUCKDB_TYPE_DUCKDB_TYPE_TIME => Kind::Time {
@@ -137,10 +143,9 @@ unsafe fn option_value(value: &Value) -> OptionValue {
                 value: ffi::duckdb_get_time_ns(raw).nanos,
                 unit: TimeUnit::Nanosecond,
             },
-            ffi::DUCKDB_TYPE_DUCKDB_TYPE_STRUCT => match struct_children(value) {
-                Some(children) => Kind::Struct(children),
-                None => Kind::Other,
-            },
+            ffi::DUCKDB_TYPE_DUCKDB_TYPE_STRUCT => {
+                struct_children(value).map_or(Kind::Other, Kind::Struct)
+            }
             _ => Kind::Other,
         }
     };

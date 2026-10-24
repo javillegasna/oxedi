@@ -104,12 +104,12 @@ crates/oxedi_core/src/write/segments.rs	nths	8	1
 crates/oxedi_core/src/write/segments.rs	segments	9	3
 crates/oxedi_core/src/write/walk.rs	instances	10	1
 crates/oxedi_duckdb/src/copy/error.rs	fmt	21	0	flat
-crates/oxedi_duckdb/src/copy/input.rs	field_type	25	0
+crates/oxedi_duckdb/src/copy/input.rs	field_type	25	0	flat
 crates/oxedi_duckdb/src/copy/mod.rs	global_init	10	1
 crates/oxedi_duckdb/src/copy/options.rs	delimiters	10	3
-crates/oxedi_duckdb/src/copy/read.rs	option_value	13	1	flat
+crates/oxedi_duckdb/src/copy/read.rs	option_value	11	0	flat
 crates/oxedi_duckdb/src/copy/sink.rs	append_table	9	3
-crates/oxedi_duckdb/src/copy/sink.rs	cell	18	1	flat
+crates/oxedi_duckdb/src/copy/sink.rs	convert	12	0	flat
 crates/oxedi_duckdb/src/copy/sink.rs	raw	22	0	flat
 crates/oxedi_duckdb/src/error/mod.rs	fmt	22	0	flat
 crates/oxedi_duckdb/src/files/glob.rs	open	10	1

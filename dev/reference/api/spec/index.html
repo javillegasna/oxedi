@@ -1587,6 +1587,17 @@
       <ul class="md-nav__list">
         
           <li class="md-nav__item">
+  <a href="#oxedi.Spec.DEFAULT_VERSION" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        DEFAULT_VERSION
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
   <a href="#oxedi.Spec.builtin" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -1665,6 +1676,67 @@
       
     </span>
   </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#oxedi.Version" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Version
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Version">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#oxedi.Version.V5010" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        V5010
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#oxedi.Version.V4010" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        V4010
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#oxedi.Version.text" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        text
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#oxedi.Version.all" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        all
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
   
 </li>
       
@@ -1996,6 +2068,17 @@
       <ul class="md-nav__list">
         
           <li class="md-nav__item">
+  <a href="#oxedi.Spec.DEFAULT_VERSION" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        DEFAULT_VERSION
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
   <a href="#oxedi.Spec.builtin" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -2077,6 +2160,67 @@
   
 </li>
       
+        <li class="md-nav__item">
+  <a href="#oxedi.Version" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Version
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Version">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#oxedi.Version.V5010" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        V5010
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#oxedi.Version.V4010" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        V4010
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#oxedi.Version.text" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        text
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#oxedi.Version.all" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        all
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
     </ul>
   
 </nav>
@@ -2136,6 +2280,30 @@
 
 
 
+<div class="doc doc-object doc-attribute">
+
+
+
+<h3 id="oxedi.Spec.DEFAULT_VERSION" class="doc doc-heading">
+            <span class="doc doc-object-name doc-attribute-name">DEFAULT_VERSION</span>
+
+
+  <span class="doc doc-labels">
+      <small class="doc doc-label doc-label-instance-attribute"><code>instance-attribute</code></small>
+  </span>
+
+<a href="#oxedi.Spec.DEFAULT_VERSION" class="headerlink" title="Permanent link">&para;</a></h3>
+<div class="doc-signature highlight"><pre><span></span><code><span class="n">DEFAULT_VERSION</span><span class="p">:</span> <span class="n">Version</span>
+</code></pre></div>
+
+    <div class="doc doc-contents ">
+
+        <p>The version of the default built-in spec.</p>
+
+    </div>
+
+</div>
+
 
 
 
@@ -2151,13 +2319,13 @@
   </span>
 
 <a href="#oxedi.Spec.builtin" class="headerlink" title="Permanent link">&para;</a></h3>
-<div class="doc-signature highlight"><pre><span></span><code><span class="nf">builtin</span><span class="p">(</span><span class="n">version</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s1">'5010'</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Spec</span>
+<div class="doc-signature highlight"><pre><span></span><code><span class="nf">builtin</span><span class="p">(</span><span class="n">version</span><span class="p">:</span> <span class="n">Version</span> <span class="o">=</span> <span class="n">Version</span><span class="o">.</span><span class="n">V5010</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Spec</span>
 </code></pre></div>
 
     <div class="doc doc-contents ">
 
-        <p>The built-in 835 spec of <code>version</code>, <code>"5010"</code> (the default) or
-<code>"4010"</code>; raises <code>ValueError</code> for any other version.</p>
+        <p>The built-in spec of <code>version</code>; it defaults to <code>Spec.DEFAULT_VERSION</code>.
+Raises <code>ValueError</code> for a version no built-in covers.</p>
 
 
     </div>
@@ -2309,6 +2477,148 @@ Needs pyarrow.</p>
 
 
 
+
+    </div>
+
+</div>
+
+<div class="doc doc-object doc-class">
+
+
+
+<h2 id="oxedi.Version" class="doc doc-heading">
+            <span class="doc doc-object-name doc-class-name">Version</span>
+
+
+<a href="#oxedi.Version" class="headerlink" title="Permanent link">&para;</a></h2>
+
+
+    <div class="doc doc-contents first">
+
+
+
+        <p>An X12 release a built-in spec covers.</p>
+
+
+
+
+
+
+
+
+
+
+
+<div class="doc doc-children">
+
+
+
+
+
+
+
+<div class="doc doc-object doc-attribute">
+
+
+
+<h3 id="oxedi.Version.V5010" class="doc doc-heading">
+            <span class="doc doc-object-name doc-attribute-name">V5010</span>
+
+
+  <span class="doc doc-labels">
+      <small class="doc doc-label doc-label-instance-attribute"><code>instance-attribute</code></small>
+  </span>
+
+<a href="#oxedi.Version.V5010" class="headerlink" title="Permanent link">&para;</a></h3>
+<div class="doc-signature highlight"><pre><span></span><code><span class="n">V5010</span><span class="p">:</span> <span class="n">Version</span>
+</code></pre></div>
+
+    <div class="doc doc-contents ">
+
+        <p>Release 5010.</p>
+
+    </div>
+
+</div>
+
+<div class="doc doc-object doc-attribute">
+
+
+
+<h3 id="oxedi.Version.V4010" class="doc doc-heading">
+            <span class="doc doc-object-name doc-attribute-name">V4010</span>
+
+
+  <span class="doc doc-labels">
+      <small class="doc doc-label doc-label-instance-attribute"><code>instance-attribute</code></small>
+  </span>
+
+<a href="#oxedi.Version.V4010" class="headerlink" title="Permanent link">&para;</a></h3>
+<div class="doc-signature highlight"><pre><span></span><code><span class="n">V4010</span><span class="p">:</span> <span class="n">Version</span>
+</code></pre></div>
+
+    <div class="doc doc-contents ">
+
+        <p>Release 4010.</p>
+
+    </div>
+
+</div>
+
+<div class="doc doc-object doc-attribute">
+
+
+
+<h3 id="oxedi.Version.text" class="doc doc-heading">
+            <span class="doc doc-object-name doc-attribute-name">text</span>
+
+
+  <span class="doc doc-labels">
+      <small class="doc doc-label doc-label-property"><code>property</code></small>
+  </span>
+
+<a href="#oxedi.Version.text" class="headerlink" title="Permanent link">&para;</a></h3>
+<div class="doc-signature highlight"><pre><span></span><code><span class="n">text</span><span class="p">:</span> <span class="nb">str</span>
+</code></pre></div>
+
+    <div class="doc doc-contents ">
+
+        <p>The release number as text.</p>
+
+    </div>
+
+</div>
+
+
+
+
+<div class="doc doc-object doc-function">
+
+
+<h3 id="oxedi.Version.all" class="doc doc-heading">
+            <span class="doc doc-object-name doc-function-name">all</span>
+
+
+  <span class="doc doc-labels">
+      <small class="doc doc-label doc-label-staticmethod"><code>staticmethod</code></small>
+  </span>
+
+<a href="#oxedi.Version.all" class="headerlink" title="Permanent link">&para;</a></h3>
+<div class="doc-signature highlight"><pre><span></span><code><span class="nf">all</span><span class="p">()</span> <span class="o">-&gt;</span> <span class="n">builtins</span><span class="o">.</span><span class="n">list</span><span class="p">[</span><span class="n">Version</span><span class="p">]</span>
+</code></pre></div>
+
+    <div class="doc doc-contents ">
+
+        <p>Every version a built-in spec covers, the default first.</p>
+
+
+    </div>
+
+</div>
+
+
+
+  </div>
 
     </div>
 

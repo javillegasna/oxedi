@@ -2262,7 +2262,7 @@ built-in spec:</p>
 <span class="kn">import</span><span class="w"> </span><span class="nn">oxedi</span>
 
 <span class="n">data</span> <span class="o">=</span> <span class="n">Path</span><span class="p">(</span><span class="s2">"remittance-4010.835"</span><span class="p">)</span><span class="o">.</span><span class="n">read_bytes</span><span class="p">()</span>
-<span class="n">spec</span> <span class="o">=</span> <span class="n">oxedi</span><span class="o">.</span><span class="n">Spec</span><span class="o">.</span><span class="n">builtin</span><span class="p">(</span><span class="n">version</span><span class="o">=</span><span class="s2">"4010"</span><span class="p">)</span>
+<span class="n">spec</span> <span class="o">=</span> <span class="n">oxedi</span><span class="o">.</span><span class="n">Spec</span><span class="o">.</span><span class="n">builtin</span><span class="p">(</span><span class="n">version</span><span class="o">=</span><span class="n">oxedi</span><span class="o">.</span><span class="n">Version</span><span class="o">.</span><span class="n">V4010</span><span class="p">)</span>
 <span class="n">result</span> <span class="o">=</span> <span class="n">oxedi</span><span class="o">.</span><span class="n">parse</span><span class="p">(</span><span class="n">data</span><span class="p">,</span> <span class="n">spec</span><span class="o">=</span><span class="n">spec</span><span class="p">)</span>
 <span class="nb">print</span><span class="p">(</span><span class="n">result</span><span class="o">.</span><span class="n">spec</span><span class="p">,</span> <span class="n">result</span><span class="o">.</span><span class="n">count_claims</span><span class="p">())</span>
 </code></pre></div>

@@ -5,7 +5,6 @@ import builtins
 import collections.abc
 import datetime
 import decimal
-import enum
 import pandas
 import polars
 import pyarrow
@@ -501,6 +500,29 @@ class Tables:
     def __getitem__(self, name: builtins.str, /) -> Table: ...
 
 @typing.final
+class Version:
+    r"""
+    An X12 release a built-in spec covers.
+    """
+    V5010: Version
+    r"""
+    Release 5010.
+    """
+    V4010: Version
+    r"""
+    Release 4010.
+    """
+    @property
+    def text(self) -> builtins.str:
+        r"""
+        The release number as text.
+        """
+    def __eq__(self, other: builtins.object, /) -> builtins.bool: ...
+    def __hash__(self) -> builtins.int: ...
+    def __str__(self) -> builtins.str: ...
+    def __repr__(self) -> builtins.str: ...
+
+@typing.final
 class WriteFinding:
     r"""
     One reason tables do not make a valid file. A value, never raised.
@@ -542,27 +564,6 @@ class WriteFinding:
         """
     def __str__(self) -> builtins.str: ...
     def __repr__(self) -> builtins.str: ...
-
-@typing.final
-class Version(enum.Enum):
-    r"""
-    An X12 release a built-in spec covers.
-    """
-    V5010 = ...
-    r"""
-    Release 5010.
-    """
-    V4010 = ...
-    r"""
-    Release 4010.
-    """
-
-    @property
-    def text(self) -> builtins.str:
-        r"""
-        The release number as text.
-        """
-    def __str__(self) -> builtins.str: ...
 
 def _external_diagnostic(origin: builtins.str, message: builtins.str, level: builtins.int, code: typing.Optional[builtins.str] = None, segment: typing.Optional[builtins.int] = None, element: typing.Optional[builtins.int] = None, component: typing.Optional[builtins.int] = None, datum: bytes = b"", path: typing.Optional[typing.Sequence[tuple[builtins.str, builtins.int]]] = None) -> Diagnostic:
     r"""

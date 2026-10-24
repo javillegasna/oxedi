@@ -1,4 +1,0 @@
-# The stub lists the members of `Version` as an enum does (`NAME = ...`); at runtime they are
-# instances of the native class.
-oxedi._core.Version.V5010
-oxedi._core.Version.V4010

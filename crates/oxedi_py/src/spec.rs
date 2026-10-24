@@ -7,7 +7,7 @@ use pyo3::exceptions::{PyTypeError, PyValueError};
 use pyo3::prelude::*;
 use pyo3::types::{PyCapsule, PyDict, PyString};
 
-use pyo3_stub_gen::derive::{gen_stub_pyclass, gen_stub_pyclass_enum, gen_stub_pymethods};
+use pyo3_stub_gen::derive::{gen_stub_pyclass, gen_stub_pymethods};
 use pyo3_stub_gen::{PyStubType, TypeInfo};
 
 use crate::arrow;
@@ -54,58 +54,53 @@ pub fn given_or_selected<'s>(
 }
 
 /// An X12 release a built-in spec covers.
-#[gen_stub_pyclass_enum(module = "oxedi._core")]
-#[pyclass(
-    name = "Version",
-    module = "oxedi",
-    eq,
-    eq_int,
-    frozen,
-    hash,
-    from_py_object
-)]
+#[gen_stub_pyclass(module = "oxedi._core")]
+#[pyclass(name = "Version", module = "oxedi", eq, frozen, hash, from_py_object)]
 #[derive(Clone, Copy, PartialEq, Eq, Hash)]
-pub enum PyVersion {
-    /// Release 5010.
-    V5010,
-    /// Release 4010.
-    V4010,
-}
+pub struct PyVersion(Version);
 
 impl From<Version> for PyVersion {
     fn from(version: Version) -> PyVersion {
-        match version {
-            Version::V5010 => PyVersion::V5010,
-            Version::V4010 => PyVersion::V4010,
-        }
-    }
-}
-
-impl From<PyVersion> for Version {
-    fn from(version: PyVersion) -> Version {
-        match version {
-            PyVersion::V5010 => Version::V5010,
-            PyVersion::V4010 => Version::V4010,
-        }
+        PyVersion(version)
     }
 }
 
 #[gen_stub_pymethods]
 #[pymethods]
 impl PyVersion {
+    /// Release 5010.
+    #[classattr]
+    #[pyo3(name = "V5010")]
+    fn v5010() -> PyVersion {
+        Version::V5010.into()
+    }
+
+    /// Release 4010.
+    #[classattr]
+    #[pyo3(name = "V4010")]
+    fn v4010() -> PyVersion {
+        Version::V4010.into()
+    }
+
     /// The release number as text.
     #[getter]
     fn text(&self) -> &'static str {
-        Version::from(*self).text()
+        self.0.text()
     }
 
     fn __str__(&self) -> &'static str {
         self.text()
     }
+
+    fn __repr__(&self) -> &'static str {
+        match self.0 {
+            Version::V5010 => "Version.V5010",
+            Version::V4010 => "Version.V4010",
+        }
+    }
 }
 
-/// A version argument: a `Version`, or the text of one for code written
-/// before `Version` existed.
+/// A version argument: a `Version`, or its text.
 pub enum VersionArg {
     Version(Version),
     Text(String),
@@ -129,21 +124,27 @@ impl<'a, 'py> FromPyObject<'a, 'py> for VersionArg {
 
     fn extract(object: Borrowed<'a, 'py, PyAny>) -> PyResult<VersionArg> {
         if let Ok(version) = object.extract::<PyVersion>() {
-            return Ok(VersionArg::Version(version.into()));
+            return Ok(VersionArg::Version(version.0));
         }
         object
             .extract::<String>()
             .map(VersionArg::Text)
-            .map_err(|_| {
-                PyTypeError::new_err(format!(
-                    "version must be an oxedi.Version, not {}",
-                    object
-                        .get_type()
-                        .name()
-                        .map_or_else(|_| "?".into(), |n| n.to_string())
-                ))
-            })
+            .map_err(|_| wrong_type(object.as_any()))
     }
+}
+
+/// The `TypeError` for a `version` that is neither a `Version` nor text.
+fn wrong_type(object: &Bound<'_, PyAny>) -> PyErr {
+    let shown = object
+        .repr()
+        .map_or_else(|_| "?".to_owned(), |text| text.to_string());
+    let kind = object
+        .get_type()
+        .qualname()
+        .map_or_else(|_| "an unknown type".to_owned(), |name| name.to_string());
+    PyTypeError::new_err(format!(
+        "Spec.builtin(version={shown}): version must be an oxedi.Version or its text, not {kind}"
+    ))
 }
 
 impl<'py> IntoPyObject<'py> for VersionArg {

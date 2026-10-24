@@ -192,10 +192,7 @@ struct Walk {
 /// tree and following the open instances, so each segment, a segment with
 /// no content included, gets the innermost instance open when it was read.
 fn walk(spec: &Spec, document: &Document<'_>, mask: Option<&Mask>) -> Walk {
-    let mut processor = Processor::new(spec, document.delimiters());
-    if let Some(mask) = mask {
-        processor = processor.with_mask(mask);
-    }
+    let mut processor = Processor::new(spec, document.delimiters()).with_mask(mask);
     let mut builder = LoopTree::builder();
     let mut owners = Owners::new(document.len());
     let mut diagnostics = Vec::new();

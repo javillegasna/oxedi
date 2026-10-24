@@ -206,13 +206,8 @@ pub fn stream(
     let walk = py.detach(|| {
         Walk::new(source, |source| Pass {
             segments: Tokenizer::with_delimiters(&source.bytes, source.delimiters),
-            processor: {
-                let processor = Processor::new(&source.spec, &source.delimiters);
-                match &source.mask {
-                    Some(mask) => processor.with_mask(mask),
-                    None => processor,
-                }
-            },
+            processor: Processor::new(&source.spec, &source.delimiters)
+                .with_mask(source.mask.as_ref()),
         })
     });
     Ok(PyStream {

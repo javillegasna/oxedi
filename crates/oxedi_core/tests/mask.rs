@@ -23,8 +23,8 @@ fn runs(
     for (name, bytes, delims) in common::all_files() {
         let spec = common::select(&five, &four, &bytes, delims);
         let document = Document::with_delimiters(&bytes[..], delims).unwrap();
-        let (plain, plain_diagnostics) = Processor::run(spec, &document);
-        let (masked, masked_diagnostics) = Processor::run_masked(spec, &document, &mask);
+        let (plain, plain_diagnostics) = Processor::run(spec, &document, None);
+        let (masked, masked_diagnostics) = Processor::run(spec, &document, Some(&mask));
         check(
             &name,
             spec,
@@ -120,10 +120,10 @@ fn masked_cells_depend_on_the_key_only() {
     for (name, bytes, delims) in common::all_files() {
         let spec = common::select(&five, &four, &bytes, delims);
         let document = Document::with_delimiters(&bytes[..], delims).unwrap();
-        let once = Processor::run_masked(spec, &document, &mask);
-        let again = Processor::run_masked(spec, &document, &mask);
+        let once = Processor::run(spec, &document, Some(&mask));
+        let again = Processor::run(spec, &document, Some(&mask));
         assert_eq!(once, again, "{name}: the same key gives the same output");
-        let (elsewhere, _) = Processor::run_masked(spec, &document, &other);
+        let (elsewhere, _) = Processor::run(spec, &document, Some(&other));
         for (table, changed) in once.0.iter().zip(&elsewhere) {
             for ((column, a), (_, b)) in table.columns().iter().zip(changed.columns()) {
                 if !matches!(flag(spec, table, column), Some(Phi::Name | Phi::Id)) {
@@ -500,8 +500,8 @@ fn a_finding_on_a_flagged_place_has_its_datum_replaced() {
             let delims = oxedi_core::Delimiters::from_isa(&bytes).unwrap();
             let spec = common::select(&five, &four, &bytes, delims);
             let document = Document::with_delimiters(&bytes[..], delims).unwrap();
-            let (_, plain) = Processor::run(spec, &document);
-            let (_, masked) = Processor::run_masked(spec, &document, &mask);
+            let (_, plain) = Processor::run(spec, &document, None);
+            let (_, masked) = Processor::run(spec, &document, Some(&mask));
             let datums = |found: &[Diagnostic]| -> Vec<String> {
                 found
                     .iter()

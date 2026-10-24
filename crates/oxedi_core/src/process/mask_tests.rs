@@ -44,10 +44,7 @@ fn run(input: &str, mask: Option<&Mask>) -> (Tables, Vec<Diagnostic>) {
     let spec = Spec::builtin_835();
     let text = interchange(&[input]);
     let document = Document::with_delimiters(text.as_bytes(), delimiters()).unwrap();
-    match mask {
-        Some(mask) => Processor::run_masked(&spec, &document, mask),
-        None => Processor::run(&spec, &document),
-    }
+    Processor::run(&spec, &document, mask)
 }
 
 fn cell<'t>(tables: &'t Tables, table: &str, column: &str, row: usize) -> Cell<'t> {
@@ -187,8 +184,8 @@ fn a_masked_run_of_some_tables_gives_the_rows_of_a_full_masked_run() {
     let mask = mask(DateMode::Shift);
     let text = interchange(&[&two_claims()]);
     let document = Document::with_delimiters(text.as_bytes(), delimiters()).unwrap();
-    let (whole, _) = Processor::run_masked(&spec, &document, &mask);
-    let some = Processor::run_tables_masked(&spec, &document, &["services"], &mask).unwrap();
+    let (whole, _) = Processor::run(&spec, &document, Some(&mask));
+    let some = Processor::run_tables(&spec, &document, &["services"], Some(&mask)).unwrap();
     assert_eq!(
         some.get("services"),
         whole.get("services"),
@@ -196,7 +193,7 @@ fn a_masked_run_of_some_tables_gives_the_rows_of_a_full_masked_run() {
     );
     let mut processor = Processor::with_tables(&spec, &delimiters(), &["claims"])
         .unwrap()
-        .with_mask(&mask);
+        .with_mask(Some(&mask));
     let mut segment = Segment::empty();
     let mut index = 0;
     while document.segment_into(index, &mut segment) {
@@ -289,7 +286,7 @@ fn without_a_mask_nothing_changes() {
     let spec = Spec::builtin_835();
     let text = interchange(&[&bad_claims()]);
     let document = Document::with_delimiters(text.as_bytes(), delimiters()).unwrap();
-    let (tables, diagnostics) = Processor::run(&spec, &document);
+    let (tables, diagnostics) = Processor::run(&spec, &document, None);
     let mut processor = Processor::new(&spec, &delimiters());
     let mut by_hand = Vec::new();
     let mut segment = Segment::empty();
@@ -306,4 +303,23 @@ fn without_a_mask_nothing_changes() {
         Cell::Binary(b"C2"),
         "the plain run keeps the values"
     );
+}
+
+#[test]
+fn none_mask_is_the_plain_run() {
+    let spec = Spec::builtin_835();
+    let bytes = include_bytes!("../../tests/fixtures/balanced_5010_sample.txt");
+    let document = Document::parse(&bytes[..]).unwrap();
+    let (tables, diagnostics) = Processor::run(&spec, &document, None);
+    let mut processor = Processor::new(&spec, document.delimiters());
+    let mut by_hand = Vec::new();
+    let mut segment = Segment::empty();
+    let mut index = 0;
+    while document.segment_into(index, &mut segment) {
+        by_hand.extend_from_slice(processor.feed(&segment).diagnostics());
+        index += 1;
+    }
+    by_hand.extend_from_slice(processor.finish().diagnostics());
+    assert_eq!(by_hand, diagnostics);
+    assert_eq!(processor.take_tables(), tables);
 }

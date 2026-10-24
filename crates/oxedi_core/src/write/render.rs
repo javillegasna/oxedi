@@ -8,7 +8,8 @@
 use std::io::Write as _;
 use std::ops::Range;
 
-use crate::column::{Cell, ColumnData, ColumnType};
+use crate::column::{Cell, ColumnData};
+use crate::value::ColumnType;
 use crate::value::civil_from_days;
 
 /// A date as `CCYYMMDD`, or `YYMMDD` when the element holds six bytes at

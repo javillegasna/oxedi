@@ -3,6 +3,7 @@
 use super::element_error;
 use crate::spec::raw::{RawColumn, RawLoop, RawSpec, RawSummary, RawTable};
 use crate::spec::*;
+use crate::value::ElementType;
 use serde_json::Value;
 
 fn json_error(text: &str) -> serde_json::Error {

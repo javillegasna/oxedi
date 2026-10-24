@@ -58,8 +58,8 @@ pub mod write;
 
 pub use check::StructureChecker;
 pub use column::{
-    Bitmap, Cell, CellError, Column, ColumnData, ColumnType, RowError, Table, Tables, parse_dt,
-    parse_n, parse_r, parse_tm,
+    Bitmap, Cell, CellError, Column, ColumnData, RowError, Table, Tables, parse_dt, parse_n,
+    parse_r, parse_tm,
 };
 pub use delimiters::{Delimiters, IsaError};
 pub use diagnostic::{Diagnostic, FlatDiagnostic, LoopRef, PARSER_ORIGIN, Rule, SnipLevel};
@@ -73,13 +73,12 @@ pub use project::{ColumnSchema, Projector, TableSchema, UnknownTable, spec_schem
 pub use segment::{Segment, SegmentWriteError};
 pub use spec::{
     AnchorChains, AnchorPositions, BalanceError, BalanceRule, BalanceTerm, Builtin, ColumnSource,
-    Control, ControlCount, ControlError, DeclaredVersion, ElementDef, ElementDefError, ElementType,
-    LoopDef, LoopId, LoopSegments, Pick, Repeat, SegmentDef, Spec, SpecError, Summary,
-    SummaryDefError, TableDef, TableDefError, Trigger, UnknownVersion, Version, VersionError,
-    merge_patch,
+    Control, ControlCount, ControlError, DeclaredVersion, ElementDef, ElementDefError, LoopDef,
+    LoopId, LoopSegments, Pick, Repeat, SegmentDef, Spec, SpecError, Summary, SummaryDefError,
+    TableDef, TableDefError, Trigger, UnknownVersion, Version, VersionError, merge_patch,
 };
 pub use summary::{SummaryError, SummaryValue, summarize};
 pub use tokenizer::Tokenizer;
 pub use tree::{LoopTree, Node, NodeId, TreeBuilder};
-pub use value::ConvertError;
+pub use value::{ColumnType, ConvertError, ElementType};
 pub use write::{PlanError, Refusal, WritePlan};

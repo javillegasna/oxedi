@@ -1,10 +1,11 @@
 //! Element checks: the values a segment's elements parse to, and the diagnostics they raise.
 
-use crate::column::{ColumnType, is_dt, parse_dt, parse_n, parse_r, parse_tm};
+use crate::column::{is_dt, parse_dt, parse_n, parse_r, parse_tm};
 use crate::diagnostic::Rule;
 use crate::element::Element;
 use crate::segment::Segment;
 use crate::spec::{ElementDef, rejects_code};
+use crate::value::ColumnType;
 
 use super::Projector;
 use super::fill::leaf_text;
@@ -191,8 +192,7 @@ impl<'s> Projector<'s> {
             return Parsed::Null;
         };
         // Numeric lengths count digits only, as X12 does: no sign, no point.
-        let length = def.kind.length_of(text);
-        if def.min.is_some_and(|min| length < min) || def.max.is_some_and(|max| length > max) {
+        if !def.kind.length_in_range(text, def.min, def.max) {
             self.report(
                 Rule::LengthOutOfRange {
                     segment_id: segment.id.to_vec(),
@@ -201,7 +201,7 @@ impl<'s> Projector<'s> {
                     name: def.name.clone(),
                     min: def.min,
                     max: def.max,
-                    length,
+                    length: def.kind.length_of(text),
                 },
                 segment.index,
                 element,

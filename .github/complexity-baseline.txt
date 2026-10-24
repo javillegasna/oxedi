@@ -56,7 +56,6 @@ crates/oxedi_core/src/project/plan.rs	watch_columns	9	3
 crates/oxedi_core/src/project/quote.rs	unquoted	11	4
 crates/oxedi_core/src/segment/mod.rs	write_to	13	3
 crates/oxedi_core/src/spec/balance.rs	compile_rule	8	2
-crates/oxedi_core/src/spec/balance.rs	compile_term	17	2
 crates/oxedi_core/src/spec/balance.rs	render_terms	8	2
 crates/oxedi_core/src/spec/balance_error.rs	fmt	10	0
 crates/oxedi_core/src/spec/build.rs	check_ambiguity	10	4
@@ -70,10 +69,8 @@ crates/oxedi_core/src/spec/error.rs	fmt	45	2	flat
 crates/oxedi_core/src/spec/occurrence_error.rs	fmt	12	0
 crates/oxedi_core/src/spec/occurrences.rs	compile_occurrence	19	2
 crates/oxedi_core/src/spec/occurrences.rs	compile_occurrences	8	3
-crates/oxedi_core/src/spec/phi.rs	compile_phi	8	2
 crates/oxedi_core/src/spec/phi.rs	control_element	13	2
-crates/oxedi_core/src/spec/segments.rs	compile_elements	23	4
-crates/oxedi_core/src/spec/segments.rs	fmt	20	0
+crates/oxedi_core/src/spec/segments.rs	fmt	16	0	flat
 crates/oxedi_core/src/spec/shape.rs	mismatch	8	3
 crates/oxedi_core/src/spec/table_error.rs	fmt	37	2
 crates/oxedi_core/src/value/convert.rs	fmt	10	0	flat

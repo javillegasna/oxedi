@@ -1,6 +1,6 @@
 use super::*;
 use crate::Delimiters;
-use crate::spec::ElementType;
+use crate::value::ElementType;
 
 fn path(loops: &[(&str, usize)]) -> Vec<LoopRef> {
     loops

@@ -4,7 +4,7 @@ use crate::diagnostic::Rule;
 use crate::element::Element;
 use crate::segment::Segment;
 use crate::spec::{ElementDef, rejects_code};
-use crate::value::{ColumnType, Parsed};
+use crate::value::{ColumnType, LengthRange, Parsed};
 
 use super::Projector;
 use super::fill::leaf_text;
@@ -150,7 +150,13 @@ impl<'s> Projector<'s> {
         };
         let value = keep.then_some(value);
         // Numeric lengths count digits only, as X12 does: no sign, no point.
-        if !def.kind.length_in_range(text, def.min, def.max) {
+        if !def.kind.length_in_range(
+            text,
+            LengthRange {
+                min: def.min,
+                max: def.max,
+            },
+        ) {
             self.report(
                 Rule::LengthOutOfRange {
                     segment_id: segment.id.to_vec(),

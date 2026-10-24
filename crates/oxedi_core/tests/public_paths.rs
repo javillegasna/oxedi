@@ -90,6 +90,7 @@ mod by_module {
     use oxedi_core::value::DECIMAL_PRECISION;
     use oxedi_core::value::ElementTextError;
     use oxedi_core::value::ElementType;
+    use oxedi_core::value::LengthRange;
     use oxedi_core::value::MAX_SCALE;
     use oxedi_core::value::Parsed;
     use oxedi_core::value::TimeUnit;

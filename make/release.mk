@@ -45,4 +45,3 @@ tag: ## tag the current commit as v<version> and push the tag
 duckdb-tag: ## tag the current commit as duckdb-v<extension version> and push the tag (does not start the PyPI workflow)
 	git tag -a duckdb-v$(DUCKDB_VERSION) -m "oxedi DuckDB extension $(DUCKDB_VERSION)"
 	git push origin duckdb-v$(DUCKDB_VERSION)
-

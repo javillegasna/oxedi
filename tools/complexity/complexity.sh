@@ -3,8 +3,8 @@
 # JavaScript sources and compares them with .github/complexity-baseline.txt (complexity.py says
 # how). Measured: crates/*/src (Rust), crates/*/python and crates/*/scripts (Python) and
 # viewer/js. Not measured: tests (tests/, test/, tests.rs), benches, examples, the tooling under
-# .github/ and tools/, docs/ and viewer/tests, and anything git does not track (target/, site/, viewer/pkg/)
-# or that is not a source file (the generated .pyi stubs).
+# .github/ and tools/, docs/ and viewer/tests, and anything git does not track (target/, site/,
+# viewer/pkg/) or that is not a source file (the generated .pyi stubs).
 # A baseline function the change modifies must end within the targets. The change is measured
 # against $COMPLEXITY_BASE; unset, that is $COMPLEXITY_PUSH_BEFORE on a push in CI, the first
 # parent of HEAD on a pull request (the checkout is the merge with the base branch) and

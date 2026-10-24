@@ -11,7 +11,7 @@ STUBTEST_ALLOWLIST := crates/oxedi_py/stubtest-allowlist.txt
 # that runs make: two checkouts or agents with different active environments must not share one.
 # CI creates .venv in the workspace; set OXEDI_VENV to point make at another environment.
 OXEDI_VENV  ?= $(CURDIR)/.venv
-VENV        := $(OXEDI_VENV)
+VENV        := $(abspath $(OXEDI_VENV))
 # Same tools without pyx12, to run the suite as a user without it would.
 NOPYX12_VENV := .venv-nopyx12
 # The documentation site has its own environment; the package never depends on it.

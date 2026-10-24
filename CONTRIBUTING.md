@@ -36,7 +36,7 @@ Times are for a machine that has built once. Some notes:
   minute), because a single package builds with fewer features than the workspace.
 - `crates/oxedi_py` has no Rust tests (`test = false`): its tests are pytest, and `make py-dev`
   builds the extension first. `make py-dev` always installs into the checkout's own `.venv`,
-  whatever virtual environment is active in your shell; set `OXEDI_VENV=/path` to use another.
+  whatever virtual environment is active in your shell; set `OXEDI_VENV=/path` to use another (a relative path is taken from the repository root).
 - The SQL tests need the DuckDB tools once: `git submodule update --init && make configure_ci`.
   See [DuckDB extension](#duckdb-extension).
 

@@ -1,6 +1,6 @@
 //! `parse`: one pass over a whole file, with the GIL released.
 
-use oxedi_core::{Document, Event, LoopEngine, LoopId, Processor, Spec};
+use oxedi_core::{Delimiters, Document, Event, LoopEngine, LoopId, Mask, Processor, Spec};
 use std::collections::{HashMap, HashSet};
 use std::sync::Arc;
 
@@ -175,21 +175,60 @@ pub fn parse(
     mask: Option<&Bound<'_, PyMask>>,
 ) -> PyResult<PyParseResult> {
     let bytes = copy_input("parse", data)?;
-    let given = spec::given(spec);
-    let delimiters = delimiters.map(|d| d.get().inner);
-    let mask = mask.map(|mask| mask.get().inner.clone());
-    let (document, tables, diagnostics) = py.detach(|| -> PyResult<_> {
-        let document = document::index(bytes, delimiters)?;
-        let spec = spec::given_or_selected(given, document.segments());
-        let (tables, diagnostics) = Processor::run(&spec, &document, mask.as_ref());
+    let pass = Pass::new(spec, delimiters, mask);
+    let (document, tables, diagnostics) = py.detach(|| pass.run(bytes))?;
+    PyParseResult::new(py, document, tables, diagnostics)
+}
+
+/// What a parse is configured with, as core values: the Python wrappers are
+/// opened once, on the thread that holds the GIL, so the pass itself needs
+/// none.
+struct Pass {
+    given: Option<Arc<Spec>>,
+    delimiters: Option<Delimiters>,
+    mask: Option<Mask>,
+}
+
+impl Pass {
+    fn new(
+        spec: Option<&Bound<'_, PySpec>>,
+        delimiters: Option<&Bound<'_, PyDelimiters>>,
+        mask: Option<&Bound<'_, PyMask>>,
+    ) -> Pass {
+        Pass {
+            given: spec::given(spec),
+            delimiters: delimiters.map(|d| d.get().inner),
+            mask: mask.map(|mask| mask.get().inner.clone()),
+        }
+    }
+
+    /// Indexes `bytes`, then runs the processor with the spec given or the one
+    /// the file's version selects.
+    fn run(
+        self,
+        bytes: Vec<u8>,
+    ) -> PyResult<(Document<'static>, PyTables, Vec<oxedi_core::Diagnostic>)> {
+        let document = document::index(bytes, self.delimiters)?;
+        let spec = spec::given_or_selected(self.given, document.segments());
+        let (tables, diagnostics) = Processor::run(&spec, &document, self.mask.as_ref());
         Ok((document, PyTables::projected(tables, spec), diagnostics))
-    })?;
-    let diagnostics = diagnostic::to_list(py, diagnostics)?;
-    Ok(PyParseResult {
-        document: Py::new(py, PyDocument { inner: document })?,
-        tables: Py::new(py, tables)?,
-        diagnostics: diagnostics.unbind(),
-    })
+    }
+}
+
+impl PyParseResult {
+    /// Wraps the parts of one parse as Python objects.
+    fn new(
+        py: Python<'_>,
+        document: Document<'static>,
+        tables: PyTables,
+        diagnostics: Vec<oxedi_core::Diagnostic>,
+    ) -> PyResult<PyParseResult> {
+        Ok(PyParseResult {
+            document: Py::new(py, PyDocument { inner: document })?,
+            tables: Py::new(py, tables)?,
+            diagnostics: diagnostic::to_list(py, diagnostics)?.unbind(),
+        })
+    }
 }
 
 /// The open loops at each of `segments`, outermost first, as `(name,

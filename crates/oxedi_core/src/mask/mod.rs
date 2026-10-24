@@ -64,15 +64,25 @@ pub enum DateMode {
 }
 
 impl DateMode {
+    /// Every mode.
+    const ALL: [DateMode; 3] = [DateMode::Year, DateMode::Shift, DateMode::Keep];
+
     /// Reads `year`, `shift` or `keep`.
     pub fn parse(text: &str) -> Result<DateMode, MaskError> {
-        match text {
-            "year" => Ok(DateMode::Year),
-            "shift" => Ok(DateMode::Shift),
-            "keep" => Ok(DateMode::Keep),
-            other => Err(MaskError::UnknownDateMode {
-                given: other.to_string(),
-            }),
+        DateMode::ALL
+            .into_iter()
+            .find(|mode| mode.word() == text)
+            .ok_or_else(|| MaskError::UnknownDateMode {
+                given: text.to_string(),
+            })
+    }
+
+    /// The word that names the mode: `year`, `shift` or `keep`.
+    pub fn word(self) -> &'static str {
+        match self {
+            DateMode::Year => "year",
+            DateMode::Shift => "shift",
+            DateMode::Keep => "keep",
         }
     }
 }

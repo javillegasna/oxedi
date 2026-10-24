@@ -1,5 +1,5 @@
-use super::parse::days_in_month;
 use super::*;
+use crate::value::{civil_from_days, days_in_month};
 use proptest::prelude::*;
 
 /// An `R` value written the way X12 writes it, with exactly `scale` decimals.

@@ -24,8 +24,15 @@ py-test-nopyx12: ## build into a venv without pyx12 and run the Python suite (py
 	$(NOPYX12_VENV)/bin/python -c "import importlib.util, sys; sys.exit(1 if importlib.util.find_spec('pyx12') else 0)"
 	$(NOPYX12_VENV)/bin/python -m pytest -q -rs $(PY_TESTS)
 
-stubs: ## regenerate the native module's type stub from the binding
-	cargo run --locked -p oxedi_py --bin stub_gen
+# The stub generator formats defaults through the interpreter, so it links libpython, which the
+# extension build leaves to the interpreter that loads it. It builds in its own target directory.
+STUB_PYTHON := $(if $(wildcard $(PYTHON)),$(PYTHON),python3)
+stubs: ## regenerate the native module's type stub from the binding (links libpython of .venv)
+	libdir=$$($(STUB_PYTHON) -c "import sysconfig; print(sysconfig.get_config_var('LIBDIR'))") && \
+	ldver=$$($(STUB_PYTHON) -c "import sysconfig; print(sysconfig.get_config_var('LDVERSION'))") && \
+	PYO3_PYTHON=$(STUB_PYTHON) CARGO_TARGET_DIR=target/stub-gen \
+	RUSTFLAGS="-C link-arg=-L$$libdir -C link-arg=-lpython$$ldver -C link-arg=-Wl,-rpath,$$libdir" \
+	cargo run --locked -p oxedi_py --bin stub_gen --features stub-gen
 
 stubtest: py-dev ## check the stub against the built module, the public API with mypy --strict, and the package with mypy
 	$(PYTHON) -m mypy.stubtest oxedi._core $(if $(wildcard $(STUBTEST_ALLOWLIST)),--allowlist $(STUBTEST_ALLOWLIST))

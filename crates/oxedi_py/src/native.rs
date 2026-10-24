@@ -2,6 +2,7 @@
 
 use std::collections::BTreeSet;
 
+use oxedi_core::spec::render_amount;
 use oxedi_core::{Cell, ColumnData, ColumnType, Table, Tables};
 use pyo3::exceptions::{PyKeyError, PyTypeError, PyValueError};
 use pyo3::prelude::*;
@@ -75,30 +76,12 @@ pub fn sum_payments(tables: &Tables) -> PyResult<String> {
             sum = sum.checked_add(value).ok_or_else(|| {
                 PyValueError::new_err(format!(
                     "Result.sum_payments: the sum of \"total_payment_amount\" in the table \"payments\" overflows a 128-bit decimal at row {row} (amount {})",
-                    fixed_point(value, scale)
+                    render_amount(value, scale)
                 ))
             })?;
         }
     }
-    Ok(fixed_point(sum, scale))
-}
-
-/// `value / 10^scale` written with exactly `scale` decimals and a leading
-/// `-` when negative.
-fn fixed_point(value: i128, scale: u8) -> String {
-    let sign = if value < 0 { "-" } else { "" };
-    let mut digits = value.unsigned_abs().to_string();
-    let scale = usize::from(scale);
-    if scale == 0 {
-        return format!("{sign}{digits}");
-    }
-    if digits.len() <= scale {
-        digits = format!("{}{digits}", "0".repeat(scale + 1 - digits.len()));
-    }
-    let (whole, decimals) = digits
-        .split_at_checked(digits.len() - scale)
-        .unwrap_or((&digits, ""));
-    format!("{sign}{whole}.{decimals}")
+    Ok(render_amount(sum, scale))
 }
 
 /// Which organization: the column prefix and the name used in messages.

@@ -9,10 +9,22 @@ This file covers the Python package; the DuckDB extension has its own changelog 
 
 ## [Unreleased]
 
+### Added
+- `oxedi.Version` (`V5010`, `V4010`, with `text` and `str()`): the X12 release of a built-in spec.
+- `Spec.DEFAULT_VERSION`: the `Version` of the default built-in spec, the default of `Spec.builtin`.
+- `Envelope.DEFAULT_QUALIFIER`, `Envelope.DEFAULT_USAGE_INDICATOR` and `Envelope.DEFAULT_CONTROL_NUMBER`:
+  the defaults of `sender_qualifier`, `receiver_qualifier`, `usage_indicator` and `control_number`.
+
 ### Changed
 - The `test` extra is gone (`pip install "oxedi[test]"` no longer resolves): it was a contributor
   list, not a feature. Contributors install the test tools from the package's dependency group:
   `uv pip install --group crates/oxedi_py/pyproject.toml:test`, or `make venv`.
+- Introspecting `Envelope` at runtime shows the defaults of `sender_qualifier`, `receiver_qualifier`,
+  `usage_indicator` and `control_number` as `...`; their values are the `Envelope.DEFAULT_*` class
+  attributes.
+- `Spec.builtin` takes a `Version` (the text, such as `"4010"`, is still accepted); introspecting it at
+  runtime shows the default of `version` as `...`, its value is `Spec.DEFAULT_VERSION`. The `ValueError` for a version no built-in covers now reads
+  `Spec.builtin(version="6020"): unknown version "6020"; version must be one of "5010", "4010"`.
 
 ## [0.6.0] - 2026-10-18
 

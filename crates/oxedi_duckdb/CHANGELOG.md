@@ -24,6 +24,8 @@ and the extension has its own version.
   table is unchanged.
 
 ### Fixed
+- `COPY ... (FORMAT edi835)` accepts a zero decimal that only scales up and names an
+  overflowing scale as an overflow.
 - The macro-parameter error of `read_835` and `oxedi_schema` names the parameter only when
   DuckDB's qualified name has a single dot; with more dots the macro's name may contain a dot too,
   so the error says `write table_name = <the parameter>` instead of guessing.

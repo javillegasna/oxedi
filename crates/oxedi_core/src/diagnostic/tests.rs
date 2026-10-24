@@ -908,3 +908,97 @@ fn external_displays_the_message_the_origin_and_the_code() {
         "Mandatory data element missing (reported by pyx12)"
     );
 }
+
+#[test]
+fn flat_of_a_parser_rule() {
+    let diagnostic = Diagnostic::new(
+        Rule::UnknownSegment {
+            segment_id: b"XX".to_vec(),
+        },
+        Some(7),
+        None,
+        None,
+        path(&[("1000A", 1), ("2100", 2)]),
+        b"XX".to_vec(),
+    );
+    let flat = diagnostic.flat();
+    assert_eq!(flat.level, 1);
+    assert_eq!(flat.kind, "UnknownSegment");
+    assert_eq!(flat.rule, diagnostic.rule.to_string());
+    assert_eq!(flat.segment, Some(7));
+    assert_eq!(flat.path, "1000A#1/2100#2");
+    assert_eq!(flat.datum, b"XX");
+    assert_eq!(flat.origin, "oxedi");
+    assert_eq!(flat.code, None);
+}
+
+#[test]
+fn flat_of_an_external_finding() {
+    let diagnostic = Diagnostic::new(
+        Rule::External {
+            origin: "pyx12".into(),
+            code: Some("8".into()),
+            message: "Mandatory data element missing".into(),
+            level: SnipLevel::L2,
+        },
+        Some(3),
+        Some(2),
+        Some(1),
+        Vec::new(),
+        b"".to_vec(),
+    );
+    let flat = diagnostic.flat();
+    assert_eq!(flat.level, 2);
+    assert_eq!(flat.kind, "External");
+    assert_eq!((flat.element, flat.component), (Some(2), Some(1)));
+    assert_eq!(flat.path, "");
+    assert_eq!(flat.origin, "pyx12");
+    assert_eq!(flat.code, Some("8"));
+}
+
+#[test]
+fn origin_and_code_read_the_rule_without_formatting_it() {
+    let own = Diagnostic::new(
+        Rule::ByteOrderMark,
+        None,
+        None,
+        None,
+        Vec::new(),
+        Vec::new(),
+    );
+    assert_eq!((own.origin(), own.code()), (PARSER_ORIGIN, None));
+    let external = Diagnostic::new(
+        Rule::External {
+            origin: "pyx12".into(),
+            code: Some("8".into()),
+            message: "m".into(),
+            level: SnipLevel::L2,
+        },
+        None,
+        None,
+        None,
+        Vec::new(),
+        Vec::new(),
+    );
+    assert_eq!((external.origin(), external.code()), ("pyx12", Some("8")));
+}
+
+#[test]
+fn path_text_joins_the_open_loops() {
+    let at = |loops: &[(&str, usize)]| {
+        Diagnostic::new(
+            Rule::UnknownSegment {
+                segment_id: b"XX".to_vec(),
+            },
+            Some(0),
+            None,
+            None,
+            path(loops),
+            b"XX".to_vec(),
+        )
+        .path_text()
+    };
+    assert_eq!(at(&[]), "");
+    assert_eq!(at(&[("a", 1)]), "a#1");
+    assert_eq!(at(&[("a", 1), ("b", 2)]), "a#1/b#2");
+}

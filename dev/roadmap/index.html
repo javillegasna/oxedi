@@ -1785,10 +1785,10 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
-  <a href="#available-now" class="md-nav__link">
+  <a href="#working-on-now-a-solid-base-for-more-transaction-sets" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Available now
+        Working on now: a solid base for more transaction sets
       
     </span>
   </a>
@@ -1796,10 +1796,21 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#next" class="md-nav__link">
+  <a href="#next-specs-for-any-x12-transaction-set" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Next
+        Next: specs for any X12 transaction set
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#available-now" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Available now
       
     </span>
   </a>
@@ -1916,10 +1927,10 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
-  <a href="#available-now" class="md-nav__link">
+  <a href="#working-on-now-a-solid-base-for-more-transaction-sets" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Available now
+        Working on now: a solid base for more transaction sets
       
     </span>
   </a>
@@ -1927,10 +1938,21 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#next" class="md-nav__link">
+  <a href="#next-specs-for-any-x12-transaction-set" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Next
+        Next: specs for any X12 transaction set
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#available-now" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Available now
       
     </span>
   </a>
@@ -1969,9 +1991,51 @@
 
 
 <h1 id="roadmap">Roadmap<a class="headerlink" href="#roadmap" title="Permanent link">&para;</a></h1>
-<p>Where oxedi is and where it is going. Nothing here is a promise or a date: plans change with
-what people need. If something matters to you, say so in an
-<a href="https://github.com/javillegasna/oxedi/issues">issue</a>. It is the best way to move it up.</p>
+<p>What oxedi is working on, why, and where help is welcome. Nothing here is a promise or a date:
+plans change with what people need. Each item links to an issue that tracks it; comment there to
+weigh in, and comment before starting work so two people do not take the same piece. The
+<a href="https://github.com/javillegasna/oxedi/blob/master/CONTRIBUTING.md">contributor guide</a> says how
+to build, test and send a change.</p>
+<h2 id="working-on-now-a-solid-base-for-more-transaction-sets">Working on now: a solid base for more transaction sets<a class="headerlink" href="#working-on-now-a-solid-base-for-more-transaction-sets" title="Permanent link">&para;</a></h2>
+<p>oxedi reads and writes the 835, and its structure already comes from a spec that is plain data.
+Before adding other X12 transaction sets, the code underneath is being simplified so that a new
+transaction set is a new spec, not new code. Three pieces, in this order. None of them changes
+what oxedi reads or writes: every expected output stays byte for byte.</p>
+<ul>
+<li><strong>Thin bindings</strong> (<a href="https://github.com/javillegasna/oxedi/issues/220">#220</a>). Python, DuckDB and
+  the browser viewer each repeat a few rules that belong in the Rust core: converting values
+  before writing, picking the spec version of a file, turning diagnostics into rows, choosing a
+  masked or unmasked run. Copies drift apart, and two places name 835 tables outside the spec,
+  which another transaction set would break. Each rule moves to the core once.</li>
+<li><strong>One home for X12 values, and a spec the code can build</strong>
+  (<a href="https://github.com/javillegasna/oxedi/issues/221">#221</a>). Element types, number and date
+  parsing are spread over several modules, and the spec can be read but not produced. Generating
+  specs (next section) needs both in one place.</li>
+<li><strong>Checker and projector with one state per concern</strong>
+  (<a href="https://github.com/javillegasna/oxedi/issues/222">#222</a>). The structure checker and the table
+  projector each track loop instances and match segments to occurrences on their own. Sharing
+  that makes a new check, such as hierarchical (HL) parent pointers, a small addition.</li>
+</ul>
+<p><strong>How to help:</strong> issues labelled
+<a href="https://github.com/javillegasna/oxedi/labels/good%20first%20issue">good first issue</a> have a
+Pointers section with where the code lives and which test pins it.</p>
+<h2 id="next-specs-for-any-x12-transaction-set">Next: specs for any X12 transaction set<a class="headerlink" href="#next-specs-for-any-x12-transaction-set" title="Permanent link">&para;</a></h2>
+<p>(<a href="https://github.com/javillegasna/oxedi/issues/223">#223</a>) Writing a spec by hand takes hundreds of
+lines, while the open source <a href="https://github.com/azoner/pyx12">pyx12</a> project already maps the
+270/271, 276/277, 820, 834, 837 and 999. The plan:</p>
+<ul>
+<li><code>oxedi.pyx12.spec_from_map(...)</code> turns an installed pyx12 map into an oxedi spec, with
+  automatic tables (one per loop, one per repeating segment) that a merge patch can rename or
+  reshape.</li>
+<li>Patient data columns are flagged from the guide, and masking refuses a spec with no flagged
+  column, so a generated spec never seems to hide data it does not.</li>
+<li>A check that hierarchical (HL) parent pointers agree with the nesting.</li>
+<li>Proven first on the 835 (the generated spec must match today's), then the 277, the 271 and
+  the 837P.</li>
+</ul>
+<p><strong>Open question, opinions welcome:</strong> should element usage, length and codes be defined once per
+segment, as today, or per occurrence, as implementation guides do? Discussed in
+<a href="https://github.com/javillegasna/oxedi/issues/130">#130</a>.</p>
 <h2 id="available-now">Available now<a class="headerlink" href="#available-now" title="Permanent link">&para;</a></h2>
 <ul>
 <li><strong>Read an 835</strong> from Python into payments, claims, service lines, adjustments and provider
@@ -1983,27 +2047,21 @@ what people need. If something matters to you, say so in an
   <code>read_835</code>, and write an 835 with <code>COPY</code>. See <a href="../duckdb/">DuckDB</a>.</li>
 <li><strong>Validate with pyx12</strong> and get its findings in the same shape as oxedi's own. See
   <a href="../python/pyx12/">Validating with pyx12</a>.</li>
-<li><strong>Adapt to your payers</strong> by changing the spec, which is plain data. See <a href="../customize/spec/">The spec</a>.</li>
-<li><strong>Try it in your browser.</strong> Drop an 835 on the <a href="https://javillegas.dev/oxedi/viewer/">viewer</a>
-  and see its payments, tables, problems and loops. The file is read in the browser and never
-  uploaded, so it is safe to use with real remittances. See <a href="../start/viewer/">Try it in your browser</a>.</li>
-<li><strong>Hide patient data.</strong> Replace patient names and ids with keyed tokens and reduce dates, for
-  sharing data with analysts, vendors or tests. It works in Python (<code>parse</code>, <code>validate</code>) and in
-  the browser viewer, and comes to DuckDB with the next extension version. See
+<li><strong>Adapt to your payers</strong> by changing the spec. See <a href="../customize/spec/">The spec</a>.</li>
+<li><strong>Try it in your browser.</strong> Drop an 835 on the <a href="https://javillegas.dev/oxedi/viewer/">viewer</a>;
+  the file is read in the browser and never uploaded. See <a href="../start/viewer/">Try it in your browser</a>.</li>
+<li><strong>Hide patient data</strong> with keyed tokens and coarser dates, in Python and in the viewer, and in
+  DuckDB with the next extension version. See
   <a href="../python/without-patient-data/">Sharing data without patient information</a>.</li>
 <li><strong>Move from edi-835-parser</strong> without rewriting your code. See
   <a href="../migrating-from-edi-835-parser/">Migrating from edi-835-parser</a>.</li>
 </ul>
-<h2 id="next">Next<a class="headerlink" href="#next" title="Permanent link">&para;</a></h2>
-<ul>
-<li><strong>Ask an AI assistant about your remittances.</strong> A local tool server that lets an assistant
-  answer questions such as totals by payer, denied claims or a claim's adjustments, over a
-  file, a folder or cloud storage. Patient fields would be masked by default.</li>
-</ul>
 <h2 id="being-considered">Being considered<a class="headerlink" href="#being-considered" title="Permanent link">&para;</a></h2>
 <ul>
-<li><strong>More X12 transactions</strong>, starting with the 837 claim. The same engine, a different spec,
-  and a way to match claims with their payments.</li>
+<li><strong>Ask an AI assistant about your remittances</strong>: a local tool server that answers questions
+  such as totals by payer or denied claims, over a file, a folder or cloud storage, with patient
+  fields masked by default.</li>
+<li><strong>Matching claims with their payments</strong> once the 837 has a spec.</li>
 <li><strong>More recipes</strong>, such as Spark and Ray for very large batches.</li>
 <li><strong>Other languages</strong> beyond Python and DuckDB, such as a JavaScript package or a C library,
   when someone needs them.</li>

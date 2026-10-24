@@ -40,23 +40,23 @@ pub fn days_from_civil(year: i32, month: i32, day: i32) -> Option<i32> {
 }
 
 /// Days from 1970-01-01 to a proleptic Gregorian date (H. Hinnant's
-/// `days_from_civil`); the date must already be known to exist.
-pub(crate) fn days_from_civil_unchecked(year: i32, month: i32, day: i32) -> i32 {
+/// `days_from_civil`), in `i64` so no step wraps; the date must exist.
+fn days_from_civil_wide(year: i64, month: i64, day: i64) -> i64 {
     let year = if month <= 2 { year - 1 } else { year };
     let era = year.div_euclid(400);
     let year_of_era = year - era * 400;
     let march_based_month = (month + 9) % 12;
     let day_of_year = (153 * march_based_month + 2) / 5 + day - 1;
     let day_of_era = year_of_era * 365 + year_of_era / 4 - year_of_era / 100 + day_of_year;
-    era * DAYS_PER_ERA + day_of_era - EPOCH_SHIFT_DAYS
+    era * i64::from(DAYS_PER_ERA) + day_of_era - i64::from(EPOCH_SHIFT_DAYS)
 }
 
-/// The proleptic Gregorian date `days` after 1970-01-01 (H. Hinnant's
-/// `civil_from_days`), the inverse of [`days_from_civil`].
-pub(crate) fn civil_from_days(days: i32) -> (i32, i32, i32) {
-    let shifted = days.saturating_add(EPOCH_SHIFT_DAYS);
-    let era = shifted.div_euclid(DAYS_PER_ERA);
-    let day_of_era = shifted - era * DAYS_PER_ERA;
+/// The date `shifted` days after 0000-03-01 (H. Hinnant's `civil_from_days`
+/// after the epoch shift), as year, month and day, in `i64`.
+fn civil_from_shifted_wide(shifted: i64) -> (i64, i64, i64) {
+    let per_era = i64::from(DAYS_PER_ERA);
+    let era = shifted.div_euclid(per_era);
+    let day_of_era = shifted - era * per_era;
     let year_of_era =
         (day_of_era - day_of_era / 1460 + day_of_era / 36_524 - day_of_era / 146_096) / 365;
     let day_of_year = day_of_era - (365 * year_of_era + year_of_era / 4 - year_of_era / 100);
@@ -67,32 +67,40 @@ pub(crate) fn civil_from_days(days: i32) -> (i32, i32, i32) {
     } else {
         march_based_month - 9
     };
-    let year = year_of_era + era * 400 + i32::from(month <= 2);
+    let year = year_of_era + era * 400 + i64::from(month <= 2);
     (year, month, day)
+}
+
+/// An `i64` the calendar produced from `i32` input, back to `i32`. A date
+/// of years 1..=9999 and any year of an `i32` day count fit, so the clamp
+/// is never reached.
+fn narrow(value: i64) -> i32 {
+    i32::try_from(value).unwrap_or(if value < 0 { i32::MIN } else { i32::MAX })
+}
+
+/// Days from 1970-01-01 to a proleptic Gregorian date; the date must
+/// already be known to exist.
+pub(crate) fn days_from_civil_unchecked(year: i32, month: i32, day: i32) -> i32 {
+    narrow(days_from_civil_wide(
+        i64::from(year),
+        i64::from(month),
+        i64::from(day),
+    ))
+}
+
+/// The proleptic Gregorian date `days` after 1970-01-01, the inverse of
+/// [`days_from_civil`].
+pub(crate) fn civil_from_days(days: i32) -> (i32, i32, i32) {
+    let (year, month, day) =
+        civil_from_shifted_wide(i64::from(days.saturating_add(EPOCH_SHIFT_DAYS)));
+    (narrow(year), narrow(month), narrow(day))
 }
 
 /// The day number of January 1 of the year that holds `days`; `None` when
 /// that day does not fit an `i32`. Computed in `i64`, so no step wraps.
 pub(crate) fn year_start(days: i32) -> Option<i32> {
-    let shift = i64::from(EPOCH_SHIFT_DAYS);
-    let per_era = i64::from(DAYS_PER_ERA);
-    let shifted = i64::from(days) + shift;
-    let era = shifted.div_euclid(per_era);
-    let day_of_era = shifted - era * per_era;
-    let year_of_era =
-        (day_of_era - day_of_era / 1460 + day_of_era / 36_524 - day_of_era / 146_096) / 365;
-    let day_of_year = day_of_era - (365 * year_of_era + year_of_era / 4 - year_of_era / 100);
-    let march_based_month = (5 * day_of_year + 2) / 153;
-    let year = year_of_era + era * 400 + i64::from(march_based_month >= 10);
-    // January is month index 10 of a year that starts in March.
-    let previous = year - 1;
-    let previous_era = previous.div_euclid(400);
-    let previous_year_of_era = previous - previous_era * 400;
-    let january_day_of_year = (153 * 10 + 2) / 5;
-    let day_of_era = previous_year_of_era * 365 + previous_year_of_era / 4
-        - previous_year_of_era / 100
-        + january_day_of_year;
-    i32::try_from(previous_era * per_era + day_of_era - shift).ok()
+    let (year, _, _) = civil_from_shifted_wide(i64::from(days) + i64::from(EPOCH_SHIFT_DAYS));
+    i32::try_from(days_from_civil_wide(year, 1, 1)).ok()
 }
 
 /// Seconds since midnight; `None` past 23:59:59 or for a negative part.

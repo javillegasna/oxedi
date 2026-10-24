@@ -3,7 +3,7 @@
 # JavaScript sources and compares them with .github/complexity-baseline.txt (complexity.py says
 # how). Measured: crates/*/src (Rust), crates/*/python and crates/*/scripts (Python) and
 # viewer/js. Not measured: tests (tests/, test/, tests.rs), benches, examples, the tooling under
-# .github/, docs/ and viewer/tests, and anything git does not track (target/, site/, viewer/pkg/)
+# .github/ and tools/, docs/ and viewer/tests, and anything git does not track (target/, site/, viewer/pkg/)
 # or that is not a source file (the generated .pyi stubs).
 # A baseline function the change modifies must end within the targets. The change is measured
 # against $COMPLEXITY_BASE; unset, that is $COMPLEXITY_PUSH_BEFORE on a push in CI, the first
@@ -44,4 +44,4 @@ git ls-files -- \
 
 uvx --python "$PYTHON_VERSION" --from "lizard==$LIZARD_VERSION" \
   --with "pygments==$PYGMENTS_VERSION" --with "pathspec==$PATHSPEC_VERSION" \
-  python .github/scripts/complexity.py .github/complexity-baseline.txt --files "$files" "$@"
+  python tools/complexity/complexity.py .github/complexity-baseline.txt --files "$files" "$@"

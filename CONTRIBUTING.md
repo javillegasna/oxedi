@@ -340,7 +340,9 @@ target may only shrink. Two checks hold that line:
 - `make complexity` (needs uv) measures CCN and nesting of every Rust, Python and JS function
   outside tests, benches, examples and tooling, with a pinned lizard (Python nesting with the
   `ast` module). It compares the functions over a target (CCN above 7, nesting above 3) with
-  `.github/complexity-baseline.txt`. CI runs it in the Workflows area (see [CI](#ci)).
+  `.github/complexity-baseline.txt`. CI runs it in the Workflows area (see [CI](#ci)). The
+  tool is in `tools/complexity/` (see [tools/README.md](tools/README.md)); its tests run with
+  `.github/scripts/lint.sh`.
 
 **What it reports.** Every line says how to resolve it:
 

@@ -126,6 +126,7 @@ jobs:
             workflows:
               - '.github/workflows/**'
               - '.github/scripts/**'
+              - 'tools/**'
               - '.github/actions/setup-uv/**'
               # The complexity ratchet measures these against .github/complexity-baseline.txt.
               - '.github/complexity-baseline.txt'

@@ -1,3 +1,4 @@
 # Raising a complexity ceiling or a baseline entry needs the owner's review.
 /.github/complexity-baseline.txt @javillegasna
 /clippy.toml @javillegasna
+/tools/complexity/ @javillegasna

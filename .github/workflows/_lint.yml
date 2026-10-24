@@ -3,7 +3,7 @@ name: Workflows
 # actionlint on the workflows, shellcheck on the scripts they run and those scripts' own tests,
 # with the tool versions pinned in scripts/install-lint-tools.sh; on a pull request, a report of
 # the complexity baseline entries it adds or raises; then the complexity ratchet over the Rust,
-# Python and JS sources (lizard pinned in scripts/complexity.sh), which also fails a baseline
+# Python and JS sources (lizard pinned in tools/complexity/complexity.sh), which also fails a baseline
 # function the change modifies and leaves over a target. Called by ci.yml and
 # nightly.yml; locally: .github/scripts/lint.sh and make complexity.
 on:
@@ -29,11 +29,11 @@ jobs:
         run: .github/scripts/lint.sh
       # Reports, without failing, baseline entries a pull request adds or raises.
       - name: Complexity baseline changes
-        run: .github/scripts/complexity-baseline-diff.sh
+        run: tools/complexity/complexity-baseline-diff.sh
       - uses: ./.github/actions/setup-uv
         with:
           cache-suffix: complexity
       - name: Complexity ratchet
         env:
           COMPLEXITY_PUSH_BEFORE: ${{ github.event.before }}
-        run: .github/scripts/complexity.sh
+        run: tools/complexity/complexity.sh

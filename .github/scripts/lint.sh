@@ -1,14 +1,14 @@
 #!/usr/bin/env bash
 # Lints the workflows and the scripts they run: actionlint over .github/workflows (it checks
-# every `run:` block with shellcheck too), shellcheck over .github/scripts, then the tests of
-# those scripts.
+# every `run:` block with shellcheck too), shellcheck over .github/scripts and tools, then the
+# tests of those scripts.
 # Needs actionlint and shellcheck on the PATH (install-lint-tools.sh installs the pinned ones).
 set -euo pipefail
 
 cd "$(dirname "$0")/../.."
 actionlint
 shopt -s globstar nullglob
-shellcheck -x .github/scripts/**/*.sh
-for test in .github/scripts/tests/*.sh; do
+shellcheck -x .github/scripts/**/*.sh tools/**/*.sh
+for test in .github/scripts/tests/*.sh tools/*/tests/*.sh; do
   "$test"
 done

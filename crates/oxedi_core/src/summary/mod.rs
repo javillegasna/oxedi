@@ -17,8 +17,9 @@ pub use error::SummaryError;
 use std::borrow::Cow;
 use std::collections::HashSet;
 
-use crate::column::{Cell, ColumnData, ColumnType, Table, Tables};
+use crate::column::{Cell, ColumnData, Table, Tables};
 use crate::spec::{Spec, Summary, render_amount};
+use crate::value::ColumnType;
 
 /// The value of a summary.
 #[derive(Debug, Clone, PartialEq, Eq)]

@@ -2,7 +2,7 @@
 
 use std::fmt;
 
-use crate::column::ColumnType;
+use crate::value::ColumnType;
 
 /// Why [`summarize`](super::summarize) cannot compute a summary.
 #[derive(Debug, Clone, PartialEq, Eq)]

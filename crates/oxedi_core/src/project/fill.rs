@@ -1,11 +1,12 @@
 //! Row filling: columns read from captured segments, the rows appended to the
 //! tables, the diagnostic helpers and the text read of an element.
 
-use crate::column::{Cell, CellError, ColumnType, RowError, Table};
+use crate::column::{Cell, CellError, RowError, Table};
 use crate::diagnostic::{Diagnostic, LoopRef, Rule};
 use crate::element::Element;
 use crate::segment::Segment;
 use crate::spec::{ColumnSource, LoopId, Pick};
+use crate::value::ColumnType;
 
 use super::check::{Checked, Parsed, parse};
 use super::plan::Watcher;

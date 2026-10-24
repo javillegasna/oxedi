@@ -1,9 +1,9 @@
 //! The full text of every finding, origin and write error.
 
-use crate::column::ColumnType;
 use crate::delimiters::IsaError;
 use crate::diagnostic::{Diagnostic, Rule};
 use crate::document::DocumentError;
+use crate::value::ColumnType;
 use crate::write::*;
 
 fn cell() -> ValueOrigin {

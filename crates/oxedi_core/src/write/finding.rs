@@ -3,9 +3,9 @@
 
 use std::fmt;
 
-use crate::column::ColumnType;
 use crate::diagnostic::{Diagnostic, Quoted};
 use crate::document::DocumentError;
+use crate::value::ColumnType;
 
 use super::refusal::PlanError;
 

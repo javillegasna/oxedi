@@ -1,8 +1,7 @@
 use super::super::{
-    ConvertError, MAX_SCALE, TimeUnit, date_from_midnight, date_from_millis, integer_from_f64,
-    integer_from_i128, integer_from_u128, rescale, seconds_from,
+    ConvertError, DECIMAL_PRECISION, MAX_SCALE, TimeUnit, date_from_midnight, date_from_millis,
+    integer_from_f64, integer_from_i128, integer_from_u128, rescale, seconds_from,
 };
-use crate::column::DECIMAL_PRECISION;
 use std::error::Error;
 
 #[test]

@@ -1,6 +1,6 @@
 //! Parsers from X12 element text to column values, and the civil-date arithmetic they use.
 
-use super::DECIMAL_PRECISION;
+use crate::value::DECIMAL_PRECISION;
 use crate::value::{days_from_civil_unchecked, days_in_month};
 
 /// Splits an optional leading minus sign off `text`.

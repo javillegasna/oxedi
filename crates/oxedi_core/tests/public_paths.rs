@@ -8,8 +8,6 @@ mod by_module {
     use oxedi_core::column::CellError;
     use oxedi_core::column::Column;
     use oxedi_core::column::ColumnData;
-    use oxedi_core::column::ColumnType;
-    use oxedi_core::column::DECIMAL_PRECISION;
     use oxedi_core::column::RowError;
     use oxedi_core::column::Table;
     use oxedi_core::column::Tables;
@@ -92,7 +90,9 @@ mod by_module {
     use oxedi_core::trivia::BYTE_ORDER_MARK;
     use oxedi_core::trivia::LeadingTrivia;
     use oxedi_core::trivia::is_trivia;
+    use oxedi_core::value::ColumnType;
     use oxedi_core::value::ConvertError;
+    use oxedi_core::value::DECIMAL_PRECISION;
     use oxedi_core::value::ElementType;
     use oxedi_core::value::MAX_SCALE;
     use oxedi_core::value::TimeUnit;

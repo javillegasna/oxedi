@@ -64,6 +64,17 @@ load. From `crates/oxedi_core/src/write/writer.rs`:
 let Some(table) = data.get(reason.table) else { continue; };
 ```
 
+**Null safety first.** A default is a typed value and an absence is a type; no `None`/null
+sentinel or untyped value in an API, and conversions are checked. A reader then sees the
+default in the signature, and a value that does not fit is refused with the reason instead of
+truncated, wrapped or replaced. When brevity competes with this rule, the rule wins. From
+`crates/oxedi_py/python/oxedi/_core.pyi`:
+
+```python
+def builtin(version: Version = Version.V5010) -> Spec: ...
+def all() -> builtins.list[Version]: ...
+```
+
 **Errors explain themselves.** Every error and diagnostic names the rule that failed, where it
 failed and the offending value. "Where" is the loop and key as written for a spec, and the
 segment index, byte range, element and component position and loop path for a file. Each

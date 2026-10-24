@@ -108,8 +108,8 @@ class Diagnostic:
     @property
     def origin(self) -> builtins.str:
         r"""
-        Who reported the finding: `"oxedi"` for the parser's own rules, the
-        validator's name for an external finding.
+        Who reported the diagnostic: `"oxedi"` for the parser's own rules,
+        the validator's name for an external one.
         """
     @property
     def code(self) -> typing.Optional[builtins.str]:
@@ -135,12 +135,12 @@ class Diagnostic:
     @property
     def element(self) -> typing.Optional[builtins.int]:
         r"""
-        The 1-based element position, when the finding has one.
+        The 1-based element position, when the diagnostic has one.
         """
     @property
     def component(self) -> typing.Optional[builtins.int]:
         r"""
-        The 1-based component position, when the finding has one.
+        The 1-based component position, when the diagnostic has one.
         """
     @property
     def path(self) -> builtins.str:

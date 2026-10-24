@@ -3,9 +3,10 @@
 
 The container runs as the user, with a read-only root, no capabilities, no new privileges, the
 default seccomp profile and limits on processes, memory and CPUs. It sees the checkout at /work,
-with the files the host executes later (Makefile, make/, tools/, ...) bound read-only on top and
-the maintainers' notes masked, and its own storage under ${XDG_CACHE_HOME:-~/.cache}/oxedi-sandbox:
-target/ and .venv/ per checkout, the cargo registry shared. No host variable and no part of the
+with the files the host executes later (Makefile, make/, tools/, ...) bound read-only on top, the
+maintainers' notes and every path git ignores hidden, and its own storage under
+${XDG_CACHE_HOME:-~/.cache}/oxedi-sandbox: target/ and .venv/ per checkout, the cargo registry
+shared. No host variable and no part of the
 host home other than that storage reaches it. Two phases, each in its own containers:
 - fetch: with network, the checkout read-only, no project code run: `cargo fetch --locked` and
   wheels only for the venv, written to the shared caches; it never falls back to them offline;
@@ -60,6 +61,7 @@ def describe(plan: Plan, labels: dict[str, str]) -> str:
         f"storage {plan.storage.target.parent} (target, venv), shared {plan.storage.cache} (cargo, uv)",
         f"read-only: {', '.join(plan.checkout.read_only) or 'none'}",
         f"masked: {', '.join(plan.checkout.masked) or 'none'}",
+        f"hidden: {', '.join(plan.checkout.hidden) or 'none'}",
     ])
 
 

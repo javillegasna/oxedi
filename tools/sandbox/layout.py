@@ -2,10 +2,11 @@
 
 Read-only, in both phases: what the host executes or trusts after a run (the fixed list below),
 plus every tracked file git names like a build or tool configuration and every tracked `.cargo`
-directory, wherever they are. Masked, in both phases: the maintainers' notes and every path git
-ignores, except the sandbox's own outputs. An ignored directory is hidden behind an empty
-read-only tmpfs; an ignored file is bound read-only, so a run cannot change it. A directory git
-ignores as a whole (it holds no tracked file) is masked whole, caches inside it included.
+directory, wherever they are. Hidden, in both phases: the maintainers' notes and every path git
+ignores, except the sandbox's own outputs, so a run can neither read nor change them. An ignored
+directory is masked by an empty read-only tmpfs; an ignored file has an empty read-only file
+bound over it. A directory git ignores as a whole (it holds no tracked file) is masked whole,
+caches inside it included.
 """
 
 import hashlib
@@ -25,7 +26,7 @@ TRACKED_NAMES = frozenset({
     "Cargo.toml", "Cargo.lock", "rust-toolchain", "rust-toolchain.toml", "pyproject.toml", "uv.toml",
     ".python-version",
 })
-# The maintainers' local notes: hidden behind an empty read-only tmpfs.
+# The maintainers' local notes: masked by an empty read-only tmpfs.
 MASKED = (".doc", ".workflow-kit", ".doc/scratch")
 # What a run writes on purpose: its own storage at the top, and the Python caches and the built
 # extension anywhere. These ignored paths are not masked.
@@ -42,12 +43,13 @@ class SandboxError(Exception):
 
 @dataclass(frozen=True)
 class Checkout:
-    """A checkout, the paths bound read-only over it and the directories masked (relative,
-    `/`-separated)."""
+    """A checkout, the paths bound read-only over it, the directories masked and the files hidden
+    (relative, `/`-separated)."""
 
     root: Path
     read_only: tuple[str, ...]
     masked: tuple[str, ...]
+    hidden: tuple[str, ...]
 
     @property
     def name(self) -> str:
@@ -65,6 +67,10 @@ def refuse_unsafe(path: Path | str, what: str) -> None:
 
 def inside(path: str, outers: set[str]) -> bool:
     return any(path.startswith(f"{outer}/") for outer in outers)
+
+
+def covered(path: str, outers: set[str]) -> bool:
+    return path in outers or inside(path, outers)
 
 
 def outermost(paths: set[str]) -> set[str]:
@@ -111,12 +117,15 @@ def present_real(root: Path, paths: set[str]) -> set[str]:
 
 
 def survey(root: Path) -> Checkout:
-    """The read-only and masked paths of `root`, as git and the fixed lists name them. A symbolic
-    link among them is refused: its target, not the checkout's file, would be bound, and the link
-    itself would stay writable."""
+    """The read-only, masked and hidden paths of `root`, as git and the fixed lists name them. A
+    symbolic link among them is refused: its target, not the checkout's file, would be bound, and
+    the link itself would stay writable."""
     refuse_unsafe(root, "checkout")
-    hidden = set(MASKED) | ignored_paths(root)
-    present = present_real(root, set(HOST_EXECUTED) | configuration(git_paths(root, "ls-files")) | hidden)
-    masked = outermost({p for p in present & hidden if (root / p).is_dir()})
-    read_only = outermost({p for p in present if p not in masked and not inside(p, masked)})
-    return Checkout(root, tuple(sorted(read_only)), tuple(sorted(masked)))
+    secret = set(MASKED) | ignored_paths(root)
+    present = present_real(root, set(HOST_EXECUTED) | configuration(git_paths(root, "ls-files")) | secret)
+    masked = outermost({p for p in present & secret if (root / p).is_dir()})
+    # What a masked directory does not already cover: ignored files are hidden, the rest bound.
+    free = {p for p in present if not covered(p, masked)}
+    hidden = free & secret
+    read_only = outermost(free - hidden)
+    return Checkout(root, tuple(sorted(read_only)), tuple(sorted(masked)), tuple(sorted(hidden)))

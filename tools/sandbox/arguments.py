@@ -63,10 +63,12 @@ def hardened_base(checkout: Checkout, uid: int, gid: int, runtime: Runtime, limi
     ]
 
 
-def read_only_set(checkout: Checkout, skip: tuple[str, ...]) -> list[str]:
+def read_only_set(checkout: Checkout, storage: Storage, skip: tuple[str, ...]) -> list[str]:
+    """The read-only binds, the masked directories and the empty file over each hidden one."""
     binds = [bind(checkout.root / p, f"{WORK}/{p}", True) for p in checkout.read_only if p not in skip]
     masks = [mask(f"{WORK}/{p}") for p in checkout.masked]
-    return [a for mount in binds + masks for a in mount]
+    blanks = [bind(storage.empty, f"{WORK}/{p}", True) for p in checkout.hidden]
+    return [a for mount in binds + masks + blanks for a in mount]
 
 
 def fetch_delta(checkout: Checkout, storage: Storage) -> list[str]:
@@ -82,7 +84,7 @@ def fetch_delta(checkout: Checkout, storage: Storage) -> list[str]:
             # A uv.toml or [tool.uv] the run phase left in the checkout must not steer the fetch.
             "UV_NO_CONFIG": "1",
         }),
-        *bind(checkout.root, WORK, True), *read_only_set(checkout, (".cargo",)), *cargo_mask,
+        *bind(checkout.root, WORK, True), *read_only_set(checkout, storage, (".cargo",)), *cargo_mask,
         *bind(storage.venv, f"{WORK}/.venv", False),
         *bind(storage.cargo, CARGO_HOME, False), *bind(storage.uv, UV_CACHE, False),
     ]
@@ -97,7 +99,7 @@ def run_delta(checkout: Checkout, storage: Storage) -> list[str]:
             "HOME": HOME, "CARGO_HOME": CARGO_HOME, "UV_CACHE_DIR": "/tmp/uv-cache",
             "CARGO_NET_OFFLINE": "true", "UV_OFFLINE": "1", "CARGO_INCREMENTAL": "0",
         }),
-        *bind(checkout.root, WORK, False), *read_only_set(checkout, ()),
+        *bind(checkout.root, WORK, False), *read_only_set(checkout, storage, ()),
         *bind(storage.target, f"{WORK}/target", False), *bind(storage.venv, f"{WORK}/.venv", False),
         *bind(storage.cargo, CARGO_HOME, True),
     ]

@@ -151,7 +151,7 @@ def explain(outcome: Outcome, limits: Limits, budget: str, failure: str) -> str:
     if outcome.timed_out:
         return f"{budget}; the container was killed"
     if outcome.status == 125:
-        return f"docker could not start the container: {outcome.cause}"
+        return f"docker could not start the container, or the command itself exited 125: {outcome.cause}"
     if outcome.status == 137:
         return (f"the container was killed (exit 137), most likely by its {limits.memory_gb} GB memory limit; "
                 "raise it with SANDBOX_MEMORY=<GB>")

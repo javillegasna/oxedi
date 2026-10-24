@@ -2,8 +2,8 @@
 """A stand-in for the `docker` CLI in the sandbox tests.
 
 Every call is appended to $FAKE_DIR/calls.jsonl as {"argv": [...]}; a `run` also records, for
-each bind mount, whether its source existed and who owned it at that moment. Behaviour comes from
-variables:
+each bind mount, whether its source and its mount point existed and who owned the source at that
+moment. Behaviour comes from variables:
 
 FAKE_INFO          the JSON `docker info --format '{{json .}}'` prints
 FAKE_RUNNING       what `docker ps` prints (the running container names)
@@ -11,6 +11,7 @@ FAKE_NO_IMAGE      when set, `docker image inspect` fails until a `docker build`
 FAKE_RUN_EXIT      exit status of the run-phase container (`bash -c ...`); default 0
 FAKE_RUN_STDERR    what the run-phase container writes to stderr
 FAKE_RUN_SLEEP     seconds the run-phase container sleeps before it exits
+FAKE_RUN_WRITES    a shell command the run-phase container runs in the checkout (/work's source)
 FAKE_FETCH_EXIT    exit status of every fetch-phase container; default 0
 
 `docker kill` ends a sleeping run-phase container, as the real one would.
@@ -19,6 +20,7 @@ FAKE_FETCH_EXIT    exit status of every fetch-phase container; default 0
 import json
 import os
 import signal
+import subprocess
 import sys
 import time
 from itertools import pairwise
@@ -39,19 +41,37 @@ def record(entry: dict) -> None:
         log.write(json.dumps(entry) + "\n")
 
 
-def bind_sources(argv: list[str]) -> dict:
-    sources = {}
+def bind_mounts(argv: list[str]) -> list[dict]:
+    found = []
     for flag, spec in pairwise(argv):
-        if flag != "--mount":
-            continue
-        fields = dict(part.partition("=")[::2] for part in spec.split(","))
-        if fields.get("type") == "bind":
-            path = Path(fields["src"])
-            sources[fields["src"]] = {
-                "exists": path.exists(),
-                "uid": path.stat().st_uid if path.exists() else -1,
-                "entries": sorted(os.listdir(path)) if path.is_dir() else [],
-            }
+        if flag == "--mount":
+            fields = dict(part.partition("=")[::2] for part in spec.split(","))
+            if fields.get("type") == "bind":
+                found.append(fields)
+    return found
+
+
+def work_source(argv: list[str]) -> Path | None:
+    """The host directory bound at /work, if any."""
+    sources = [Path(m["src"]) for m in bind_mounts(argv) if m["dst"] == "/work"]
+    return sources[0] if sources else None
+
+
+def bind_sources(argv: list[str]) -> dict:
+    """Per bind source: whether it existed, its owner, its entries and, for a destination under
+    /work, whether the mount point existed in the checkout."""
+    work = work_source(argv)
+    sources = {}
+    for fields in bind_mounts(argv):
+        path = Path(fields["src"])
+        destination = fields["dst"]
+        under_work = work is not None and destination.startswith("/work/")
+        sources[fields["src"]] = {
+            "exists": path.exists(),
+            "uid": path.stat().st_uid if path.exists() else -1,
+            "entries": sorted(os.listdir(path)) if path.is_dir() else [],
+            "mount_point": os.path.lexists(work / destination[len("/work/"):]) if under_work else None,
+        }
     return sources
 
 
@@ -77,6 +97,9 @@ def run(argv: list[str]) -> int:
     if "bash" not in argv:
         return int(os.environ.get("FAKE_FETCH_EXIT", "0"))
     (STATE / "run.pid").write_text(str(os.getpid()))
+    writes = os.environ.get("FAKE_RUN_WRITES", "")
+    if writes:
+        subprocess.run(["sh", "-c", writes], cwd=work_source(argv), check=True)
     time.sleep(float(os.environ.get("FAKE_RUN_SLEEP", "0")))
     sys.stderr.write(os.environ.get("FAKE_RUN_STDERR", ""))
     return int(os.environ.get("FAKE_RUN_EXIT", "0"))

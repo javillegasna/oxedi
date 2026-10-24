@@ -74,7 +74,7 @@ def make_checkout(root: Path, *paths: str) -> Path:
     return root
 
 
-IGNORED = ".venv-docs/\nnotes.log\n/target/\n/.venv/\n__pycache__/\n.pytest_cache/\n*.so\n"
+IGNORED = ".venv-docs/\nnotes.log\n.env\n/target/\n/.venv/\n__pycache__/\n.pytest_cache/\n*.so\n"
 
 
 FULL_SET = [
@@ -143,6 +143,10 @@ class World(unittest.TestCase):
         runs = [call["argv"] for call in self.runs() if "bash" in call["argv"]]
         self.assertEqual(len(runs), 1, self.calls())
         return runs[0]
+
+    def own(self, checkout: Path) -> Path:
+        """This checkout's storage directory."""
+        return self.home / ".cache" / "oxedi-sandbox" / layout.path_hash(checkout)
 
     def phase_args(self, phase, checkout: Path) -> list[str]:
         surveyed = layout.survey(checkout)
@@ -236,8 +240,10 @@ class Arguments(World):
             "target/debug/x", ".venv/bin/python", "crates/a/__pycache__/x.cpython-313.pyc",
             "crates/oxedi_py/.pytest_cache/v/x", "crates/oxedi_py/python/oxedi/_core.abi3.so",
         ]
-        tracked = ["crates/a/lib.py", "crates/oxedi_py/README.md", "crates/oxedi_py/python/oxedi/__init__.py"]
-        ignored = [".venv-docs/bin/python", "notes.log"]
+        tracked = [
+            "crates/a/lib.py", "crates/oxedi_py/README.md", "crates/oxedi_py/python/oxedi/__init__.py", "tools/run.sh",
+        ]
+        ignored = [".venv-docs/bin/python", "notes.log", "tools/.env"]
         checkout = self.checkout("c", ".gitignore", "Makefile", *ignored, *tracked, *outputs)
         for phase in arguments.Phase:
             argv = self.phase_args(phase, checkout)
@@ -245,9 +251,10 @@ class Arguments(World):
                 docs = mount_at(argv, "/work/.venv-docs")
                 self.assertEqual(docs["type"], "tmpfs")
                 self.assertIn("readonly", docs)
-                notes = mount_at(argv, "/work/notes.log")
-                self.assertEqual((notes["type"], notes["src"]), ("bind", str(checkout / "notes.log")))
-                self.assertIn("readonly", notes)
+                for hidden in ("notes.log", "tools/.env"):
+                    blank = mount_at(argv, f"/work/{hidden}")
+                    self.assertEqual((blank["type"], blank["src"]), ("bind", str(self.own(checkout) / "empty")))
+                    self.assertIn("readonly", blank)
                 for path in outputs:
                     self.assertFalse([m for m in mounts(argv) if f"/work/{path}".startswith(m["dst"] + "/")
                                       and m["dst"] != "/work" and m["type"] == "tmpfs"], path)
@@ -348,9 +355,22 @@ class Runner(World):
             for source, state in call["binds"].items():
                 with self.subTest(source=source):
                     self.assertEqual((state["exists"], state["uid"]), (True, UID))
-        for checkout in (first, second):
-            self.assertTrue((checkout / "target").is_dir())
-            self.assertTrue((checkout / ".venv").is_dir())
+            for destination in ("/work/target", "/work/.venv"):
+                with self.subTest(mount_point=destination):
+                    self.assertIs(call["binds"][mount_at(call["argv"], destination)["src"]]["mount_point"], True)
+
+    def test_ignored_file_hidden_by_an_empty_file(self):
+        checkout = self.checkout("c", ".gitignore", "Makefile", ".env")
+        (checkout / ".env").write_text("PYPI_TOKEN=pypi-sandboxtestsecret3\n")
+        self.assertEqual(self.sandbox(checkout).returncode, 0)
+        argv = self.run_phase()
+        blank = mount_at(argv, "/work/.env")
+        empty = self.own(checkout) / "empty"
+        self.assertEqual((blank["type"], blank["src"]), ("bind", str(empty)))
+        self.assertIn("readonly", blank)
+        self.assertIs([c for c in self.runs() if "bash" in c["argv"]][0]["binds"][str(empty)]["mount_point"], True)
+        self.assertEqual(empty.read_bytes(), b"")
+        self.assertEqual(empty.stat().st_mode & 0o777, 0o444 & ~current_umask())
 
     def test_xdg_cache_home_holds_the_storage(self):
         checkout = self.checkout()
@@ -435,7 +455,10 @@ class Runner(World):
         cause = "docker: Error response from daemon: invalid mount config for type bind"
         result = self.sandbox(self.checkout(), FAKE_RUN_EXIT="125", FAKE_RUN_STDERR=cause + "\n")
         self.assertEqual(result.returncode, 125)
-        self.assertIn(f"sandbox: docker could not start the container: {cause}", result.stderr)
+        self.assertIn(
+            f"sandbox: docker could not start the container, or the command itself exited 125: {cause}",
+            result.stderr,
+        )
         self.assertNotIn("command exited", result.stderr)
 
     def test_command_status_passes_through(self):
@@ -499,6 +522,18 @@ class EmptyDir(unittest.TestCase):
             self.assertEqual(list(venv.iterdir()), [])
             self.assertTrue((outside / "keep").exists())
 
+    def test_a_tree_deeper_than_the_recursion_limit_is_emptied(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            venv = Path(tmp) / "venv"
+            venv.mkdir()
+            deepest = venv
+            for _ in range(sys.getrecursionlimit() + 200):
+                deepest = deepest / "a"
+                deepest.mkdir()
+            (deepest / "file").write_text("x")
+            storage.empty_dir(venv)
+            self.assertEqual(list(venv.iterdir()), [])
+
     def test_what_cannot_be_removed_is_one_line(self):
         with tempfile.TemporaryDirectory() as tmp:
             venv = Path(tmp) / "venv"
@@ -513,6 +548,12 @@ class EmptyDir(unittest.TestCase):
                 f"cannot empty {venv} before the fetch: [Errno 1] Operation not permitted: "
                 f"'{venv / 'pinned'}'; remove that directory by hand",
             )
+
+
+def current_umask() -> int:
+    mask = os.umask(0)
+    os.umask(mask)
+    return mask
 
 
 def command_of(argv: list[str]) -> list[str]:

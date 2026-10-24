@@ -1,11 +1,11 @@
 //! Element checks: the values a segment's elements parse to, and the diagnostics they raise.
 
-use crate::column::{is_dt, parse_dt, parse_n, parse_r, parse_tm};
 use crate::diagnostic::Rule;
 use crate::element::Element;
 use crate::segment::Segment;
 use crate::spec::{ElementDef, rejects_code};
 use crate::value::ColumnType;
+use crate::value::{is_dt, parse_dt, parse_n, parse_r, parse_tm};
 
 use super::Projector;
 use super::fill::leaf_text;

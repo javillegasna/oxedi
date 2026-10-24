@@ -8,23 +8,17 @@
 //! [`Table`] is a named list of columns that always have the same length,
 //! and [`Tables`] is a list of tables ordered by name.
 //!
-//! The parsers turn X12 element text into column values without allocating:
-//! [`parse_n`], [`parse_r`], [`parse_dt`] and [`parse_tm`].
-//!
-//! The module is split by responsibility: `parse` holds the parsers and the
-//! date arithmetic; `table` the tables and the row appends. This file holds
-//! the column types, the bitmap, the cells and the column buffers.
+//! The module is split by responsibility: `table` holds the tables and the
+//! row appends. This file holds the column types, the bitmap, the cells and
+//! the column buffers.
 
 use std::fmt;
 
 use crate::diagnostic::Quoted;
 use crate::value::{ColumnType, civil_from_days};
 
-mod parse;
 mod table;
 
-pub(crate) use parse::is_dt;
-pub use parse::{parse_dt, parse_n, parse_r, parse_tm};
 pub use table::{RowError, Table, Tables};
 
 /// One validity bit per row, least significant bit first; a set bit means

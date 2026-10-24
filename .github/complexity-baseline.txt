@@ -33,9 +33,6 @@ crates/oxedi_core/src/check/occurrences.rs	report_missing	8	2
 crates/oxedi_core/src/column/mod.rs	get	17	1
 crates/oxedi_core/src/column/mod.rs	raw_text	12	3
 crates/oxedi_core/src/column/mod.rs	render	14	1
-crates/oxedi_core/src/column/parse.rs	civil_date	18	1
-crates/oxedi_core/src/column/parse.rs	parse_r	12	1
-crates/oxedi_core/src/column/parse.rs	parse_tm	14	1
 crates/oxedi_core/src/delimiters/mod.rs	fmt	17	3
 crates/oxedi_core/src/delimiters/mod.rs	from_isa	13	1
 crates/oxedi_core/src/diagnostic/display.rs	fmt	58	3
@@ -74,6 +71,7 @@ crates/oxedi_core/src/spec/segments.rs	fmt	16	0	flat
 crates/oxedi_core/src/spec/shape.rs	mismatch	8	3
 crates/oxedi_core/src/spec/table_error.rs	fmt	37	2
 crates/oxedi_core/src/value/convert.rs	fmt	10	0	flat
+crates/oxedi_core/src/value/parse.rs	parse_r	12	1
 crates/oxedi_core/src/write/build.rs	loop_table	12	4
 crates/oxedi_core/src/write/build.rs	repeat_table	9	2
 crates/oxedi_core/src/write/codes.rs	resolve	13	3

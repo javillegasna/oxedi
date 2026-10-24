@@ -18,13 +18,18 @@ pub(crate) fn days_in_month(year: i32, month: i32) -> i32 {
     }
 }
 
+/// Whether a proleptic Gregorian date exists in the years 1..=9999: the
+/// month in 1..=12 and the day in the month.
+pub(crate) fn is_civil(year: i32, month: i32, day: i32) -> bool {
+    (1..=9999).contains(&year)
+        && (1..=12).contains(&month)
+        && (1..=days_in_month(year, month)).contains(&day)
+}
+
 /// Days since 1970-01-01 of a proleptic Gregorian date; `None` when the year
 /// is outside 1..=9999, the month outside 1..=12 or the day outside the month.
 pub fn days_from_civil(year: i32, month: i32, day: i32) -> Option<i32> {
-    let exists = (1..=9999).contains(&year)
-        && (1..=12).contains(&month)
-        && (1..=days_in_month(year, month)).contains(&day);
-    exists.then(|| days_from_civil_unchecked(year, month, day))
+    is_civil(year, month, day).then(|| days_from_civil_unchecked(year, month, day))
 }
 
 /// Days from 1970-01-01 to a proleptic Gregorian date (H. Hinnant's

@@ -31,6 +31,7 @@ __all__ = [
     "_external_diagnostic",
     "_loop_paths",
     "_mask_findings",
+    "_parse_document",
     "_write",
     "parse",
     "stream",
@@ -609,7 +610,7 @@ def _external_diagnostic(origin: builtins.str, message: builtins.str, level: bui
     Builds a `Diagnostic` for a finding reported by an external validator; internal.
     """
 
-def _loop_paths(result: Result, segments: typing.Sequence[builtins.int]) -> builtins.list[builtins.list[tuple[builtins.str, builtins.int]]]:
+def _loop_paths(document: Document, spec: Spec, segments: typing.Sequence[builtins.int]) -> builtins.list[builtins.list[tuple[builtins.str, builtins.int]]]:
     r"""
     The open loops at each of `segments`, outermost first, as `(name,
     ordinal)` pairs: the loops `parse` names in the `path` of a diagnostic
@@ -634,6 +635,18 @@ def _mask_findings(diagnostics: typing.Sequence[Diagnostic], document: Document,
     
     Internal: adapters to external validators call it; it is not part of the
     public API.
+    """
+
+def _parse_document(data: typing_extensions.Buffer, spec: typing.Optional[Spec] = None) -> tuple[Document, Spec, builtins.int]:
+    r"""
+    Indexes a whole file without running the loop engine or the projector:
+    the document, the spec a `parse` of the same arguments uses (the one
+    given, or the built-in of the version the file declares) and how many
+    bytes precede the first segment's text (the byte order mark and the
+    whitespace before the ISA).
+    
+    Internal: adapters to external validators read a file's document and
+    spec through it without paying for the tables.
     """
 
 def _write(tables: Tables | collections.abc.Mapping[builtins.str, typing.Any], envelope: Envelope, spec: typing.Optional[Spec] = None, allow_findings: builtins.bool = False) -> tuple[bytes, builtins.list[WriteFinding]]:

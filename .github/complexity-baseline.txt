@@ -121,8 +121,6 @@ crates/oxedi_py/python/oxedi/edi_835_parser/_frame.py	frame	12	2
 crates/oxedi_py/python/oxedi/edi_835_parser/_frame.py	library	11	2
 crates/oxedi_py/python/oxedi/edi_835_parser/_tables.py	load	18	2
 crates/oxedi_py/python/oxedi/pyx12/_capture.py	_recorder.seg_error	8	1
-crates/oxedi_py/python/oxedi/pyx12/_validate.py	_findings	8	1
-crates/oxedi_py/python/oxedi/pyx12/_validate.py	_finish	9	0
 crates/oxedi_py/scripts/check_wheel.py	main	20	4
 crates/oxedi_py/scripts/compat_oracle.py	compare	26	3
 crates/oxedi_py/scripts/compat_oracle.py	main	8	3

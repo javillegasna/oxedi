@@ -1,5 +1,6 @@
 //! `parse`: one pass over a whole file, with the GIL released.
 
+use oxedi_core::frame::leading_trivia;
 use oxedi_core::{Delimiters, Document, Event, LoopEngine, LoopId, Mask, Processor, Spec};
 use std::collections::{HashMap, HashSet};
 use std::sync::Arc;
@@ -232,6 +233,38 @@ impl PyParseResult {
     }
 }
 
+/// Indexes a whole file without running the loop engine or the projector:
+/// the document, the spec a `parse` of the same arguments uses (the one
+/// given, or the built-in of the version the file declares) and how many
+/// bytes precede the first segment's text (the byte order mark and the
+/// whitespace before the ISA).
+///
+/// Internal: adapters to external validators read a file's document and
+/// spec through it without paying for the tables.
+#[gen_stub_pyfunction]
+#[pyfunction]
+#[pyo3(name = "_parse_document", signature = (data, spec = None))]
+pub fn parse_document(
+    py: Python<'_>,
+    #[gen_stub(override_type(type_repr = "typing_extensions.Buffer", imports = ("typing_extensions",)))]
+    data: &Bound<'_, PyAny>,
+    spec: Option<&Bound<'_, PySpec>>,
+) -> PyResult<(PyDocument, PySpec, usize)> {
+    let bytes = copy_input("_parse_document", data)?;
+    let given = spec::given(spec);
+    let (document, spec, leading) = py.detach(|| -> PyResult<_> {
+        let leading = leading_trivia(&bytes);
+        let document = document::index(bytes, None)?;
+        let spec = spec::given_or_selected(given, document.segments());
+        Ok((document, spec, leading))
+    })?;
+    Ok((
+        PyDocument { inner: document },
+        PySpec { inner: spec },
+        leading,
+    ))
+}
+
 /// The open loops at each of `segments`, outermost first, as `(name,
 /// ordinal)` pairs: the loops `parse` names in the `path` of a diagnostic
 /// about that segment. The ordinal of an instance counts every instance of
@@ -244,24 +277,21 @@ impl PyParseResult {
 #[pyfunction]
 #[pyo3(name = "_loop_paths")]
 pub fn loop_paths(
-    py: Python<'_>,
-    result: &Bound<'_, PyParseResult>,
+    document: &Bound<'_, PyDocument>,
+    spec: &Bound<'_, PySpec>,
     segments: Vec<usize>,
 ) -> PyResult<Vec<Vec<(String, usize)>>> {
     if segments.is_empty() {
         return Ok(Vec::new());
     }
-    let result = result.get();
-    let document = &result.document.bind(py).get().inner;
+    let document = &document.get().inner;
     let count = document.len();
     if let Some(&past) = segments.iter().find(|&&index| index >= count) {
         return Err(PyValueError::new_err(format!(
             "_loop_paths: segment {past} is past the document's last segment ({count} segments)"
         )));
     }
-    let tables = result.tables.bind(py).get();
-    let spec = Arc::clone(tables.spec());
-    let at = paths_at(&spec, document, &segments);
+    let at = paths_at(&spec.get().inner, document, &segments);
     Ok(segments
         .into_iter()
         .map(|index| at.get(&index).cloned().unwrap_or_default())
@@ -319,3 +349,4 @@ fn paths_at(
 }
 
 pyo3_stub_gen::export_verbatim!("oxedi._core", "_loop_paths");
+pyo3_stub_gen::export_verbatim!("oxedi._core", "_parse_document");

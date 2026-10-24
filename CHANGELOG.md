@@ -23,6 +23,8 @@ This file covers the Python package; the DuckDB extension has its own changelog 
   no such place.
 
 ### Changed
+- `oxedi.pyx12.validate` indexes the file and selects the spec without projecting the tables, so it
+  is faster; its findings are unchanged.
 - A spec patch that removes a table or column a summary reads must also remove the summary (with
   `null`): otherwise `Spec.patch` raises `SpecError`, naming the summary, where in it the table or
   column is named and what the spec declares instead. Before, the patch loaded and the summary

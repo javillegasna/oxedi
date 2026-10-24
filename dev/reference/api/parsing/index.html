@@ -2011,6 +2011,28 @@
   
 </li>
         
+          <li class="md-nav__item">
+  <a href="#oxedi.Segment.element" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        element
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#oxedi.Segment.has" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        has
+      
+    </span>
+  </a>
+  
+</li>
+        
       </ul>
     </nav>
   
@@ -2974,6 +2996,28 @@
   
 </li>
         
+          <li class="md-nav__item">
+  <a href="#oxedi.Segment.element" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        element
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#oxedi.Segment.has" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        has
+      
+    </span>
+  </a>
+  
+</li>
+        
       </ul>
     </nav>
   
@@ -3525,8 +3569,9 @@ selected from the file's version.</p>
 
     <div class="doc doc-contents ">
 
-        <p>The payer organization from the <code>payer_*</code> columns of <code>payments</code>, or
-<code>None</code> when the file has none.</p>
+        <p>The summary <code>payer</code> the spec declares (for the built-in 835: the
+payer organization of the one transaction), or <code>None</code> when the file
+has none.</p>
 
     </div>
 
@@ -3550,8 +3595,9 @@ selected from the file's version.</p>
 
     <div class="doc doc-contents ">
 
-        <p>The payee organization from the <code>payee_*</code> columns of <code>payments</code>, or
-<code>None</code> when the file has none.</p>
+        <p>The summary <code>payee</code> the spec declares (for the built-in 835: the
+payee organization of the one transaction), or <code>None</code> when the file
+has none.</p>
 
     </div>
 
@@ -3573,7 +3619,8 @@ selected from the file's version.</p>
 
     <div class="doc doc-contents ">
 
-        <p>The rows of <code>claims</code>.</p>
+        <p>The summary <code>count_claims</code> the spec declares (for the built-in 835:
+the number of claims).</p>
 
 
     </div>
@@ -3593,7 +3640,8 @@ selected from the file's version.</p>
 
     <div class="doc doc-contents ">
 
-        <p>The distinct non-null values of <code>claims.patient_id</code>. Ids are text:
+        <p>The summary <code>count_patients</code> the spec declares (for the built-in 835:
+the distinct patient ids of the claims). Values are compared as text:
 <code>0123</code> and <code>123</code> are two patients, where edi-835-parser reads both as
 the number 123 and counts one.</p>
 
@@ -3615,8 +3663,9 @@ the number 123 and counts one.</p>
 
     <div class="doc doc-contents ">
 
-        <p>The sum of <code>payments.total_payment_amount</code>, as a <code>Decimal</code> at the
-column's scale.</p>
+        <p>The summary <code>sum_payments</code> the spec declares (for the built-in 835:
+the sum of the transactions' total payment amounts), as a <code>Decimal</code>
+at the column's scale.</p>
 
 
     </div>
@@ -4259,6 +4308,56 @@ exclusive: leading trivia, body and terminator, as <code>raw</code> holds them.<
 
 
 
+
+<div class="doc doc-object doc-function">
+
+
+<h3 id="oxedi.Segment.element" class="doc doc-heading">
+            <span class="doc doc-object-name doc-function-name">element</span>
+
+
+<a href="#oxedi.Segment.element" class="headerlink" title="Permanent link">&para;</a></h3>
+<div class="doc-signature highlight"><pre><span></span><code><span class="nf">element</span><span class="p">(</span>
+    <span class="n">position</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span> <span class="n">component</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">int</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="n">builtins</span><span class="o">.</span><span class="n">bytes</span> <span class="o">|</span> <span class="n">builtins</span><span class="o">.</span><span class="n">list</span><span class="p">[</span><span class="n">builtins</span><span class="o">.</span><span class="n">bytes</span><span class="p">]</span> <span class="o">|</span> <span class="kc">None</span>
+</code></pre></div>
+
+    <div class="doc doc-contents ">
+
+        <p>The element at the 1-based <code>position</code> (<code>XX01</code> is 1), or one of its
+components: as <code>elements</code> holds it without <code>component</code> (<code>bytes</code> for
+a simple element, a list of <code>bytes</code> for a composite one), and the
+bytes of that 1-based component with it (component 1 of a simple
+element is the element). <code>None</code> when the segment has no such place.</p>
+
+
+    </div>
+
+</div>
+
+<div class="doc doc-object doc-function">
+
+
+<h3 id="oxedi.Segment.has" class="doc doc-heading">
+            <span class="doc doc-object-name doc-function-name">has</span>
+
+
+<a href="#oxedi.Segment.has" class="headerlink" title="Permanent link">&para;</a></h3>
+<div class="doc-signature highlight"><pre><span></span><code><span class="nf">has</span><span class="p">(</span>
+    <span class="n">position</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span> <span class="n">component</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">int</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="n">builtins</span><span class="o">.</span><span class="n">bool</span>
+</code></pre></div>
+
+    <div class="doc doc-contents ">
+
+        <p>Whether the segment has the element at the 1-based <code>position</code>, or
+that 1-based <code>component</code> of it, even when it is empty: <code>element(...)</code>
+is not <code>None</code>.</p>
+
+
+    </div>
+
+</div>
 
 
 

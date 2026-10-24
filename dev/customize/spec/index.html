@@ -1147,6 +1147,17 @@
   
 </li>
         
+          <li class="md-nav__item">
+  <a href="#summariesname-and-default_table" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        summaries.&lt;name&gt; and default_table
+      
+    </span>
+  </a>
+  
+</li>
+        
       </ul>
     </nav>
   
@@ -2221,6 +2232,17 @@
   
 </li>
         
+          <li class="md-nav__item">
+  <a href="#summariesname-and-default_table" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        summaries.&lt;name&gt; and default_table
+      
+    </span>
+  </a>
+  
+</li>
+        
       </ul>
     </nav>
   
@@ -2373,8 +2395,8 @@ occurrences sit at their own positions inside that space.</p>
 <h2 id="spec-keys-reference">Spec keys reference<a class="headerlink" href="#spec-keys-reference" title="Permanent link">&para;</a></h2>
 <p>Every key a spec can hold, with what it means and the Rust code that reads it. The JSON is
 deserialized into the <code>Raw*</code> structs of <code>crates/oxedi_core/src/spec/raw.rs</code>, checked by
-<code>spec/shape.rs</code>, then compiled into the definitions of <code>oxedi_core::spec</code>. For the internal names, see the <a href="https://github.com/javillegasna/oxedi/blob/master/ARCHITECTURE.md#glossary">glossary</a>. An unknown key is an
-error that names its path, and so is a missing required key. Positions of elements and
+<code>spec/shape.rs</code> against the schema in <code>spec/schema.rs</code>, then compiled into the definitions of <code>oxedi_core::spec</code>. For the internal names, see the <a href="https://github.com/javillegasna/oxedi/blob/master/ARCHITECTURE.md#glossary">glossary</a>. An unknown key is an
+error that names its path and the keys allowed there, and so is a missing required key. Positions of elements and
 components are 1-based. The code names differ from the JSON in three places: a table's
 <code>loops</code> are its <em>anchors</em>, <code>end</code> is a loop's <em>closer</em>, and <code>ref</code> is the <em>reference</em> name.</p>
 <h3 id="root">Root<a class="headerlink" href="#root" title="Permanent link">&para;</a></h3>
@@ -2423,6 +2445,18 @@ components are 1-based. The code names differ from the JSON in three places: a t
 <td>no</td>
 <td>Which versions of the format the spec covers, used to choose a built-in spec.</td>
 <td><code>DeclaredVersion</code>, <code>version.rs</code></td>
+</tr>
+<tr>
+<td><code>summaries</code></td>
+<td>no</td>
+<td>Figures computed over the tables, by summary name.</td>
+<td><code>Summary</code>, <code>summaries.rs</code></td>
+</tr>
+<tr>
+<td><code>default_table</code></td>
+<td>no</td>
+<td>The table a reader shows when the caller names none.</td>
+<td><code>Spec::default_table</code>, <code>summaries.rs</code></td>
 </tr>
 </tbody>
 </table>
@@ -2815,6 +2849,68 @@ to the last decimal place. A failure is reported as a diagnostic by <code>check/
 <code>elements</code> (required, positions to read), <code>loop</code> (optional, a loop below <code>per</code>; <code>per</code> itself
 when absent), <code>component</code> (optional) and <code>sign</code> (<code>"+"</code>, the default, or <code>"-"</code>). Every
 appearance of the occurrence adds to its side.</p>
+<h3 id="summariesname-and-default_table"><code>summaries.&lt;name&gt;</code> and <code>default_table</code><a class="headerlink" href="#summariesname-and-default_table" title="Permanent link">&para;</a></h3>
+<p>A summary holds exactly one operation over a table of the spec: <code>count</code> (its rows),
+<code>distinct</code> (the distinct non-null values of a column, compared as text), <code>sum</code> (a column
+that reads a decimal <code>R</code> element; null cells are skipped) or <code>row</code> (named fields of the
+table's one row). Every table and column a summary names must be declared in <code>tables</code>, so a
+patch that removes one must also remove the summary (with <code>null</code>), or it fails to load with
+an error that names the summary. <code>default_table</code> names one of the tables. The built-in 835
+declares:</p>
+<div class="highlight"><pre><span></span><code><span class="nt">"summaries"</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
+<span class="w">  </span><span class="nt">"count_claims"</span><span class="p">:</span><span class="w">   </span><span class="p">{</span><span class="nt">"count"</span><span class="p">:</span><span class="w">    </span><span class="p">{</span><span class="nt">"table"</span><span class="p">:</span><span class="w"> </span><span class="s2">"claims"</span><span class="p">}},</span>
+<span class="w">  </span><span class="nt">"count_patients"</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="nt">"distinct"</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="nt">"table"</span><span class="p">:</span><span class="w"> </span><span class="s2">"claims"</span><span class="p">,</span><span class="w"> </span><span class="nt">"column"</span><span class="p">:</span><span class="w"> </span><span class="s2">"patient_id"</span><span class="p">}},</span>
+<span class="w">  </span><span class="nt">"sum_payments"</span><span class="p">:</span><span class="w">   </span><span class="p">{</span><span class="nt">"sum"</span><span class="p">:</span><span class="w">      </span><span class="p">{</span><span class="nt">"table"</span><span class="p">:</span><span class="w"> </span><span class="s2">"payments"</span><span class="p">,</span><span class="w"> </span><span class="nt">"column"</span><span class="p">:</span><span class="w"> </span><span class="s2">"total_payment_amount"</span><span class="p">}},</span>
+<span class="w">  </span><span class="nt">"payer"</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="nt">"row"</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="nt">"table"</span><span class="p">:</span><span class="w"> </span><span class="s2">"payments"</span><span class="p">,</span><span class="w"> </span><span class="nt">"fields"</span><span class="p">:</span><span class="w"> </span><span class="p">[</span>
+<span class="w">    </span><span class="p">{</span><span class="nt">"name"</span><span class="p">:</span><span class="w"> </span><span class="s2">"name"</span><span class="p">,</span><span class="w"> </span><span class="nt">"column"</span><span class="p">:</span><span class="w"> </span><span class="s2">"payer_name"</span><span class="p">},</span>
+<span class="w">    </span><span class="p">{</span><span class="nt">"name"</span><span class="p">:</span><span class="w"> </span><span class="s2">"identification_code"</span><span class="p">,</span><span class="w"> </span><span class="nt">"column"</span><span class="p">:</span><span class="w"> </span><span class="s2">"payer_id"</span><span class="p">},</span>
+<span class="w">    </span><span class="p">{</span><span class="nt">"name"</span><span class="p">:</span><span class="w"> </span><span class="s2">"address"</span><span class="p">,</span><span class="w"> </span><span class="nt">"column"</span><span class="p">:</span><span class="w"> </span><span class="s2">"payer_address"</span><span class="p">},</span>
+<span class="w">    </span><span class="p">{</span><span class="nt">"name"</span><span class="p">:</span><span class="w"> </span><span class="s2">"city"</span><span class="p">,</span><span class="w"> </span><span class="nt">"column"</span><span class="p">:</span><span class="w"> </span><span class="s2">"payer_city"</span><span class="p">},</span>
+<span class="w">    </span><span class="p">{</span><span class="nt">"name"</span><span class="p">:</span><span class="w"> </span><span class="s2">"state"</span><span class="p">,</span><span class="w"> </span><span class="nt">"column"</span><span class="p">:</span><span class="w"> </span><span class="s2">"payer_state"</span><span class="p">},</span>
+<span class="w">    </span><span class="p">{</span><span class="nt">"name"</span><span class="p">:</span><span class="w"> </span><span class="s2">"zip_code"</span><span class="p">,</span><span class="w"> </span><span class="nt">"column"</span><span class="p">:</span><span class="w"> </span><span class="s2">"payer_zip"</span><span class="p">}</span>
+<span class="w">  </span><span class="p">]}},</span>
+<span class="w">  </span><span class="nt">"payee"</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="nt">"row"</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="nt">"table"</span><span class="p">:</span><span class="w"> </span><span class="s2">"payments"</span><span class="p">,</span><span class="w"> </span><span class="nt">"fields"</span><span class="p">:</span><span class="w"> </span><span class="p">[</span>
+<span class="w">    </span><span class="p">{</span><span class="nt">"name"</span><span class="p">:</span><span class="w"> </span><span class="s2">"name"</span><span class="p">,</span><span class="w"> </span><span class="nt">"column"</span><span class="p">:</span><span class="w"> </span><span class="s2">"payee_name"</span><span class="p">},</span>
+<span class="w">    </span><span class="p">{</span><span class="nt">"name"</span><span class="p">:</span><span class="w"> </span><span class="s2">"identification_code"</span><span class="p">,</span><span class="w"> </span><span class="nt">"column"</span><span class="p">:</span><span class="w"> </span><span class="s2">"payee_id"</span><span class="p">},</span>
+<span class="w">    </span><span class="p">{</span><span class="nt">"name"</span><span class="p">:</span><span class="w"> </span><span class="s2">"address"</span><span class="p">,</span><span class="w"> </span><span class="nt">"column"</span><span class="p">:</span><span class="w"> </span><span class="s2">"payee_address"</span><span class="p">},</span>
+<span class="w">    </span><span class="p">{</span><span class="nt">"name"</span><span class="p">:</span><span class="w"> </span><span class="s2">"city"</span><span class="p">,</span><span class="w"> </span><span class="nt">"column"</span><span class="p">:</span><span class="w"> </span><span class="s2">"payee_city"</span><span class="p">},</span>
+<span class="w">    </span><span class="p">{</span><span class="nt">"name"</span><span class="p">:</span><span class="w"> </span><span class="s2">"state"</span><span class="p">,</span><span class="w"> </span><span class="nt">"column"</span><span class="p">:</span><span class="w"> </span><span class="s2">"payee_state"</span><span class="p">},</span>
+<span class="w">    </span><span class="p">{</span><span class="nt">"name"</span><span class="p">:</span><span class="w"> </span><span class="s2">"zip_code"</span><span class="p">,</span><span class="w"> </span><span class="nt">"column"</span><span class="p">:</span><span class="w"> </span><span class="s2">"payee_zip"</span><span class="p">}</span>
+<span class="w">  </span><span class="p">]}}</span>
+<span class="p">},</span>
+<span class="nt">"default_table"</span><span class="p">:</span><span class="w"> </span><span class="s2">"claims"</span>
+</code></pre></div>
+<table>
+<thead>
+<tr>
+<th>Key</th>
+<th>Meaning</th>
+<th>Rust</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>count.table</code></td>
+<td>The table whose rows are counted.</td>
+<td><code>Summary::Count</code></td>
+</tr>
+<tr>
+<td><code>distinct.table</code>, <code>distinct.column</code></td>
+<td>The column whose distinct values are counted.</td>
+<td><code>Summary::Distinct</code></td>
+</tr>
+<tr>
+<td><code>sum.table</code>, <code>sum.column</code></td>
+<td>The decimal column that is added up.</td>
+<td><code>Summary::Sum</code></td>
+</tr>
+<tr>
+<td><code>row.table</code>, <code>row.fields</code></td>
+<td>The table with one row, and the fields read from it: each <code>name</code> (the key the reader gives the value, unique) and <code>column</code>.</td>
+<td><code>Summary::Row</code></td>
+</tr>
+</tbody>
+</table>
 
 
 

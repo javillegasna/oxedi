@@ -21,9 +21,6 @@ use crate::types::SqlType;
 use write::Place;
 pub(crate) use write::Vector;
 
-/// The column every table carries with each row's ordinal.
-const ROW_COLUMN: &str = "row";
-
 /// Everything the bind settled, read by the scan.
 #[derive(Debug)]
 pub struct Bound {
@@ -125,7 +122,7 @@ impl Scan {
                 file,
                 table: &bound.table,
                 column: name,
-                rows: table.column(ROW_COLUMN),
+                rows: table.column(oxedi_core::spec::ROW_COLUMN),
             };
             vector.fill(data, *sql, start, len, &place)?;
         }

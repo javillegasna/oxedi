@@ -45,7 +45,7 @@ mod tables;
 mod tests;
 mod version;
 
-pub use balance::{BalanceRule, BalanceTerm};
+pub use balance::{BalanceRule, BalanceTerm, render_amount};
 pub use balance_error::BalanceError;
 pub use builtin::{Builtin, UnknownVersion};
 pub use error::SpecError;
@@ -61,7 +61,7 @@ pub use table_error::{AnchorChains, AnchorPositions, LoopSegments, TableDefError
 pub use tables::{ColumnSource, Pick, Repeat, TableDef};
 pub use version::{DeclaredVersion, VersionError};
 
-pub(crate) use balance::{render_amount, render_terms};
+pub(crate) use balance::render_terms;
 pub(crate) use render::{render_key, render_selector, render_trigger};
 pub(crate) use segments::rejects_code;
 

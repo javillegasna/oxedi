@@ -81,6 +81,7 @@ mod by_module {
     use oxedi_core::spec::UnknownVersion;
     use oxedi_core::spec::VersionError;
     use oxedi_core::spec::merge_patch;
+    use oxedi_core::spec::render_amount;
     use oxedi_core::tokenizer::Tokenizer;
     use oxedi_core::tree::LoopTree;
     use oxedi_core::tree::Node;

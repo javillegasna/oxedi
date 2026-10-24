@@ -59,7 +59,7 @@ fn the_bound_table_alone_holds_the_rows_of_a_full_run_on_every_core_file() {
             continue;
         };
         for builtin in builtins.iter() {
-            let (whole, _) = Processor::run(&builtin.spec, &document);
+            let (whole, _) = Processor::run(&builtin.spec, &document, None);
             for table in &whole {
                 let alone = project(builtin, &document, table.name(), &name, None).unwrap();
                 assert_eq!(

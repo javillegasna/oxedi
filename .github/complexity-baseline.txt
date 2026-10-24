@@ -125,7 +125,7 @@ crates/oxedi_duckdb/src/options/mod.rs	of_bind	18	0
 crates/oxedi_duckdb/src/oxedi_schema/mod.rs	bind_with	12	2
 crates/oxedi_duckdb/src/oxedi_schema/mod.rs	rows	9	2
 crates/oxedi_duckdb/src/oxedi_schema/mod.rs	scan_with	9	2
-crates/oxedi_duckdb/src/scan/mod.rs	load	12	2
+crates/oxedi_duckdb/src/scan/mod.rs	load	11	2
 crates/oxedi_duckdb/src/scan/write.rs	fill	21	3
 crates/oxedi_duckdb/src/types/mod.rs	try_of	10	1
 crates/oxedi_duckdb/src/value/mod.rs	primitive_name	34	0
@@ -152,11 +152,10 @@ crates/oxedi_py/src/import.rs	integer	24	1
 crates/oxedi_py/src/import.rs	stream	9	1
 crates/oxedi_py/src/import.rs	time	10	1
 crates/oxedi_py/src/lib.rs	core_module	29	0
-crates/oxedi_py/src/parse.rs	parse	9	0
+crates/oxedi_py/src/parse.rs	parse	8	0
 crates/oxedi_py/src/parse.rs	paths_at	9	3
 crates/oxedi_py/src/spec.rs	patch	8	2
 crates/oxedi_py/src/spec.rs	schema	8	1
-crates/oxedi_py/src/stream.rs	stream	8	0
 crates/oxedi_py/src/write.rs	kind	8	0
 crates/oxedi_py/src/write.rs	new	17	1
 crates/oxedi_py/src/write.rs	write_tables	12	1

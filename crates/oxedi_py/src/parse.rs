@@ -181,10 +181,7 @@ pub fn parse(
     let (document, tables, diagnostics) = py.detach(|| -> PyResult<_> {
         let document = document::index(bytes, delimiters)?;
         let spec = spec::given_or_selected(given, document.segments());
-        let (tables, diagnostics) = match &mask {
-            Some(mask) => Processor::run_masked(&spec, &document, mask),
-            None => Processor::run(&spec, &document),
-        };
+        let (tables, diagnostics) = Processor::run(&spec, &document, mask.as_ref());
         Ok((document, PyTables::projected(tables, spec), diagnostics))
     })?;
     let diagnostics = diagnostic::to_list(py, diagnostics)?;

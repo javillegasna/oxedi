@@ -178,10 +178,7 @@ fn load(bound: &Bound, file: &str) -> Result<Table, ReadError> {
     if bound.diagnostics {
         // Every table is filled: a text value too large to store is a
         // finding of the table that would hold it.
-        let (_tables, findings) = match &bound.mask {
-            Some(mask) => Processor::run_masked(&builtin.spec, &document, mask),
-            None => Processor::run(&builtin.spec, &document),
-        };
+        let (_tables, findings) = Processor::run(&builtin.spec, &document, bound.mask.as_ref());
         return diagnostics::of_findings(&findings);
     }
     let same = builtin
@@ -207,17 +204,14 @@ fn project(
     file: &str,
     mask: Option<&Mask>,
 ) -> Result<Table, ReadError> {
-    match mask {
-        Some(mask) => Processor::run_tables_masked(&builtin.spec, document, &[name], mask),
-        None => Processor::run_tables(&builtin.spec, document, &[name]),
-    }
-    .map_err(|error| ReadError::Internal {
-        message: format!("{file:?}: {error}"),
-    })?
-    .remove(name)
-    .ok_or_else(|| ReadError::Internal {
-        message: format!("{file:?}: the parsed file has no table {name:?}"),
-    })
+    Processor::run_tables(&builtin.spec, document, &[name], mask)
+        .map_err(|error| ReadError::Internal {
+            message: format!("{file:?}: {error}"),
+        })?
+        .remove(name)
+        .ok_or_else(|| ReadError::Internal {
+            message: format!("{file:?}: the parsed file has no table {name:?}"),
+        })
 }
 
 #[cfg(test)]

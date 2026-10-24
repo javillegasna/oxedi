@@ -982,3 +982,23 @@ fn origin_and_code_read_the_rule_without_formatting_it() {
     );
     assert_eq!((external.origin(), external.code()), ("pyx12", Some("8")));
 }
+
+#[test]
+fn path_text_joins_the_open_loops() {
+    let at = |loops: &[(&str, usize)]| {
+        Diagnostic::new(
+            Rule::UnknownSegment {
+                segment_id: b"XX".to_vec(),
+            },
+            Some(0),
+            None,
+            None,
+            path(loops),
+            b"XX".to_vec(),
+        )
+        .path_text()
+    };
+    assert_eq!(at(&[]), "");
+    assert_eq!(at(&[("a", 1)]), "a#1");
+    assert_eq!(at(&[("a", 1), ("b", 2)]), "a#1/b#2");
+}

@@ -15,7 +15,7 @@
 use std::fmt;
 
 use crate::diagnostic::Quoted;
-use crate::value::{ColumnType, civil_from_days};
+use crate::value::{ColumnType, EPOCH_SHIFT_DAYS, civil_from_days, time_of_day};
 
 mod table;
 
@@ -292,6 +292,40 @@ pub struct ColumnData {
     validity: Bitmap,
 }
 
+/// A decimal in fixed point with `scale` fraction digits.
+fn render_decimal(value: i128, scale: usize) -> String {
+    let sign = if value < 0 { "-" } else { "" };
+    let digits = format!("{:0>width$}", value.unsigned_abs(), width = scale + 1);
+    let (whole, fraction) = digits.split_at(digits.len().saturating_sub(scale));
+    if fraction.is_empty() {
+        format!("{sign}{whole}")
+    } else {
+        format!("{sign}{whole}.{fraction}")
+    }
+}
+
+/// A date as `YYYY-MM-DD`, or its raw day number when the year is out of range.
+fn render_date(days: i32) -> String {
+    if days.checked_add(EPOCH_SHIFT_DAYS).is_none() {
+        return format!("date32({days})");
+    }
+    let (year, month, day) = civil_from_days(days);
+    format!("{year:04}-{month:02}-{day:02}")
+}
+
+/// A time as `HH:MM:SS`, or its raw second count when it is outside one day.
+fn render_time(seconds: i32) -> String {
+    if time_of_day(i64::from(seconds)).is_none() {
+        return format!("time32({seconds})");
+    }
+    format!(
+        "{:02}:{:02}:{:02}",
+        seconds / 3600,
+        seconds / 60 % 60,
+        seconds % 60
+    )
+}
+
 impl ColumnData {
     /// An empty column of the given type.
     pub fn new(kind: ColumnType) -> ColumnData {
@@ -371,37 +405,18 @@ impl ColumnData {
             Cell::Null => "∅".to_string(),
             Cell::Binary(bytes) => String::from_utf8_lossy(bytes).into_owned(),
             Cell::Int64(value) => value.to_string(),
-            Cell::Decimal128(value) => {
-                let scale = match self.kind() {
-                    ColumnType::Decimal128 { scale, .. } => usize::from(scale),
-                    _ => 0,
-                };
-                let sign = if value < 0 { "-" } else { "" };
-                let digits = format!("{:0>width$}", value.unsigned_abs(), width = scale + 1);
-                let (whole, fraction) = digits.split_at(digits.len().saturating_sub(scale));
-                if fraction.is_empty() {
-                    format!("{sign}{whole}")
-                } else {
-                    format!("{sign}{whole}.{fraction}")
-                }
-            }
-            Cell::Date32(days) if days.checked_add(719_468).is_none() => {
-                format!("date32({days})")
-            }
-            Cell::Date32(days) => {
-                let (year, month, day) = civil_from_days(days);
-                format!("{year:04}-{month:02}-{day:02}")
-            }
-            Cell::Time32(seconds) if !(0..86_400).contains(&seconds) => {
-                format!("time32({seconds})")
-            }
-            Cell::Time32(seconds) => format!(
-                "{:02}:{:02}:{:02}",
-                seconds / 3600,
-                seconds / 60 % 60,
-                seconds % 60
-            ),
+            Cell::Decimal128(value) => render_decimal(value, self.decimal_scale()),
+            Cell::Date32(days) => render_date(days),
+            Cell::Time32(seconds) => render_time(seconds),
         })
+    }
+
+    /// The scale of a decimal column; zero for any other kind.
+    fn decimal_scale(&self) -> usize {
+        match self.kind() {
+            ColumnType::Decimal128 { scale, .. } => usize::from(scale),
+            _ => 0,
+        }
     }
 
     /// Appends a null row.

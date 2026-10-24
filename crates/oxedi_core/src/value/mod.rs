@@ -20,7 +20,7 @@ mod parse;
 mod parsed;
 mod unit;
 
-pub(crate) use calendar::civil_from_days;
+pub(crate) use calendar::{EPOCH_SHIFT_DAYS, civil_from_days, year_start};
 pub use calendar::{days_from_civil, seconds_of_day, time_of_day};
 pub use column_type::{ColumnType, DECIMAL_PRECISION};
 pub use convert::{

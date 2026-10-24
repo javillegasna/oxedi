@@ -32,7 +32,6 @@ crates/oxedi_core/src/check/occurrences.rs	count_instance	11	2
 crates/oxedi_core/src/check/occurrences.rs	report_missing	8	2
 crates/oxedi_core/src/column/mod.rs	get	17	1
 crates/oxedi_core/src/column/mod.rs	raw_text	12	3
-crates/oxedi_core/src/column/mod.rs	render	14	1
 crates/oxedi_core/src/delimiters/mod.rs	fmt	17	3
 crates/oxedi_core/src/delimiters/mod.rs	from_isa	13	1
 crates/oxedi_core/src/diagnostic/display.rs	fmt	58	3

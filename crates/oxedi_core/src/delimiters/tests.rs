@@ -327,12 +327,20 @@ fn isa_datum_of_not_isa() {
 #[test]
 fn isa_datum_of_a_truncated_isa_after_a_bom() {
     let input = b"\xEF\xBB\xBF  ISA*00*";
-    let error = IsaError::Truncated {
-        len: input.len(),
-        separators_found: 2,
-        byte_order_mark: true,
-        whitespace: 2,
+    let Err(error) = Delimiters::from_isa_after_leading_trivia(input) else {
+        panic!("the input is a truncated ISA");
     };
+    assert!(
+        matches!(
+            &error,
+            IsaError::Truncated {
+                byte_order_mark: true,
+                whitespace: 2,
+                ..
+            }
+        ),
+        "{error:?}"
+    );
     assert_eq!(error.skipped(), 5);
     assert_eq!(error.datum(input), b"ISA*00*");
 }

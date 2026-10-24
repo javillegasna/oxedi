@@ -1,9 +1,9 @@
 //! `Document`, `Segment` and `Delimiters`: the file held losslessly.
 
 use oxedi_core::{Delimiters, Document, Element};
-use pyo3::exceptions::{PyIndexError, PyValueError};
+use pyo3::exceptions::{PyIndexError, PyOverflowError, PyValueError};
 use pyo3::prelude::*;
-use pyo3::types::{PyBytes, PyList};
+use pyo3::types::{PyBytes, PyInt, PyList};
 use pyo3_stub_gen::derive::{gen_methods_from_python, gen_stub_pyclass, gen_stub_pymethods};
 use pyo3_stub_gen::type_info::{
     MemberInfo, MethodInfo, MethodType, ParameterDefault, ParameterInfo, ParameterKind,
@@ -299,27 +299,44 @@ fn element_object<'py>(py: Python<'py>, element: &Element<'_>) -> PyResult<Bound
     }
 }
 
+/// A 1-based index argument as `usize`. Below 1 is refused with `refusal`
+/// naming the value; an integer beyond `i64` is refused when negative and
+/// otherwise lies past every place, so it reads as the largest index.
+fn one_based(
+    value: &Bound<'_, PyInt>,
+    refusal: impl Fn(&Bound<'_, PyInt>) -> String,
+) -> PyResult<usize> {
+    match value.extract::<i64>() {
+        Ok(number) => usize::try_from(number)
+            .ok()
+            .filter(|at| *at >= 1)
+            .ok_or_else(|| PyValueError::new_err(refusal(value))),
+        Err(error) if error.is_instance_of::<PyOverflowError>(value.py()) => {
+            if value.lt(0)? {
+                Err(PyValueError::new_err(refusal(value)))
+            } else {
+                Ok(usize::MAX)
+            }
+        }
+        Err(error) => Err(error),
+    }
+}
+
 /// The 1-based `position` and `component` of `method` as indexes, refusing
 /// one below 1 with the value it got.
-fn places(method: &str, position: i64, component: Option<i64>) -> PyResult<(usize, Option<usize>)> {
-    let position = usize::try_from(position)
-        .ok()
-        .filter(|at| *at >= 1)
-        .ok_or_else(|| {
-            PyValueError::new_err(format!(
-                "{method}: position must be 1 or more (XX01 is 1), got {position}"
-            ))
-        })?;
+fn places(
+    method: &str,
+    position: &Bound<'_, PyInt>,
+    component: Option<&Bound<'_, PyInt>>,
+) -> PyResult<(usize, Option<usize>)> {
+    let position = one_based(position, |got| {
+        format!("{method}: position must be 1 or more (XX01 is 1), got {got}")
+    })?;
     let component = component
         .map(|value| {
-            usize::try_from(value)
-                .ok()
-                .filter(|at| *at >= 1)
-                .ok_or_else(|| {
-                    PyValueError::new_err(format!(
-                        "{method}: component must be 1 or more, got {value}"
-                    ))
-                })
+            one_based(value, |got| {
+                format!("{method}: component must be 1 or more, got {got}")
+            })
         })
         .transpose()?;
     Ok((position, component))
@@ -375,8 +392,8 @@ impl PySegment {
     fn element<'py>(
         &self,
         py: Python<'py>,
-        position: i64,
-        component: Option<i64>,
+        position: &Bound<'_, PyInt>,
+        component: Option<&Bound<'_, PyInt>>,
     ) -> PyResult<Option<Bound<'py, PyAny>>> {
         let (position, component) = places("Segment.element", position, component)?;
         self.with(py, |segment| -> PyResult<Option<Bound<'py, PyAny>>> {
@@ -396,7 +413,12 @@ impl PySegment {
     /// that 1-based `component` of it, even when it is empty: `element(...)`
     /// is not `None`.
     #[pyo3(signature = (position, component=None))]
-    fn has(&self, py: Python<'_>, position: i64, component: Option<i64>) -> PyResult<bool> {
+    fn has(
+        &self,
+        py: Python<'_>,
+        position: &Bound<'_, PyInt>,
+        component: Option<&Bound<'_, PyInt>>,
+    ) -> PyResult<bool> {
         let (position, component) = places("Segment.has", position, component)?;
         self.with(py, |segment| match component {
             None => segment.element(position).is_some(),

@@ -63,10 +63,11 @@ def element_date(segment, index, element, file_path):
     segment at ``index`` of ``file_path``. Text of a date's length that is not
     a date raises a ``ValueError`` naming the source, the segment, the element
     and the text."""
-    raw = segment.element(element)
-    if raw is None:
+    elements = segment.elements
+    if element > len(elements):
         return None
-    if not segment.has(element + 1) and isinstance(raw, bytes):
+    raw = elements[element - 1]
+    if element == len(elements) and isinstance(raw, bytes):
         raw = unpadded(raw)
     value = raw.decode(ENCODING) if isinstance(raw, bytes) else ""
     try:

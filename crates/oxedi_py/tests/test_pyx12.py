@@ -195,9 +195,14 @@ def test_a_masked_rejected_file_with_leading_trivia_keeps_only_the_isa_id_as_dat
 
 
 def test_validate_does_not_project(monkeypatch):
+    import oxedi.pyx12._validate as module
+
     def refuse(*args, **kwargs):
         raise AssertionError("validate projected the tables")
 
+    # validate must not hold a `parse` of its own: patching `oxedi.parse` would not reach it.
+    assert not hasattr(module, "parse")
+    monkeypatch.setattr(module, "parse", refuse, raising=False)
     monkeypatch.setattr(oxedi, "parse", refuse)
     assert validate(read(LEGACY))
 

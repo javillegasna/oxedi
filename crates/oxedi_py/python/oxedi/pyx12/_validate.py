@@ -17,7 +17,6 @@ Draft = dict[str, Any]
 
 Source = Union[bytes, bytearray, memoryview, str, "os.PathLike[str]", BinaryIO]
 
-_ISA_LENGTH = 106
 _ORIGIN = "pyx12"
 _FAILURE_LEVEL = 1
 
@@ -73,7 +72,7 @@ class _Positions:
         for index in range(len(document)):
             offset += len(document[index].raw)
             ends.append(offset)
-        terminator = text[_ISA_LENGTH - 1] if len(text) >= _ISA_LENGTH else "~"
+        terminator = bytes(document.delimiters.segment).decode("latin-1")
         starts: list[int] = []
         position = 0
         while True:
@@ -225,7 +224,7 @@ def _rejection(text: str, positions: _Positions, document: Document, masked: boo
     datum = b""
     if segment is not None:
         if masked:
-            datum = b"ISA"
+            datum = bytes(document[segment].id)
         else:
             # The segment of line 1 is segment 0, whose raw bytes start with
             # the leading trivia the document reports before the ISA.

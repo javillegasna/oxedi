@@ -7,11 +7,15 @@ import decimal as decimal_module
 import functools
 import json
 from collections import defaultdict
-from typing import Optional, Tuple
+from typing import TYPE_CHECKING, Any, Callable, Optional, Tuple
 
 from .. import ParseError, Spec, parse
 from .._core import EDI_835_PARSER_PATCH
 from ._convert import ENCODING, STRIPPED, unpadded
+
+if TYPE_CHECKING:
+    import numpy as np
+    import numpy.typing as npt
 
 PATCH = json.loads(EDI_835_PARSER_PATCH)
 TABLES = sorted(name for name, table in PATCH["tables"].items() if table is not None)
@@ -35,11 +39,14 @@ def _loops():
     return json.loads(spec().to_json())["loops"]
 
 
-def _occurrence_segment(loop, name):
+def _occurrence_segment(table, column, loop, name):
     """The segment id of occurrence ``name`` in ``loop`` or the nearest of its
-    parents that declares it, or ``None``."""
+    parents that declares it, or ``None``. A ``loop`` the spec does not have
+    raises a ``ValueError`` naming the table, the column and the loop."""
     loops = _loops()
     while loop is not None:
+        if loop not in loops:
+            raise ValueError(f"table {table!r}, column {column!r}: loop {loop!r} is not in the spec")
         declared = loops[loop]["occurrences"].get(name)
         if declared is not None:
             return declared["segment"].encode()
@@ -58,9 +65,9 @@ def source_segment(table: str, column: str, source: dict) -> bytes:
     name = source.get("occurrence")
     if name is None:
         raise ValueError(f"table {table!r}, column {column!r}: the source {source} names neither a segment nor an occurrence")
-    starts = [source["loop"]] if "loop" in source else PATCH["tables"][table]["loops"]
+    starts = [source["loop"]] if "loop" in source else PATCH["tables"][table].get("loops", [])
     for loop in starts:
-        found = _occurrence_segment(loop, name)
+        found = _occurrence_segment(table, column, loop, name)
         if found is not None:
             return found
     raise ValueError(
@@ -131,14 +138,17 @@ def opening(view, trigger):
     return at if bytes(view[at:at + len(trigger)]) == trigger else None
 
 
-def _last(document, index, element, component):
-    """The raw text of ``element`` (and ``component``) of segment ``index``
-    when it is the segment's last one, else ``None``."""
-    segment = document[index]
-    if segment.has(element + 1) or (component is not None and segment.has(element, component + 1)):
+def _last_of(elements, element, component):
+    """The raw text of ``element`` (and ``component``) among ``elements``
+    when it is the last one, else ``None``."""
+    if element != len(elements):
         return None
-    value = segment.element(element, component)
-    return value if isinstance(value, bytes) else None
+    value = elements[element - 1]
+    if component is None:
+        return value if isinstance(value, bytes) else None
+    if isinstance(value, list):
+        return value[component - 1] if component == len(value) else None
+    return value if component == 1 else None
 
 
 def _segment_of(document, anchors, row, own, bound):
@@ -158,14 +168,11 @@ def _group_last(document, index, source, repeat):
     """The raw text a repeated group's column reads from segment ``index``
     when that is the segment's last element (and component), else ``None``:
     the group whose element ``group_element`` is the last one."""
-    segment = document[index]
-    count = 0
-    while segment.has(count + 1):
-        count += 1
-    offset = count - repeat["from"] - source["group_element"]
+    elements = document[index].elements
+    offset = len(elements) - repeat["from"] - source["group_element"]
     if offset < 0 or offset % repeat["step"]:
         return None
-    return _last(document, index, count, source.get("component"))
+    return _last_of(elements, len(elements), source.get("component"))
 
 
 def _replace(table, column, changes, kind):
@@ -235,13 +242,14 @@ class _Anchoring:
     """Where a table's rows sit in the document: each row's anchor segment
     (-1 for none), the anchors in order, whether a row is the last of its
     anchor, whether a segment the parser reported lies between a row's anchor
-    and the next row's, and the document's length."""
+    and the next row's, and where each row's span ends (the next anchor, or
+    the document's length)."""
 
-    anchors: object
-    ordered: object
-    last_of_segment: object
-    flagged: object
-    size: int
+    anchors: "npt.NDArray[np.int64]"
+    ordered: "npt.NDArray[np.int64]"
+    bounds: "npt.NDArray[np.int64]"
+    last_of_segment: "npt.NDArray[np.bool_]"
+    flagged: "npt.NDArray[np.bool_]"
 
     @classmethod
     def of(cls, table, diagnosed, size):
@@ -256,14 +264,7 @@ class _Anchoring:
         following = ordered[np.minimum(at, len(ordered) - 1)] if len(ordered) else 0
         bounds = np.where(at < len(ordered), following, size)
         flagged = (np.searchsorted(diagnosed, bounds) > np.searchsorted(diagnosed, anchors)) & (anchors >= 0)
-        return cls(anchors, ordered, last, flagged, size)
-
-    def bound(self, row):
-        """The anchor after row ``row``'s own, or the document's length."""
-        import numpy as np
-
-        at = int(np.searchsorted(self.ordered, self.anchors[row], side="right"))
-        return int(self.ordered[at]) if at < len(self.ordered) else self.size
+        return cls(anchors, ordered, bounds, last, flagged)
 
 
 def _same(stripped):
@@ -284,8 +285,8 @@ class _Strategy:
     the column, its anchoring and whether it reads a repeated group) and how
     to read the stripped text as the column's value."""
 
-    rows: object
-    convert: object
+    rows: "Callable[[Any, _Anchoring, bool], npt.NDArray[np.intp]]"
+    convert: "Callable[[bytes], Any]"
 
 
 def _blank_ended(column, anchoring, grouped):
@@ -319,15 +320,14 @@ class _Read:
     ``None``), the column and whether it reads a repeated group."""
 
     source: dict
-    repeat: object
-    unanchored: object
-    column: str
+    repeat: "Optional[dict]"
+    segment: "Optional[bytes]"
     grouped: bool
 
     @classmethod
     def of(cls, name, config, column, source):
-        unanchored = None if config.get("segment") else name
-        return cls(source, config.get("repeat"), unanchored, column, "group_element" in source)
+        segment = None if config.get("segment") else source_segment(name, column, source)
+        return cls(source, config.get("repeat"), segment, "group_element" in source)
 
     def raw(self, document, anchoring, row):
         """The raw text row ``row`` reads when it is its segment's last
@@ -337,15 +337,10 @@ class _Read:
             return None
         if self.grouped:
             return _group_last(document, anchor, self.source, self.repeat) if anchoring.last_of_segment[row] else None
-        index = _segment_of(document, anchoring.anchors, row, self._segment(), anchoring.bound(row))
+        index = _segment_of(document, anchoring.anchors, row, self.segment, int(anchoring.bounds[row]))
         if index is None:
             return None
-        return _last(document, index, self.source["element"], self.source.get("component"))
-
-    def _segment(self):
-        """The id of the segment a column reads when the table is not
-        anchored on it, else ``None``."""
-        return None if self.unanchored is None else source_segment(self.unanchored, self.column, self.source)
+        return _last_of(document[index].elements, self.source["element"], self.source.get("component"))
 
 
 class _Unpadder:

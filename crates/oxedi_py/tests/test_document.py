@@ -76,6 +76,19 @@ def test_element_refuses_a_position_below_one(position):
     assert str(caught.value) == message.replace("Segment.element", "Segment.has")
 
 
+def test_element_with_an_integer_beyond_64_bits():
+    segment = _segment(b"XX*a~")
+    assert segment.element(2**70) is None
+    assert not segment.has(1, 2**70)
+    with pytest.raises(ValueError) as caught:
+        segment.element(-(2**70))
+    assert str(caught.value) == (
+        f"Segment.element: position must be 1 or more (XX01 is 1), got {-(2**70)}"
+    )
+    with pytest.raises(TypeError):
+        segment.element("1")
+
+
 @pytest.mark.parametrize("component", [0, -3])
 def test_element_refuses_a_component_below_one(component):
     segment = _segment(b"XX*a~")

@@ -62,7 +62,8 @@ flowchart LR
      envelope counts and control numbers (`check/mod.rs`), occurrence counts and order
      (`check/occurrences.rs`) and amounts that do not balance (`check/balance.rs`).
 5. The result is `Tables` (`column/`: Arrow-shaped columns, each row pointing at the row of the
-   table that encloses it) and a `Vec<Diagnostic>` (`diagnostic/`).
+   table that encloses it) and a `Vec<Diagnostic>` (`diagnostic/`). `summarize` (`summary/`)
+   computes the summaries the spec declares (`Spec::summaries`) over those tables.
 
 **The order inside `Processor::feed` is a contract.** The projector runs first, because it
 works out which occurrence the segment matched, and the checker reuses that match
@@ -248,6 +249,7 @@ Internal words used in the code. X12 and payment terms for users are in
 | path | The open loops at the diagnostic, outermost first, each with its ordinal. | `Diagnostic::path` |
 | origin | Which validator produced a diagnostic (`oxedi`, or for example `pyx12`). | `Rule::External` |
 | balancing | Amounts that must add up inside a loop instance (charge − payment = adjustments). | `spec/balance.rs`, `check/balance.rs` |
+| summary | A named figure the spec declares over its tables (a count, a distinct count, a sum, the fields of one row); `summarize` computes it. | `spec/summaries.rs`, `summary/` |
 | PHI / mask / phi seed | Patient-data columns flagged in the spec (`Phi`); a keyed digest replaces them; the seed column keys the date shift. User docs say "patient data". | `mask/`, `spec/phi.rs`, `project/mask.rs` |
 | write plan | Where each written loop instance and element value comes from; depends only on the spec, built at the start of each write. | `write/plan.rs`, `write/build.rs` |
 | refusal | Why a **spec** cannot be written (`Refusal`, collected in `PlanError`). | `write/refusal.rs` |

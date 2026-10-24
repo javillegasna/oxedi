@@ -5,83 +5,7 @@ use std::fmt;
 
 use super::error::SpecError;
 use super::raw::RawElement;
-
-/// The data type of an element, as the X12 standard names it.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum ElementType {
-    /// `AN`: a string.
-    An,
-    /// `ID`: a code from a list.
-    Id,
-    /// `N0` to `N9`: an integer with that many implied decimal places.
-    N(u8),
-    /// `R`: a decimal number with an explicit point, kept at `scale` places.
-    R {
-        /// Decimal places; 2 unless the spec says otherwise.
-        scale: u8,
-    },
-    /// `DT`: a date, `CCYYMMDD` or `YYMMDD`.
-    Dt,
-    /// `TM`: a time, `HHMM` optionally followed by seconds and decimal seconds.
-    Tm,
-}
-
-impl ElementType {
-    /// Largest `scale` an `R` element may declare: [`crate::value::MAX_SCALE`].
-    pub const MAX_SCALE: u8 = crate::value::MAX_SCALE;
-
-    /// Reads the type code of an element definition; `scale` is the
-    /// definition's `scale` key, which only `R` accepts.
-    pub(super) fn parse(code: &str, scale: Option<u8>) -> Result<ElementType, ElementDefError> {
-        let kind = match code.as_bytes() {
-            b"AN" => ElementType::An,
-            b"ID" => ElementType::Id,
-            b"R" => ElementType::R {
-                scale: scale.unwrap_or(2),
-            },
-            b"DT" => ElementType::Dt,
-            b"TM" => ElementType::Tm,
-            [b'N', digit @ b'0'..=b'9'] => ElementType::N(digit - b'0'),
-            _ => {
-                return Err(ElementDefError::UnknownType {
-                    found: code.to_string(),
-                });
-            }
-        };
-        if scale.is_some() && !matches!(kind, ElementType::R { .. }) {
-            return Err(ElementDefError::ScaleWithoutR {
-                kind: code.to_string(),
-            });
-        }
-        Ok(kind)
-    }
-
-    /// The length of a value as X12 counts it: numeric types count digits
-    /// only (no sign, no point), every other type counts bytes.
-    pub(crate) fn length_of(self, text: &[u8]) -> usize {
-        match self {
-            ElementType::N(_) | ElementType::R { .. } => {
-                text.iter().filter(|byte| byte.is_ascii_digit()).count()
-            }
-            _ => text.len(),
-        }
-    }
-}
-
-impl fmt::Display for ElementType {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match self {
-            ElementType::An => write!(f, "AN (string)"),
-            ElementType::Id => write!(f, "ID (code)"),
-            ElementType::N(places) => {
-                write!(f, "N{places} (integer with {places} implied decimals)")
-            }
-            ElementType::R { scale } => write!(f, "R (decimal, scale {scale})"),
-            ElementType::Dt => write!(f, "DT (date CCYYMMDD or YYMMDD)"),
-            ElementType::Tm => write!(f, "TM (time HHMM, HHMMSS or HHMMSSD..)"),
-        }
-    }
-}
+use crate::value::{ElementType, TypeCodeError};
 
 /// One element of a segment, or one component of a composite element.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -212,6 +136,15 @@ pub enum ElementDefError {
     },
 }
 
+impl From<TypeCodeError> for ElementDefError {
+    fn from(error: TypeCodeError) -> ElementDefError {
+        match error {
+            TypeCodeError::UnknownType { found } => ElementDefError::UnknownType { found },
+            TypeCodeError::ScaleWithoutR { kind } => ElementDefError::ScaleWithoutR { kind },
+        }
+    }
+}
+
 impl fmt::Display for ElementDefError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
@@ -223,12 +156,14 @@ impl fmt::Display for ElementDefError {
             ElementDefError::DuplicateName { name, first } => {
                 write!(f, "name {name:?} is already used by position {first:?}")
             }
-            ElementDefError::UnknownType { found } => write!(
+            ElementDefError::UnknownType { found } => fmt::Display::fmt(
+                &TypeCodeError::UnknownType {
+                    found: found.clone(),
+                },
                 f,
-                "type {found:?} is not one of AN, ID, N0 to N9, R, DT, TM"
             ),
             ElementDefError::ScaleWithoutR { kind } => {
-                write!(f, "\"scale\" applies only to type R; found type {kind:?}")
+                fmt::Display::fmt(&TypeCodeError::ScaleWithoutR { kind: kind.clone() }, f)
             }
             ElementDefError::MinAboveMax { min, max } => {
                 write!(f, "\"min\" {min} is greater than \"max\" {max}")
@@ -339,7 +274,9 @@ pub(super) fn compile_elements(
                 first: first.to_string(),
             }));
         }
-        let kind = ElementType::parse(&def.kind, def.scale).map_err(fail)?;
+        let kind = ElementType::parse(&def.kind, def.scale)
+            .map_err(ElementDefError::from)
+            .map_err(fail)?;
         if let ElementType::R { scale } = kind
             && scale > ElementType::MAX_SCALE
         {

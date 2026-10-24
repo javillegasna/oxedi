@@ -66,9 +66,7 @@ pub use occurrence_error::OccurrenceError;
 pub use occurrences::{OccurrenceDef, Qualifier, Usage};
 pub use patch::merge_patch;
 pub use phi::ColumnKind;
-pub use segments::{
-    ElementDef, ElementDefError, ElementType, ROW_COLUMN, SEGMENT_COLUMN, SegmentDef,
-};
+pub use segments::{ElementDef, ElementDefError, ROW_COLUMN, SEGMENT_COLUMN, SegmentDef};
 pub use summaries::Summary;
 pub use summary_error::SummaryDefError;
 pub use table_error::{AnchorChains, AnchorPositions, LoopSegments, TableDefError};

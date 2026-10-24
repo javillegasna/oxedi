@@ -61,7 +61,6 @@ mod by_module {
     use oxedi_core::spec::DeclaredVersion;
     use oxedi_core::spec::ElementDef;
     use oxedi_core::spec::ElementDefError;
-    use oxedi_core::spec::ElementType;
     use oxedi_core::spec::LoopDef;
     use oxedi_core::spec::LoopId;
     use oxedi_core::spec::LoopSegments;
@@ -94,8 +93,10 @@ mod by_module {
     use oxedi_core::trivia::LeadingTrivia;
     use oxedi_core::trivia::is_trivia;
     use oxedi_core::value::ConvertError;
+    use oxedi_core::value::ElementType;
     use oxedi_core::value::MAX_SCALE;
     use oxedi_core::value::TimeUnit;
+    use oxedi_core::value::TypeCodeError;
     use oxedi_core::value::date_from_midnight;
     use oxedi_core::value::date_from_millis;
     use oxedi_core::value::days_from_civil;
@@ -171,6 +172,7 @@ fn builtin_items() {
 fn binding_items(diagnostic: &Diagnostic) {
     use oxedi_core::DateMode;
     use oxedi_core::value::TimeUnit;
+    use oxedi_core::value::TypeCodeError;
     use oxedi_core::write::Envelope;
     let _: Envelope = Envelope::with_ids("SENDER", "RECEIVER", 0, 0);
     let _: &str = Envelope::DEFAULT_QUALIFIER;

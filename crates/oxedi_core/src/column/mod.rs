@@ -18,7 +18,7 @@
 use std::fmt;
 
 use crate::diagnostic::Quoted;
-use crate::spec::ElementType;
+use crate::value::ElementType;
 use crate::value::civil_from_days;
 
 mod parse;

@@ -4,11 +4,11 @@ use std::fmt;
 
 use super::Spec;
 use super::error::SpecError;
-use super::segments::ElementType;
 use super::table_error::TableDefError;
 use super::tables::ColumnSource;
 use super::tables::TableDef;
 use crate::mask::Phi;
+use crate::value::ElementType;
 
 /// What a column reads, in the spec's own terms.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]

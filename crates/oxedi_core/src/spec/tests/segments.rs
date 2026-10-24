@@ -3,6 +3,7 @@
 use super::{CLP_ONLY, element_error};
 use crate::spec::raw::RawSegment;
 use crate::spec::*;
+use crate::value::ElementType;
 
 #[test]
 fn an_empty_segment_id_in_the_segments_section_is_rejected() {
@@ -112,7 +113,7 @@ fn every_type_code_is_read() {
     }
     for code in ["an", "N", "N10", "NA", "R2", "", "B"] {
         assert_eq!(
-            ElementType::parse(code, None),
+            ElementType::parse(code, None).map_err(ElementDefError::from),
             Err(ElementDefError::UnknownType {
                 found: code.to_string()
             }),

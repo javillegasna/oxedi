@@ -12,7 +12,8 @@
 //! numbers with leading zeros, text with trailing spaces.
 
 use crate::delimiters::Delimiters;
-use crate::spec::{ElementDef, ElementType, Spec};
+use crate::spec::{ElementDef, Spec};
+use crate::value::ElementType;
 
 use super::finding::WriteError;
 use super::render::{envelope_date, envelope_time};

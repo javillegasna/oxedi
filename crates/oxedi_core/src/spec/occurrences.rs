@@ -9,10 +9,9 @@ use super::loops::Trigger;
 use super::occurrence_error::{OccurrenceError, place};
 use super::raw::{RawOccurrence, RawQualifier};
 use super::render::{render_key, render_trigger};
-use super::segments::{
-    ElementDef, ElementDefError, ElementType, SegmentDef, compile_codes, parse_position,
-};
+use super::segments::{ElementDef, ElementDefError, SegmentDef, compile_codes, parse_position};
 use crate::segment::Segment;
+use crate::value::ElementType;
 
 /// Whether an occurrence must appear in every instance of its loop.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -107,18 +106,6 @@ impl OccurrenceDef {
     }
 }
 
-/// The type code of an element type, as a spec writes it.
-pub(super) fn type_code(kind: ElementType) -> String {
-    match kind {
-        ElementType::An => "AN".into(),
-        ElementType::Id => "ID".into(),
-        ElementType::N(places) => format!("N{places}"),
-        ElementType::R { .. } => "R".into(),
-        ElementType::Dt => "DT".into(),
-        ElementType::Tm => "TM".into(),
-    }
-}
-
 /// The definition of an element or component of `segment`, if any.
 pub(super) fn element_def<'d>(
     segments: &'d BTreeMap<Vec<u8>, SegmentDef>,
@@ -141,7 +128,7 @@ fn element_codes(def: &ElementDef, codes: &[String]) -> Result<Vec<String>, Elem
     }
     if matches!(def.kind, ElementType::N(_) | ElementType::R { .. }) {
         return Err(ElementDefError::CodesOnNumeric {
-            kind: type_code(def.kind),
+            kind: def.kind.code(),
         });
     }
     compile_codes(codes, def.kind, def.min, def.max)

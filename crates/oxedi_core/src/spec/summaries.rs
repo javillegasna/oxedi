@@ -12,9 +12,9 @@ use super::Spec;
 use super::error::SpecError;
 use super::phi::ColumnKind;
 use super::raw::{RawSummary, RawSummaryColumn, RawSummaryRow, RawSummaryTable};
-use super::segments::ElementType;
 use super::summary_error::SummaryDefError;
 use super::tables::{ColumnSource, TableDef};
+use crate::value::ElementType;
 
 /// What a summary computes over the tables of a parse.
 #[derive(Debug, Clone, PartialEq, Eq)]

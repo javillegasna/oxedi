@@ -19,10 +19,10 @@ use super::balance_error::BalanceError;
 use super::error::SpecError;
 use super::loops::LoopId;
 use super::occurrence_error::place;
-use super::occurrences::{element_def, type_code};
+use super::occurrences::element_def;
 use super::raw::{RawBalance, RawTerm};
 use super::render::render_key;
-use super::segments::ElementType;
+use crate::value::ElementType;
 
 /// One signed value of a balancing rule: elements of an occurrence.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -186,7 +186,7 @@ fn compile_term(
                 return Err(BalanceError::NotDecimal {
                     key,
                     place,
-                    found: type_code(kind),
+                    found: kind.code(),
                 });
             }
         }

@@ -1,6 +1,7 @@
 //! The `phi` and `phi_seed` keys: which columns hold patient data.
 
 use crate::spec::*;
+use crate::value::ElementType;
 use crate::{Phi, SpecError};
 
 fn spec_with(tables: &str) -> Result<Spec, SpecError> {

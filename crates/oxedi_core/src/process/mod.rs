@@ -159,8 +159,8 @@ impl<'s> Processor<'s> {
 
     /// Processes a whole document as [`Processor::run`] does, filling only
     /// the tables named in `names` and collecting no diagnostics. Each table
-    /// it returns holds the rows `run` gives that table, with the same
-    /// `mask`. A name the spec does not define is an [`UnknownTable`].
+    /// it returns holds the rows `run` gives that table with the `mask`
+    /// given to `run`. A name the spec does not define is an [`UnknownTable`].
     pub fn run_tables(
         spec: &Spec,
         document: &Document<'_>,

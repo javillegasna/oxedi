@@ -155,3 +155,31 @@ fn builtin_items() {
     let _: fn(&str) -> Option<Version> = Version::parse;
     let _: &Builtin = Builtin::select(Vec::<Segment<'static>>::new());
 }
+
+// Associated items the bindings read their defaults, names and units from,
+// named so the build fails if one disappears.
+#[allow(dead_code)]
+fn binding_items(diagnostic: &Diagnostic) {
+    use oxedi_core::DateMode;
+    use oxedi_core::value::TimeUnit;
+    use oxedi_core::write::Envelope;
+    let _: Envelope = Envelope::with_ids("SENDER", "RECEIVER", 0, 0);
+    let _: &str = Envelope::DEFAULT_QUALIFIER;
+    let _: &str = Envelope::DEFAULT_USAGE_INDICATOR;
+    let _: u64 = Envelope::DEFAULT_CONTROL_NUMBER;
+    let _: [&str; 10] = FlatDiagnostic::FIELDS;
+    let _: FlatDiagnostic<'_> = diagnostic.flat();
+    let _: for<'a> fn(&'a Diagnostic) -> &'a str = Diagnostic::origin;
+    let _: for<'a> fn(&'a Diagnostic) -> Option<&'a str> = Diagnostic::code;
+    let _: fn(&Diagnostic) -> String = Diagnostic::path_text;
+    let _: fn(SnipLevel) -> u8 = SnipLevel::number;
+    let _: fn(DateMode) -> &'static str = DateMode::word;
+    let _: [TimeUnit; 4] = [
+        TimeUnit::Second,
+        TimeUnit::Millisecond,
+        TimeUnit::Microsecond,
+        TimeUnit::Nanosecond,
+    ];
+    let _: fn(TimeUnit) -> i64 = TimeUnit::ticks_per_second;
+    let _: fn(TimeUnit) -> i64 = TimeUnit::ticks_per_day;
+}

@@ -13,6 +13,7 @@ fn selected(bytes: &[u8]) -> Version {
 #[test]
 fn the_fallback_is_the_first_and_named_by_default_version() {
     assert_eq!(Builtin::all()[0].version, Builtin::DEFAULT_VERSION);
+    assert_eq!(Builtin::DEFAULT_VERSION, Version::ALL[0]);
     let first = &Builtin::all()[0];
     let fallback = Builtin::fallback();
     assert_eq!(

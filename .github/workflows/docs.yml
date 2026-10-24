@@ -37,6 +37,7 @@ on:
       - "Cargo.lock"
       - ".cargo/**"
       - "Makefile"
+      - "make/**"
       - "rust-toolchain.toml"
       - ".github/workflows/docs.yml"
       - ".github/scripts/**"

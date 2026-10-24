@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Checks complexity.py's comparison with a baseline on hand-written measurements (no lizard).
-# Run: .github/scripts/tests/complexity.sh
+# Run: tools/complexity/tests/complexity.sh
 set -uo pipefail
 
 script="$(cd "$(dirname "$0")/.." && pwd)/complexity.py"

@@ -22,4 +22,4 @@ if ! git show "origin/$GITHUB_BASE_REF:$baseline" > "$old" 2>/dev/null; then
   echo "complexity-baseline-diff: origin/$GITHUB_BASE_REF has no $baseline; nothing to compare"
   exit 0
 fi
-python3 .github/scripts/complexity.py "$baseline" --compare-with "$old"
+python3 tools/complexity/complexity.py "$baseline" --compare-with "$old"

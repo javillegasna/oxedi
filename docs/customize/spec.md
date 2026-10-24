@@ -19,7 +19,7 @@ from pathlib import Path
 import oxedi
 
 data = Path("remittance-4010.835").read_bytes()
-spec = oxedi.Spec.builtin(version="4010")
+spec = oxedi.Spec.builtin(version=oxedi.Version.V4010)
 result = oxedi.parse(data, spec=spec)
 print(result.spec, result.count_claims())
 ```

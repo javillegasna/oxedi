@@ -26,6 +26,7 @@ __all__ = [
     "Stream",
     "Table",
     "Tables",
+    "Version",
     "WriteFinding",
     "_external_diagnostic",
     "_loop_paths",
@@ -107,8 +108,8 @@ class Diagnostic:
     @property
     def origin(self) -> builtins.str:
         r"""
-        Who reported the finding: `"oxedi"` for the parser's own rules, the
-        validator's name for an external finding.
+        Who reported the diagnostic: `"oxedi"` for the parser's own rules,
+        the validator's name for an external one.
         """
     @property
     def code(self) -> typing.Optional[builtins.str]:
@@ -134,12 +135,12 @@ class Diagnostic:
     @property
     def element(self) -> typing.Optional[builtins.int]:
         r"""
-        The 1-based element position, when the finding has one.
+        The 1-based element position, when the diagnostic has one.
         """
     @property
     def component(self) -> typing.Optional[builtins.int]:
         r"""
-        The 1-based component position, when the finding has one.
+        The 1-based component position, when the diagnostic has one.
         """
     @property
     def path(self) -> builtins.str:
@@ -178,6 +179,21 @@ class Envelope:
     Who sends and receives an interchange, when, its first control number
     and its delimiters. The writer derives the rest of the envelope: counts,
     later control numbers, codes and fixed widths.
+    """
+    DEFAULT_QUALIFIER: builtins.str
+    r"""
+    The qualifier of a sender or receiver id when none is given, the
+    default of `sender_qualifier` and `receiver_qualifier`.
+    """
+    DEFAULT_USAGE_INDICATOR: builtins.str
+    r"""
+    The usage indicator when none is given, the default of
+    `usage_indicator`: production data.
+    """
+    DEFAULT_CONTROL_NUMBER: builtins.int
+    r"""
+    The first control number when none is given, the default of
+    `control_number`.
     """
     @property
     def sender_id(self) -> builtins.str:
@@ -239,7 +255,7 @@ class Envelope:
         r"""
         The delimiters written.
         """
-    def __new__(cls, *, sender_id: builtins.str, receiver_id: builtins.str, date: datetime.date, time: datetime.time, sender_qualifier: builtins.str = "ZZ", receiver_qualifier: builtins.str = "ZZ", usage_indicator: builtins.str = "P", control_number: builtins.int = 1, application_sender: typing.Optional[builtins.str] = None, application_receiver: typing.Optional[builtins.str] = None, delimiters: typing.Optional[Delimiters] = None, line_break: builtins.bool = False) -> Envelope:
+    def __new__(cls, *, sender_id: builtins.str, receiver_id: builtins.str, date: datetime.date, time: datetime.time, sender_qualifier: builtins.str = 'ZZ', receiver_qualifier: builtins.str = 'ZZ', usage_indicator: builtins.str = 'P', control_number: builtins.int = 1, application_sender: typing.Optional[builtins.str] = None, application_receiver: typing.Optional[builtins.str] = None, delimiters: typing.Optional[Delimiters] = None, line_break: builtins.bool = False) -> Envelope:
         r"""
         `date` (a `datetime.date`) and `time` (a `datetime.time` without a
         time zone, whole seconds) stamp the interchange and the group: the
@@ -362,11 +378,15 @@ class Spec:
     r"""
     The loop structure, element definitions and tables of a file format.
     """
+    DEFAULT_VERSION: Version
+    r"""
+    The version of the default built-in spec.
+    """
     @staticmethod
-    def builtin(version: builtins.str = "5010") -> Spec:
+    def builtin(version: Version = Version.V5010) -> Spec:
         r"""
-        The built-in 835 spec of `version`, `"5010"` (the default) or
-        `"4010"`; raises `ValueError` for any other version.
+        The built-in spec of `version`; it defaults to `Spec.DEFAULT_VERSION`.
+        Raises `ValueError` for a version no built-in covers.
         """
     @staticmethod
     def from_json(json: builtins.str) -> Spec:
@@ -493,6 +513,34 @@ class Tables:
     def __repr__(self) -> builtins.str: ...
     def __contains__(self, name: builtins.object, /) -> builtins.bool: ...
     def __getitem__(self, name: builtins.str, /) -> Table: ...
+
+@typing.final
+class Version:
+    r"""
+    An X12 release a built-in spec covers.
+    """
+    V5010: Version
+    r"""
+    Release 5010.
+    """
+    V4010: Version
+    r"""
+    Release 4010.
+    """
+    @property
+    def text(self) -> builtins.str:
+        r"""
+        The release number as text.
+        """
+    def __eq__(self, other: builtins.object, /) -> builtins.bool: ...
+    def __hash__(self) -> builtins.int: ...
+    def __str__(self) -> builtins.str: ...
+    def __repr__(self) -> builtins.str: ...
+    @staticmethod
+    def all() -> builtins.list[Version]:
+        r"""
+        Every version a built-in spec covers, the default first.
+        """
 
 @typing.final
 class WriteFinding:

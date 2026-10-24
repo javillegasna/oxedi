@@ -146,3 +146,15 @@ fn display_unknown_date_mode() {
     );
     assert!(e.source().is_none());
 }
+
+#[test]
+fn date_mode_word_reads_back() {
+    for (mode, word) in [
+        (DateMode::Year, "year"),
+        (DateMode::Shift, "shift"),
+        (DateMode::Keep, "keep"),
+    ] {
+        assert_eq!(mode.word(), word);
+        assert_eq!(DateMode::parse(mode.word()), Ok(mode));
+    }
+}

@@ -1,6 +1,7 @@
 //! Parsers from X12 element text to column values, and the civil-date arithmetic they use.
 
 use super::DECIMAL_PRECISION;
+use crate::value::{days_from_civil_unchecked, days_in_month};
 
 /// Splits an optional leading minus sign off `text`.
 fn sign(text: &[u8]) -> (bool, &[u8]) {
@@ -81,58 +82,13 @@ fn small_number(digits: &[u8]) -> Option<i32> {
     })
 }
 
-fn is_leap(year: i32) -> bool {
-    year % 4 == 0 && (year % 100 != 0 || year % 400 == 0)
-}
-
-pub(super) fn days_in_month(year: i32, month: i32) -> i32 {
-    match month {
-        2 if is_leap(year) => 29,
-        2 => 28,
-        4 | 6 | 9 | 11 => 30,
-        _ => 31,
-    }
-}
-
-/// Days from 1970-01-01 to a proleptic Gregorian date (H. Hinnant's
-/// `days_from_civil`).
-fn days_from_civil(year: i32, month: i32, day: i32) -> i32 {
-    let year = if month <= 2 { year - 1 } else { year };
-    let era = year.div_euclid(400);
-    let year_of_era = year - era * 400;
-    let march_based_month = (month + 9) % 12;
-    let day_of_year = (153 * march_based_month + 2) / 5 + day - 1;
-    let day_of_era = year_of_era * 365 + year_of_era / 4 - year_of_era / 100 + day_of_year;
-    era * 146_097 + day_of_era - 719_468
-}
-
-/// The proleptic Gregorian date `days` after 1970-01-01 (H. Hinnant's
-/// `civil_from_days`), the inverse of [`days_from_civil`].
-pub(crate) fn civil_from_days(days: i32) -> (i32, i32, i32) {
-    let shifted = days.saturating_add(719_468);
-    let era = shifted.div_euclid(146_097);
-    let day_of_era = shifted - era * 146_097;
-    let year_of_era =
-        (day_of_era - day_of_era / 1460 + day_of_era / 36_524 - day_of_era / 146_096) / 365;
-    let day_of_year = day_of_era - (365 * year_of_era + year_of_era / 4 - year_of_era / 100);
-    let march_based_month = (5 * day_of_year + 2) / 153;
-    let day = day_of_year - (153 * march_based_month + 2) / 5 + 1;
-    let month = if march_based_month < 10 {
-        march_based_month + 3
-    } else {
-        march_based_month - 9
-    };
-    let year = year_of_era + era * 400 + i32::from(month <= 2);
-    (year, month, day)
-}
-
 /// A `DT` value as days since 1970-01-01: `CCYYMMDD`, or `YYMMDD` with
 /// years 00–49 read as 20xx and 50–99 as 19xx. The date must exist, and the
 /// year `0000` is refused (so is the all-zero date some payers write for "no
 /// date"): it is not a meaningful `CCYY`.
 pub fn parse_dt(text: &[u8]) -> Option<i32> {
     let (year, month, day) = civil_date(text)?;
-    Some(days_from_civil(year, month, day))
+    Some(days_from_civil_unchecked(year, month, day))
 }
 
 /// Whether [`parse_dt`] accepts `text`, without counting the days.

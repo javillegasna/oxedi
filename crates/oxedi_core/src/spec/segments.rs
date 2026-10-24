@@ -27,10 +27,8 @@ pub enum ElementType {
 }
 
 impl ElementType {
-    /// Largest `scale` an `R` element may declare. An `R` value is held as an
-    /// `i128` scaled by `10^scale` in a column of precision 38, so a scale of
-    /// 18 still leaves 20 digits for the integer part.
-    pub const MAX_SCALE: u8 = 18;
+    /// Largest `scale` an `R` element may declare: [`crate::value::MAX_SCALE`].
+    pub const MAX_SCALE: u8 = crate::value::MAX_SCALE;
 
     /// Reads the type code of an element definition; `scale` is the
     /// definition's `scale` key, which only `R` accepts.

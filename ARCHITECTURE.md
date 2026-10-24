@@ -75,8 +75,10 @@ The loop tree is not built by the processor. A caller that wants it folds the ev
 `TreeBuilder` in the same pass (the viewer does, in `crates/oxedi_wasm/src/view/mod.rs`) or
 calls `LoopTree::build`.
 
-Which spec reads a file: the bindings call `Spec::select` (`spec/version.rs`), which picks the
-built-in 5010 or 4010 spec from the version the file declares in `GS08`.
+Which spec reads a file: the bindings call `Builtin::select` (`spec/builtin.rs`), which picks the
+built-in spec from the version the file declares in `GS08` (sharing the choice code of
+`Spec::select`, `spec/version.rs`) and falls back to `Builtin::fallback`; `Builtin::find` looks one
+up by transaction and version.
 
 ### Writing: tables to bytes
 
@@ -141,6 +143,7 @@ Every key is listed in [the spec keys reference](docs/customize/spec.md#spec-key
 | Add a diagnostic rule | `diagnostic/rule.rs` (`Rule` variant, `level`, `kind`, and `segment_id` when the rule is about one segment's elements, so its datum can be masked) and `diagnostic/display.rs` (message) | Raise it in `check/` (structure) or `project/check.rs` (elements); a full-text `Display` test in `diagnostic/tests.rs` |
 | Change an element check | `project/check.rs` | `cargo test -p oxedi_core --lib project::`, then both golden suites |
 | Change how loops are recognized | `engine/mod.rs` | `cargo test -p oxedi_core --test engine_golden` and `--test engine_invariants` |
+| Change what a caller's value may become on write (integers, decimals, dates, times) | `value/convert.rs` (`ConvertError`), `value/unit.rs` (`TimeUnit`), `value/calendar.rs` | Bindings call it and add no rule of their own; test in `value/tests/` |
 | Add a value type | `ElementType` in `spec/segments.rs`; `ColumnType`, `ColumnData` and `render` in `column/mod.rs`; a parser in `column/parse.rs` | Core writer in `write/render.rs` and `write/data.rs`; DuckDB `types/`, `scan/write.rs` and `copy/`; Python `arrow.rs`, `import.rs` and `native.rs` |
 | Refuse a spec the writer cannot write | `write/refusal.rs` (`Refusal`) | Raise it in the compile pass that finds it; `Display` test in `write/tests/display.rs` |
 | Report a new problem in written tables | `write/finding.rs` (`Finding`) | Raise it where the writer meets it (`write/nest.rs` for references, `write/emit.rs` and `write/cells.rs` while writing); test in `tests/write_findings.rs` |
@@ -162,10 +165,10 @@ The same concept, named in each binding. The Rust files are under `crates/oxedi_
 |---|---|---|---|
 | Read a file (`Processor::run`) | `oxedi.parse(data)`, `oxedi.parse_file(path)` → `Result` (`parse.rs`) | `read_835(path, table_name := 'claims')` (`function/`, `scan/`) | `parse(bytes, mask_key)` → JSON `View` (`lib.rs`, `view/`) |
 | Read in batches (`Processor::feed`) | `oxedi.stream(data, by='transaction')` (`stream.rs`) | one file at a time (`scan/`) | — |
-| Choose the spec (`Spec::select`) | `Spec.builtin("4010")`, `Spec.from_json`, `Spec.patch` (`spec.rs`) | `version := '4010'` (`builtins/`, `BuiltinTable`) | by the file's declared version |
+| Choose the spec (`Builtin::select`, `Builtin::find`) | `Spec.builtin("4010")`, `Spec.from_json`, `Spec.patch` (`spec.rs`) | `version := '4010'` (`builtins/`, `BuiltinTable`) | by the file's declared version |
 | Tables (`Tables`, `Table`) | `Result.tables`, `Table.to_polars()` (`tables.rs`, `arrow.rs`) | the rows of `table_name` (`scan/`, `types/`) | `View.tables` (`TableView`, `ColumnView`) |
 | Table schema (`spec_schema`) | `Spec.schema()` | `oxedi_schema()` (`oxedi_schema/`) | — |
-| Diagnostics (`Diagnostic`) | `Result.diagnostics`, `Diagnostic.kind`, `.rule`, `.datum` (`diagnostic.rs`) | `table_name := 'diagnostics'` (`diagnostics/`) | `View.diagnostics` (`DiagnosticView`) |
+| Diagnostics (`Diagnostic`) | `Result.diagnostics`, `Diagnostic.kind`, `.rule`, `.datum` (`diagnostic.rs`, reading `Diagnostic::flat`) | `table_name := 'diagnostics'` (`diagnostics/`) | `View.diagnostics` (`DiagnosticView`) |
 | Segments (`Document`, `Segment`) | `Result.document[i]` (`document.rs`) | — | `View.segments` (`SegmentView`) |
 | Delimiters (`Delimiters`) | `Delimiters` | — | `View.delimiters` (`DelimitersView`) |
 | Loop tree (`LoopTree`) | — | — | `View.nodes` (`NodeView`) |
@@ -220,7 +223,7 @@ Internal words used in the code. X12 and payment terms for users are in
 | document | The whole input plus one span per segment; segments parsed on demand. | `document/` |
 | spec | The JSON description of loops, segments, tables and balancing, compiled to index-based definitions. | `spec/`, `specs/*.json` |
 | patch | An RFC 7386 JSON Merge Patch over a spec (`835.4010.json`, `edi_835_parser.json`). | `spec/patch.rs` |
-| built-in | The shipped 5010 spec and its 4010 patch, chosen by `Spec::select` from `GS08`. | `spec/mod.rs`, `spec/version.rs` |
+| built-in | The shipped 5010 spec and its 4010 patch, chosen by `Builtin::select` from `GS08`; the registry is `Builtin::all`, each entry with a typed `Version`. | `spec/builtin.rs`, `spec/version.rs` |
 | trigger | The segment (and element conditions) that opens a loop. | `spec/loops.rs` |
 | occurrence | A named segment slot of a loop: position, usage, maximum repeat, qualifier, code lists. The JSON key is `occurrences`. | `spec/occurrences.rs` |
 | end / closer, opener | A loop's end segment (JSON `end`). For control checks, the trigger (opener) and end (closer) segments whose control numbers must match. | `spec/loops.rs` (`Control`) |
@@ -234,7 +237,7 @@ Internal words used in the code. X12 and payment terms for users are in
 | anchor | The loop or loops (JSON `tables.*.loops`) or the segment (JSON `segment`) a table takes one row per. | `project/`, `spec/tables.rs` |
 | ref / reference column | The column a child row uses to point at its parent table's row. | `spec/tables.rs` |
 | table / column / cell | Arrow-shaped output (`Table`, `ColumnData`, `Bitmap`); a cell is one value. | `column/` |
-| diagnostic | A reading problem as data: `rule`, SNIP `level`, `segment`, `element`, `component`, `path`, `datum`. | `diagnostic/` |
+| diagnostic | A reading problem as data: `rule`, SNIP `level`, `segment`, `element`, `component`, `path`, `datum`; `Diagnostic::flat` gives them as one flat record (`FlatDiagnostic`). | `diagnostic/` |
 | rule | The check that failed, with the values its message needs (`Rule`). | `diagnostic/rule.rs` |
 | SNIP level | The industry level of a check; oxedi reports 1 (integrity: envelopes, structure), 2 (requirements: elements) and 3 (balancing). `SnipLevel`. | `diagnostic/` |
 | datum | The offending value exactly as written in the file. | `Diagnostic::datum` |
@@ -248,5 +251,6 @@ Internal words used in the code. X12 and payment terms for users are in
 | value origin | The cell, row or envelope field a written value came from (`ValueOrigin`). | `write/finding.rs` |
 | envelope (writer) | The caller's sender, receiver, date, time, control number and delimiters (`Envelope`). | `write/envelope.rs` |
 | processor / output | One pass feeding each segment to engine, checker and projector; `Output` is one step's events and diagnostics. | `process/` |
+| `ConvertError`, `TimeUnit`, `rescale`, `days_from_civil` | The write-side conversion rules and the calendar every binding shares. | `value/` |
 | `parse_dt`, `parse_n`, `parse_r`, `parse_tm` | Parsers named after the X12 data types DT, N, R and TM. | `column/parse.rs` |
 | fixture / sample / golden | Synthetic test file / anonymized real file / generated expected output. | `crates/oxedi_core/tests/` |

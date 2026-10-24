@@ -12,7 +12,7 @@ use std::hint::black_box;
 /// many table rows it produced.
 fn run_process(spec: &Spec, bytes: &[u8]) -> usize {
     let document = Document::parse(bytes).expect("sample has an ISA");
-    let (tables, _) = Processor::run(spec, &document);
+    let (tables, _) = Processor::run(spec, &document, None);
     tables.iter().map(|table| table.len()).sum()
 }
 

@@ -50,6 +50,7 @@ pub mod segment;
 pub mod spec;
 pub mod tokenizer;
 pub mod tree;
+pub mod value;
 pub mod write;
 
 pub use check::StructureChecker;
@@ -58,7 +59,7 @@ pub use column::{
     parse_n, parse_r, parse_tm,
 };
 pub use delimiters::{Delimiters, IsaError};
-pub use diagnostic::{Diagnostic, LoopRef, Rule, SnipLevel};
+pub use diagnostic::{Diagnostic, FlatDiagnostic, LoopRef, PARSER_ORIGIN, Rule, SnipLevel};
 pub use document::{Document, DocumentError, Segments, SizeError, Span, Spans};
 pub use element::{Element, Value};
 pub use engine::{Event, LoopEngine};
@@ -68,11 +69,12 @@ pub use process::{Output, Processor};
 pub use project::{ColumnSchema, Projector, TableSchema, UnknownTable, spec_schema};
 pub use segment::{Segment, SegmentWriteError};
 pub use spec::{
-    AnchorChains, AnchorPositions, BalanceError, BalanceRule, BalanceTerm, ColumnSource, Control,
-    ControlCount, ControlError, DeclaredVersion, ElementDef, ElementDefError, ElementType, LoopDef,
-    LoopId, LoopSegments, Pick, Repeat, SegmentDef, Spec, SpecError, TableDef, TableDefError,
-    Trigger, VersionError, merge_patch,
+    AnchorChains, AnchorPositions, BalanceError, BalanceRule, BalanceTerm, Builtin, ColumnSource,
+    Control, ControlCount, ControlError, DeclaredVersion, ElementDef, ElementDefError, ElementType,
+    LoopDef, LoopId, LoopSegments, Pick, Repeat, SegmentDef, Spec, SpecError, TableDef,
+    TableDefError, Trigger, UnknownVersion, Version, VersionError, merge_patch,
 };
 pub use tokenizer::Tokenizer;
 pub use tree::{LoopTree, Node, NodeId, TreeBuilder};
+pub use value::ConvertError;
 pub use write::{PlanError, Refusal, WritePlan};

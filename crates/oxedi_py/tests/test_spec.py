@@ -104,6 +104,14 @@ def test_a_version_names_its_release():
     assert Version.V5010 != 5010
 
 
+def test_every_listed_version_is_a_member_of_the_class():
+    listed = Version.all()
+    assert listed
+    assert listed[0] == Spec.DEFAULT_VERSION
+    for version in listed:
+        assert getattr(Version, repr(version).split(".")[1]) == version
+
+
 def test_builtin_takes_a_version_or_its_text():
     assert Spec.builtin(Version.V4010).to_json() == Spec.builtin("4010").to_json()
     assert Spec.builtin(Version.V5010).to_json() == Spec.builtin().to_json()

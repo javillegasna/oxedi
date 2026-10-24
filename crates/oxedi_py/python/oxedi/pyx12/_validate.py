@@ -163,15 +163,10 @@ def _element_bytes(
     """The bytes of a 1-based element, or of one of its components, of
     ``segment``, a composite's components joined by ``separator``; empty
     when the segment has no such position."""
-    elements = segment.elements
-    if not 1 <= element <= len(elements):
+    value = segment.element(element, component)
+    if value is None:
         return b""
-    value = elements[element - 1]
-    if isinstance(value, list):
-        if component is None:
-            return separator.join(value)
-        return value[component - 1] if 1 <= component <= len(value) else b""
-    return value if component in (None, 1) else b""
+    return separator.join(value) if isinstance(value, list) else value
 
 
 def _completed(track: list[int], positions: _Positions) -> Optional[int]:

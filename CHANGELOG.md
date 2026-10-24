@@ -18,6 +18,9 @@ This file covers the Python package; the DuckDB extension has its own changelog 
   and a `default_table`. The built-in 835 declares `count_claims`, `count_patients`,
   `sum_payments`, `payer` and `payee`, and `claims` as its default table; `Result.count_claims()`,
   `count_patients()`, `sum_payments()`, `payer` and `payee` read those summaries.
+- `Segment.element(position, component=None)` and `Segment.has(position, component=None)`: read an
+  element or one of its components by 1-based position, `None` or `False` where the segment has
+  no such place.
 
 ### Changed
 - A spec patch that removes a table or column a summary reads must also remove the summary (with

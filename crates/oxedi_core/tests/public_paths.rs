@@ -191,4 +191,5 @@ fn binding_items(diagnostic: &Diagnostic) {
     ];
     let _: fn(TimeUnit) -> i64 = TimeUnit::ticks_per_second;
     let _: fn(TimeUnit) -> i64 = TimeUnit::ticks_per_day;
+    let _: for<'a> fn(&'a Segment<'static>, usize, usize) -> Option<&'a [u8]> = Segment::component;
 }

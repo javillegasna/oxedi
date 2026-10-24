@@ -20,7 +20,7 @@ pub enum SummaryError {
         summary: String,
         /// The table.
         table: String,
-        /// The tables the tables hold, in their order.
+        /// The names of the tables that are present, in their order.
         present: Vec<String>,
     },
     /// The table does not hold a column the summary reads.

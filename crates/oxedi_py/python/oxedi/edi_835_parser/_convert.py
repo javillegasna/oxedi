@@ -63,11 +63,10 @@ def element_date(segment, index, element, file_path):
     segment at ``index`` of ``file_path``. Text of a date's length that is not
     a date raises a ``ValueError`` naming the source, the segment, the element
     and the text."""
-    elements = segment.elements
-    if element > len(elements):
+    raw = segment.element(element)
+    if raw is None:
         return None
-    raw = elements[element - 1]
-    if element == len(elements) and isinstance(raw, bytes):
+    if not segment.has(element + 1) and isinstance(raw, bytes):
         raw = unpadded(raw)
     value = raw.decode(ENCODING) if isinstance(raw, bytes) else ""
     try:
@@ -109,15 +108,7 @@ def has(document, index, element, component=None):
     null absent), but this layer reads ``""`` as ``None`` to match the
     library and asks the document where the library gives the two
     different values."""
-    if index is None:
-        return False
-    elements = document[index].elements
-    if element > len(elements):
-        return False
-    if component is None:
-        return True
-    value = elements[element - 1]
-    return component <= (len(value) if isinstance(value, list) else 1)
+    return index is not None and document[index].has(element, component)
 
 
 def written(value, document, index, element, component=None, empty="", absent=None):

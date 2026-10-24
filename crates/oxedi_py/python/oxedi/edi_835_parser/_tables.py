@@ -94,15 +94,11 @@ def opening(view, trigger):
 def _last(document, index, element, component):
     """The raw text of ``element`` (and ``component``) of segment ``index``
     when it is the segment's last one, else ``None``."""
-    elements = document[index].elements
-    if element != len(elements):
+    segment = document[index]
+    if segment.has(element + 1) or (component is not None and segment.has(element, component + 1)):
         return None
-    value = elements[element - 1]
-    if component is None:
-        return value if isinstance(value, bytes) else None
-    if isinstance(value, list):
-        return value[component - 1] if component == len(value) else None
-    return value if component == 1 else None
+    value = segment.element(element, component)
+    return value if isinstance(value, bytes) else None
 
 
 def _segment_of(document, anchors, row, own, bound):
@@ -122,11 +118,14 @@ def _group_last(document, index, source, repeat):
     """The raw text a repeated group's column reads from segment ``index``
     when that is the segment's last element (and component), else ``None``:
     the group whose element ``group_element`` is the last one."""
-    elements = document[index].elements
-    offset = len(elements) - repeat["from"] - source["group_element"]
+    segment = document[index]
+    count = 0
+    while segment.has(count + 1):
+        count += 1
+    offset = count - repeat["from"] - source["group_element"]
     if offset < 0 or offset % repeat["step"]:
         return None
-    return _last(document, index, len(elements), source.get("component"))
+    return _last(document, index, count, source.get("component"))
 
 
 def _replace(table, column, changes, kind):

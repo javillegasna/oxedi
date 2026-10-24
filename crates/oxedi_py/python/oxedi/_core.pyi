@@ -376,6 +376,20 @@ class Segment:
         The segment's byte range in the input, `(start, end)` with `end`
         exclusive: leading trivia, body and terminator, as `raw` holds them.
         """
+    def element(self, position: builtins.int, component: typing.Optional[builtins.int] = None) -> builtins.bytes | builtins.list[builtins.bytes] | None:
+        r"""
+        The element at the 1-based `position` (`XX01` is 1), or one of its
+        components: as `elements` holds it without `component` (`bytes` for
+        a simple element, a list of `bytes` for a composite one), and the
+        bytes of that 1-based component with it (component 1 of a simple
+        element is the element). `None` when the segment has no such place.
+        """
+    def has(self, position: builtins.int, component: typing.Optional[builtins.int] = None) -> builtins.bool:
+        r"""
+        Whether the segment has the element at the 1-based `position`, or
+        that 1-based `component` of it, even when it is empty: `element(...)`
+        is not `None`.
+        """
     def __repr__(self) -> builtins.str: ...
 
 @typing.final

@@ -33,6 +33,16 @@ Rules for every change and refactor, checked by implementers and reviewers alike
 - Fix the cause, never only split a function: choose the fitting pattern from any family
   (design, architecture, functional, dynamic programming and memoization, concurrency- and
   parallel-friendly data, algorithms and data structures) and name it in the PR.
+- Lower complexity without raising cost. Chaining iterator passes is fine on cold paths (once
+  per spec, file or option set); on hot paths (per segment, element, cell or row) keep or
+  improve the Big-O and the allocations: no nested scans, no search over a growing collection
+  inside a loop, no repeated `collect`. Where it matters, choose the algorithm or
+  architecture (single pass, an index built once, streaming), and run the affected
+  `cargo bench` groups before and after, with the numbers in the commit message.
+- Keep verification cheap: compare benchmarks with only the affected groups and short times
+  (`cargo bench -p oxedi_core --bench <group> -- --warm-up-time 1 --measurement-time 3`) and
+  leave the full measurement to the final review; when checking each commit in a temporary
+  worktree, share one `CARGO_TARGET_DIR` so only what changed is rebuilt.
 - An open issue a change touches is fixed or fulfilled and closed by that change
   (`Closes #N`), never left out of date.
 - A PR body is in English with two sections, **Intent** and **Verification**; never list the

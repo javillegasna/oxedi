@@ -10,15 +10,14 @@ use std::ops::Range;
 
 use crate::column::{Cell, ColumnData};
 use crate::value::ColumnType;
-use crate::value::{EPOCH_SHIFT_DAYS, civil_from_days, time_of_day};
+use crate::value::{civil_from_days, time_of_day};
 
 /// A date as `CCYYMMDD`, or `YYMMDD` when the element holds six bytes at
 /// most; the reason when the date has no such text.
 pub(super) fn date_text(days: i32, max: Option<usize>) -> Result<Vec<u8>, String> {
-    if days.checked_add(EPOCH_SHIFT_DAYS).is_none() {
+    let Some((year, month, day)) = civil_from_days(days) else {
         return Err("a date needs a year from 1 to 9999".to_string());
-    }
-    let (year, month, day) = civil_from_days(days);
+    };
     if max.is_some_and(|max| max < 8) {
         if !(1950..=2049).contains(&year) {
             return Err(format!(
@@ -77,10 +76,9 @@ pub(super) fn envelope_time(seconds: i32, max: Option<usize>) -> Result<Vec<u8>,
 /// A date as a message shows it, `YYYY-MM-DD`, or its raw number when it
 /// is too far from 1970 to convert.
 pub(super) fn date_display(days: i32) -> String {
-    if days.checked_add(EPOCH_SHIFT_DAYS).is_none() {
+    let Some((year, month, day)) = civil_from_days(days) else {
         return format!("date32({days})");
-    }
-    let (year, month, day) = civil_from_days(days);
+    };
     format!("{year:04}-{month:02}-{day:02}")
 }
 

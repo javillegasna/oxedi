@@ -154,13 +154,12 @@ impl<'s> DatumMask<'s> {
         match kind {
             Phi::Name | Phi::Id => Some(self.mask.text(kind, datum).to_vec()),
             Phi::Date if self.mask.dates() == DateMode::Keep => None,
-            Phi::Date => Some(match parse_dt(datum) {
-                Some(days) => {
-                    let (year, month, day) = civil_from_days(Mask::year_start(days));
-                    format!("{year:04}{month:02}{day:02}").into_bytes()
-                }
-                None => self.mask.text(Phi::Date, datum).to_vec(),
-            }),
+            Phi::Date => Some(
+                match parse_dt(datum).and_then(|days| civil_from_days(Mask::year_start(days))) {
+                    Some((year, month, day)) => format!("{year:04}{month:02}{day:02}").into_bytes(),
+                    None => self.mask.text(Phi::Date, datum).to_vec(),
+                },
+            ),
         }
     }
 }

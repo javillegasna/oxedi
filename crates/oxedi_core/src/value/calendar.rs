@@ -36,7 +36,11 @@ pub(crate) fn is_civil(year: i32, month: i32, day: i32) -> bool {
 /// Days since 1970-01-01 of a proleptic Gregorian date; `None` when the year
 /// is outside 1..=9999, the month outside 1..=12 or the day outside the month.
 pub fn days_from_civil(year: i32, month: i32, day: i32) -> Option<i32> {
-    is_civil(year, month, day).then(|| days_from_civil_unchecked(year, month, day))
+    if is_civil(year, month, day) {
+        days_from_civil_unchecked(year, month, day)
+    } else {
+        None
+    }
 }
 
 /// Days from 1970-01-01 to a proleptic Gregorian date (H. Hinnant's
@@ -71,16 +75,15 @@ fn civil_from_shifted_wide(shifted: i64) -> (i64, i64, i64) {
     (year, month, day)
 }
 
-/// An `i64` the calendar produced from `i32` input, back to `i32`. A date
-/// of years 1..=9999 and any year of an `i32` day count fit, so the clamp
-/// is never reached.
-fn narrow(value: i64) -> i32 {
-    i32::try_from(value).unwrap_or(if value < 0 { i32::MIN } else { i32::MAX })
+/// An `i64` the calendar produced, as `i32`; `None` when it does not fit.
+fn narrow(value: i64) -> Option<i32> {
+    i32::try_from(value).ok()
 }
 
 /// Days from 1970-01-01 to a proleptic Gregorian date; the date must
-/// already be known to exist.
-pub(crate) fn days_from_civil_unchecked(year: i32, month: i32, day: i32) -> i32 {
+/// already be known to exist. `None` when the day number does not fit an
+/// `i32`.
+pub(crate) fn days_from_civil_unchecked(year: i32, month: i32, day: i32) -> Option<i32> {
     narrow(days_from_civil_wide(
         i64::from(year),
         i64::from(month),
@@ -89,11 +92,12 @@ pub(crate) fn days_from_civil_unchecked(year: i32, month: i32, day: i32) -> i32 
 }
 
 /// The proleptic Gregorian date `days` after 1970-01-01, the inverse of
-/// [`days_from_civil`].
-pub(crate) fn civil_from_days(days: i32) -> (i32, i32, i32) {
-    let (year, month, day) =
-        civil_from_shifted_wide(i64::from(days.saturating_add(EPOCH_SHIFT_DAYS)));
-    (narrow(year), narrow(month), narrow(day))
+/// [`days_from_civil`]; `None` when the day is too far from 1970 for its
+/// year to be counted from the shifted epoch.
+pub(crate) fn civil_from_days(days: i32) -> Option<(i32, i32, i32)> {
+    let shifted = days.checked_add(EPOCH_SHIFT_DAYS)?;
+    let (year, month, day) = civil_from_shifted_wide(i64::from(shifted));
+    Some((narrow(year)?, narrow(month)?, narrow(day)?))
 }
 
 /// The day number of January 1 of the year that holds `days`; `None` when

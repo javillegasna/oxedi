@@ -15,7 +15,7 @@
 use std::fmt;
 
 use crate::diagnostic::Quoted;
-use crate::value::{ColumnType, EPOCH_SHIFT_DAYS, civil_from_days, time_of_day};
+use crate::value::{ColumnType, civil_from_days, time_of_day};
 
 mod table;
 
@@ -306,10 +306,9 @@ fn render_decimal(value: i128, scale: usize) -> String {
 
 /// A date as `YYYY-MM-DD`, or its raw day number when the year is out of range.
 fn render_date(days: i32) -> String {
-    if days.checked_add(EPOCH_SHIFT_DAYS).is_none() {
+    let Some((year, month, day)) = civil_from_days(days) else {
         return format!("date32({days})");
-    }
-    let (year, month, day) = civil_from_days(days);
+    };
     format!("{year:04}-{month:02}-{day:02}")
 }
 

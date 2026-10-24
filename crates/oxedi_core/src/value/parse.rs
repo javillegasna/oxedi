@@ -129,7 +129,7 @@ impl<'a> Fields<'a> {
 /// date"): it is not a meaningful `CCYY`.
 pub fn parse_dt(text: &[u8]) -> Option<i32> {
     let (year, month, day) = civil_date(text)?;
-    Some(days_from_civil_unchecked(year, month, day))
+    days_from_civil_unchecked(year, month, day)
 }
 
 /// The year, month and day of a `DT` value, checked as [`parse_dt`] describes.

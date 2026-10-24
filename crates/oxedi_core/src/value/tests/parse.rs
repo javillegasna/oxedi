@@ -168,7 +168,7 @@ proptest! {
         let text = format!("{year:04}{month:02}{day:02}");
         let days = parse_dt(text.as_bytes());
         prop_assert!(days.is_some(), "{}", text);
-        prop_assert_eq!(days.map(civil_from_days), Some((year, month, day)));
+        prop_assert_eq!(days.and_then(civil_from_days), Some((year, month, day)));
     }
 
     #[test]

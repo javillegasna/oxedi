@@ -1,4 +1,5 @@
-use super::super::{days_from_civil, seconds_of_day, time_of_day, year_start};
+use super::super::calendar::days_from_civil_unchecked;
+use super::super::{civil_from_days, days_from_civil, seconds_of_day, time_of_day, year_start};
 
 #[test]
 fn the_epoch_and_a_leap_day_are_found() {
@@ -76,4 +77,12 @@ fn year_start_at_the_edges() {
             "day {days}"
         );
     }
+}
+
+#[test]
+fn a_day_whose_year_does_not_fit_is_none() {
+    assert_eq!(days_from_civil_unchecked(i32::MAX, 12, 31), None);
+    assert_eq!(civil_from_days(i32::MAX), None);
+    assert_eq!(civil_from_days(i32::MAX - 719_467), None);
+    assert_eq!(civil_from_days(i32::MAX - 719_468), Some((5_879_610, 9, 9)));
 }

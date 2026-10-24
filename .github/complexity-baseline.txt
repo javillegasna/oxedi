@@ -34,7 +34,7 @@ crates/oxedi_core/src/column/mod.rs	get	17	1
 crates/oxedi_core/src/column/mod.rs	raw_text	12	3
 crates/oxedi_core/src/delimiters/mod.rs	fmt	17	3
 crates/oxedi_core/src/delimiters/mod.rs	from_isa	13	1
-crates/oxedi_core/src/diagnostic/display.rs	fmt	58	3
+crates/oxedi_core/src/diagnostic/display.rs	fmt	21	0	flat
 crates/oxedi_core/src/diagnostic/mod.rs	fmt	16	3
 crates/oxedi_core/src/diagnostic/rule.rs	kind	21	0
 crates/oxedi_core/src/element/mod.rs	unescape	6	4

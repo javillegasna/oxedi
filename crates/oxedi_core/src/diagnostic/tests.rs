@@ -1002,3 +1002,96 @@ fn path_text_joins_the_open_loops() {
     assert_eq!(at(&[("a", 1)]), "a#1");
     assert_eq!(at(&[("a", 1), ("b", 2)]), "a#1/b#2");
 }
+
+#[test]
+fn code_and_occurrence_lists_are_spelled_out_up_to_the_limit() {
+    let code_rule = |count| Rule::CodeNotInList {
+        segment_id: b"SVC".to_vec(),
+        element: 1,
+        component: None,
+        name: "qualifier".into(),
+        codes: codes(count),
+        occurrence: None,
+    };
+    assert_eq!(
+        code_rule(4).to_string(),
+        "element SVC01 (qualifier) is not one of the 4 codes the spec lists for it (\"A\", \"B\", \"C\", \"D\")"
+    );
+    assert_eq!(
+        code_rule(5).to_string(),
+        "element SVC01 (qualifier) is not one of the 5 codes the spec lists for it (\"A\", \"B\", \"C\", \"D\", \"E\")"
+    );
+    assert_eq!(
+        code_rule(6).to_string(),
+        "element SVC01 (qualifier) is not one of the 6 codes the spec lists for it"
+    );
+    let occurrence_rule = |count| Rule::UnknownOccurrence {
+        loop_name: "2100".into(),
+        segment_id: b"NM1".to_vec(),
+        element: 1,
+        component: None,
+        occurrences: codes(count),
+    };
+    assert_eq!(
+        occurrence_rule(4).to_string(),
+        "segment \"NM1\" matches none of the 4 occurrences loop \"2100\" declares for it (\"A\", \"B\", \"C\", \"D\"): NM101 holds none of their qualifier codes"
+    );
+    assert_eq!(
+        occurrence_rule(5).to_string(),
+        "segment \"NM1\" matches none of the 5 occurrences loop \"2100\" declares for it (\"A\", \"B\", \"C\", \"D\", \"E\"): NM101 holds none of their qualifier codes"
+    );
+    assert_eq!(
+        occurrence_rule(6).to_string(),
+        "segment \"NM1\" matches none of the 6 occurrences loop \"2100\" declares for it: NM101 holds none of their qualifier codes"
+    );
+}
+
+#[test]
+fn a_balance_lists_ten_segments_then_counts_the_rest() {
+    let rule = |count: usize| Rule::BalanceMismatch {
+        rule: "r".into(),
+        loop_name: "2100".into(),
+        opened_at: Some(1),
+        target: "CLP03".into(),
+        sum: "CAS03".into(),
+        expected: 5,
+        computed: 0,
+        scale: 2,
+        segments: (1..=count).collect(),
+    };
+    let head = "balancing rule \"r\" fails in loop \"2100\" opened at segment #1: CLP03 is 0.05, but CAS03 adds up to 0.00 (off by 0.05); read from segments ";
+    assert_eq!(
+        rule(9).to_string(),
+        format!("{head}#1, #2, #3, #4, #5, #6, #7, #8, #9")
+    );
+    assert_eq!(
+        rule(10).to_string(),
+        format!("{head}#1, #2, #3, #4, #5, #6, #7, #8, #9, #10")
+    );
+    assert_eq!(
+        rule(11).to_string(),
+        format!("{head}#1, #2, #3, #4, #5, #6, #7, #8, #9, #10 and 1 more")
+    );
+}
+
+#[test]
+fn a_balance_whose_difference_overflows_leaves_it_out() {
+    let rule = Rule::BalanceMismatch {
+        rule: "r".into(),
+        loop_name: "2100".into(),
+        opened_at: None,
+        target: "CLP03".into(),
+        sum: "CAS03".into(),
+        expected: i128::MIN,
+        computed: 1,
+        scale: 0,
+        segments: vec![3],
+    };
+    assert_eq!(
+        rule.to_string(),
+        format!(
+            "balancing rule \"r\" fails in loop \"2100\" opened implicitly: CLP03 is {}, but CAS03 adds up to 1; read from segments #3",
+            i128::MIN
+        )
+    );
+}

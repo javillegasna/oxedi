@@ -9,8 +9,8 @@
 //! The folder holds: this file (the loop and diagnostic types, the SNIP
 //! levels and the byte quoting helper), `flat.rs` (the flat record of a
 //! diagnostic), `rule.rs` (the rules, their levels
-//! and variant names), `display.rs` (the message text of each rule) and
-//! `tests.rs`.
+//! and variant names), `display.rs` (the message text of each rule), `text.rs`
+//! (the pieces those messages are written from) and `tests.rs`.
 
 use std::fmt;
 
@@ -153,6 +153,7 @@ impl fmt::Display for Diagnostic {
 mod display;
 mod flat;
 mod rule;
+mod text;
 
 #[cfg(test)]
 mod tests;

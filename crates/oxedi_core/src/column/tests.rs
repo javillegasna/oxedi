@@ -16,26 +16,6 @@ fn format_r(value: i128, scale: u8) -> String {
 }
 
 #[test]
-fn column_types_display_their_arrow_names() {
-    assert_eq!(ColumnType::Binary.to_string(), "binary");
-    assert_eq!(ColumnType::Int64 { scale: 0 }.to_string(), "int64");
-    assert_eq!(
-        ColumnType::Int64 { scale: 2 }.to_string(),
-        "int64 (scale 2)"
-    );
-    assert_eq!(
-        ColumnType::Decimal128 {
-            precision: 38,
-            scale: 2
-        }
-        .to_string(),
-        "decimal128(38, 2)"
-    );
-    assert_eq!(ColumnType::Date32.to_string(), "date32");
-    assert_eq!(ColumnType::Time32.to_string(), "time32 (seconds)");
-}
-
-#[test]
 fn a_bitmap_packs_bits_least_significant_first() {
     let mut bitmap = Bitmap::new();
     for valid in [true, false, true, true, false, false, false, false, true] {

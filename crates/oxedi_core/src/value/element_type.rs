@@ -40,16 +40,28 @@ pub enum TypeCodeError {
     },
 }
 
+impl TypeCodeError {
+    /// Writes the text of [`TypeCodeError::UnknownType`] for `found`, for the
+    /// errors that carry the same rule.
+    pub(crate) fn write_unknown_type(f: &mut fmt::Formatter<'_>, found: &str) -> fmt::Result {
+        write!(
+            f,
+            "type {found:?} is not one of AN, ID, N0 to N9, R, DT, TM"
+        )
+    }
+
+    /// Writes the text of [`TypeCodeError::ScaleWithoutR`] for `kind`, for the
+    /// errors that carry the same rule.
+    pub(crate) fn write_scale_without_r(f: &mut fmt::Formatter<'_>, kind: &str) -> fmt::Result {
+        write!(f, "\"scale\" applies only to type R; found type {kind:?}")
+    }
+}
+
 impl fmt::Display for TypeCodeError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            TypeCodeError::UnknownType { found } => write!(
-                f,
-                "type {found:?} is not one of AN, ID, N0 to N9, R, DT, TM"
-            ),
-            TypeCodeError::ScaleWithoutR { kind } => {
-                write!(f, "\"scale\" applies only to type R; found type {kind:?}")
-            }
+            TypeCodeError::UnknownType { found } => TypeCodeError::write_unknown_type(f, found),
+            TypeCodeError::ScaleWithoutR { kind } => TypeCodeError::write_scale_without_r(f, kind),
         }
     }
 }

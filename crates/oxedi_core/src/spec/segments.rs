@@ -156,14 +156,9 @@ impl fmt::Display for ElementDefError {
             ElementDefError::DuplicateName { name, first } => {
                 write!(f, "name {name:?} is already used by position {first:?}")
             }
-            ElementDefError::UnknownType { found } => fmt::Display::fmt(
-                &TypeCodeError::UnknownType {
-                    found: found.clone(),
-                },
-                f,
-            ),
+            ElementDefError::UnknownType { found } => TypeCodeError::write_unknown_type(f, found),
             ElementDefError::ScaleWithoutR { kind } => {
-                fmt::Display::fmt(&TypeCodeError::ScaleWithoutR { kind: kind.clone() }, f)
+                TypeCodeError::write_scale_without_r(f, kind)
             }
             ElementDefError::MinAboveMax { min, max } => {
                 write!(f, "\"min\" {min} is greater than \"max\" {max}")
@@ -195,18 +190,14 @@ impl fmt::Display for ElementDefError {
                 length,
                 min,
                 max,
-            } => {
-                write!(
-                    f,
-                    "code {code:?} at codes[{index}] has length {length}; the element allows "
-                )?;
-                match (min, max) {
-                    (Some(min), Some(max)) => write!(f, "{min} to {max}"),
-                    (Some(min), None) => write!(f, "at least {min}"),
-                    (None, Some(max)) => write!(f, "at most {max}"),
-                    (None, None) => write!(f, "any length"),
+            } => write!(
+                f,
+                "code {code:?} at codes[{index}] has length {length}; the element allows {}",
+                Allowed {
+                    min: *min,
+                    max: *max
                 }
-            }
+            ),
             ElementDefError::DuplicateCode {
                 code,
                 first,
@@ -223,6 +214,24 @@ impl fmt::Display for ElementDefError {
                 f,
                 "\"codes\" applies to non-numeric types; type {kind:?} holds numbers, which one value can write several ways (1, 01, 1.0)"
             ),
+        }
+    }
+}
+
+/// The lengths an element allows, as a message spells them: `2 to 5`,
+/// `at least 2`, `at most 5` or `any length`.
+struct Allowed {
+    min: Option<usize>,
+    max: Option<usize>,
+}
+
+impl fmt::Display for Allowed {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match (self.min, self.max) {
+            (Some(min), Some(max)) => write!(f, "{min} to {max}"),
+            (Some(min), None) => write!(f, "at least {min}"),
+            (None, Some(max)) => write!(f, "at most {max}"),
+            (None, None) => write!(f, "any length"),
         }
     }
 }

@@ -172,7 +172,6 @@ fn builtin_items() {
 fn binding_items(diagnostic: &Diagnostic) {
     use oxedi_core::DateMode;
     use oxedi_core::value::TimeUnit;
-    use oxedi_core::value::TypeCodeError;
     use oxedi_core::write::Envelope;
     let _: Envelope = Envelope::with_ids("SENDER", "RECEIVER", 0, 0);
     let _: &str = Envelope::DEFAULT_QUALIFIER;

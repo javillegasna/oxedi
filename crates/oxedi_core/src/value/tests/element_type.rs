@@ -65,4 +65,7 @@ fn length_counts_digits_for_numbers() {
     assert!(an.length_in_range(b"123456", Some(6), Some(6)));
     assert!(!an.length_in_range(b"1234567", None, Some(6)));
     assert!(an.length_in_range(b"", None, None));
+    assert!(r.length_in_range(b"-12.5", Some(3), Some(3)));
+    assert!(!r.length_in_range(b"-12.5", Some(4), None));
+    assert!(!r.length_in_range(b"-12.5", None, Some(2)));
 }

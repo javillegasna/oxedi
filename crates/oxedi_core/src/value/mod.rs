@@ -1,5 +1,6 @@
-//! The rules that turn a caller's values into the cells of a column, and the
-//! calendar they share with the readers.
+//! The value types (the element type a spec declares and the column type it
+//! becomes), the rules that turn a caller's values into the cells of a
+//! column, and the calendar they share with the readers.
 //!
 //! The folder holds: `convert.rs` (integers, decimals, dates and times that
 //! either keep their value on the way to a column type or say why not,

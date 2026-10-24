@@ -18,7 +18,8 @@ from oxedi import ParseError  # noqa: E402
 from oxedi import edi_835_parser as compat  # noqa: E402
 from oxedi.edi_835_parser import _codes  # noqa: E402
 from oxedi.edi_835_parser._convert import ENCODING  # noqa: E402
-from oxedi.edi_835_parser._tables import source_segment  # noqa: E402
+from oxedi.edi_835_parser import _unpad  # noqa: E402
+from oxedi.edi_835_parser._unpad import source_segment  # noqa: E402
 
 n104_shim.apply()
 
@@ -315,6 +316,19 @@ def test_an_unknown_occurrence_names_the_table_column_and_occurrence():
         "table 'rows_organizations', column 'name': occurrence 'no_such' is not declared "
         "by ['1000A', '1000B'] or their parents"
     )
+
+
+def test_a_loop_without_occurrences_names_the_table_column_and_loop(monkeypatch):
+    monkeypatch.setattr(_unpad, "_loops", lambda: {"bare": {}})
+    with pytest.raises(ValueError) as caught:
+        source_segment("rows", "code", {"loop": "bare", "occurrence": "o", "element": 1})
+    assert str(caught.value) == "table 'rows', column 'code': loop 'bare' declares no occurrences"
+
+
+def test_a_loop_the_spec_does_not_have_names_the_table_column_and_loop():
+    with pytest.raises(ValueError) as caught:
+        source_segment("rows", "code", {"loop": "nope", "occurrence": "o", "element": 1})
+    assert str(caught.value) == "table 'rows', column 'code': loop 'nope' is not in the spec"
 
 
 def test_a_source_naming_neither_segment_nor_occurrence_is_refused():

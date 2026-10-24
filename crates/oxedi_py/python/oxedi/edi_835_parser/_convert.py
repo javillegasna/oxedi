@@ -115,3 +115,10 @@ def written(cell, convert=text, empty="", absent=None):
 def name(first, last):
     """``"first last"`` title-cased, with ``None`` spelled out as the library does."""
     return f"{first} {last}".title()
+
+
+def ints(column):
+    """An integer column as a NumPy array, with -1 for null."""
+    import pyarrow.compute as pc
+
+    return pc.fill_null(column, -1).to_numpy()

@@ -5,7 +5,9 @@
 //! values; [`OptionValue`] is that value read into Rust, so the rules here
 //! do not touch the C API.
 
-use oxedi_core::value::{ConvertError, days_from_civil, seconds_from, seconds_of_day, time_of_day};
+use oxedi_core::value::{
+    ConvertError, TimeUnit, days_from_civil, seconds_from, seconds_of_day, time_of_day,
+};
 use oxedi_core::write::Envelope;
 use oxedi_core::{Builtin, Delimiters};
 
@@ -76,9 +78,9 @@ pub enum Kind {
     Integer(i128),
     /// A DATE, as days since 1970-01-01.
     Date(i32),
-    /// A TIME or TIME_NS: `value` counted `per_second` to the second since
-    /// midnight (microseconds, or nanoseconds).
-    Time { value: i64, per_second: i64 },
+    /// A TIME or TIME_NS: `value` counted in `unit` since midnight
+    /// (microseconds, or nanoseconds).
+    Time { value: i64, unit: TimeUnit },
     /// A STRUCT, its fields in order.
     Struct(Vec<(String, OptionValue)>),
     /// Any other type, or several values.
@@ -281,23 +283,20 @@ fn date(value: &OptionValue) -> Result<i32, CopyError> {
 /// text.
 fn time(value: &OptionValue) -> Result<i32, CopyError> {
     match &value.kind {
-        Kind::Time {
-            value: ticks,
-            per_second,
-        } => clock(*ticks, *per_second, &value.shown),
+        Kind::Time { value: ticks, unit } => clock(*ticks, *unit, &value.shown),
         Kind::Text(text) => parse_time(text).ok_or_else(|| wrong("time", value, TIME)),
         Kind::Null => Err(CopyError::NoValue { name: "time" }),
         _ => Err(wrong("time", value, TIME)),
     }
 }
 
-/// Seconds since midnight of a time of `ticks` counted `per_second` to the
-/// second; `shown` is the value as the caller wrote it.
-fn clock(ticks: i64, per_second: i64, shown: &str) -> Result<i32, CopyError> {
+/// Seconds since midnight of a time of `ticks` counted in `unit`; `shown` is
+/// the value as the caller wrote it.
+fn clock(ticks: i64, unit: TimeUnit, shown: &str) -> Result<i32, CopyError> {
     let out_of_range = || CopyError::TimeOutOfRange {
         value: shown.to_owned(),
     };
-    seconds_from(ticks, per_second)
+    seconds_from(ticks, unit)
         .map_err(|error| match error {
             ConvertError::NotWholeSecond { .. } => CopyError::FractionalTime {
                 value: shown.to_owned(),

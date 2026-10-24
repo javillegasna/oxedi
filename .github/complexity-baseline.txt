@@ -81,7 +81,7 @@ crates/oxedi_core/src/spec/shape.rs	check_occurrences_shape	19	3
 crates/oxedi_core/src/spec/shape.rs	check_shape	69	5
 crates/oxedi_core/src/spec/shape.rs	mismatch	8	3
 crates/oxedi_core/src/spec/table_error.rs	fmt	37	2
-crates/oxedi_core/src/value/convert.rs	fmt	11	0	flat
+crates/oxedi_core/src/value/convert.rs	fmt	10	0	flat
 crates/oxedi_core/src/write/build.rs	loop_table	12	4
 crates/oxedi_core/src/write/build.rs	repeat_table	9	2
 crates/oxedi_core/src/write/codes.rs	resolve	13	3
@@ -107,10 +107,10 @@ crates/oxedi_duckdb/src/copy/error.rs	fmt	21	0	flat
 crates/oxedi_duckdb/src/copy/input.rs	field_type	25	0
 crates/oxedi_duckdb/src/copy/mod.rs	global_init	10	1
 crates/oxedi_duckdb/src/copy/options.rs	delimiters	10	3
-crates/oxedi_duckdb/src/copy/read.rs	option_value	14	1
+crates/oxedi_duckdb/src/copy/read.rs	option_value	13	1	flat
 crates/oxedi_duckdb/src/copy/sink.rs	append_table	9	3
-crates/oxedi_duckdb/src/copy/sink.rs	cell	18	1
-crates/oxedi_duckdb/src/copy/sink.rs	raw	27	1
+crates/oxedi_duckdb/src/copy/sink.rs	cell	18	1	flat
+crates/oxedi_duckdb/src/copy/sink.rs	raw	22	0	flat
 crates/oxedi_duckdb/src/error/mod.rs	fmt	22	0	flat
 crates/oxedi_duckdb/src/files/glob.rs	open	10	1
 crates/oxedi_duckdb/src/files/glob.rs	resolve	9	2

@@ -2,6 +2,7 @@ use super::super::convert::{
     float_integer, rescale, timestamp_date, unsigned_integer, whole_seconds, wide_integer,
 };
 use super::super::input::Unit;
+use oxedi_core::value::TimeUnit;
 
 #[test]
 fn integers_fit_or_say_why() {
@@ -68,18 +69,24 @@ fn timestamps_must_be_at_midnight() {
 
 #[test]
 fn times_must_be_whole_seconds() {
-    assert_eq!(whole_seconds(37_800_000_000, 1_000_000), Ok(37_800));
-    assert_eq!(whole_seconds(37_800_000_000_000, 1_000_000_000), Ok(37_800));
     assert_eq!(
-        whole_seconds(37_800_500_000_000, 1_000_000_000),
+        whole_seconds(37_800_000_000, TimeUnit::Microsecond),
+        Ok(37_800)
+    );
+    assert_eq!(
+        whole_seconds(37_800_000_000_000, TimeUnit::Nanosecond),
+        Ok(37_800)
+    );
+    assert_eq!(
+        whole_seconds(37_800_500_000_000, TimeUnit::Nanosecond),
         Err("37800500000000 is not a whole second".to_owned())
     );
     assert_eq!(
-        whole_seconds(1_500_000, 1_000_000),
+        whole_seconds(1_500_000, TimeUnit::Microsecond),
         Err("1500000 is not a whole second".to_owned())
     );
     assert_eq!(
-        whole_seconds(i64::MAX - i64::MAX % 1_000, 1_000),
+        whole_seconds(i64::MAX - i64::MAX % 1_000, TimeUnit::Millisecond),
         Err(format!("{} is out of range", i64::MAX - i64::MAX % 1_000))
     );
 }

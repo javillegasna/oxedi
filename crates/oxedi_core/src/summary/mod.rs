@@ -77,6 +77,11 @@ impl<'a> Reader<'a> {
             .ok_or_else(|| SummaryError::MissingTable {
                 summary: self.summary.to_string(),
                 table: table.to_string(),
+                present: self
+                    .tables
+                    .iter()
+                    .map(|table| table.name().to_owned())
+                    .collect(),
             })
     }
 

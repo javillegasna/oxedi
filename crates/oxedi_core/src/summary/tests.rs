@@ -142,9 +142,19 @@ fn tables_without_the_table_give_an_error() {
             SummaryError::MissingTable {
                 summary: text(name),
                 table: text(table),
+                present: Vec::new(),
             }
         );
     }
+    let services = Tables::new(vec![Table::new("services", Vec::new())]);
+    assert_eq!(
+        summarize(&spec, "count_claims", &services).unwrap_err(),
+        SummaryError::MissingTable {
+            summary: text("count_claims"),
+            table: text("claims"),
+            present: vec![text("services")],
+        }
+    );
 }
 
 #[test]
@@ -251,8 +261,19 @@ fn every_summary_error_displays_in_full() {
             SummaryError::MissingTable {
                 summary: text("count_claims"),
                 table: text("claims"),
+                present: vec![text("payments"), text("services")],
             },
-            "summary \"count_claims\" reads the table \"claims\", which the tables do not hold",
+            "summary \"count_claims\" reads the table \"claims\", which the tables do not hold; \
+             they hold: payments, services",
+        ),
+        (
+            SummaryError::MissingTable {
+                summary: text("payer"),
+                table: text("payments"),
+                present: Vec::new(),
+            },
+            "summary \"payer\" reads the table \"payments\", which the tables do not hold; they \
+             hold none",
         ),
         (
             SummaryError::MissingColumn {

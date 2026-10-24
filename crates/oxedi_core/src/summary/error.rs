@@ -20,6 +20,8 @@ pub enum SummaryError {
         summary: String,
         /// The table.
         table: String,
+        /// The tables the tables hold, in their order.
+        present: Vec<String>,
     },
     /// The table does not hold a column the summary reads.
     MissingColumn {
@@ -71,11 +73,17 @@ impl fmt::Display for SummaryError {
             SummaryError::Undeclared { summary, declared } => write!(
                 f,
                 "the spec declares no summary {summary:?}; it declares{}",
-                Declared(declared)
+                Names(declared)
             ),
-            SummaryError::MissingTable { summary, table } => write!(
+            SummaryError::MissingTable {
+                summary,
+                table,
+                present,
+            } => write!(
                 f,
-                "summary {summary:?} reads the table {table:?}, which the tables do not hold"
+                "summary {summary:?} reads the table {table:?}, which the tables do not hold; \
+                 they hold{}",
+                Names(present)
             ),
             SummaryError::MissingColumn {
                 summary,
@@ -122,10 +130,10 @@ impl fmt::Display for SummaryError {
 
 impl std::error::Error for SummaryError {}
 
-/// The declared summaries as the message lists them.
-struct Declared<'a>(&'a [String]);
+/// Names as a message lists them after a verb: `: a, b`, or ` none`.
+struct Names<'a>(&'a [String]);
 
-impl fmt::Display for Declared<'_> {
+impl fmt::Display for Names<'_> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self.0 {
             [] => write!(f, " none"),

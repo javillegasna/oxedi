@@ -44,7 +44,7 @@ pub enum SummaryDefError {
         table: String,
         /// The column.
         column: String,
-        /// What the column reads, e.g. `an alphanumeric (AN) element`.
+        /// What the column reads, e.g. `AN (string)`.
         found: String,
     },
     /// A `row` lists no field.

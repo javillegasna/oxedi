@@ -42,7 +42,7 @@ const STEPS: [Step; 11] = [
     compile_segment_section,
     compile_loop_occurrences,
     compile_version_section,
-    check_ambiguity,
+    check_trigger_ambiguity,
     compile_table_section,
     compile_balancing_section,
     compile_summary_section,
@@ -233,7 +233,7 @@ fn compile_version_section(build: &mut Build) -> Result<(), SpecError> {
     Ok(())
 }
 
-fn check_ambiguity(build: &mut Build) -> Result<(), SpecError> {
+fn check_trigger_ambiguity(build: &mut Build) -> Result<(), SpecError> {
     build.spec.check_ambiguity()
 }
 

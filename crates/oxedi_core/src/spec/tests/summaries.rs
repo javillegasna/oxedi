@@ -183,7 +183,13 @@ fn every_reason_a_summary_is_rejected_is_displayed_in_full() {
     ];
     for (summaries, expected) in cases {
         let err = spec_with(summaries).unwrap_err();
-        assert!(matches!(&err, SpecError::BadSummary { .. }), "{err:?}");
+        let SpecError::BadSummary { reason, .. } = &err else {
+            panic!("{err:?}");
+        };
+        assert!(
+            std::error::Error::source(reason.as_ref()).is_none(),
+            "{reason}"
+        );
         assert_eq!(err.to_string(), expected, "{summaries}");
     }
 }

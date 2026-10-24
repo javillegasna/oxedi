@@ -1,3 +1,4 @@
+import json
 import sys
 import warnings
 from decimal import Decimal
@@ -116,18 +117,15 @@ def test_a_summary_of_another_kind_is_named():
 
 
 def test_a_patch_that_removes_a_summarized_column_fails_to_load():
+    declared = json.loads(Spec.builtin().to_json())["tables"]["claims"]["columns"]
+    columns = sorted(name for name in declared if name != "patient_id")
     with pytest.raises(oxedi.SpecError) as info:
         Spec.builtin().patch(
             {"tables": {"claims": {"columns": {"patient_id": None}, "phi_seed": None}}}
         )
     assert str(info.value) == (
         'applying patch: summary "count_patients": distinct.column names the column "patient_id", '
-        'which the table "claims" does not declare; its columns are: charge_amount, claim_id, '
-        "claim_status, coverage_amount, discharge_fraction, drg_code, drg_weight, facility_type, "
-        "filing_indicator, frequency_code, group_number, header_number, patient_first_name, "
-        "patient_id_qualifier, patient_last_name, patient_responsibility, payer_control_number, "
-        "payment_amount, rendering_provider_entity_type, rendering_provider_id, "
-        "rendering_provider_id_qualifier, rendering_provider_name, statement_from, statement_to"
+        'which the table "claims" does not declare; its columns are: ' + ", ".join(columns)
     )
 
 

@@ -325,7 +325,7 @@ pub(crate) fn render_terms(spec: &Spec, per: LoopId, terms: &[BalanceTerm]) -> S
 }
 
 /// A scaled amount as decimal text with `scale` places, e.g. `-12.50`.
-pub(crate) fn render_amount(value: i128, scale: u8) -> String {
+pub fn render_amount(value: i128, scale: u8) -> String {
     let digits = value.unsigned_abs().to_string();
     let scale = usize::from(scale);
     let sign = if value < 0 { "-" } else { "" };

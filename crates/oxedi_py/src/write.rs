@@ -93,6 +93,30 @@ impl PyEnvelope {
         Ok(Self { inner })
     }
 
+    /// The qualifier of a sender or receiver id when none is given, the
+    /// default of `sender_qualifier` and `receiver_qualifier`.
+    #[classattr]
+    #[pyo3(name = "DEFAULT_QUALIFIER")]
+    fn default_qualifier() -> &'static str {
+        Envelope::DEFAULT_QUALIFIER
+    }
+
+    /// The usage indicator when none is given, the default of
+    /// `usage_indicator`: production data.
+    #[classattr]
+    #[pyo3(name = "DEFAULT_USAGE_INDICATOR")]
+    fn default_usage_indicator() -> &'static str {
+        Envelope::DEFAULT_USAGE_INDICATOR
+    }
+
+    /// The first control number when none is given, the default of
+    /// `control_number`.
+    #[classattr]
+    #[pyo3(name = "DEFAULT_CONTROL_NUMBER")]
+    fn default_control_number() -> u64 {
+        Envelope::DEFAULT_CONTROL_NUMBER
+    }
+
     /// The sender id.
     #[getter]
     fn sender_id(&self) -> &str {

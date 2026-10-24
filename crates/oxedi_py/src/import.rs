@@ -20,6 +20,7 @@ use arrow_array::types::{
 use arrow_array::{Array, ArrowPrimitiveType, RecordBatch, RecordBatchReader};
 use arrow_schema::{DataType, TimeUnit};
 use oxedi_core::project::table_columns;
+use oxedi_core::value;
 use oxedi_core::value::{
     date_from_midnight, date_from_millis, integer_from_f64, integer_from_u128, rescale,
     seconds_from,
@@ -259,8 +260,8 @@ fn decimal(array: &dyn Array, row: usize, scale: u8) -> Option<Result<i128, Stri
     Some(integer(array, row)?.and_then(|value| rescaled(i128::from(value), 0)))
 }
 
-/// The value at `row` of an array of type `T` and `per_unit`, which is the
-/// ticks in a day or in a second as the caller needs; `None` for another type.
+/// The value at `row` of an array of type `T` and `per_unit`, the ticks in a
+/// day or in a second as the caller needs; `None` for another type.
 fn ticks<T>(array: &dyn Array, row: usize, per_unit: i64) -> Option<(i64, i64)>
 where
     T: ArrowPrimitiveType,
@@ -269,18 +270,24 @@ where
     Some((primitive::<T>(array, row)?.into(), per_unit))
 }
 
+/// The core's unit for an Arrow time unit.
+fn core_unit(unit: TimeUnit) -> value::TimeUnit {
+    match unit {
+        TimeUnit::Second => value::TimeUnit::Second,
+        TimeUnit::Millisecond => value::TimeUnit::Millisecond,
+        TimeUnit::Microsecond => value::TimeUnit::Microsecond,
+        TimeUnit::Nanosecond => value::TimeUnit::Nanosecond,
+    }
+}
+
 /// A timestamp's value and the ticks in a day of its unit.
 fn timestamp(array: &dyn Array, row: usize, unit: TimeUnit) -> Option<(i64, i64)> {
-    const DAY_SECONDS: i64 = 86_400;
+    let per_day = core_unit(unit).ticks_per_day();
     match unit {
-        TimeUnit::Second => ticks::<TimestampSecondType>(array, row, DAY_SECONDS),
-        TimeUnit::Millisecond => ticks::<TimestampMillisecondType>(array, row, DAY_SECONDS * 1_000),
-        TimeUnit::Microsecond => {
-            ticks::<TimestampMicrosecondType>(array, row, DAY_SECONDS * 1_000_000)
-        }
-        TimeUnit::Nanosecond => {
-            ticks::<TimestampNanosecondType>(array, row, DAY_SECONDS * 1_000_000_000)
-        }
+        TimeUnit::Second => ticks::<TimestampSecondType>(array, row, per_day),
+        TimeUnit::Millisecond => ticks::<TimestampMillisecondType>(array, row, per_day),
+        TimeUnit::Microsecond => ticks::<TimestampMicrosecondType>(array, row, per_day),
+        TimeUnit::Nanosecond => ticks::<TimestampNanosecondType>(array, row, per_day),
     }
 }
 
@@ -301,16 +308,19 @@ fn date(array: &dyn Array, row: usize) -> Option<Result<i32, String>> {
 
 /// A time's value and the ticks in a second of its unit.
 fn time_ticks(array: &dyn Array, row: usize) -> Option<(i64, i64)> {
+    let per_second = |unit| core_unit(unit).ticks_per_second();
     match array.data_type() {
-        DataType::Time32(TimeUnit::Second) => ticks::<Time32SecondType>(array, row, 1),
-        DataType::Time32(TimeUnit::Millisecond) => {
-            ticks::<Time32MillisecondType>(array, row, 1_000)
+        DataType::Time32(unit @ TimeUnit::Second) => {
+            ticks::<Time32SecondType>(array, row, per_second(*unit))
         }
-        DataType::Time64(TimeUnit::Microsecond) => {
-            ticks::<Time64MicrosecondType>(array, row, 1_000_000)
+        DataType::Time32(unit @ TimeUnit::Millisecond) => {
+            ticks::<Time32MillisecondType>(array, row, per_second(*unit))
         }
-        DataType::Time64(TimeUnit::Nanosecond) => {
-            ticks::<Time64NanosecondType>(array, row, 1_000_000_000)
+        DataType::Time64(unit @ TimeUnit::Microsecond) => {
+            ticks::<Time64MicrosecondType>(array, row, per_second(*unit))
+        }
+        DataType::Time64(unit @ TimeUnit::Nanosecond) => {
+            ticks::<Time64NanosecondType>(array, row, per_second(*unit))
         }
         _ => None,
     }

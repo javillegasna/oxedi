@@ -7,12 +7,21 @@
 //! `StubInfo::modules` and `Module::format_with_config`, which are public but
 //! undocumented: check them when bumping the crate.
 //!
-//! A default the generator could not write renders as `= ...`; the stub is
+//! A default the generator could not write renders as `= ...` (enum members
+//! excepted); the stub is
 //! refused then, so the default is written at the source instead.
 
 use std::error::Error;
 use std::fs;
 use std::process::ExitCode;
+
+/// An enum member (`NAME = ...`) is how a stub lists a member; it carries no
+/// default.
+fn is_enum_member(line: &str) -> bool {
+    line.trim().strip_suffix(" = ...").is_some_and(|name| {
+        !name.is_empty() && name.chars().all(|c| c.is_alphanumeric() || c == '_')
+    })
+}
 
 const MODULE: &str = "oxedi._core";
 
@@ -42,7 +51,7 @@ fn run() -> Result<(), Box<dyn Error>> {
     let unwritten: Vec<String> = stub
         .lines()
         .enumerate()
-        .filter(|(_, line)| line.contains("= ..."))
+        .filter(|(_, line)| line.contains("= ...") && !is_enum_member(line))
         .map(|(at, line)| format!("  line {}: {}", at + 1, line.trim()))
         .collect();
     if !unwritten.is_empty() {

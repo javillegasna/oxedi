@@ -146,7 +146,7 @@ fn macro_parameter_without_a_name() {
 fn unknown_version() {
     assert_eq!(
         SchemaError::UnknownVersion {
-            source: oxedi_core::Builtin::find("835", "6020").unwrap_err(),
+            source: oxedi_core::Builtin::find_text("835", "6020").unwrap_err(),
         }
         .to_string(),
         "oxedi_schema: unknown version \"6020\"; version must be one of \"5010\", \"4010\""

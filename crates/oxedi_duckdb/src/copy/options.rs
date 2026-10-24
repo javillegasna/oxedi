@@ -248,7 +248,7 @@ fn line_break(value: &OptionValue) -> Result<bool, CopyError> {
 /// The version option, the fallback built-in's version when it is not given.
 fn version(given: &[(String, OptionValue)]) -> Result<String, CopyError> {
     match lookup(given, "version").map(|value| (&value.kind, value)) {
-        None => Ok(Builtin::fallback().version.to_owned()),
+        None => Ok(Builtin::fallback().version.text().to_owned()),
         Some((Kind::Text(version), _)) => Ok(version.clone()),
         Some((Kind::Null, _)) => Err(CopyError::NoValue { name: "version" }),
         Some((_, value)) => Err(wrong("version", value, VERSION)),

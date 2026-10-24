@@ -5,7 +5,7 @@ import pytest
 
 import oxedi
 from conftest import LARGEST, read
-from oxedi import Spec, SpecError
+from oxedi import Spec, SpecError, Version
 
 PATCH = {"loops": {"ZZ": {"parent": "2100", "trigger": {"segment": "ZZ1"}}}}
 
@@ -92,6 +92,21 @@ def test_the_builtins_by_version():
     assert five.to_json() == Spec.builtin().to_json()
     assert json.loads(four.to_json())["version"]["values"][0] == "004010X091A1"
     assert json.loads(five.to_json())["version"]["values"] == ["005010X221A1"]
+
+
+def test_a_version_names_its_release():
+    assert str(Version.V5010) == "5010"
+    assert Version.V4010.text == "4010"
+    assert Version.V5010 != Version.V4010
+    assert len({Version.V5010, Version.V5010, Version.V4010}) == 2
+    assert Spec.DEFAULT_VERSION is Version.V5010 or Spec.DEFAULT_VERSION == Version.V5010
+
+
+def test_builtin_takes_a_version_or_its_text():
+    assert Spec.builtin(Version.V4010).to_json() == Spec.builtin("4010").to_json()
+    assert Spec.builtin(Version.V5010).to_json() == Spec.builtin().to_json()
+    with pytest.raises(TypeError):
+        Spec.builtin(4010)  # type: ignore[arg-type]
 
 
 def test_builtin_runtime_parameters_are_pinned():

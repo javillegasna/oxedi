@@ -1,3 +1,4 @@
-# pyo3 shows a default that is a Rust constant as `...` in the runtime signature; the stub carries
-# the constant's value, and test_spec.py pins the runtime parameters.
-oxedi._core.Spec.builtin
+# The stub lists the members of `Version` as an enum does (`NAME = ...`); at runtime they are
+# instances of the native class.
+oxedi._core.Version.V5010
+oxedi._core.Version.V4010

@@ -34,7 +34,7 @@ impl BuiltinSchema {
 
     /// The version the spec covers, as `version :=` names it.
     pub fn version(&self) -> &'static str {
-        self.builtin.version
+        self.builtin.version.text()
     }
 
     /// The spec.
@@ -112,7 +112,7 @@ impl Builtins {
     /// has an entry this table does not describe.
     pub fn by_version(&self, version: &str) -> Result<&BuiltinSchema, UnknownVersion> {
         let transaction = Builtin::fallback().transaction;
-        let found = Builtin::find(transaction, version)?;
+        let found = Builtin::find_text(transaction, version)?;
         self.of(found).ok_or_else(|| UnknownVersion {
             transaction: transaction.to_owned(),
             version: version.to_owned(),

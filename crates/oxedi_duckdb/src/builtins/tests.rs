@@ -16,7 +16,7 @@ fn every_registry_entry_has_a_schema_at_its_position() {
     let schemas: Vec<_> = builtins.iter().collect();
     assert_eq!(schemas.len(), oxedi_core::Builtin::all().len());
     for (schema, known) in schemas.iter().zip(oxedi_core::Builtin::all()) {
-        assert_eq!(schema.version(), known.version);
+        assert_eq!(schema.version(), known.version.text());
         assert!(std::ptr::eq(builtins.of(known).unwrap(), *schema));
     }
 }
@@ -26,7 +26,7 @@ fn the_default_is_5010_and_4010_follows() {
     let builtins = Builtins::load();
     assert_eq!(
         builtins.default().version(),
-        oxedi_core::Builtin::DEFAULT_VERSION
+        oxedi_core::Builtin::DEFAULT_VERSION.text()
     );
     assert_eq!(
         builtins.by_version("4010").map(|b| b.version()).ok(),

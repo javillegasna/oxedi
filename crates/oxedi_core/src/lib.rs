@@ -71,7 +71,7 @@ pub use spec::{
     AnchorChains, AnchorPositions, BalanceError, BalanceRule, BalanceTerm, Builtin, ColumnSource,
     Control, ControlCount, ControlError, DeclaredVersion, ElementDef, ElementDefError, ElementType,
     LoopDef, LoopId, LoopSegments, Pick, Repeat, SegmentDef, Spec, SpecError, TableDef,
-    TableDefError, Trigger, UnknownVersion, VersionError, merge_patch,
+    TableDefError, Trigger, UnknownVersion, Version, VersionError, merge_patch,
 };
 pub use tokenizer::Tokenizer;
 pub use tree::{LoopTree, Node, NodeId, TreeBuilder};

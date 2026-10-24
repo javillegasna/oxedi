@@ -60,32 +60,25 @@ const EDI_835_PARSER_PATCH: &str = "EDI_835_PARSER_PATCH";
 
 pyo3_stub_gen::module_variable!("oxedi._core", EDI_835_PARSER_PATCH, String);
 
-/// Registers one class or function of the module.
+/// Registers one member of the module.
 type Register = fn(&Bound<'_, PyModule>) -> PyResult<()>;
 
 /// The `oxedi._core` extension module.
 #[pymodule]
 #[pyo3(name = "_core")]
 fn core_module(m: &Bound<'_, PyModule>) -> PyResult<()> {
-    add_exceptions(m)?;
-    add_classes(m)?;
-    add_functions(m)?;
+    members().into_iter().try_for_each(|add| add(m))?;
     m.add(
         EDI_835_PARSER_PATCH,
         include_str!("../../oxedi_core/specs/edi_835_parser.json"),
     )
 }
 
-/// The exceptions the module raises.
-fn add_exceptions(m: &Bound<'_, PyModule>) -> PyResult<()> {
-    let py = m.py();
-    m.add("ParseError", py.get_type::<document::ParseError>())?;
-    m.add("SpecError", py.get_type::<spec::SpecError>())
-}
-
-/// Every class of the module.
-fn add_classes(m: &Bound<'_, PyModule>) -> PyResult<()> {
-    let classes: [Register; 14] = [
+/// Every exception, class and function of the module, one registration each.
+fn members() -> [Register; 22] {
+    [
+        |m| m.add("ParseError", m.py().get_type::<document::ParseError>()),
+        |m| m.add("SpecError", m.py().get_type::<spec::SpecError>()),
         |m| m.add_class::<diagnostic::PyDiagnostic>(),
         |m| m.add_class::<document::PyDelimiters>(),
         |m| m.add_class::<document::PyDocument>(),
@@ -100,21 +93,13 @@ fn add_classes(m: &Bound<'_, PyModule>) -> PyResult<()> {
         |m| m.add_class::<tables::PyTables>(),
         |m| m.add_class::<write::PyEnvelope>(),
         |m| m.add_class::<write::PyWriteFinding>(),
-    ];
-    classes.into_iter().try_for_each(|add| add(m))
-}
-
-/// Every function of the module.
-fn add_functions(m: &Bound<'_, PyModule>) -> PyResult<()> {
-    let functions: [Register; 6] = [
         |m| m.add_function(wrap_pyfunction!(diagnostic::external_diagnostic, m)?),
         |m| m.add_function(wrap_pyfunction!(diagnostic::mask_findings, m)?),
         |m| m.add_function(wrap_pyfunction!(parse::parse, m)?),
         |m| m.add_function(wrap_pyfunction!(parse::loop_paths, m)?),
         |m| m.add_function(wrap_pyfunction!(stream::stream, m)?),
         |m| m.add_function(wrap_pyfunction!(write::write_tables, m)?),
-    ];
-    functions.into_iter().try_for_each(|add| add(m))
+    ]
 }
 
 // The description of the module that the `stub_gen` binary writes as

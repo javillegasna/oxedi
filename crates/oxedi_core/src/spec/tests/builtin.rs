@@ -100,3 +100,20 @@ fn find_takes_a_typed_version() {
     );
     assert_eq!(Builtin::DEFAULT_VERSION, Version::V5010);
 }
+
+#[test]
+fn every_version_is_listed_in_all_at_its_index() {
+    // The exhaustive match stops compiling when a variant is added, until the
+    // index and the count here, and so `Version::ALL`, name it.
+    const VARIANTS: usize = 2;
+    fn index(version: Version) -> usize {
+        match version {
+            Version::V5010 => 0,
+            Version::V4010 => 1,
+        }
+    }
+    assert_eq!(Version::ALL.len(), VARIANTS);
+    for (at, version) in Version::ALL.into_iter().enumerate() {
+        assert_eq!(index(version), at);
+    }
+}

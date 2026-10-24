@@ -99,14 +99,19 @@ def test_a_version_names_its_release():
     assert Version.V4010.text == "4010"
     assert Version.V5010 != Version.V4010
     assert len({Version.V5010, Version.V5010, Version.V4010}) == 2
-    assert Spec.DEFAULT_VERSION is Version.V5010 or Spec.DEFAULT_VERSION == Version.V5010
+    assert Spec.DEFAULT_VERSION == Version.V5010
+    assert Version.V5010 != 0
+    assert Version.V5010 != 5010
 
 
 def test_builtin_takes_a_version_or_its_text():
     assert Spec.builtin(Version.V4010).to_json() == Spec.builtin("4010").to_json()
     assert Spec.builtin(Version.V5010).to_json() == Spec.builtin().to_json()
-    with pytest.raises(TypeError):
+    with pytest.raises(TypeError) as info:
         Spec.builtin(4010)  # type: ignore[arg-type]
+    assert str(info.value) == (
+        "Spec.builtin(version=4010): version must be an oxedi.Version or its text, not int"
+    )
 
 
 def test_builtin_runtime_parameters_are_pinned():

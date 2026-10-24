@@ -281,45 +281,35 @@ fn keep_mode_leaves_date_datums_as_written() {
     assert_eq!(datums, vec![b"2024AB10".as_slice(), b"240310".as_slice()]);
 }
 
+/// `Processor::run` without a mask, checked against feeding the processor
+/// by hand; the tables it fills.
+fn plain_run_matches_feeding(spec: &Spec, document: &Document) -> Tables {
+    let (tables, diagnostics) = Processor::run(spec, document, None);
+    let mut processor = Processor::new(spec, document.delimiters());
+    let mut by_hand = Vec::new();
+    let mut segment = Segment::empty();
+    let mut index = 0;
+    while document.segment_into(index, &mut segment) {
+        by_hand.extend_from_slice(processor.feed(&segment).diagnostics());
+        index += 1;
+    }
+    by_hand.extend_from_slice(processor.finish().diagnostics());
+    assert_eq!(by_hand, diagnostics);
+    assert_eq!(processor.take_tables(), tables);
+    tables
+}
+
 #[test]
 fn without_a_mask_nothing_changes() {
     let spec = Spec::builtin_835();
     let text = interchange(&[&bad_claims()]);
     let document = Document::with_delimiters(text.as_bytes(), delimiters()).unwrap();
-    let (tables, diagnostics) = Processor::run(&spec, &document, None);
-    let mut processor = Processor::new(&spec, &delimiters());
-    let mut by_hand = Vec::new();
-    let mut segment = Segment::empty();
-    let mut index = 0;
-    while document.segment_into(index, &mut segment) {
-        by_hand.extend_from_slice(processor.feed(&segment).diagnostics());
-        index += 1;
-    }
-    by_hand.extend_from_slice(processor.finish().diagnostics());
-    assert_eq!(by_hand, diagnostics);
-    assert_eq!(processor.take_tables(), tables);
+    let tables = plain_run_matches_feeding(&spec, &document);
     assert_eq!(
         cell(&tables, "claims", "claim_id", 1),
         Cell::Binary(b"C2"),
         "the plain run keeps the values"
     );
-}
-
-#[test]
-fn none_mask_is_the_plain_run() {
-    let spec = Spec::builtin_835();
     let bytes = include_bytes!("../../tests/fixtures/balanced_5010_sample.txt");
-    let document = Document::parse(&bytes[..]).unwrap();
-    let (tables, diagnostics) = Processor::run(&spec, &document, None);
-    let mut processor = Processor::new(&spec, document.delimiters());
-    let mut by_hand = Vec::new();
-    let mut segment = Segment::empty();
-    let mut index = 0;
-    while document.segment_into(index, &mut segment) {
-        by_hand.extend_from_slice(processor.feed(&segment).diagnostics());
-        index += 1;
-    }
-    by_hand.extend_from_slice(processor.finish().diagnostics());
-    assert_eq!(by_hand, diagnostics);
-    assert_eq!(processor.take_tables(), tables);
+    plain_run_matches_feeding(&spec, &Document::parse(&bytes[..]).unwrap());
 }

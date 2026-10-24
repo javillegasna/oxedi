@@ -189,7 +189,7 @@ fn builtin_of<'b>(
     let picked = if bound.forced {
         bound.builtins.by_version(bound.bound_version).ok()
     } else {
-        Some(bound.builtins.select(document.segments()))
+        bound.builtins.select(document.segments())
     };
     picked.ok_or_else(|| ReadError::Internal {
         message: format!(

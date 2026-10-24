@@ -955,3 +955,30 @@ fn flat_of_an_external_finding() {
     assert_eq!(flat.origin, "pyx12");
     assert_eq!(flat.code, Some("8"));
 }
+
+#[test]
+fn origin_and_code_read_the_rule_without_formatting_it() {
+    let own = Diagnostic::new(
+        Rule::ByteOrderMark,
+        None,
+        None,
+        None,
+        Vec::new(),
+        Vec::new(),
+    );
+    assert_eq!((own.origin(), own.code()), (PARSER_ORIGIN, None));
+    let external = Diagnostic::new(
+        Rule::External {
+            origin: "pyx12".into(),
+            code: Some("8".into()),
+            message: "m".into(),
+            level: SnipLevel::L2,
+        },
+        None,
+        None,
+        None,
+        Vec::new(),
+        Vec::new(),
+    );
+    assert_eq!((external.origin(), external.code()), ("pyx12", Some("8")));
+}

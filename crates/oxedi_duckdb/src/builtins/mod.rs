@@ -93,27 +93,31 @@ impl Builtins {
         self.schemas.iter()
     }
 
-    /// The schema of the core's built-in `builtin`; the default's when the
-    /// core's registry has no such entry.
-    fn of(&self, builtin: &Builtin) -> &BuiltinSchema {
-        self.schemas
+    /// The schema of the core's built-in `builtin`: schemas are kept in the
+    /// registry's order, so the entry sits at the same position.
+    fn of(&self, builtin: &Builtin) -> Option<&BuiltinSchema> {
+        let at = Builtin::all()
             .iter()
-            .find(|schema| {
-                schema.builtin.transaction == builtin.transaction
-                    && schema.builtin.version == builtin.version
-            })
-            .unwrap_or_else(|| self.default())
+            .position(|known| std::ptr::eq(known, builtin))?;
+        self.schemas.get(at)
     }
 
-    /// The spec used when a file declares no known version.
+    /// The spec used when a file declares no known version: the registry's
+    /// first entry, which `load` described first.
     pub fn default(&self) -> &BuiltinSchema {
-        // `load` maps the registry in order, whose first entry is the fallback.
         &self.schemas[0]
     }
 
-    /// The built-in of `version`.
+    /// The built-in of `version`; `UnknownVersion` also when the registry
+    /// has an entry this table does not describe.
     pub fn by_version(&self, version: &str) -> Result<&BuiltinSchema, UnknownVersion> {
-        Builtin::find(Builtin::fallback().transaction, version).map(|builtin| self.of(builtin))
+        let transaction = Builtin::fallback().transaction;
+        let found = Builtin::find(transaction, version)?;
+        self.of(found).ok_or_else(|| UnknownVersion {
+            transaction: transaction.to_owned(),
+            version: version.to_owned(),
+            known: Vec::new(),
+        })
     }
 
     /// The built-in of `version`, the default for `None`.
@@ -121,8 +125,12 @@ impl Builtins {
         version.map_or_else(|| Ok(self.default()), |version| self.by_version(version))
     }
 
-    /// The built-in of the version the segments declare, else the default.
-    pub fn select<'s>(&self, segments: impl IntoIterator<Item = Segment<'s>>) -> &BuiltinSchema {
+    /// The built-in of the version the segments declare, else the default;
+    /// `None` when the registry has an entry this table does not describe.
+    pub fn select<'s>(
+        &self,
+        segments: impl IntoIterator<Item = Segment<'s>>,
+    ) -> Option<&BuiltinSchema> {
         self.of(Builtin::select(segments))
     }
 }

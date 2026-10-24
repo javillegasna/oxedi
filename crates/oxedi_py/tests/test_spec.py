@@ -1,3 +1,4 @@
+import inspect
 import json
 
 import pytest
@@ -91,6 +92,14 @@ def test_the_builtins_by_version():
     assert five.to_json() == Spec.builtin().to_json()
     assert json.loads(four.to_json())["version"]["values"][0] == "004010X091A1"
     assert json.loads(five.to_json())["version"]["values"] == ["005010X221A1"]
+
+
+def test_builtin_runtime_parameters_are_pinned():
+    # The stub test allows the default's runtime text (`...`); the parameters stay pinned here.
+    parameters = inspect.signature(Spec.builtin).parameters
+    assert list(parameters) == ["version"]
+    assert parameters["version"].kind is inspect.Parameter.POSITIONAL_OR_KEYWORD
+    assert Spec.builtin().to_json() == Spec.builtin(Spec.DEFAULT_VERSION).to_json()
 
 
 def test_builtin_without_a_version_is_the_default():

@@ -207,6 +207,10 @@ make stubs      # regenerate the native module's type stub (CI fails on drift)
 make stubtest   # check the stub against the built module and the public API
 ```
 
+`make stubs` links the libpython of `.venv` (or of `python3` without it), so that Python must have a
+shared libpython: uv's Pythons, distribution and Homebrew packages and framework builds do; a
+static pyenv build does not.
+
 ## DuckDB extension
 
 From the repository root (Rust, Python 3 and the `extension-ci-tools` submodule are needed):

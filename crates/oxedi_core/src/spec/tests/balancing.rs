@@ -307,16 +307,9 @@ fn amounts_render_with_their_scale_and_sign() {
     assert_eq!(render_amount(-5, 2), "-0.05");
     assert_eq!(render_amount(0, 2), "0.00");
     assert_eq!(render_amount(-120, 0), "-120");
+    assert_eq!(render_amount(12345, 0), "12345");
     assert_eq!(
         render_amount(i128::MIN, 2),
         "-1701411834604692317316873037158841057.28"
     );
-}
-
-#[test]
-fn render_amount_pads_and_signs() {
-    assert_eq!(render_amount(-5, 2), "-0.05");
-    assert_eq!(render_amount(12345, 0), "12345");
-    assert_eq!(render_amount(0, 2), "0.00");
-    assert!(!render_amount(i128::MIN, 2).is_empty());
 }

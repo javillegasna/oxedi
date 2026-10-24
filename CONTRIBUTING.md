@@ -349,12 +349,28 @@ target may only shrink. Two checks hold that line:
 - `STALE`: an entry is better than recorded, or its function is within the targets or gone.
   Run `make complexity-update` and commit the baseline with the refactor, so the baseline
   shrinks.
+- `TOUCHED`: this change modifies a function that is in the baseline and leaves it over a
+  target. See [Touch it, fix it](#touch-it-fix-it).
 - `MOVED`: a file was moved or renamed, and a function in it matches its old entry, no worse.
   Run `make complexity-update` to record the new path.
+
+**Touch it, fix it.** A change that modifies a function listed in the baseline must leave it
+within the targets (CCN 7 or less, nesting 3 or less). The check diffs your change against the
+base (`origin/master` locally, the base of the push or pull request in CI; set `COMPLEXITY_BASE`
+to use another ref) and reports a `TOUCHED` line for each such function that is still over a
+target. A function is modified when a changed line, committed or not, falls inside it; moving a
+file modifies nothing. To fix it, find the cause and remove it with the fitting pattern or data
+structure: a table instead of a chain of `if`s, an enum with a method instead of repeated
+`match`es, a parser that reads one step per function. Splitting the function into pieces that
+call each other only moves the complexity, so it does not count. Flat per-variant dispatch is
+the one exception: record it with `make complexity-update ACCEPT='path::function'`, which marks
+its baseline line `flat`, and explain it in the pull request's **Intent**. When the check
+cannot find the base (no `origin/master`, a shallow clone), it prints one line saying it skipped
+the touched check and does not fail.
 
 **Reviewed exceptions.** Adding a variant to a flat dispatch, such as one more arm in an
 error's `Display`, raises its CCN by one and is acceptable. Record it with
 `make complexity-update ACCEPT='path::function'` (several separated by spaces) and say why in
-the pull request's **Intent**. Nothing else is accepted this way: split the function instead.
+the pull request's **Intent**. Nothing else is accepted this way: fix the cause instead.
 On a pull request, CI lists every added or raised entry in the job summary, and changes to the
 baseline or `clippy.toml` need the maintainer's review (`.github/CODEOWNERS`).

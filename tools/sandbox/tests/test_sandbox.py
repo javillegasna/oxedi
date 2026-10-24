@@ -2,6 +2,7 @@
 whole runner against a fake `docker` (fake_docker.py), so every refusal, error line and kill is
 proven on the arguments docker would receive."""
 
+import io
 import json
 import os
 import shutil
@@ -21,6 +22,7 @@ REPO = HERE.parents[2]
 sys.path.insert(0, str(SCRIPT.parent))
 import arguments  # noqa: E402
 import layout  # noqa: E402
+import sandbox  # noqa: E402
 import storage  # noqa: E402
 
 UID, GID = os.getuid(), os.getgid()
@@ -122,7 +124,7 @@ class World(unittest.TestCase):
         self.bin = self.tmp / "bin"
         self.bin.mkdir()
         shim = self.bin / "docker"
-        shim.write_text(f'#!/bin/sh\nexec "{sys.executable}" "{HERE / "fake_docker.py"}" "$@"\n')
+        shim.write_text(f'#!/bin/sh\nexec "{sys.executable}" -I "{HERE / "fake_docker.py"}" "$@"\n')
         shim.chmod(0o755)
 
     def tearDown(self):
@@ -150,7 +152,7 @@ class World(unittest.TestCase):
 
     def start(self, checkout: Path, **extra: str) -> subprocess.Popen:
         return subprocess.Popen(
-            [sys.executable, str(SCRIPT), "--image", "oxedi-sandbox:test", "--checkout", str(checkout)],
+            [sys.executable, "-I", str(SCRIPT), "--image", "oxedi-sandbox:test", "--checkout", str(checkout)],
             env=self.env(**extra), stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True,
         )
 
@@ -158,6 +160,12 @@ class World(unittest.TestCase):
         process = self.start(checkout, **extra)
         out, err = process.communicate(timeout=60)
         return subprocess.CompletedProcess(process.args, process.returncode, out, err)
+
+    def wait_for_run(self) -> None:
+        """Waits until the run-phase container of the fake docker has started."""
+        deadline = time.monotonic() + 20
+        while not (self.fake / "run.pid").exists() and time.monotonic() < deadline:
+            time.sleep(0.05)
 
     def calls(self) -> list[dict]:
         log = self.fake / "calls.jsonl"
@@ -555,9 +563,37 @@ class Runner(World):
         process.send_signal(signal.SIGINT)
         _, err = process.communicate(timeout=20)
         self.assertEqual(process.returncode, 130)
-        self.assertIn("sandbox: interrupted; the container, if it had started, was killed", err)
+        self.assertIn("sandbox: interrupted by SIGINT; the container, if it had started, was killed", err)
         name = f"oxedi-sandbox-{layout.path_hash(checkout)}"
         self.assertIn(["kill", name], [c["argv"] for c in self.calls()])
+
+    def test_sigterm_kills(self):
+        checkout = self.checkout()
+        process = self.start(checkout, FAKE_RUN_SLEEP="30")
+        self.wait_for_run()
+        process.send_signal(signal.SIGTERM)
+        _, err = process.communicate(timeout=20)
+        self.assertEqual(process.returncode, 143)
+        self.assertIn("sandbox: interrupted by SIGTERM; the container, if it had started, was killed", err)
+        self.assertNotIn("Traceback", err)
+        name = f"oxedi-sandbox-{layout.path_hash(checkout)}"
+        self.assertIn(["kill", name], [c["argv"] for c in self.calls()])
+
+    def test_a_failed_audit_keeps_the_first_error(self):
+        plan = mock.Mock()
+        failure = layout.SandboxError("git status failed in /c; the sandbox needs a git checkout: boom")
+        with (mock.patch.object(sandbox, "snapshot"),
+              mock.patch.object(sandbox, "phases", side_effect=sandbox.Stopped(signal.SIGINT)),
+              mock.patch.object(sandbox, "conclude", side_effect=failure),
+              mock.patch("sys.stderr", new_callable=io.StringIO) as err):
+            with self.assertRaises(sandbox.Stopped) as caught:
+                sandbox.audited(plan, "true")
+        self.assertEqual(caught.exception.signum, signal.SIGINT)
+        self.assertEqual(
+            err.getvalue(),
+            "sandbox: the audit failed as well, so review the checkout with git status and git diff: "
+            "git status failed in /c; the sandbox needs a git checkout: boom\n",
+        )
 
     def test_no_kill_after_a_normal_exit(self):
         self.assertEqual(self.sandbox(self.checkout()).returncode, 0)

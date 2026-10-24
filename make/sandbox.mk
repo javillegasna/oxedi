@@ -5,8 +5,11 @@
 
 ##@ Sandbox
 SANDBOX_DIR   := tools/sandbox
+# Every Python this file starts runs isolated (-I): a module a run left in the checkout, such as a
+# root hashlib.py, or a PYTHON* variable of the shell is never loaded.
+SANDBOX_PY    := $(PYTHON_BIN) -I
 # The tag is the first 12 hex digits of the Dockerfile's SHA-256, so a changed Dockerfile is a new tag.
-SANDBOX_HASH   = $(shell $(PYTHON_BIN) -c "import hashlib, pathlib; print(hashlib.sha256(pathlib.Path('$(SANDBOX_DIR)/Dockerfile').read_bytes()).hexdigest()[:12])")
+SANDBOX_HASH   = $(shell $(SANDBOX_PY) -c "import hashlib, pathlib; print(hashlib.sha256(pathlib.Path('$(SANDBOX_DIR)/Dockerfile').read_bytes()).hexdigest()[:12])")
 SANDBOX_IMAGE  = oxedi-sandbox:$(SANDBOX_HASH)
 
 # Two builds: the second reuses every layer and only adds the apt set, read from the first, as a label.
@@ -23,11 +26,11 @@ sandbox: ## run CMD over this checkout in a hardened container with no network (
 	@if command -v docker > /dev/null && ! docker image inspect $(SANDBOX_IMAGE) > /dev/null 2>&1; then \
 	  $(MAKE) --no-print-directory sandbox-image; \
 	fi
-	@$(PYTHON_BIN) $(SANDBOX_DIR)/sandbox.py --image $(SANDBOX_IMAGE) --checkout $(CURDIR)
+	@$(SANDBOX_PY) $(SANDBOX_DIR)/sandbox.py --image $(SANDBOX_IMAGE) --checkout $(CURDIR)
 
 # The host home path is an argument, so the check proves that path is not mounted.
 sandbox-check: ## prove the sandbox's isolation from inside it: every line of tools/sandbox/isolation-check.sh says ok
 	@$(MAKE) --no-print-directory sandbox CMD='bash $(SANDBOX_DIR)/isolation-check.sh "$(HOME)"'
 
 sandbox-clean: ## remove this checkout's sandbox storage (ALL=1: every checkout's and the shared caches)
-	@$(PYTHON_BIN) $(SANDBOX_DIR)/sandbox.py --clean $(if $(ALL),all,checkout) --checkout $(CURDIR)
+	@$(SANDBOX_PY) $(SANDBOX_DIR)/sandbox.py --clean $(if $(ALL),all,checkout) --checkout $(CURDIR)

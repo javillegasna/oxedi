@@ -14,7 +14,7 @@ class Clean(World):
 
     def clean(self, checkout, scope: str, **extra: str) -> subprocess.CompletedProcess:
         return subprocess.run(
-            [sys.executable, str(SCRIPT), "--clean", scope, "--checkout", str(checkout)],
+            [sys.executable, "-I", str(SCRIPT), "--clean", scope, "--checkout", str(checkout)],
             env=self.env(**extra), capture_output=True, text=True, check=False, timeout=60,
         )
 

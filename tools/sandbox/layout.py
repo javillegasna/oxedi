@@ -85,8 +85,10 @@ def outermost(paths: set[str]) -> set[str]:
 
 
 def git_run(root: Path, *args: str) -> tuple[list[str], list[str]]:
-    """The NUL-separated records `git <args> -z` prints in `root`, and the lines of its stderr."""
-    result = subprocess.run(["git", "-C", str(root), *args, "-z"], capture_output=True, check=False)
+    """The NUL-separated records `git <command> -z <options>` prints in `root`, and the lines of its
+    stderr. `-z` follows the command, so a pathspec after `--` may end the arguments."""
+    command, *options = args
+    result = subprocess.run(["git", "-C", str(root), command, "-z", *options], capture_output=True, check=False)
     stderr = os.fsdecode(result.stderr).strip()
     if result.returncode != 0:
         raise SandboxError(f"git {' '.join(args)} failed in {root}; the sandbox needs a git checkout: {stderr}")

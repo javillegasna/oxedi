@@ -13,7 +13,11 @@ host home other than that storage reaches it. Two phases, each in its own contai
 - run: the command, with no network and the cargo registry read-only.
 After the run, an audit lists every file it changed, every new path it left and every path it
 cannot read, and removes the Python caches and the built extension it may have left in the
-checkout.
+checkout. A dirty audit is recorded in the checkout's storage, and the next start refuses while a
+path it named is still as the run left it.
+
+Run it isolated (`python3 -I`), as make does, so no file in the checkout or variable of the shell
+can shadow a module it imports.
 
 usage: sandbox.py --image TAG --checkout DIR
        sandbox.py --clean {checkout,all} --checkout DIR
@@ -21,25 +25,46 @@ The command comes from SANDBOX_CMD. SANDBOX_CPUS (default: the daemon's CPUs min
 SANDBOX_MEMORY (GB; default 60 % of the daemon's memory) and SANDBOX_TIMEOUT (seconds; default
 3600) set the limits.
 Exit status: the command's; 3 when the audit found a change, a new path or a path it cannot read
-(whatever the command's status); 124 when it ran past the timeout; 130 on Ctrl-C; 2 when the
-sandbox refuses to start.
+(whatever the command's status); 124 when it ran past the timeout; 130 on Ctrl-C (SIGINT) and
+143 on SIGTERM; 2 when the sandbox refuses to start.
 """
 
 import argparse
 import os
 import shutil
+import signal
 import sys
 import time
 from dataclasses import dataclass
 from pathlib import Path
 
-from arguments import Limits, Phase, Runtime, docker_args, fetch_commands, run_command
-from audit import DIRTY_STATUS, audit, report, snapshot
-from layout import Checkout, SandboxError, container_name, path_hash, survey
-from lifecycle import daemon_info, explain, image_labels, limits_from, refuse_if_running, run_container, running
-from storage import Storage, cache_root, clean, empty_dir, prepare, storage_for
+# Isolated mode leaves the script's own directory out of sys.path; tools/ is read-only in a run.
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+
+from arguments import Limits, Phase, Runtime, docker_args, fetch_commands, run_command  # noqa: E402
+from audit import DIRTY_STATUS, Findings, Snapshot, audit, record, refuse_leftovers, report, snapshot  # noqa: E402
+from layout import Checkout, SandboxError, container_name, path_hash, survey  # noqa: E402
+from lifecycle import (  # noqa: E402
+    daemon_info, explain, image_labels, limits_from, refuse_if_running, run_container, running,
+)
+from storage import Storage, cache_root, clean, empty_dir, prepare, storage_for  # noqa: E402
 
 FETCH_BUDGET_S = 600
+# The signals that stop the runner the way Ctrl-C does: the container is killed and the checkout
+# audited before it exits 128 + the signal's number.
+STOP_SIGNALS = (signal.SIGINT, signal.SIGTERM)
+
+
+class Stopped(BaseException):
+    """A stop signal arrived; raised from its handler so every `finally` and the audit run."""
+
+    def __init__(self, signum: int):
+        super().__init__(signal.Signals(signum).name)
+        self.signum = signum
+
+
+def stop(signum: int, _frame) -> None:
+    raise Stopped(signum)
 
 
 
@@ -106,17 +131,28 @@ def phases(plan: Plan, command: str) -> int:
     return status if status != 0 else run_phase(plan, command)
 
 
+def conclude(before: Snapshot, plan: Plan) -> Findings:
+    """Audits the checkout, prints the findings and records them (or clears the record)."""
+    findings = audit(before, plan.checkout)
+    report(findings)
+    record(findings, plan.checkout.root, plan.storage.record)
+    return findings
+
+
 def audited(plan: Plan, command: str) -> int:
-    """Runs both phases, then audits the checkout, also after Ctrl-C or any other error."""
+    """Runs both phases, then audits the checkout, also after a stop signal or any other error.
+    When that audit fails too, its error is printed and the first one is raised."""
     before = snapshot(plan.checkout.root)
     try:
         status = phases(plan, command)
     except BaseException:
-        report(audit(before, plan.checkout))
+        try:
+            conclude(before, plan)
+        except BaseException as failed:
+            print(f"sandbox: the audit failed as well, so review the checkout with git status and git diff: {failed}",
+                  file=sys.stderr)
         raise
-    findings = audit(before, plan.checkout)
-    report(findings)
-    return DIRTY_STATUS if findings.dirty else status
+    return DIRTY_STATUS if conclude(before, plan).dirty else status
 
 
 def sandbox(image: str, checkout_dir: Path, env: dict[str, str]) -> int:
@@ -134,6 +170,7 @@ def sandbox(image: str, checkout_dir: Path, env: dict[str, str]) -> int:
     plan = Plan(image, checkout, storage_for(cache_root(env), checkout), runtime, limits_from(env, info))
     labels = image_labels(image)
     refuse_if_running(checkout.name)
+    refuse_leftovers(checkout.root, plan.storage.record)
     prepare(plan.storage, checkout)
     print(describe(plan, labels), file=sys.stderr)
     return audited(plan, command)
@@ -160,6 +197,8 @@ def main(argv: list[str]) -> int:
                         help="remove this checkout's storage, or all of the sandbox storage")
     parser.add_argument("--checkout", required=True, type=Path, help="the checkout to mount at /work")
     args = parser.parse_args(argv)
+    for signum in STOP_SIGNALS:
+        signal.signal(signum, stop)
     try:
         if args.clean is not None:
             return clean_storage(args.clean == "all", args.checkout.resolve(), dict(os.environ))
@@ -167,9 +206,9 @@ def main(argv: list[str]) -> int:
     except SandboxError as error:
         print(f"sandbox: {error}", file=sys.stderr)
         return 2
-    except KeyboardInterrupt:
-        print("sandbox: interrupted; the container, if it had started, was killed", file=sys.stderr)
-        return 130
+    except Stopped as stopped:
+        print(f"sandbox: interrupted by {stopped}; the container, if it had started, was killed", file=sys.stderr)
+        return 128 + stopped.signum
 
 
 if __name__ == "__main__":

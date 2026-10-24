@@ -1,5 +1,5 @@
-"""The sandbox's storage on the host: shared caches and each checkout's target/, venv and the
-empty file bound over every ignored file."""
+"""The sandbox's storage on the host: shared caches and each checkout's target/, venv, the
+empty file bound over every ignored file and the record of the last dirty audit."""
 
 import os
 import shutil
@@ -21,6 +21,8 @@ class Storage:
     venv: Path
     # An empty read-only file, bound over every file git ignores so a run cannot read it.
     empty: Path
+    # The paths the last dirty audit named, with what each was then; never mounted.
+    record: Path
 
 
 def cache_root(env: dict[str, str]) -> Path:
@@ -34,7 +36,9 @@ def cache_root(env: dict[str, str]) -> Path:
 def storage_for(cache: Path, checkout: Checkout) -> Storage:
     refuse_unsafe(cache, "storage")
     own = cache / path_hash(checkout.root)
-    return Storage(cache, cache / "cargo", cache / "uv", own / "target", own / "venv", own / "empty")
+    return Storage(
+        cache, cache / "cargo", cache / "uv", own / "target", own / "venv", own / "empty", own / "audit.json",
+    )
 
 
 def prepare(storage: Storage, checkout: Checkout) -> None:

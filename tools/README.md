@@ -28,7 +28,9 @@ The container `make sandbox` builds and tests in. `Dockerfile` is the pinned ima
 is the runner; its parts are `layout.py` (which paths are read-only, masked or hidden),
 `storage.py` (the storage on the host and `make sandbox-clean`), `arguments.py` (the `docker run`
 arguments of each phase), `lifecycle.py` (the daemon, the limits, one container's run and kill)
-and `audit.py` (what a run changed or left in the checkout). `isolation-check.sh` runs inside the
+and `audit.py` (what a run changed or left in the checkout, and the record that blocks the next
+start until it is gone). `isolation-check.sh` runs inside the
 container for `make sandbox-check`. `tests/sandbox.sh` runs the runner's tests against a fake
-`docker` (`tests/fake_docker.py`), so they need no Docker. CONTRIBUTING.md (Sandbox) explains
+`docker` (`tests/fake_docker.py`), so they need no Docker; those that go through `make` run it
+over a throwaway copy of the make files, never over this checkout. CONTRIBUTING.md (Sandbox) explains
 how to use it.

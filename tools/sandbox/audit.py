@@ -7,9 +7,15 @@ outputs and returns the findings. A changed file or a new path outside those out
 sandbox exit 3, whatever the command's status: the host would otherwise run or commit what the
 run wrote. The audit fails closed: so does a path it cannot read, a warning git prints while
 listing the checkout, and an output it cannot remove.
+
+A dirty audit is recorded in the checkout's storage, which no run can write: `leftovers` names
+the paths still as the run left them, and the next start refuses while there is one, because the
+host would otherwise run it (a planted `hashlib.py` or `GNUmakefile`) and the next snapshot would
+take it for the baseline.
 """
 
 import hashlib
+import json
 import os
 import stat
 import sys
@@ -18,13 +24,22 @@ from dataclasses import dataclass
 from fnmatch import fnmatch
 from pathlib import Path, PurePosixPath
 
-from layout import OUTPUT_FILES, OUTPUT_NAMES, OUTPUT_TOP, Checkout, git_records, git_run, is_output
+from layout import (
+    OUTPUT_FILES, OUTPUT_NAMES, OUTPUT_TOP, Checkout, SandboxError, git_records, git_run, is_output, refuse_unsafe,
+)
 from storage import remove
 
 DIRTY_STATUS = 3
 # Untracked files one by one; an ignored directory as one entry, not its contents; submodules not
 # entered, so git never reads a configuration the run could have written in one.
 STATUS = ("status", "--porcelain=v1", "--untracked-files=all", "--ignored=matching", "--ignore-submodules=all")
+# Names host tools look up in a directory without being told: make reads GNUmakefile and makefile
+# before Makefile, Python imports sitecustomize and usercustomize, pytest a conftest.py, direnv an
+# .envrc, cargo a .cargo/ and rustup a rust-toolchain of the directory or any parent. A *.py at
+# the root shadows a module for a Python started there.
+LOOKED_UP = ("GNUmakefile", "makefile", "sitecustomize.py", "usercustomize.py", "conftest.py", ".envrc", ".cargo",
+             "rust-toolchain*")
+UNREADABLE = "unreadable"
 
 
 @dataclass(frozen=True)
@@ -43,7 +58,9 @@ class Snapshot:
 @dataclass(frozen=True)
 class Findings:
     """What a run changed (tracked and untracked files), left (new paths, described), what the
-    audit could not read, what it removed and why it could not remove the rest."""
+    audit could not read, what it removed and why it could not remove the rest; then the new
+    paths host tools look up by name, and every path the findings name (relative, as git lists
+    them), which a dirty audit records."""
 
     changed: tuple[str, ...]
     changed_untracked: tuple[str, ...]
@@ -51,21 +68,28 @@ class Findings:
     unreadable: tuple[str, ...]
     removed: tuple[str, ...]
     failures: tuple[str, ...]
+    looked_up: tuple[str, ...]
+    paths: tuple[str, ...]
 
     @property
     def dirty(self) -> bool:
         return any((self.changed, self.changed_untracked, self.new, self.unreadable, self.failures))
 
     def lines(self) -> list[str]:
-        """One line per finding, in this order."""
+        """One line per finding, in this order, after the warning about the paths host tools
+        look up by name. The audit cannot tell who changed a file, the run or the host."""
+        warning = [
+            f"do not run make or any tool in this checkout until you remove {', '.join(self.looked_up)}: "
+            "host tools load them by name (make reads GNUmakefile and makefile before Makefile)"
+        ] if self.looked_up else []
         templates = (
-            (self.changed, "the run changed tracked file {}"),
-            (self.changed_untracked, "the run changed untracked file {}"),
+            (self.changed, "tracked file {} changed while the sandbox ran"),
+            (self.changed_untracked, "untracked file {} changed while the sandbox ran"),
             (self.new, "the run left a new path {}"),
             (self.unreadable, "unreadable: {}; the audit cannot tell what the run did there"),
             (self.failures, "cannot remove {}; remove it by hand"),
         )
-        return [template.format(item) for items, template in templates for item in items]
+        return warning + [template.format(item) for items, template in templates for item in items]
 
 
 def digest(path: Path) -> str:
@@ -144,25 +168,39 @@ def is_scrubbed(path: str) -> bool:
     return PurePosixPath(path).name in OUTPUT_NAMES or fnmatch(path, OUTPUT_FILES)
 
 
+def is_looked_up(path: str) -> bool:
+    parts = PurePosixPath(path).parts
+    named = any(fnmatch(part, name) for part in parts for name in LOOKED_UP)
+    return named or (len(parts) == 1 and path.endswith(".py"))
+
+
+def where(root: Path, error: OSError) -> str:
+    """The path an error names, relative to the checkout when it is inside it."""
+    failed = Path(error.filename or root)
+    return failed.relative_to(root).as_posix() if failed.is_relative_to(root) else str(failed)
+
+
 def reason(root: Path, error: OSError) -> str:
     """`path (why)`, the path relative to the checkout when it is inside it."""
-    where = Path(error.filename or root)
-    shown = where.relative_to(root).as_posix() if where.is_relative_to(root) else str(where)
-    return f"{shown} ({error.strerror or error})"
+    return f"{where(root, error)} ({error.strerror or error})"
 
 
 @dataclass(frozen=True)
 class Scrubbed:
+    """What the scrub removed, the directories it could not list and the outputs it could not
+    remove (`path (why)`), and the paths of those two."""
+
     removed: tuple[str, ...]
     unlisted: tuple[str, ...]
     failures: tuple[str, ...]
+    blocked: tuple[str, ...]
 
 
-def outputs(root: Path, skipped: set[str], unlisted: list[str]) -> Iterator[str]:
+def outputs(root: Path, skipped: set[str], unlisted: list[OSError]) -> Iterator[str]:
     """Every Python cache and built extension under `root`, found without walking into a skipped
-    path (what the run could not write, or its own storage) or into an output. A directory that
-    cannot be listed goes to `unlisted`, and the walk goes on."""
-    for directory, subdirs, files in os.walk(root, onerror=lambda error: unlisted.append(reason(root, error))):
+    path (what the run could not write, or its own storage) or into an output. The error of a
+    directory that cannot be listed goes to `unlisted`, and the walk goes on."""
+    for directory, subdirs, files in os.walk(root, onerror=unlisted.append):
         base = Path(directory).relative_to(root)
         doomed = [(base / name).as_posix() for name in subdirs + files if is_scrubbed((base / name).as_posix())]
         blocked = skipped.union(doomed)
@@ -172,31 +210,35 @@ def outputs(root: Path, skipped: set[str], unlisted: list[str]) -> Iterator[str]
 
 def scrub(root: Path, skipped: set[str]) -> Scrubbed:
     """Removes the outputs; one that cannot be removed is recorded, and the scrub goes on."""
-    removed, unlisted, failures = [], [], []
+    removed, unlisted, failures, failed = [], [], [], []
     for path in outputs(root, skipped, unlisted):
         try:
             remove(root / path)
             removed.append(path)
         except OSError as error:
             failures.append(reason(root, error))
-    return Scrubbed(tuple(sorted(removed)), tuple(unlisted), tuple(failures))
+            failed.append(path)
+    blocked = [where(root, error) for error in unlisted] + failed
+    return Scrubbed(tuple(sorted(removed)), tuple(reason(root, e) for e in unlisted), tuple(failures), tuple(blocked))
 
 
 def audit(before: Snapshot, checkout: Checkout) -> Findings:
     """Compares the checkout with `before` and removes the outputs the run may have left."""
     root = checkout.root
     after = snapshot(root)
-    new = sorted(describe_new(root, p) for p in after.others - before.others if not is_output(p))
+    left = sorted(p for p in after.others - before.others if not is_output(p))
     # The run could not write what is read-only or masked; .git is read-only too.
     scrubbed = scrub(root, set(OUTPUT_TOP) | {".git"} | set(checkout.read_only) | set(checkout.masked))
     unreadable = [f"{path} ({why})" for path, why in sorted(after.unreadable.items())]
     # A new untracked file is a new path; only those that were there before can have changed.
     kept = {path: print_ for path, print_ in after.untracked.items() if path in before.untracked}
     unreadable += [f"git status: {warning}" for warning in after.warnings] + list(scrubbed.unlisted)
+    changed = changes(before.tracked, after.tracked, after.unreadable)
+    changed_untracked = changes(before.untracked, kept, after.unreadable)
+    named = {*changed, *changed_untracked, *left, *after.unreadable, *scrubbed.blocked}
     return Findings(
-        changes(before.tracked, after.tracked, after.unreadable),
-        changes(before.untracked, kept, after.unreadable),
-        tuple(new), tuple(unreadable), scrubbed.removed, scrubbed.failures,
+        changed, changed_untracked, tuple(describe_new(root, p) for p in left), tuple(unreadable),
+        scrubbed.removed, scrubbed.failures, tuple(filter(is_looked_up, left)), tuple(sorted(named)),
     )
 
 
@@ -209,7 +251,81 @@ def report(findings: Findings) -> None:
         lines.append(
             f"exit {DIRTY_STATUS}: the run changed the checkout (changed files: {changed}, new paths: "
             f"{len(findings.new)}, unreadable: {len(findings.unreadable)}, not removed: {len(findings.failures)}); "
-            "review them with git status and git diff before running anything from this checkout"
+            "review them with git status and git diff before running anything from this checkout; "
+            "the next sandbox run refuses to start until each is removed, reverted or added with git add"
         )
     for line in lines:
         print(f"sandbox: {line}", file=sys.stderr)
+
+
+def current(root: Path, paths: list[str]) -> dict[str, str]:
+    """The fingerprint of each path, `unreadable` for one that cannot be read."""
+    unreadable: dict[str, str] = {}
+    found = fingerprints(root, paths, unreadable)
+    return {path: found.get(path, UNREADABLE) for path in paths}
+
+
+def record(findings: Findings, root: Path, path: Path) -> None:
+    """Writes what each path a dirty audit named is now, or removes the record after a clean one."""
+    if not findings.dirty:
+        path.unlink(missing_ok=True)
+        return
+    path.write_text(json.dumps(current(root, list(findings.paths)), indent=1, sort_keys=True) + "\n")
+
+
+def recorded(path: Path) -> dict[str, str]:
+    """The record of the last dirty audit; none is an empty one. A record the sandbox cannot read
+    refuses the start."""
+    refuse_unsafe(path, "audit record")
+    if not os.path.lexists(path):
+        return {}
+    try:
+        paths = json.loads(path.read_text())
+    except (OSError, ValueError) as error:
+        raise SandboxError(f"cannot read the audit record {path}: {error}; remove it once you have reviewed "
+                           "the checkout with git status and git diff") from error
+    if not (isinstance(paths, dict) and all(isinstance(v, str) for v in paths.values())):
+        raise SandboxError(f"the audit record {path} is not a map of paths to fingerprints; remove it once you "
+                           "have reviewed the checkout with git status and git diff")
+    return paths
+
+
+def unaccepted(root: Path, paths: list[str]) -> set[str]:
+    """What git lists among `paths` as untracked, ignored or changed in the working tree: what
+    nobody has added with git add."""
+    records, _ = git_run(root, *STATUS, "--", *(f":(literal){path}" for path in paths))
+    found, entries = set(), iter(records)
+    for record in entries:
+        if record[0] in "RC":
+            next(entries, None)  # a rename or copy carries its old path as the next record
+        # The second column is the working tree's: `?` untracked, `!` ignored, a letter a change.
+        if record[1] != " ":
+            found.add(record[3:].rstrip("/"))
+    return found
+
+
+def related(path: str, listed: set[str]) -> bool:
+    """`path` is listed, or holds or sits inside a listed path."""
+    return any(entry == path or entry.startswith(f"{path}/") or path.startswith(f"{entry}/") for entry in listed)
+
+
+def leftovers(root: Path, record_path: Path) -> list[str]:
+    """The paths of the last dirty audit still as the run left them and not added with git add.
+    The record goes once there is none."""
+    paths = recorded(record_path)
+    same = [p for p, now in current(root, list(paths)).items() if now == paths[p]]
+    listed = unaccepted(root, same) if same else set()
+    left = sorted(p for p in same if related(p, listed))
+    if not left:
+        record_path.unlink(missing_ok=True)
+    return left
+
+
+def refuse_leftovers(root: Path, record_path: Path) -> None:
+    left = leftovers(root, record_path)
+    if left:
+        raise SandboxError(
+            f"refused: the last run left {', '.join(left)}, still as it left them; review them with git status "
+            "and git diff, then remove or revert each one, or add it with git add to keep it "
+            "(make sandbox-clean forgets the record, with the rest of this checkout's storage)"
+        )

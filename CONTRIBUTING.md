@@ -403,13 +403,30 @@ read-only file, so a run cannot read a local `.env`. The sandbox's own outputs (
 `.venv/`, Python caches, the built `_core*.so`) are the exception.
 
 **The audit.** Before the run the sandbox records what git sees and a fingerprint of every
-tracked and untracked file; after it, it prints every file the run changed, every new path it
-left (and where a new symbolic link out of the checkout points) and every path it cannot read,
-and removes the Python caches and the built extension from the checkout. It exits 3 when a file
-changed, a new path appeared outside those outputs, a path could not be read or an output could
-not be removed, whatever the command's status: read `git status` and `git diff` before
-running anything from the checkout. Otherwise it exits with the command's status (124 past the
-timeout, 130 on Ctrl-C, 2 when it refuses to start).
+tracked and untracked file; after it, it prints every file that changed while the sandbox ran
+(the audit cannot tell whether the run or you wrote it), every new path the run left (and where a
+new symbolic link out of the checkout points) and every path it cannot read, and removes the
+Python caches and the built extension from the checkout. It exits 3 when a file changed, a new
+path appeared outside those outputs, a path could not be read or an output could not be removed,
+whatever the command's status: read `git status` and `git diff` before running anything from the
+checkout. Otherwise it exits with the command's status (124 past the timeout, 130 on Ctrl-C, 143
+on SIGTERM, 2 when it refuses to start); Ctrl-C and SIGTERM kill the container and run the audit
+first.
+
+A new path that host tools look up by name comes first in the report, with a line that says not
+to run `make` or any tool in the checkout until you remove it: `GNUmakefile` and `makefile` (make
+reads them before `Makefile`, so `make sandbox` itself would run them), a `*.py` at the root,
+`sitecustomize.py`, `usercustomize.py`, `conftest.py`, `.envrc`, `.cargo/` and `rust-toolchain*`.
+Every Python that `make/sandbox.mk` starts runs isolated (`python3 -I`), so a module left in the
+checkout never loads. A dirty audit is recorded in the checkout's storage, where no run can
+write, and the next run refuses to start (exit 2, naming the paths) while one of them is still as
+the run left it: remove or revert it, or add it with `git add` once you have reviewed it.
+`make sandbox-clean` forgets the record with the rest of the checkout's storage.
+
+Through `make`, the status shows in make's own line (`make: *** [make/sandbox.mk:...] Error 3`) and
+make exits 2. A script that tests the status calls the runner directly:
+`SANDBOX_CMD="make gates" python3 -I tools/sandbox/sandbox.py --image oxedi-sandbox:<hash> --checkout .`
+returns it as is (`make sandbox` prints the image tag in its first line).
 
 **Knobs.** `SANDBOX_CPUS` (default: the daemon's CPUs minus one), `SANDBOX_MEMORY` (GB; default
 60 % of the daemon's memory) and `SANDBOX_TIMEOUT` (seconds; default 3600), for example

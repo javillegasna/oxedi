@@ -84,22 +84,21 @@ How a stage runs:
 
 1. Discuss open decisions with trade-offs in chat; write the stage's commitment file in
    `.doc/architecture/stages/`; owner approves. A new dependency is approved there.
-2. Write the plan (superpowers:writing-plans); owner approves.
-3. Feature branch from `master`. Execute with superpowers:subagent-driven-development.
-   The main session only orchestrates: it plans and dispatches, never implements. One
-   implementer per task, chosen by complexity: Haiku transcribes complete code from the
-   plan, Sonnet handles prose-described or multi-file tasks, Opus takes design judgment.
-   The reviewer is one tier above the implementer (Haiku work → Sonnet review, Sonnet
-   work → Opus review, Opus work → Opus review). Group consecutive tasks into batches of two
-   to four for one implementer, review per batch, not per task; the plan carries executed
-   code only for design-heavy tasks and precise prose for mechanical ones. Every dispatch and
-   review carries the rules above. A whole-branch review on Opus at the end with P10, null
-   safety and security as explicit focus (triage, not a second audit), one fix wave, one
-   scoped re-review. Rulings go in the ledger; the ledger is copied to
-   `.doc/analysis/stage-N-ledger.md` before the workspace is deleted.
+2. Write the plan with workflow-kit:write-plan in `.doc/plans/stage-N-*.md`; owner approves.
+3. Feature branch from `master`. Execute with workflow-kit:run-plan: the main session only
+   orchestrates, batches, model tiers, reviews, fix rounds and the ledger follow the kit. Set
+   up the workspace with the rules and lenses below:
+   `wk-setup <plan> 'CLAUDE.md#Non-negotiables in code' 'CLAUDE.md#Final review focus' lens:rust lens:python`.
+   Before deleting the workspace, archive the ledger with
+   `wk-archive <plan> .doc/analysis/stage-N-ledger.md`.
 4. PR against `master` as above. The owner merges.
 5. Deferred minors become issues on Project #8. Then update `.doc/roadmap.md`,
    `.doc/state.md` and, when what users can do changed, `docs/roadmap.md`.
+
+### Final review focus
+
+- Errors explain themselves (P10): every error variant says what failed, where and what to do.
+- Null safety and security, as in the non-negotiables above, across the whole branch.
 
 ## Commands
 

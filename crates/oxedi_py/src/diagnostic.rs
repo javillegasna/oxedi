@@ -35,21 +35,21 @@ impl PyDiagnostic {
     /// The SNIP level of the rule: 1, 2 or 3.
     #[getter]
     fn level(&self) -> u8 {
-        self.inner.flat().level
+        self.inner.level.number()
     }
 
     /// Who reported the finding: `"oxedi"` for the parser's own rules, the
     /// validator's name for an external finding.
     #[getter]
     fn origin(&self) -> &str {
-        self.inner.flat().origin
+        self.inner.origin()
     }
 
     /// The external validator's own code for the finding; `None` for the
     /// parser's own rules and for external findings without one.
     #[getter]
     fn code(&self) -> Option<&str> {
-        self.inner.flat().code
+        self.inner.code()
     }
 
     /// The name of the rule that failed, e.g. `RequiredElementMissing`.

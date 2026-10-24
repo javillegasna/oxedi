@@ -3,7 +3,7 @@
 
 use super::{Diagnostic, Rule, SnipLevel};
 
-/// Who reports the parser's own findings.
+/// Who reports the parser's own diagnostics.
 pub const PARSER_ORIGIN: &str = "oxedi";
 
 impl SnipLevel {
@@ -29,16 +29,16 @@ pub struct FlatDiagnostic<'a> {
     pub rule: String,
     /// 0-based index of the segment at fault; `None` at the end of the stream.
     pub segment: Option<usize>,
-    /// 1-based element position, when the finding has one.
+    /// 1-based element position, when the diagnostic has one.
     pub element: Option<usize>,
-    /// 1-based component position, when the finding has one.
+    /// 1-based component position, when the diagnostic has one.
     pub component: Option<usize>,
     /// The open loops joined by `/`, e.g. `2000#1/2100#3`; empty at the root.
     pub path: String,
     /// The offending value as it appears in the file.
     pub datum: &'a [u8],
     /// [`PARSER_ORIGIN`] for the parser's own rules, the validator's name for
-    /// an external finding.
+    /// an external diagnostic.
     pub origin: &'a str,
     /// The external validator's own code, when it gives one.
     pub code: Option<&'a str>,
@@ -61,12 +61,25 @@ impl FlatDiagnostic<'_> {
 }
 
 impl Diagnostic {
+    /// Who reported the diagnostic: [`PARSER_ORIGIN`] for the parser's own
+    /// rules, the validator's name for an external one.
+    pub fn origin(&self) -> &str {
+        match &self.rule {
+            Rule::External { origin, .. } => origin,
+            _ => PARSER_ORIGIN,
+        }
+    }
+
+    /// The external validator's own code, when the diagnostic has one.
+    pub fn code(&self) -> Option<&str> {
+        match &self.rule {
+            Rule::External { code, .. } => code.as_deref(),
+            _ => None,
+        }
+    }
+
     /// The diagnostic as flat fields.
     pub fn flat(&self) -> FlatDiagnostic<'_> {
-        let (origin, code) = match &self.rule {
-            Rule::External { origin, code, .. } => (origin.as_str(), code.as_deref()),
-            _ => (PARSER_ORIGIN, None),
-        };
         FlatDiagnostic {
             level: self.level.number(),
             kind: self.rule.kind(),
@@ -81,8 +94,8 @@ impl Diagnostic {
                 .collect::<Vec<_>>()
                 .join("/"),
             datum: &self.datum,
-            origin,
-            code,
+            origin: self.origin(),
+            code: self.code(),
         }
     }
 }

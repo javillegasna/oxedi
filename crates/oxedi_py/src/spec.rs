@@ -62,8 +62,12 @@ pub struct PySpec {
 #[gen_stub_pymethods]
 #[pymethods]
 impl PySpec {
-    /// The built-in spec of `version`, the fallback built-in's version by
-    /// default; raises `ValueError` for a version no built-in covers.
+    /// The version of the default built-in spec.
+    #[classattr]
+    const DEFAULT_VERSION: &'static str = Builtin::DEFAULT_VERSION;
+
+    /// The built-in spec of `version`; it defaults to `Spec.DEFAULT_VERSION`.
+    /// Raises `ValueError` for a version no built-in covers.
     #[staticmethod]
     #[pyo3(signature = (version = Builtin::DEFAULT_VERSION))]
     fn builtin(version: &str) -> PyResult<PySpec> {

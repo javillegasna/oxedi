@@ -1,3 +1,3 @@
-# pyo3 writes a default that is a Rust constant as `...` in the runtime signature; the stub
-# carries the constant's value.
+# pyo3 shows a default that is a Rust constant as `...` in the runtime signature; the stub carries
+# the constant's value, and test_spec.py pins the runtime parameters.
 oxedi._core.Spec.builtin

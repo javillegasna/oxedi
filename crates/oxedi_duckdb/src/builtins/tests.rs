@@ -11,6 +11,17 @@ const TABLES: [&str; 5] = [
 ];
 
 #[test]
+fn every_registry_entry_has_a_schema_at_its_position() {
+    let builtins = Builtins::load();
+    let schemas: Vec<_> = builtins.iter().collect();
+    assert_eq!(schemas.len(), oxedi_core::Builtin::all().len());
+    for (schema, known) in schemas.iter().zip(oxedi_core::Builtin::all()) {
+        assert_eq!(schema.version(), known.version);
+        assert!(std::ptr::eq(builtins.of(known).unwrap(), *schema));
+    }
+}
+
+#[test]
 fn the_default_is_5010_and_4010_follows() {
     let builtins = Builtins::load();
     assert_eq!(
@@ -74,8 +85,8 @@ fn select_follows_the_declared_version() {
             panic!("the interchange indexes");
         };
         assert_eq!(
-            builtins.select(document.segments()).version(),
-            expected,
+            builtins.select(document.segments()).map(|b| b.version()),
+            Some(expected),
             "{declared}"
         );
     }

@@ -129,15 +129,6 @@ fn text(name: &'static str, value: &OptionValue) -> Result<String, CopyError> {
     }
 }
 
-fn optional_text(
-    given: &[(String, OptionValue)],
-    name: &'static str,
-) -> Result<Option<String>, CopyError> {
-    lookup(given, name)
-        .map(|value| text(name, value))
-        .transpose()
-}
-
 /// Refuses an option that is a file option of `COPY` or that is not known.
 fn reject_unknown(given: &[(String, OptionValue)]) -> Result<(), CopyError> {
     for (name, _) in given {
@@ -159,16 +150,21 @@ fn reject_unknown(given: &[(String, OptionValue)]) -> Result<(), CopyError> {
 
 /// A qualifier option, `ZZ` when it is not given.
 fn qualifier(given: &[(String, OptionValue)], name: &'static str) -> Result<String, CopyError> {
-    Ok(optional_text(given, name)?.unwrap_or_else(|| "ZZ".to_owned()))
+    Ok(optional(given, name, text_reader(name))?.unwrap_or_else(|| "ZZ".to_owned()))
 }
 
 /// An optional option read by `read`.
 fn optional<T>(
     given: &[(String, OptionValue)],
     name: &str,
-    read: fn(&OptionValue) -> Result<T, CopyError>,
+    read: impl FnOnce(&OptionValue) -> Result<T, CopyError>,
 ) -> Result<Option<T>, CopyError> {
     lookup(given, name).map(read).transpose()
+}
+
+/// The reader of the VARCHAR option `name`.
+fn text_reader(name: &'static str) -> impl Fn(&OptionValue) -> Result<String, CopyError> {
+    move |value| text(name, value)
 }
 
 /// A required VARCHAR option.
@@ -176,50 +172,68 @@ fn required_text(given: &[(String, OptionValue)], name: &'static str) -> Result<
     text(name, required(given, name)?)
 }
 
-/// The four required options: the two ids, the date and the time.
-fn required_fields(
-    given: &[(String, OptionValue)],
-) -> Result<(String, String, i32, i32), CopyError> {
-    Ok((
-        required_text(given, "sender_id")?,
-        required_text(given, "receiver_id")?,
-        date(required(given, "date")?)?,
-        time(required(given, "time")?)?,
-    ))
+fn required_date(given: &[(String, OptionValue)]) -> Result<i32, CopyError> {
+    date(required(given, "date")?)
 }
 
-/// The envelope the required options and the qualifiers describe, with the
+fn required_time(given: &[(String, OptionValue)]) -> Result<i32, CopyError> {
+    time(required(given, "time")?)
+}
+
+/// Reads one optional option into the envelope.
+type Apply = fn(&mut Envelope, &OptionValue) -> Result<(), CopyError>;
+
+/// The optional options and where each one goes in the envelope.
+const OPTIONAL: [(&str, Apply); 6] = [
+    ("usage_indicator", |envelope, value| {
+        envelope.usage_indicator = text("usage_indicator", value)?;
+        Ok(())
+    }),
+    ("control_number", |envelope, value| {
+        envelope.control_number = control_number(value)?;
+        Ok(())
+    }),
+    ("application_sender", |envelope, value| {
+        envelope.application_sender = Some(text("application_sender", value)?);
+        Ok(())
+    }),
+    ("application_receiver", |envelope, value| {
+        envelope.application_receiver = Some(text("application_receiver", value)?);
+        Ok(())
+    }),
+    ("delimiters", |envelope, value| {
+        envelope.delimiters = delimiters(value)?;
+        Ok(())
+    }),
+    ("line_break", |envelope, value| {
+        envelope.line_break = line_break(value)?;
+        Ok(())
+    }),
+];
+
+/// The envelope of the required options and the qualifiers, with the
 /// defaults of every other field.
-fn identity(given: &[(String, OptionValue)]) -> Result<Envelope, CopyError> {
-    let (sender_id, receiver_id, date, time) = required_fields(given)?;
+fn parties(given: &[(String, OptionValue)]) -> Result<Envelope, CopyError> {
     Ok(Envelope::new(
         qualifier(given, "sender_qualifier")?,
-        sender_id,
+        required_text(given, "sender_id")?,
         qualifier(given, "receiver_qualifier")?,
-        receiver_id,
-        date,
-        time,
+        required_text(given, "receiver_id")?,
+        required_date(given)?,
+        required_time(given)?,
     ))
 }
 
-/// Replaces the envelope's text fields with the options that are given.
-fn tune_text(envelope: &mut Envelope, given: &[(String, OptionValue)]) -> Result<(), CopyError> {
-    if let Some(usage) = optional_text(given, "usage_indicator")? {
-        envelope.usage_indicator = usage;
+/// The envelope the options describe: the parties, then every optional
+/// field that is given.
+fn envelope(given: &[(String, OptionValue)]) -> Result<Envelope, CopyError> {
+    let mut envelope = parties(given)?;
+    for (name, apply) in OPTIONAL {
+        if let Some(value) = lookup(given, name) {
+            apply(&mut envelope, value)?;
+        }
     }
-    envelope.application_sender = optional_text(given, "application_sender")?;
-    envelope.application_receiver = optional_text(given, "application_receiver")?;
-    Ok(())
-}
-
-/// Replaces the envelope's control number, delimiters and line break with
-/// the options that are given.
-fn tune_layout(envelope: &mut Envelope, given: &[(String, OptionValue)]) -> Result<(), CopyError> {
-    envelope.control_number =
-        optional(given, "control_number", control_number)?.unwrap_or(envelope.control_number);
-    envelope.delimiters = optional(given, "delimiters", delimiters)?.unwrap_or(envelope.delimiters);
-    envelope.line_break = optional(given, "line_break", line_break)?.unwrap_or(envelope.line_break);
-    Ok(())
+    Ok(envelope)
 }
 
 /// A bare boolean option means true, as DuckDB's own options (HEADER) do.
@@ -245,11 +259,8 @@ impl Settings {
     /// Reads the options, each name lower case.
     pub fn parse(given: &[(String, OptionValue)]) -> Result<Settings, CopyError> {
         reject_unknown(given)?;
-        let mut envelope = identity(given)?;
-        tune_text(&mut envelope, given)?;
-        tune_layout(&mut envelope, given)?;
         Ok(Settings {
-            envelope,
+            envelope: envelope(given)?,
             version: version(given)?,
         })
     }

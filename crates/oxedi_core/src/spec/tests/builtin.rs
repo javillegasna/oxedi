@@ -13,7 +13,12 @@ fn selected(bytes: &[u8]) -> &'static str {
 #[test]
 fn the_fallback_is_the_first_and_named_by_default_version() {
     assert_eq!(Builtin::all()[0].version, Builtin::DEFAULT_VERSION);
-    assert!(std::ptr::eq(Builtin::fallback(), &Builtin::all()[0]));
+    let first = &Builtin::all()[0];
+    let fallback = Builtin::fallback();
+    assert_eq!(
+        (fallback.transaction, fallback.version),
+        (first.transaction, first.version)
+    );
 }
 
 #[test]

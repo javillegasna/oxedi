@@ -6,10 +6,10 @@
 ##@ Python package
 # The sed program that turns README.md's relative links into absolute ones.
 README_PY_RENDER := sed -E 's\#\]\(([^):\\\#][^):]*)\)\#](https://github.com/javillegasna/oxedi/blob/master/\1)\#g' README.md
-PY_TOOLS := maturin pytest polars pyarrow pandas "edi-835-parser==1.8.0" duckdb
+PY_TOOLS := maturin --group $(PY_PYPROJECT):test
 venv: ## create .venv with uv and the dev tools
 	uv venv $(VENV) --python 3.13
-	uv pip install --python $(PYTHON) $(PY_TOOLS) mypy pandas-stubs pyarrow-stubs
+	uv pip install --python $(PYTHON) $(PY_TOOLS) --group $(PY_PYPROJECT):profile mypy pandas-stubs pyarrow-stubs
 
 py-dev: ## build the extension into .venv (debug)
 	VIRTUAL_ENV=$(VENV) $(MATURIN) develop --uv --manifest-path $(PY_MANIFEST)

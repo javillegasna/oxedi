@@ -25,5 +25,9 @@ fn write_united(c: &mut Criterion) {
     group.finish();
 }
 
-criterion_group!(benches, write_united);
+criterion_group! {
+    name = benches;
+    config = common::profiled();
+    targets = write_united
+}
 criterion_main!(benches);

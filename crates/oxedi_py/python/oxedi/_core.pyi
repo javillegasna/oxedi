@@ -313,29 +313,34 @@ class Result:
     @property
     def payer(self) -> builtins.dict[builtins.str, builtins.str | None] | None:
         r"""
-        The payer organization from the `payer_*` columns of `payments`, or
-        `None` when the file has none.
+        The summary `payer` the spec declares (for the built-in 835: the
+        payer organization of the one transaction), or `None` when the file
+        has none.
         """
     @property
     def payee(self) -> builtins.dict[builtins.str, builtins.str | None] | None:
         r"""
-        The payee organization from the `payee_*` columns of `payments`, or
-        `None` when the file has none.
+        The summary `payee` the spec declares (for the built-in 835: the
+        payee organization of the one transaction), or `None` when the file
+        has none.
         """
     def count_claims(self) -> builtins.int:
         r"""
-        The rows of `claims`.
+        The summary `count_claims` the spec declares (for the built-in 835:
+        the number of claims).
         """
     def count_patients(self) -> builtins.int:
         r"""
-        The distinct non-null values of `claims.patient_id`. Ids are text:
+        The summary `count_patients` the spec declares (for the built-in 835:
+        the distinct patient ids of the claims). Values are compared as text:
         `0123` and `123` are two patients, where edi-835-parser reads both as
         the number 123 and counts one.
         """
     def sum_payments(self) -> decimal.Decimal:
         r"""
-        The sum of `payments.total_payment_amount`, as a `Decimal` at the
-        column's scale.
+        The summary `sum_payments` the spec declares (for the built-in 835:
+        the sum of the transactions' total payment amounts), as a `Decimal`
+        at the column's scale.
         """
     def __repr__(self) -> builtins.str: ...
 

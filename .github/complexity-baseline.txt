@@ -110,7 +110,6 @@ crates/oxedi_duckdb/src/error/mod.rs	fmt	22	0	flat
 crates/oxedi_duckdb/src/files/glob.rs	open	10	1
 crates/oxedi_duckdb/src/files/glob.rs	resolve	9	2
 crates/oxedi_duckdb/src/files/write.rs	write_all	11	3
-crates/oxedi_duckdb/src/options/mod.rs	of_bind	18	0
 crates/oxedi_duckdb/src/oxedi_schema/mod.rs	bind_with	12	2
 crates/oxedi_duckdb/src/oxedi_schema/mod.rs	scan_with	9	2
 crates/oxedi_duckdb/src/scan/write.rs	fill	21	3

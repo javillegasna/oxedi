@@ -14,8 +14,23 @@ This file covers the Python package; the DuckDB extension has its own changelog 
 - `Spec.DEFAULT_VERSION`: the `Version` of the default built-in spec, the default of `Spec.builtin`.
 - `Envelope.DEFAULT_QUALIFIER`, `Envelope.DEFAULT_USAGE_INDICATOR` and `Envelope.DEFAULT_CONTROL_NUMBER`:
   the defaults of `sender_qualifier`, `receiver_qualifier`, `usage_indicator` and `control_number`.
+- A spec declares `summaries` (named `count`, `distinct`, `sum` and `row` figures over its tables)
+  and a `default_table`. The built-in 835 declares `count_claims`, `count_patients`,
+  `sum_payments`, `payer` and `payee`, and `claims` as its default table; `Result.count_claims()`,
+  `count_patients()`, `sum_payments()`, `payer` and `payee` read those summaries.
 
 ### Changed
+- A spec patch that removes a table or column a summary reads must also remove the summary (with
+  `null`): otherwise `Spec.patch` raises `SpecError`, naming the summary, where in it the table or
+  column is named and what the spec declares instead. Before, the patch loaded and the summary
+  method failed when called.
+- The errors of the summary methods name the summary: `KeyError` when the spec declares no such
+  summary or the tables lack what it reads, `TypeError` when the spec declares another kind of
+  summary under the method's name, `ValueError` for `payer` and `payee` over other than one
+  transaction and for a sum that overflows. Each reads `Result.<method>: <reason>`, for example
+  `Result.payer: summary "payer" reads the one row of the table "payments", which has 2 rows`.
+- An unknown key in a spec now also lists the keys allowed there, for example
+  `spec: unknown key "tabels" at the top level; the allowed keys are: balancing, default_table, loops, name, segments, summaries, tables, version`.
 - The `test` extra is gone (`pip install "oxedi[test]"` no longer resolves): it was a contributor
   list, not a feature. Contributors install the test tools from the package's dependency group:
   `uv pip install --group crates/oxedi_py/pyproject.toml:test`, or `make venv`.

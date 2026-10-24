@@ -89,6 +89,32 @@ def test_a_patch_that_removes_a_summarized_table_fails_to_load():
     )
 
 
+def test_an_undeclared_summary_is_named_with_the_declared_ones():
+    spec = Spec.builtin().patch({
+        "tables": {"payments": None},
+        "summaries": {"sum_payments": None, "payer": None, "payee": None},
+    })
+    result = oxedi.parse(read("edi835_test_file.RMT"), spec=spec)
+    with pytest.raises(KeyError) as info:
+        result.sum_payments()
+    assert info.value.args[0] == (
+        'Result.sum_payments: the spec declares no summary "sum_payments"; '
+        "it declares: count_claims, count_patients"
+    )
+
+
+def test_a_summary_of_another_kind_is_named():
+    spec = Spec.builtin().patch({"summaries": {"count_claims": {
+        "count": None, "sum": {"table": "payments", "column": "total_payment_amount"}}}})
+    result = oxedi.parse(read("edi835_test_file.RMT"), spec=spec)
+    with pytest.raises(TypeError) as info:
+        result.count_claims()
+    assert str(info.value) == (
+        'Result.count_claims reads the summary "count_claims" as a count; '
+        "the spec declares a decimal"
+    )
+
+
 def test_a_patch_that_removes_a_summarized_column_fails_to_load():
     with pytest.raises(oxedi.SpecError) as info:
         Spec.builtin().patch(
@@ -122,14 +148,18 @@ def test_payer_reads_one_transaction():
     data = read("edi835_test_file.RMT")
     with pytest.raises(ValueError) as info:
         oxedi.parse(data + data).payer
-    assert str(info.value) == 'Result.payer reads one transaction; the table "payments" has 2 rows'
+    assert str(info.value) == (
+        'Result.payer: summary "payer" reads the one row of the table "payments", which has 2 rows'
+    )
 
 
 def test_payee_reads_one_transaction():
     data = read("edi835_test_file.RMT")
     with pytest.raises(ValueError) as info:
         oxedi.parse(data + data).payee
-    assert str(info.value) == 'Result.payee reads one transaction; the table "payments" has 2 rows'
+    assert str(info.value) == (
+        'Result.payee: summary "payee" reads the one row of the table "payments", which has 2 rows'
+    )
 
 
 def test_a_table_reaches_polars_and_pandas():
@@ -175,6 +205,7 @@ def test_a_sum_that_overflows_names_the_table_row_and_amount():
     with pytest.raises(ValueError) as info:
         result.sum_payments()
     assert str(info.value) == (
-        'Result.sum_payments: the sum of "total_payment_amount" in the table "payments" '
+        'Result.sum_payments: summary "sum_payments": the sum of "total_payment_amount" in the '
+        'table "payments" '
         f"overflows a 128-bit decimal at row 1 (amount {nines}.00)"
     )

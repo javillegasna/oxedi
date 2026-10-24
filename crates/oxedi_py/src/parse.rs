@@ -13,7 +13,7 @@ use pyo3_stub_gen::derive::{gen_stub_pyclass, gen_stub_pyfunction, gen_stub_pyme
 use crate::diagnostic;
 use crate::document::{self, PyDelimiters, PyDocument};
 use crate::mask::PyMask;
-use crate::native::{self, Role};
+use crate::native;
 use crate::spec::{self, PySpec};
 use crate::tables::PyTables;
 
@@ -96,40 +96,45 @@ impl PyParseResult {
         self.diagnostics.clone_ref(py)
     }
 
-    /// The rows of `claims`.
+    /// The summary `count_claims` the spec declares (for the built-in 835:
+    /// the number of claims).
     fn count_claims(&self, py: Python<'_>) -> PyResult<usize> {
-        native::count_claims(self.tables.bind(py).get().tables())
+        native::count(self.tables.bind(py).get(), "count_claims")
     }
 
-    /// The distinct non-null values of `claims.patient_id`. Ids are text:
+    /// The summary `count_patients` the spec declares (for the built-in 835:
+    /// the distinct patient ids of the claims). Values are compared as text:
     /// `0123` and `123` are two patients, where edi-835-parser reads both as
     /// the number 123 and counts one.
     fn count_patients(&self, py: Python<'_>) -> PyResult<usize> {
-        native::count_patients(self.tables.bind(py).get().tables())
+        native::count(self.tables.bind(py).get(), "count_patients")
     }
 
-    /// The sum of `payments.total_payment_amount`, as a `Decimal` at the
-    /// column's scale.
+    /// The summary `sum_payments` the spec declares (for the built-in 835:
+    /// the sum of the transactions' total payment amounts), as a `Decimal`
+    /// at the column's scale.
     #[gen_stub(override_return_type(type_repr = "decimal.Decimal", imports = ("decimal",)))]
     fn sum_payments<'py>(&self, py: Python<'py>) -> PyResult<Bound<'py, PyAny>> {
-        let sum = native::sum_payments(self.tables.bind(py).get().tables())?;
+        let sum = native::decimal(self.tables.bind(py).get(), "sum_payments")?;
         py.import("decimal")?.getattr("Decimal")?.call1((sum,))
     }
 
-    /// The payer organization from the `payer_*` columns of `payments`, or
-    /// `None` when the file has none.
+    /// The summary `payer` the spec declares (for the built-in 835: the
+    /// payer organization of the one transaction), or `None` when the file
+    /// has none.
     #[getter]
     #[gen_stub(override_return_type(type_repr = "builtins.dict[builtins.str, builtins.str | None] | None", imports = ("builtins",)))]
     fn payer<'py>(&self, py: Python<'py>) -> PyResult<Option<Bound<'py, PyDict>>> {
-        organization(py, self.tables.bind(py).get().tables(), Role::Payer)
+        row_dict(py, native::row(self.tables.bind(py).get(), "payer")?)
     }
 
-    /// The payee organization from the `payee_*` columns of `payments`, or
-    /// `None` when the file has none.
+    /// The summary `payee` the spec declares (for the built-in 835: the
+    /// payee organization of the one transaction), or `None` when the file
+    /// has none.
     #[getter]
     #[gen_stub(override_return_type(type_repr = "builtins.dict[builtins.str, builtins.str | None] | None", imports = ("builtins",)))]
     fn payee<'py>(&self, py: Python<'py>) -> PyResult<Option<Bound<'py, PyDict>>> {
-        organization(py, self.tables.bind(py).get().tables(), Role::Payee)
+        row_dict(py, native::row(self.tables.bind(py).get(), "payee")?)
     }
 
     fn __repr__(&self, py: Python<'_>) -> String {
@@ -142,18 +147,14 @@ impl PyParseResult {
     }
 }
 
-/// The organization as a dict, or `None`.
-fn organization<'py>(
-    py: Python<'py>,
-    tables: &oxedi_core::Tables,
-    role: Role,
-) -> PyResult<Option<Bound<'py, PyDict>>> {
-    let Some(fields) = native::organization(tables, role)? else {
+/// A row summary as a dict of its fields, in the order the spec writes them.
+fn row_dict<'py>(py: Python<'py>, row: native::Row) -> PyResult<Option<Bound<'py, PyDict>>> {
+    let Some(fields) = row else {
         return Ok(None);
     };
     let dict = PyDict::new(py);
-    for (key, value) in fields {
-        dict.set_item(key, value)?;
+    for (name, value) in fields {
+        dict.set_item(name, value)?;
     }
     Ok(Some(dict))
 }

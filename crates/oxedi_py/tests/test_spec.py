@@ -98,6 +98,8 @@ def test_a_version_names_its_release():
     assert str(Version.V5010) == "5010"
     assert Version.V4010.text == "4010"
     assert Version.V5010 != Version.V4010
+    assert repr(Version.V5010) == "Version.V5010"
+    assert repr(Version.V4010) == "Version.V4010"
     assert len({Version.V5010, Version.V5010, Version.V4010}) == 2
     assert Spec.DEFAULT_VERSION == Version.V5010
     assert Version.V5010 != 0
@@ -119,6 +121,19 @@ def test_builtin_takes_a_version_or_its_text():
         Spec.builtin(4010)  # type: ignore[arg-type]
     assert str(info.value) == (
         "Spec.builtin(version=4010): version must be an oxedi.Version or its text, not int"
+    )
+
+
+def test_a_version_whose_repr_fails_is_still_named_by_its_type():
+    class Broken:
+        def __repr__(self) -> str:
+            raise RuntimeError("no repr")
+
+    with pytest.raises(TypeError) as info:
+        Spec.builtin(Broken())  # type: ignore[arg-type]
+    assert str(info.value) == (
+        "Spec.builtin(version=an object whose repr failed): version must be an oxedi.Version "
+        "or its text, not test_a_version_whose_repr_fails_is_still_named_by_its_type.<locals>.Broken"
     )
 
 

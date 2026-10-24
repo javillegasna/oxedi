@@ -38,8 +38,8 @@ impl PyDiagnostic {
         self.inner.level.number()
     }
 
-    /// Who reported the finding: `"oxedi"` for the parser's own rules, the
-    /// validator's name for an external finding.
+    /// Who reported the diagnostic: `"oxedi"` for the parser's own rules,
+    /// the validator's name for an external one.
     #[getter]
     fn origin(&self) -> &str {
         self.inner.origin()
@@ -70,13 +70,13 @@ impl PyDiagnostic {
         self.inner.segment
     }
 
-    /// The 1-based element position, when the finding has one.
+    /// The 1-based element position, when the diagnostic has one.
     #[getter]
     fn element(&self) -> Option<usize> {
         self.inner.element
     }
 
-    /// The 1-based component position, when the finding has one.
+    /// The 1-based component position, when the diagnostic has one.
     #[getter]
     fn component(&self) -> Option<usize> {
         self.inner.component

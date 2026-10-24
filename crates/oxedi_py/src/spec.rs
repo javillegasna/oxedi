@@ -92,11 +92,8 @@ impl PyVersion {
         self.text()
     }
 
-    fn __repr__(&self) -> &'static str {
-        match self.0 {
-            Version::V5010 => "Version.V5010",
-            Version::V4010 => "Version.V4010",
-        }
+    fn __repr__(&self) -> String {
+        format!("Version.V{}", self.0.text())
     }
 
     /// Every version a built-in spec covers, the default first.
@@ -171,6 +168,7 @@ impl<'py> IntoPyObject<'py> for VersionArg {
                 Ok(PyVersion::from(version).into_pyobject(py)?.into_any())
             }
             VersionArg::Text(text) => Ok(PyString::new(py, &text).into_any()),
+            // This conversion only renders the default, a `Version`; this arm is never reached.
             VersionArg::Other { shown, .. } => Ok(PyString::new(py, &shown).into_any()),
         }
     }

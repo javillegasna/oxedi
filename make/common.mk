@@ -5,6 +5,8 @@
 
 PY_MANIFEST := crates/oxedi_py/Cargo.toml
 PY_TESTS    := crates/oxedi_py/tests
+# The test and profile tool groups live in the package's pyproject (never in its published metadata).
+PY_PYPROJECT := crates/oxedi_py/pyproject.toml
 # stubtest reads an allowlist only when one exists; each entry carries its reason.
 STUBTEST_ALLOWLIST := crates/oxedi_py/stubtest-allowlist.txt
 # The Python environment is always the checkout's own .venv, never the VIRTUAL_ENV of the shell

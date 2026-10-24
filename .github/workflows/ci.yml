@@ -54,11 +54,15 @@ jobs:
               - 'make/**'
               # make readme-py-check compares it with crates/oxedi_py/README.md.
               - 'README.md'
+              # make deps-check runs in the Rust job.
+              - 'tools/deps/**'
               - '.github/**'
             python:
               - 'crates/oxedi_core/**'
               - 'crates/oxedi_py/**'
               - 'crates/oxedi_py/scripts/**'
+              # smoke_wheel.sh runs the wheel check.
+              - 'tools/deps/**'
               - 'Cargo.toml'
               - 'Cargo.lock'
               - 'Makefile'

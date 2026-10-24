@@ -39,6 +39,8 @@ jobs:
         run: cargo test --workspace --locked
       - name: Benches compile
         run: cargo bench --workspace --no-run --locked
+      - name: Normal dependencies of the published crates
+        run: make deps-check
       - name: Stub drift
         run: |
           cargo run --locked -p oxedi_py --bin stub_gen

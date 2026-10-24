@@ -43,5 +43,9 @@ fn process_rows_samples(c: &mut Criterion) {
     group.finish();
 }
 
-criterion_group!(benches, process_samples, process_rows_samples);
+criterion_group! {
+    name = benches;
+    config = common::profiled();
+    targets = process_samples, process_rows_samples
+}
 criterion_main!(benches);

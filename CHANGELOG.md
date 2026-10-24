@@ -9,6 +9,11 @@ This file covers the Python package; the DuckDB extension has its own changelog 
 
 ## [Unreleased]
 
+### Changed
+- The `test` extra is gone (`pip install "oxedi[test]"` no longer resolves): it was a contributor
+  list, not a feature. Contributors install the test tools from the package's dependency group:
+  `uv pip install --group crates/oxedi_py/pyproject.toml:test`, or `make venv`.
+
 ## [0.6.0] - 2026-10-18
 
 ### Added

@@ -263,6 +263,39 @@ class Arguments(World):
         self.assertEqual(mount_at(run, "/work/target")["type"], "bind")
         self.assertNotIn("readonly", mount_at(run, "/work/target"))
 
+    def submodule_checkout(self, declared: str) -> Path:
+        """A checkout with a registered gitlink at crates/sub and a .gitmodules that also names
+        `declared`."""
+        checkout = self.checkout("c", "Makefile", "crates/sub/", "crates/declared/x.mk")
+        (checkout / ".gitmodules").write_text(
+            '[submodule "sub"]\n\tpath = crates/sub\n\turl = https://example.invalid/sub\n'
+            f'[submodule "declared"]\n\tpath = {declared}\n\turl = https://example.invalid/declared\n'
+        )
+        subprocess.run(["git", "-C", str(checkout), "update-index", "--add", "--cacheinfo",
+                        f"160000,{'1' * 40},crates/sub"], check=True)
+        subprocess.run(["git", "-C", str(checkout), "add", ".gitmodules"], check=True)
+        return checkout
+
+    def test_submodules_read_only(self):
+        checkout = self.submodule_checkout("crates/declared")
+        for phase in arguments.Phase:
+            argv = self.phase_args(phase, checkout)
+            for path in ("crates/sub", "crates/declared", ".gitmodules"):
+                with self.subTest(phase=phase, path=path):
+                    mount = mount_at(argv, f"/work/{path}")
+                    self.assertEqual((mount["type"], mount["src"]), ("bind", str(checkout / path)))
+                    self.assertIn("readonly", mount)
+
+    def test_submodule_path_outside_the_checkout_refused(self):
+        checkout = self.submodule_checkout("../outside")
+        result = self.sandbox(checkout)
+        self.assertEqual(result.returncode, 2)
+        self.assertEqual(
+            result.stderr,
+            "sandbox: refused: .gitmodules names the submodule path '../outside', outside the checkout\n",
+        )
+        self.assertFalse(self.runs())
+
     def test_not_a_git_checkout_refused(self):
         checkout = self.tmp / "plain"
         checkout.mkdir()

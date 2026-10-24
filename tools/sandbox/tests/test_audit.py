@@ -31,8 +31,8 @@ class Audit(World):
             result.stderr,
         )
         self.assertIn(
-            "sandbox: exit 3: the run changed the checkout (tracked files changed: 1, new paths: 1, not removed: 0); "
-            "review them with git status and git diff before running anything from this checkout\n",
+            "sandbox: exit 3: the run changed the checkout (changed files: 1, new paths: 1, unreadable: 0, "
+            "not removed: 0); review them with git status and git diff before running anything from this checkout\n",
             result.stderr,
         )
         self.assertFalse((checkout / "src" / "__pycache__").exists())
@@ -78,13 +78,55 @@ class Audit(World):
         checkout = self.checkout("c", *TRACKED)
         result = self.sandbox(checkout, FAKE_RUN_WRITES="mkdir src/__pycache__ && chmod 555 src")
         self.assertEqual(result.returncode, 3, result.stderr)
+        self.assertIn("sandbox: cannot remove src/__pycache__ (Permission denied); remove it by hand\n", result.stderr)
+        self.assertIn("not removed: 1", result.stderr)
+
+    def test_an_unreadable_tracked_file_exits_3(self):
+        checkout = self.checkout("c", *TRACKED)
+        writes = "chmod 000 src/lib.rs && mkdir src/__pycache__ && echo pyc > src/__pycache__/x.pyc"
+        result = self.sandbox(checkout, FAKE_RUN_WRITES=writes)
+        self.assertEqual(result.returncode, 3, result.stderr)
+        self.assertNotIn("Traceback", result.stderr)
         self.assertIn(
-            f"sandbox: cannot remove what the run left: [Errno 13] Permission denied: "
-            f"'{checkout / 'src' / '__pycache__'}'; remove it, and any other Python cache or built extension "
-            "in the checkout, by hand\n",
+            "sandbox: unreadable: src/lib.rs (Permission denied); the audit cannot tell what the run did there\n",
             result.stderr,
         )
-        self.assertIn("not removed: 1", result.stderr)
+        self.assertNotIn("changed tracked file", result.stderr)
+        self.assertIn("removed the caches and the built extension the run may have left: src/__pycache__",
+                      result.stderr)
+        self.assertFalse((checkout / "src" / "__pycache__").exists())
+
+    def test_an_unreadable_new_directory_exits_3(self):
+        checkout = self.checkout("c", *TRACKED)
+        writes = "mkdir evil && echo x > evil/build.rs && mkdir evil/__pycache__ && chmod 000 evil"
+        result = self.sandbox(checkout, FAKE_RUN_WRITES=writes)
+        self.assertEqual(result.returncode, 3, result.stderr)
+        self.assertNotIn("Traceback", result.stderr)
+        self.assertIn(
+            "sandbox: unreadable: git status: warning: could not open directory 'evil/': Permission denied; "
+            "the audit cannot tell what the run did there\n",
+            result.stderr,
+        )
+        self.assertIn(
+            "sandbox: unreadable: evil (Permission denied); the audit cannot tell what the run did there\n",
+            result.stderr,
+        )
+        self.assertIn("unreadable: 2,", result.stderr)
+
+    def test_an_edited_untracked_file_exits_3(self):
+        checkout = self.checkout("c", *TRACKED)
+        (checkout / "draft.py").write_text("print('draft')\n")
+        result = self.sandbox(checkout, FAKE_RUN_WRITES="echo evil >> draft.py")
+        self.assertEqual(result.returncode, 3, result.stderr)
+        self.assertIn("sandbox: the run changed untracked file draft.py\n", result.stderr)
+        self.assertNotIn("the run left a new path", result.stderr)
+
+    def test_an_untouched_untracked_file_is_no_finding(self):
+        checkout = self.checkout("c", *TRACKED)
+        (checkout / "draft.py").write_text("print('draft')\n")
+        result = self.sandbox(checkout)
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertNotIn("sandbox: the run", result.stderr)
 
     def test_audit_after_ctrl_c(self):
         checkout = self.checkout("c", *TRACKED)

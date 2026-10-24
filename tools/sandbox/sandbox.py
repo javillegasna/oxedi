@@ -11,17 +11,18 @@ host home other than that storage reaches it. Two phases, each in its own contai
 - fetch: with network, the checkout read-only, no project code run: `cargo fetch --locked` and
   wheels only for the venv, written to the shared caches; it never falls back to them offline;
 - run: the command, with no network and the cargo registry read-only.
-After the run, an audit lists every tracked file it changed and every new path it left, and
-removes the Python caches and the built extension it may have left in the checkout.
+After the run, an audit lists every file it changed, every new path it left and every path it
+cannot read, and removes the Python caches and the built extension it may have left in the
+checkout.
 
 usage: sandbox.py --image TAG --checkout DIR
        sandbox.py --clean {checkout,all} --checkout DIR
 The command comes from SANDBOX_CMD. SANDBOX_CPUS (default: the daemon's CPUs minus one),
 SANDBOX_MEMORY (GB; default 60 % of the daemon's memory) and SANDBOX_TIMEOUT (seconds; default
 3600) set the limits.
-Exit status: the command's; 3 when the run changed a tracked file or left a new path (whatever
-the command's status); 124 when it ran past the timeout; 130 on Ctrl-C; 2 when the sandbox refuses
-to start.
+Exit status: the command's; 3 when the audit found a change, a new path or a path it cannot read
+(whatever the command's status); 124 when it ran past the timeout; 130 on Ctrl-C; 2 when the
+sandbox refuses to start.
 """
 
 import argparse
@@ -106,11 +107,11 @@ def phases(plan: Plan, command: str) -> int:
 
 
 def audited(plan: Plan, command: str) -> int:
-    """Runs both phases, then audits the checkout, also after Ctrl-C."""
+    """Runs both phases, then audits the checkout, also after Ctrl-C or any other error."""
     before = snapshot(plan.checkout.root)
     try:
         status = phases(plan, command)
-    except KeyboardInterrupt:
+    except BaseException:
         report(audit(before, plan.checkout))
         raise
     findings = audit(before, plan.checkout)

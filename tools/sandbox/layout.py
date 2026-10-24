@@ -1,8 +1,9 @@
 """What the sandbox protects in a checkout: the paths bound read-only over it and the ones masked.
 
 Read-only, in both phases: what the host executes or trusts after a run (the fixed list below),
-plus every tracked file git names like a build or tool configuration and every tracked `.cargo`
-directory, wherever they are. Hidden, in both phases: the maintainers' notes and every path git
+plus every tracked file git names like a build or tool configuration, every tracked `.cargo`
+directory and every submodule (the host's make targets include their makefiles), wherever they
+are. Hidden, in both phases: the maintainers' notes and every path git
 ignores, except the sandbox's own outputs, so a run can neither read nor change them. An ignored
 directory is masked by an empty read-only tmpfs; an ignored file has an empty read-only file
 bound over it. A directory git ignores as a whole (it holds no tracked file) is masked whole,
@@ -19,7 +20,7 @@ from pathlib import Path, PurePosixPath
 # What the host executes or trusts after a run: bound read-only over the checkout.
 HOST_EXECUTED = (
     "Makefile", "make", "tools", ".cargo", ".github", "rust-toolchain.toml", "Cargo.toml",
-    "Cargo.lock", "CLAUDE.md", ".claude", "crates/oxedi_py/pyproject.toml", ".git",
+    "Cargo.lock", "CLAUDE.md", ".claude", "crates/oxedi_py/pyproject.toml", ".git", ".gitmodules",
 )
 # Tracked files with these names, anywhere, steer cargo, rustup or uv: bound read-only too.
 TRACKED_NAMES = frozenset({
@@ -83,17 +84,52 @@ def outermost(paths: set[str]) -> set[str]:
     return {p for p in paths if not inside(p, paths)}
 
 
-def git_records(root: Path, *args: str) -> list[str]:
-    """The NUL-separated records `git <args> -z` prints in `root`."""
+def git_run(root: Path, *args: str) -> tuple[list[str], list[str]]:
+    """The NUL-separated records `git <args> -z` prints in `root`, and the lines of its stderr."""
     result = subprocess.run(["git", "-C", str(root), *args, "-z"], capture_output=True, check=False)
+    stderr = os.fsdecode(result.stderr).strip()
     if result.returncode != 0:
-        stderr = os.fsdecode(result.stderr).strip()
         raise SandboxError(f"git {' '.join(args)} failed in {root}; the sandbox needs a git checkout: {stderr}")
-    return [os.fsdecode(record) for record in result.stdout.split(b"\0") if record]
+    records = [os.fsdecode(record) for record in result.stdout.split(b"\0") if record]
+    return records, stderr.splitlines()
+
+
+def git_records(root: Path, *args: str) -> list[str]:
+    return git_run(root, *args)[0]
 
 
 def git_paths(root: Path, *args: str) -> set[str]:
     return {record.rstrip("/") for record in git_records(root, *args)}
+
+
+def escapes(path: str) -> bool:
+    """A path that is absolute or climbs out with `..`."""
+    return PurePosixPath(path).is_absolute() or ".." in PurePosixPath(path).parts
+
+
+def declared_submodules(root: Path) -> set[str]:
+    """The submodule paths .gitmodules names; one that leaves the checkout is refused."""
+    if not (root / ".gitmodules").is_file():
+        return set()
+    keys = r"^submodule\..*\.path$"
+    command = ["git", "-C", str(root), "config", "-z", "--file", ".gitmodules", "--get-regexp", keys]
+    result = subprocess.run(command, capture_output=True, check=False)
+    # Exit 1: no submodule.<name>.path key at all.
+    if result.returncode not in (0, 1):
+        raise SandboxError(f"git cannot read {root / '.gitmodules'}: {os.fsdecode(result.stderr).strip()}")
+    paths = {os.fsdecode(record).partition("\n")[2] for record in result.stdout.split(b"\0") if record}
+    outside = sorted(filter(escapes, paths))
+    if outside:
+        raise SandboxError(f"refused: .gitmodules names the submodule path {outside[0]!r}, outside the checkout")
+    return paths
+
+
+def tracked_and_submodules(root: Path) -> tuple[set[str], set[str]]:
+    """The tracked paths, and every submodule path: the gitlinks git tracks and the paths
+    .gitmodules names (a submodule not yet registered is still protected)."""
+    staged = [record.split("\t", 1) for record in git_records(root, "ls-files", "--stage")]
+    gitlinks = {path for entry, path in staged if entry.startswith("160000 ")}
+    return {path for _, path in staged}, gitlinks | declared_submodules(root)
 
 
 def configuration(tracked: set[str]) -> set[str]:
@@ -132,7 +168,8 @@ def survey(root: Path) -> Checkout:
     the link itself would stay writable."""
     refuse_unsafe(root, "checkout")
     secret = set(MASKED) | ignored_paths(root)
-    present = present_real(root, set(HOST_EXECUTED) | configuration(git_paths(root, "ls-files")) | secret)
+    tracked, submodules = tracked_and_submodules(root)
+    present = present_real(root, set(HOST_EXECUTED) | configuration(tracked) | submodules | secret)
     masked = outermost({p for p in present & secret if (root / p).is_dir()})
     # What a masked directory does not already cover: ignored files are hidden, the rest bound.
     free = {p for p in present if not covered(p, masked)}

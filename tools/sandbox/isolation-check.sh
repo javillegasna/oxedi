@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 # Proves from inside the sandbox what isolates it: one line per protection, "ok" when it holds,
-# "FAIL" when it does not; it exits 1 when a line failed.
+# "FAIL" when it does not, "skip" with the reason when it does not apply; it exits 1 when a line
+# failed.
 # Uses bash, coreutils and python3 only. Run it through `make sandbox-check`, which passes the
 # host's home path as the argument, so the check can prove that path is not mounted.
 set -uo pipefail
@@ -33,7 +34,8 @@ read_only() { [ -e "$1" ] && ! touch "$1"; }
 absent_or_empty() { [ ! -e "$1" ] || [ -z "$(ls -A "$1")" ]; }
 
 # no_secret_variables: no variable name holds TOKEN, SECRET, PASSWORD or PYPI.
-no_secret_variables() { ! compgen -e | grep -qiE 'TOKEN|SECRET|PASSWORD|PYPI'; }
+# (grep reads all of compgen's output: with -q it could stop early and SIGPIPE would pass the check.)
+no_secret_variables() { ! compgen -e | grep -iE 'TOKEN|SECRET|PASSWORD|PYPI' > /dev/null; }
 
 root_ro='import sys; sys.exit(not any(f[4] == "/" and "ro" in f[5].split(",") for f in map(str.split, open("/proc/self/mountinfo"))))'
 tcp='import socket; socket.create_connection(("1.1.1.1", 443), timeout=5)'
@@ -52,7 +54,12 @@ check "seccomp filter: Seccomp is 2" status_is Seccomp 2
 check "read-only host-executed set: touch /work/Makefile fails" read_only /work/Makefile
 check "read-only host-executed set: touch /work/.cargo/config.toml fails" read_only /work/.cargo/config.toml
 check "read-only git: touch /work/.git fails" read_only /work/.git
-check "read-only git: a file under /work/.git cannot be made" fails touch /work/.git/probe
+if [ -d /work/.git ]; then
+  check "read-only git: a file under /work/.git cannot be made" fails touch /work/.git/probe
+else
+  # In a worktree .git is a file naming a git directory outside the checkout, which is not mounted.
+  echo "skip read-only git: /work/.git is a file (a worktree); its git directory is not mounted"
+fi
 check "masked notes: /work/.doc is absent or empty" absent_or_empty /work/.doc
 check "masked notes: /work/.workflow-kit is absent or empty" absent_or_empty /work/.workflow-kit
 check "no host home: $host_home does not exist" test ! -e "$host_home"

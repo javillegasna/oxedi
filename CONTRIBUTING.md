@@ -395,17 +395,19 @@ no `~/.ssh`, `~/.pypirc`, `~/.config/gh`, Docker socket or the private samples.
 **What stays read-only.** The files your host executes or trusts after a run are bound read-only
 over the checkout in both phases: `Makefile`, `make/`, `tools/`, `.cargo/`, `.github/`,
 `rust-toolchain.toml`, `Cargo.toml`, `Cargo.lock`, `CLAUDE.md`, `.claude/`,
-`crates/oxedi_py/pyproject.toml`, `.git`, and every tracked `Cargo.toml`, `Cargo.lock`,
+`crates/oxedi_py/pyproject.toml`, `.git`, `.gitmodules`, every submodule (the DuckDB targets
+include `extension-ci-tools`' makefiles), and every tracked `Cargo.toml`, `Cargo.lock`,
 `rust-toolchain`, `pyproject.toml`, `uv.toml`, `.python-version` and `.cargo/` anywhere. Every
 path git ignores is hidden: a directory behind an empty read-only mount, a file behind an empty
 read-only file, so a run cannot read a local `.env`. The sandbox's own outputs (`target/`,
 `.venv/`, Python caches, the built `_core*.so`) are the exception.
 
-**The audit.** Before the run the sandbox records what git sees; after it, it prints every tracked
-file the run changed and every new path it left (and where a new symbolic link out of the
-checkout points), and removes the Python caches and the built extension from the checkout.
-It exits 3 when a tracked file changed, a new path appeared outside those outputs or an output
-could not be removed, whatever the command's status: read `git status` and `git diff` before
+**The audit.** Before the run the sandbox records what git sees and a fingerprint of every
+tracked and untracked file; after it, it prints every file the run changed, every new path it
+left (and where a new symbolic link out of the checkout points) and every path it cannot read,
+and removes the Python caches and the built extension from the checkout. It exits 3 when a file
+changed, a new path appeared outside those outputs, a path could not be read or an output could
+not be removed, whatever the command's status: read `git status` and `git diff` before
 running anything from the checkout. Otherwise it exits with the command's status (124 past the
 timeout, 130 on Ctrl-C, 2 when it refuses to start).
 

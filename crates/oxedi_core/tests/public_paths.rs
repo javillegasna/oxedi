@@ -37,12 +37,9 @@ mod by_module {
     use oxedi_core::element::unescape;
     use oxedi_core::engine::Event;
     use oxedi_core::engine::LoopEngine;
-    use oxedi_core::frame::BYTE_ORDER_MARK;
     use oxedi_core::frame::Frame;
     use oxedi_core::frame::find_unescaped;
     use oxedi_core::frame::first_frame;
-    use oxedi_core::frame::is_trivia;
-    use oxedi_core::frame::leading_trivia;
     use oxedi_core::frame::next_frame;
     use oxedi_core::process::Output;
     use oxedi_core::process::Processor;
@@ -93,6 +90,9 @@ mod by_module {
     use oxedi_core::tree::Node;
     use oxedi_core::tree::NodeId;
     use oxedi_core::tree::TreeBuilder;
+    use oxedi_core::trivia::BYTE_ORDER_MARK;
+    use oxedi_core::trivia::LeadingTrivia;
+    use oxedi_core::trivia::is_trivia;
     use oxedi_core::value::ConvertError;
     use oxedi_core::value::MAX_SCALE;
     use oxedi_core::value::TimeUnit;

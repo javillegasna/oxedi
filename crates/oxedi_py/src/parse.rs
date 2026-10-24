@@ -1,6 +1,6 @@
 //! `parse`: one pass over a whole file, with the GIL released.
 
-use oxedi_core::frame::leading_trivia;
+use oxedi_core::trivia::LeadingTrivia;
 use oxedi_core::{Delimiters, Document, Event, LoopEngine, LoopId, Mask, Processor, Spec};
 use std::collections::{HashMap, HashSet};
 use std::sync::Arc;
@@ -253,7 +253,7 @@ pub fn parse_document(
     let bytes = copy_input("_parse_document", data)?;
     let given = spec::given(spec);
     let (document, spec, leading) = py.detach(|| -> PyResult<_> {
-        let leading = leading_trivia(&bytes);
+        let leading = LeadingTrivia::of(&bytes).len();
         let document = document::index(bytes, None)?;
         let spec = spec::given_or_selected(given, document.segments());
         Ok((document, spec, leading))

@@ -56,6 +56,33 @@ impl Spec {
     }
 }
 
+impl ColumnKind {
+    /// `true` for an element of a text type, or one the spec does not
+    /// define (its bytes are kept as text).
+    fn is_text(self) -> bool {
+        matches!(self, ColumnKind::Element(kind) if kind.is_none_or(ElementType::is_text))
+    }
+
+    /// `true` for a date element.
+    fn is_date(self) -> bool {
+        self == ColumnKind::Element(Some(ElementType::Dt))
+    }
+}
+
+/// Whether a column flagged `phi` reads what the flag masks: a date for
+/// `date`, text for `name` and `id`.
+fn phi_fits(kind: Phi, found: ColumnKind) -> Result<(), TableDefError> {
+    match kind {
+        Phi::Date if found.is_date() => Ok(()),
+        Phi::Date => Err(TableDefError::PhiNeedsDate { found }),
+        Phi::Name | Phi::Id if found.is_text() => Ok(()),
+        Phi::Name | Phi::Id => Err(TableDefError::PhiNeedsText {
+            kind: kind.word(),
+            found,
+        }),
+    }
+}
+
 /// The segment id and 1-based element `source` reads when an envelope loop
 /// uses that element as a control number or count. A repeated group reads
 /// its element in every group, so each of those positions is checked.
@@ -133,22 +160,8 @@ pub(super) fn compile_phi(
                 TableDefError::PhiOnControlElement { segment, element },
             ));
         }
-        let found = spec.column_kind(table, source);
-        let reason = match (kind, found) {
-            (Phi::Date, ColumnKind::Element(Some(ElementType::Dt)))
-            | (
-                Phi::Name | Phi::Id,
-                ColumnKind::Element(None | Some(ElementType::An | ElementType::Id)),
-            ) => None,
-            (Phi::Date, found) => Some(TableDefError::PhiNeedsDate { found }),
-            (kind, found) => Some(TableDefError::PhiNeedsText {
-                kind: kind.word(),
-                found,
-            }),
-        };
-        if let Some(reason) = reason {
-            return Err(fail(Some(name), reason));
-        }
+        phi_fits(kind, spec.column_kind(table, source))
+            .map_err(|reason| fail(Some(name), reason))?;
         flags.push(Some(kind));
     }
     let seed_index = match seed {

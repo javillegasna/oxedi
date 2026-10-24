@@ -11,7 +11,6 @@ use super::raw::{RawOccurrence, RawQualifier};
 use super::render::{render_key, render_trigger};
 use super::segments::{ElementDef, ElementDefError, SegmentDef, compile_codes, parse_position};
 use crate::segment::Segment;
-use crate::value::ElementType;
 
 /// Whether an occurrence must appear in every instance of its loop.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -123,15 +122,7 @@ pub(super) fn element_def<'d>(
 /// Validates a code list against the element it is for, with the checks an
 /// element's own `codes` gets, and returns it sorted by bytes.
 fn element_codes(def: &ElementDef, codes: &[String]) -> Result<Vec<String>, ElementDefError> {
-    if !def.composite.is_empty() {
-        return Err(ElementDefError::CodesOnComposite);
-    }
-    if matches!(def.kind, ElementType::N(_) | ElementType::R { .. }) {
-        return Err(ElementDefError::CodesOnNumeric {
-            kind: def.kind.code(),
-        });
-    }
-    compile_codes(codes, def.kind, def.min, def.max)
+    compile_codes(codes, def.kind, def.min, def.max, !def.composite.is_empty())
 }
 
 /// Reads a `codes` key: `<element>` or `<element>-<component>`.

@@ -371,3 +371,25 @@ fn unknown_options_are_reported_before_missing_ones() {
         Err(CopyError::UnknownOption { .. })
     ));
 }
+
+#[test]
+fn a_time_with_no_ticks_per_second_is_out_of_range() {
+    let mut all = given(Vec::new());
+    if let Some(slot) = all.get_mut(3) {
+        slot.1 = value(
+            Kind::Time {
+                value: 1,
+                per_second: 0,
+            },
+            "TIME 0",
+        );
+    }
+    assert_eq!(
+        Settings::parse(&all).map_err(|error| error.to_string()),
+        Err(
+            "edi835: the option \"time\" is TIME 0, which is out of range for an X12 \
+             time; it must be from 00:00:00 to 23:59:59"
+                .to_owned()
+        )
+    );
+}

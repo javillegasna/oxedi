@@ -5,6 +5,7 @@
 //! values; [`OptionValue`] is that value read into Rust, so the rules here
 //! do not touch the C API.
 
+use oxedi_core::value::{ConvertError, days_from_civil, seconds_from, seconds_of_day, time_of_day};
 use oxedi_core::write::Envelope;
 use oxedi_core::{Builtin, Delimiters};
 
@@ -148,25 +149,6 @@ fn reject_unknown(given: &[(String, OptionValue)]) -> Result<(), CopyError> {
     Ok(())
 }
 
-/// A qualifier option, `ZZ` when it is not given.
-fn qualifier(given: &[(String, OptionValue)], name: &'static str) -> Result<String, CopyError> {
-    Ok(optional(given, name, text_reader(name))?.unwrap_or_else(|| "ZZ".to_owned()))
-}
-
-/// An optional option read by `read`.
-fn optional<T>(
-    given: &[(String, OptionValue)],
-    name: &str,
-    read: impl FnOnce(&OptionValue) -> Result<T, CopyError>,
-) -> Result<Option<T>, CopyError> {
-    lookup(given, name).map(read).transpose()
-}
-
-/// The reader of the VARCHAR option `name`.
-fn text_reader(name: &'static str) -> impl Fn(&OptionValue) -> Result<String, CopyError> {
-    move |value| text(name, value)
-}
-
 /// A required VARCHAR option.
 fn required_text(given: &[(String, OptionValue)], name: &'static str) -> Result<String, CopyError> {
     text(name, required(given, name)?)
@@ -184,7 +166,15 @@ fn required_time(given: &[(String, OptionValue)]) -> Result<i32, CopyError> {
 type Apply = fn(&mut Envelope, &OptionValue) -> Result<(), CopyError>;
 
 /// The optional options and where each one goes in the envelope.
-const OPTIONAL: [(&str, Apply); 6] = [
+const OPTIONAL: [(&str, Apply); 8] = [
+    ("sender_qualifier", |envelope, value| {
+        envelope.sender_qualifier = text("sender_qualifier", value)?;
+        Ok(())
+    }),
+    ("receiver_qualifier", |envelope, value| {
+        envelope.receiver_qualifier = text("receiver_qualifier", value)?;
+        Ok(())
+    }),
     ("usage_indicator", |envelope, value| {
         envelope.usage_indicator = text("usage_indicator", value)?;
         Ok(())
@@ -211,13 +201,11 @@ const OPTIONAL: [(&str, Apply); 6] = [
     }),
 ];
 
-/// The envelope of the required options and the qualifiers, with the
-/// defaults of every other field.
+/// The envelope of the required options, with the defaults of every other
+/// field.
 fn parties(given: &[(String, OptionValue)]) -> Result<Envelope, CopyError> {
-    Ok(Envelope::new(
-        qualifier(given, "sender_qualifier")?,
+    Ok(Envelope::with_ids(
         required_text(given, "sender_id")?,
-        qualifier(given, "receiver_qualifier")?,
         required_text(given, "receiver_id")?,
         required_date(given)?,
         required_time(given)?,
@@ -296,23 +284,27 @@ fn time(value: &OptionValue) -> Result<i32, CopyError> {
         Kind::Time {
             value: ticks,
             per_second,
-        } => {
-            if ticks % per_second != 0 {
-                return Err(CopyError::FractionalTime {
-                    value: value.shown.clone(),
-                });
-            }
-            i32::try_from(ticks / per_second)
-                .ok()
-                .filter(|seconds| (0..86_400).contains(seconds))
-                .ok_or_else(|| CopyError::TimeOutOfRange {
-                    value: value.shown.clone(),
-                })
-        }
+        } => clock(*ticks, *per_second, &value.shown),
         Kind::Text(text) => parse_time(text).ok_or_else(|| wrong("time", value, TIME)),
         Kind::Null => Err(CopyError::NoValue { name: "time" }),
         _ => Err(wrong("time", value, TIME)),
     }
+}
+
+/// Seconds since midnight of a time of `ticks` counted `per_second` to the
+/// second; `shown` is the value as the caller wrote it.
+fn clock(ticks: i64, per_second: i64, shown: &str) -> Result<i32, CopyError> {
+    let out_of_range = || CopyError::TimeOutOfRange {
+        value: shown.to_owned(),
+    };
+    seconds_from(ticks, per_second)
+        .map_err(|error| match error {
+            ConvertError::NotWholeSecond { .. } => CopyError::FractionalTime {
+                value: shown.to_owned(),
+            },
+            _ => out_of_range(),
+        })
+        .and_then(|seconds| time_of_day(i64::from(seconds)).ok_or_else(out_of_range))
 }
 
 /// The delimiters of a STRUCT, with `oxedi.Delimiters`' defaults: `*`, `:`,
@@ -377,7 +369,7 @@ fn delimiters(value: &OptionValue) -> Result<Delimiters, CopyError> {
 }
 
 /// A number of exactly `digits` ASCII digits.
-fn number(text: &str, digits: usize) -> Option<i64> {
+fn number(text: &str, digits: usize) -> Option<i32> {
     (text.len() == digits && text.bytes().all(|byte| byte.is_ascii_digit()))
         .then(|| text.parse().ok())
         .flatten()
@@ -385,51 +377,30 @@ fn number(text: &str, digits: usize) -> Option<i64> {
 
 /// Days since 1970-01-01 of a valid `YYYY-MM-DD` date.
 pub fn parse_date(text: &str) -> Option<i32> {
-    let mut parts = text.split('-');
-    let year = number(parts.next()?, 4)?;
-    let month = number(parts.next()?, 2)?;
-    let day = number(parts.next()?, 2)?;
-    if parts.next().is_some() || !(1..=12).contains(&month) || year == 0 {
+    let fields: Vec<&str> = text.split('-').collect();
+    let [year, month, day] = fields.as_slice() else {
         return None;
-    }
-    let leap = year % 4 == 0 && (year % 100 != 0 || year % 400 == 0);
-    let length = match month {
-        2 if leap => 29,
-        2 => 28,
-        4 | 6 | 9 | 11 => 30,
-        _ => 31,
     };
-    if !(1..=length).contains(&day) {
-        return None;
-    }
-    i32::try_from(days_from_civil(year, month, day)).ok()
+    days_from_civil(number(year, 4)?, number(month, 2)?, number(day, 2)?)
 }
 
-/// Days since 1970-01-01 of a proleptic Gregorian date (Howard Hinnant's
-/// `days_from_civil`).
-fn days_from_civil(year: i64, month: i64, day: i64) -> i64 {
-    let year = if month <= 2 { year - 1 } else { year };
-    let era = year.div_euclid(400);
-    let year_of_era = year - era * 400;
-    let month_index = (month + 9) % 12;
-    let day_of_year = (153 * month_index + 2) / 5 + day - 1;
-    let day_of_era = year_of_era * 365 + year_of_era / 4 - year_of_era / 100 + day_of_year;
-    era * 146_097 + day_of_era - 719_468
+/// The hour, minute and second fields of `HH:MM`, `HHMM` or `HH:MM:SS`.
+fn clock_fields(text: &str) -> Option<[&str; 3]> {
+    let parts: Vec<&str> = text.split(':').collect();
+    match parts.as_slice() {
+        [hour_minute] => Some([hour_minute.get(..2)?, hour_minute.get(2..)?, "00"]),
+        [hour, minute] => Some([hour, minute, "00"]),
+        [hour, minute, second] => Some([hour, minute, second]),
+        _ => None,
+    }
 }
 
 /// Seconds since midnight of `HH:MM`, `HHMM` or `HH:MM:SS`.
 pub fn parse_time(text: &str) -> Option<i32> {
-    let (hour, minute, second) = match text.len() {
-        4 => (text.get(0..2)?, text.get(2..4)?, "00"),
-        5 if text.as_bytes().get(2) == Some(&b':') => (text.get(0..2)?, text.get(3..5)?, "00"),
-        8 if text.as_bytes().get(2) == Some(&b':') && text.as_bytes().get(5) == Some(&b':') => {
-            (text.get(0..2)?, text.get(3..5)?, text.get(6..8)?)
-        }
-        _ => return None,
-    };
-    let (hour, minute, second) = (number(hour, 2)?, number(minute, 2)?, number(second, 2)?);
-    if hour > 23 || minute > 59 || second > 59 {
+    let [Some(hour), Some(minute), Some(second)] =
+        clock_fields(text)?.map(|field| number(field, 2))
+    else {
         return None;
-    }
-    i32::try_from(hour * 3600 + minute * 60 + second).ok()
+    };
+    seconds_of_day(hour, minute, second)
 }

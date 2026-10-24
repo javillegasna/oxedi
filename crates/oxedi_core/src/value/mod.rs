@@ -5,7 +5,8 @@
 //!
 //! The folder holds: `parse.rs` (the X12 element text as column values
 //! without allocating: [`parse_n`], [`parse_r`], [`parse_dt`] and
-//! [`parse_tm`]), `convert.rs` (integers, decimals, dates and times that
+//! [`parse_tm`]), `parsed.rs` (a text as a value of a column type,
+//! [`Parsed`], through [`ColumnType::parse`]), `convert.rs` (integers, decimals, dates and times that
 //! either keep their value on the way to a column type or say why not,
 //! [`ConvertError`]), `unit.rs` (the units a time is counted in), `calendar.rs` (days since 1970-01-01 and seconds of the
 //! day, checked), `column_type.rs` (the physical type of a column), `element_type.rs` (the element type, its code and its
@@ -16,6 +17,7 @@ mod column_type;
 mod convert;
 mod element_type;
 mod parse;
+mod parsed;
 mod unit;
 
 pub(crate) use calendar::civil_from_days;
@@ -26,8 +28,9 @@ pub use convert::{
     integer_from_i128, integer_from_u128, rescale, seconds_from,
 };
 pub use element_type::{ElementType, TypeCodeError};
-pub(crate) use parse::{is_dt, parse_unsigned};
+pub(crate) use parse::parse_unsigned;
 pub use parse::{parse_dt, parse_n, parse_r, parse_tm};
+pub use parsed::Parsed;
 pub use unit::TimeUnit;
 
 #[cfg(test)]

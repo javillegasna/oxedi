@@ -259,7 +259,7 @@ Internal words used in the code. X12 and payment terms for users are in
 | value origin | The cell, row or envelope field a written value came from (`ValueOrigin`). | `write/finding.rs` |
 | envelope (writer) | The caller's sender, receiver, date, time, control number and delimiters (`Envelope`). | `write/envelope.rs` |
 | processor / output | One pass feeding each segment to engine, checker and projector; `Output` is one step's events and diagnostics. | `process/` |
-| `ConvertError`, `TimeUnit`, `ElementType`, `TypeCodeError`, `ColumnType`, `rescale`, `days_from_civil` | The value types (the element type a spec declares, its code and classification, the column type it becomes), the write-side conversion rules and the calendar every binding shares. | `value/` |
+| `ConvertError`, `TimeUnit`, `ElementType`, `TypeCodeError`, `ColumnType`, `Parsed`, `rescale`, `days_from_civil` | The value types (the element type a spec declares, its code and classification, the column type it becomes, the value a text parses to as that type), the write-side conversion rules and the calendar every binding shares. | `value/` |
 | `IsaError::datum`, `IsaError::skipped`, `IsaError::ISA_LEN` | The bytes an unreadable ISA is about, how many bytes precede it, and the most a truncated one keeps; Python's pyx12 adapter and the DuckDB `diagnostics` table share them. | `delimiters/` |
 | `parse_dt`, `parse_n`, `parse_r`, `parse_tm` | Parsers named after the X12 data types DT, N, R and TM. | `value/parse.rs` |
 | fixture / sample / golden | Synthetic test file / anonymized real file / generated expected output. | `crates/oxedi_core/tests/` |

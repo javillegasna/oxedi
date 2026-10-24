@@ -91,6 +91,7 @@ mod by_module {
     use oxedi_core::value::DECIMAL_PRECISION;
     use oxedi_core::value::ElementType;
     use oxedi_core::value::MAX_SCALE;
+    use oxedi_core::value::Parsed;
     use oxedi_core::value::TimeUnit;
     use oxedi_core::value::TypeCodeError;
     use oxedi_core::value::date_from_midnight;

@@ -132,11 +132,6 @@ pub fn parse_dt(text: &[u8]) -> Option<i32> {
     Some(days_from_civil_unchecked(year, month, day))
 }
 
-/// Whether [`parse_dt`] accepts `text`, without counting the days.
-pub(crate) fn is_dt(text: &[u8]) -> bool {
-    civil_date(text).is_some()
-}
-
 /// The year, month and day of a `DT` value, checked as [`parse_dt`] describes.
 fn civil_date(text: &[u8]) -> Option<(i32, i32, i32)> {
     let mut fields = Fields::new(text);

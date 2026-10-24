@@ -29,13 +29,14 @@
 //! holds at a flagged place are replaced by their masked forms where the
 //! message quotes them; the module notes of `quote.rs` say where.
 
-use crate::column::{civil_from_days, parse_dt};
+use crate::column::parse_dt;
 use crate::diagnostic::{Diagnostic, Rule};
 use crate::document::Document;
 use crate::element::Element;
 use crate::mask::{DateMode, Mask, Phi};
 use crate::segment::Segment;
 use crate::spec::Spec;
+use crate::value::civil_from_days;
 
 use super::plan::Plans;
 use super::quote::unquoted;

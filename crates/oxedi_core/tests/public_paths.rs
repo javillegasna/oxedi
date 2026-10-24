@@ -88,9 +88,22 @@ mod by_module {
     use oxedi_core::tree::Node;
     use oxedi_core::tree::NodeId;
     use oxedi_core::tree::TreeBuilder;
+    use oxedi_core::value::ConvertError;
+    use oxedi_core::value::MAX_SCALE;
+    use oxedi_core::value::date_from_midnight;
+    use oxedi_core::value::date_from_millis;
+    use oxedi_core::value::days_from_civil;
+    use oxedi_core::value::integer_from_f64;
+    use oxedi_core::value::integer_from_i128;
+    use oxedi_core::value::integer_from_u128;
+    use oxedi_core::value::rescale;
+    use oxedi_core::value::seconds_from;
+    use oxedi_core::value::seconds_of_day;
+    use oxedi_core::value::time_of_day;
 }
 
 // Root re-exports from lib.rs
+use oxedi_core::ConvertError;
 use oxedi_core::Projector;
 use oxedi_core::StructureChecker;
 use oxedi_core::Tokenizer;

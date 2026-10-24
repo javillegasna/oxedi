@@ -3,6 +3,7 @@
 import collections
 import datetime
 import importlib.util
+import inspect
 import re
 
 import pyarrow
@@ -410,3 +411,34 @@ def test_a_reference_against_the_parent_chain_is_a_finding():
     [finding] = info.value.findings
     assert finding.kind == "MismatchedReference"
     assert (finding.table, finding.row, finding.column) == ("services", 0, "payment")
+
+
+def test_envelope_defaults_are_the_core_constants():
+    envelope_ = oxedi.Envelope(
+        sender_id="S", receiver_id="R", date=datetime.date(2024, 1, 1), time=datetime.time(1)
+    )
+    assert (envelope_.sender_qualifier, envelope_.receiver_qualifier) == ("ZZ", "ZZ")
+    assert envelope_.usage_indicator == "P"
+    assert envelope_.control_number == 1
+    assert envelope_.date == datetime.date(2024, 1, 1)
+    assert envelope_.time == datetime.time(1)
+
+
+def test_envelope_runtime_parameters_are_pinned():
+    # stubtest allows the defaults' runtime text (`...`); the parameters stay pinned here.
+    parameters = inspect.signature(oxedi.Envelope).parameters
+    assert list(parameters) == [
+        "sender_id",
+        "receiver_id",
+        "date",
+        "time",
+        "sender_qualifier",
+        "receiver_qualifier",
+        "usage_indicator",
+        "control_number",
+        "application_sender",
+        "application_receiver",
+        "delimiters",
+        "line_break",
+    ]
+    assert {p.kind for p in parameters.values()} == {inspect.Parameter.KEYWORD_ONLY}

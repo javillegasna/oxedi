@@ -4,5 +4,6 @@
 //! on parsed files in the crate's `tests/write_*.rs`.
 
 mod display;
+mod envelope;
 mod origin;
 mod plan;

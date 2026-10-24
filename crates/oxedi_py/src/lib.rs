@@ -51,6 +51,7 @@ mod mask;
 mod native;
 mod parse;
 mod spec;
+mod stamp;
 mod stream;
 mod tables;
 mod write;

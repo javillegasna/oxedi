@@ -88,24 +88,24 @@ def empty_dir(directory: Path) -> None:
         ) from error
 
 
-def make_writable(function, path: str, _error) -> None:
-    """shutil.rmtree's error handler: gives the parent directory and the path their owner's
-    permissions back (a run may have removed them), then retries."""
-    for target in (os.path.dirname(path), path):
-        if not os.path.islink(target):
-            os.chmod(target, 0o700)
-    function(path)
+def clean(path: Path) -> bool:
+    """Removes `path` and everything under it, with shutil; links inside are removed, never
+    followed. False when there was nothing to remove."""
+    if not os.path.lexists(path):
+        return False
 
+    def make_writable(_function, failed: str, _error) -> None:
+        """Gives the failed path's parent inside `path` its owner's permissions back (a run may
+        have removed them), then removes the failed path with `remove`, which does the same for
+        every directory under it. Nothing outside `path` is changed."""
+        if failed != str(path):
+            os.chmod(os.path.dirname(failed), 0o700)
+        if os.path.lexists(failed):
+            remove(Path(failed))
 
-def clean(cache: Path, root: Path, everything: bool) -> Path:
-    """Removes this checkout's storage, or with `everything` the whole sandbox storage, and
-    returns what it removed. Links are removed, never followed."""
-    doomed = cache if everything else cache / path_hash(root)
-    if not os.path.lexists(doomed):
-        return doomed
     handler = {"onexc": make_writable} if sys.version_info >= (3, 12) else {"onerror": make_writable}
     try:
-        shutil.rmtree(doomed, **handler)
+        shutil.rmtree(path, **handler)
     except OSError as error:
-        raise SandboxError(f"cannot remove {doomed}: {error}; remove it by hand") from error
-    return doomed
+        raise SandboxError(f"cannot remove {path}: {error}; remove it by hand") from error
+    return True

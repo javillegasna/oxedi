@@ -168,7 +168,7 @@ class Arguments(World):
                     ("--name", name), ("--user", f"{UID}:{GID}"), ("--cap-drop", "ALL"),
                     ("--security-opt", "no-new-privileges"), ("--pids-limit", "4096"),
                     ("--memory", "4g"), ("--memory-swap", "4g"), ("--cpus", "3"),
-                    ("--tmpfs", "/tmp:rw,nosuid,nodev,size=2g"), ("--pull", "never"),
+                    ("--tmpfs", "/tmp:rw,exec,nosuid,nodev,size=2g"), ("--pull", "never"),
                 ]:
                     self.assertTrue(has_pair(argv, flag, value), f"{flag} {value} missing in {argv}")
                 self.assertIn("HOME=/tmp/home", envs(argv))

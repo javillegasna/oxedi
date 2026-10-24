@@ -78,11 +78,16 @@ def image_labels(image: str) -> dict[str, str]:
     return labels if isinstance(labels, dict) else {}
 
 
-def refuse_if_running(name: str) -> None:
-    result = docker("ps", "--filter", f"name=^{name}$", "--format", "{{.Names}}")
+def running(pattern: str) -> list[str]:
+    """The running containers whose name matches the anchored regular expression `pattern`."""
+    result = docker("ps", "--filter", f"name={pattern}", "--format", "{{.Names}}")
     if result.returncode != 0:
-        raise SandboxError(f"docker ps failed, so whether {name} runs is unknown: {result.stderr.strip()}")
-    if name in result.stdout.split():
+        raise SandboxError(f"docker ps failed, so whether {pattern} runs is unknown: {result.stderr.strip()}")
+    return result.stdout.split()
+
+
+def refuse_if_running(name: str) -> None:
+    if name in running(f"^{name}$"):
         raise SandboxError(
             f"{name} is already running for this checkout; wait for it or stop it with docker kill {name}"
         )

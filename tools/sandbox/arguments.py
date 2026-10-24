@@ -11,7 +11,9 @@ WORK = "/work"
 HOME = "/tmp/home"
 CARGO_HOME = "/sandbox/cargo"
 UV_CACHE = "/sandbox/uv"
-TMP_MOUNT = "/tmp:rw,nosuid,nodev,size=2g"
+# Docker mounts a --tmpfs noexec by default; rustdoc builds and runs every doctest from the
+# temporary directory, so /tmp is exec (still nosuid and nodev).
+TMP_MOUNT = "/tmp:rw,exec,nosuid,nodev,size=2g"
 VENV = f"{WORK}/.venv"
 # The Python the venv is made with, and the dependency group the fetch installs into it.
 VENV_PYTHON = "3.13"

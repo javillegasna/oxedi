@@ -15,6 +15,7 @@ After the run, an audit lists every tracked file it changed and every new path i
 removes the Python caches and the built extension it may have left in the checkout.
 
 usage: sandbox.py --image TAG --checkout DIR
+       sandbox.py --clean {checkout,all} --checkout DIR
 The command comes from SANDBOX_CMD. SANDBOX_CPUS (default: the daemon's CPUs minus one),
 SANDBOX_MEMORY (GB; default 60 % of the daemon's memory) and SANDBOX_TIMEOUT (seconds; default
 3600) set the limits.
@@ -25,6 +26,7 @@ to start.
 
 import argparse
 import os
+import shutil
 import sys
 import time
 from dataclasses import dataclass
@@ -32,9 +34,9 @@ from pathlib import Path
 
 from arguments import Limits, Phase, Runtime, docker_args, fetch_commands, run_command
 from audit import DIRTY_STATUS, audit, report, snapshot
-from layout import Checkout, SandboxError, survey
-from lifecycle import daemon_info, explain, image_labels, limits_from, refuse_if_running, run_container
-from storage import Storage, cache_root, empty_dir, prepare, storage_for
+from layout import Checkout, SandboxError, container_name, path_hash, survey
+from lifecycle import daemon_info, explain, image_labels, limits_from, refuse_if_running, run_container, running
+from storage import Storage, cache_root, clean, empty_dir, prepare, storage_for
 
 FETCH_BUDGET_S = 600
 
@@ -136,12 +138,30 @@ def sandbox(image: str, checkout_dir: Path, env: dict[str, str]) -> int:
     return audited(plan, command)
 
 
+def clean_storage(everything: bool, checkout_dir: Path, env: dict[str, str]) -> int:
+    """Removes this checkout's storage, or all of it, unless a sandbox container that uses it runs."""
+    cache = cache_root(env)
+    doomed = cache if everything else cache / path_hash(checkout_dir)
+    pattern = "^oxedi-sandbox-" if everything else f"^{container_name(checkout_dir)}$"
+    busy = running(pattern) if shutil.which("docker") else []
+    if busy:
+        raise SandboxError(f"{', '.join(busy)} is running and uses {doomed}; wait for it or stop it with docker kill")
+    done = "removed" if clean(doomed) else "nothing to remove at"
+    print(f"sandbox: {done} {doomed}", file=sys.stderr)
+    return 0
+
+
 def main(argv: list[str]) -> int:
     parser = argparse.ArgumentParser(prog="sandbox.py", description=__doc__.splitlines()[0])
-    parser.add_argument("--image", required=True, help="the image tag, oxedi-sandbox:<hash>")
+    action = parser.add_mutually_exclusive_group(required=True)
+    action.add_argument("--image", help="run SANDBOX_CMD in this image, oxedi-sandbox:<hash>")
+    action.add_argument("--clean", choices=("checkout", "all"),
+                        help="remove this checkout's storage, or all of the sandbox storage")
     parser.add_argument("--checkout", required=True, type=Path, help="the checkout to mount at /work")
     args = parser.parse_args(argv)
     try:
+        if args.clean is not None:
+            return clean_storage(args.clean == "all", args.checkout.resolve(), dict(os.environ))
         return sandbox(args.image, args.checkout.resolve(), dict(os.environ))
     except SandboxError as error:
         print(f"sandbox: {error}", file=sys.stderr)

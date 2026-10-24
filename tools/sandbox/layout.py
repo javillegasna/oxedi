@@ -53,11 +53,16 @@ class Checkout:
 
     @property
     def name(self) -> str:
-        return f"oxedi-sandbox-{path_hash(self.root)}"
+        return container_name(self.root)
 
 
 def path_hash(path: Path) -> str:
     return hashlib.sha256(str(path).encode()).hexdigest()[:12]
+
+
+def container_name(root: Path) -> str:
+    """The name of the one container a checkout may run at a time."""
+    return f"oxedi-sandbox-{path_hash(root)}"
 
 
 def refuse_unsafe(path: Path | str, what: str) -> None:

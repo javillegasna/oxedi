@@ -1,7 +1,7 @@
 # The sandbox: a pinned image and a runner that builds and tests this checkout inside a hardened,
 # throwaway container (tools/sandbox/sandbox.py says how).
 # Included by the root Makefile.
-.PHONY: sandbox-image sandbox
+.PHONY: sandbox-image sandbox sandbox-check sandbox-clean
 
 ##@ Sandbox
 SANDBOX_DIR   := tools/sandbox
@@ -24,3 +24,10 @@ sandbox: ## run CMD over this checkout in a hardened container with no network (
 	  $(MAKE) --no-print-directory sandbox-image; \
 	fi
 	@$(PYTHON_BIN) $(SANDBOX_DIR)/sandbox.py --image $(SANDBOX_IMAGE) --checkout $(CURDIR)
+
+# The host home path is an argument, so the check proves that path is not mounted.
+sandbox-check: ## prove the sandbox's isolation from inside it: every line of tools/sandbox/isolation-check.sh says ok
+	@$(MAKE) --no-print-directory sandbox CMD='bash $(SANDBOX_DIR)/isolation-check.sh "$(HOME)"'
+
+sandbox-clean: ## remove this checkout's sandbox storage (ALL=1: every checkout's and the shared caches)
+	@$(PYTHON_BIN) $(SANDBOX_DIR)/sandbox.py --clean $(if $(ALL),all,checkout) --checkout $(CURDIR)

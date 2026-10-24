@@ -358,8 +358,9 @@ target may only shrink. Two checks hold that line:
 within the targets (CCN 7 or less, nesting 3 or less). The check diffs your change against the
 base (`origin/master` locally, the base of the push or pull request in CI; set `COMPLEXITY_BASE`
 to use another ref) and reports a `TOUCHED` line for each such function that is still over a
-target. A function is modified when a changed line, committed or not, falls inside it; moving a
-file modifies nothing. To fix it, find the cause and remove it with the fitting pattern or data
+target. A function is modified when a changed line, committed or not, falls inside it, so
+moving or re-indenting a function inside its file counts, and so does editing one in a file you
+rename. Moving a file without editing its functions modifies nothing. To fix it, find the cause and remove it with the fitting pattern or data
 structure: a table instead of a chain of `if`s, an enum with a method instead of repeated
 `match`es, a parser that reads one step per function. Splitting the function into pieces that
 call each other only moves the complexity, so it does not count. Flat per-variant dispatch is
@@ -372,5 +373,5 @@ the touched check and does not fail.
 error's `Display`, raises its CCN by one and is acceptable. Record it with
 `make complexity-update ACCEPT='path::function'` (several separated by spaces) and say why in
 the pull request's **Intent**. Nothing else is accepted this way: fix the cause instead.
-On a pull request, CI lists every added or raised entry in the job summary, and changes to the
+On a pull request, CI lists every added or raised entry, and every entry newly marked `flat`, in the job summary, and changes to the
 baseline or `clippy.toml` need the maintainer's review (`.github/CODEOWNERS`).

@@ -16,11 +16,11 @@ over from one function to the next. --measurements reads `path,function,ccn,nest
 (used by the tests); a row may end with the first and last line of the function.
 
 Each finding says how to resolve it:
-  FAIL   a function is over a target and not in the baseline, or worse than its entry;
-  TOUCHED a function in the baseline that the change modifies and that is still over a target;
-  STALE  an entry is better than recorded, within the targets, or its function is gone;
-  MOVED  a function not in the baseline matches, no worse, a gone entry with the same name in
-         another file (a moved or renamed file).
+  FAIL     a function is over a target and not in the baseline, or worse than its entry;
+  TOUCHED  a function in the baseline that the change modifies and that is still over a target;
+  STALE    an entry is better than recorded, within the targets, or its function is gone;
+  MOVED    a function not in the baseline matches, no worse, a gone entry with the same name in
+           another file (a moved or renamed file).
 --update rewrites the baseline from the measurements. It records STALE and MOVED findings, and
 refuses while a FAIL or TOUCHED is left, unless --accept names that function (a reviewed
 exception) or the baseline does not exist yet.
@@ -335,7 +335,7 @@ class Range(NamedTuple):
     end: int
 
 
-HUNK = re.compile(r"^@@ -\d+(?:,\d+)? \+(\d+)(?:,(\d+))? @@")
+HUNK = re.compile(r"^@@ -(\d+)(?:,(\d+))? \+(\d+)(?:,(\d+))? @@")
 
 
 def git(*args: str) -> str | None:
@@ -350,14 +350,20 @@ def parse_diff(diff: str) -> dict[str, list[Range]]:
     """The changed ranges of each file in a zero-context diff, by its new path."""
     ranges: dict[str, list[Range]] = collections.defaultdict(list)
     path = None
+    left = 0  # content lines of the current hunk still to read; they are never headers
     for line in diff.splitlines():
+        if left:
+            left -= line[:1] in ("+", "-")
+            continue
         if line.startswith("+++ "):
             path = line[6:] if line.startswith("+++ b/") else None
         hunk = HUNK.match(line)
-        if hunk and path:
-            first, count = int(hunk[1]), int(hunk[2] or 1)
-            ranges[path].append(Range(first + 1, first) if count == 0
-                                else Range(first, first + count - 1))
+        if hunk:
+            first, count = int(hunk[3]), int(hunk[4] or 1)
+            left = int(hunk[2] or 1) + count
+            if path:
+                ranges[path].append(Range(first + 1, first) if count == 0
+                                    else Range(first, first + count - 1))
     return ranges
 
 
@@ -377,17 +383,27 @@ def is_modified(span: Span, ranges: list[Range]) -> bool:
     return any(span[0] <= r.end and r.start <= span[1] for r in ranges)
 
 
-def find_touched(rows: list[Row], baseline: Table, flat: set[Key], base: str) -> list[Finding]:
-    """Functions in the baseline, not flat, still over a target, that the change modifies."""
+def find_touched(rows: list[Row], baseline: Table, flat: set[Key], base: str,
+                 findings: list[Finding]) -> list[Finding]:
+    """Functions in the baseline, not flat, still over a target, that the change modifies.
+
+    A function that moved with its file is looked up through the entry it moved from.
+    """
+    origins = {f.key: f.origin for f in findings if f.kind == "MOVED" and f.origin}
+
+    def entry(r: Row) -> Key:
+        key = (r.path, r.name)
+        return key if key in baseline else origins.get(key, key)
+
     candidates = [r for r in rows if r.span and over_target(r.measure)
-                  and (r.path, r.name) in baseline and (r.path, r.name) not in flat]
+                  and entry(r) in baseline and entry(r) not in flat]
     if not candidates:
         return []
     ranges, reason = changed_ranges(base)
     if reason:
         print(f"complexity: touched check skipped: {reason}")
         return []
-    return [Finding("TOUCHED", (r.path, r.name), r.measure, baseline[(r.path, r.name)][0])
+    return [Finding("TOUCHED", (r.path, r.name), r.measure, baseline[entry(r)][0])
             for r in candidates if r.span and is_modified(r.span, ranges.get(r.path, []))]
 
 
@@ -402,7 +418,7 @@ def parse_accepted(values: list[str], findings: list[Finding]) -> set[Key]:
             sys.exit(f"complexity: --accept {value!r} names no function that is over the targets "
                      "and not in the baseline, worse than its entry, or modified by this change; "
                      "write it as path::function "
-                     "exactly as a FAIL line prints it")
+                     "exactly as a FAIL or TOUCHED line prints it")
         accepted.add((path, name))
     return accepted
 
@@ -439,7 +455,7 @@ def check(baseline: Table, findings: list[Finding], measured: int) -> int:
     return 0
 
 
-def report_changes(new: Table, old: Table) -> int:
+def report_changes(new: Table, old: Table, new_flat: set[Key], old_flat: set[Key]) -> int:
     """Logs the entries a baseline gained or raised against an older one; never fails.
 
     A baseline lists only functions over the targets, so an old entry counts as gone here when its
@@ -448,6 +464,9 @@ def report_changes(new: Table, old: Table) -> int:
     findings = compare(new, old, set(new))
     raised = [f for f in findings if f.kind in FAIL_KINDS]
     moved = [f for f in findings if f.kind == "MOVED"]
+    before_flat = moved_flat(old_flat, moved)
+    marked = sorted(new_flat - before_flat)
+    unmarked = sorted((before_flat & set(new)) - new_flat)
     if raised:
         print(f"::warning title=Complexity baseline::{len(raised)} entry(ies) added or raised; "
               "the pull request must say why each is a reviewed exception")
@@ -463,6 +482,13 @@ def report_changes(new: Table, old: Table) -> int:
         for f in moved:
             origin = f.origin[0] if f.origin else "-"
             body += f"- `{f.key[1]}`: `{origin}` → `{f.key[0]}`, {describe(f.now)}\n"
+    if marked:
+        body += "\nEntries newly marked flat (exempt from the touch rule):\n\n"
+        body += "".join(f"- `{p}` `{name}`\n" for p, name in marked)
+        body += "\nEach must be flat per-variant dispatch, explained in the pull request.\n"
+    if unmarked:
+        body += "\nEntries no longer flat:\n\n"
+        body += "".join(f"- `{p}` `{name}`\n" for p, name in unmarked)
     print(body, end="")
     summary_path = os.environ.get("GITHUB_STEP_SUMMARY")
     if summary_path:
@@ -483,13 +509,15 @@ def main() -> int:
                              "else origin/master)")
     parser.add_argument("--update", action="store_true", help="rewrite the baseline")
     parser.add_argument("--accept", action="append", default=[], metavar="PATH::FUNCTION",
-                        help="with --update, record this new or worse function on purpose")
+                        help="with --update, record this new, worse or touched function on "
+                             "purpose, marked flat")
     args = parser.parse_args()
     if args.accept and not args.update:
         parser.error("--accept needs --update")
 
     if args.compare_with:
-        return report_changes(read_baseline(args.baseline), read_baseline(args.compare_with))
+        return report_changes(read_baseline(args.baseline), read_baseline(args.compare_with),
+                             read_flat(args.baseline), read_flat(args.compare_with))
     if args.files:
         rows = measure_files(Path(args.files).read_text(encoding="utf-8").split())
     else:
@@ -498,7 +526,7 @@ def main() -> int:
     baseline = read_baseline(args.baseline) if args.baseline.exists() else {}
     flat = read_flat(args.baseline) if args.baseline.exists() else set()
     findings = compare(current, baseline, {(row.path, row.name) for row in rows})
-    findings += find_touched(rows, baseline, flat, args.base)
+    findings += find_touched(rows, baseline, flat, args.base, findings)
     if args.update:
         return update(args.baseline, current, findings, args.accept, flat)
     return check(baseline, findings, len(rows))

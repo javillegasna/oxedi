@@ -20,9 +20,9 @@ jobs:
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
-          # The complexity ratchet diffs HEAD with its first parent: the base of a push or of a
-          # pull request's merge commit.
-          fetch-depth: 2
+          # The complexity ratchet finds the merge base of HEAD with the commit before a push or
+          # with a pull request's first parent.
+          fetch-depth: 0
       - name: actionlint and shellcheck
         run: .github/scripts/install-lint-tools.sh
       - name: Lint
@@ -34,4 +34,6 @@ jobs:
         with:
           cache-suffix: complexity
       - name: Complexity ratchet
+        env:
+          COMPLEXITY_PUSH_BEFORE: ${{ github.event.before }}
         run: .github/scripts/complexity.sh

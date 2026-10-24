@@ -298,5 +298,46 @@ if [ "$status" != 0 ] || [ "$(grep -c 'touched check skipped' <<< "$output")" !=
   failed=1
 fi
 
+# A file renamed and edited inside a baseline function in one change: TOUCHED, not a quiet move.
+new_repo
+git -C "$repo" mv a.rs b.rs
+sed -i '5s/.*/changed/' "$repo/b.rs"
+baseline 'a.rs big 12 2'
+measurements 'b.rs,big,12,2,3,9'
+in_repo 1 'TOUCHED b.rs::big'
+baseline 'a.rs big 12 2 flat'
+in_repo 0 'wrote' --update
+grep -qP 'b.rs\tbig\t12\t2\tflat$' "$tmp/baseline" || { echo "FAIL: flat lost"; failed=1; }
+baseline 'a.rs big 12 2'
+in_repo 0 'wrote' --update --accept 'b.rs::big'
+
+# A content line that looks like a file header does not end the file's ranges.
+new_repo
+sed -i '5s/.*/-- x/' "$repo/a.rs"
+git -C "$repo" commit -q -am dashes
+git -C "$repo" branch -f base
+sed -i -e '5s/.*/++ y/' -e '15s/.*/changed/' "$repo/a.rs"
+baseline 'a.rs big 12 2' 'a.rs other 9 1'
+measurements 'a.rs,big,12,2,3,9' 'a.rs,other,9,1,12,18'
+in_repo 1 'TOUCHED a.rs::big'
+if ! grep -q 'TOUCHED a.rs::other' <<< "$last_output"; then
+  echo "FAIL: a content line starting with +++ hid the next hunk:"; echo "$last_output"; failed=1
+fi
+
+# The report names the entries newly marked flat and those no longer flat.
+printf '# old\na.rs\tfmt\t20\t0\na.rs\tbig\t12\t2\tflat\nc.rs\tkept\t9\t1\tflat\nd.rs\tmv\t9\t1\tflat\n' > "$tmp/old"
+baseline 'a.rs fmt 20 0 flat' 'a.rs big 12 2' 'c.rs kept 9 1 flat' 'e.rs mv 9 1 flat'
+output=$(GITHUB_STEP_SUMMARY="$tmp/summary" python3 "$script" "$tmp/baseline" --compare-with "$tmp/old")
+status=$?
+for want in 'marked flat' 'a.rs. .fmt.' 'no longer flat' 'a.rs. .big.'; do
+  if [ "$status" != 0 ] || ! grep -qE -- "$want" <<< "$output"; then
+    echo "FAIL: the report wanted /$want/ and status 0, got $status:"; echo "$output"; failed=1
+  fi
+done
+if grep -qE 'kept|e.rs' <<< "$(grep -E 'flat' <<< "$output")"; then
+  echo "FAIL: an unchanged or moved flat entry was reported:"; echo "$output"; failed=1
+fi
+grep -q 'marked flat' "$tmp/summary" || { echo "FAIL: flat marks missing from the summary"; failed=1; }
+
 if [ "$failed" = 0 ]; then echo "complexity: ok"; fi
 exit "$failed"

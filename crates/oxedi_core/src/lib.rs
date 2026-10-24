@@ -68,10 +68,10 @@ pub use process::{Output, Processor};
 pub use project::{ColumnSchema, Projector, TableSchema, UnknownTable, spec_schema};
 pub use segment::{Segment, SegmentWriteError};
 pub use spec::{
-    AnchorChains, AnchorPositions, BalanceError, BalanceRule, BalanceTerm, ColumnSource, Control,
-    ControlCount, ControlError, DeclaredVersion, ElementDef, ElementDefError, ElementType, LoopDef,
-    LoopId, LoopSegments, Pick, Repeat, SegmentDef, Spec, SpecError, TableDef, TableDefError,
-    Trigger, VersionError, merge_patch,
+    AnchorChains, AnchorPositions, BalanceError, BalanceRule, BalanceTerm, Builtin, ColumnSource,
+    Control, ControlCount, ControlError, DeclaredVersion, ElementDef, ElementDefError, ElementType,
+    LoopDef, LoopId, LoopSegments, Pick, Repeat, SegmentDef, Spec, SpecError, TableDef,
+    TableDefError, Trigger, UnknownVersion, VersionError, merge_patch,
 };
 pub use tokenizer::Tokenizer;
 pub use tree::{LoopTree, Node, NodeId, TreeBuilder};

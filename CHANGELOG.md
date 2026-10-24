@@ -9,6 +9,10 @@ This file covers the Python package; the DuckDB extension has its own changelog 
 
 ## [Unreleased]
 
+### Changed
+- `Spec.builtin`: the `ValueError` for a version no built-in covers now reads
+  `Spec.builtin(version="6020"): unknown version "6020"; version must be one of "5010", "4010"`.
+
 ## [0.6.0] - 2026-10-18
 
 ### Added

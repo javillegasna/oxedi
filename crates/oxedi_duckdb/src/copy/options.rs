@@ -5,13 +5,10 @@
 //! values; [`OptionValue`] is that value read into Rust, so the rules here
 //! do not touch the C API.
 
-use oxedi_core::Delimiters;
 use oxedi_core::write::Envelope;
+use oxedi_core::{Builtin, Delimiters};
 
 use super::error::CopyError;
-
-/// The version used when `version` is not given.
-pub const DEFAULT_VERSION: &str = "5010";
 
 /// Every option, in the order the messages list them.
 pub const OPTIONS: &[&str] = &[
@@ -141,66 +138,120 @@ fn optional_text(
         .transpose()
 }
 
+/// Refuses an option that is a file option of `COPY` or that is not known.
+fn reject_unknown(given: &[(String, OptionValue)]) -> Result<(), CopyError> {
+    for (name, _) in given {
+        if let Some((_, reason)) = FILE_OPTIONS.iter().find(|(option, _)| option == name) {
+            return Err(CopyError::FileOption {
+                name: name.clone(),
+                reason,
+            });
+        }
+        if !OPTIONS.contains(&name.as_str()) {
+            return Err(CopyError::UnknownOption {
+                name: name.clone(),
+                known: OPTIONS,
+            });
+        }
+    }
+    Ok(())
+}
+
+/// A qualifier option, `ZZ` when it is not given.
+fn qualifier(given: &[(String, OptionValue)], name: &'static str) -> Result<String, CopyError> {
+    Ok(optional_text(given, name)?.unwrap_or_else(|| "ZZ".to_owned()))
+}
+
+/// An optional option read by `read`.
+fn optional<T>(
+    given: &[(String, OptionValue)],
+    name: &str,
+    read: fn(&OptionValue) -> Result<T, CopyError>,
+) -> Result<Option<T>, CopyError> {
+    lookup(given, name).map(read).transpose()
+}
+
+/// A required VARCHAR option.
+fn required_text(given: &[(String, OptionValue)], name: &'static str) -> Result<String, CopyError> {
+    text(name, required(given, name)?)
+}
+
+/// The four required options: the two ids, the date and the time.
+fn required_fields(
+    given: &[(String, OptionValue)],
+) -> Result<(String, String, i32, i32), CopyError> {
+    Ok((
+        required_text(given, "sender_id")?,
+        required_text(given, "receiver_id")?,
+        date(required(given, "date")?)?,
+        time(required(given, "time")?)?,
+    ))
+}
+
+/// The envelope the required options and the qualifiers describe, with the
+/// defaults of every other field.
+fn identity(given: &[(String, OptionValue)]) -> Result<Envelope, CopyError> {
+    let (sender_id, receiver_id, date, time) = required_fields(given)?;
+    Ok(Envelope::new(
+        qualifier(given, "sender_qualifier")?,
+        sender_id,
+        qualifier(given, "receiver_qualifier")?,
+        receiver_id,
+        date,
+        time,
+    ))
+}
+
+/// Replaces the envelope's text fields with the options that are given.
+fn tune_text(envelope: &mut Envelope, given: &[(String, OptionValue)]) -> Result<(), CopyError> {
+    if let Some(usage) = optional_text(given, "usage_indicator")? {
+        envelope.usage_indicator = usage;
+    }
+    envelope.application_sender = optional_text(given, "application_sender")?;
+    envelope.application_receiver = optional_text(given, "application_receiver")?;
+    Ok(())
+}
+
+/// Replaces the envelope's control number, delimiters and line break with
+/// the options that are given.
+fn tune_layout(envelope: &mut Envelope, given: &[(String, OptionValue)]) -> Result<(), CopyError> {
+    envelope.control_number =
+        optional(given, "control_number", control_number)?.unwrap_or(envelope.control_number);
+    envelope.delimiters = optional(given, "delimiters", delimiters)?.unwrap_or(envelope.delimiters);
+    envelope.line_break = optional(given, "line_break", line_break)?.unwrap_or(envelope.line_break);
+    Ok(())
+}
+
+/// A bare boolean option means true, as DuckDB's own options (HEADER) do.
+fn line_break(value: &OptionValue) -> Result<bool, CopyError> {
+    match value.kind {
+        Kind::Null => Ok(true),
+        Kind::Bool(flag) => Ok(flag),
+        _ => Err(wrong("line_break", value, BOOLEAN)),
+    }
+}
+
+/// The version option, the fallback built-in's version when it is not given.
+fn version(given: &[(String, OptionValue)]) -> Result<String, CopyError> {
+    match lookup(given, "version").map(|value| (&value.kind, value)) {
+        None => Ok(Builtin::fallback().version.to_owned()),
+        Some((Kind::Text(version), _)) => Ok(version.clone()),
+        Some((Kind::Null, _)) => Err(CopyError::NoValue { name: "version" }),
+        Some((_, value)) => Err(wrong("version", value, VERSION)),
+    }
+}
+
 impl Settings {
     /// Reads the options, each name lower case.
     pub fn parse(given: &[(String, OptionValue)]) -> Result<Settings, CopyError> {
-        for (name, _) in given {
-            if let Some((_, reason)) = FILE_OPTIONS.iter().find(|(option, _)| option == name) {
-                return Err(CopyError::FileOption {
-                    name: name.clone(),
-                    reason,
-                });
-            }
-            if !OPTIONS.contains(&name.as_str()) {
-                return Err(CopyError::UnknownOption {
-                    name: name.clone(),
-                    known: OPTIONS,
-                });
-            }
-        }
-        let sender_id = text("sender_id", required(given, "sender_id")?)?;
-        let receiver_id = text("receiver_id", required(given, "receiver_id")?)?;
-        let date = date(required(given, "date")?)?;
-        let time = time(required(given, "time")?)?;
-        let sender_qualifier = optional_text(given, "sender_qualifier")?;
-        let receiver_qualifier = optional_text(given, "receiver_qualifier")?;
-        let mut envelope = Envelope::new(
-            sender_qualifier.unwrap_or_else(|| "ZZ".to_owned()),
-            sender_id,
-            receiver_qualifier.unwrap_or_else(|| "ZZ".to_owned()),
-            receiver_id,
-            date,
-            time,
-        );
-        if let Some(usage) = optional_text(given, "usage_indicator")? {
-            envelope.usage_indicator = usage;
-        }
-        if let Some(value) = lookup(given, "control_number") {
-            envelope.control_number = control_number(value)?;
-        }
-        envelope.application_sender = optional_text(given, "application_sender")?;
-        envelope.application_receiver = optional_text(given, "application_receiver")?;
-        if let Some(value) = lookup(given, "delimiters") {
-            envelope.delimiters = delimiters(value)?;
-        }
-        if let Some(value) = lookup(given, "line_break") {
-            envelope.line_break = match value.kind {
-                // A bare boolean option means true, as DuckDB's own
-                // options (HEADER) do.
-                Kind::Null => true,
-                Kind::Bool(flag) => flag,
-                _ => return Err(wrong("line_break", value, BOOLEAN)),
-            };
-        }
-        let version = match lookup(given, "version") {
-            Some(value) => match &value.kind {
-                Kind::Text(version) => version.clone(),
-                Kind::Null => return Err(CopyError::NoValue { name: "version" }),
-                _ => return Err(wrong("version", value, VERSION)),
-            },
-            None => DEFAULT_VERSION.to_owned(),
-        };
-        Ok(Settings { envelope, version })
+        reject_unknown(given)?;
+        let mut envelope = identity(given)?;
+        tune_text(&mut envelope, given)?;
+        tune_layout(&mut envelope, given)?;
+        Ok(Settings {
+            envelope,
+            version: version(given)?,
+        })
     }
 }
 

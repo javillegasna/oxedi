@@ -13,10 +13,19 @@ const TABLES: [&str; 5] = [
 #[test]
 fn the_default_is_5010_and_4010_follows() {
     let builtins = Builtins::load();
-    assert_eq!(builtins.default().version, "5010");
-    assert_eq!(builtins.versions(), vec!["5010", "4010"]);
-    assert_eq!(builtins.by_version("4010").map(|b| b.version), Some("4010"));
-    assert!(builtins.by_version("3070").is_none());
+    assert_eq!(
+        builtins.default().version(),
+        oxedi_core::Builtin::DEFAULT_VERSION
+    );
+    assert_eq!(
+        builtins.by_version("4010").map(|b| b.version()).ok(),
+        Some("4010")
+    );
+    let error = builtins.by_version("3070").unwrap_err();
+    assert_eq!(
+        error.to_string(),
+        "unknown version \"3070\"; version must be one of \"5010\", \"4010\""
+    );
 }
 
 #[test]
@@ -28,9 +37,10 @@ fn every_builtin_projects_the_same_tables_with_the_same_columns() {
     assert_eq!(names, TABLES);
     for builtin in builtins.iter() {
         assert_eq!(
-            builtin.tables, default.tables,
+            builtin.tables,
+            default.tables,
             "version {}",
-            builtin.version
+            builtin.version()
         );
     }
 }
@@ -64,7 +74,7 @@ fn select_follows_the_declared_version() {
             panic!("the interchange indexes");
         };
         assert_eq!(
-            builtins.select(document.segments()).version,
+            builtins.select(document.segments()).version(),
             expected,
             "{declared}"
         );

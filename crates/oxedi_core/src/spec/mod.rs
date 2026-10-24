@@ -21,11 +21,12 @@
 //! columns flagged as patient data and of the seed column;
 //! `error` the load error; `render` the text used in messages; `patch` the
 //! merge patch; `version` the version declaration and the choice of a spec
-//! by it.
+//! by it; `builtin` the registry of shipped specs by transaction and version.
 
 mod balance;
 mod balance_error;
 mod build;
+mod builtin;
 mod columns;
 mod compile;
 mod error;
@@ -46,6 +47,7 @@ mod version;
 
 pub use balance::{BalanceRule, BalanceTerm};
 pub use balance_error::BalanceError;
+pub use builtin::{Builtin, UnknownVersion};
 pub use error::SpecError;
 pub use loops::{Control, ControlCount, ControlError, LoopDef, LoopId, Trigger};
 pub use occurrence_error::OccurrenceError;

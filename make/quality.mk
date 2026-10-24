@@ -1,5 +1,5 @@
-# Complexity ratchet. Included by the root Makefile.
-.PHONY: complexity complexity-update
+# Complexity ratchet, dependency leaks and profiling. Included by the root Makefile.
+.PHONY: complexity complexity-update deps-check profile profile-py
 
 ##@ Code quality
 
@@ -10,3 +10,35 @@ complexity: ## fail if a Rust, Python or JS function is over the complexity targ
 
 complexity-update: ## rewrite .github/complexity-baseline.txt after a refactor or move; ACCEPT='path::function ...' records reviewed exceptions
 	tools/complexity/complexity.sh --update $(foreach a,$(ACCEPT),--accept '$(a)')
+
+# The allowed lists live in tools/deps/deps.py. The crate check needs cargo only; the wheel check
+# runs when `make dist` has left a wheel in target/wheels (CI runs both).
+deps-check: ## fail if a published crate has an unlisted normal dependency or the wheel an unconditional Requires-Dist
+	python3 tools/deps/deps.py crates
+	@if ls $(WHEELS)/*.whl >/dev/null 2>&1; then python3 tools/deps/deps.py wheel; else echo "deps-check: no wheel in $(WHEELS), wheel check skipped (make dist builds one)"; fi
+
+##@ Profiling
+# Unix only. Outputs: see CONTRIBUTING.md (Profiling).
+SECONDS ?= 10
+PY_PROFILE_DIR := target/profile-py
+# py-spy 0.4 sometimes reports "No child process" when the script ends while it is still
+# sampling, after it has written the output; a missing or empty output file is the failure.
+define py-spy-record
+-$(VENV)/bin/py-spy record --format $(1) -o $(PY_PROFILE_DIR)/$(2) -- $(PYTHON) $(SCRIPT) $(ARGS)
+@test -s $(PY_PROFILE_DIR)/$(2) || { echo "profile-py: py-spy wrote no $(PY_PROFILE_DIR)/$(2)"; exit 1; }
+endef
+
+profile: ## profile a core bench under a sampler: BENCH=process [SECONDS=10]; writes flamegraph.svg and top.txt under target/criterion/
+	@test -n "$(BENCH)" || { echo "usage: make profile BENCH=<tokenize|engine|check|process|write> [SECONDS=10]"; exit 1; }
+	@stamp=$$(mktemp) && trap 'rm -f "$$stamp"' EXIT && \
+	  cargo bench --locked -p oxedi_core --bench $(BENCH) -- --profile-time $(SECONDS) && \
+	  echo "profile: written by this run:" && find target/criterion -path '*/profile/*' -newer "$$stamp" -type f | sort
+
+profile-py: ## profile a Python script with py-spy: SCRIPT=path [ARGS='...']; writes flamegraph.svg and stacks.txt under target/profile-py/
+	@test -n "$(SCRIPT)" || { echo "usage: make profile-py SCRIPT=path/to/script.py [ARGS='...']"; exit 1; }
+	@test -x $(VENV)/bin/py-spy || { echo "profile-py: $(VENV)/bin/py-spy is missing; run make venv"; exit 1; }
+	VIRTUAL_ENV=$(VENV) $(MATURIN) develop --uv --release --manifest-path $(PY_MANIFEST)
+	mkdir -p $(PY_PROFILE_DIR)
+	$(call py-spy-record,flamegraph,flamegraph.svg)
+	$(call py-spy-record,raw,stacks.txt)
+	@echo "profile-py: wrote $(PY_PROFILE_DIR)/flamegraph.svg and $(PY_PROFILE_DIR)/stacks.txt"

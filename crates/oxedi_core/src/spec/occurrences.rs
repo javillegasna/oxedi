@@ -9,7 +9,9 @@ use super::loops::Trigger;
 use super::occurrence_error::{OccurrenceError, place};
 use super::raw::{RawOccurrence, RawQualifier};
 use super::render::{render_key, render_trigger};
-use super::segments::{ElementDef, ElementDefError, SegmentDef, compile_codes, parse_position};
+use super::segments::{
+    ElementDef, ElementDefError, SegmentDef, compile_codes, holds_code, parse_position,
+};
 use crate::segment::Segment;
 
 /// Whether an occurrence must appear in every instance of its loop.
@@ -41,11 +43,7 @@ impl Qualifier {
     pub fn matches(&self, segment: &Segment<'_>) -> bool {
         segment
             .leaf(self.element, self.component)
-            .is_some_and(|value| {
-                self.codes
-                    .binary_search_by(|code| code.as_bytes().cmp(value))
-                    .is_ok()
-            })
+            .is_some_and(|value| holds_code(&self.codes, value))
     }
 }
 
@@ -99,13 +97,14 @@ impl OccurrenceDef {
         };
         qualifier.component.is_none()
             && trigger.conditions.iter().any(|(position, value)| {
-                *position == qualifier.element
-                    && qualifier.codes.iter().any(|code| code.as_bytes() == value)
+                *position == qualifier.element && holds_code(&qualifier.codes, value)
             })
     }
 }
 
-/// The definition of an element or component of `segment`, if any.
+/// The definition of an element or component of `segment`, if any. It takes
+/// the `segments` section rather than a [`Spec`](super::Spec) because it also
+/// runs while the spec is being built; [`Spec::element_def`](super::Spec::element_def) calls it.
 pub(super) fn element_def<'d>(
     segments: &'d BTreeMap<Vec<u8>, SegmentDef>,
     segment: &[u8],

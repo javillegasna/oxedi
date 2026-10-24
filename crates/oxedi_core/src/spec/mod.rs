@@ -224,11 +224,7 @@ impl Spec {
         element: usize,
         component: Option<usize>,
     ) -> Option<&ElementDef> {
-        let def = self.segments.get(segment)?.elements.get(&element)?;
-        match component {
-            None => Some(def),
-            Some(component) => def.composite.get(&component),
-        }
+        occurrences::element_def(&self.segments, segment, element, component)
     }
 
     /// Whether any column of any table is flagged as patient data.

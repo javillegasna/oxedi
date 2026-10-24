@@ -34,13 +34,18 @@ impl ElementDef {
     }
 }
 
+/// `true` when `value` is one of `codes`, a list sorted by bytes.
+#[inline]
+pub(crate) fn holds_code(codes: &[String], value: &[u8]) -> bool {
+    codes
+        .binary_search_by(|code| code.as_bytes().cmp(value))
+        .is_ok()
+}
+
 /// `true` when `codes` (sorted by bytes) is a code list and `value` is not
 /// in it; an empty list rejects nothing.
 pub(crate) fn rejects_code(codes: &[String], value: &[u8]) -> bool {
-    !codes.is_empty()
-        && codes
-            .binary_search_by(|code| code.as_bytes().cmp(value))
-            .is_err()
+    !codes.is_empty() && !holds_code(codes, value)
 }
 
 /// The elements of one segment id.

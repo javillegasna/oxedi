@@ -231,7 +231,10 @@ fn no_read_error_has_a_source() {
         file: "a.835".to_owned(),
         message: "denied".to_owned(),
     };
-    for error in [ReadError::EmptyPathList, mask, parse, open] {
+    let version = ReadError::UnknownVersion {
+        source: oxedi_core::Builtin::find_text("835", "3070").unwrap_err(),
+    };
+    for error in [ReadError::EmptyPathList, mask, parse, open, version] {
         assert!(error.source().is_none(), "{error}");
     }
 }

@@ -4,7 +4,7 @@
 use std::fmt;
 
 use super::{Quoted, Rule};
-use crate::spec::render_amount;
+use crate::value::decimal_display as render_amount;
 
 /// The longest code or name list a message spells out; longer lists keep
 /// the count.

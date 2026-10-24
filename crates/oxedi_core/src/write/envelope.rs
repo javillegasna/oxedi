@@ -13,7 +13,7 @@
 
 use crate::delimiters::Delimiters;
 use crate::spec::{ElementDef, Spec};
-use crate::value::ElementType;
+use crate::value::{ElementTextError, ElementType};
 
 use super::finding::WriteError;
 use super::render::{envelope_date, envelope_time};
@@ -182,7 +182,7 @@ pub(super) struct EnvelopeValue {
     /// `false` for a delimiter written as the value itself.
     pub(super) checked: bool,
     /// Why the field has no text the element can hold, when it has none.
-    pub(super) refused: Option<String>,
+    pub(super) refused: Option<ElementTextError>,
 }
 
 /// The delimiters the written file uses: those of the envelope, with the
@@ -291,7 +291,7 @@ fn field_value(
     field: Field,
     def: &ElementDef,
     envelope: &Envelope,
-) -> Option<Result<(Vec<u8>, bool), String>> {
+) -> Option<Result<(Vec<u8>, bool), ElementTextError>> {
     let text = |value: &str| Some(Ok((value.as_bytes().to_vec(), true)));
     let delimiters = &envelope.delimiters;
     match field {

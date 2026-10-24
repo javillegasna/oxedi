@@ -15,9 +15,9 @@
 use crate::delimiters::Delimiters;
 use crate::diagnostic::{Diagnostic, LoopRef, Rule};
 use crate::engine::Event;
-use crate::frame::BYTE_ORDER_MARK;
 use crate::segment::Segment;
 use crate::spec::{ControlCount, LoopId, Spec, render_trigger};
+use crate::trivia::BYTE_ORDER_MARK;
 
 /// One loop instance the checker is inside of.
 #[derive(Debug, Clone)]

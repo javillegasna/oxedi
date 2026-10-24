@@ -12,7 +12,7 @@
 
 use std::fmt;
 
-use crate::frame::{BYTE_ORDER_MARK, leading_trivia};
+use crate::trivia::LeadingTrivia;
 
 /// The five delimiters of an interchange. Only `release` is never read from the
 /// file: X12 defines no release character, so it is opt-in by the caller.
@@ -79,12 +79,11 @@ impl IsaError {
                 ..
             } => (*byte_order_mark, *whitespace),
         };
-        let mark = if byte_order_mark {
-            BYTE_ORDER_MARK.len()
-        } else {
-            0
-        };
-        mark.saturating_add(whitespace)
+        LeadingTrivia {
+            byte_order_mark,
+            whitespace,
+        }
+        .len()
     }
 
     /// The bytes the error is about in `input`, the bytes it was read from:
@@ -280,13 +279,12 @@ impl Delimiters {
     /// leading trivia: a UTF-8 byte order mark at the very start, then
     /// whitespace. A [`IsaError::NotIsa`] or [`IsaError::Truncated`] names what was skipped.
     pub fn from_isa_after_leading_trivia(input: &[u8]) -> Result<Self, IsaError> {
-        let skipped = leading_trivia(input);
-        let byte_order_mark = input.starts_with(BYTE_ORDER_MARK);
-        let whitespace = if byte_order_mark {
-            skipped.saturating_sub(BYTE_ORDER_MARK.len())
-        } else {
-            skipped
-        };
+        let trivia = LeadingTrivia::of(input);
+        let LeadingTrivia {
+            byte_order_mark,
+            whitespace,
+        } = trivia;
+        let skipped = trivia.len();
         let rest = input.get(skipped..).unwrap_or_default();
         Self::from_isa(rest).map_err(|error| match error {
             IsaError::NotIsa { found, .. } => IsaError::NotIsa {

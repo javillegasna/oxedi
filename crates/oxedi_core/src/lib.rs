@@ -52,6 +52,7 @@ pub mod spec;
 pub mod summary;
 pub mod tokenizer;
 pub mod tree;
+pub mod trivia;
 pub mod value;
 pub mod write;
 

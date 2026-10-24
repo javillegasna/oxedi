@@ -44,8 +44,9 @@ flowchart LR
 ```
 
 1. `Document::parse` (`document/`) reads the delimiters from the ISA header
-   (`Delimiters::from_isa_after_leading_trivia`, `delimiters/`), then cuts the input into
-   frames (`frame/`), one per segment. It keeps the input and one span per segment; a segment
+   (`Delimiters::from_isa_after_leading_trivia`, `delimiters/`, which splits off the leading
+   byte order mark and whitespace with `trivia/`), then cuts the input into frames (`frame/`),
+   one per segment. It keeps the input and one span per segment; a segment
    is parsed only when asked for. `Tokenizer` (`tokenizer/`) yields the same segments lazily,
    for streaming.
 2. A `Segment` (`segment/`) is the id, the elements and `raw`: every byte from the end of the
@@ -219,7 +220,7 @@ Internal words used in the code. X12 and payment terms for users are in
 | repetition | An element repeated with the repetition separator (ISA11 in 5010). |
 | delimiters (`delims`) | Element, component, segment terminator, and the optional repetition and release bytes; read from the ISA. `delims` is the usual short form in code. |
 | loop | A group of segments that repeats, named by the implementation guide (`2100`). |
-| trivia | Bytes between segments (line breaks, a byte order mark), kept in the next segment's `raw`. |
+| trivia | Bytes between segments (line breaks, a byte order mark), kept in the next segment's `raw` (`trivia/`). |
 
 ### Project terms
 

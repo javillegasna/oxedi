@@ -5,7 +5,7 @@ import subprocess
 import sys
 import unittest
 
-from test_sandbox import REPO, SCRIPT, World, layout
+from test_sandbox import SCRIPT, World, layout, make_repo_copy
 
 
 class Clean(World):
@@ -16,12 +16,6 @@ class Clean(World):
         return subprocess.run(
             [sys.executable, str(SCRIPT), "--clean", scope, "--checkout", str(checkout)],
             env=self.env(**extra), capture_output=True, text=True, check=False, timeout=60,
-        )
-
-    def make(self, *args: str) -> subprocess.CompletedProcess:
-        return subprocess.run(
-            ["make", "--no-print-directory", "-C", str(REPO), *args],
-            env=self.env(), capture_output=True, text=True, check=False, timeout=120,
         )
 
     def test_clean_removes_this_checkouts_storage_only(self):
@@ -68,15 +62,16 @@ class Clean(World):
     def test_sandbox_clean_through_make(self):
         cache = self.home / ".cache" / "oxedi-sandbox"
         cache.mkdir(parents=True)
-        result = self.make("sandbox-clean")
+        checkout = make_repo_copy(self.tmp / "repo")
+        result = self.make(checkout, "sandbox-clean")
         self.assertEqual(result.returncode, 0, result.stderr)
-        self.assertEqual(result.stderr, f"sandbox: nothing to remove at {cache / layout.path_hash(REPO)}\n")
-        result = self.make("sandbox-clean", "ALL=1")
+        self.assertEqual(result.stderr, f"sandbox: nothing to remove at {cache / layout.path_hash(checkout)}\n")
+        result = self.make(checkout, "sandbox-clean", "ALL=1")
         self.assertEqual(result.stderr, f"sandbox: removed {cache}\n")
         self.assertFalse(cache.exists())
 
     def test_sandbox_check_through_make(self):
-        result = self.make("sandbox-check")
+        result = self.make(make_repo_copy(self.tmp / "repo"), "sandbox-check")
         self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
         argv = self.run_phase()
         self.assertEqual(argv[-1], f'mkdir -p "$HOME" && bash tools/sandbox/isolation-check.sh "{self.home}"')

@@ -4,6 +4,7 @@ proven on the arguments docker would receive."""
 
 import json
 import os
+import shutil
 import signal
 import subprocess
 import sys
@@ -68,10 +69,32 @@ def make_checkout(root: Path, *paths: str) -> Path:
         else:
             target.parent.mkdir(parents=True, exist_ok=True)
             target.write_text("x\n" if path != ".gitignore" else IGNORED)
+    return git_init(root)
+
+
+def git_init(root: Path) -> Path:
+    """Makes `root` a git checkout with every file it holds in the index."""
     env = dict(os.environ, **GIT_ENV)
     for command in (["init", "-q"], ["add", "-A"]):
         subprocess.run(["git", "-C", str(root), *command], env=env, check=True)
     return root
+
+
+# What `make sandbox` reads from this repository. The tests that go through make copy them into a
+# throwaway checkout, so the runner audits and scrubs that checkout, never this one.
+MAKE_FILES = ("Makefile", "make", "tools/sandbox", "Cargo.toml", "crates/oxedi_duckdb/Cargo.toml")
+
+
+def make_repo_copy(root: Path) -> Path:
+    """A git checkout holding this repository's make entry points and the sandbox runner."""
+    for path in MAKE_FILES:
+        source, target = REPO / path, root / path
+        if source.is_dir():
+            shutil.copytree(source, target, ignore=shutil.ignore_patterns("__pycache__"))
+        else:
+            target.parent.mkdir(parents=True, exist_ok=True)
+            shutil.copyfile(source, target)
+    return git_init(root)
 
 
 IGNORED = ".venv-docs/\nnotes.log\n.env\n/target/\n/.venv/\n__pycache__/\n.pytest_cache/\n*.so\n"
@@ -118,6 +141,12 @@ class World(unittest.TestCase):
 
     def checkout(self, name: str = "checkout", *paths: str) -> Path:
         return make_checkout(self.tmp / name, *(paths or ("Makefile",)))
+
+    def make(self, checkout: Path, *args: str, **extra: str) -> subprocess.CompletedProcess:
+        return subprocess.run(
+            ["make", "--no-print-directory", "-C", str(checkout), *args],
+            env=self.env(**extra), capture_output=True, text=True, check=False, timeout=120,
+        )
 
     def start(self, checkout: Path, **extra: str) -> subprocess.Popen:
         return subprocess.Popen(
@@ -340,20 +369,19 @@ class Runner(World):
 
     def test_cmd_through_make(self):
         command = 'cargo test -p oxedi_core --lib value:: && echo "a b; c" $$HOME'
-        result = subprocess.run(
-            ["make", "--no-print-directory", "-C", str(REPO), "sandbox", f"CMD={command}"],
-            env=self.env(), capture_output=True, text=True, check=False, timeout=120,
-        )
+        checkout = make_repo_copy(self.tmp / "repo")
+        cache = checkout / "crates" / "__pycache__"
+        cache.mkdir()
+        result = self.make(checkout, "sandbox", f"CMD={command}")
         self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        # The audit scrubbed the copy it ran over.
+        self.assertFalse(cache.exists())
         argv = self.run_phase()
         self.assertEqual(argv[-3:-1], ["bash", "-c"])
         self.assertEqual(argv[-1], 'mkdir -p "$HOME" && cargo test -p oxedi_core --lib value:: && echo "a b; c" $HOME')
 
     def test_image_built_when_missing(self):
-        result = subprocess.run(
-            ["make", "--no-print-directory", "-C", str(REPO), "sandbox", "CMD=true"],
-            env=self.env(FAKE_NO_IMAGE="1"), capture_output=True, text=True, check=False, timeout=120,
-        )
+        result = self.make(make_repo_copy(self.tmp / "repo"), "sandbox", "CMD=true", FAKE_NO_IMAGE="1")
         self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
         builds = [c["argv"] for c in self.calls() if c["argv"][:1] == ["build"]]
         self.assertEqual(len(builds), 2)

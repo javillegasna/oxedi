@@ -1,5 +1,5 @@
 use super::super::{
-    ConvertError, MAX_SCALE, date_from_midnight, date_from_millis, integer_from_f64,
+    ConvertError, MAX_SCALE, TimeUnit, date_from_midnight, date_from_millis, integer_from_f64,
     integer_from_i128, integer_from_u128, rescale, seconds_from,
 };
 use std::error::Error;
@@ -48,6 +48,10 @@ fn every_variant_explains_itself() {
             "5 ms is out of range",
         ),
         (ConvertError::OutOfRange { value: 9 }, "9 is out of range"),
+        (
+            ConvertError::UnitNotPositive { unit: 0 },
+            "the unit 0 is not positive; ticks per day or per second must be at least 1",
+        ),
         (
             ConvertError::NotWholeSecond { value: 1_500_000 },
             "1500000 is not a whole second",
@@ -98,7 +102,7 @@ fn floats_must_be_whole() {
 fn rescale_cases() {
     let overflow = |value, from, scale| Err(ConvertError::ScaleOverflow { value, from, scale });
     let decimals = |value, from, scale| Err(ConvertError::TooManyDecimals { value, from, scale });
-    let cases: [(i128, i32, u8, Result<i128, ConvertError>); 10] = [
+    let cases: [(i128, i32, u8, Result<i128, ConvertError>); 12] = [
         (0, 0, 39, Ok(0)),
         (1, 0, 39, overflow(1, 0, 39)),
         (0, -40, 2, Ok(0)),
@@ -109,6 +113,8 @@ fn rescale_cases() {
         (1234, 3, 2, decimals(1234, 3, 2)),
         (i128::MAX, 0, 2, overflow(i128::MAX, 0, 2)),
         (i128::MAX, 38, 0, decimals(i128::MAX, 38, 0)),
+        (0, 50, 0, Ok(0)),
+        (0, -50, 0, Ok(0)),
     ];
     for (value, from, scale, expected) in cases {
         assert_eq!(
@@ -175,12 +181,24 @@ fn times_must_be_whole_seconds() {
 
 #[test]
 fn zero_or_negative_units_are_refused() {
-    assert_eq!(
-        seconds_from(1, 0),
-        Err(ConvertError::OutOfRange { value: 1 })
-    );
-    assert!(seconds_from(1, -1).is_err());
-    assert!(date_from_midnight(1, -1).is_err());
-    assert!(date_from_midnight(1, 0).is_err());
+    let refused = |unit| Err(ConvertError::UnitNotPositive { unit });
+    assert_eq!(seconds_from(1, 0), refused(0));
+    assert_eq!(seconds_from(1, -1), refused(-1));
+    assert_eq!(date_from_midnight(1, -1), refused(-1));
+    assert_eq!(date_from_midnight(1, 0), refused(0));
     assert!(date_from_midnight(i64::MIN, 86_400).is_err());
+}
+
+#[test]
+fn every_unit_counts_its_ticks() {
+    let cases = [
+        (TimeUnit::Second, 1, 86_400),
+        (TimeUnit::Millisecond, 1_000, 86_400_000),
+        (TimeUnit::Microsecond, 1_000_000, 86_400_000_000),
+        (TimeUnit::Nanosecond, 1_000_000_000, 86_400_000_000_000),
+    ];
+    for (unit, per_second, per_day) in cases {
+        assert_eq!(unit.ticks_per_second(), per_second, "{unit:?}");
+        assert_eq!(unit.ticks_per_day(), per_day, "{unit:?}");
+    }
 }

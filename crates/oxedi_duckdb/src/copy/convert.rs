@@ -8,14 +8,13 @@ use oxedi_core::value;
 
 use super::input::Unit;
 
-/// Ticks in a day of a timestamp counted in `unit`.
-fn ticks_per_day(unit: Unit) -> i64 {
-    const DAY_SECONDS: i64 = 86_400;
+/// The core's unit for a timestamp's.
+fn core_unit(unit: Unit) -> value::TimeUnit {
     match unit {
-        Unit::Second => DAY_SECONDS,
-        Unit::Milli => DAY_SECONDS * 1_000,
-        Unit::Micro => DAY_SECONDS * 1_000_000,
-        Unit::Nano => DAY_SECONDS * 1_000_000_000,
+        Unit::Second => value::TimeUnit::Second,
+        Unit::Milli => value::TimeUnit::Millisecond,
+        Unit::Micro => value::TimeUnit::Microsecond,
+        Unit::Nano => value::TimeUnit::Nanosecond,
     }
 }
 
@@ -42,7 +41,8 @@ pub fn rescale(value: i128, from: u8, scale: u8) -> Result<i128, String> {
 
 /// Days since 1970-01-01 of a timestamp at exactly midnight.
 pub fn timestamp_date(value: i64, unit: Unit) -> Result<i32, String> {
-    value::date_from_midnight(value, ticks_per_day(unit)).map_err(|error| error.to_string())
+    value::date_from_midnight(value, core_unit(unit).ticks_per_day())
+        .map_err(|error| error.to_string())
 }
 
 /// Seconds since midnight of a time counted `per_second` to the second.

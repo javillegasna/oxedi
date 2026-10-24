@@ -180,6 +180,21 @@ class Envelope:
     and its delimiters. The writer derives the rest of the envelope: counts,
     later control numbers, codes and fixed widths.
     """
+    DEFAULT_QUALIFIER: builtins.str
+    r"""
+    The qualifier of a sender or receiver id when none is given, the
+    default of `sender_qualifier` and `receiver_qualifier`.
+    """
+    DEFAULT_USAGE_INDICATOR: builtins.str
+    r"""
+    The usage indicator when none is given, the default of
+    `usage_indicator`: production data.
+    """
+    DEFAULT_CONTROL_NUMBER: builtins.int
+    r"""
+    The first control number when none is given, the default of
+    `control_number`.
+    """
     @property
     def sender_id(self) -> builtins.str:
         r"""

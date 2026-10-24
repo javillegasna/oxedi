@@ -143,7 +143,7 @@ Every key is listed in [the spec keys reference](docs/customize/spec.md#spec-key
 | Add a diagnostic rule | `diagnostic/rule.rs` (`Rule` variant, `level`, `kind`, and `segment_id` when the rule is about one segment's elements, so its datum can be masked) and `diagnostic/display.rs` (message) | Raise it in `check/` (structure) or `project/check.rs` (elements); a full-text `Display` test in `diagnostic/tests.rs` |
 | Change an element check | `project/check.rs` | `cargo test -p oxedi_core --lib project::`, then both golden suites |
 | Change how loops are recognized | `engine/mod.rs` | `cargo test -p oxedi_core --test engine_golden` and `--test engine_invariants` |
-| Change what a caller's value may become on write (integers, decimals, dates, times) | `value/convert.rs` (`ConvertError`), `value/calendar.rs` | Bindings call it and add no rule of their own; test in `value/tests/` |
+| Change what a caller's value may become on write (integers, decimals, dates, times) | `value/convert.rs` (`ConvertError`), `value/unit.rs` (`TimeUnit`), `value/calendar.rs` | Bindings call it and add no rule of their own; test in `value/tests/` |
 | Add a value type | `ElementType` in `spec/segments.rs`; `ColumnType`, `ColumnData` and `render` in `column/mod.rs`; a parser in `column/parse.rs` | Core writer in `write/render.rs` and `write/data.rs`; DuckDB `types/`, `scan/write.rs` and `copy/`; Python `arrow.rs`, `import.rs` and `native.rs` |
 | Refuse a spec the writer cannot write | `write/refusal.rs` (`Refusal`) | Raise it in the compile pass that finds it; `Display` test in `write/tests/display.rs` |
 | Report a new problem in written tables | `write/finding.rs` (`Finding`) | Raise it where the writer meets it (`write/nest.rs` for references, `write/emit.rs` and `write/cells.rs` while writing); test in `tests/write_findings.rs` |
@@ -251,6 +251,6 @@ Internal words used in the code. X12 and payment terms for users are in
 | value origin | The cell, row or envelope field a written value came from (`ValueOrigin`). | `write/finding.rs` |
 | envelope (writer) | The caller's sender, receiver, date, time, control number and delimiters (`Envelope`). | `write/envelope.rs` |
 | processor / output | One pass feeding each segment to engine, checker and projector; `Output` is one step's events and diagnostics. | `process/` |
-| `ConvertError`, `rescale`, `days_from_civil` | The write-side conversion rules and the calendar every binding shares. | `value/` |
+| `ConvertError`, `TimeUnit`, `rescale`, `days_from_civil` | The write-side conversion rules and the calendar every binding shares. | `value/` |
 | `parse_dt`, `parse_n`, `parse_r`, `parse_tm` | Parsers named after the X12 data types DT, N, R and TM. | `column/parse.rs` |
 | fixture / sample / golden | Synthetic test file / anonymized real file / generated expected output. | `crates/oxedi_core/tests/` |

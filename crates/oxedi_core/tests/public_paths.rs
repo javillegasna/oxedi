@@ -90,6 +90,7 @@ mod by_module {
     use oxedi_core::tree::TreeBuilder;
     use oxedi_core::value::ConvertError;
     use oxedi_core::value::MAX_SCALE;
+    use oxedi_core::value::TimeUnit;
     use oxedi_core::value::date_from_midnight;
     use oxedi_core::value::date_from_millis;
     use oxedi_core::value::days_from_civil;

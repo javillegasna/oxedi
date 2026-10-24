@@ -31,9 +31,10 @@ pub enum ConvertError {
     NotWholeDay { millis: i64 },
     /// A millisecond date whose day count does not fit 32 bits.
     DayOutOfRange { millis: i64 },
-    /// A count of days or seconds that does not fit 32 bits, or a unit that
-    /// is not positive.
+    /// A count of days or seconds that does not fit 32 bits.
     OutOfRange { value: i64 },
+    /// A number of ticks per day or per second below 1.
+    UnitNotPositive { unit: i64 },
     /// A time that is not a whole number of seconds.
     NotWholeSecond { value: i64 },
 }
@@ -57,6 +58,10 @@ impl fmt::Display for ConvertError {
             Self::NotWholeDay { millis } => write!(f, "{millis} ms is not a whole day"),
             Self::DayOutOfRange { millis } => write!(f, "{millis} ms is out of range"),
             Self::OutOfRange { value } => write!(f, "{value} is out of range"),
+            Self::UnitNotPositive { unit } => write!(
+                f,
+                "the unit {unit} is not positive; ticks per day or per second must be at least 1"
+            ),
             Self::NotWholeSecond { value } => write!(f, "{value} is not a whole second"),
         }
     }
@@ -97,18 +102,23 @@ pub fn rescale(value: i128, from: i32, scale: u8) -> Result<i128, ConvertError> 
     }
 }
 
-/// `value` times `factor`; zero stays zero even when no factor fits.
+/// Zero, which keeps its value at any scale and needs no factor.
+fn zero(value: i128) -> Option<i128> {
+    (value == 0).then_some(0)
+}
+
+/// `value` times `factor`.
 fn scaled_up(value: i128, factor: Option<i128>) -> Option<i128> {
-    (value == 0)
-        .then_some(0)
-        .or_else(|| factor.and_then(|factor| value.checked_mul(factor)))
+    zero(value).or_else(|| factor.and_then(|factor| value.checked_mul(factor)))
 }
 
 /// `value` divided by `factor` when `factor` divides it.
 fn scaled_down(value: i128, factor: Option<i128>) -> Option<i128> {
-    factor
-        .filter(|factor| value.checked_rem(*factor) == Some(0))
-        .map(|factor| value / factor)
+    zero(value).or_else(|| {
+        factor
+            .filter(|factor| value.checked_rem(*factor) == Some(0))
+            .map(|factor| value / factor)
+    })
 }
 
 /// `value` divided by `unit` when `unit` is positive and divides it.
@@ -117,10 +127,10 @@ fn whole_units(value: i64, unit: i64) -> Option<i64> {
 }
 
 /// Days since 1970-01-01 of a timestamp at exactly midnight, `per_day` ticks
-/// to the day.
+/// to the day (see [`crate::value::TimeUnit::ticks_per_day`]).
 pub fn date_from_midnight(value: i64, per_day: i64) -> Result<i32, ConvertError> {
     if per_day <= 0 {
-        return Err(ConvertError::OutOfRange { value });
+        return Err(ConvertError::UnitNotPositive { unit: per_day });
     }
     let days = whole_units(value, per_day).ok_or(ConvertError::NotMidnight { value })?;
     i32::try_from(days).map_err(|_| ConvertError::OutOfRange { value })
@@ -135,7 +145,7 @@ pub fn date_from_millis(millis: i64) -> Result<i32, ConvertError> {
 /// Seconds since midnight of a time counted `per_second` ticks to the second.
 pub fn seconds_from(value: i64, per_second: i64) -> Result<i32, ConvertError> {
     if per_second <= 0 {
-        return Err(ConvertError::OutOfRange { value });
+        return Err(ConvertError::UnitNotPositive { unit: per_second });
     }
     let seconds = whole_units(value, per_second).ok_or(ConvertError::NotWholeSecond { value })?;
     i32::try_from(seconds).map_err(|_| ConvertError::OutOfRange { value })

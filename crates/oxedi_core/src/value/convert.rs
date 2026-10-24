@@ -116,8 +116,8 @@ fn scaled_down(value: i128, factor: Option<i128>) -> Option<i128> {
     })
 }
 
-/// `value` divided by `unit` when `unit` divides it. `unit` is a positive
-/// constant, so `checked_rem` fails only where `value / unit` would overflow.
+/// `value` divided by `unit` when `unit` divides it; `unit` is a positive
+/// constant, the ticks of a [`TimeUnit`] or the milliseconds of a day.
 fn whole_units(value: i64, unit: i64) -> Option<i64> {
     (value.checked_rem(unit) == Some(0)).then(|| value / unit)
 }

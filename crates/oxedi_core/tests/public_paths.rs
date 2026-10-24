@@ -20,7 +20,9 @@ mod by_module {
     use oxedi_core::delimiters::Delimiters;
     use oxedi_core::delimiters::IsaError;
     use oxedi_core::diagnostic::Diagnostic;
+    use oxedi_core::diagnostic::FlatDiagnostic;
     use oxedi_core::diagnostic::LoopRef;
+    use oxedi_core::diagnostic::PARSER_ORIGIN;
     use oxedi_core::diagnostic::Rule;
     use oxedi_core::diagnostic::SnipLevel;
     use oxedi_core::document::Document;
@@ -100,7 +102,7 @@ use oxedi_core::{
 };
 use oxedi_core::{ColumnSchema, TableSchema, spec_schema};
 use oxedi_core::{Delimiters, IsaError};
-use oxedi_core::{Diagnostic, LoopRef, Rule, SnipLevel};
+use oxedi_core::{Diagnostic, FlatDiagnostic, LoopRef, PARSER_ORIGIN, Rule, SnipLevel};
 use oxedi_core::{Document, DocumentError, Segments, SizeError, Span, Spans};
 use oxedi_core::{Element, Value};
 use oxedi_core::{Event, LoopEngine};

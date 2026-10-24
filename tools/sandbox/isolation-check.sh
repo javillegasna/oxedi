@@ -30,6 +30,9 @@ status_is() { grep -qE "^$1:[[:space:]]+$2\$" /proc/self/status; }
 # read_only PATH: the path exists and cannot be written.
 read_only() { [ -e "$1" ] && ! touch "$1"; }
 
+# absent_named PATH: PATH is not empty (a .git file named a directory) and does not exist.
+absent_named() { [ "$1" != /work/ ] && [ ! -e "$1" ]; }
+
 # absent_or_empty DIR: the directory is missing (the host has none) or masked (empty).
 absent_or_empty() { [ ! -e "$1" ] || [ -z "$(ls -A "$1")" ]; }
 
@@ -57,8 +60,10 @@ check "read-only git: touch /work/.git fails" read_only /work/.git
 if [ -d /work/.git ]; then
   check "read-only git: a file under /work/.git cannot be made" fails touch /work/.git/probe
 else
-  # In a worktree .git is a file naming a git directory outside the checkout, which is not mounted.
-  echo "skip read-only git: /work/.git is a file (a worktree); its git directory is not mounted"
+  # In a worktree .git is a file naming the git directory, outside the checkout: it must not be mounted.
+  gitdir=$(sed -n 's/^gitdir: //p' /work/.git)
+  case $gitdir in /*) ;; *) gitdir=/work/$gitdir ;; esac
+  check "read-only git: the git directory /work/.git names ($gitdir) is not mounted" absent_named "$gitdir"
 fi
 check "masked notes: /work/.doc is absent or empty" absent_or_empty /work/.doc
 check "masked notes: /work/.workflow-kit is absent or empty" absent_or_empty /work/.workflow-kit

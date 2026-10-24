@@ -78,12 +78,17 @@ def outermost(paths: set[str]) -> set[str]:
     return {p for p in paths if not inside(p, paths)}
 
 
-def git_paths(root: Path, *args: str) -> set[str]:
+def git_records(root: Path, *args: str) -> list[str]:
+    """The NUL-separated records `git <args> -z` prints in `root`."""
     result = subprocess.run(["git", "-C", str(root), *args, "-z"], capture_output=True, check=False)
     if result.returncode != 0:
         stderr = os.fsdecode(result.stderr).strip()
         raise SandboxError(f"git {' '.join(args)} failed in {root}; the sandbox needs a git checkout: {stderr}")
-    return {os.fsdecode(p).rstrip("/") for p in result.stdout.split(b"\0") if p}
+    return [os.fsdecode(record) for record in result.stdout.split(b"\0") if record]
+
+
+def git_paths(root: Path, *args: str) -> set[str]:
+    return {record.rstrip("/") for record in git_records(root, *args)}
 
 
 def configuration(tracked: set[str]) -> set[str]:

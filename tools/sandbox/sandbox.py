@@ -11,13 +11,16 @@ host home other than that storage reaches it. Two phases, each in its own contai
 - fetch: with network, the checkout read-only, no project code run: `cargo fetch --locked` and
   wheels only for the venv, written to the shared caches; it never falls back to them offline;
 - run: the command, with no network and the cargo registry read-only.
+After the run, an audit lists every tracked file it changed and every new path it left, and
+removes the Python caches and the built extension it may have left in the checkout.
 
 usage: sandbox.py --image TAG --checkout DIR
 The command comes from SANDBOX_CMD. SANDBOX_CPUS (default: the daemon's CPUs minus one),
 SANDBOX_MEMORY (GB; default 60 % of the daemon's memory) and SANDBOX_TIMEOUT (seconds; default
 3600) set the limits.
-Exit status: the command's; 124 when it ran past the timeout; 130 on Ctrl-C; 2 when the sandbox
-refuses to start.
+Exit status: the command's; 3 when the run changed a tracked file or left a new path (whatever
+the command's status); 124 when it ran past the timeout; 130 on Ctrl-C; 2 when the sandbox refuses
+to start.
 """
 
 import argparse
@@ -28,6 +31,7 @@ from dataclasses import dataclass
 from pathlib import Path
 
 from arguments import Limits, Phase, Runtime, docker_args, fetch_commands, run_command
+from audit import DIRTY_STATUS, audit, report, snapshot
 from layout import Checkout, SandboxError, survey
 from lifecycle import daemon_info, explain, image_labels, limits_from, refuse_if_running, run_container
 from storage import Storage, cache_root, empty_dir, prepare, storage_for
@@ -94,6 +98,24 @@ def run_phase(plan: Plan, command: str) -> int:
     return outcome.status
 
 
+def phases(plan: Plan, command: str) -> int:
+    status = fetch_phase(plan)
+    return status if status != 0 else run_phase(plan, command)
+
+
+def audited(plan: Plan, command: str) -> int:
+    """Runs both phases, then audits the checkout, also after Ctrl-C."""
+    before = snapshot(plan.checkout.root)
+    try:
+        status = phases(plan, command)
+    except KeyboardInterrupt:
+        report(audit(before, plan.checkout))
+        raise
+    findings = audit(before, plan.checkout)
+    report(findings)
+    return DIRTY_STATUS if findings.dirty else status
+
+
 def sandbox(image: str, checkout_dir: Path, env: dict[str, str]) -> int:
     command = env.get("SANDBOX_CMD", "").strip()
     if not command:
@@ -111,8 +133,7 @@ def sandbox(image: str, checkout_dir: Path, env: dict[str, str]) -> int:
     refuse_if_running(checkout.name)
     prepare(plan.storage, checkout)
     print(describe(plan, labels), file=sys.stderr)
-    status = fetch_phase(plan)
-    return status if status != 0 else run_phase(plan, command)
+    return audited(plan, command)
 
 
 def main(argv: list[str]) -> int:

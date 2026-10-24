@@ -96,10 +96,10 @@ def run(argv: list[str]) -> int:
         return 0
     if "bash" not in argv:
         return int(os.environ.get("FAKE_FETCH_EXIT", "0"))
-    (STATE / "run.pid").write_text(str(os.getpid()))
     writes = os.environ.get("FAKE_RUN_WRITES", "")
     if writes:
         subprocess.run(["sh", "-c", writes], cwd=work_source(argv), check=True)
+    (STATE / "run.pid").write_text(str(os.getpid()))
     time.sleep(float(os.environ.get("FAKE_RUN_SLEEP", "0")))
     sys.stderr.write(os.environ.get("FAKE_RUN_STDERR", ""))
     return int(os.environ.get("FAKE_RUN_EXIT", "0"))

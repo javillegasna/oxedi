@@ -81,6 +81,7 @@ crates/oxedi_core/src/spec/shape.rs	check_occurrences_shape	19	3
 crates/oxedi_core/src/spec/shape.rs	check_shape	69	5
 crates/oxedi_core/src/spec/shape.rs	mismatch	8	3
 crates/oxedi_core/src/spec/table_error.rs	fmt	37	2
+crates/oxedi_core/src/value/convert.rs	fmt	10	0	flat
 crates/oxedi_core/src/write/build.rs	loop_table	12	4
 crates/oxedi_core/src/write/build.rs	repeat_table	9	2
 crates/oxedi_core/src/write/codes.rs	resolve	13	3
@@ -139,16 +140,11 @@ crates/oxedi_py/src/diagnostic.rs	external_diagnostic	11	1
 crates/oxedi_py/src/document.rs	elements	8	1
 crates/oxedi_py/src/import.rs	bytes	13	0
 crates/oxedi_py/src/import.rs	cell	18	1
-crates/oxedi_py/src/import.rs	date	18	1
-crates/oxedi_py/src/import.rs	decimal	13	3
-crates/oxedi_py/src/import.rs	integer	24	1
 crates/oxedi_py/src/import.rs	stream	9	1
-crates/oxedi_py/src/import.rs	time	10	1
 crates/oxedi_py/src/parse.rs	paths_at	9	3
 crates/oxedi_py/src/spec.rs	patch	8	2
 crates/oxedi_py/src/spec.rs	schema	8	1
 crates/oxedi_py/src/write.rs	kind	8	0
-crates/oxedi_py/src/write.rs	new	17	1
 viewer/js/bytes.js	bodyRange	8	1
 viewer/js/bytes.js	elementRange	10	1
 viewer/js/load.js	run	10	2

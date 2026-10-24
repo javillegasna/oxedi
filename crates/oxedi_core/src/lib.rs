@@ -50,6 +50,7 @@ pub mod segment;
 pub mod spec;
 pub mod tokenizer;
 pub mod tree;
+pub mod value;
 pub mod write;
 
 pub use check::StructureChecker;
@@ -75,4 +76,5 @@ pub use spec::{
 };
 pub use tokenizer::Tokenizer;
 pub use tree::{LoopTree, Node, NodeId, TreeBuilder};
+pub use value::ConvertError;
 pub use write::{PlanError, Refusal, WritePlan};

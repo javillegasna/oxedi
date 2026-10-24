@@ -240,7 +240,7 @@ class Envelope:
         r"""
         The delimiters written.
         """
-    def __new__(cls, *, sender_id: builtins.str, receiver_id: builtins.str, date: datetime.date, time: datetime.time, sender_qualifier: builtins.str = "ZZ", receiver_qualifier: builtins.str = "ZZ", usage_indicator: builtins.str = "P", control_number: builtins.int = 1, application_sender: typing.Optional[builtins.str] = None, application_receiver: typing.Optional[builtins.str] = None, delimiters: typing.Optional[Delimiters] = None, line_break: builtins.bool = False) -> Envelope:
+    def __new__(cls, *, sender_id: builtins.str, receiver_id: builtins.str, date: datetime.date, time: datetime.time, sender_qualifier: builtins.str = 'ZZ', receiver_qualifier: builtins.str = 'ZZ', usage_indicator: builtins.str = 'P', control_number: builtins.int = 1, application_sender: typing.Optional[builtins.str] = None, application_receiver: typing.Optional[builtins.str] = None, delimiters: typing.Optional[Delimiters] = None, line_break: builtins.bool = False) -> Envelope:
         r"""
         `date` (a `datetime.date`) and `time` (a `datetime.time` without a
         time zone, whole seconds) stamp the interchange and the group: the

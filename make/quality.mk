@@ -21,18 +21,18 @@ deps-check: ## fail if a published crate has an unlisted normal dependency or th
 # Unix only. Outputs: see CONTRIBUTING.md (Profiling).
 SECONDS ?= 10
 PY_PROFILE_DIR := target/profile-py
-# py-spy 0.4 sometimes reports "No child process" when the script ends while it is still
-# sampling, after it has written the output; a missing or empty output file is the failure.
+# tools/profile/py_spy_record.sh fails on a script error, a py-spy error or a missing output.
 define py-spy-record
--$(VENV)/bin/py-spy record --format $(1) -o $(PY_PROFILE_DIR)/$(2) -- $(PYTHON) $(SCRIPT) $(ARGS)
-@test -s $(PY_PROFILE_DIR)/$(2) || { echo "profile-py: py-spy wrote no $(PY_PROFILE_DIR)/$(2)"; exit 1; }
+tools/profile/py_spy_record.sh $(VENV)/bin/py-spy $(1) $(PY_PROFILE_DIR)/$(2) $(PYTHON) $(SCRIPT) $(ARGS)
 endef
 
 profile: ## profile a core bench under a sampler: BENCH=process [SECONDS=10]; writes flamegraph.svg and top.txt under target/criterion/
 	@test -n "$(BENCH)" || { echo "usage: make profile BENCH=<tokenize|engine|check|process|write> [SECONDS=10]"; exit 1; }
 	@stamp=$$(mktemp) && trap 'rm -f "$$stamp"' EXIT && \
 	  cargo bench --locked -p oxedi_core --bench $(BENCH) -- --profile-time $(SECONDS) && \
-	  echo "profile: written by this run:" && find target/criterion -path '*/profile/*' -newer "$$stamp" -type f | sort
+	  written=$$(find target/criterion -path '*/profile/*' -newer "$$stamp" -type f | sort) && \
+	  { test -n "$$written" || { echo "profile: the run of bench $(BENCH) wrote no profile file (the sampler reports why on stderr)"; exit 1; }; } && \
+	  echo "profile: written by this run:" && echo "$$written"
 
 profile-py: ## profile a Python script with py-spy: SCRIPT=path [ARGS='...']; writes flamegraph.svg and stacks.txt under target/profile-py/
 	@test -n "$(SCRIPT)" || { echo "usage: make profile-py SCRIPT=path/to/script.py [ARGS='...']"; exit 1; }

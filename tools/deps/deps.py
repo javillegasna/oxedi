@@ -68,8 +68,18 @@ def crate_findings(crate: str, dependencies: list[str], allowed: list[str]) -> l
     ]
 
 
+def stale_entries(crate: str, dependencies: list[str], allowed: list[str]) -> list[str]:
+    """One message per allowed entry that `crate` no longer depends on."""
+    return [
+        f"{crate}: allowed dependency `{dep}` is no longer a normal dependency; remove it from "
+        f"ALLOWED_CRATES in tools/deps/deps.py"
+        for dep in allowed
+        if dep not in dependencies
+    ]
+
+
 def cargo_tree(crate: str) -> str:
-    command = ["cargo", "tree", "-e", "normal", "--depth", "1", "--prefix", "none", "--locked", "-p", crate]
+    command = ["cargo", "tree", "-e", "normal", "--depth", "1", "--target", "all", "--all-features", "--prefix", "none", "--locked", "-p", crate]
     try:
         done = subprocess.run(command, capture_output=True, text=True, check=False)
     except OSError as e:
@@ -116,18 +126,26 @@ def wheel_requirements(wheel: Path) -> list[str]:
 def check_crates() -> list[str]:
     findings = []
     for crate, allowed in ALLOWED_CRATES.items():
-        findings += crate_findings(crate, tree_dependencies(cargo_tree(crate)), allowed)
+        dependencies = tree_dependencies(cargo_tree(crate))
+        findings += crate_findings(crate, dependencies, allowed)
+        findings += stale_entries(crate, dependencies, allowed)
     return findings
 
 
-def check_wheels(paths: list[str]) -> list[str]:
+def check_wheels(paths: list[str]) -> tuple[list[str], list[str]]:
+    """The findings and the names of the wheels checked."""
     wheels = [Path(p) for p in paths] or sorted(Path("target/wheels").glob("*.whl"))
     if not wheels:
         raise CannotCheck("no wheel given and none in target/wheels; run make dist first")
     findings = []
     for wheel in wheels:
         findings += wheel_findings(wheel.name, wheel_requirements(wheel), ALLOWED_EXTRAS)
-    return findings
+    if findings and not paths:
+        findings.append(
+            "the wheel was read from target/wheels, not built by this check; "
+            "if it is stale, run make clean-dist && make dist"
+        )
+    return findings, [w.name for w in wheels]
 
 
 def main(argv: list[str]) -> int:
@@ -135,7 +153,11 @@ def main(argv: list[str]) -> int:
         print(__doc__, file=sys.stderr)
         return 2
     try:
-        findings = check_crates() if argv[0] == "crates" else check_wheels(argv[1:])
+        if argv[0] == "crates":
+            findings, detail = check_crates(), ""
+        else:
+            findings, names = check_wheels(argv[1:])
+            detail = f" (checked existing wheel{'s' if len(names) > 1 else ''}: {', '.join(names)})"
     except CannotCheck as e:
         print(f"deps-check: {e}", file=sys.stderr)
         return 2
@@ -143,7 +165,7 @@ def main(argv: list[str]) -> int:
         print(f"deps-check: {finding}", file=sys.stderr)
     if findings:
         return 1
-    print(f"deps-check: {argv[0]} ok")
+    print(f"deps-check: {argv[0]} ok{detail}")
     return 0
 
 

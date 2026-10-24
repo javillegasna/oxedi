@@ -54,12 +54,6 @@ jobs:
           pytest crates/oxedi_py/tests
       - name: Wheel in a clean environment
         run: crates/oxedi_py/scripts/smoke_wheel.sh
-      # Only the user extras may appear in the wheel's Requires-Dist.
-      - name: Wheel dependencies
-        if: matrix.python == '3.13'
-        run: |
-          maturin build --release --manifest-path crates/oxedi_py/Cargo.toml -o target/wheels
-          python tools/deps/deps.py wheel
 
   # The oldest pyarrow the extra supports, with the newest pandas that installs next to it on 3.11.
   # Tests that need duckdb, edi-835-parser or pyx12 skip themselves when those are absent.

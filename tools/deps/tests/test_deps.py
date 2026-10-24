@@ -73,6 +73,16 @@ class Crates(unittest.TestCase):
             "tools/deps/deps.py",
         )
 
+    def test_an_allowed_entry_the_crate_no_longer_has_fails_with_the_fix(self):
+        trees = dict(EXPECTED_TREES, oxedi_core=CORE_TREE.replace("sha2 v0.10.9\n", ""))
+        done = run_script("crates", trees=trees)
+        self.assertEqual(done.returncode, 1)
+        self.assertEqual(
+            done.stderr.strip(),
+            "deps-check: oxedi_core: allowed dependency `sha2` is no longer a normal dependency; "
+            "remove it from ALLOWED_CRATES in tools/deps/deps.py",
+        )
+
     def test_the_crate_itself_on_the_first_line_is_not_a_dependency(self):
         self.assertEqual(deps.tree_dependencies(CORE_TREE), ["hmac", "serde", "serde_json", "sha2"])
         self.assertEqual(deps.crate_findings("oxedi_core", ["oxedi_core"], []), [])
@@ -80,7 +90,7 @@ class Crates(unittest.TestCase):
     def test_a_cargo_failure_is_reported_as_a_check_that_could_not_run(self):
         done = run_script("crates", trees={})
         self.assertEqual(done.returncode, 2)
-        self.assertIn("deps-check: oxedi_core: `cargo tree -e normal --depth 1 --prefix none --locked -p oxedi_core` failed", done.stderr)
+        self.assertIn("deps-check: oxedi_core: `cargo tree -e normal --depth 1 --target all --all-features --prefix none --locked -p oxedi_core` failed", done.stderr)
 
 
 class Wheels(unittest.TestCase):
@@ -118,6 +128,23 @@ class Wheels(unittest.TestCase):
     def test_a_marker_that_is_not_an_extra_does_not_gate_the_requirement(self):
         done = self.check("colorama ; sys_platform == 'win32'")
         self.assertEqual(done.returncode, 1)
+
+    def test_a_wheel_found_in_target_wheels_is_named_and_hinted_as_possibly_stale(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            (Path(tmp) / "target/wheels").mkdir(parents=True)
+            make_wheel(Path(tmp) / "target/wheels", "pytest>=8")
+            done = run_script("wheel", cwd=tmp)
+            self.assertEqual(done.returncode, 1)
+            self.assertIn("Requires-Dist `pytest>=8` has no `extra ==` marker", done.stderr)
+            self.assertIn(
+                "deps-check: the wheel was read from target/wheels, not built by this check; "
+                "if it is stale, run make clean-dist && make dist",
+                done.stderr,
+            )
+            make_wheel(Path(tmp) / "target/wheels", "pandas>=2 ; extra == 'pandas'")
+            ok = run_script("wheel", cwd=tmp)
+            self.assertEqual(ok.returncode, 0, ok.stderr)
+            self.assertEqual(ok.stdout.strip(), "deps-check: wheel ok (checked existing wheel: oxedi-0.0.0-py3-none-any.whl)")
 
     def test_no_wheel_is_reported_as_a_check_that_could_not_run(self):
         with tempfile.TemporaryDirectory() as tmp:

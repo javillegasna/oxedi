@@ -87,8 +87,11 @@ How a stage runs:
 2. Write the plan with workflow-kit:write-plan in `.doc/plans/stage-N-*.md`; owner approves.
 3. Feature branch from `master`. Execute with workflow-kit:run-plan: the main session only
    orchestrates, batches, model tiers, reviews, fix rounds and the ledger follow the kit. Set
-   up the workspace with the rules and lenses below:
-   `wk-setup <plan> 'CLAUDE.md#Non-negotiables in code' 'CLAUDE.md#Final review focus' lens:rust lens:python`.
+   up the workspace with the rules and lenses below; the `CONTRIBUTING.md` sections are named
+   because `wk-setup` copies the `@CONTRIBUTING.md` import line as text and does not expand it:
+   `wk-setup <plan> 'CLAUDE.md#Non-negotiables in code' 'CONTRIBUTING.md#Code conventions'
+   'CONTRIBUTING.md#Tests and test data' 'CONTRIBUTING.md#Complexity'
+   'CLAUDE.md#Final review focus' lens:rust lens:python`.
    Before deleting the workspace, archive the ledger with
    `wk-archive <plan> .doc/analysis/stage-N-ledger.md`.
 4. PR against `master` as above. The owner merges.

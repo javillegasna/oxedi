@@ -1,6 +1,7 @@
-# The sandbox image: the pinned toolchain that builds and tests the repository inside a container.
+# The sandbox: a pinned image and a runner that builds and tests this checkout inside a hardened,
+# throwaway container (tools/sandbox/sandbox.py says how).
 # Included by the root Makefile.
-.PHONY: sandbox-image
+.PHONY: sandbox-image sandbox
 
 ##@ Sandbox
 SANDBOX_DIR   := tools/sandbox
@@ -14,3 +15,12 @@ sandbox-image: ## build the sandbox image from tools/sandbox (tag oxedi-sandbox:
 	apt=$$(docker run --rm --pull never --network none --read-only --cap-drop ALL --user 65534:65534 --security-opt no-new-privileges $(SANDBOX_IMAGE) cat /usr/share/oxedi-sandbox.manifest | tr '\t\n' '= ' | sed 's/ $$//') && \
 	  docker build --tag $(SANDBOX_IMAGE) --label "oxedi.sandbox.apt=$$apt" $(SANDBOX_DIR)
 	@echo "sandbox-image: $(SANDBOX_IMAGE), $$(docker image inspect --format '{{.Size}}' $(SANDBOX_IMAGE) | awk '{ printf "%.0f MB", $$1 / 1000000 }')"
+
+# CMD reaches the container's `bash -c` as SANDBOX_CMD, expanded once by make ($$ is a literal $)
+# and with no other quoting layer. A missing image is built first, through sandbox-image.
+sandbox: export SANDBOX_CMD := $(CMD)
+sandbox: ## run CMD over this checkout in a hardened container with no network (make sandbox CMD="make gates")
+	@if command -v docker > /dev/null && ! docker image inspect $(SANDBOX_IMAGE) > /dev/null 2>&1; then \
+	  $(MAKE) --no-print-directory sandbox-image; \
+	fi
+	@$(PYTHON_BIN) $(SANDBOX_DIR)/sandbox.py --image $(SANDBOX_IMAGE) --checkout $(CURDIR)

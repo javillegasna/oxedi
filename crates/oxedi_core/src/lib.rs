@@ -58,7 +58,7 @@ pub use column::{
     parse_n, parse_r, parse_tm,
 };
 pub use delimiters::{Delimiters, IsaError};
-pub use diagnostic::{Diagnostic, LoopRef, Rule, SnipLevel};
+pub use diagnostic::{Diagnostic, FlatDiagnostic, LoopRef, PARSER_ORIGIN, Rule, SnipLevel};
 pub use document::{Document, DocumentError, Segments, SizeError, Span, Spans};
 pub use element::{Element, Value};
 pub use engine::{Event, LoopEngine};

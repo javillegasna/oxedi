@@ -1,4 +1,4 @@
-use super::super::{ElementType, TypeCodeError};
+use super::super::{ElementType, LengthRange, TypeCodeError};
 use std::error::Error;
 
 #[test]
@@ -61,11 +61,12 @@ fn length_counts_digits_for_numbers() {
     assert_eq!(r.length_of(b"-12.5"), 3);
     assert_eq!(ElementType::An.length_of(b"-12.5"), 5);
     let an = ElementType::An;
-    assert!(!an.length_in_range(b"12345", Some(6), None));
-    assert!(an.length_in_range(b"123456", Some(6), Some(6)));
-    assert!(!an.length_in_range(b"1234567", None, Some(6)));
-    assert!(an.length_in_range(b"", None, None));
-    assert!(r.length_in_range(b"-12.5", Some(3), Some(3)));
-    assert!(!r.length_in_range(b"-12.5", Some(4), None));
-    assert!(!r.length_in_range(b"-12.5", None, Some(2)));
+    let range = |min, max| LengthRange { min, max };
+    assert!(!an.length_in_range(b"12345", range(Some(6), None)));
+    assert!(an.length_in_range(b"123456", range(Some(6), Some(6))));
+    assert!(!an.length_in_range(b"1234567", range(None, Some(6))));
+    assert!(an.length_in_range(b"", range(None, None)));
+    assert!(r.length_in_range(b"-12.5", range(Some(3), Some(3))));
+    assert!(!r.length_in_range(b"-12.5", range(Some(4), None)));
+    assert!(!r.length_in_range(b"-12.5", range(None, Some(2))));
 }

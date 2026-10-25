@@ -4,6 +4,7 @@
 use std::fmt;
 
 use super::convert::MAX_SCALE;
+use super::length::LengthRange;
 
 /// The data type of an element, as the X12 standard names it.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -140,11 +141,9 @@ impl ElementType {
     }
 
     /// `true` when the length of `text`, as [`length_of`](ElementType::length_of)
-    /// counts it, is at least `min` and at most `max`; a bound that is `None`
-    /// is not checked.
-    pub fn length_in_range(self, text: &[u8], min: Option<usize>, max: Option<usize>) -> bool {
-        let length = self.length_of(text);
-        !(min.is_some_and(|min| length < min) || max.is_some_and(|max| length > max))
+    /// counts it, is in `range`.
+    pub fn length_in_range(self, text: &[u8], range: LengthRange) -> bool {
+        range.contains(self.length_of(text))
     }
 }
 

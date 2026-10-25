@@ -18,8 +18,8 @@ use std::borrow::Cow;
 use std::collections::HashSet;
 
 use crate::column::{Cell, ColumnData, Table, Tables};
-use crate::spec::{Spec, Summary, render_amount};
-use crate::value::ColumnType;
+use crate::spec::{Spec, Summary};
+use crate::value::{ColumnType, decimal_display};
 
 /// The value of a summary.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -27,7 +27,7 @@ pub enum SummaryValue {
     /// What a `count` or a `distinct` summary counts.
     Count(usize),
     /// What a `sum` summary adds up: `value` scaled by `10^scale`, the
-    /// column's scale; [`render_amount`] writes it as decimal text.
+    /// column's scale; [`decimal_display`] writes it as decimal text.
     Decimal {
         /// The sum, as an integer of the column's scale.
         value: i128,
@@ -112,7 +112,7 @@ impl<'a> Reader<'a> {
             table: table.to_string(),
             column: column.to_string(),
             row,
-            amount: render_amount(amount, scale),
+            amount: decimal_display(amount, scale),
         };
         let value = (0..data.len()).try_fold(0i128, |sum, row| match data.get(row) {
             Some(Cell::Decimal128(amount)) => {

@@ -661,7 +661,7 @@ CARGO_FETCH = ["cargo", "fetch", "--locked"]
 UV_VENV = ["uv", "venv", "--managed-python", "--python", "3.13", "/work/.venv"]
 UV_INSTALL = [
     "uv", "pip", "install", "--python", "/work/.venv/bin/python", "--no-build",
-    "--group", "crates/oxedi_py/pyproject.toml:dev",
+    "--group", "crates/oxedi_py/pyproject.toml:contributor",
 ]
 
 

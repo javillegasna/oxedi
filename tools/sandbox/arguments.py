@@ -17,7 +17,7 @@ TMP_MOUNT = "/tmp:rw,exec,nosuid,nodev,size=2g"
 VENV = f"{WORK}/.venv"
 # The Python the venv is made with, and the dependency group the fetch installs into it.
 VENV_PYTHON = "3.13"
-DEV_GROUP = "crates/oxedi_py/pyproject.toml:dev"
+CONTRIBUTOR_GROUP = "crates/oxedi_py/pyproject.toml:contributor"
 
 
 
@@ -123,7 +123,7 @@ def fetch_commands() -> list[list[str]]:
     anew from the image's own CPython (`--managed-python`: the one under /opt/python), so the only
     interpreter the fetch executes is one no run has written."""
     venv = ["uv", "venv", "--managed-python", "--python", VENV_PYTHON, VENV]
-    install = ["uv", "pip", "install", "--python", f"{VENV}/bin/python", "--no-build", "--group", DEV_GROUP]
+    install = ["uv", "pip", "install", "--python", f"{VENV}/bin/python", "--no-build", "--group", CONTRIBUTOR_GROUP]
     return [["cargo", "fetch", "--locked"], venv, install]
 
 

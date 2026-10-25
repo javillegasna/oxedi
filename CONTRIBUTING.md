@@ -388,8 +388,8 @@ no `~/.ssh`, `~/.pypirc`, `~/.config/gh`, Docker socket or the private samples.
 
 - *fetch*, with the network: the checkout read-only, the repository's `.cargo` masked and no
   project code run. It runs `cargo fetch --locked` and installs wheels only (never an sdist)
-  into a fresh `.venv` from the `dev` group of `crates/oxedi_py/pyproject.toml`. Without the
-  network it stops with one line; it never falls back to the caches offline.
+  into a fresh `.venv` from the `contributor` group of `crates/oxedi_py/pyproject.toml`. Without
+  the network it stops with one line; it never falls back to the caches offline.
 - *run*, with no network: your command, with the cargo registry read-only.
 
 **What stays read-only.** The files your host executes or trusts after a run are bound read-only

@@ -1,7 +1,7 @@
 # The sandbox: a pinned image and a runner that builds and tests this checkout inside a hardened,
 # throwaway container (tools/sandbox/sandbox.py says how).
 # Included by the root Makefile.
-.PHONY: sandbox-image sandbox sandbox-check sandbox-clean
+.PHONY: sandbox-image sandbox sandbox-check sandbox-tools-check sandbox-clean
 
 ##@ Sandbox
 SANDBOX_DIR   := tools/sandbox
@@ -32,6 +32,13 @@ sandbox: ## run CMD over this checkout in a hardened container with no network (
 # The host home path is an argument, so the check proves that path is not mounted.
 sandbox-check: ## prove the sandbox's isolation from inside it: every line of tools/sandbox/isolation-check.sh says ok
 	@$(MAKE) --no-print-directory sandbox CMD='bash $(SANDBOX_DIR)/isolation-check.sh "$(HOME)"'
+
+# Needs the network once: it fetches the advisory database into a temporary directory.
+sandbox-tools-check: ## prove cargo-deny and pip-audit work in the image: fetch the advisory database, then check a crate offline
+	@if command -v docker > /dev/null && ! docker image inspect $(SANDBOX_IMAGE) > /dev/null 2>&1; then \
+	  $(MAKE) --no-print-directory sandbox-image; \
+	fi
+	@bash $(SANDBOX_DIR)/audit-tools-check.sh $(SANDBOX_IMAGE)
 
 sandbox-clean: ## remove this checkout's sandbox storage (ALL=1: every checkout's and the shared caches)
 	@$(SANDBOX_PY) $(SANDBOX_DIR)/sandbox.py --clean $(if $(ALL),all,checkout) --checkout $(CURDIR)

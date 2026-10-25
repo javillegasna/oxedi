@@ -57,10 +57,7 @@ pub mod value;
 pub mod write;
 
 pub use check::StructureChecker;
-pub use column::{
-    Bitmap, Cell, CellError, Column, ColumnData, RowError, Table, Tables, parse_dt, parse_n,
-    parse_r, parse_tm,
-};
+pub use column::{Bitmap, Cell, CellError, Column, ColumnData, RowError, Table, Tables};
 pub use delimiters::{Delimiters, IsaError};
 pub use diagnostic::{Diagnostic, FlatDiagnostic, LoopRef, PARSER_ORIGIN, Rule, SnipLevel};
 pub use document::{Document, DocumentError, Segments, SizeError, Span, Spans};
@@ -80,5 +77,5 @@ pub use spec::{
 pub use summary::{SummaryError, SummaryValue, summarize};
 pub use tokenizer::Tokenizer;
 pub use tree::{LoopTree, Node, NodeId, TreeBuilder};
-pub use value::{ColumnType, ConvertError, ElementType};
+pub use value::{ColumnType, ConvertError, ElementType, parse_dt, parse_n, parse_r, parse_tm};
 pub use write::{PlanError, Refusal, WritePlan};

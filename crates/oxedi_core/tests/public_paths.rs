@@ -11,10 +11,6 @@ mod by_module {
     use oxedi_core::column::RowError;
     use oxedi_core::column::Table;
     use oxedi_core::column::Tables;
-    use oxedi_core::column::parse_dt;
-    use oxedi_core::column::parse_n;
-    use oxedi_core::column::parse_r;
-    use oxedi_core::column::parse_tm;
     use oxedi_core::delimiters::Delimiters;
     use oxedi_core::delimiters::IsaError;
     use oxedi_core::diagnostic::Diagnostic;
@@ -78,7 +74,6 @@ mod by_module {
     use oxedi_core::spec::Version;
     use oxedi_core::spec::VersionError;
     use oxedi_core::spec::merge_patch;
-    use oxedi_core::spec::render_amount;
     use oxedi_core::summary::SummaryError;
     use oxedi_core::summary::SummaryValue;
     use oxedi_core::summary::summarize;
@@ -93,19 +88,32 @@ mod by_module {
     use oxedi_core::value::ColumnType;
     use oxedi_core::value::ConvertError;
     use oxedi_core::value::DECIMAL_PRECISION;
+    use oxedi_core::value::ElementTextError;
     use oxedi_core::value::ElementType;
+    use oxedi_core::value::LengthRange;
     use oxedi_core::value::MAX_SCALE;
+    use oxedi_core::value::Parsed;
     use oxedi_core::value::TimeUnit;
     use oxedi_core::value::TypeCodeError;
+    use oxedi_core::value::date_display;
+    use oxedi_core::value::date_element;
     use oxedi_core::value::date_from_midnight;
     use oxedi_core::value::date_from_millis;
     use oxedi_core::value::days_from_civil;
+    use oxedi_core::value::decimal_display;
+    use oxedi_core::value::decimal_element;
     use oxedi_core::value::integer_from_f64;
     use oxedi_core::value::integer_from_i128;
     use oxedi_core::value::integer_from_u128;
+    use oxedi_core::value::parse_dt;
+    use oxedi_core::value::parse_n;
+    use oxedi_core::value::parse_r;
+    use oxedi_core::value::parse_tm;
     use oxedi_core::value::rescale;
     use oxedi_core::value::seconds_from;
     use oxedi_core::value::seconds_of_day;
+    use oxedi_core::value::time_display;
+    use oxedi_core::value::time_element;
     use oxedi_core::value::time_of_day;
 }
 
@@ -121,8 +129,7 @@ use oxedi_core::{
     VersionError, merge_patch,
 };
 use oxedi_core::{
-    Bitmap, Cell, CellError, Column, ColumnData, ColumnType, RowError, Table, Tables, parse_dt,
-    parse_n, parse_r, parse_tm,
+    Bitmap, Cell, CellError, Column, ColumnData, ColumnType, RowError, Table, Tables,
 };
 use oxedi_core::{ColumnSchema, TableSchema, spec_schema};
 use oxedi_core::{Delimiters, IsaError};
@@ -135,6 +142,7 @@ use oxedi_core::{LoopTree, Node, NodeId, TreeBuilder};
 use oxedi_core::{Output, Processor};
 use oxedi_core::{Segment, SegmentWriteError};
 use oxedi_core::{Summary, SummaryDefError, SummaryError, SummaryValue, summarize};
+use oxedi_core::{parse_dt, parse_n, parse_r, parse_tm};
 
 #[test]
 fn every_public_path_resolves() {}

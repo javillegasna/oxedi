@@ -8,23 +8,17 @@
 //! [`Table`] is a named list of columns that always have the same length,
 //! and [`Tables`] is a list of tables ordered by name.
 //!
-//! The parsers turn X12 element text into column values without allocating:
-//! [`parse_n`], [`parse_r`], [`parse_dt`] and [`parse_tm`].
-//!
-//! The module is split by responsibility: `parse` holds the parsers and the
-//! date arithmetic; `table` the tables and the row appends. This file holds
-//! the column types, the bitmap, the cells and the column buffers.
+//! The module is split by responsibility: `table` holds the tables and the
+//! row appends. This file holds the column types, the bitmap, the cells and
+//! the column buffers.
 
 use std::fmt;
 
 use crate::diagnostic::Quoted;
-use crate::value::{ColumnType, civil_from_days};
+use crate::value::{ColumnType, date_display, decimal_display, time_display};
 
-mod parse;
 mod table;
 
-pub(crate) use parse::is_dt;
-pub use parse::{parse_dt, parse_n, parse_r, parse_tm};
 pub use table::{RowError, Table, Tables};
 
 /// One validity bit per row, least significant bit first; a set bit means
@@ -367,47 +361,24 @@ impl ColumnData {
     }
 
     /// Row `row` as text: bytes as UTF-8 (invalid sequences replaced),
-    /// integers as digits, decimals in fixed point with the column's scale,
-    /// dates as `YYYY-MM-DD`, times as `HH:MM:SS` and a null as `∅`; `None`
-    /// past the end. A date too far from 1970 to convert and a time outside
-    /// one day render as their raw number, `date32(2147483647)` or
-    /// `time32(90000)`.
+    /// integers as digits, decimals in fixed point with the column's scale
+    /// ([`decimal_display`]), dates and times as [`date_display`] and
+    /// [`time_display`] show them (a date too far from 1970 to convert and a
+    /// time outside one day as their raw number) and a null as `∅`; `None`
+    /// past the end, and for a decimal in a column with no decimal scale
+    /// rather than a scale made up.
     pub fn render(&self, row: usize) -> Option<String> {
-        Some(match self.get(row)? {
-            Cell::Null => "∅".to_string(),
-            Cell::Binary(bytes) => String::from_utf8_lossy(bytes).into_owned(),
-            Cell::Int64(value) => value.to_string(),
-            Cell::Decimal128(value) => {
-                let scale = match self.kind() {
-                    ColumnType::Decimal128 { scale, .. } => usize::from(scale),
-                    _ => 0,
-                };
-                let sign = if value < 0 { "-" } else { "" };
-                let digits = format!("{:0>width$}", value.unsigned_abs(), width = scale + 1);
-                let (whole, fraction) = digits.split_at(digits.len().saturating_sub(scale));
-                if fraction.is_empty() {
-                    format!("{sign}{whole}")
-                } else {
-                    format!("{sign}{whole}.{fraction}")
-                }
-            }
-            Cell::Date32(days) if days.checked_add(719_468).is_none() => {
-                format!("date32({days})")
-            }
-            Cell::Date32(days) => {
-                let (year, month, day) = civil_from_days(days);
-                format!("{year:04}-{month:02}-{day:02}")
-            }
-            Cell::Time32(seconds) if !(0..86_400).contains(&seconds) => {
-                format!("time32({seconds})")
-            }
-            Cell::Time32(seconds) => format!(
-                "{:02}:{:02}:{:02}",
-                seconds / 3600,
-                seconds / 60 % 60,
-                seconds % 60
-            ),
-        })
+        match self.get(row)? {
+            Cell::Null => Some("∅".to_string()),
+            Cell::Binary(bytes) => Some(String::from_utf8_lossy(bytes).into_owned()),
+            Cell::Int64(value) => Some(value.to_string()),
+            Cell::Decimal128(value) => self
+                .kind()
+                .decimal_scale()
+                .map(|scale| decimal_display(value, scale)),
+            Cell::Date32(days) => Some(date_display(days)),
+            Cell::Time32(seconds) => Some(time_display(seconds)),
+        }
     }
 
     /// Appends a null row.

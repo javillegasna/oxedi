@@ -1,7 +1,6 @@
 //! The unit a timestamp or a time counts its ticks in.
 
-/// Seconds in a day.
-const DAY_SECONDS: i64 = 86_400;
+use super::calendar::DAY_SECONDS;
 
 /// The unit a timestamp or a time of day is counted in.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]

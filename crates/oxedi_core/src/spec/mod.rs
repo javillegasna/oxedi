@@ -57,7 +57,7 @@ mod tables;
 mod tests;
 mod version;
 
-pub use balance::{BalanceRule, BalanceTerm, render_amount};
+pub use balance::{BalanceRule, BalanceTerm};
 pub use balance_error::BalanceError;
 pub use builtin::{Builtin, UnknownVersion, Version};
 pub use error::SpecError;

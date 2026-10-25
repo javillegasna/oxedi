@@ -5,7 +5,7 @@ use std::fmt;
 
 use super::error::SpecError;
 use super::raw::RawElement;
-use crate::value::{ElementType, TypeCodeError};
+use crate::value::{ElementType, LengthRange, TypeCodeError};
 
 /// One element of a segment, or one component of a composite element.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -198,7 +198,7 @@ impl fmt::Display for ElementDefError {
             } => write!(
                 f,
                 "code {code:?} at codes[{index}] has length {length}; the element allows {}",
-                Allowed {
+                LengthRange {
                     min: *min,
                     max: *max
                 }
@@ -219,24 +219,6 @@ impl fmt::Display for ElementDefError {
                 f,
                 "\"codes\" applies to non-numeric types; type {kind:?} holds numbers, which one value can write several ways (1, 01, 1.0)"
             ),
-        }
-    }
-}
-
-/// The lengths an element allows, as a message spells them: `2 to 5`,
-/// `at least 2`, `at most 5` or `any length`.
-struct Allowed {
-    min: Option<usize>,
-    max: Option<usize>,
-}
-
-impl fmt::Display for Allowed {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match (self.min, self.max) {
-            (Some(min), Some(max)) => write!(f, "{min} to {max}"),
-            (Some(min), None) => write!(f, "at least {min}"),
-            (None, Some(max)) => write!(f, "at most {max}"),
-            (None, None) => write!(f, "any length"),
         }
     }
 }
@@ -396,7 +378,7 @@ pub(super) fn compile_codes(
         if code.is_empty() {
             return Err(ElementDefError::EmptyCode { index });
         }
-        if !kind.length_in_range(code.as_bytes(), min, max) {
+        if !kind.length_in_range(code.as_bytes(), LengthRange { min, max }) {
             return Err(ElementDefError::CodeLength {
                 index,
                 code: code.clone(),

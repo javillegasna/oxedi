@@ -2,7 +2,7 @@
 //! name: the core computes them, this module turns the value and the errors
 //! into Python's.
 
-use oxedi_core::spec::render_amount;
+use oxedi_core::value::decimal_display;
 use oxedi_core::{SummaryError, SummaryValue, summarize};
 use pyo3::exceptions::{PyKeyError, PyTypeError, PyValueError};
 use pyo3::prelude::*;
@@ -58,7 +58,7 @@ pub fn count(tables: &PyTables, method: &str) -> PyResult<usize> {
 /// A `sum` summary as fixed-point text at its column's scale.
 pub fn decimal(tables: &PyTables, method: &str) -> PyResult<String> {
     match summary(tables, method)? {
-        SummaryValue::Decimal { value, scale } => Ok(render_amount(value, scale)),
+        SummaryValue::Decimal { value, scale } => Ok(decimal_display(value, scale)),
         other => Err(other_kind(method, "a decimal", &other)),
     }
 }

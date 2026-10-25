@@ -400,11 +400,13 @@ installs (checked by the SHA-256 of the installed tree), and the `wasm32-unknown
 (the image never runs that script). It is tagged `oxedi-sandbox-viewer:<hash>` of the base tag,
 `Dockerfile.viewer`, `tools/sandbox/playwright.txt`, `install_tools.sh` and
 `tools/sandbox/viewer_image.py`, and it is amd64 only, because the wasm tools are pinned for
-x86_64: on another architecture `make sandbox-image-viewer` refuses with one line naming it.
+x86_64: on another architecture `make sandbox-image-viewer` refuses with one line naming it, and
+with no daemon to ask it says the daemon could not be reached.
 `IMAGE` is `base` (the default) or `viewer` and is read from the command line only: any other
 value, or an `IMAGE` exported in your shell, is refused with one line before any docker command.
-A checkout whose `playwright==` pin differs from the one the viewer image was built for is refused
-with a line naming both versions and saying to run `make sandbox-image-viewer`.
+A checkout whose `playwright==` pin, or whose `wasm-bindgen` or `binaryen` pin in `install_tools.sh`,
+differs from the one the viewer image was built with is refused before any container, with a line
+naming the tool and both versions and saying to run `make sandbox-image-viewer`.
 
 Chromium runs without its own sandbox in the viewer image: its sandbox needs user namespaces, which
 a container with no capabilities, no new privileges and the default seccomp profile does not grant,

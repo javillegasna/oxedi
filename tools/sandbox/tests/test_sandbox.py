@@ -141,6 +141,9 @@ class World(unittest.TestCase):
             "HOME": str(self.home),
             "FAKE_DIR": str(self.fake),
             "SANDBOX_CMD": "cargo test",
+            # The viewer image's wasm labels, as built from this repository's install_tools.sh.
+            "FAKE_WASM_BINDGEN_LABEL": WASM_PINS.bindgen_version,
+            "FAKE_BINARYEN_LABEL": WASM_PINS.binaryen_version,
             **GIT_ENV,
         }
         env.update(extra)
@@ -769,6 +772,8 @@ DOCS_FETCH = [
 ]
 PIP_AUDIT = ["pip-audit", "--progress-spinner", "off", "--format", "json", "--path"]
 PINNED = "playwright==1.64.0 \\\n    --hash=sha256:00\n"
+INSTALL_TOOLS = (REPO / viewer_image.INSTALL_TOOLS).read_text()
+WASM_PINS = viewer_image.wasm_pins(INSTALL_TOOLS)
 
 
 def base_tag() -> str:
@@ -782,7 +787,12 @@ class Images(World):
         return self.checkout(name, ".gitignore", "Makefile", "docs/requirements.txt", ".venv-docs/bin/python")
 
     def pin(self, checkout: Path, text: str = PINNED) -> Path:
+        """Pins Playwright in the checkout's docs/requirements.txt and the wasm tools as this
+        repository's install_tools.sh does."""
         (checkout / "docs" / "requirements.txt").write_text(text)
+        tools = checkout / viewer_image.INSTALL_TOOLS
+        tools.parent.mkdir(parents=True, exist_ok=True)
+        tools.write_text(INSTALL_TOOLS)
         return checkout
 
     def test_image_values(self):
@@ -956,6 +966,81 @@ class Images(World):
         self.assertEqual((result.returncode, result.stderr.strip()),
                          (2, "sandbox: refused: docs is a symbolic link; docs/requirements.txt must be a real file of the checkout"))
         self.assertEqual(self.runs(), [])
+
+    def test_wasm_pin_mismatch_refuses(self):
+        # The image's wasm tools are those of the install_tools.sh it was built from: a checkout that
+        # pins others is refused before any container, as a stale browser is.
+        checkout = self.pin(self.viewer_checkout())
+        bindgen, binaryen = WASM_PINS.bindgen_version, WASM_PINS.binaryen_version
+        cases = (
+            ({"FAKE_WASM_BINDGEN_LABEL": "0.2.1"},
+             f"sandbox: this checkout pins wasm-bindgen {bindgen} but the viewer image has 0.2.1; "
+             "run make sandbox-image-viewer"),
+            ({"FAKE_BINARYEN_LABEL": "120"},
+             f"sandbox: this checkout pins binaryen {binaryen} but the viewer image has 120; "
+             "run make sandbox-image-viewer"),
+            ({"FAKE_BINARYEN_LABEL": ""},
+             f"sandbox: this checkout pins binaryen {binaryen} but the viewer image has no "
+             "oxedi.sandbox.binaryen label; run make sandbox-image-viewer"),
+        )
+        for env, line in cases:
+            with self.subTest(env=env):
+                result = self.sandbox(checkout, "viewer", FAKE_PLAYWRIGHT_LABEL="1.64.0", **env)
+                self.assertEqual((result.returncode, result.stderr.strip()), (2, line))
+                self.assertEqual(self.runs(), [])
+        tools = checkout / viewer_image.INSTALL_TOOLS
+        tools.write_text(INSTALL_TOOLS.replace(f'BINARYEN_VERSION="{binaryen}"', 'BINARYEN_VERSION="134"'))
+        result = self.sandbox(checkout, "viewer", FAKE_PLAYWRIGHT_LABEL="1.64.0")
+        self.assertEqual((result.returncode, result.stderr.strip()),
+                         (2, f"sandbox: this checkout pins binaryen 134 but the viewer image has {binaryen}; "
+                             "run make sandbox-image-viewer"))
+        tools.write_text("#!/usr/bin/env bash\n")
+        result = self.sandbox(checkout, "viewer", FAKE_PLAYWRIGHT_LABEL="1.64.0")
+        self.assertEqual((result.returncode, result.stderr.strip()),
+                         (2, f'sandbox: {viewer_image.INSTALL_TOOLS} has no WASM_BINDGEN_VERSION="<value>" line'))
+        tools.unlink()
+        elsewhere = self.tmp / "install_tools.sh"
+        elsewhere.write_text(INSTALL_TOOLS)
+        tools.symlink_to(elsewhere)
+        result = self.sandbox(checkout, "viewer", FAKE_PLAYWRIGHT_LABEL="1.64.0")
+        self.assertEqual((result.returncode, result.stderr.strip()),
+                         (2, f"sandbox: refused: {viewer_image.INSTALL_TOOLS} is a symbolic link; "
+                             f"{viewer_image.INSTALL_TOOLS} must be a real file of the checkout"))
+        self.assertEqual(self.runs(), [])
+
+    def test_storage_names_follow_the_own_mounts(self):
+        # The plan line names the storage directories the runs mount, from the table the mounts use.
+        checkout = self.viewer_checkout()
+        surveyed = layout.survey(checkout)
+        own = storage.storage_for(storage.cache_root({"HOME": str(self.home)}), surveyed)
+        cases = (
+            (arguments.ImageKind.BASE, {}, "(target, venv)"),
+            (VIEWER, {}, "(target, venv, venv-docs, viewer-pkg)"),
+            (arguments.ImageKind.BASE, {arguments.ImageKind.BASE: (arguments.VENV, arguments.VIEWER_PKG)},
+             "(target, venv, viewer-pkg)"),
+        )
+        for kind, table, names in cases:
+            with self.subTest(kind=kind, table=table), mock.patch.dict(arguments.OWN_MOUNTS, table):
+                plan = sandbox.Plan("oxedi-sandbox:test", kind, surveyed, own, arguments.Runtime.RUNC, LIMITS)
+                self.assertIn(f"storage {own.target.parent} {names},", sandbox.describe(plan, {}))
+
+    def test_viewer_image_names_the_docker_server(self):
+        # The viewer image's wasm tools are amd64 only; with no daemon there is no architecture to blame.
+        checkout = make_repo_copy(self.tmp / "repo")
+        cases = (
+            ({}, "sandbox-image-viewer: the docker daemon could not be reached (docker version names no server); "
+                 "start it and retry"),
+            ({"FAKE_ARCH": "arm64"},
+             "sandbox-image-viewer: the docker server is 'arm64' and the wasm tools are pinned for amd64"),
+        )
+        for env, line in cases:
+            with self.subTest(env=env):
+                result = self.make(checkout, "sandbox-image-viewer", **env)
+                self.assertNotEqual(result.returncode, 0, result.stderr)
+                self.assertEqual(result.stderr.splitlines()[0], line)
+                # No build or run: docker is only asked for its server's architecture.
+                self.assertEqual({c["argv"][0] for c in self.calls()}, {"version"})
+                (self.fake / "calls.jsonl").unlink(missing_ok=True)
 
     def test_kind_required_with_image(self):
         result = subprocess.run(

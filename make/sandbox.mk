@@ -58,7 +58,9 @@ sandbox-image: ## build the sandbox image from tools/sandbox (tag oxedi-sandbox:
 # Two builds, like sandbox-image. The base image is built first when missing; the wasm tools are
 # pinned for x86_64, so another docker server architecture is refused.
 sandbox-image-viewer: ## build the viewer sandbox image (Node, Chromium, wasm tools) on the base image (amd64 only)
-	@test "$(SANDBOX_DOCKER_ARCH)" = amd64 || { echo "sandbox-image-viewer: the docker server is '$(SANDBOX_DOCKER_ARCH)' and the wasm tools are pinned for amd64" >&2; exit 1; }
+	@arch='$(SANDBOX_DOCKER_ARCH)'; \
+	  test -n "$$arch" || { echo "sandbox-image-viewer: the docker daemon could not be reached (docker version names no server); start it and retry" >&2; exit 1; }; \
+	  test "$$arch" = amd64 || { echo "sandbox-image-viewer: the docker server is '$$arch' and the wasm tools are pinned for amd64" >&2; exit 1; }
 	@test -n "$(SANDBOX_VIEWER_IMAGE)" || exit 1
 	@docker image inspect $(SANDBOX_IMAGE) > /dev/null 2>&1 || $(MAKE) --no-print-directory sandbox-image
 	args=$$($(SANDBOX_PY) $(SANDBOX_DIR)/viewer_image.py build-args --root $(CURDIR)) && \

@@ -23,7 +23,7 @@ usage: sandbox.py --image TAG --kind {base,viewer} --checkout DIR
        sandbox.py --clean {checkout,all} --checkout DIR
 `--kind viewer` names a viewer image (make sandbox-image-viewer): its runs also get the docs venv
 at .venv-docs, made by the fetch from the hashed docs/requirements.txt, and the run is refused when
-the checkout pins another Playwright than the image's browser was installed for.
+the checkout pins another Playwright, wasm-bindgen or binaryen than the image was built with.
 The command comes from SANDBOX_CMD. SANDBOX_CPUS (default: the daemon's CPUs minus one),
 SANDBOX_MEMORY (GB; default 60 % of the daemon's memory) and SANDBOX_TIMEOUT (seconds; default
 3600) set the limits.
@@ -48,7 +48,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 
 import viewer_image  # noqa: E402
 from arguments import (  # noqa: E402
-    ImageKind, Limits, Phase, Runtime, docker_args, fetch_commands, own_dirs, run_command,
+    ImageKind, Limits, Phase, Runtime, docker_args, fetch_commands, own_dirs, own_sources, run_command,
 )
 from audit import DIRTY_STATUS, Findings, Snapshot, audit, record, refuse_leftovers, report, snapshot  # noqa: E402
 from layout import Checkout, SandboxError, container_name, path_hash, refuse_links, survey  # noqa: E402
@@ -99,7 +99,7 @@ class Plan:
 def describe(plan: Plan, labels: dict[str, str]) -> str:
     rust = labels.get("oxedi.sandbox.rust", "unlabelled")
     limits = plan.limits
-    own = "target, venv, venv-docs, viewer-pkg" if plan.kind is ImageKind.VIEWER else "target, venv"
+    own = ", ".join(p.name for p in (plan.storage.target, *own_sources(plan.storage, plan.kind).values()))
     return " · ".join([
         f"sandbox: runtime {plan.runtime.value}",
         f"image {plan.image} ({plan.kind.value}, Rust {rust})",
@@ -184,42 +184,64 @@ def checked_daemon() -> DaemonInfo:
     return info
 
 
-def checkout_playwright(root: Path) -> str:
-    """The `playwright==` pin of the checkout's docs/requirements.txt, read as data on the host with
-    viewer_image.py's parser; a link anywhere on that path is refused, since its target, not the
-    checkout's file, would be read."""
-    rule = f"{viewer_image.DOCS_REQUIREMENTS} must be a real file of the checkout"
-    refuse_links(root, viewer_image.DOCS_REQUIREMENTS, rule)
+def checkout_pin(root: Path, relative: str, parse: Callable[[str], str]) -> str:
+    """One pin of the checkout's file `relative`, read as data on the host with viewer_image.py's
+    parser `parse`; a link anywhere on that path is refused, since its target, not the checkout's
+    file, would be read."""
+    refuse_links(root, relative, f"{relative} must be a real file of the checkout")
     try:
-        return viewer_image.playwright_pin(viewer_image.read(root, viewer_image.DOCS_REQUIREMENTS))
+        return parse(viewer_image.read(root, relative))
     except SystemExit as error:
         # viewer_image.py ends its command line with one SystemExit line; here it is a refusal.
         raise SandboxError(str(error.code).removeprefix(viewer_image.PREFIX).strip()) from None
 
 
-def refuse_stale_browser(root: Path, labels: dict[str, str]) -> None:
-    """The viewer image's browser is the revision one Playwright version installs: a checkout that
-    pins another one is refused here, before any container, instead of failing in the run when
-    Playwright finds no browser of its own revision."""
-    pinned = checkout_playwright(root)
-    installed = labels.get(PLAYWRIGHT_LABEL, f"no {PLAYWRIGHT_LABEL} label")
-    if pinned != installed:
-        raise SandboxError(
-            f"this checkout pins playwright {pinned} but the viewer image has {installed}; "
-            "run make sandbox-image-viewer"
-        )
+@dataclass(frozen=True)
+class ImagePin:
+    """A tool the viewer image holds at the version one of the checkout's files pins."""
+
+    tool: str
+    label: str
+    source: str
+    parse: Callable[[str], str]
+
+
+# What the viewer image was built from, each read from the checkout and compared with its label.
+IMAGE_PINS = (
+    ImagePin("playwright", PLAYWRIGHT_LABEL, viewer_image.DOCS_REQUIREMENTS, viewer_image.playwright_pin),
+    ImagePin("wasm-bindgen", "oxedi.sandbox.wasm-bindgen", viewer_image.INSTALL_TOOLS,
+             lambda text: viewer_image.wasm_pins(text).bindgen_version),
+    ImagePin("binaryen", "oxedi.sandbox.binaryen", viewer_image.INSTALL_TOOLS,
+             lambda text: viewer_image.wasm_pins(text).binaryen_version),
+)
+
+
+def refuse_stale_image(root: Path, labels: dict[str, str]) -> None:
+    """The viewer image holds the browser one Playwright version installs and the wasm tools
+    install_tools.sh pins: a checkout that pins another version of any of them is refused here,
+    before any container, instead of failing in the run (Playwright finds no browser of its own
+    revision, make wasm asks for a wasm-bindgen it cannot install offline) or passing with the
+    image's older wasm-opt."""
+    for pin in IMAGE_PINS:
+        pinned = checkout_pin(root, pin.source, pin.parse)
+        installed = labels.get(pin.label, f"no {pin.label} label")
+        if pinned != installed:
+            raise SandboxError(
+                f"this checkout pins {pin.tool} {pinned} but the viewer image has {installed}; "
+                "run make sandbox-image-viewer"
+            )
 
 
 def ready(image: str, kind: ImageKind, checkout_dir: Path, env: dict[str, str], info: DaemonInfo) -> Plan:
     """The plan for a checkout, once nothing refuses it: the image exists (a viewer image built for
-    the checkout's Playwright), no container of the checkout runs and no path of its last dirty
-    audit is left. Its storage is made and the plan printed."""
+    the checkout's Playwright and wasm tools), no container of the checkout runs and no path of its
+    last dirty audit is left. Its storage is made and the plan printed."""
     runtime = Runtime.RUNSC if Runtime.RUNSC.value in info.runtimes else Runtime.RUNC
     checkout = survey(checkout_dir)
     plan = Plan(image, kind, checkout, storage_for(cache_root(env), checkout), runtime, limits_from(env, info))
     labels = image_labels(image)
     if kind is ImageKind.VIEWER:
-        refuse_stale_browser(checkout.root, labels)
+        refuse_stale_image(checkout.root, labels)
     refuse_if_running(checkout.name)
     refuse_leftovers(checkout.root, plan.storage.record)
     prepare(plan.storage, checkout, ("target", *own_dirs(kind)))

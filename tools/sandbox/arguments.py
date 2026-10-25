@@ -92,11 +92,18 @@ def hardened_base(checkout: Checkout, uid: int, gid: int, runtime: Runtime, limi
     ]
 
 
+def own_sources(storage: Storage, kind: ImageKind) -> dict[str, Path]:
+    """Each of the image's own mounts, by its place in the container, with its source in the
+    checkout's storage."""
+    sources = {VENV: storage.venv, DOCS_VENV: storage.docs_venv, VIEWER_PKG: storage.viewer_pkg}
+    return {place: sources[place] for place in OWN_MOUNTS[kind]}
+
+
 def own_binds(storage: Storage, kind: ImageKind, writable: tuple[str, ...]) -> list[str]:
     """A bind of each of the image's own mounts from the checkout's storage, read-only unless its
     place is in `writable`."""
-    sources = {VENV: storage.venv, DOCS_VENV: storage.docs_venv, VIEWER_PKG: storage.viewer_pkg}
-    return [a for place in OWN_MOUNTS[kind] for a in bind(sources[place], place, place not in writable)]
+    sources = own_sources(storage, kind).items()
+    return [a for place, source in sources for a in bind(source, place, place not in writable)]
 
 
 def own_dirs(kind: ImageKind) -> tuple[str, ...]:

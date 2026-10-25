@@ -221,8 +221,11 @@ class Flow(unittest.TestCase):
 
     def test_viewer_audits_both_venvs(self):
         self.change("docs/requirements.txt", "playwright==1.64.0 \\\n    --hash=sha256:00\n")
+        self.change("crates/oxedi_wasm/scripts/install_tools.sh",
+                    'WASM_BINDGEN_VERSION="0.2.129"\nWASM_BINDGEN_SHA256="aa"\nBINARYEN_VERSION="133"\nBINARYEN_SHA256="bb"\n')
         self.change("viewer/app.js")
         status, out, err = self.review(kind="viewer", SANDBOX_CONFIRM="yes", FAKE_PLAYWRIGHT_LABEL="1.64.0",
+                                       FAKE_WASM_BINDGEN_LABEL="0.2.129", FAKE_BINARYEN_LABEL="133",
                                        FAKE_PIP_AUDIT_OUTPUT='{"dependencies": []}')
         self.assertEqual(status, 0, err)
         self.assertEqual(self.kinds(), ["deny", *["fetch"] * 6, "pip-audit", "pip-audit", "run"])

@@ -8,12 +8,13 @@ SANDBOX_DIR   := tools/sandbox
 # Every Python this file starts runs isolated (-I): a module a run left in the checkout, such as a
 # root hashlib.py, or a PYTHON* variable of the shell is never loaded.
 SANDBOX_PY    := $(PYTHON_BIN) -I
-# The tag is the first 12 hex digits of the Dockerfile's SHA-256, so a changed Dockerfile is a new tag.
-SANDBOX_HASH   = $(shell $(SANDBOX_PY) -c "import hashlib, pathlib; print(hashlib.sha256(pathlib.Path('$(SANDBOX_DIR)/Dockerfile').read_bytes()).hexdigest()[:12])")
+# The tag is the first 12 hex digits of the SHA-256 of the Dockerfile followed by pip-audit.txt, the
+# two files the build reads (the Dockerfile COPYs pip-audit.txt), so a change to either is a new tag.
+SANDBOX_HASH   = $(shell $(SANDBOX_PY) -c "import hashlib, pathlib; print(hashlib.sha256(b''.join(pathlib.Path('$(SANDBOX_DIR)/' + n).read_bytes() for n in ('Dockerfile', 'pip-audit.txt'))).hexdigest()[:12])")
 SANDBOX_IMAGE  = oxedi-sandbox:$(SANDBOX_HASH)
 
 # Two builds: the second reuses every layer and only adds the apt set, read from the first, as a label.
-sandbox-image: ## build the sandbox image from tools/sandbox (tag oxedi-sandbox:<hash of the Dockerfile>)
+sandbox-image: ## build the sandbox image from tools/sandbox (tag oxedi-sandbox:<hash of the Dockerfile and pip-audit.txt>)
 	docker build --tag $(SANDBOX_IMAGE) $(SANDBOX_DIR)
 	apt=$$(docker run --rm --pull never --network none --read-only --cap-drop ALL --user 65534:65534 --security-opt no-new-privileges $(SANDBOX_IMAGE) cat /usr/share/oxedi-sandbox.manifest | tr '\t\n' '= ' | sed 's/ $$//') && \
 	  docker build --tag $(SANDBOX_IMAGE) --label "oxedi.sandbox.apt=$$apt" $(SANDBOX_DIR)

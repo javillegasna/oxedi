@@ -1,6 +1,7 @@
 # The image `make sandbox` builds and tests in. Every input is pinned: base image and uv by digest,
-# rustup-init by version and SHA-256, the toolchain and both CPythons by full version. The build
-# context is this folder only. The tag is oxedi-sandbox:<first 12 hex of sha256 of this file>.
+# rustup-init and cargo-deny by version and SHA-256, pip-audit by version and hashes, the
+# toolchain and both CPythons by full version. The build context is this folder only. The tag is
+# oxedi-sandbox:<first 12 hex of sha256 of this file followed by pip-audit.txt>.
 
 # uv 0.13.5, one static binary.
 FROM ghcr.io/astral-sh/uv:0.13.5@sha256:32a7bb39b496babbd997b0a39a4d66c126bdaf5661b302bf6f06abda8deca6ff AS uv
@@ -12,6 +13,10 @@ ARG RUST_VERSION=1.99.0
 ARG RUSTUP_VERSION=1.29.2
 ARG RUSTUP_INIT_SHA256_AMD64=5be191e8c70a5007074254cb74d78dbfdd25cd5a61c27de7b8e5410122ec24f4
 ARG RUSTUP_INIT_SHA256_ARM64=a9c168dbea81a84671c6b7a5c1795cb0eb699020110d107ddfca427bd797e697
+ARG CARGO_DENY_VERSION=0.20.2
+ARG CARGO_DENY_SHA256_AMD64=9f12ed4c49936e09b48bf862b595cde2fe64fcbd9d74dfacac6131ca824c8d5f
+ARG CARGO_DENY_SHA256_ARM64=995c82be0defc7a025cae49a2aa2644ce8245c9a3318fc4103907c6a285e8c7d
+ARG PIP_AUDIT_VERSION=2.10.1
 ARG PYTHON_OLDEST=3.11.15
 ARG PYTHON_NEWEST=3.13.13
 
@@ -31,8 +36,10 @@ ENV RUSTUP_HOME=/opt/rustup \
 # curl is installed only for this step and purged in it.
 RUN set -eu; \
     case "$TARGETARCH" in \
-      amd64) triple=x86_64-unknown-linux-gnu; sum=$RUSTUP_INIT_SHA256_AMD64 ;; \
-      arm64) triple=aarch64-unknown-linux-gnu; sum=$RUSTUP_INIT_SHA256_ARM64 ;; \
+      amd64) triple=x86_64-unknown-linux-gnu; sum=$RUSTUP_INIT_SHA256_AMD64; \
+             musl=x86_64-unknown-linux-musl; denysum=$CARGO_DENY_SHA256_AMD64 ;; \
+      arm64) triple=aarch64-unknown-linux-gnu; sum=$RUSTUP_INIT_SHA256_ARM64; \
+             musl=aarch64-unknown-linux-musl; denysum=$CARGO_DENY_SHA256_ARM64 ;; \
       *) echo "unsupported architecture: $TARGETARCH" >&2; exit 1 ;; \
     esac; \
     apt-get update; apt-get install -y --no-install-recommends curl; \
@@ -43,6 +50,13 @@ RUN set -eu; \
     /tmp/rustup-init -y --no-modify-path --profile minimal --default-toolchain "$RUST_VERSION" \
       -c clippy -c rustfmt; \
     rm /tmp/rustup-init; \
+    deny="cargo-deny-$CARGO_DENY_VERSION-$musl"; \
+    curl --proto '=https' --tlsv1.2 -fsSL -o /tmp/cargo-deny.tar.gz \
+      "https://github.com/EmbarkStudios/cargo-deny/releases/download/$CARGO_DENY_VERSION/$deny.tar.gz"; \
+    echo "$denysum  /tmp/cargo-deny.tar.gz" | sha256sum -c -; \
+    tar -xzf /tmp/cargo-deny.tar.gz -C /tmp "$deny/cargo-deny"; \
+    install -m 0755 "/tmp/$deny/cargo-deny" /usr/local/bin/cargo-deny; \
+    rm -r /tmp/cargo-deny.tar.gz "/tmp/$deny"; \
     apt-get purge -y --auto-remove curl; apt-get clean; \
     find /var/lib/apt/lists -type f -delete; \
     chmod -R a+rX /opt/rustup /opt/cargo
@@ -54,11 +68,24 @@ RUN set -eu; \
     chmod -R a+rX /opt/python
 ENV UV_PYTHON_DOWNLOADS=never
 
+# pip-audit lives in its own venv on the newest CPython, from hashed wheels only. This file is read
+# by `make sandbox-image` for the tag, together with the Dockerfile.
+COPY pip-audit.txt /tmp/pip-audit.txt
+RUN set -eu; \
+    uv venv --python "$PYTHON_NEWEST" /opt/pip-audit; \
+    uv pip install --python /opt/pip-audit/bin/python --require-hashes --no-deps --only-binary :all: \
+      -r /tmp/pip-audit.txt; \
+    ln -s /opt/pip-audit/bin/pip-audit /usr/local/bin/pip-audit; \
+    rm /tmp/pip-audit.txt; \
+    chmod -R a+rX /opt/pip-audit
+
 # The apt set is kept in /usr/share/oxedi-sandbox.manifest; `make sandbox-image` also copies it,
 # with the Rust and CPython versions, into the image labels.
 RUN dpkg-query -W > /usr/share/oxedi-sandbox.manifest
 LABEL org.opencontainers.image.title="oxedi-sandbox" \
       oxedi.sandbox.rust="$RUST_VERSION" \
-      oxedi.sandbox.python="$PYTHON_OLDEST $PYTHON_NEWEST"
+      oxedi.sandbox.python="$PYTHON_OLDEST $PYTHON_NEWEST" \
+      oxedi.sandbox.cargo-deny="$CARGO_DENY_VERSION" \
+      oxedi.sandbox.pip-audit="$PIP_AUDIT_VERSION"
 
 WORKDIR /work

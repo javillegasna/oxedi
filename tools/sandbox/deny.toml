@@ -1,0 +1,17 @@
+# cargo-deny policy for the PR audit. It is not in the image: the audit container gets it from
+# the host checkout, read-only, so a pull request cannot change the rules it is judged by.
+
+[advisories]
+# The advisory database is written only by the audit step that has the network.
+db-path = "/sandbox/advisory"
+yanked = "deny"
+
+[sources]
+unknown-registry = "deny"
+unknown-git = "deny"
+allow-registry = ["https://github.com/rust-lang/crates.io-index"]
+
+[bans]
+multiple-versions = "warn"
+
+# Licenses are not checked: the project has no license policy yet.

@@ -18,12 +18,17 @@ VENV = f"{WORK}/.venv"
 # The Python the venv is made with, and the dependency group the fetch installs into it.
 VENV_PYTHON = "3.13"
 CONTRIBUTOR_GROUP = "crates/oxedi_py/pyproject.toml:contributor"
-
+# The audit tools' policy and advisory database. The policy is this module's own copy, from the
+# checkout that runs the sandbox: a change under review never chooses the rules it is judged by.
+HOST_DENY_TOML = Path(__file__).resolve().parent / "deny.toml"
+DENY_TOML = "/sandbox/deny.toml"
+ADVISORY = "/sandbox/advisory"
 
 
 class Phase(Enum):
     FETCH = "fetch"
     RUN = "run"
+    AUDIT = "audit"
 
 
 class Runtime(Enum):
@@ -73,9 +78,9 @@ def read_only_set(checkout: Checkout, storage: Storage, skip: tuple[str, ...]) -
     return [a for mount in binds + masks + blanks for a in mount]
 
 
-def fetch_delta(checkout: Checkout, storage: Storage) -> list[str]:
+def network_delta(checkout: Checkout, storage: Storage, venv: list[str]) -> list[str]:
     """Network on, the checkout read-only with .cargo masked (no repository cargo configuration
-    applies), the shared caches writable, rustc wrappers cleared."""
+    applies), the shared caches writable, rustc wrappers cleared; `venv` mounts the venv."""
     cargo_mask = mask(f"{WORK}/.cargo") if ".cargo" in checkout.read_only else []
     return [
         *env_args({
@@ -86,9 +91,22 @@ def fetch_delta(checkout: Checkout, storage: Storage) -> list[str]:
             # A uv.toml or [tool.uv] the run phase left in the checkout must not steer the fetch.
             "UV_NO_CONFIG": "1",
         }),
-        *bind(checkout.root, WORK, True), *read_only_set(checkout, storage, (".cargo",)), *cargo_mask,
-        *bind(storage.venv, f"{WORK}/.venv", False),
+        *bind(checkout.root, WORK, True), *read_only_set(checkout, storage, (".cargo",)), *cargo_mask, *venv,
         *bind(storage.cargo, CARGO_HOME, False), *bind(storage.uv, UV_CACHE, False),
+    ]
+
+
+def fetch_delta(checkout: Checkout, storage: Storage) -> list[str]:
+    """The network set with the venv writable: the fetch installs into it."""
+    return network_delta(checkout, storage, bind(storage.venv, VENV, False))
+
+
+def audit_delta(checkout: Checkout, storage: Storage) -> list[str]:
+    """The network set with the venv read-only, the host's cargo-deny policy read-only and the
+    advisory database writable: the audit tools read the change and fetch advisories only."""
+    return [
+        *network_delta(checkout, storage, bind(storage.venv, VENV, True)),
+        *bind(HOST_DENY_TOML, DENY_TOML, True), *bind(storage.advisory, ADVISORY, False),
     ]
 
 
@@ -107,7 +125,7 @@ def run_delta(checkout: Checkout, storage: Storage) -> list[str]:
     ]
 
 
-PHASE_DELTA = {Phase.FETCH: fetch_delta, Phase.RUN: run_delta}
+PHASE_DELTA = {Phase.FETCH: fetch_delta, Phase.RUN: run_delta, Phase.AUDIT: audit_delta}
 
 
 def docker_args(
@@ -125,6 +143,16 @@ def fetch_commands() -> list[list[str]]:
     venv = ["uv", "venv", "--managed-python", "--python", VENV_PYTHON, VENV]
     install = ["uv", "pip", "install", "--python", f"{VENV}/bin/python", "--no-build", "--group", CONTRIBUTOR_GROUP]
     return [["cargo", "fetch", "--locked"], venv, install]
+
+
+def audit_commands() -> list[list[str]]:
+    """The audit tools, fixed here: cargo-deny over the change's Cargo.lock before the fetch, with
+    the host's policy, then pip-audit over the packages the fetch installed in the venv."""
+    deny = ["cargo", "deny", "--manifest-path", f"{WORK}/Cargo.toml", "check", "--config", DENY_TOML,
+            "advisories", "sources", "bans"]
+    site_packages = f"{VENV}/lib/python{VENV_PYTHON}/site-packages"
+    pip = ["pip-audit", "--progress-spinner", "off", "--format", "json", "--path", site_packages]
+    return [deny, pip]
 
 
 def run_command(command: str) -> list[str]:

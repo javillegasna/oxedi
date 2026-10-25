@@ -24,6 +24,11 @@ class Storage:
     # The paths the last dirty audit named, with what each was then; never mounted.
     record: Path
 
+    @property
+    def advisory(self) -> Path:
+        """The advisory database the audit tools fetch, shared like the cargo registry."""
+        return self.cache / "advisory"
+
 
 def cache_root(env: dict[str, str]) -> Path:
     """${XDG_CACHE_HOME:-$HOME/.cache}/oxedi-sandbox; a relative XDG_CACHE_HOME is ignored, as the
@@ -39,6 +44,18 @@ def storage_for(cache: Path, checkout: Checkout) -> Storage:
     return Storage(
         cache, cache / "cargo", cache / "uv", own / "target", own / "venv", own / "empty", own / "audit.json",
     )
+
+
+def reviews(cache: Path) -> Path:
+    """Where sandbox-pr keeps one directory per change and tested commit: its clone and reports."""
+    return cache / "prs"
+
+
+def forget(cache: Path, review: Path) -> None:
+    """Removes a review directory and the storage of the clone it holds, so nothing of an earlier
+    run of the same change (a target/ above all) reaches the next one."""
+    clean(cache / path_hash(review / "checkout"))
+    clean(review)
 
 
 def prepare(storage: Storage, checkout: Checkout) -> None:

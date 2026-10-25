@@ -1,7 +1,7 @@
 # The sandbox: a pinned image and a runner that builds and tests this checkout inside a hardened,
 # throwaway container (tools/sandbox/sandbox.py says how).
 # Included by the root Makefile.
-.PHONY: sandbox-image sandbox sandbox-check sandbox-tools-check sandbox-clean
+.PHONY: sandbox-image sandbox sandbox-pr sandbox-check sandbox-tools-check sandbox-clean
 
 ##@ Sandbox
 SANDBOX_DIR   := tools/sandbox
@@ -28,6 +28,19 @@ sandbox: ## run CMD over this checkout in a hardened container with no network (
 	  $(MAKE) --no-print-directory sandbox-image; \
 	fi
 	@$(SANDBOX_PY) $(SANDBOX_DIR)/sandbox.py --image $(SANDBOX_IMAGE) --checkout $(CURDIR)
+
+# The change, the target and the confirmation reach sandbox_pr.py as SANDBOX_* variables, like CMD
+# for sandbox. The rules (sandbox_pr.py, risk.py, deny.toml) are this checkout's, never the change's.
+sandbox-pr: export SANDBOX_PR := $(PR)
+sandbox-pr: export SANDBOX_REF := $(REF)
+sandbox-pr: export SANDBOX_HEAD := $(HEAD)
+sandbox-pr: export SANDBOX_TARGET := $(TARGET)
+sandbox-pr: export SANDBOX_CONFIRM := $(CONFIRM)
+sandbox-pr: ## test a pull request (PR=N [HEAD=1]) or a ref (REF=<name>) in the sandbox, after a risk report [TARGET="..."] [CONFIRM=yes]
+	@if command -v docker > /dev/null && ! docker image inspect $(SANDBOX_IMAGE) > /dev/null 2>&1; then \
+	  $(MAKE) --no-print-directory sandbox-image; \
+	fi
+	@$(SANDBOX_PY) $(SANDBOX_DIR)/sandbox_pr.py --image $(SANDBOX_IMAGE) --checkout $(CURDIR)
 
 # The host home path is an argument, so the check proves that path is not mounted.
 sandbox-check: ## prove the sandbox's isolation from inside it: every line of tools/sandbox/isolation-check.sh says ok

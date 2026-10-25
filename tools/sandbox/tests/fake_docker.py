@@ -13,6 +13,12 @@ FAKE_RUN_STDERR    what the run-phase container writes to stderr
 FAKE_RUN_SLEEP     seconds the run-phase container sleeps before it exits
 FAKE_RUN_WRITES    a shell command the run-phase container runs in the checkout (/work's source)
 FAKE_FETCH_EXIT    exit status of every fetch-phase container; default 0
+FAKE_DENY_EXIT     exit status of the cargo-deny container; default 0
+FAKE_DENY_OUTPUT   what the cargo-deny container writes to stderr
+FAKE_PIP_AUDIT_EXIT    exit status of the pip-audit container; default 0
+FAKE_PIP_AUDIT_OUTPUT  what the pip-audit container writes to stdout
+FAKE_RUN_LEAVES    a file name the run-phase container creates in the source bound at /work/target
+FAKE_WATCH         a path whose existence every `run` records as "watched"
 
 `docker kill` ends a sleeping run-phase container, as the real one would.
 """
@@ -89,16 +95,30 @@ def image_inspect(argv: list[str]) -> int:
     return 0
 
 
+def target_source(argv: list[str]) -> Path:
+    return next(Path(m["src"]) for m in bind_mounts(argv) if m["dst"] == "/work/target")
+
+
 def run(argv: list[str]) -> int:
-    record({"argv": argv, "binds": bind_sources(argv)})
+    watch = os.environ.get("FAKE_WATCH", "")
+    record({"argv": argv, "binds": bind_sources(argv), "watched": bool(watch) and os.path.lexists(watch)})
     if "cat" in argv:
         print("make\t4.3\ngcc\t13.2")
         return 0
+    if "deny" in argv:
+        sys.stderr.write(os.environ.get("FAKE_DENY_OUTPUT", ""))
+        return int(os.environ.get("FAKE_DENY_EXIT", "0"))
+    if "pip-audit" in argv:
+        sys.stdout.write(os.environ.get("FAKE_PIP_AUDIT_OUTPUT", ""))
+        return int(os.environ.get("FAKE_PIP_AUDIT_EXIT", "0"))
     if "bash" not in argv:
         return int(os.environ.get("FAKE_FETCH_EXIT", "0"))
     writes = os.environ.get("FAKE_RUN_WRITES", "")
     if writes:
         subprocess.run(["sh", "-c", writes], cwd=work_source(argv), check=True)
+    leaves = os.environ.get("FAKE_RUN_LEAVES", "")
+    if leaves:
+        (target_source(argv) / leaves).write_text("left by the run\n")
     (STATE / "run.pid").write_text(str(os.getpid()))
     time.sleep(float(os.environ.get("FAKE_RUN_SLEEP", "0")))
     sys.stderr.write(os.environ.get("FAKE_RUN_STDERR", ""))

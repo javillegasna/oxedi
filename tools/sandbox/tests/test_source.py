@@ -2,6 +2,7 @@
 request, on temporary repositories and a temporary home only (no network)."""
 
 import os
+import shutil
 import subprocess
 import sys
 import tempfile
@@ -86,6 +87,10 @@ class GitHub(unittest.TestCase):
                     "https://github.com/javillegasna/oxedi.git", "https://github.com/javillegasna/oxedi"):
             with self.subTest(url=url):
                 self.assertEqual(source.github_https(url), "https://github.com/javillegasna/oxedi.git")
+        with self.assertRaises(SandboxError) as caught:
+            source.github_https("https://x-access-token:ghs_secret@github.com/o/r.git")
+        self.assertIn('origin is "https://<redacted>@github.com/o/r.git"', str(caught.exception))
+        self.assertNotIn("ghs_secret", str(caught.exception))
         for url in ("git@gitlab.com:o/r.git", "file:///x", "https://github.com/o/r/extra",
                     "https://github.com/o/..", "ext::sh -c touch% /tmp/x"):
             with self.subTest(url=url), self.assertRaises(SandboxError) as caught:
@@ -175,6 +180,21 @@ class Clones(unittest.TestCase):
         self.assertEqual(change, Change(kind="pr", label="pr7", tested=sha["head"], base=sha["root"],
                                         head=sha["head"], merged=False))
         self.assertFalse((self.tmp / "clone" / "other.txt").exists())
+
+    def test_a_missing_ref_is_told_apart_under_any_locale(self):
+        host, served, _ = self.served()
+        git(served, "update-ref", "-d", "refs/pull/7/merge")
+        spanish = {"LANGUAGE": "es", "LANG": "es_ES.UTF-8", "LC_ALL": "es_ES.UTF-8", "LC_MESSAGES": "es_ES.UTF-8"}
+        with mock.patch.dict(os.environ, spanish):
+            for env, message in (({"SANDBOX_PR": "7"}, "pull request 7 has no merge ref refs/pull/7/merge: it has "
+                                  "conflicts or is closed; set HEAD=1 to test refs/pull/7/head instead"),
+                                 ({"SANDBOX_PR": "8"}, f"pull request 8 not found at {served}")):
+                with self.subTest(env=env), self.assertRaises(SandboxError) as caught:
+                    self.clone_pr(host, served, env)
+                self.assertEqual(str(caught.exception), message)
+                shutil.rmtree(self.tmp / "clone")
+        with mock.patch.dict(os.environ, spanish):
+            self.assertEqual((source.git_environment()["LC_ALL"], source.git_environment()["LANGUAGE"]), ("C", ""))
 
     def test_pr_that_does_not_exist_is_refused(self):
         host, served, _ = self.served()

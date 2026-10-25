@@ -2,8 +2,10 @@
 code or steer a tool, and the packages it adds, changes or removes in Cargo.lock and in the
 declared Python dependencies.
 
-Every text is read with `git show <sha>:<path>` through `isolated_git` and parsed as data; nothing
-of the clone is imported or executed. A dependency file that does not parse is a finding.
+Every text is read with `git cat-file blob <sha>:<path>` through `isolated_git` and parsed as data;
+nothing of the clone is imported or executed. The diff reads attributes from no tree, so the
+change's own `.gitattributes` cannot hide a binary file. A dependency file that does not parse is
+a finding.
 """
 
 import dataclasses
@@ -17,7 +19,7 @@ from fnmatch import fnmatch
 from pathlib import Path, PurePosixPath
 
 from layout import HOST_EXECUTED, covered
-from source import Change, git_bytes, git_text
+from source import Change, git_bytes, git_text, redacted
 
 
 class Kind(Enum):
@@ -31,6 +33,7 @@ class Kind(Enum):
     BINARY = "a binary file, which the diff cannot show"
     SYMLINK = "a symbolic link, which can point outside the checkout"
     SUBMODULE = "a submodule, whose commit comes from another repository"
+    GIT_ATTRIBUTES = "a git attributes file: it picks the filters and diff and merge drivers git runs on the files"
 
     @property
     def why(self) -> str:
@@ -46,7 +49,8 @@ TEST_HOOK_NAMES = frozenset({"conftest.py", "pytest.ini", "setup.cfg", "tox.ini"
 SYMLINK_MODE, SUBMODULE_MODE = "120000", "160000"
 # The source Cargo.lock gives a workspace member or a path crate, which it lists without one.
 NO_SOURCE = "local"
-REQUIREMENT = re.compile(r"\s*([A-Za-z0-9](?:[A-Za-z0-9._-]*[A-Za-z0-9])?)\s*(.*)")
+# A PEP 508 name, then nothing or what may follow a name: extras, a version, markers or `@ url`.
+REQUIREMENT = re.compile(r"\s*([A-Za-z0-9](?:[A-Za-z0-9._-]*[A-Za-z0-9])?)\s*((?:[\[(<>=!~;@].*)?)")
 
 # (name, old version or spec, new version or spec, source): an added package has an empty old
 # side, a removed one an empty new side. The source is the registry or git URL for Cargo.lock
@@ -121,6 +125,7 @@ NAME_RULES: tuple[tuple[Kind, Callable[[str], bool]], ...] = (
     (Kind.SCRIPT, is_script),
     (Kind.TEST_HOOK, lambda path: PurePosixPath(path).name in TEST_HOOK_NAMES),
     (Kind.RUN_DOCS, is_run_docs),
+    (Kind.GIT_ATTRIBUTES, lambda path: PurePosixPath(path).name == ".gitattributes"),
 )
 
 
@@ -167,17 +172,23 @@ def entries(records: list[str]) -> dict[str, Entry]:
 
 def touched(change: Change, root: Path) -> list[Touched]:
     """Every path the change's diff (base...head) names, sorted, with its kinds."""
-    output = git_bytes(root, "diff", "--no-renames", "--raw", "--numstat", "-z", "--end-of-options",
-                       f"{change.base}...{change.head}")
+    no_attributes = git_text(root, "hash-object", "-t", "tree", os.devnull)
+    output = git_bytes(root, f"--attr-source={no_attributes}", "diff", "--no-renames", "--raw", "--numstat", "-z",
+                       "--end-of-options", f"{change.base}...{change.head}")
     records = [os.fsdecode(record) for record in output.split(b"\0") if record]
     found = []
     for path, entry in sorted(entries(records).items()):
         kinds = name_kinds(path) | entry_kinds(entry)
         if PurePosixPath(path).name == "Cargo.toml" and entry.status != "D" \
-                and is_proc_macro(git_bytes(root, "show", f"{change.head}:{path}")):
+                and is_proc_macro(blob(root, change.head, path)):
             kinds.add(Kind.PROC_MACRO)
         found.append(Touched(path, tuple(kind for kind in Kind if kind in kinds), entry.status))
     return found
+
+
+def blob(root: Path, sha: str, path: str) -> bytes:
+    """The bytes of `path` at `sha`, as stored: no filter or text conversion applies."""
+    return git_bytes(root, "cat-file", "blob", f"{sha}:{path}")
 
 
 def table(value: object, where: str) -> dict:
@@ -199,30 +210,32 @@ def toml(text: str, where: str) -> dict:
         raise ValueError(f"{where} is not valid TOML: {error}") from error
 
 
-def lock_packages(text: str, where: str) -> dict[str, dict[str, str]]:
-    """The packages of a Cargo.lock: name -> version -> source."""
+def lock_packages(text: str, where: str) -> dict[str, set[tuple[str, str]]]:
+    """The packages of a Cargo.lock: name -> its (version, source) pairs. Cargo may lock one
+    version of a name from two sources, so both are kept."""
     packages = toml(text, where).get("package", [])
     if not isinstance(packages, list):
         raise ValueError(f"{where} package is not an array of tables")
-    found: dict[str, dict[str, str]] = {}
+    found: dict[str, set[tuple[str, str]]] = {}
     for package in packages:
         fields = table(package, f"{where} [[package]]")
         name, version, source = fields.get("name"), fields.get("version"), fields.get("source", NO_SOURCE)
         if not all(isinstance(value, str) for value in (name, version, source)):
             raise ValueError(f"{where} holds a [[package]] without a name, a version and a source as text: {package!r}")
-        found.setdefault(name, {})[version] = source
+        found.setdefault(name, set()).add((version, source))
     return found
 
 
-def compare_versions(name: str, old: dict[str, str], new: dict[str, str]) -> PackageDiff:
-    """One package's versions before and after: one version swapped for another is a change, and
-    so is a version that comes from another source; otherwise each version is added or removed."""
-    gone, came = sorted(old.keys() - new.keys()), sorted(new.keys() - old.keys())
-    moved = tuple((name, v, v, new[v]) for v in sorted(old.keys() & new.keys()) if old[v] != new[v])
+def compare_versions(name: str, old: set[tuple[str, str]], new: set[tuple[str, str]]) -> PackageDiff:
+    """One package's (version, source) pairs before and after: one pair swapped for another is a
+    change (a new version, or the same version from another source); otherwise each pair is added
+    or removed."""
+    gone, came = sorted(old - new), sorted(new - old)
     if len(gone) == len(came) == 1:
-        return PackageDiff(changed=moved + ((name, gone[0], came[0], new[came[0]]),))
-    return PackageDiff(added=tuple((name, "", v, new[v]) for v in came),
-                       removed=tuple((name, v, "", old[v]) for v in gone), changed=moved)
+        (old_version, _), (new_version, source) = gone[0], came[0]
+        return PackageDiff(changed=((name, old_version, new_version, source),))
+    return PackageDiff(added=tuple((name, "", v, source) for v, source in came),
+                       removed=tuple((name, v, "", source) for v, source in gone))
 
 
 def cargo_lock_diff(old: str, new: str, path: str = "Cargo.lock") -> PackageDiff:
@@ -234,7 +247,7 @@ def cargo_lock_diff(old: str, new: str, path: str = "Cargo.lock") -> PackageDiff
     except ValueError as error:
         return PackageDiff(errors=(str(error),))
     names = before.keys() | after.keys()
-    return total(compare_versions(name, before.get(name, {}), after.get(name, {})) for name in names)
+    return total(compare_versions(name, before.get(name, set()), after.get(name, set())) for name in names)
 
 
 def requirement(line: str) -> tuple[str, str]:
@@ -247,13 +260,15 @@ def requirement(line: str) -> tuple[str, str]:
 
 
 def requirements_lines(text: str) -> Iterator[str]:
-    """The requirements of a requirements file: continuations joined; comments, option lines
-    (`-r`, `--index-url`) and per-requirement options (`--hash`) left out."""
+    """The lines of a requirements file, continuations joined, comments and per-requirement
+    options (`--hash`) left out. An option line (`-e <url>`, `-r <file>`, `-c <file>`,
+    `--index-url <url>`) names where packages come from, so it is kept whole."""
     for line in text.replace("\\\n", " ").splitlines():
-        line = re.split(r"(?:^|\s)#", line, maxsplit=1)[0]
-        line = re.split(r"(?:^|\s)-", line, maxsplit=1)[0].strip()
+        line = re.split(r"(?:^|\s)#", line, maxsplit=1)[0].strip()
+        if not line.startswith("-"):
+            line = re.split(r"\s-", line, maxsplit=1)[0]
         if line:
-            yield line
+            yield " ".join(line.split())
 
 
 def group(groups: dict, name: str, where: str, seen: tuple[str, ...] = ()) -> Iterator[str]:
@@ -302,7 +317,7 @@ def declared(path: str, text: str, where: str) -> dict[str, str]:
     lines = pyproject_lines(text, where) if is_pyproject else requirements_lines(text)
     specs: dict[str, set[str]] = {}
     for line in lines:
-        name, spec = requirement(line)
+        name, spec = requirement(redacted(line))
         specs.setdefault(name, set()).add(spec)
     return {name: " | ".join(sorted(found)) for name, found in specs.items()}
 
@@ -353,7 +368,7 @@ def texts(root: Path, sha: str, paths: list[str], side: str) -> Texts:
     files, errors = {}, []
     for path in sorted(present):
         try:
-            files[path] = git_bytes(root, "show", f"{sha}:{path}").decode()
+            files[path] = blob(root, sha, path).decode()
         except UnicodeDecodeError as error:
             errors.append(f"{path} {side} is not UTF-8 text: {error}")
     return Texts(files, tuple(errors))

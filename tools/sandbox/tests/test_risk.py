@@ -159,6 +159,14 @@ class Kinds(Repo):
         self.assertEqual(statuses["crates/oxedi_core/src/value/parse.rs"], "M")
         self.assertEqual(statuses["crates/oxedi_core/build.rs"], "A")
 
+    def test_the_change_attributes_cannot_hide_a_binary(self):
+        base = self.commit({"a.txt": "a\n"})
+        head = self.commit({"x.bin": b"\0\1\2\3", ".gitattributes": "*.bin diff\n"})
+        self.assertEqual(git(self.repo, "rev-parse", "HEAD"), head)  # the worktree holds the change
+        found = risk.touched(self.change(base, head), self.repo)
+        self.assertEqual({t.path: t.kinds for t in found},
+                         {"x.bin": (Kind.BINARY,), ".gitattributes": (Kind.GIT_ATTRIBUTES,)})
+
     def test_every_kind_says_why(self):
         for kind in Kind:
             with self.subTest(kind=kind):
@@ -172,6 +180,13 @@ class Cargo(unittest.TestCase):
             removed=(("b", "0.1.0", "", REGISTRY), ("syn", "1.0.109", "", REGISTRY)),
             changed=(("a", "1.0.0", "1.1.0", REGISTRY),),
         ))
+
+    def test_the_same_version_from_a_second_source_is_added(self):
+        evil = "git+https://evil/x#1"
+        new = OLD_LOCK.replace('[[package]]\nname = "syn"\nversion = "2.0.0"',
+                               f'[[package]]\nname = "syn"\nversion = "2.0.0"\nsource = "{evil}"\n\n'
+                               '[[package]]\nname = "syn"\nversion = "2.0.0"')
+        self.assertEqual(risk.cargo_lock_diff(OLD_LOCK, new), PackageDiff(added=(("syn", "", "2.0.0", evil),)))
 
     def test_a_version_from_another_source_is_a_change(self):
         new = OLD_LOCK.replace(f'version = "0.1.0"\nsource = "{REGISTRY}"', f'version = "0.1.0"\nsource = "{GIT_SOURCE}"')
@@ -220,13 +235,27 @@ class Python(unittest.TestCase):
                 ))
 
     def test_requirements_line_by_line(self):
-        old = "# tools\nrequests==2.31  # http\n-r base.txt\n--index-url https://example.com\nnumpy>=1 \\\n  --hash=sha256:ab\n"
-        new = "requests==2.32\n-e .\nrich ; python_version >= '3.11'\n"
+        old = "# tools\nrequests==2.31  # http\n-r base.txt\nnumpy>=1 \\\n  --hash=sha256:ab\n"
+        new = "requests==2.32\n-r base.txt\nrich ; python_version >= '3.11'\nhttps://example.com/x-1.0.whl\n"
         self.assertEqual(risk.declared_python_diff({"requirements.txt": old}, {"requirements.txt": new}), PackageDiff(
-            added=(("rich", "", "; python_version >= '3.11'", "requirements.txt"),),
+            added=(("https://example.com/x-1.0.whl", "", "", "requirements.txt"),
+                   ("rich", "", "; python_version >= '3.11'", "requirements.txt")),
             removed=(("numpy", ">=1", "", "requirements.txt"),),
             changed=(("requests", "==2.31", "==2.32", "requirements.txt"),),
         ))
+
+    def test_option_lines_are_declared_sources(self):
+        new = ("-e git+https://evil/x#egg=x\n-r  base.txt\n-c constraints.txt\n"
+               "--index-url https://user:s3cret@pypi.example/simple\nevil @ https://tok@example.com/e.whl\n")
+        diff = risk.declared_python_diff({}, {"requirements.txt": new})
+        self.assertEqual(diff.added, (
+            ("--index-url https://<redacted>@pypi.example/simple", "", "", "requirements.txt"),
+            ("-c constraints.txt", "", "", "requirements.txt"),
+            ("-e git+https://evil/x#egg=x", "", "", "requirements.txt"),
+            ("-r base.txt", "", "", "requirements.txt"),
+            ("evil", "", "@ https://<redacted>@example.com/e.whl", "requirements.txt"),
+        ))
+        self.assertIs(risk.flagged([], PackageDiff(), diff), True)
 
     def test_a_malformed_pyproject_is_a_finding(self):
         diff = risk.declared_python_diff({}, {PYPROJECT: "[project]\ndependencies = \"pyarrow\"\n"})

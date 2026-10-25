@@ -21,8 +21,15 @@ GIT_ENV = {
     "GIT_CONFIG_NOSYSTEM": "1",
     "GIT_TERMINAL_PROMPT": "0",
     "GIT_LFS_SKIP_SMUDGE": "1",
+    # git's messages in English whatever the host's locale: a missing remote ref is told by its text.
+    "LC_ALL": "C",
+    "LANGUAGE": "",
 }
-GIT_OPTIONS = ("-c", "core.hooksPath=/dev/null", "-c", "protocol.file.allow=never")
+# No hook, no attributes file of the host's (git reads $XDG_CONFIG_HOME/git/attributes even with
+# no global configuration) and no file transport.
+GIT_OPTIONS = (
+    "-c", "core.hooksPath=/dev/null", "-c", "core.attributesFile=/dev/null", "-c", "protocol.file.allow=never",
+)
 # The one clone of the host checkout reads it over git's local transport, which
 # `protocol.file.allow=never` refuses; that call alone allows it.
 LOCAL_SOURCE = ("-c", "protocol.file.allow=always")
@@ -39,6 +46,8 @@ GITHUB = re.compile(
     r"(?:git@github\.com:|ssh://git@github\.com/|https://github\.com/)"
     r"(?P<owner>[A-Za-z0-9-]+)/(?P<repo>[A-Za-z0-9._-]+?)(?:\.git)?"
 )
+# The user and password part of a URL (`https://user:token@host/...`), never printed.
+USERINFO = re.compile(r"(?i)\b([a-z][a-z0-9+.-]*://)[^/@\s]*@")
 LABEL_SAFE = frozenset(b"ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789._-")
 NO_REMOTE_REF = "couldn't find remote ref"
 
@@ -141,13 +150,19 @@ def git_text(root: Path, *args: str, local_source: bool = False) -> str:
     return os.fsdecode(git_bytes(root, *args, local_source=local_source)).strip()
 
 
+def redacted(text: str) -> str:
+    """`text` with the user and password of every URL in it replaced, so a token never reaches a
+    log line."""
+    return USERINFO.sub(r"\1<redacted>@", text)
+
+
 def github_https(origin_url: str) -> str:
     """The anonymous HTTPS URL of the GitHub repository an `origin` URL names, in its SSH or HTTPS
     form; any other host or form is refused."""
     match = GITHUB.fullmatch(origin_url)
     if match is None or match["repo"] in (".", ".."):
         raise SandboxError(
-            f'origin is "{origin_url}"; sandbox-pr fetches pull requests only from a GitHub origin '
+            f'origin is "{redacted(origin_url)}"; sandbox-pr fetches pull requests only from a GitHub origin '
             "(git@github.com:<owner>/<repo>, ssh://git@github.com/<owner>/<repo> or https://github.com/<owner>/<repo>)"
         )
     return f"https://github.com/{match['owner']}/{match['repo']}.git"

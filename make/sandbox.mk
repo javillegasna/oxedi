@@ -1,7 +1,7 @@
 # The sandbox: a pinned image and a runner that builds and tests this checkout inside a hardened,
 # throwaway container (tools/sandbox/sandbox.py says how).
 # Included by the root Makefile.
-.PHONY: sandbox-image sandbox sandbox-pr sandbox-check sandbox-tools-check sandbox-clean
+.PHONY: sandbox-image sandbox sandbox-pr sandbox-check sandbox-pr-check sandbox-tools-check sandbox-clean
 
 ##@ Sandbox
 SANDBOX_DIR   := tools/sandbox
@@ -45,6 +45,13 @@ sandbox-pr: ## test a pull request (PR=N [HEAD=1]) or a ref (REF=<name>) in the 
 # The host home path is an argument, so the check proves that path is not mounted.
 sandbox-check: ## prove the sandbox's isolation from inside it: every line of tools/sandbox/isolation-check.sh says ok
 	@$(MAKE) --no-print-directory sandbox CMD='bash $(SANDBOX_DIR)/isolation-check.sh "$(HOME)"'
+
+# The planted change lives only on a local branch of a temporary clone, removed at the end.
+sandbox-pr-check: ## prove sandbox-pr keeps a hostile change from the host, the network and the caches: every line of tools/sandbox/malicious-pr.sh says ok
+	@if command -v docker > /dev/null && ! docker image inspect $(SANDBOX_IMAGE) > /dev/null 2>&1; then \
+	  $(MAKE) --no-print-directory sandbox-image; \
+	fi
+	@bash $(SANDBOX_DIR)/malicious-pr.sh $(SANDBOX_IMAGE) $(CURDIR)
 
 # Needs the network once: it fetches the advisory database into a temporary directory.
 sandbox-tools-check: ## prove cargo-deny and pip-audit work in the image: fetch the advisory database, then check a crate offline

@@ -10,7 +10,7 @@ set -euo pipefail
 
 cd "$(dirname "$0")/../.."
 actionlint
-zizmor --offline --format plain .github/workflows .github/actions .github/dependabot.yml
+zizmor --offline --format plain --color never .github/workflows .github/actions .github/dependabot.yml
 shopt -s globstar nullglob
 shellcheck -x .github/scripts/**/*.sh tools/**/*.sh
 for test in .github/scripts/tests/*.sh tools/*/tests/*.sh; do

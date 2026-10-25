@@ -18,14 +18,14 @@ expect() {
 }
 
 # Copies .github/ to a fresh directory named $1, adds the workflow on stdin to it unless it is
-# empty, runs zizmor there as lint.sh does and leaves its exit status in $status and its output in $out.
+# empty, runs zizmor there as lint.sh does (plain format, no colour, so the audit names stay at the start of a line) and leaves its exit status in $status and its output in $out.
 lint_copy() {
   local dir="$tmp/$1"
   mkdir -p "$dir"
   cp -R "$repo/.github" "$dir/.github"
   cat > "$dir/added.yml"
   if [ -s "$dir/added.yml" ]; then mv "$dir/added.yml" "$dir/.github/workflows/added.yml"; fi
-  out=$(cd "$dir" && zizmor --offline --format plain .github/workflows .github/actions .github/dependabot.yml 2>&1)
+  out=$(cd "$dir" && zizmor --offline --format plain --color never .github/workflows .github/actions .github/dependabot.yml 2>&1)
   status=$?
 }
 
@@ -63,7 +63,7 @@ expect "a template injection is named" yes "$(named template-injection)"
 
 lint_copy cooldown < /dev/null
 sed -i '/cooldown:/,+1d' "$tmp/cooldown/.github/dependabot.yml"
-out=$(cd "$tmp/cooldown" && zizmor --offline --format plain .github/workflows .github/actions .github/dependabot.yml 2>&1)
+out=$(cd "$tmp/cooldown" && zizmor --offline --format plain --color never .github/workflows .github/actions .github/dependabot.yml 2>&1)
 status=$?
 expect "a dependabot.yml without a cooldown exits" nonzero "$(zero)"
 expect "a dependabot.yml without a cooldown is named" yes "$(named dependabot-cooldown)"

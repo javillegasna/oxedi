@@ -18,11 +18,13 @@ jobs:
         python: ["3.11", "3.13"]
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
       # One key for both legs: the module is abi3, so they compile the same artifacts.
-      - uses: ./.github/actions/setup-rust
+      - uses: ./.github/actions/setup-rust # zizmor: ignore[self-repository] actionlint rejects the $/ form
         with:
           cache-key: python
-      - uses: ./.github/actions/setup-uv
+      - uses: ./.github/actions/setup-uv # zizmor: ignore[self-repository] actionlint rejects the $/ form
         with:
           python-version: ${{ matrix.python }}
           cache-suffix: python
@@ -62,10 +64,12 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-      - uses: ./.github/actions/setup-rust
+        with:
+          persist-credentials: false
+      - uses: ./.github/actions/setup-rust # zizmor: ignore[self-repository] actionlint rejects the $/ form
         with:
           cache-key: python-pyarrow-floor
-      - uses: ./.github/actions/setup-uv
+      - uses: ./.github/actions/setup-uv # zizmor: ignore[self-repository] actionlint rejects the $/ form
         with:
           python-version: "3.11"
           cache-suffix: pyarrow-floor

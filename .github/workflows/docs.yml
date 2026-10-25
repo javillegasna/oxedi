@@ -80,12 +80,12 @@ jobs:
           persist-credentials: false
       # The Viewer job's compile cache holds the same builds (the package and the module); this
       # job reads it and never writes it.
-      - uses: ./.github/actions/setup-rust
+      - uses: ./.github/actions/setup-rust # zizmor: ignore[self-repository] actionlint rejects the $/ form
         with:
           targets: wasm32-unknown-unknown
           cache-key: viewer
           save: "false"
-      - uses: ./.github/actions/setup-uv
+      - uses: ./.github/actions/setup-uv # zizmor: ignore[self-repository] actionlint rejects the $/ form
         with:
           cache-suffix: viewer
       - name: Version to publish
@@ -115,7 +115,7 @@ jobs:
           fi
       - name: Docs environment
         if: steps.target.outputs.kind != 'skip'
-        uses: ./.github/actions/docs-venv
+        uses: ./.github/actions/docs-venv # zizmor: ignore[self-repository] actionlint rejects the $/ form
         with:
           dev: "true"
       - name: Docs tools on PATH
@@ -129,7 +129,7 @@ jobs:
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
       - name: wasm-bindgen CLI and wasm-opt
         if: steps.target.outputs.kind != 'skip'
-        uses: ./.github/actions/wasm-tools
+        uses: ./.github/actions/wasm-tools # zizmor: ignore[self-repository] actionlint rejects the $/ form
       - name: Build the viewer's module
         if: steps.target.outputs.kind != 'skip'
         run: make wasm

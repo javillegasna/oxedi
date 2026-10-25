@@ -36,6 +36,8 @@ jobs:
       workflows: ${{ steps.filter.outputs.workflows }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
       - uses: dorny/paths-filter@ceb8a2b8f2d89434be7ff52d3de7ec3738c5cc9d # v4.0.3
         id: filter
         with:
@@ -143,19 +145,19 @@ jobs:
     name: Rust
     needs: changes
     if: needs.changes.outputs.rust == 'true'
-    uses: ./.github/workflows/_rust.yml
+    uses: ./.github/workflows/_rust.yml # zizmor: ignore[self-repository] actionlint rejects the $/ form
 
   python:
     name: Python
     needs: changes
     if: needs.changes.outputs.python == 'true' && !github.event.pull_request.draft
-    uses: ./.github/workflows/_python.yml
+    uses: ./.github/workflows/_python.yml # zizmor: ignore[self-repository] actionlint rejects the $/ form
 
   duckdb:
     name: DuckDB
     needs: changes
     if: needs.changes.outputs.duckdb == 'true' && !github.event.pull_request.draft
-    uses: ./.github/workflows/_duckdb.yml
+    uses: ./.github/workflows/_duckdb.yml # zizmor: ignore[self-repository] actionlint rejects the $/ form
     with:
       # `next` (DuckDB's pre-release) runs in nightly.yml.
       legs: '["stable", "latest"]'
@@ -164,19 +166,19 @@ jobs:
     name: Docs
     needs: changes
     if: needs.changes.outputs.docs == 'true' && !github.event.pull_request.draft
-    uses: ./.github/workflows/_docs.yml
+    uses: ./.github/workflows/_docs.yml # zizmor: ignore[self-repository] actionlint rejects the $/ form
 
   viewer:
     name: Viewer
     needs: changes
     if: needs.changes.outputs.viewer == 'true' && !github.event.pull_request.draft
-    uses: ./.github/workflows/_viewer.yml
+    uses: ./.github/workflows/_viewer.yml # zizmor: ignore[self-repository] actionlint rejects the $/ form
 
   workflows:
     name: Workflows
     needs: changes
     if: needs.changes.outputs.workflows == 'true' && !github.event.pull_request.draft
-    uses: ./.github/workflows/_lint.yml
+    uses: ./.github/workflows/_lint.yml # zizmor: ignore[self-repository] actionlint rejects the $/ form
 
   ci-result:
     name: CI result

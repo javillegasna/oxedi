@@ -162,6 +162,20 @@ class Clones(unittest.TestCase):
         self.assertEqual((self.tmp / "clone" / "other.txt").read_text(), "o\n")
         self.assertEqual((self.tmp / "clone" / "pr.txt").read_text(), "p2\n")
 
+    def test_a_merge_ref_of_an_older_head_is_refused_with_both_commits(self):
+        host, served, sha = self.served()
+        author = self.tmp / "author"
+        git(author, "checkout", "-q", "pr")
+        newer = commit(author, "pr.txt", "p3\n")
+        git(author, "push", "-q", "-f", str(served), f"{newer}:refs/pull/7/head")
+        with self.assertRaises(SandboxError) as caught:
+            self.clone_pr(host, served, {"SANDBOX_PR": "7"})
+        self.assertEqual(
+            str(caught.exception),
+            f"refs/pull/7/merge merges {sha['head']}, but refs/pull/7/head is {newer}: "
+            "GitHub has not yet recomputed the merge after a push; run it again in a minute",
+        )
+
     def test_pr_without_a_merge_ref_is_refused(self):
         host, served, _ = self.served()
         git(served, "update-ref", "-d", "refs/pull/7/merge")

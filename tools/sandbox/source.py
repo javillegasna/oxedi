@@ -213,7 +213,15 @@ def pull_request(host: Path, request: Request, into: Path) -> Change:
             f"set HEAD=1 to test refs/pull/{number}/head instead"
         )
     merge = commit_of(into, "refs/sandbox/merge")
-    return Change("pr", request.label, merge, commit_of(into, f"{merge}^1"), head, True)
+    # GitHub recomputes the merge ref after a push, so it can still merge an older head; the report
+    # judges the head the tested merge holds, and a stale merge ref is refused.
+    merged_head = commit_of(into, f"{merge}^2")
+    if merged_head != head:
+        raise SandboxError(
+            f"refs/pull/{number}/merge merges {merged_head}, but refs/pull/{number}/head is {head}: "
+            "GitHub has not yet recomputed the merge after a push; run it again in a minute"
+        )
+    return Change("pr", request.label, merge, commit_of(into, f"{merge}^1"), merged_head, True)
 
 
 def local_ref(host: Path, request: Request) -> Change:

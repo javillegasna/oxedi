@@ -260,6 +260,8 @@ browser tests. `crates/oxedi_wasm/scripts/install_tools.sh` installs the two pre
 pinned checksums; CI and the deploy use it. Bumping the crate's `wasm-bindgen` pin means bumping
 the version and checksum in that script. The browser tests run in the docs environment
 (`make docs-venv`); install the browser once with `.venv-docs/bin/playwright install chromium`.
+To run the viewer checks without installing any of these tools, use the sandbox's viewer image:
+`make sandbox CMD="make viewer-test" IMAGE=viewer` (see [Sandbox](#sandbox)).
 
 The page's Content-Security-Policy forbids network connections, so it loads the module from
 generated ES modules instead of fetching it. Do not add a request, a font or a script from
@@ -369,11 +371,13 @@ afterwards. Use it for any command you would rather not run on your machine dire
 ```bash
 make sandbox CMD="make gates"     # any command; it runs with bash -c inside the container
 make sandbox CMD="make py-test"
-make sandbox-check                # prove the isolation from inside: every line says ok
+make sandbox CMD="make viewer-test" IMAGE=viewer   # the viewer checks, in the viewer image (amd64 only)
+make sandbox-check                # prove the isolation from inside: every line says ok (IMAGE=viewer too)
 make sandbox-tools-check          # prove cargo-deny and pip-audit work in the image (needs the network)
 make sandbox-pr PR=251            # review a pull request: see "Reviewing a pull request" below
 make sandbox-pr-check             # prove sandbox-pr keeps a hostile change from your machine
 make sandbox-image                # build the image (make sandbox builds it when it is missing)
+make sandbox-image-viewer         # build the viewer image on it (IMAGE=viewer builds it when it is missing)
 make sandbox-clean                # remove this checkout's storage; ALL=1 removes all of it
 ```
 
@@ -387,12 +391,35 @@ privileges, the default seccomp profile and limits on processes, memory and CPUs
 environment, never a variable of your shell, and no part of your home other than its own storage:
 no `~/.ssh`, `~/.pypirc`, `~/.config/gh`, Docker socket or the private samples.
 
+`IMAGE=viewer` runs in a second image, `tools/sandbox/Dockerfile.viewer`, built `FROM` the base
+image's exact tag, which it leaves unchanged: Node 24 by version and SHA-256, Playwright's
+`chromium-headless-shell` at the revision the `playwright==` pin of `docs/requirements.txt`
+installs (checked by the SHA-256 of the installed tree), and the `wasm32-unknown-unknown` target,
+`wasm-bindgen` and `wasm-opt` at the versions and SHA-256s of
+`crates/oxedi_wasm/scripts/install_tools.sh`, which `make sandbox-image-viewer` reads on the host
+(the image never runs that script). It is tagged `oxedi-sandbox-viewer:<hash>` of the base tag,
+`Dockerfile.viewer`, `tools/sandbox/playwright.txt`, `install_tools.sh` and
+`tools/sandbox/viewer_image.py`, and it is amd64 only, because the wasm tools are pinned for
+x86_64: on another architecture `make sandbox-image-viewer` refuses with one line naming it.
+`IMAGE` is `base` (the default) or `viewer` and is read from the command line only: any other
+value, or an `IMAGE` exported in your shell, is refused with one line before any docker command.
+A checkout whose `playwright==` pin differs from the one the viewer image was built for is refused
+with a line naming both versions and saying to run `make sandbox-image-viewer`.
+
+Chromium runs without its own sandbox in the viewer image: its sandbox needs user namespaces, which
+a container with no capabilities, no new privileges and the default seccomp profile does not grant,
+and the container is already the boundary. The image sets `OXEDI_CHROMIUM_NO_SANDBOX=1`, and only
+that variable makes the browser tests start Chromium with `--no-sandbox`; neither the base image
+nor the host checks set it.
+
 **Two phases.** Each run starts both, each in its own container:
 
 - *fetch*, with the network: the checkout read-only, the repository's `.cargo` masked and no
   project code run. It runs `cargo fetch --locked` and installs wheels only (never an sdist)
-  into a fresh `.venv` from the `contributor` group of `crates/oxedi_py/pyproject.toml`. Without
-  the network it stops with one line; it never falls back to the caches offline.
+  into a fresh `.venv` from the `contributor` group of `crates/oxedi_py/pyproject.toml`. With
+  `IMAGE=viewer` it also makes a fresh `.venv-docs` from `docs/requirements.txt`, wheels only and
+  with `--require-hashes`, and the stamp `make docs-venv` checks. Without the network it stops
+  with one line; it never falls back to the caches offline.
 - *run*, with no network: your command, with the cargo registry read-only.
 
 **What stays read-only.** The files your host executes or trusts after a run are bound read-only
@@ -437,20 +464,22 @@ returns it as is (`make sandbox` prints the image tag in its first line).
 says how to raise it.
 
 **Storage.** `${XDG_CACHE_HOME:-~/.cache}/oxedi-sandbox/` holds the cargo registry and the uv
-cache, shared by every checkout, and one directory per checkout with its `target/` and `.venv`,
-so the sandbox never touches the `target/` and `.venv` you build on the host.
+cache, shared by every checkout, and one directory per checkout with its `target/`, `.venv` and
+(for `IMAGE=viewer` runs) `.venv-docs`, so the sandbox never touches the ones you build on the host.
 `make sandbox-clean` removes this checkout's directory; `make sandbox-clean ALL=1` removes all of
 `oxedi-sandbox/`. Both refuse while a sandbox container that uses the storage runs.
 
 **Hosts.** A rootful Docker Engine on Linux, and Docker Desktop on Linux and macOS. A rootless
-daemon is refused. The image builds for amd64 and arm64, but the arm64 leg is untested. When the
+daemon is refused. The base image builds for amd64 and arm64, but the arm64 leg is untested; the
+viewer image is amd64 only. When the
 daemon lists the gVisor runtime (`runsc`), the sandbox uses it; otherwise `runc`. The line
 printed before each run names the runtime, the image and its Rust version, the limits, the
 storage and the read-only, masked and hidden paths.
 
 **What stays on the host.** Targets that need `git`, the network or tools the image does not
 hold: `make complexity`, `make py-test-nopyx12`, `make release-check`, the publishing targets,
-and the DuckDB, docs and viewer targets.
+and the DuckDB and docs targets. The viewer targets (`make wasm`, `make viewer-test` and the rest)
+run in the sandbox with `IMAGE=viewer`.
 
 **Reviewing a pull request.** `make sandbox-pr` tests someone else's change in the sandbox
 without running any of it on your machine:
@@ -461,6 +490,7 @@ make sandbox-pr PR=251 HEAD=1                  # its head instead, when it has n
 make sandbox-pr REF=feature                    # a branch or any ref of this checkout, as it is
 make sandbox-pr PR=251 TARGET="make py-test"   # another command (default: make gates && make py-test)
 make sandbox-pr PR=251 CONFIRM=yes             # go on without asking when something is flagged
+make sandbox-pr PR=251 IMAGE=viewer TARGET="make viewer-test"   # in the viewer image
 ```
 
 It clones this checkout into a throwaway directory and fetches the pull request anonymously over
@@ -482,8 +512,9 @@ Then, in order:
    the network and the checkout read-only.
 3. A confirmation when something is flagged or cargo-deny failed: `y/N` on a terminal; without
    one it stops with exit 4 unless `CONFIRM=yes` is set.
-4. The fetch, then `pip-audit` over the wheels the fetch installed, and a second confirmation,
-   asked the same way, when pip-audit failed.
+4. The fetch, then `pip-audit` over the wheels the fetch installed in each venv (`.venv`, and
+   `.venv-docs` with `IMAGE=viewer`), and a second confirmation, asked the same way, when one of
+   them failed.
 5. `TARGET` in the run phase, with no network, and the audit of the clone.
 
 The rules come from your checkout, never from the change: the scripts in `tools/sandbox/`, the
@@ -495,7 +526,9 @@ The clone and both reports, `report.txt` and `report.json`, are in
 `ref-<name>`, `<sha12>` the tested commit). A run of the same change and commit removes that
 directory and the clone's `target/` first, so no build output survives from one run to the next.
 `make sandbox-clean ALL=1` removes them with the rest of the storage. Nothing is published: no
-comment, label, push or status reaches GitHub.
+comment, label, push or status reaches GitHub. Reviewed with the base image, a change that touches
+`viewer/` or `crates/oxedi_wasm/` gets a last line in `report.txt` (and `image_hint` in
+`report.json`) saying to rerun with `IMAGE=viewer`, since the base image cannot run its tests.
 
 The exit status is that of `make sandbox` (the command's, 2 refused, 3 dirty audit, 124 timeout,
 130 and 143 on a signal), the fetch's when the fetch failed, and 4 when a confirmation was needed
@@ -511,6 +544,18 @@ clone. One line per check says ok or FAIL.
 **Bumping Rust.** When CI moves to a new Rust, change `ARG RUST_VERSION` in
 `tools/sandbox/Dockerfile`, run `make sandbox-image` (the new Dockerfile is a new tag), then run both
 gates: `make gates` on the host and `make sandbox CMD="make gates"`.
+
+**Bumping the viewer tools.** Each pin lives in one place, and a bump is a new viewer tag:
+
+- Playwright: change `playwright==` in `docs/requirements.in`, regenerate `docs/requirements.txt`
+  with the command in its header (it keeps the hashes), and regenerate `tools/sandbox/playwright.txt`
+  at the same version as its header says; `make sandbox-image-viewer` refuses when the two differ.
+  The new Chromium revision fails the first build with the digest of its installed tree: check
+  it, then set `CHROMIUM_TREE_SHA256_AMD64` in `tools/sandbox/Dockerfile.viewer`. Until the image
+  is rebuilt, `IMAGE=viewer` refuses a checkout with the new pin.
+- `wasm-bindgen` and `wasm-opt`: change the versions and checksums in
+  `crates/oxedi_wasm/scripts/install_tools.sh`; the image reads them from there.
+- Node: `NODE_VERSION` and `NODE_SHA256` in `tools/sandbox/Dockerfile.viewer`.
 
 **Bumping the audit tools.** A cargo-deny or pip-audit bump must pass `make sandbox-tools-check`.
 cargo-deny 0.19.1 and later need the `git` command to fetch the advisory database, which the image

@@ -31,7 +31,12 @@ arguments of each phase), `lifecycle.py` (the daemon, the limits, one container'
 and `audit.py` (what a run changed or left in the checkout, and the record that blocks the next
 start until it is gone). `isolation-check.sh` runs inside the
 container for `make sandbox-check`. `audit-tools-check.sh` is `make sandbox-tools-check`: it fetches
-the advisory database and checks a scratch crate with the image's cargo-deny. `tests/sandbox.sh` runs the runner's tests against a fake
+the advisory database and checks a scratch crate with the image's cargo-deny. `sandbox_pr.py` is
+`make sandbox-pr`: `source.py` makes the clone of a pull request or a ref with git isolated from
+the host's configuration, `risk.py` lists the paths and the dependencies the change touches
+without running any of it, and the flow reuses `sandbox.py`'s plan and phases, adding the audit
+containers (cargo-deny and pip-audit, with the host's `deny.toml`), the confirmations and the
+reports. `tests/sandbox.sh` runs the runner's tests against a fake
 `docker` (`tests/fake_docker.py`), so they need no Docker; those that go through `make` run it
 over a throwaway copy of the make files, never over this checkout. CONTRIBUTING.md (Sandbox) explains
 how to use it.

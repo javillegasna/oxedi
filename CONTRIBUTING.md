@@ -370,6 +370,8 @@ afterwards. Use it for any command you would rather not run on your machine dire
 make sandbox CMD="make gates"     # any command; it runs with bash -c inside the container
 make sandbox CMD="make py-test"
 make sandbox-check                # prove the isolation from inside: every line says ok
+make sandbox-tools-check          # prove cargo-deny and pip-audit work in the image (needs the network)
+make sandbox-pr PR=251            # review a pull request: see "Reviewing a pull request" below
 make sandbox-image                # build the image (make sandbox builds it when it is missing)
 make sandbox-clean                # remove this checkout's storage; ALL=1 removes all of it
 ```
@@ -378,8 +380,8 @@ make sandbox-clean                # remove this checkout's storage; ALL=1 remove
 literal `$`.
 
 **What the container is.** A pinned image (`tools/sandbox/Dockerfile`: Ubuntu 24.04, the Rust
-version CI gates with as `ARG RUST_VERSION`, CPython 3.11 and 3.13, uv; no `git`), tagged with
-the hash of its Dockerfile. The container runs as you, with a read-only root, no capabilities, no new
+version CI gates with as `ARG RUST_VERSION`, CPython 3.11 and 3.13, uv, cargo-deny and pip-audit;
+no `git`), tagged with the hash of its Dockerfile and `pip-audit.txt`. The container runs as you, with a read-only root, no capabilities, no new
 privileges, the default seccomp profile and limits on processes, memory and CPUs. It gets a fixed
 environment, never a variable of your shell, and no part of your home other than its own storage:
 no `~/.ssh`, `~/.pypirc`, `~/.config/gh`, Docker socket or the private samples.
@@ -449,9 +451,62 @@ storage and the read-only, masked and hidden paths.
 hold: `make complexity`, `make py-test-nopyx12`, `make release-check`, the publishing targets,
 and the DuckDB, docs and viewer targets.
 
+**Reviewing a pull request.** `make sandbox-pr` tests someone else's change in the sandbox
+without running any of it on your machine:
+
+```bash
+make sandbox-pr PR=251                         # the merge ref refs/pull/251/merge, as CI tests it
+make sandbox-pr PR=251 HEAD=1                  # its head instead, when it has no merge ref
+make sandbox-pr REF=feature                    # a branch or any ref of this checkout, as it is
+make sandbox-pr PR=251 TARGET="make py-test"   # another command (default: make gates && make py-test)
+make sandbox-pr PR=251 CONFIRM=yes             # go on without asking when something is flagged
+```
+
+It clones this checkout into a throwaway directory and fetches the pull request anonymously over
+HTTPS from the GitHub repository your `origin` names. With `PR`, it tests the merge ref; when
+there is none (the pull request has conflicts or is closed), it refuses and says to set `HEAD=1`.
+Every `git` it runs on the clone runs without your global and system git configuration, hooks,
+attributes file or file transport, so a filter or hook the change names never runs on your
+machine. It needs git 2.40 or later (for `--attr-source`), and refuses with the version it found.
+
+Then, in order:
+
+1. A risk report made from the diff alone (base...head; the base is the merge commit's first
+   parent for `PR`, the merge base with `origin/master`, else `master`, otherwise): every path it
+   touches, flagged when it is a build script, a manifest or lock file, a file the host executes,
+   a script, a test hook such as `conftest.py`, a procedural macro, documentation `make docs-test`
+   runs, a binary, a symbolic link, a submodule or a `.gitattributes`; and the packages it adds,
+   changes or removes in `Cargo.lock` and in the declared Python dependencies.
+2. `cargo-deny` (advisories, sources, bans) over the change's `Cargo.lock`, in a container with
+   the network and the checkout read-only.
+3. A confirmation when something is flagged or cargo-deny failed: `y/N` on a terminal; without
+   one it stops with exit 4 unless `CONFIRM=yes` is set.
+4. The fetch, then `pip-audit` over the wheels the fetch installed, and a second confirmation,
+   asked the same way, when pip-audit failed.
+5. `TARGET` in the run phase, with no network, and the audit of the clone.
+
+The rules come from your checkout, never from the change: the scripts in `tools/sandbox/`, the
+list of flagged paths and the cargo-deny policy (`tools/sandbox/deny.toml`, mounted read-only into
+the audit container). A change that edits them is judged by your copies, and the report flags it.
+
+The clone and both reports, `report.txt` and `report.json`, are in
+`${XDG_CACHE_HOME:-~/.cache}/oxedi-sandbox/prs/<id>-<sha12>/` (`<id>` is `pr<N>` or
+`ref-<name>`, `<sha12>` the tested commit). A run of the same change and commit removes that
+directory and the clone's `target/` first, so no build output survives from one run to the next.
+`make sandbox-clean ALL=1` removes them with the rest of the storage. Nothing is published: no
+comment, label, push or status reaches GitHub.
+
+The exit status is that of `make sandbox` (the command's, 2 refused, 3 dirty audit, 124 timeout,
+130 and 143 on a signal), the fetch's when the fetch failed, and 4 when a confirmation was needed
+and not given. Every refusal is one line starting `sandbox-pr:`.
+
 **Bumping Rust.** When CI moves to a new Rust, change `ARG RUST_VERSION` in
 `tools/sandbox/Dockerfile`, run `make sandbox-image` (the new Dockerfile is a new tag), then run both
 gates: `make gates` on the host and `make sandbox CMD="make gates"`.
+
+**Bumping the audit tools.** A cargo-deny or pip-audit bump must pass `make sandbox-tools-check`.
+cargo-deny 0.19.1 and later need the `git` command to fetch the advisory database, which the image
+does not carry, so the image keeps 0.19.0 until that changes.
 
 ## Releases
 

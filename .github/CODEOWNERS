@@ -9,6 +9,7 @@
 /make/ @javillegasna
 /.github/ @javillegasna
 /tools/ @javillegasna
+/crates/*/scripts/ @javillegasna
 /Cargo.toml @javillegasna
 /Cargo.lock @javillegasna
 **/Cargo.toml @javillegasna

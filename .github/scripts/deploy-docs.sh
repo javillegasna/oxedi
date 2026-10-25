@@ -108,7 +108,8 @@ refresh() {
   fi
 }
 # Pushes the local gh-pages to origin. The header holds the token, so it is set in this one
-# command's environment; git's own messages name the remote, never the header.
+# command's environment; git's own messages name the remote, never the header. Client hooks are
+# off for the push, so a hook an earlier build step planted in the checkout cannot read it.
 push_pages() {
   local auth
   auth=$(printf 'x-access-token:%s' "$token" | base64 | tr -d '\n') && [ -n "$auth" ] || {
@@ -118,7 +119,7 @@ push_pages() {
   GIT_CONFIG_COUNT=1 \
     GIT_CONFIG_KEY_0=http.https://github.com/.extraheader \
     GIT_CONFIG_VALUE_0="AUTHORIZATION: basic $auth" \
-    git push origin gh-pages:gh-pages
+    git -c core.hooksPath=/dev/null push --no-verify origin gh-pages:gh-pages
 }
 # One attempt of a push run: the command commits onto the local gh-pages, then it is pushed.
 # Chained with &&, because retry_gh_pages runs it where `set -e` does not apply.

@@ -172,6 +172,20 @@ expect "retry_pushes_again: the deploy landed on top of the other one" 0 $?
 expect "retry_pushes_again: origin's gh-pages holds the site" 0 $?
 expect "token_never_printed: the retry's output holds no token" 0 "$(grep -cF -e "$TOKEN" -e "$AUTH" "$dir/out")"
 
+# A client hook planted in the checkout by an earlier build step never runs on the push, so it
+# cannot read the header from the push's environment.
+setup hooks
+mkdir -p "$dir/work/.git/hooks"
+cat > "$dir/work/.git/hooks/pre-push" <<S
+#!/usr/bin/env bash
+echo "\${GIT_CONFIG_VALUE_0-}" >> "$dir/hook.log"
+S
+chmod +x "$dir/work/.git/hooks/pre-push"
+deploy .github/scripts/deploy-docs.sh dev 3<<< "$TOKEN"
+expect "push_runs_no_hook: the run exits 0" 0 $?
+expect "push_runs_no_hook: the planted pre-push hook never ran" no "$(if [ -e "$dir/hook.log" ]; then echo yes; else echo no; fi)"
+expect "push_runs_no_hook: both pushes still carried the header" 2 "$(count -x 'push yes' "$GIT_LOG")"
+
 # Under `bash -x` the token is still never printed.
 setup xtrace
 deploy bash -x .github/scripts/deploy-docs.sh dev 3<<< "$TOKEN"

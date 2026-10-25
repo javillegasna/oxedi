@@ -39,6 +39,12 @@ class ImageKind(Enum):
 
 # The venvs each image's runs mount, by their place in the container.
 VENVS = {ImageKind.BASE: (VENV,), ImageKind.VIEWER: (VENV, DOCS_VENV)}
+# The viewer's built module and its glue (make wasm): the viewer image's runs build it in the
+# checkout's storage, so the host's copy is never one a run wrote.
+VIEWER_PKG = f"{WORK}/viewer/pkg"
+# What each image's runs mount from the checkout's storage over the checkout: the venvs and, for the
+# viewer image, its built module.
+OWN_MOUNTS = {ImageKind.BASE: VENVS[ImageKind.BASE], ImageKind.VIEWER: (*VENVS[ImageKind.VIEWER], VIEWER_PKG)}
 
 
 class Phase(Enum):
@@ -86,30 +92,33 @@ def hardened_base(checkout: Checkout, uid: int, gid: int, runtime: Runtime, limi
     ]
 
 
-def venv_binds(storage: Storage, kind: ImageKind, read_only: bool) -> list[str]:
-    """A bind of each venv the image's runs use, from the checkout's storage."""
-    sources = {VENV: storage.venv, DOCS_VENV: storage.docs_venv}
-    return [a for venv in VENVS[kind] for a in bind(sources[venv], venv, read_only)]
+def own_binds(storage: Storage, kind: ImageKind, writable: tuple[str, ...]) -> list[str]:
+    """A bind of each of the image's own mounts from the checkout's storage, read-only unless its
+    place is in `writable`."""
+    sources = {VENV: storage.venv, DOCS_VENV: storage.docs_venv, VIEWER_PKG: storage.viewer_pkg}
+    return [a for place in OWN_MOUNTS[kind] for a in bind(sources[place], place, place not in writable)]
 
 
-def venv_dirs(kind: ImageKind) -> tuple[str, ...]:
-    """The image's venvs as paths of the checkout: their mount points."""
-    return tuple(venv.removeprefix(f"{WORK}/") for venv in VENVS[kind])
+def own_dirs(kind: ImageKind) -> tuple[str, ...]:
+    """The image's own mounts as paths of the checkout: their mount points."""
+    return tuple(place.removeprefix(f"{WORK}/") for place in OWN_MOUNTS[kind])
 
 
 def read_only_set(checkout: Checkout, storage: Storage, skip: tuple[str, ...], kind: ImageKind) -> list[str]:
     """The read-only binds, the masked directories and the empty file over each hidden one."""
     binds = [bind(checkout.root / p, f"{WORK}/{p}", True) for p in checkout.read_only if p not in skip]
-    # A venv bind stands in for what the host holds there, so that path is neither masked nor hidden.
-    venvs = set(venv_dirs(kind))
-    masks = [mask(f"{WORK}/{p}") for p in checkout.masked if not covered(p, venvs)]
-    blanks = [bind(storage.empty, f"{WORK}/{p}", True) for p in checkout.hidden if not covered(p, venvs)]
+    # A bind from the storage stands in for what the host holds there, so that path is neither
+    # masked nor hidden.
+    own = set(own_dirs(kind))
+    masks = [mask(f"{WORK}/{p}") for p in checkout.masked if not covered(p, own)]
+    blanks = [bind(storage.empty, f"{WORK}/{p}", True) for p in checkout.hidden if not covered(p, own)]
     return [a for mount in binds + masks + blanks for a in mount]
 
 
-def network_delta(checkout: Checkout, storage: Storage, kind: ImageKind, venvs_read_only: bool) -> list[str]:
+def network_delta(checkout: Checkout, storage: Storage, kind: ImageKind, writable: tuple[str, ...]) -> list[str]:
     """Network on, the checkout read-only with .cargo masked (no repository cargo configuration
-    applies), the shared caches writable, rustc wrappers cleared, the image's venvs mounted."""
+    applies), the shared caches writable, rustc wrappers cleared, the image's own mounts in place
+    and only the `writable` ones writable."""
     cargo_mask = mask(f"{WORK}/.cargo") if ".cargo" in checkout.read_only else []
     return [
         *env_args({
@@ -121,21 +130,21 @@ def network_delta(checkout: Checkout, storage: Storage, kind: ImageKind, venvs_r
             "UV_NO_CONFIG": "1",
         }),
         *bind(checkout.root, WORK, True), *read_only_set(checkout, storage, (".cargo",), kind), *cargo_mask,
-        *venv_binds(storage, kind, venvs_read_only),
+        *own_binds(storage, kind, writable),
         *bind(storage.cargo, CARGO_HOME, False), *bind(storage.uv, UV_CACHE, False),
     ]
 
 
 def fetch_delta(checkout: Checkout, storage: Storage, kind: ImageKind) -> list[str]:
     """The network set with the venvs writable: the fetch installs into them."""
-    return network_delta(checkout, storage, kind, False)
+    return network_delta(checkout, storage, kind, VENVS[kind])
 
 
 def audit_delta(checkout: Checkout, storage: Storage, kind: ImageKind) -> list[str]:
     """The network set with the venvs read-only, the host's cargo-deny policy read-only and the
     advisory database writable: the audit tools read the change and fetch advisories only."""
     return [
-        *network_delta(checkout, storage, kind, True),
+        *network_delta(checkout, storage, kind, ()),
         *bind(HOST_DENY_TOML, DENY_TOML, True), *bind(storage.advisory, ADVISORY, False),
     ]
 
@@ -150,7 +159,7 @@ def run_delta(checkout: Checkout, storage: Storage, kind: ImageKind) -> list[str
             "CARGO_NET_OFFLINE": "true", "UV_OFFLINE": "1", "CARGO_INCREMENTAL": "0",
         }),
         *bind(checkout.root, WORK, False), *read_only_set(checkout, storage, (), kind),
-        *bind(storage.target, f"{WORK}/target", False), *venv_binds(storage, kind, False),
+        *bind(storage.target, f"{WORK}/target", False), *own_binds(storage, kind, OWN_MOUNTS[kind]),
         *bind(storage.cargo, CARGO_HOME, True),
     ]
 

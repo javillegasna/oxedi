@@ -48,7 +48,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 
 import viewer_image  # noqa: E402
 from arguments import (  # noqa: E402
-    ImageKind, Limits, Phase, Runtime, docker_args, fetch_commands, run_command, venv_dirs,
+    ImageKind, Limits, Phase, Runtime, docker_args, fetch_commands, own_dirs, run_command,
 )
 from audit import DIRTY_STATUS, Findings, Snapshot, audit, record, refuse_leftovers, report, snapshot  # noqa: E402
 from layout import Checkout, SandboxError, container_name, path_hash, survey  # noqa: E402
@@ -99,7 +99,7 @@ class Plan:
 def describe(plan: Plan, labels: dict[str, str]) -> str:
     rust = labels.get("oxedi.sandbox.rust", "unlabelled")
     limits = plan.limits
-    own = "target, venv, venv-docs" if plan.kind is ImageKind.VIEWER else "target, venv"
+    own = "target, venv, venv-docs, viewer-pkg" if plan.kind is ImageKind.VIEWER else "target, venv"
     return " · ".join([
         f"sandbox: runtime {plan.runtime.value}",
         f"image {plan.image} ({plan.kind.value}, Rust {rust})",
@@ -225,7 +225,7 @@ def ready(image: str, kind: ImageKind, checkout_dir: Path, env: dict[str, str], 
         refuse_stale_browser(checkout.root, labels)
     refuse_if_running(checkout.name)
     refuse_leftovers(checkout.root, plan.storage.record)
-    prepare(plan.storage, checkout, ("target", *venv_dirs(kind)))
+    prepare(plan.storage, checkout, ("target", *own_dirs(kind)))
     print(describe(plan, labels), file=sys.stderr)
     return plan
 

@@ -465,7 +465,8 @@ says how to raise it.
 
 **Storage.** `${XDG_CACHE_HOME:-~/.cache}/oxedi-sandbox/` holds the cargo registry and the uv
 cache, shared by every checkout, and one directory per checkout with its `target/`, `.venv` and
-(for `IMAGE=viewer` runs) `.venv-docs`, so the sandbox never touches the ones you build on the host.
+(for `IMAGE=viewer` runs) `.venv-docs` and `viewer/pkg`, so the sandbox never touches the ones you
+build on the host.
 `make sandbox-clean` removes this checkout's directory; `make sandbox-clean ALL=1` removes all of
 `oxedi-sandbox/`. Both refuse while a sandbox container that uses the storage runs.
 

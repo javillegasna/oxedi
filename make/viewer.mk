@@ -5,7 +5,8 @@
 # The module is built for the browser with size-first release settings passed as environment
 # variables, so native release builds (wheels, the DuckDB extension) keep the workspace profile.
 # The wasm-bindgen CLI must be the exact version Cargo.lock resolves for the crate; CI reads it
-# from wasm-bindgen-version too. Expanded only by the recipes that use it.
+# from wasm-bindgen-version too. Expanded only by the recipes that use it. The wasm recipe empties
+# viewer/pkg instead of removing it, since the sandbox mounts its own directory there.
 WASM_TARGET     := wasm32-unknown-unknown
 WASM_BUILT      := target/$(WASM_TARGET)/release/oxedi_wasm.wasm
 VIEWER_PKG      := viewer/pkg
@@ -24,7 +25,7 @@ wasm: ## build the viewer's WebAssembly module into viewer/pkg
 	CARGO_PROFILE_RELEASE_OPT_LEVEL=s CARGO_PROFILE_RELEASE_LTO=true \
 	  CARGO_PROFILE_RELEASE_CODEGEN_UNITS=1 CARGO_PROFILE_RELEASE_PANIC=abort \
 	  cargo build -p oxedi_wasm --release --locked --target $(WASM_TARGET)
-	rm -rf $(VIEWER_PKG)
+	mkdir -p $(VIEWER_PKG) && find $(VIEWER_PKG) -mindepth 1 -delete
 	wasm-bindgen --target web --out-dir $(VIEWER_PKG) --out-name oxedi --no-typescript $(WASM_BUILT)
 	wasm-opt -Os $(VIEWER_PKG)/oxedi_bg.wasm -o $(VIEWER_PKG)/oxedi_bg.wasm
 	$(PYTHON_BIN) crates/oxedi_wasm/scripts/embed_wasm.py

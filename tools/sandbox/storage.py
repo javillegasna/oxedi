@@ -5,7 +5,7 @@ import os
 import shutil
 import sys
 from dataclasses import dataclass
-from pathlib import Path
+from pathlib import Path, PurePosixPath
 
 from layout import Checkout, SandboxError, path_hash, refuse_unsafe
 
@@ -21,6 +21,8 @@ class Storage:
     venv: Path
     # The viewer image's docs venv, mounted at .venv-docs by its runs only.
     docs_venv: Path
+    # The viewer image's built module, mounted at viewer/pkg by its runs only.
+    viewer_pkg: Path
     # An empty read-only file, bound over every file git ignores so a run cannot read it.
     empty: Path
     # The paths the last dirty audit named, with what each was then; never mounted.
@@ -44,8 +46,8 @@ def storage_for(cache: Path, checkout: Checkout) -> Storage:
     refuse_unsafe(cache, "storage")
     own = cache / path_hash(checkout.root)
     return Storage(
-        cache, cache / "cargo", cache / "uv", own / "target", own / "venv", own / "venv-docs", own / "empty",
-        own / "audit.json",
+        cache, cache / "cargo", cache / "uv", own / "target", own / "venv", own / "venv-docs",
+        own / "viewer-pkg", own / "empty", own / "audit.json",
     )
 
 
@@ -61,13 +63,28 @@ def forget(cache: Path, review: Path) -> None:
     clean(review)
 
 
+def make_mount_point(root: Path, mount_point: str) -> None:
+    """Makes a mount point of the checkout, with its parents. A link anywhere on its path is refused:
+    the host would follow it and make the directory outside the checkout."""
+    relative = PurePosixPath(mount_point)
+    for part in (*reversed(relative.parents[:-1]), relative):
+        if (root / part).is_symlink():
+            raise SandboxError(
+                f"refused: {part} is a symbolic link; the mount point {mount_point} must be a real directory of the checkout"
+            )
+    try:
+        (root / relative).mkdir(parents=True, exist_ok=True)
+    except OSError as error:
+        raise SandboxError(f"cannot make the mount point {mount_point} in {root}: {error}") from error
+
+
 def prepare(storage: Storage, checkout: Checkout, mount_points: tuple[str, ...]) -> None:
     """Creates the storage and the checkout's `mount_points` as the user, so docker never creates
     them as root."""
-    for directory in (storage.cargo, storage.uv, storage.target, storage.venv, storage.docs_venv):
+    for directory in (storage.cargo, storage.uv, storage.target, storage.venv, storage.docs_venv, storage.viewer_pkg):
         directory.mkdir(mode=0o700, parents=True, exist_ok=True)
     for mount_point in mount_points:
-        (checkout.root / mount_point).mkdir(exist_ok=True)
+        make_mount_point(checkout.root, mount_point)
     # Made anew each time, so it is empty whatever happened to it on the host.
     if os.path.lexists(storage.empty):
         remove(storage.empty)

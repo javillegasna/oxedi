@@ -104,7 +104,7 @@ def make_repo_copy(root: Path) -> Path:
     return git_init(root)
 
 
-IGNORED = ".venv-docs/\nnotes.log\n.env\n/target/\n/.venv/\n__pycache__/\n.pytest_cache/\n*.so\n"
+IGNORED = ".venv-docs/\n/viewer/pkg/\nnotes.log\n.env\n/target/\n/.venv/\n__pycache__/\n.pytest_cache/\n*.so\n"
 
 
 FULL_SET = [
@@ -870,6 +870,43 @@ class Images(World):
         self.assertEqual([command_of(c["argv"]) for c in fetches], [CARGO_FETCH, UV_VENV, UV_INSTALL, *DOCS_FETCH])
         self.assertEqual(fetches[0]["binds"][str(docs_storage)]["entries"], [])
         self.assertIn("readonly", mount_at(fetches[0]["argv"], "/work"))
+
+    def test_viewer_run_builds_into_its_own_pkg(self):
+        # The host's built module is masked in every phase; the viewer image's runs build theirs in
+        # the checkout's storage, so the host never serves what a run wrote.
+        checkout = self.pin(self.checkout("viewer", ".gitignore", "Makefile", "docs/requirements.txt",
+                                          "viewer/index.html", "viewer/pkg/module.js"))
+        pkg_storage = self.own(checkout) / "viewer-pkg"
+        for phase in arguments.Phase:
+            with self.subTest(phase=phase, kind="base"):
+                self.assertEqual(mount_at(self.phase_args(phase, checkout), "/work/viewer/pkg")["type"], "tmpfs")
+        for phase, read_only in ((arguments.Phase.FETCH, True), (arguments.Phase.RUN, False),
+                                 (arguments.Phase.AUDIT, True)):
+            with self.subTest(phase=phase, kind="viewer"):
+                mount = mount_at(self.phase_args(phase, checkout, VIEWER), "/work/viewer/pkg")
+                self.assertEqual((mount["type"], mount["src"]), ("bind", str(pkg_storage)))
+                self.assertEqual("readonly" in mount, read_only)
+        # A checkout with no built module (a sandbox-pr clone) gets the mount point before the run
+        # and its audit stays clean.
+        fresh = self.pin(self.viewer_checkout("fresh"))
+        result = self.sandbox(fresh, "viewer", FAKE_PLAYWRIGHT_LABEL="1.64.0")
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertIn("(target, venv, venv-docs, viewer-pkg)", result.stderr)
+        run = [c for c in self.runs() if "bash" in c["argv"]][0]
+        state = run["binds"][str(self.own(fresh) / "viewer-pkg")]
+        self.assertEqual((state["exists"], state["mount_point"]), (True, True))
+        # The host makes that mount point: a link on its path would have it made outside the checkout.
+        linked = self.pin(self.viewer_checkout("linked"))
+        outside = self.tmp / "outside-viewer"
+        outside.mkdir()
+        (linked / "viewer").symlink_to(outside)
+        calls = len(self.runs())
+        result = self.sandbox(linked, "viewer", FAKE_PLAYWRIGHT_LABEL="1.64.0")
+        self.assertEqual((result.returncode, result.stderr.strip()),
+                         (2, "sandbox: refused: viewer is a symbolic link; "
+                             "the mount point viewer/pkg must be a real directory of the checkout"))
+        self.assertEqual(len(self.runs()), calls)
+        self.assertEqual(list(outside.iterdir()), [])
 
     def test_playwright_mismatch_refuses(self):
         checkout = self.pin(self.viewer_checkout())

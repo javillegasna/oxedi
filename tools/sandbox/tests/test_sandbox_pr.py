@@ -230,6 +230,7 @@ class Flow(unittest.TestCase):
         report = self.report()
         self.assertEqual([audit["venv"] for audit in report["pip_audit"]], ["/work/.venv", "/work/.venv-docs"])
         self.assertEqual(report["image_hint"], "")
+        self.assertNotIn("rerun with IMAGE=viewer", out)
         pip = [call["argv"] for call in self.runs() if kind(call) == "pip-audit"]
         self.assertTrue(pip[1][-1].startswith("/work/.venv-docs/"))
         specs = [b for a, b in zip(pip[1], pip[1][1:]) if a == "--mount"]
@@ -238,8 +239,11 @@ class Flow(unittest.TestCase):
     def test_a_viewer_change_reviewed_with_the_base_image_says_to_rerun(self):
         self.change("viewer/app.js")
         hint = "this change touches the viewer; rerun with IMAGE=viewer to run its tests"
-        status, _, err = self.review(SANDBOX_CONFIRM="yes")
+        status, out, err = self.review(SANDBOX_CONFIRM="yes")
         self.assertEqual(status, 0, err)
+        # The terminal shows it with the risk report, before the first confirmation.
+        risk_report = out.split("cargo-deny: exit")[0]
+        self.assertTrue(risk_report.endswith(f"flagged: yes\n{hint}\n"), out)
         report = self.report()
         self.assertEqual(report["image_hint"], hint)
         text = (self.reviews() / f"ref-feature-{report['change']['tested'][:12]}" / "report.txt").read_text()

@@ -326,6 +326,11 @@ def risk_lines(request: Request, change: Change, risk: Risk) -> list[str]:
     return lines + [f"flagged: {'yes' if risk.flagged else 'no'}"]
 
 
+def hint_lines(hint: str) -> list[str]:
+    """The image hint as report lines: none when the image fits the change."""
+    return [hint] if hint else []
+
+
 def render(report: Report) -> list[str]:
     outcome = report.outcome
     run = report.run
@@ -338,7 +343,7 @@ def render(report: Report) -> list[str]:
         f"confirmed: {combined(list(outcome.answers)).value}",
         *run_lines,
         f"image {report.image}, runtime {report.runtime}",
-        *([report.image_hint] if report.image_hint else []),
+        *hint_lines(report.image_hint),
     ]
 
 
@@ -382,10 +387,11 @@ def review_change(image: str, kind: ImageKind, host: Path, env: dict[str, str]) 
     change, root = fresh_clone(cache_root(env), source, settings.request)
     plan = ready(image, kind, root, env, info)
     risk = assess(change, root)
-    risk_text = risk_lines(settings.request, change, risk)
+    hint = image_hint(list(risk.touched), kind)
+    # The terminal's risk report ends with the hint, so it shows before the first confirmation.
+    risk_text = risk_lines(settings.request, change, risk) + hint_lines(hint)
     outcome, findings = audited(plan, lambda: stages(plan, risk, settings, risk_text))
     run = Ran(settings.target, outcome.status, tuple(findings.lines())) if outcome.ran else None
-    hint = image_hint(list(risk.touched), kind)
     write_reports(root.parent, Report(settings.request, change, risk, outcome, run, image, plan.runtime.value, hint))
     return DIRTY_STATUS if findings.dirty else outcome.status
 

@@ -332,6 +332,18 @@ when it is marked ready for review. A new push to a pull request cancels its run
 pre-release leg (`next`), which reports and does not block. Run it by hand from the Actions tab
 when a change needs the full set before merging.
 
+**A pull request from a fork.** Its checks wait for the maintainer's approval before any of them
+runs. No workflow keeps a token on disk: every checkout sets `persist-credentials: false`, and
+the docs deploy hands its token to `git push` alone. `.github/scripts/lint.sh` runs
+[zizmor](https://docs.zizmor.sh) over the workflows and composite actions, so an unpinned
+action, a template injection or a stored credential fails the Workflows area. When a finding
+cannot be fixed without changing what the job does, ignore it on the line it names, with the
+reason after the rule: `# zizmor: ignore[github-env] why the step is safe`. A change to the
+build, CI or dependency files (`Makefile`, `make/`, `.github/`, `tools/`, the `Cargo.toml`,
+`Cargo.lock`, `pyproject.toml`, `build.rs` and `rust-toolchain.toml` files and
+`docs/requirements.txt`) needs the code owner's review, as `.github/CODEOWNERS` says. Dependabot
+refreshes the pinned actions every week.
+
 `CI result` is the one check to require: it fails when an area failed or was cancelled and
 passes when each one passed or was not needed. Caches are written only from `master`;
 pull requests read them. The checks of a push to `master` are never cancelled or replaced by

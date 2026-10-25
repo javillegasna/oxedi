@@ -116,6 +116,14 @@ class Repo(unittest.TestCase):
 
 
 class Kinds(Repo):
+    def test_host_executed_reason_says_the_change_runs_inside(self):
+        self.assertEqual(
+            Kind.HOST_EXECUTED.why,
+            "a file the host executes or trusts after a run: the checkout's copy, this change's, is bound "
+            "read-only and runs inside the sandbox (only the sandbox runner, this path list and deny.toml "
+            "are always the host's)",
+        )
+
     def test_kinds_table(self):
         base = self.commit({"Makefile": "all:\n", "crates/oxedi_core/src/value/parse.rs": "fn a() {}\n"})
         expected = {

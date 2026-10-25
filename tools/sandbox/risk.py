@@ -25,7 +25,11 @@ from source import Change, git_bytes, git_text, redacted
 class Kind(Enum):
     BUILD_SCRIPT = "a build script: cargo compiles and runs it before the crate"
     MANIFEST = "a manifest, lock or toolchain file: it chooses what is downloaded, built and run"
-    HOST_EXECUTED = "a file the host executes or trusts; the sandbox keeps using the host's own copy"
+    HOST_EXECUTED = (
+        "a file the host executes or trusts after a run: the checkout's copy, this change's, is bound "
+        "read-only and runs inside the sandbox (only the sandbox runner, this path list and deny.toml "
+        "are always the host's)"
+    )
     SCRIPT = "a script the build, the tests or the tools run"
     TEST_HOOK = "a test configuration that pytest loads before any test"
     PROC_MACRO = "a procedural macro crate: the compiler runs it on every crate that uses it"

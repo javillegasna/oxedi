@@ -178,12 +178,11 @@ deploy bash -x .github/scripts/deploy-docs.sh dev 3<<< "$TOKEN"
 expect "token_never_printed: a traced run exits 0" 0 $?
 expect "token_never_printed: a traced run prints no token" 0 "$(grep -cF -e "$TOKEN" -e "$AUTH" "$dir/out")"
 
-# A push run with file descriptor 3 closed, or empty, refuses before mike runs, even when the
-# token is in its environment, which the script never reads.
+# A push run with file descriptor 3 closed, or empty, refuses before mike runs.
 missing="deploy-docs: a push run reads its token from file descriptor 3, which is empty or closed (the docs.yml deploy step writes the workflow's GITHUB_TOKEN there); --no-push builds without it"
 setup missing
 before=$(origin_pages)
-PAGES_PUSH_TOKEN=$TOKEN deploy .github/scripts/deploy-docs.sh dev 3<&-
+deploy .github/scripts/deploy-docs.sh dev 3<&-
 expect "missing_token_refuses: closed fd 3 exits 1" 1 $?
 expect "missing_token_refuses: closed fd 3, the message" "$missing" "$(cat "$dir/out")"
 deploy .github/scripts/deploy-docs.sh dev 3< /dev/null
@@ -191,6 +190,24 @@ expect "missing_token_refuses: empty fd 3 exits 1" 1 $?
 expect "missing_token_refuses: empty fd 3, the message" "$missing" "$(cat "$dir/out")"
 expect "missing_token_refuses: mike never ran" 0 "$(wc -l < "$TOOL_LOG")"
 expect "missing_token_refuses: origin's gh-pages did not move" "$before" "$(origin_pages)"
+
+# A push run refuses when the token is still in its environment, even with a good fd 3.
+setup envtoken
+before=$(origin_pages)
+PAGES_PUSH_TOKEN=$TOKEN deploy .github/scripts/deploy-docs.sh dev 3<<< "$TOKEN"
+expect "env_token_refuses: exits 1" 1 $?
+expect "env_token_refuses: the message" "deploy-docs: PAGES_PUSH_TOKEN is set in the environment, where mike would inherit it; the docs.yml deploy step starts this script as \`env -u PAGES_PUSH_TOKEN\` and writes the token to file descriptor 3" "$(cat "$dir/out")"
+expect "env_token_refuses: mike never ran" 0 "$(wc -l < "$TOOL_LOG")"
+expect "env_token_refuses: origin's gh-pages did not move" "$before" "$(origin_pages)"
+
+# A descriptor 3 that stays open and silent is refused after the timeout instead of hanging.
+setup fdtimeout
+before=$(origin_pages)
+deploy .github/scripts/deploy-docs.sh dev 3< <(sleep 9)
+expect "fd_timeout_refuses: exits 1" 1 $?
+expect "fd_timeout_refuses: the message" "deploy-docs: nothing arrived on file descriptor 3 within 5 seconds (the docs.yml deploy step writes the workflow's GITHUB_TOKEN there and closes it); --no-push builds without it" "$(cat "$dir/out")"
+expect "fd_timeout_refuses: mike never ran" 0 "$(wc -l < "$TOOL_LOG")"
+expect "fd_timeout_refuses: origin's gh-pages did not move" "$before" "$(origin_pages)"
 
 # When the header cannot be built, nothing is pushed and the run says why.
 setup nobase64

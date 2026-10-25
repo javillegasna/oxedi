@@ -22,8 +22,9 @@
 # mkdocs and every other command run without it, and no environment of theirs or of the
 # processes above them holds it. Only `git push` gets it, as an Authorization header in that one
 # command's environment (GIT_CONFIG_COUNT and friends): never in argv, .git/config or a file.
-# Tracing is switched off first, so `bash -x` cannot print it. --no-push never reads the
-# descriptor.
+# A push run refuses when PAGES_PUSH_TOKEN is still in its environment, since the token would
+# then reach mike, and when nothing arrives on the descriptor within 5 seconds. Tracing is
+# switched off first, so `bash -x` cannot print it. --no-push never reads the descriptor.
 #
 # Runs from the repository root. Needs mike (and mkdocs) on the PATH, jq, base64, a git
 # identity, the viewer's module in viewer/pkg (make wasm) and GITHUB_SHA, which names the
@@ -33,8 +34,9 @@
 {
   set +x
   token=""
+  token_status=0
   if [ "${1:-}" != "--no-push" ]; then
-    read -r token <&3 || true
+    read -r -t 5 token <&3 || token_status=$?
   fi
   exec 3<&-
 } 2> /dev/null
@@ -71,6 +73,14 @@ case "$kind" in
 esac
 
 if [ "$push" = true ]; then
+  if [ -n "${PAGES_PUSH_TOKEN+set}" ]; then
+    echo "deploy-docs: PAGES_PUSH_TOKEN is set in the environment, where mike would inherit it; the docs.yml deploy step starts this script as \`env -u PAGES_PUSH_TOKEN\` and writes the token to file descriptor 3" >&2
+    exit 1
+  fi
+  if [ "$token_status" -gt 128 ]; then
+    echo "deploy-docs: nothing arrived on file descriptor 3 within 5 seconds (the docs.yml deploy step writes the workflow's GITHUB_TOKEN there and closes it); --no-push builds without it" >&2
+    exit 1
+  fi
   if [ -z "$token" ]; then
     echo "deploy-docs: a push run reads its token from file descriptor 3, which is empty or closed (the docs.yml deploy step writes the workflow's GITHUB_TOKEN there); --no-push builds without it" >&2
     exit 1

@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import functools
 import http.server
+import os
 import pathlib
 import threading
 
@@ -32,6 +33,15 @@ document.addEventListener('securitypolicyviolation', (e) => {
 class QuietHandler(http.server.SimpleHTTPRequestHandler):
     def log_message(self, format: str, *args: object) -> None:
         pass
+
+
+@pytest.fixture(scope="session")
+def browser_type_launch_args(browser_type_launch_args: dict) -> dict:
+    """Starts Chromium without its own sandbox only inside the sandbox image, which sets
+    OXEDI_CHROMIUM_NO_SANDBOX=1: the container is the sandbox there."""
+    if os.environ.get("OXEDI_CHROMIUM_NO_SANDBOX") != "1":
+        return browser_type_launch_args
+    return {**browser_type_launch_args, "args": [*browser_type_launch_args.get("args", []), "--no-sandbox"]}
 
 
 @pytest.fixture(scope="session")

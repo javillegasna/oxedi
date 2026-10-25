@@ -6,7 +6,7 @@
 # (debug build, editable), so the API reference and the examples run against the current code.
 $(DOCS_VENV)/.ready: docs/requirements.txt
 	uv venv --clear $(DOCS_VENV) --python 3.13
-	uv pip install --python $(DOCS_PYTHON) -r docs/requirements.txt
+	uv pip install --python $(DOCS_PYTHON) --require-hashes -r docs/requirements.txt
 	touch $@
 
 docs-venv: $(DOCS_VENV)/.ready ## create .venv-docs with the site tools (locked in docs/requirements.txt)

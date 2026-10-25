@@ -8,6 +8,10 @@ moment. Behaviour comes from variables:
 FAKE_INFO          the JSON `docker info --format '{{json .}}'` prints
 FAKE_RUNNING       what `docker ps` prints (the running container names)
 FAKE_NO_IMAGE      when set, `docker image inspect` fails until a `docker build` ran
+FAKE_PLAYWRIGHT_LABEL  when set, the image's oxedi.sandbox.playwright label (the viewer image's)
+FAKE_WASM_BINDGEN_LABEL, FAKE_BINARYEN_LABEL  when set, the viewer image's oxedi.sandbox.wasm-bindgen
+                   and oxedi.sandbox.binaryen labels
+FAKE_ARCH          the server architecture `docker version` prints; unset, it fails as with no daemon
 FAKE_RUN_EXIT      exit status of the run-phase container (`bash -c ...`); default 0
 FAKE_RUN_STDERR    what the run-phase container writes to stderr
 FAKE_RUN_SLEEP     seconds the run-phase container sleeps before it exits
@@ -40,6 +44,11 @@ DEFAULT_INFO = {
     "MemTotal": 22914514944,
 }
 LABELS = {"oxedi.sandbox.rust": "1.99.0", "oxedi.sandbox.python": "3.11.15 3.13.13"}
+VIEWER_LABELS = {
+    "FAKE_PLAYWRIGHT_LABEL": "oxedi.sandbox.playwright",
+    "FAKE_WASM_BINDGEN_LABEL": "oxedi.sandbox.wasm-bindgen",
+    "FAKE_BINARYEN_LABEL": "oxedi.sandbox.binaryen",
+}
 
 
 def record(entry: dict) -> None:
@@ -87,7 +96,8 @@ def image_inspect(argv: list[str]) -> int:
         return 1
     template = argv[argv.index("--format") + 1] if "--format" in argv else ""
     if "Labels" in template:
-        print(json.dumps(LABELS))
+        viewer = {label: os.environ.get(variable, "") for variable, label in VIEWER_LABELS.items()}
+        print(json.dumps({**LABELS, **{label: value for label, value in viewer.items() if value}}))
     elif "Size" in template:
         print("1616000000")
     else:
@@ -136,6 +146,15 @@ def kill(argv: list[str]) -> int:
     return 0
 
 
+def server_version() -> int:
+    arch = os.environ.get("FAKE_ARCH", "")
+    if not arch:
+        print("Cannot connect to the Docker daemon at unix:///var/run/docker.sock.", file=sys.stderr)
+        return 1
+    print(arch)
+    return 0
+
+
 def main(argv: list[str]) -> int:
     if argv[:1] == ["run"]:
         return run(argv)
@@ -150,6 +169,8 @@ def main(argv: list[str]) -> int:
         (STATE / "built").touch()
     elif argv[:1] == ["ps"]:
         print(os.environ.get("FAKE_RUNNING", ""))
+    elif argv[:1] == ["version"]:
+        return server_version()
     return 0
 
 

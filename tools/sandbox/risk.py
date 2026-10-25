@@ -18,6 +18,7 @@ from enum import Enum
 from fnmatch import fnmatch
 from pathlib import Path, PurePosixPath
 
+from arguments import ImageKind
 from layout import HOST_EXECUTED, covered
 from source import Change, git_bytes, git_text, redacted
 
@@ -404,3 +405,15 @@ def flagged(touched: list[Touched], cargo: PackageDiff, python: PackageDiff) -> 
     """Whether a change needs a confirmation: a path of any kind, a package added or changed, or a
     dependency file that could not be read."""
     return any(t.kinds for t in touched) or any(d.added or d.changed or d.errors for d in (cargo, python))
+
+
+# The paths whose tests need the viewer image: the page and the WebAssembly binding it runs.
+VIEWER_PATHS = ("viewer/", "crates/oxedi_wasm/")
+VIEWER_HINT = "this change touches the viewer; rerun with IMAGE=viewer to run its tests"
+
+
+def image_hint(touched: list[Touched], kind: ImageKind) -> str:
+    """What to rerun with when the base image cannot run the tests of what the change touches;
+    empty when nothing needs another image."""
+    needs_viewer = any(t.path.startswith(VIEWER_PATHS) for t in touched)
+    return VIEWER_HINT if kind is ImageKind.BASE and needs_viewer else ""

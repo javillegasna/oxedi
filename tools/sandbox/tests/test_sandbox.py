@@ -2,6 +2,7 @@
 whole runner against a fake `docker` (fake_docker.py), so every refusal, error line and kill is
 proven on the arguments docker would receive."""
 
+import hashlib
 import io
 import json
 import os
@@ -24,6 +25,7 @@ import arguments  # noqa: E402
 import layout  # noqa: E402
 import sandbox  # noqa: E402
 import storage  # noqa: E402
+import viewer_image  # noqa: E402
 
 UID, GID = os.getuid(), os.getgid()
 LIMITS = arguments.Limits(cpus=3, memory_gb=4, timeout_s=60)
@@ -84,7 +86,10 @@ def git_init(root: Path) -> Path:
 
 # What `make sandbox` reads from this repository. The tests that go through make copy them into a
 # throwaway checkout, so the runner audits and scrubs that checkout, never this one.
-MAKE_FILES = ("Makefile", "make", "tools/sandbox", "Cargo.toml", "crates/oxedi_duckdb/Cargo.toml")
+MAKE_FILES = (
+    "Makefile", "make", "tools/sandbox", "Cargo.toml", "crates/oxedi_duckdb/Cargo.toml",
+    "crates/oxedi_wasm/scripts/install_tools.sh", "docs/requirements.txt",
+)
 
 
 def make_repo_copy(root: Path) -> Path:
@@ -99,7 +104,7 @@ def make_repo_copy(root: Path) -> Path:
     return git_init(root)
 
 
-IGNORED = ".venv-docs/\nnotes.log\n.env\n/target/\n/.venv/\n__pycache__/\n.pytest_cache/\n*.so\n"
+IGNORED = ".venv-docs/\n/viewer/pkg/\nnotes.log\n.env\n/target/\n/.venv/\n__pycache__/\n.pytest_cache/\n*.so\n"
 
 
 FULL_SET = [
@@ -136,6 +141,9 @@ class World(unittest.TestCase):
             "HOME": str(self.home),
             "FAKE_DIR": str(self.fake),
             "SANDBOX_CMD": "cargo test",
+            # The viewer image's wasm labels, as built from this repository's install_tools.sh.
+            "FAKE_WASM_BINDGEN_LABEL": WASM_PINS.bindgen_version,
+            "FAKE_BINARYEN_LABEL": WASM_PINS.binaryen_version,
             **GIT_ENV,
         }
         env.update(extra)
@@ -150,14 +158,15 @@ class World(unittest.TestCase):
             env=self.env(**extra), capture_output=True, text=True, check=False, timeout=120,
         )
 
-    def start(self, checkout: Path, **extra: str) -> subprocess.Popen:
+    def start(self, checkout: Path, kind: str = "base", **extra: str) -> subprocess.Popen:
         return subprocess.Popen(
-            [sys.executable, "-I", str(SCRIPT), "--image", "oxedi-sandbox:test", "--checkout", str(checkout)],
+            [sys.executable, "-I", str(SCRIPT), "--image", "oxedi-sandbox:test", "--kind", kind,
+             "--checkout", str(checkout)],
             env=self.env(**extra), stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True,
         )
 
-    def sandbox(self, checkout: Path, **extra: str) -> subprocess.CompletedProcess:
-        process = self.start(checkout, **extra)
+    def sandbox(self, checkout: Path, kind: str = "base", **extra: str) -> subprocess.CompletedProcess:
+        process = self.start(checkout, kind, **extra)
         out, err = process.communicate(timeout=60)
         return subprocess.CompletedProcess(process.args, process.returncode, out, err)
 
@@ -185,10 +194,10 @@ class World(unittest.TestCase):
         """This checkout's storage directory."""
         return self.home / ".cache" / "oxedi-sandbox" / layout.path_hash(checkout)
 
-    def phase_args(self, phase, checkout: Path) -> list[str]:
+    def phase_args(self, phase, checkout: Path, kind=arguments.ImageKind.BASE) -> list[str]:
         surveyed = layout.survey(checkout)
         own = storage.storage_for(self.home / ".cache" / "oxedi-sandbox", surveyed)
-        return arguments.docker_args(phase, surveyed, UID, GID, arguments.Runtime.RUNC, LIMITS, own)
+        return arguments.docker_args(phase, surveyed, UID, GID, arguments.Runtime.RUNC, LIMITS, own, kind)
 
 
 class Arguments(World):
@@ -368,6 +377,19 @@ class Arguments(World):
         self.assertIn("sandbox: refused: tools is a symbolic link", result.stderr)
         self.assertFalse(self.runs())
 
+    def test_symlinked_parent_of_a_fixed_path_refused(self):
+        # A linked parent would have the host file of the fixed name bound into the containers.
+        checkout = self.checkout("c", "Makefile", "crates/README.md")
+        outside = self.tmp / "host-oxedi_py"
+        outside.mkdir()
+        (outside / "pyproject.toml").write_text("host\n")
+        (checkout / "crates" / "oxedi_py").symlink_to(outside)
+        result = self.sandbox(checkout)
+        self.assertEqual((result.returncode, result.stderr.strip()),
+                         (2, "sandbox: refused: crates/oxedi_py is a symbolic link; "
+                             "the read-only and masked paths must be real files of the checkout"))
+        self.assertEqual(self.runs(), [])
+
 
 class Runner(World):
     def test_host_secrets_never_pass(self):
@@ -521,7 +543,8 @@ class Runner(World):
         self.bin.joinpath("docker").unlink()
         env["PATH"] = str(self.bin)
         result = subprocess.run(
-            [sys.executable, str(SCRIPT), "--image", "oxedi-sandbox:test", "--checkout", str(self.checkout())],
+            [sys.executable, str(SCRIPT), "--image", "oxedi-sandbox:test", "--kind", "base", "--checkout",
+             str(self.checkout())],
             env=env, capture_output=True, text=True, check=False,
         )
         self.assertEqual(result.returncode, 2)
@@ -685,7 +708,7 @@ class Fetch(World):
         return self.home / ".cache" / "oxedi-sandbox" / layout.path_hash(checkout) / "venv"
 
     def test_fetch_commands_fixed(self):
-        self.assertEqual(arguments.fetch_commands(), [CARGO_FETCH, UV_VENV, UV_INSTALL])
+        self.assertEqual(arguments.fetch_commands(arguments.ImageKind.BASE), [CARGO_FETCH, UV_VENV, UV_INSTALL])
 
     def test_fetch_runs_before_the_command(self):
         result = self.sandbox(self.checkout())
@@ -738,6 +761,299 @@ class Fetch(World):
             "and never falls back to the caches offline",
             result.stderr,
         )
+
+
+VIEWER = arguments.ImageKind.VIEWER
+DOCS_FETCH = [
+    ["uv", "venv", "--managed-python", "--python", "3.13", "/work/.venv-docs"],
+    ["uv", "pip", "install", "--python", "/work/.venv-docs/bin/python", "--no-build", "--require-hashes",
+     "-r", "/work/docs/requirements.txt"],
+    ["touch", "/work/.venv-docs/.ready"],
+]
+PIP_AUDIT = ["pip-audit", "--progress-spinner", "off", "--format", "json", "--path"]
+PINNED = "playwright==1.64.0 \\\n    --hash=sha256:00\n"
+INSTALL_TOOLS = (REPO / viewer_image.INSTALL_TOOLS).read_text()
+WASM_PINS = viewer_image.wasm_pins(INSTALL_TOOLS)
+
+
+def base_tag() -> str:
+    """The base image tag make derives from this repository's sandbox Dockerfile and pip-audit.txt."""
+    inputs = b"".join((SCRIPT.parent / name).read_bytes() for name in ("Dockerfile", "pip-audit.txt"))
+    return f"oxedi-sandbox:{hashlib.sha256(inputs).hexdigest()[:12]}"
+
+
+class Images(World):
+    def viewer_checkout(self, name: str = "viewer") -> Path:
+        return self.checkout(name, ".gitignore", "Makefile", "docs/requirements.txt", ".venv-docs/bin/python")
+
+    def pin(self, checkout: Path, text: str = PINNED) -> Path:
+        """Pins Playwright in the checkout's docs/requirements.txt and the wasm tools as this
+        repository's install_tools.sh does."""
+        (checkout / "docs" / "requirements.txt").write_text(text)
+        tools = checkout / viewer_image.INSTALL_TOOLS
+        tools.parent.mkdir(parents=True, exist_ok=True)
+        tools.write_text(INSTALL_TOOLS)
+        return checkout
+
+    def test_image_values(self):
+        checkout = make_repo_copy(self.tmp / "repo")
+        refusals = (
+            ({"args": ["IMAGE=Viewer"]}, "sandbox: IMAGE must be base or viewer, not 'Viewer'"),
+            ({"args": ["IMAGE=../x"]}, "sandbox: IMAGE must be base or viewer, not '../x'"),
+            ({"args": ["IMAGE="]}, "sandbox: IMAGE must be base or viewer, not ''"),
+            ({"args": [], "IMAGE": "viewer"},
+             "sandbox: IMAGE is read from the command line only; pass it as make sandbox IMAGE=viewer"),
+        )
+        for case, line in refusals:
+            with self.subTest(case=case):
+                env = {k: v for k, v in case.items() if k != "args"}
+                result = self.make(checkout, "sandbox", "CMD=true", *case["args"], **env)
+                self.assertEqual(result.returncode, 2, result.stderr)
+                self.assertEqual(result.stderr.splitlines()[0], line)
+                self.assertEqual(self.calls(), [])
+        pr = self.make(checkout, "sandbox-pr", "REF=x", "IMAGE=Viewer")
+        self.assertEqual(pr.stderr.splitlines()[0], "sandbox-pr: IMAGE must be base or viewer, not 'Viewer'")
+        self.assertEqual(self.calls(), [])
+        check = self.make(checkout, "sandbox-check", IMAGE="viewer")
+        self.assertEqual(check.stderr.splitlines()[0],
+                         "sandbox-check: IMAGE is read from the command line only; "
+                         "pass it as make sandbox-check IMAGE=viewer")
+        self.assertEqual(self.calls(), [])
+
+        runs = {}
+        for args in ([], ["IMAGE=base"]):
+            with self.subTest(args=args):
+                result = self.make(checkout, "sandbox", "CMD=true", *args)
+                self.assertEqual(result.returncode, 0, result.stderr)
+                self.assertIn(f"image {base_tag()} (base, Rust 1.99.0)", result.stderr)
+                runs[tuple(args)] = [c["argv"] for c in self.runs()]
+                (self.fake / "calls.jsonl").unlink()
+        self.assertEqual(runs[()], runs[("IMAGE=base",)])
+        self.assertEqual([command_of_image(a, base_tag()) for a in runs[()][:3]], [CARGO_FETCH, UV_VENV, UV_INSTALL])
+        for argv in runs[()]:
+            self.assertEqual(argv[-len(command_of_image(argv, base_tag())) - 1], base_tag())
+            self.assertFalse([m for m in mounts(argv) if m.get("dst") == "/work/.venv-docs" and m["type"] == "bind"])
+
+        label = viewer_image.playwright_pin((REPO / "docs" / "requirements.txt").read_text())
+        result = self.make(checkout, "sandbox", "CMD=true", "IMAGE=viewer", FAKE_PLAYWRIGHT_LABEL=label)
+        self.assertEqual(result.returncode, 0, result.stderr)
+        viewer_tag = viewer_image.tag(checkout, base_tag())
+        self.assertIn(f"image {viewer_tag} (viewer, Rust 1.99.0)", result.stderr)
+        argv = self.run_phase()
+        self.assertEqual(command_of_image(argv, viewer_tag)[:2], ["bash", "-c"])
+        self.assertEqual(mount_at(argv, "/work/.venv-docs")["src"], str(self.own(checkout) / "venv-docs"))
+
+        (self.fake / "calls.jsonl").unlink()
+        result = self.make(checkout, "sandbox-check", "IMAGE=viewer", FAKE_PLAYWRIGHT_LABEL=label)
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertEqual(command_of_image(self.run_phase(), viewer_tag)[-1],
+                         f'mkdir -p "$HOME" && bash tools/sandbox/isolation-check.sh "{self.home}"')
+
+    def test_base_run_has_no_docs_venv(self):
+        checkout = self.viewer_checkout()
+        docs_storage = str(self.own(checkout) / "venv-docs")
+        for phase in arguments.Phase:
+            with self.subTest(phase=phase):
+                argv = self.phase_args(phase, checkout)
+                self.assertFalse([m for m in mounts(argv) if m.get("src") == docs_storage])
+                self.assertEqual(mount_at(argv, "/work/.venv-docs")["type"], "tmpfs")
+                self.assertFalse([a for a in argv if "OXEDI_CHROMIUM_NO_SANDBOX" in a])
+        self.assertEqual(arguments.fetch_commands(arguments.ImageKind.BASE), [CARGO_FETCH, UV_VENV, UV_INSTALL])
+        self.assertEqual(arguments.audit_commands(arguments.ImageKind.BASE)[1:],
+                         [[*PIP_AUDIT, "/work/.venv/lib/python3.13/site-packages"]])
+        result = self.sandbox(checkout)
+        self.assertEqual(result.returncode, 0, result.stderr)
+        for call in self.runs():
+            self.assertFalse([m for m in mounts(call["argv"]) if m.get("src") == docs_storage])
+            self.assertFalse([a for a in call["argv"] if "OXEDI_CHROMIUM_NO_SANDBOX" in a])
+
+    def test_viewer_fetch_installs_the_docs_venv(self):
+        fetch = arguments.fetch_commands(VIEWER)
+        self.assertEqual(fetch, [CARGO_FETCH, UV_VENV, UV_INSTALL, *DOCS_FETCH])
+        self.assertIn("--require-hashes", fetch[-2])
+        self.assertIn("--no-build", fetch[-2])
+        self.assertEqual(arguments.audit_commands(VIEWER)[1:], [
+            [*PIP_AUDIT, "/work/.venv/lib/python3.13/site-packages"],
+            [*PIP_AUDIT, "/work/.venv-docs/lib/python3.13/site-packages"],
+        ])
+        checkout = self.pin(self.viewer_checkout())
+        docs_storage = self.own(checkout) / "venv-docs"
+        for phase, read_only in ((arguments.Phase.FETCH, False), (arguments.Phase.RUN, False),
+                                 (arguments.Phase.AUDIT, True)):
+            with self.subTest(phase=phase):
+                mount = mount_at(self.phase_args(phase, checkout, VIEWER), "/work/.venv-docs")
+                self.assertEqual((mount["type"], mount["src"]), ("bind", str(docs_storage)))
+                self.assertEqual("readonly" in mount, read_only)
+        # What a run left in the docs venv never reaches the next fetch.
+        docs_storage.mkdir(parents=True)
+        (docs_storage / "evil.pth").write_text("import os\n")
+        result = self.sandbox(checkout, "viewer", FAKE_PLAYWRIGHT_LABEL="1.64.0")
+        self.assertEqual(result.returncode, 0, result.stderr)
+        fetches = [c for c in self.runs() if "bash" not in c["argv"]]
+        self.assertEqual([command_of(c["argv"]) for c in fetches], [CARGO_FETCH, UV_VENV, UV_INSTALL, *DOCS_FETCH])
+        self.assertEqual(fetches[0]["binds"][str(docs_storage)]["entries"], [])
+        self.assertIn("readonly", mount_at(fetches[0]["argv"], "/work"))
+
+    def test_viewer_run_builds_into_its_own_pkg(self):
+        # The host's built module is masked in every phase; the viewer image's runs build theirs in
+        # the checkout's storage, so the host never serves what a run wrote.
+        checkout = self.pin(self.checkout("viewer", ".gitignore", "Makefile", "docs/requirements.txt",
+                                          "viewer/index.html", "viewer/pkg/module.js"))
+        pkg_storage = self.own(checkout) / "viewer-pkg"
+        for phase in arguments.Phase:
+            with self.subTest(phase=phase, kind="base"):
+                self.assertEqual(mount_at(self.phase_args(phase, checkout), "/work/viewer/pkg")["type"], "tmpfs")
+        for phase, read_only in ((arguments.Phase.FETCH, True), (arguments.Phase.RUN, False),
+                                 (arguments.Phase.AUDIT, True)):
+            with self.subTest(phase=phase, kind="viewer"):
+                mount = mount_at(self.phase_args(phase, checkout, VIEWER), "/work/viewer/pkg")
+                self.assertEqual((mount["type"], mount["src"]), ("bind", str(pkg_storage)))
+                self.assertEqual("readonly" in mount, read_only)
+        # A checkout with no built module (a sandbox-pr clone) gets the mount point before the run
+        # and its audit stays clean.
+        fresh = self.pin(self.viewer_checkout("fresh"))
+        result = self.sandbox(fresh, "viewer", FAKE_PLAYWRIGHT_LABEL="1.64.0")
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertIn("(target, venv, venv-docs, viewer-pkg)", result.stderr)
+        run = [c for c in self.runs() if "bash" in c["argv"]][0]
+        state = run["binds"][str(self.own(fresh) / "viewer-pkg")]
+        self.assertEqual((state["exists"], state["mount_point"]), (True, True))
+        # The host makes that mount point: a link on its path would have it made outside the checkout.
+        linked = self.pin(self.viewer_checkout("linked"))
+        outside = self.tmp / "outside-viewer"
+        outside.mkdir()
+        (linked / "viewer").symlink_to(outside)
+        calls = len(self.runs())
+        result = self.sandbox(linked, "viewer", FAKE_PLAYWRIGHT_LABEL="1.64.0")
+        self.assertEqual((result.returncode, result.stderr.strip()),
+                         (2, "sandbox: refused: viewer is a symbolic link; "
+                             "the mount point viewer/pkg must be a real directory of the checkout"))
+        self.assertEqual(len(self.runs()), calls)
+        self.assertEqual(list(outside.iterdir()), [])
+
+    def test_playwright_mismatch_refuses(self):
+        checkout = self.pin(self.viewer_checkout())
+        cases = (
+            ({"FAKE_PLAYWRIGHT_LABEL": "1.63.0"},
+             "sandbox: this checkout pins playwright 1.64.0 but the viewer image has 1.63.0; "
+             "run make sandbox-image-viewer"),
+            ({}, "sandbox: this checkout pins playwright 1.64.0 but the viewer image has no "
+                 "oxedi.sandbox.playwright label; run make sandbox-image-viewer"),
+        )
+        for env, line in cases:
+            with self.subTest(env=env):
+                result = self.sandbox(checkout, "viewer", **env)
+                self.assertEqual(result.returncode, 2, result.stderr)
+                self.assertEqual(result.stderr.strip(), line)
+                self.assertEqual(self.runs(), [])
+        self.pin(checkout, "pytest==8.0.0\n")
+        result = self.sandbox(checkout, "viewer", FAKE_PLAYWRIGHT_LABEL="1.64.0")
+        self.assertEqual((result.returncode, result.stderr.strip()),
+                         (2, "sandbox: docs/requirements.txt pins no playwright==<version>"))
+        (checkout / "docs" / "requirements.txt").unlink()
+        (checkout / "docs" / "requirements.txt").symlink_to(self.tmp / "elsewhere.txt")
+        result = self.sandbox(checkout, "viewer", FAKE_PLAYWRIGHT_LABEL="1.64.0")
+        self.assertEqual((result.returncode, result.stderr.strip()),
+                         (2, "sandbox: refused: docs/requirements.txt is a symbolic link; "
+                             "docs/requirements.txt must be a real file of the checkout"))
+        self.assertEqual(self.runs(), [])
+        outside = self.tmp / "outside-docs"
+        outside.mkdir()
+        (outside / "requirements.txt").write_text(PINNED)
+        shutil.rmtree(checkout / "docs")
+        (checkout / "docs").symlink_to(outside)
+        result = self.sandbox(checkout, "viewer", FAKE_PLAYWRIGHT_LABEL="1.64.0")
+        self.assertEqual((result.returncode, result.stderr.strip()),
+                         (2, "sandbox: refused: docs is a symbolic link; docs/requirements.txt must be a real file of the checkout"))
+        self.assertEqual(self.runs(), [])
+
+    def test_wasm_pin_mismatch_refuses(self):
+        # The image's wasm tools are those of the install_tools.sh it was built from: a checkout that
+        # pins others is refused before any container, as a stale browser is.
+        checkout = self.pin(self.viewer_checkout())
+        bindgen, binaryen = WASM_PINS.bindgen_version, WASM_PINS.binaryen_version
+        cases = (
+            ({"FAKE_WASM_BINDGEN_LABEL": "0.2.1"},
+             f"sandbox: this checkout pins wasm-bindgen {bindgen} but the viewer image has 0.2.1; "
+             "run make sandbox-image-viewer"),
+            ({"FAKE_BINARYEN_LABEL": "120"},
+             f"sandbox: this checkout pins binaryen {binaryen} but the viewer image has 120; "
+             "run make sandbox-image-viewer"),
+            ({"FAKE_BINARYEN_LABEL": ""},
+             f"sandbox: this checkout pins binaryen {binaryen} but the viewer image has no "
+             "oxedi.sandbox.binaryen label; run make sandbox-image-viewer"),
+        )
+        for env, line in cases:
+            with self.subTest(env=env):
+                result = self.sandbox(checkout, "viewer", FAKE_PLAYWRIGHT_LABEL="1.64.0", **env)
+                self.assertEqual((result.returncode, result.stderr.strip()), (2, line))
+                self.assertEqual(self.runs(), [])
+        tools = checkout / viewer_image.INSTALL_TOOLS
+        tools.write_text(INSTALL_TOOLS.replace(f'BINARYEN_VERSION="{binaryen}"', 'BINARYEN_VERSION="134"'))
+        result = self.sandbox(checkout, "viewer", FAKE_PLAYWRIGHT_LABEL="1.64.0")
+        self.assertEqual((result.returncode, result.stderr.strip()),
+                         (2, f"sandbox: this checkout pins binaryen 134 but the viewer image has {binaryen}; "
+                             "run make sandbox-image-viewer"))
+        tools.write_text("#!/usr/bin/env bash\n")
+        result = self.sandbox(checkout, "viewer", FAKE_PLAYWRIGHT_LABEL="1.64.0")
+        self.assertEqual((result.returncode, result.stderr.strip()),
+                         (2, f'sandbox: {viewer_image.INSTALL_TOOLS} has no WASM_BINDGEN_VERSION="<value>" line'))
+        tools.unlink()
+        elsewhere = self.tmp / "install_tools.sh"
+        elsewhere.write_text(INSTALL_TOOLS)
+        tools.symlink_to(elsewhere)
+        result = self.sandbox(checkout, "viewer", FAKE_PLAYWRIGHT_LABEL="1.64.0")
+        self.assertEqual((result.returncode, result.stderr.strip()),
+                         (2, f"sandbox: refused: {viewer_image.INSTALL_TOOLS} is a symbolic link; "
+                             f"{viewer_image.INSTALL_TOOLS} must be a real file of the checkout"))
+        self.assertEqual(self.runs(), [])
+
+    def test_storage_names_follow_the_own_mounts(self):
+        # The plan line names the storage directories the runs mount, from the table the mounts use.
+        checkout = self.viewer_checkout()
+        surveyed = layout.survey(checkout)
+        own = storage.storage_for(storage.cache_root({"HOME": str(self.home)}), surveyed)
+        cases = (
+            (arguments.ImageKind.BASE, {}, "(target, venv)"),
+            (VIEWER, {}, "(target, venv, venv-docs, viewer-pkg)"),
+            (arguments.ImageKind.BASE, {arguments.ImageKind.BASE: (arguments.VENV, arguments.VIEWER_PKG)},
+             "(target, venv, viewer-pkg)"),
+        )
+        for kind, table, names in cases:
+            with self.subTest(kind=kind, table=table), mock.patch.dict(arguments.OWN_MOUNTS, table):
+                plan = sandbox.Plan("oxedi-sandbox:test", kind, surveyed, own, arguments.Runtime.RUNC, LIMITS)
+                self.assertIn(f"storage {own.target.parent} {names},", sandbox.describe(plan, {}))
+
+    def test_viewer_image_names_the_docker_server(self):
+        # The viewer image's wasm tools are amd64 only; with no daemon there is no architecture to blame.
+        checkout = make_repo_copy(self.tmp / "repo")
+        cases = (
+            ({}, "sandbox-image-viewer: the docker daemon could not be reached (docker version names no server); "
+                 "start it and retry"),
+            ({"FAKE_ARCH": "arm64"},
+             "sandbox-image-viewer: the docker server is 'arm64' and the wasm tools are pinned for amd64"),
+        )
+        for env, line in cases:
+            with self.subTest(env=env):
+                result = self.make(checkout, "sandbox-image-viewer", **env)
+                self.assertNotEqual(result.returncode, 0, result.stderr)
+                self.assertEqual(result.stderr.splitlines()[0], line)
+                # No build or run: docker is only asked for its server's architecture.
+                self.assertEqual({c["argv"][0] for c in self.calls()}, {"version"})
+                (self.fake / "calls.jsonl").unlink(missing_ok=True)
+
+    def test_kind_required_with_image(self):
+        result = subprocess.run(
+            [sys.executable, "-I", str(SCRIPT), "--image", "oxedi-sandbox:test", "--checkout", str(self.checkout())],
+            env=self.env(), capture_output=True, text=True, check=False, timeout=60,
+        )
+        self.assertEqual(result.returncode, 2)
+        self.assertIn("--image needs --kind base or --kind viewer", result.stderr)
+        self.assertEqual(self.calls(), [])
+
+
+def command_of_image(argv: list[str], image: str) -> list[str]:
+    return argv[argv.index(image) + 1:]
 
 
 if __name__ == "__main__":

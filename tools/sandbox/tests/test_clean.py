@@ -35,6 +35,18 @@ class Clean(World):
         again = self.clean(first, "checkout")
         self.assertEqual(again.stderr, f"sandbox: nothing to remove at {self.storage(first)}\n")
 
+    def test_clean_forgets_docs_venv(self):
+        checkout = make_repo_copy(self.tmp / "repo")
+        self.assertEqual(self.sandbox(checkout).returncode, 0)
+        docs = self.storage(checkout) / "venv-docs"
+        self.assertTrue(docs.is_dir())
+        (docs / "bin").mkdir()
+        (docs / "bin" / "python").write_text("x")
+        result = self.make(checkout, "sandbox-clean")
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertFalse(docs.exists())
+        self.assertFalse((self.storage(checkout) / "venv").exists())
+
     def test_clean_all_removes_every_checkout_and_the_caches(self):
         checkout = self.checkout()
         self.assertEqual(self.sandbox(checkout).returncode, 0)

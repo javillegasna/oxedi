@@ -15,10 +15,11 @@ the modules beside it, the sensitive-path list and the cargo-deny policy (deny.t
 read-only into the audit container). Every git command of this process runs without the host's
 global and system configuration, hooks, attributes file or file transport.
 
-usage: sandbox_pr.py --image TAG --checkout DIR
+usage: sandbox_pr.py --image TAG --kind {base,viewer} --checkout DIR
 The change comes from SANDBOX_PR (a pull request number; SANDBOX_HEAD=1 tests its head instead of
 its merge ref) or SANDBOX_REF (a ref of the host checkout). SANDBOX_TARGET is the command (default
-`make gates && make py-test`); SANDBOX_CONFIRM=yes answers every confirmation. SANDBOX_SOURCE, for
+`make gates && make py-test`); `--kind viewer` runs it in the viewer image, with the docs venv
+fetched and audited too. SANDBOX_CONFIRM=yes answers every confirmation. SANDBOX_SOURCE, for
 tests, names another git checkout to clone from. The limits are those of sandbox.py.
 Exit status: as sandbox.py (the command's, 2 refused, 3 dirty audit, 124 timeout, 130 and 143 on a
 signal), the fetch's when the fetch failed, and 4 when a confirmation was needed and not given.
@@ -39,11 +40,11 @@ from pathlib import Path
 # Isolated mode leaves the script's own directory out of sys.path; tools/ is read-only in a run.
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
-from arguments import Phase, audit_commands  # noqa: E402
+from arguments import VENVS, ImageKind, Phase, deny_command, pip_audit_command  # noqa: E402
 from audit import DIRTY_STATUS  # noqa: E402
 from layout import SandboxError, container_name  # noqa: E402
 from lifecycle import refuse_if_running, run_container  # noqa: E402
-from risk import PackageDiff, Touched, dependency_diffs, flagged, touched  # noqa: E402
+from risk import PackageDiff, Touched, dependency_diffs, flagged, image_hint, touched  # noqa: E402
 from sandbox import (  # noqa: E402
     STOP_SIGNALS, Plan, Stopped, audited, checked_daemon, fetch_phase, ready, run_phase, stop,
 )
@@ -111,6 +112,16 @@ class Tool:
 
 
 @dataclass(frozen=True)
+class VenvAudit:
+    """pip-audit over one venv: the venv's place in the container, the exit status and everything
+    it printed."""
+
+    venv: str
+    status: int
+    output: str
+
+
+@dataclass(frozen=True)
 class Ran:
     """The target the run phase ran, its exit status and the audit's lines about the clone."""
 
@@ -121,12 +132,13 @@ class Ran:
 
 @dataclass(frozen=True)
 class Progress:
-    """How far the containers went. `pip_audit` is absent when the flow stopped before the fetch
-    or the fetch failed; `ran` is false when the run phase never started."""
+    """How far the containers went. `pip_audit` holds one entry per venv of the image, none when the
+    flow stopped before the fetch or the fetch failed; `ran` is false when the run phase never
+    started."""
 
     status: int
     cargo_deny: Tool
-    pip_audit: Tool | None
+    pip_audit: tuple[VenvAudit, ...]
     answers: tuple[Confirmed, ...]
     ran: bool
 
@@ -140,6 +152,8 @@ class Report:
     run: Ran | None
     image: str
     runtime: str
+    # What to rerun with when this image cannot run the tests of what the change touches, or "".
+    image_hint: str
 
 
 def git_isolation(environ: MutableMapping[str, str]) -> None:
@@ -214,6 +228,15 @@ def audit_tool(plan: Plan, command: list[str]) -> Tool:
     return Tool(outcome.status, output)
 
 
+def pip_audits(plan: Plan) -> tuple[VenvAudit, ...]:
+    """pip-audit over each venv of the image, each in its own audit container."""
+    audits = []
+    for venv in VENVS[plan.kind]:
+        tool = audit_tool(plan, pip_audit_command(venv))
+        audits.append(VenvAudit(venv, tool.status, tool.output))
+    return tuple(audits)
+
+
 def confirm(needed: bool, why: str, settings: Settings) -> Confirmed:
     """Asks on the terminal when a confirmation is needed and CONFIRM=yes did not give it; without
     a terminal the answer is no."""
@@ -245,19 +268,18 @@ def stages(plan: Plan, risk: Risk, settings: Settings, risk_text: list[str]) -> 
     """The containers in order, each confirmation before what it guards: cargo-deny, the first
     confirmation, the fetch, pip-audit, the second confirmation, the run. Each part of the report
     is printed before the confirmation that rests on it."""
-    deny_command, pip_command = audit_commands()
     plan.storage.advisory.mkdir(mode=0o700, parents=True, exist_ok=True)
-    deny = audit_tool(plan, deny_command)
-    print("\n".join(risk_text + tool_lines("cargo-deny", deny)), flush=True)
+    deny = audit_tool(plan, deny_command())
+    print("\n".join(risk_text + tool_lines("cargo-deny", deny.status, deny.output)), flush=True)
     answers = (confirm(*first_gate(risk, deny), settings),)
     if Confirmed.REFUSED in answers:
-        return Progress(NOT_CONFIRMED_STATUS, deny, None, answers, False)
+        return Progress(NOT_CONFIRMED_STATUS, deny, (), answers, False)
     fetched = fetch_phase(plan)
     if fetched != 0:
-        return Progress(fetched, deny, None, answers, False)
-    pip = audit_tool(plan, pip_command)
-    print("\n".join(tool_lines("pip-audit", pip)), flush=True)
-    answers += (confirm(pip.status != 0, "pip-audit failed", settings),)
+        return Progress(fetched, deny, (), answers, False)
+    pip = pip_audits(plan)
+    print("\n".join(pip_audit_lines(pip)), flush=True)
+    answers += (confirm(any(audit.status != 0 for audit in pip), "pip-audit failed", settings),)
     if Confirmed.REFUSED in answers:
         return Progress(NOT_CONFIRMED_STATUS, deny, pip, answers, False)
     return Progress(run_phase(plan, settings.target), deny, pip, answers, True)
@@ -279,10 +301,14 @@ def package_lines(title: str, diff: PackageDiff) -> list[str]:
     return [f"{title}:", *(rows or ["  none"])]
 
 
-def tool_lines(name: str, tool: Tool | None) -> list[str]:
-    if tool is None:
-        return [f"{name}: not run"]
-    return [f"{name}: exit {tool.status}", *(f"  {line}" for line in tool.output.splitlines())]
+def tool_lines(name: str, status: int, output: str) -> list[str]:
+    return [f"{name}: exit {status}", *(f"  {line}" for line in output.splitlines())]
+
+
+def pip_audit_lines(audits: tuple[VenvAudit, ...]) -> list[str]:
+    if not audits:
+        return ["pip-audit: not run"]
+    return [line for audit in audits for line in tool_lines(f"pip-audit {audit.venv}", audit.status, audit.output)]
 
 
 def risk_lines(request: Request, change: Change, risk: Risk) -> list[str]:
@@ -300,6 +326,11 @@ def risk_lines(request: Request, change: Change, risk: Risk) -> list[str]:
     return lines + [f"flagged: {'yes' if risk.flagged else 'no'}"]
 
 
+def hint_lines(hint: str) -> list[str]:
+    """The image hint as report lines: none when the image fits the change."""
+    return [hint] if hint else []
+
+
 def render(report: Report) -> list[str]:
     outcome = report.outcome
     run = report.run
@@ -307,11 +338,12 @@ def render(report: Report) -> list[str]:
         f"run: {run.target}: exit {run.status}", *(f"  audit: {line}" for line in run.audit or ("clean",))]
     return [
         *risk_lines(report.request, report.change, report.risk),
-        *tool_lines("cargo-deny", outcome.cargo_deny),
-        *tool_lines("pip-audit", outcome.pip_audit),
+        *tool_lines("cargo-deny", outcome.cargo_deny.status, outcome.cargo_deny.output),
+        *pip_audit_lines(outcome.pip_audit),
         f"confirmed: {combined(list(outcome.answers)).value}",
         *run_lines,
         f"image {report.image}, runtime {report.runtime}",
+        *hint_lines(report.image_hint),
     ]
 
 
@@ -331,12 +363,13 @@ def report_json(report: Report) -> dict:
         "cargo": packages_json(report.risk.cargo),
         "python": packages_json(report.risk.python),
         "cargo_deny": asdict(outcome.cargo_deny),
-        "pip_audit": None if outcome.pip_audit is None else asdict(outcome.pip_audit),
+        "pip_audit": [asdict(audit) for audit in outcome.pip_audit],
         "flagged": report.risk.flagged,
         "confirmed": combined(list(outcome.answers)).value,
         "run": None if run is None else {"target": run.target, "status": run.status, "audit": list(run.audit)},
         "image": report.image,
         "runtime": report.runtime,
+        "image_hint": report.image_hint,
     }
 
 
@@ -346,31 +379,36 @@ def write_reports(review: Path, report: Report) -> None:
     print(f"sandbox-pr: reports in {review / 'report.txt'} and {review / 'report.json'}", file=sys.stderr)
 
 
-def review_change(image: str, host: Path, env: dict[str, str]) -> int:
+def review_change(image: str, kind: ImageKind, host: Path, env: dict[str, str]) -> int:
     settings = Settings.parse(env)
     require_git()
     source = source_checkout(host, env)
     info = checked_daemon()
     change, root = fresh_clone(cache_root(env), source, settings.request)
-    plan = ready(image, root, env, info)
+    plan = ready(image, kind, root, env, info)
     risk = assess(change, root)
-    risk_text = risk_lines(settings.request, change, risk)
+    hint = image_hint(list(risk.touched), kind)
+    # The terminal's risk report ends with the hint, so it shows before the first confirmation.
+    risk_text = risk_lines(settings.request, change, risk) + hint_lines(hint)
     outcome, findings = audited(plan, lambda: stages(plan, risk, settings, risk_text))
     run = Ran(settings.target, outcome.status, tuple(findings.lines())) if outcome.ran else None
-    write_reports(root.parent, Report(settings.request, change, risk, outcome, run, image, plan.runtime.value))
+    write_reports(root.parent, Report(settings.request, change, risk, outcome, run, image, plan.runtime.value, hint))
     return DIRTY_STATUS if findings.dirty else outcome.status
 
 
 def main(argv: list[str]) -> int:
     parser = argparse.ArgumentParser(prog="sandbox_pr.py", description=__doc__.splitlines()[0])
-    parser.add_argument("--image", required=True, help="the sandbox image, oxedi-sandbox:<hash>")
+    parser.add_argument("--image", required=True,
+                        help="the sandbox image, oxedi-sandbox:<hash> or oxedi-sandbox-viewer:<hash>")
+    parser.add_argument("--kind", required=True, choices=[k.value for k in ImageKind],
+                        help="what the --image is: the base image or the viewer one")
     parser.add_argument("--checkout", required=True, type=Path, help="the host checkout whose rules apply")
     args = parser.parse_args(argv)
     for signum in STOP_SIGNALS:
         signal.signal(signum, stop)
     git_isolation(os.environ)
     try:
-        return review_change(args.image, args.checkout.resolve(), dict(os.environ))
+        return review_change(args.image, ImageKind(args.kind), args.checkout.resolve(), dict(os.environ))
     except SandboxError as error:
         print(f"sandbox-pr: {error}", file=sys.stderr)
         return 2

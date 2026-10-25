@@ -281,6 +281,26 @@ class Flagged(unittest.TestCase):
         self.assertIs(risk.flagged(plain, PackageDiff(changed=(("a", "1", "2", REGISTRY),)), PackageDiff()), True)
 
 
+class ImageHint(unittest.TestCase):
+    def test_image_hint_table(self):
+        hint = "this change touches the viewer; rerun with IMAGE=viewer to run its tests"
+        base, viewer = risk.ImageKind.BASE, risk.ImageKind.VIEWER
+        for path, kind, expected in (
+            ("viewer/app.js", base, hint),
+            ("crates/oxedi_wasm/src/lib.rs", base, hint),
+            ("viewer/app.js", viewer, ""),
+            ("crates/oxedi_wasm/src/lib.rs", viewer, ""),
+            ("crates/oxedi_core/src/lib.rs", base, ""),
+            ("crates/oxedi_wasmish/src/lib.rs", base, ""),
+            ("docs/viewer/index.md", base, ""),
+        ):
+            with self.subTest(path=path, kind=kind):
+                self.assertEqual(risk.image_hint([Touched(path, (), "M")], kind), expected)
+        mixed = [Touched("crates/oxedi_core/src/lib.rs", (), "M"), Touched("viewer/app.js", (), "M")]
+        self.assertEqual(risk.image_hint(mixed, base), hint)
+        self.assertEqual(risk.image_hint([], base), "")
+
+
 class Dependencies(Repo):
     def test_dependency_diffs_read_both_ends(self):
         base = self.commit({"Cargo.lock": OLD_LOCK, PYPROJECT: pyproject("pyarrow>=14"), "src/lib.rs": "x\n"})

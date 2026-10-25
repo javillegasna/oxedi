@@ -138,6 +138,8 @@ jobs:
         env:
           KIND: ${{ steps.target.outputs.kind }}
           VERSION: ${{ steps.target.outputs.version }}
-          # The script removes it from its environment first and gives it only to git push.
+          # Only this step's shell holds it: exec replaces that shell with the script, started
+          # without the variable, which reads the token from file descriptor 3 and gives it only
+          # to git push.
           PAGES_PUSH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: .github/scripts/deploy-docs.sh "$KIND" ${VERSION:+"$VERSION"}
+        run: exec env -u PAGES_PUSH_TOKEN .github/scripts/deploy-docs.sh "$KIND" ${VERSION:+"$VERSION"} 3<<<"$PAGES_PUSH_TOKEN"

@@ -16,21 +16,27 @@
 # already exist on origin, or the first fetch fails the run. With --no-push nothing is fetched
 # or pushed, and the reads and the final checks are of the local branch, which may not exist yet.
 #
-# The push token: a push run reads it from PAGES_PUSH_TOKEN (the workflow's GITHUB_TOKEN), keeps
-# it in an unexported shell variable and removes PAGES_PUSH_TOKEN before anything else runs, so
-# mike, mkdocs and every other command run without it. Only `git push` gets it, as an
-# Authorization header in that one command's environment (GIT_CONFIG_COUNT and friends): never
-# in argv, .git/config or a file. Tracing is switched off first, so `bash -x` cannot print it.
+# The push token: a push run reads it from file descriptor 3 (the workflow's GITHUB_TOKEN, which
+# the docs.yml deploy step writes there and keeps out of this process's environment), keeps it in
+# an unexported shell variable and closes the descriptor before anything else runs, so mike,
+# mkdocs and every other command run without it, and no environment of theirs or of the
+# processes above them holds it. Only `git push` gets it, as an Authorization header in that one
+# command's environment (GIT_CONFIG_COUNT and friends): never in argv, .git/config or a file.
+# Tracing is switched off first, so `bash -x` cannot print it. --no-push never reads the
+# descriptor.
 #
 # Runs from the repository root. Needs mike (and mkdocs) on the PATH, jq, base64, a git
 # identity, the viewer's module in viewer/pkg (make wasm) and GITHUB_SHA, which names the
 # viewer's commit.
-# Usage: PAGES_PUSH_TOKEN=... deploy-docs.sh dev | release X.Y
+# Usage: deploy-docs.sh dev | release X.Y 3<<<"$TOKEN"
 #        deploy-docs.sh --no-push dev | release X.Y
 {
   set +x
-  token=${PAGES_PUSH_TOKEN-}
-  unset PAGES_PUSH_TOKEN
+  token=""
+  if [ "${1:-}" != "--no-push" ]; then
+    read -r token <&3 || true
+  fi
+  exec 3<&-
 } 2> /dev/null
 set -euo pipefail
 
@@ -66,7 +72,7 @@ esac
 
 if [ "$push" = true ]; then
   if [ -z "$token" ]; then
-    echo "deploy-docs: a push run needs PAGES_PUSH_TOKEN (the workflow's GITHUB_TOKEN); --no-push builds without it" >&2
+    echo "deploy-docs: a push run reads its token from file descriptor 3, which is empty or closed (the docs.yml deploy step writes the workflow's GITHUB_TOKEN there); --no-push builds without it" >&2
     exit 1
   fi
   pages=""
@@ -95,7 +101,10 @@ refresh() {
 # command's environment; git's own messages name the remote, never the header.
 push_pages() {
   local auth
-  auth=$(printf 'x-access-token:%s' "$token" | base64 | tr -d '\n')
+  auth=$(printf 'x-access-token:%s' "$token" | base64 | tr -d '\n') && [ -n "$auth" ] || {
+    echo "deploy-docs: could not encode the push token for the Authorization header (base64 failed); nothing was pushed" >&2
+    return 1
+  }
   GIT_CONFIG_COUNT=1 \
     GIT_CONFIG_KEY_0=http.https://github.com/.extraheader \
     GIT_CONFIG_VALUE_0="AUTHORIZATION: basic $auth" \

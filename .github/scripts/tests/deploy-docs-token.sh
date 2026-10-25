@@ -12,7 +12,11 @@ trap 'rm -rf "$tmp"' EXIT
 REAL_GIT=$(command -v git)
 TOKEN=ghs_deploy_docs_test_token
 AUTH=$(printf 'x-access-token:%s' "$TOKEN" | base64 | tr -d '\n')
-export REAL_GIT EXPECTED_HEADER="AUTHORIZATION: basic $AUTH"
+# The stubs read the expected header and the two secrets (the token and its base64) from files:
+# exported, they would sit in the environment of every process the probe below checks.
+export REAL_GIT EXPECTED="$tmp/expected" SECRETS="$tmp/secrets" PROBE="$tmp/probe" TEST_PID=$$
+printf 'AUTHORIZATION: basic %s\n' "$AUTH" > "$EXPECTED"
+printf '%s\n%s\n' "$TOKEN" "$AUTH" > "$SECRETS"
 export RETRY_DELAY_UNIT=0 GITHUB_SHA=0123456789abcdef
 export GIT_AUTHOR_NAME=t GIT_AUTHOR_EMAIL=t@t GIT_COMMITTER_NAME=t GIT_COMMITTER_EMAIL=t@t
 failed=0
@@ -41,7 +45,7 @@ while [ $# -gt 0 ]; do
   esac
 done
 if [ "$sub" = push ]; then
-  if [ "${GIT_CONFIG_VALUE_0-}" = "$EXPECTED_HEADER" ] && [ "${GIT_CONFIG_COUNT-}" = 1 ]; then
+  if [ "${GIT_CONFIG_VALUE_0-}" = "$(cat "$EXPECTED")" ] && [ "${GIT_CONFIG_COUNT-}" = 1 ]; then
     echo "push yes" >> "$GIT_LOG"
   else
     echo "push no" >> "$GIT_LOG"
@@ -51,18 +55,36 @@ else
 fi
 exec "$REAL_GIT" "${args[@]}"
 S
-# mkdocs and mike: log the token variable, GIT_CONFIG_COUNT and how many extraheader entries
-# git config holds. `mike deploy ... VERSION` commits VERSION/index.html and versions.json onto
-# the local gh-pages. When the file $RACE exists, the first deploy removes it and first pushes a
-# commit to origin's gh-pages from another clone, so the deploy's own push is rejected.
+# The probe prints, for the process that runs it: the token variable, GIT_CONFIG_COUNT, how many
+# extraheader entries git config holds, how many of its own and its ancestors' environments (up
+# to this test script) hold a secret, whether the walk reached this script, and whether file
+# descriptor 3 is open. A clean process prints `unset unset 0 0 yes closed`.
+cat > "$PROBE" <<'S'
+#!/usr/bin/env bash
+holding=0
+reached=no
+pid=$$
+while [ "$pid" -gt 1 ]; do
+  if grep -qaF -f "$SECRETS" "/proc/$pid/environ"; then holding=$((holding + 1)); fi
+  if [ "$pid" = "$TEST_PID" ]; then reached=yes; break; fi
+  pid=$(awk '/^PPid:/ { print $2 }' "/proc/$pid/status")
+done
+fd3=closed
+if [ -e /proc/$$/fd/3 ]; then fd3=open; fi
+echo "${PAGES_PUSH_TOKEN-unset} ${GIT_CONFIG_COUNT-unset} $(git config --get-regexp extraheader | wc -l) $holding $reached $fd3"
+S
+# mkdocs and mike: log what the probe prints. `mike deploy ... VERSION` commits VERSION/index.html
+# and versions.json onto the local gh-pages. When the file $RACE exists, the first deploy removes
+# it and first pushes a commit to origin's gh-pages from another clone, so the deploy's own push
+# is rejected.
 cat > "$stubs/mkdocs" <<'S'
 #!/usr/bin/env bash
-echo "mkdocs ${PAGES_PUSH_TOKEN-unset} ${GIT_CONFIG_COUNT-unset} $(git config --get-regexp extraheader | wc -l)" >> "$TOOL_LOG"
+echo "mkdocs $("$PROBE")" >> "$TOOL_LOG"
 S
 cat > "$stubs/mike" <<'S'
 #!/usr/bin/env bash
 set -eu
-echo "mike ${PAGES_PUSH_TOKEN-unset} ${GIT_CONFIG_COUNT-unset} $(git config --get-regexp extraheader | wc -l)" >> "$TOOL_LOG"
+echo "mike $("$PROBE")" >> "$TOOL_LOG"
 mkdocs build
 [ "$1" = deploy ] || exit 0
 version=${!#}
@@ -84,7 +106,7 @@ commit=$(git commit-tree "$(git write-tree)" -p gh-pages -m "Deployed $version")
 git update-ref refs/heads/gh-pages "$commit"
 rm -f "$GIT_INDEX_FILE"
 S
-chmod +x "$stubs"/*
+chmod +x "$stubs"/* "$PROBE"
 
 # A fresh origin with a gh-pages branch, a clone of it holding the deploy scripts and the
 # viewer, and another clone that can push to origin. Sets dir and exports the logs.
@@ -118,10 +140,10 @@ count() { grep -c "$@"; }
 # A push run: mike and mkdocs see no token, every push carries the header, gh-pages moves.
 setup push
 before=$(origin_pages)
-PAGES_PUSH_TOKEN=$TOKEN deploy .github/scripts/deploy-docs.sh dev
+deploy .github/scripts/deploy-docs.sh dev 3<<< "$TOKEN"
 expect "a push run exits 0" 0 $?
 expect "mike_sees_no_token: mike and mkdocs ran" 2 "$(wc -l < "$TOOL_LOG")"
-expect "mike_sees_no_token: no tool saw the token, GIT_CONFIG_COUNT or an extraheader" 2 "$(count -x '[a-z]* unset unset 0' "$TOOL_LOG")"
+expect "mike_sees_no_token: no tool or process above it held the token, GIT_CONFIG_COUNT or an extraheader, and fd 3 was closed" 2 "$(count -x '[a-z]* unset unset 0 0 yes closed' "$TOOL_LOG")"
 expect "push_carries_the_header: the site and the viewer were pushed" 2 "$(count -x 'push yes' "$GIT_LOG")"
 expect "push_carries_the_header: no push went without the header" 0 "$(count -x 'push no' "$GIT_LOG")"
 expect "push_carries_the_header: no other git command saw GIT_CONFIG_COUNT" 0 "$(grep -v '^push ' "$GIT_LOG" | grep -cv ' unset$')"
@@ -137,13 +159,13 @@ expect "token_never_printed: .git/config holds no token" 0 "$(grep -cF -e "$TOKE
 # the header and succeeds on top of it.
 setup retry
 touch "$RACE"
-PAGES_PUSH_TOKEN=$TOKEN deploy .github/scripts/deploy-docs.sh dev
+deploy .github/scripts/deploy-docs.sh dev 3<<< "$TOKEN"
 expect "retry_pushes_again: the run exits 0" 0 $?
 grep -q "the push was rejected because gh-pages moved" "$dir/out"
 expect "retry_pushes_again: the first push was rejected" 0 $?
 expect "retry_pushes_again: three pushes (rejected, retried, viewer), all with the header" 3 "$(count -x 'push yes' "$GIT_LOG")"
 expect "retry_pushes_again: no push went without the header" 0 "$(count -x 'push no' "$GIT_LOG")"
-expect "retry_pushes_again: the tools never saw the token" "$(wc -l < "$TOOL_LOG")" "$(count -x '[a-z]* unset unset 0' "$TOOL_LOG")"
+expect "retry_pushes_again: the tools never saw the token" "$(wc -l < "$TOOL_LOG")" "$(count -x '[a-z]* unset unset 0 0 yes closed' "$TOOL_LOG")"
 "$REAL_GIT" -C "$dir/origin.git" merge-base --is-ancestor "$("$REAL_GIT" -C "$OTHER" rev-parse HEAD)" gh-pages
 expect "retry_pushes_again: the deploy landed on top of the other one" 0 $?
 "$REAL_GIT" -C "$dir/origin.git" cat-file -e gh-pages:dev/index.html
@@ -152,20 +174,35 @@ expect "token_never_printed: the retry's output holds no token" 0 "$(grep -cF -e
 
 # Under `bash -x` the token is still never printed.
 setup xtrace
-PAGES_PUSH_TOKEN=$TOKEN deploy bash -x .github/scripts/deploy-docs.sh dev
+deploy bash -x .github/scripts/deploy-docs.sh dev 3<<< "$TOKEN"
 expect "token_never_printed: a traced run exits 0" 0 $?
 expect "token_never_printed: a traced run prints no token" 0 "$(grep -cF -e "$TOKEN" -e "$AUTH" "$dir/out")"
 
-# A push run without a token refuses before mike runs.
+# A push run with file descriptor 3 closed, or empty, refuses before mike runs, even when the
+# token is in its environment, which the script never reads.
+missing="deploy-docs: a push run reads its token from file descriptor 3, which is empty or closed (the docs.yml deploy step writes the workflow's GITHUB_TOKEN there); --no-push builds without it"
 setup missing
 before=$(origin_pages)
-PAGES_PUSH_TOKEN="" deploy .github/scripts/deploy-docs.sh dev
-expect "missing_token_refuses: exits 1" 1 $?
-expect "missing_token_refuses: the message" \
-  "deploy-docs: a push run needs PAGES_PUSH_TOKEN (the workflow's GITHUB_TOKEN); --no-push builds without it" \
-  "$(cat "$dir/out")"
+PAGES_PUSH_TOKEN=$TOKEN deploy .github/scripts/deploy-docs.sh dev 3<&-
+expect "missing_token_refuses: closed fd 3 exits 1" 1 $?
+expect "missing_token_refuses: closed fd 3, the message" "$missing" "$(cat "$dir/out")"
+deploy .github/scripts/deploy-docs.sh dev 3< /dev/null
+expect "missing_token_refuses: empty fd 3 exits 1" 1 $?
+expect "missing_token_refuses: empty fd 3, the message" "$missing" "$(cat "$dir/out")"
 expect "missing_token_refuses: mike never ran" 0 "$(wc -l < "$TOOL_LOG")"
 expect "missing_token_refuses: origin's gh-pages did not move" "$before" "$(origin_pages)"
+
+# When the header cannot be built, nothing is pushed and the run says why.
+setup nobase64
+mkdir -p "$dir/bin"
+printf '#!/usr/bin/env bash\nexit 1\n' > "$dir/bin/base64"
+chmod +x "$dir/bin/base64"
+before=$(origin_pages)
+PATH="$dir/bin:$PATH" deploy .github/scripts/deploy-docs.sh dev 3<<< "$TOKEN"
+expect "a failed base64 fails the run" 1 $?
+expect "a failed base64 is named" 1 "$(count -x "deploy-docs: could not encode the push token for the Authorization header (base64 failed); nothing was pushed" "$dir/out")"
+expect "a failed base64 pushes nothing" 0 "$(count '^push ' "$GIT_LOG")"
+expect "a failed base64 leaves origin's gh-pages alone" "$before" "$(origin_pages)"
 
 # --no-push needs no token, pushes nothing and moves only the local gh-pages.
 setup nopush

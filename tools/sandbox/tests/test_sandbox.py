@@ -342,6 +342,18 @@ class Arguments(World):
         self.assertEqual(len(result.stderr.splitlines()), 1)
         self.assertFalse(self.runs())
 
+    def test_a_git_error_of_several_lines_is_refused_in_one(self):
+        # git outside a checkout may add a second line, such as the filesystem boundary note.
+        failed = subprocess.CompletedProcess([], 128, b"", b"fatal: not a git repository\nStopping at filesystem boundary.\n")
+        with mock.patch.object(layout.subprocess, "run", return_value=failed):
+            with self.assertRaises(layout.SandboxError) as caught:
+                layout.git_run(self.tmp, "ls-files")
+        self.assertEqual(
+            str(caught.exception),
+            f"git ls-files failed in {self.tmp}; the sandbox needs a git checkout: "
+            "fatal: not a git repository; Stopping at filesystem boundary.",
+        )
+
     def test_masks_only_what_exists(self):
         checkout = self.checkout("c", "Makefile")
         for phase in arguments.Phase:

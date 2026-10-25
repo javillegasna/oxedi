@@ -84,16 +84,21 @@ def outermost(paths: set[str]) -> set[str]:
     return {p for p in paths if not inside(p, paths)}
 
 
+def one_line(lines: list[str]) -> str:
+    """Lines of a tool's stderr as one line, so a refusal stays the one line the runner prints."""
+    return "; ".join(line.strip() for line in lines if line.strip())
+
+
 def git_run(root: Path, *args: str) -> tuple[list[str], list[str]]:
     """The NUL-separated records `git <command> -z <options>` prints in `root`, and the lines of its
     stderr. `-z` follows the command, so a pathspec after `--` may end the arguments."""
     command, *options = args
     result = subprocess.run(["git", "-C", str(root), command, "-z", *options], capture_output=True, check=False)
-    stderr = os.fsdecode(result.stderr).strip()
+    stderr = os.fsdecode(result.stderr).strip().splitlines()
     if result.returncode != 0:
-        raise SandboxError(f"git {' '.join(args)} failed in {root}; the sandbox needs a git checkout: {stderr}")
+        raise SandboxError(f"git {' '.join(args)} failed in {root}; the sandbox needs a git checkout: {one_line(stderr)}")
     records = [os.fsdecode(record) for record in result.stdout.split(b"\0") if record]
-    return records, stderr.splitlines()
+    return records, stderr
 
 
 def git_records(root: Path, *args: str) -> list[str]:
@@ -118,7 +123,7 @@ def declared_submodules(root: Path) -> set[str]:
     result = subprocess.run(command, capture_output=True, check=False)
     # Exit 1: no submodule.<name>.path key at all.
     if result.returncode not in (0, 1):
-        raise SandboxError(f"git cannot read {root / '.gitmodules'}: {os.fsdecode(result.stderr).strip()}")
+        raise SandboxError(f"git cannot read {root / '.gitmodules'}: {one_line(os.fsdecode(result.stderr).splitlines())}")
     paths = {os.fsdecode(record).partition("\n")[2] for record in result.stdout.split(b"\0") if record}
     outside = sorted(filter(escapes, paths))
     if outside:

@@ -21,3 +21,16 @@ Rust, Python and JS function with a pinned lizard and compares them with
 `make complexity-update` run it. `complexity-baseline-diff.sh` reports, on a pull request, the
 baseline entries the change adds or raises. `tests/complexity.sh` checks the comparison on
 hand-written measurements. CONTRIBUTING.md (Complexity) explains the targets and the baseline.
+
+## sandbox
+
+The container `make sandbox` builds and tests in. `Dockerfile` is the pinned image. `sandbox.py`
+is the runner; its parts are `layout.py` (which paths are read-only, masked or hidden),
+`storage.py` (the storage on the host and `make sandbox-clean`), `arguments.py` (the `docker run`
+arguments of each phase), `lifecycle.py` (the daemon, the limits, one container's run and kill)
+and `audit.py` (what a run changed or left in the checkout, and the record that blocks the next
+start until it is gone). `isolation-check.sh` runs inside the
+container for `make sandbox-check`. `tests/sandbox.sh` runs the runner's tests against a fake
+`docker` (`tests/fake_docker.py`), so they need no Docker; those that go through `make` run it
+over a throwaway copy of the make files, never over this checkout. CONTRIBUTING.md (Sandbox) explains
+how to use it.

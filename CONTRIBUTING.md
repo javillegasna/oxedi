@@ -360,6 +360,99 @@ make profile-py SCRIPT=crates/oxedi_py/scripts/profile_parse.py ARGS='FILE 300'
   of `crates/oxedi_py/pyproject.toml`. Neither reaches a published artifact: `make deps-check`
   proves it.
 
+## Sandbox
+
+`make sandbox` builds and tests this checkout inside a throwaway Docker container, so a build
+script, a test or a dependency cannot read your secrets, reach the network or change what you run
+afterwards. Use it for any command you would rather not run on your machine directly.
+
+```bash
+make sandbox CMD="make gates"     # any command; it runs with bash -c inside the container
+make sandbox CMD="make py-test"
+make sandbox-check                # prove the isolation from inside: every line says ok
+make sandbox-image                # build the image (make sandbox builds it when it is missing)
+make sandbox-clean                # remove this checkout's storage; ALL=1 removes all of it
+```
+
+`CMD` reaches the container's `bash -c` as written, with no other quoting layer; `$$` is a
+literal `$`.
+
+**What the container is.** A pinned image (`tools/sandbox/Dockerfile`: Ubuntu 24.04, the Rust
+version CI gates with as `ARG RUST_VERSION`, CPython 3.11 and 3.13, uv; no `git`), tagged with
+the hash of its Dockerfile. The container runs as you, with a read-only root, no capabilities, no new
+privileges, the default seccomp profile and limits on processes, memory and CPUs. It gets a fixed
+environment, never a variable of your shell, and no part of your home other than its own storage:
+no `~/.ssh`, `~/.pypirc`, `~/.config/gh`, Docker socket or the private samples.
+
+**Two phases.** Each run starts both, each in its own container:
+
+- *fetch*, with the network: the checkout read-only, the repository's `.cargo` masked and no
+  project code run. It runs `cargo fetch --locked` and installs wheels only (never an sdist)
+  into a fresh `.venv` from the `contributor` group of `crates/oxedi_py/pyproject.toml`. Without
+  the network it stops with one line; it never falls back to the caches offline.
+- *run*, with no network: your command, with the cargo registry read-only.
+
+**What stays read-only.** The files your host executes or trusts after a run are bound read-only
+over the checkout in both phases: `Makefile`, `make/`, `tools/`, `.cargo/`, `.github/`,
+`rust-toolchain.toml`, `Cargo.toml`, `Cargo.lock`, `CLAUDE.md`, `.claude/`,
+`crates/oxedi_py/pyproject.toml`, `.git`, `.gitmodules`, every submodule (the DuckDB targets
+include `extension-ci-tools`' makefiles), and every tracked `Cargo.toml`, `Cargo.lock`,
+`rust-toolchain`, `pyproject.toml`, `uv.toml`, `.python-version` and `.cargo/` anywhere. Every
+path git ignores is hidden: a directory behind an empty read-only mount, a file behind an empty
+read-only file, so a run cannot read a local `.env`. The sandbox's own outputs (`target/`,
+`.venv/`, Python caches, the built `_core*.so`) are the exception.
+
+**The audit.** Before the run the sandbox records what git sees and a fingerprint of every
+tracked and untracked file; after it, it prints every file that changed while the sandbox ran
+(the audit cannot tell whether the run or you wrote it), every new path the run left (and where a
+new symbolic link out of the checkout points) and every path it cannot read, and removes the
+Python caches and the built extension from the checkout. It exits 3 when a file changed, a new
+path appeared outside those outputs, a path could not be read or an output could not be removed,
+whatever the command's status: read `git status` and `git diff` before running anything from the
+checkout. Otherwise it exits with the command's status (124 past the timeout, 130 on Ctrl-C, 143
+on SIGTERM, 2 when it refuses to start); Ctrl-C and SIGTERM kill the container and run the audit
+first.
+
+A new path that host tools look up by name comes first in the report, with a line that says not
+to run `make` or any tool in the checkout until you remove it: `GNUmakefile` and `makefile` (make
+reads them before `Makefile`, so `make sandbox` itself would run them), a `*.py` at the root,
+`sitecustomize.py`, `usercustomize.py`, `conftest.py`, `.envrc`, `.cargo/` and `rust-toolchain*`.
+Every Python that `make/sandbox.mk` starts runs isolated (`python3 -I`), so a module left in the
+checkout never loads. A dirty audit is recorded in the checkout's storage, where no run can
+write, and the next run refuses to start (exit 2, naming the paths) while one of them is still as
+the run left it: remove or revert it, or add it with `git add` once you have reviewed it.
+`make sandbox-clean` forgets the record with the rest of the checkout's storage.
+
+Through `make`, the status shows in make's own line (`make: *** [make/sandbox.mk:...] Error 3`) and
+make exits 2. A script that tests the status calls the runner directly:
+`SANDBOX_CMD="make gates" python3 -I tools/sandbox/sandbox.py --image oxedi-sandbox:<hash> --checkout .`
+returns it as is (`make sandbox` prints the image tag in its first line).
+
+**Knobs.** `SANDBOX_CPUS` (default: the daemon's CPUs minus one), `SANDBOX_MEMORY` (GB; default
+60 % of the daemon's memory) and `SANDBOX_TIMEOUT` (seconds; default 3600), for example
+`make sandbox CMD="make gates" SANDBOX_MEMORY=8`. A run killed at the memory limit exits 137 and
+says how to raise it.
+
+**Storage.** `${XDG_CACHE_HOME:-~/.cache}/oxedi-sandbox/` holds the cargo registry and the uv
+cache, shared by every checkout, and one directory per checkout with its `target/` and `.venv`,
+so the sandbox never touches the `target/` and `.venv` you build on the host.
+`make sandbox-clean` removes this checkout's directory; `make sandbox-clean ALL=1` removes all of
+`oxedi-sandbox/`. Both refuse while a sandbox container that uses the storage runs.
+
+**Hosts.** A rootful Docker Engine on Linux, and Docker Desktop on Linux and macOS. A rootless
+daemon is refused. The image builds for amd64 and arm64, but the arm64 leg is untested. When the
+daemon lists the gVisor runtime (`runsc`), the sandbox uses it; otherwise `runc`. The line
+printed before each run names the runtime, the image and its Rust version, the limits, the
+storage and the read-only, masked and hidden paths.
+
+**What stays on the host.** Targets that need `git`, the network or tools the image does not
+hold: `make complexity`, `make py-test-nopyx12`, `make release-check`, the publishing targets,
+and the DuckDB, docs and viewer targets.
+
+**Bumping Rust.** When CI moves to a new Rust, change `ARG RUST_VERSION` in
+`tools/sandbox/Dockerfile`, run `make sandbox-image` (the new Dockerfile is a new tag), then run both
+gates: `make gates` on the host and `make sandbox CMD="make gates"`.
+
 ## Releases
 
 `make release-check TAG=v<version>` checks the tag, a clean tree and the changelog entry before

@@ -9,7 +9,7 @@ README_PY_RENDER := sed -E 's\#\]\(([^):\\\#][^):]*)\)\#](https://github.com/jav
 PY_TOOLS := maturin --group $(PY_PYPROJECT):test
 venv: ## create .venv with uv and the dev tools
 	uv venv $(VENV) --python 3.13
-	uv pip install --python $(PYTHON) $(PY_TOOLS) --group $(PY_PYPROJECT):profile mypy pandas-stubs pyarrow-stubs
+	uv pip install --python $(PYTHON) --group $(PY_PYPROJECT):contributor
 
 py-dev: ## build the extension into .venv (debug)
 	VIRTUAL_ENV=$(VENV) $(MATURIN) develop --uv --manifest-path $(PY_MANIFEST)

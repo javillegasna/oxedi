@@ -12,6 +12,7 @@ include make/duckdb.mk
 include make/docs.mk
 include make/viewer.mk
 include make/quality.mk
+include make/sandbox.mk
 include make/release.mk
 
 .PHONY: help gates

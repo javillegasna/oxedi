@@ -91,7 +91,7 @@ sandbox-pr: ## test a pull request (PR=N [HEAD=1]) or a ref (REF=<name>) in the 
 # The host home path is an argument, so the check proves that path is not mounted. IMAGE=viewer
 # checks the viewer image; IMAGE reaches the inner make as a command-line variable, through MAKEFLAGS.
 sandbox-check: ## prove the sandbox's isolation from inside it: every line of tools/sandbox/isolation-check.sh says ok [IMAGE=viewer]
-	@$(call SANDBOX_REFUSE,sandbox)
+	@$(call SANDBOX_REFUSE,sandbox-check)
 	@$(MAKE) --no-print-directory sandbox CMD='bash $(SANDBOX_DIR)/isolation-check.sh "$(HOME)"'
 
 # The planted change lives only on a local branch of a temporary clone, removed at the end.

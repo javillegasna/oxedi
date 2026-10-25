@@ -791,6 +791,11 @@ class Images(World):
         pr = self.make(checkout, "sandbox-pr", "REF=x", "IMAGE=Viewer")
         self.assertEqual(pr.stderr.splitlines()[0], "sandbox-pr: IMAGE must be base or viewer, not 'Viewer'")
         self.assertEqual(self.calls(), [])
+        check = self.make(checkout, "sandbox-check", IMAGE="viewer")
+        self.assertEqual(check.stderr.splitlines()[0],
+                         "sandbox-check: IMAGE is read from the command line only; "
+                         "pass it as make sandbox-check IMAGE=viewer")
+        self.assertEqual(self.calls(), [])
 
         runs = {}
         for args in ([], ["IMAGE=base"]):

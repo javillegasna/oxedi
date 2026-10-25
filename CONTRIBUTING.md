@@ -338,11 +338,14 @@ the docs deploy hands its token to `git push` alone. `.github/scripts/lint.sh` r
 [zizmor](https://docs.zizmor.sh) over the workflows and composite actions, so an unpinned
 action, a template injection or a stored credential fails the Workflows area. When a finding
 cannot be fixed without changing what the job does, ignore it on the line it names, with the
-reason after the rule: `# zizmor: ignore[github-env] why the step is safe`. A change to the
+reason after the rule: `# zizmor: ignore[github-env] why the step is safe`. The only rule
+switched off for the whole repository is `self-repository`, in `.github/zizmor.yml`, with its
+reason. A change to the
 build, CI or dependency files (`Makefile`, `make/`, `.github/`, `tools/`, the `Cargo.toml`,
 `Cargo.lock`, `pyproject.toml`, `build.rs` and `rust-toolchain.toml` files and
 `docs/requirements.txt`) needs the code owner's review, as `.github/CODEOWNERS` says. Dependabot
-refreshes the pinned actions every week.
+refreshes the pinned actions every week and proposes a release only after it has been out for
+seven days (a cooldown).
 
 `CI result` is the one check to require: it fails when an area failed or was cancelled and
 passes when each one passed or was not needed. Caches are written only from `master`;

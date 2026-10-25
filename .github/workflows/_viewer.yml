@@ -17,18 +17,18 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
-      - uses: ./.github/actions/setup-rust # zizmor: ignore[self-repository] actionlint rejects the $/ form
+      - uses: ./.github/actions/setup-rust
         with:
           targets: wasm32-unknown-unknown
           cache-key: viewer
-      - uses: ./.github/actions/setup-uv # zizmor: ignore[self-repository] actionlint rejects the $/ form
+      - uses: ./.github/actions/setup-uv
         with:
           cache-suffix: viewer
       - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
           node-version: 24
       - name: wasm-bindgen CLI (the version Cargo.lock resolves) and wasm-opt
-        uses: ./.github/actions/wasm-tools # zizmor: ignore[self-repository] actionlint rejects the $/ form
+        uses: ./.github/actions/wasm-tools
       - name: Clippy on the WebAssembly target
         run: cargo clippy -p oxedi_core -p oxedi_wasm --target wasm32-unknown-unknown --locked -- -D warnings
       - name: Build the module
@@ -37,7 +37,7 @@ jobs:
         run: make wasm-size-check
       # The docs environment holds Playwright; the browser is cached by Playwright's version and
       # written only from master.
-      - uses: ./.github/actions/docs-venv # zizmor: ignore[self-repository] actionlint rejects the $/ form
+      - uses: ./.github/actions/docs-venv
       - name: Playwright version
         id: playwright
         run: |

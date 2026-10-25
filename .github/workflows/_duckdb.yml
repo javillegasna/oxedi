@@ -44,14 +44,14 @@ jobs:
           esac
           echo "test_version=$test_version" >> "$GITHUB_OUTPUT"
           echo "pip=$pip" >> "$GITHUB_OUTPUT"
-      - uses: ./.github/actions/setup-rust # zizmor: ignore[self-repository] actionlint rejects the $/ form
+      - uses: ./.github/actions/setup-rust
         with:
           cache-key: duckdb-${{ matrix.leg }}
           # The extension builds into its own target directory (its Makefile sets CARGO_TARGET_DIR).
           workspaces: |
             . -> target
             crates/oxedi_duckdb -> crates/oxedi_duckdb/target
-      - uses: ./.github/actions/setup-uv # zizmor: ignore[self-repository] actionlint rejects the $/ form
+      - uses: ./.github/actions/setup-uv
         with:
           python-version: "3.13"
           cache-suffix: duckdb-${{ matrix.leg }}

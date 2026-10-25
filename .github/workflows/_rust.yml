@@ -16,7 +16,7 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
-      - uses: ./.github/actions/setup-rust # zizmor: ignore[self-repository] actionlint rejects the $/ form
+      - uses: ./.github/actions/setup-rust
         with:
           components: clippy, rustfmt
           cache-key: lint
@@ -34,7 +34,7 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
-      - uses: ./.github/actions/setup-rust # zizmor: ignore[self-repository] actionlint rejects the $/ form
+      - uses: ./.github/actions/setup-rust
         with:
           cache-key: test
       - name: Build
@@ -45,7 +45,7 @@ jobs:
         run: cargo bench --workspace --no-run --locked
       - name: Normal dependencies of the published crates
         run: make deps-check
-      - uses: ./.github/actions/setup-uv # zizmor: ignore[self-repository] actionlint rejects the $/ form
+      - uses: ./.github/actions/setup-uv
         with:
           python-version: "3.13"
       - name: Stub drift

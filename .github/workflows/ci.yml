@@ -145,19 +145,19 @@ jobs:
     name: Rust
     needs: changes
     if: needs.changes.outputs.rust == 'true'
-    uses: ./.github/workflows/_rust.yml # zizmor: ignore[self-repository] actionlint rejects the $/ form
+    uses: ./.github/workflows/_rust.yml
 
   python:
     name: Python
     needs: changes
     if: needs.changes.outputs.python == 'true' && !github.event.pull_request.draft
-    uses: ./.github/workflows/_python.yml # zizmor: ignore[self-repository] actionlint rejects the $/ form
+    uses: ./.github/workflows/_python.yml
 
   duckdb:
     name: DuckDB
     needs: changes
     if: needs.changes.outputs.duckdb == 'true' && !github.event.pull_request.draft
-    uses: ./.github/workflows/_duckdb.yml # zizmor: ignore[self-repository] actionlint rejects the $/ form
+    uses: ./.github/workflows/_duckdb.yml
     with:
       # `next` (DuckDB's pre-release) runs in nightly.yml.
       legs: '["stable", "latest"]'
@@ -166,19 +166,19 @@ jobs:
     name: Docs
     needs: changes
     if: needs.changes.outputs.docs == 'true' && !github.event.pull_request.draft
-    uses: ./.github/workflows/_docs.yml # zizmor: ignore[self-repository] actionlint rejects the $/ form
+    uses: ./.github/workflows/_docs.yml
 
   viewer:
     name: Viewer
     needs: changes
     if: needs.changes.outputs.viewer == 'true' && !github.event.pull_request.draft
-    uses: ./.github/workflows/_viewer.yml # zizmor: ignore[self-repository] actionlint rejects the $/ form
+    uses: ./.github/workflows/_viewer.yml
 
   workflows:
     name: Workflows
     needs: changes
     if: needs.changes.outputs.workflows == 'true' && !github.event.pull_request.draft
-    uses: ./.github/workflows/_lint.yml # zizmor: ignore[self-repository] actionlint rejects the $/ form
+    uses: ./.github/workflows/_lint.yml
 
   ci-result:
     name: CI result

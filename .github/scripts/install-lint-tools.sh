@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
-# Installs actionlint, shellcheck and zizmor (prebuilt, Linux x86_64) into ~/.local/bin, and puts that on
-# the PATH of the following GitHub Actions steps. Each download is checked against a pinned
-# SHA-256; bumping a version means bumping its checksum here too.
+# Installs actionlint, shellcheck and zizmor (prebuilt, Linux x86_64) into ~/.local/bin, and puts
+# that on the PATH of the following GitHub Actions steps. Each download is checked against a
+# pinned SHA-256; bumping a version means bumping its checksum here too.
 set -euo pipefail
 
 ACTIONLINT_VERSION="1.7.12"

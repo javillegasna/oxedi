@@ -17,26 +17,26 @@ permissions:
 jobs:
   rust:
     name: Rust
-    uses: ./.github/workflows/_rust.yml # zizmor: ignore[self-repository] actionlint rejects the $/ form
+    uses: ./.github/workflows/_rust.yml
 
   python:
     name: Python
-    uses: ./.github/workflows/_python.yml # zizmor: ignore[self-repository] actionlint rejects the $/ form
+    uses: ./.github/workflows/_python.yml
 
   duckdb:
     name: DuckDB
-    uses: ./.github/workflows/_duckdb.yml # zizmor: ignore[self-repository] actionlint rejects the $/ form
+    uses: ./.github/workflows/_duckdb.yml
     with:
       legs: '["stable", "latest", "next"]'
 
   docs:
     name: Docs
-    uses: ./.github/workflows/_docs.yml # zizmor: ignore[self-repository] actionlint rejects the $/ form
+    uses: ./.github/workflows/_docs.yml
 
   viewer:
     name: Viewer
-    uses: ./.github/workflows/_viewer.yml # zizmor: ignore[self-repository] actionlint rejects the $/ form
+    uses: ./.github/workflows/_viewer.yml
 
   workflows:
     name: Workflows
-    uses: ./.github/workflows/_lint.yml # zizmor: ignore[self-repository] actionlint rejects the $/ form
+    uses: ./.github/workflows/_lint.yml

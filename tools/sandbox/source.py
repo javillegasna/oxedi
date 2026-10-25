@@ -128,13 +128,17 @@ def failure(result: subprocess.CompletedProcess[bytes]) -> str:
     return one_line(os.fsdecode(result.stderr).splitlines())
 
 
-def git_text(root: Path, *args: str, local_source: bool = False) -> str:
-    """The output of an isolated git that must succeed, stripped; a failure is refused with git's
-    own reason."""
+def git_bytes(root: Path, *args: str, local_source: bool = False) -> bytes:
+    """The output of an isolated git that must succeed; a failure is refused with git's own
+    reason."""
     result = isolated_git(root, *args, local_source=local_source)
     if result.returncode != 0:
         raise SandboxError(f"git {' '.join(args)} failed in {root}: {failure(result)}")
-    return os.fsdecode(result.stdout).strip()
+    return result.stdout
+
+
+def git_text(root: Path, *args: str, local_source: bool = False) -> str:
+    return os.fsdecode(git_bytes(root, *args, local_source=local_source)).strip()
 
 
 def github_https(origin_url: str) -> str:

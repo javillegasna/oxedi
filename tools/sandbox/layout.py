@@ -79,6 +79,12 @@ def covered(path: str, outers: set[str]) -> bool:
     return path in outers or inside(path, outers)
 
 
+def prefixes(path: str) -> tuple[PurePosixPath, ...]:
+    """Each step of a relative path, outermost first: `a`, `a/b`, `a/b/c` for `a/b/c`."""
+    relative = PurePosixPath(path)
+    return (*reversed(relative.parents[:-1]), relative)
+
+
 def outermost(paths: set[str]) -> set[str]:
     """The paths that are not inside another one of them: an outer mount already covers them."""
     return {p for p in paths if not inside(p, paths)}

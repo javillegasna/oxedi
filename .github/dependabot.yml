@@ -6,7 +6,7 @@ updates:
     # The workflows, and the composite actions they call.
     directories: ["/", "/.github/actions/*"]
     schedule:
-      interval: monthly
+      interval: weekly
     groups:
       actions:
         patterns: ["*"]

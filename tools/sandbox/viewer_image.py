@@ -25,9 +25,11 @@ INSTALL_TOOLS = "crates/oxedi_wasm/scripts/install_tools.sh"
 DOCS_REQUIREMENTS = "docs/requirements.txt"
 PLAYWRIGHT_LOCK = "tools/sandbox/playwright.txt"
 DOCKERFILE = "tools/sandbox/Dockerfile.viewer"
+# This file: the Dockerfile copies it into the build and runs its tree-digest.
+VIEWER_IMAGE = "tools/sandbox/viewer_image.py"
 IMAGE_REPOSITORY = "oxedi-sandbox-viewer"
 # Read, in this order, by the tag; each one is an input of the build.
-TAG_INPUTS = (DOCKERFILE, PLAYWRIGHT_LOCK, INSTALL_TOOLS)
+TAG_INPUTS = (DOCKERFILE, PLAYWRIGHT_LOCK, INSTALL_TOOLS, VIEWER_IMAGE)
 # Playwright's own markers, written after an install; they are not part of the browser.
 TREE_MARKERS = frozenset({"INSTALLATION_COMPLETE", "DEPENDENCIES_VALIDATED"})
 PLAYWRIGHT_LINE = re.compile(r"^playwright==(\S+?)(?:\s*[;\\].*)?$", re.MULTILINE)

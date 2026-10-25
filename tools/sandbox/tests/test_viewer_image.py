@@ -28,6 +28,7 @@ def tree(lock: str = "1.63.0", docs: str = "1.63.0") -> Path:
     write(root, viewer_image.DOCS_REQUIREMENTS, f"playwright=={docs}\n    # via pytest-playwright\n")
     write(root, viewer_image.INSTALL_TOOLS, (REPO / viewer_image.INSTALL_TOOLS).read_text())
     write(root, viewer_image.DOCKERFILE, "FROM base\n")
+    write(root, viewer_image.VIEWER_IMAGE, "# the module\n")
     return root
 
 
@@ -101,7 +102,7 @@ class Tag(unittest.TestCase):
             path.write_text(text + "\n#")
             tags.add(viewer_image.tag(root, "oxedi-sandbox:abc"))
             path.write_text(text)
-        self.assertEqual(len(tags), 4)
+        self.assertEqual(len(tags), 5)
         self.assertNotIn(original, tags)
         self.assertEqual(viewer_image.tag(root, "oxedi-sandbox:abc"), original)
 

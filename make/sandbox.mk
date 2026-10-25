@@ -12,8 +12,8 @@ SANDBOX_PY    := $(PYTHON_BIN) -I
 # two files the build reads (the Dockerfile COPYs pip-audit.txt), so a change to either is a new tag.
 SANDBOX_HASH   = $(shell $(SANDBOX_PY) -c "import hashlib, pathlib; print(hashlib.sha256(b''.join(pathlib.Path('$(SANDBOX_DIR)/' + n).read_bytes() for n in ('Dockerfile', 'pip-audit.txt'))).hexdigest()[:12])")
 SANDBOX_IMAGE  = oxedi-sandbox:$(SANDBOX_HASH)
-# The viewer image is built on the base one: its tag follows the base tag, its Dockerfile, playwright.txt
-# and install_tools.sh (tools/sandbox/viewer_image.py derives it and the wasm and Playwright pins).
+# The viewer image is built on the base one: its tag follows the base tag, its Dockerfile, playwright.txt,
+# install_tools.sh and viewer_image.py (that file derives the tag and the wasm and Playwright pins).
 SANDBOX_VIEWER_IMAGE = $(shell $(SANDBOX_PY) $(SANDBOX_DIR)/viewer_image.py tag --root $(CURDIR) --base $(SANDBOX_IMAGE))
 SANDBOX_DOCKER_ARCH  = $(shell docker version --format '{{.Server.Arch}}' 2> /dev/null)
 

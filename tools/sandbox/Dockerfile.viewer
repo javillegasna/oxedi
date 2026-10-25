@@ -4,8 +4,8 @@
 # (playwright.txt), and the Chromium it installs by the SHA-256 of its installed tree. The wasm
 # and Playwright arguments come from `make sandbox-image-viewer` (viewer_image.py reads them from
 # the repository); the image never runs install_tools.sh. The tag is
-# oxedi-sandbox-viewer:<first 12 hex of sha256 of the base tag, this file, playwright.txt and
-# install_tools.sh>.
+# oxedi-sandbox-viewer:<first 12 hex of sha256 of the base tag, this file, playwright.txt,
+# install_tools.sh and viewer_image.py>.
 # No usable default: a build without --build-arg BASE_IMAGE fails on this name.
 ARG BASE_IMAGE=oxedi-sandbox:pass-BASE_IMAGE-with-make-sandbox-image-viewer
 FROM ${BASE_IMAGE}

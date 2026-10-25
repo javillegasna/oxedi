@@ -35,8 +35,10 @@ import shutil
 import signal
 import sys
 import time
+from collections.abc import Callable
 from dataclasses import dataclass
 from pathlib import Path
+from typing import TypeVar
 
 # Isolated mode leaves the script's own directory out of sys.path; tools/ is read-only in a run.
 sys.path.insert(0, str(Path(__file__).resolve().parent))
@@ -45,7 +47,7 @@ from arguments import Limits, Phase, Runtime, docker_args, fetch_commands, run_c
 from audit import DIRTY_STATUS, Findings, Snapshot, audit, record, refuse_leftovers, report, snapshot  # noqa: E402
 from layout import Checkout, SandboxError, container_name, path_hash, survey  # noqa: E402
 from lifecycle import (  # noqa: E402
-    daemon_info, explain, image_labels, limits_from, refuse_if_running, run_container, running,
+    DaemonInfo, daemon_info, explain, image_labels, limits_from, refuse_if_running, run_container, running,
 )
 from storage import Storage, cache_root, clean, empty_dir, prepare, storage_for  # noqa: E402
 
@@ -139,12 +141,15 @@ def conclude(before: Snapshot, plan: Plan) -> Findings:
     return findings
 
 
-def audited(plan: Plan, command: str) -> int:
-    """Runs both phases, then audits the checkout, also after a stop signal or any other error.
-    When that audit fails too, its error is printed and the first one is raised."""
+Result = TypeVar("Result")
+
+
+def audited(plan: Plan, work: Callable[[], Result]) -> tuple[Result, Findings]:
+    """Runs `work` (the containers), then audits the checkout, also after a stop signal or any
+    other error. When that audit fails too, its error is printed and the first one is raised."""
     before = snapshot(plan.checkout.root)
     try:
-        status = phases(plan, command)
+        result = work()
     except BaseException:
         try:
             conclude(before, plan)
@@ -152,19 +157,24 @@ def audited(plan: Plan, command: str) -> int:
             print(f"sandbox: the audit failed as well, so review the checkout with git status and git diff: {failed}",
                   file=sys.stderr)
         raise
-    return DIRTY_STATUS if conclude(before, plan).dirty else status
+    return result, conclude(before, plan)
 
 
-def sandbox(image: str, checkout_dir: Path, env: dict[str, str]) -> int:
-    command = env.get("SANDBOX_CMD", "").strip()
-    if not command:
-        raise SandboxError('no command: set CMD, for example make sandbox CMD="make gates"')
+def checked_daemon() -> DaemonInfo:
+    """The Docker daemon's details; a missing or rootless daemon is refused."""
     info = daemon_info()
     if info.rootless:
         raise SandboxError(
             "refused: the Docker daemon is rootless (name=rootless in docker info); "
             "use a rootful Docker Engine or Docker Desktop"
         )
+    return info
+
+
+def ready(image: str, checkout_dir: Path, env: dict[str, str], info: DaemonInfo) -> Plan:
+    """The plan for a checkout, once nothing refuses it: the image exists, no container of the
+    checkout runs and no path of its last dirty audit is left. Its storage is made and the plan
+    printed."""
     runtime = Runtime.RUNSC if Runtime.RUNSC.value in info.runtimes else Runtime.RUNC
     checkout = survey(checkout_dir)
     plan = Plan(image, checkout, storage_for(cache_root(env), checkout), runtime, limits_from(env, info))
@@ -173,7 +183,16 @@ def sandbox(image: str, checkout_dir: Path, env: dict[str, str]) -> int:
     refuse_leftovers(checkout.root, plan.storage.record)
     prepare(plan.storage, checkout)
     print(describe(plan, labels), file=sys.stderr)
-    return audited(plan, command)
+    return plan
+
+
+def sandbox(image: str, checkout_dir: Path, env: dict[str, str]) -> int:
+    command = env.get("SANDBOX_CMD", "").strip()
+    if not command:
+        raise SandboxError('no command: set CMD, for example make sandbox CMD="make gates"')
+    plan = ready(image, checkout_dir, env, checked_daemon())
+    status, findings = audited(plan, lambda: phases(plan, command))
+    return DIRTY_STATUS if findings.dirty else status
 
 
 def clean_storage(everything: bool, checkout_dir: Path, env: dict[str, str]) -> int:

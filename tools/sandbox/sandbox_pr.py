@@ -1,0 +1,383 @@
+#!/usr/bin/env python3
+"""Tests someone else's change in the sandbox: a pull request fetched from GitHub, or a ref of the
+host checkout, without running any of it on the host.
+
+The flow: a throwaway clone made with git isolated from the host's configuration; a risk report
+made from the diff alone (the paths that let a change run code or steer a tool, and the packages
+it adds or changes); cargo-deny over its Cargo.lock in an audit container; a confirmation when
+something is flagged or cargo-deny failed; the fetch; pip-audit over the wheels the fetch
+installed, and a second confirmation when it failed; then the target in the run phase, with no
+network, and the audit of the clone. A text and a JSON report go next to the clone, in
+${XDG_CACHE_HOME:-~/.cache}/oxedi-sandbox/prs/<id>-<sha12>/. Nothing is published.
+
+The rules come from the checkout that runs this script, never from the change: this script and
+the modules beside it, the sensitive-path list and the cargo-deny policy (deny.toml, bound
+read-only into the audit container). Every git command of this process runs without the host's
+global and system configuration, hooks, attributes file or file transport.
+
+usage: sandbox_pr.py --image TAG --checkout DIR
+The change comes from SANDBOX_PR (a pull request number; SANDBOX_HEAD=1 tests its head instead of
+its merge ref) or SANDBOX_REF (a ref of the host checkout). SANDBOX_TARGET is the command (default
+`make gates && make py-test`); SANDBOX_CONFIRM=yes answers every confirmation. SANDBOX_SOURCE, for
+tests, names another git checkout to clone from. The limits are those of sandbox.py.
+Exit status: as sandbox.py (the command's, 2 refused, 3 dirty audit, 124 timeout, 130 and 143 on a
+signal), the fetch's when the fetch failed, and 4 when a confirmation was needed and not given.
+"""
+
+import argparse
+import json
+import os
+import re
+import signal
+import subprocess
+import sys
+from collections.abc import MutableMapping
+from dataclasses import asdict, dataclass
+from enum import Enum
+from pathlib import Path
+
+# Isolated mode leaves the script's own directory out of sys.path; tools/ is read-only in a run.
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+
+from arguments import Phase, audit_commands  # noqa: E402
+from audit import DIRTY_STATUS  # noqa: E402
+from layout import SandboxError, container_name  # noqa: E402
+from lifecycle import refuse_if_running, run_container  # noqa: E402
+from risk import PackageDiff, Touched, dependency_diffs, flagged, touched  # noqa: E402
+from sandbox import (  # noqa: E402
+    STOP_SIGNALS, Plan, Stopped, audited, checked_daemon, fetch_phase, ready, run_phase, stop,
+)
+from source import GIT_ENV, GIT_OPTIONS, Change, Request, clone, isolated_git  # noqa: E402
+from storage import cache_root, clean, forget, reviews  # noqa: E402
+
+NOT_CONFIRMED_STATUS = 4
+DEFAULT_TARGET = "make gates && make py-test"
+AUDIT_BUDGET_S = 600
+# --attr-source, which lets the diff read no attributes of the change, came with git 2.40.
+GIT_MINIMUM = (2, 40)
+GIT_VERSION = re.compile(r"git version (\d+)\.(\d+)")
+YES = ("y", "yes")
+
+
+class Confirmed(Enum):
+    """How the run was allowed to go on, in the order that wins when two confirmations differ."""
+
+    REFUSED = "refused"
+    TTY = "tty"
+    ENV = "env"
+    NOT_NEEDED = "not needed"
+
+
+def combined(answers: list[Confirmed]) -> Confirmed:
+    return next((answer for answer in Confirmed if answer in answers), Confirmed.NOT_NEEDED)
+
+
+@dataclass(frozen=True)
+class Settings:
+    """What the variables ask for, checked before any git command."""
+
+    request: Request
+    target: str
+    confirm: bool
+
+    @staticmethod
+    def parse(env: dict[str, str]) -> "Settings":
+        confirm = env.get("SANDBOX_CONFIRM", "")
+        if confirm not in ("", "yes"):
+            raise SandboxError(f'CONFIRM must be yes or unset, got "{confirm}"')
+        request = Request.parse(env)
+        return Settings(request, env.get("SANDBOX_TARGET", "").strip() or DEFAULT_TARGET, confirm == "yes")
+
+
+@dataclass(frozen=True)
+class Risk:
+    """What the diff alone says about a change."""
+
+    touched: tuple[Touched, ...]
+    cargo: PackageDiff
+    python: PackageDiff
+
+    @property
+    def flagged(self) -> bool:
+        return flagged(list(self.touched), self.cargo, self.python)
+
+
+@dataclass(frozen=True)
+class Tool:
+    """An audit tool's exit status and everything it printed."""
+
+    status: int
+    output: str
+
+
+@dataclass(frozen=True)
+class Ran:
+    """The target the run phase ran, its exit status and the audit's lines about the clone."""
+
+    target: str
+    status: int
+    audit: tuple[str, ...]
+
+
+@dataclass(frozen=True)
+class Progress:
+    """How far the containers went. `pip_audit` is absent when the flow stopped before the fetch
+    or the fetch failed; `ran` is false when the run phase never started."""
+
+    status: int
+    cargo_deny: Tool
+    pip_audit: Tool | None
+    answers: tuple[Confirmed, ...]
+    ran: bool
+
+
+@dataclass(frozen=True)
+class Report:
+    request: Request
+    change: Change
+    risk: Risk
+    outcome: Progress
+    run: Ran | None
+    image: str
+    runtime: str
+
+
+def git_isolation(environ: MutableMapping[str, str]) -> None:
+    """Drops the host's GIT_ variables from `environ` and sets source.py's isolation there, its
+    `-c` options as GIT_CONFIG_COUNT pairs, so every git this process starts (the survey and the
+    audit of the clone too) runs without the host's configuration, hooks or attributes file."""
+    for name in [name for name in environ if name.startswith("GIT_")]:
+        del environ[name]
+    pairs = [option.partition("=") for flag, option in zip(GIT_OPTIONS[::2], GIT_OPTIONS[1::2]) if flag == "-c"]
+    environ.update(GIT_ENV, GIT_CONFIG_COUNT=str(len(pairs)))
+    for index, (key, _, value) in enumerate(pairs):
+        environ.update({f"GIT_CONFIG_KEY_{index}": key, f"GIT_CONFIG_VALUE_{index}": value})
+
+
+def require_git() -> None:
+    try:
+        result = subprocess.run(["git", "version"], capture_output=True, text=True, check=False)
+    except FileNotFoundError as error:
+        raise SandboxError("git was not found on PATH; sandbox-pr needs git 2.40 or later") from error
+    found = result.stdout.strip() or result.stderr.strip()
+    match = GIT_VERSION.match(found)
+    if match is None:
+        raise SandboxError(f'cannot read the git version from "{found}"; sandbox-pr needs git 2.40 or later')
+    if (int(match[1]), int(match[2])) < GIT_MINIMUM:
+        raise SandboxError(f"needs git 2.40 or later (for --attr-source), found {found}")
+
+
+def top_level(path: Path) -> str:
+    """The top directory of the git checkout that holds `path`; empty when none does."""
+    result = isolated_git(path, "rev-parse", "--show-toplevel")
+    return os.fsdecode(result.stdout).strip() if result.returncode == 0 else ""
+
+
+def source_checkout(host: Path, env: dict[str, str]) -> Path:
+    """The checkout the clone is made from: the host's, or SANDBOX_SOURCE when a test names another
+    one, which must be the top of a git checkout."""
+    named = env.get("SANDBOX_SOURCE", "")
+    if not named:
+        return host
+    path = Path(named).resolve()
+    if not (path.is_dir() and top_level(path) == str(path)):
+        raise SandboxError(f'SOURCE must be the top directory of a git checkout, got "{named}"')
+    return path
+
+
+def fresh_clone(cache: Path, source: Path, request: Request) -> tuple[Change, Path]:
+    """Clones the change into `prs/.<id>-incoming`, then, once the tested commit is known, removes
+    the old `prs/<id>-<sha12>/` with its storage and moves the clone there as `checkout/`."""
+    root = reviews(cache)
+    root.mkdir(mode=0o700, parents=True, exist_ok=True)
+    root = root.resolve()
+    incoming = root / f".{request.label}-incoming"
+    clean(incoming)
+    change = clone(source, request, incoming)
+    review = root / f"{change.label}-{change.tested[:12]}"
+    refuse_if_running(container_name(review / "checkout"))
+    forget(cache, review)
+    review.mkdir(mode=0o700)
+    incoming.rename(review / "checkout")
+    return change, review / "checkout"
+
+
+def assess(change: Change, root: Path) -> Risk:
+    paths = touched(change, root)
+    cargo, python = dependency_diffs(change, root, paths)
+    return Risk(tuple(paths), cargo, python)
+
+
+def audit_tool(plan: Plan, command: list[str]) -> Tool:
+    outcome = run_container(plan.argv(Phase.AUDIT, command), plan.checkout.name, AUDIT_BUDGET_S, capture=True)
+    output = outcome.output if not outcome.timed_out else f"ran past its {AUDIT_BUDGET_S} s budget and was killed"
+    return Tool(outcome.status, output)
+
+
+def confirm(needed: bool, why: str, settings: Settings) -> Confirmed:
+    """Asks on the terminal when a confirmation is needed and CONFIRM=yes did not give it; without
+    a terminal the answer is no."""
+    if not needed:
+        return Confirmed.NOT_NEEDED
+    if settings.confirm:
+        return Confirmed.ENV
+    if not sys.stdin.isatty():
+        print(f"sandbox-pr: {why}; there is no terminal to ask, so it stops with exit {NOT_CONFIRMED_STATUS}: "
+              "read the report, then set CONFIRM=yes to go on", file=sys.stderr)
+        return Confirmed.REFUSED
+    print(f"sandbox-pr: {why}. Go on? [y/N] ", end="", file=sys.stderr, flush=True)
+    answer = sys.stdin.readline().strip()
+    if answer.lower() in YES:
+        return Confirmed.TTY
+    print(f'sandbox-pr: not confirmed (answer "{answer}"), so it stops with exit {NOT_CONFIRMED_STATUS}',
+          file=sys.stderr)
+    return Confirmed.REFUSED
+
+
+def first_gate(risk: Risk, deny: Tool) -> tuple[bool, str]:
+    """Whether the fetch needs a confirmation, and why."""
+    found = (("the change touches what the report flags", risk.flagged), ("cargo-deny failed", deny.status != 0))
+    reasons = [reason for reason, applies in found if applies]
+    return bool(reasons), " and ".join(reasons)
+
+
+def stages(plan: Plan, risk: Risk, settings: Settings, risk_text: list[str]) -> Progress:
+    """The containers in order, each confirmation before what it guards: cargo-deny, the first
+    confirmation, the fetch, pip-audit, the second confirmation, the run. Each part of the report
+    is printed before the confirmation that rests on it."""
+    deny_command, pip_command = audit_commands()
+    plan.storage.advisory.mkdir(mode=0o700, parents=True, exist_ok=True)
+    deny = audit_tool(plan, deny_command)
+    print("\n".join(risk_text + tool_lines("cargo-deny", deny)), flush=True)
+    answers = (confirm(*first_gate(risk, deny), settings),)
+    if Confirmed.REFUSED in answers:
+        return Progress(NOT_CONFIRMED_STATUS, deny, None, answers, False)
+    fetched = fetch_phase(plan)
+    if fetched != 0:
+        return Progress(fetched, deny, None, answers, False)
+    pip = audit_tool(plan, pip_command)
+    print("\n".join(tool_lines("pip-audit", pip)), flush=True)
+    answers += (confirm(pip.status != 0, "pip-audit failed", settings),)
+    if Confirmed.REFUSED in answers:
+        return Progress(NOT_CONFIRMED_STATUS, deny, pip, answers, False)
+    return Progress(run_phase(plan, settings.target), deny, pip, answers, True)
+
+
+def describe_change(request: Request, change: Change) -> str:
+    if change.kind == "ref":
+        return f"ref {request.name}"
+    if change.merged:
+        return f"pull request {request.name} at its merge ref refs/pull/{request.name}/merge"
+    return f"pull request {request.name} at its head refs/pull/{request.name}/head (HEAD=1: not merged with its base)"
+
+
+def package_lines(title: str, diff: PackageDiff) -> list[str]:
+    rows = [f"  added {n} {new} ({source})" for n, _, new, source in diff.added]
+    rows += [f"  changed {n} {old} -> {new} ({source})" for n, old, new, source in diff.changed]
+    rows += [f"  removed {n} {old} ({source})" for n, old, _, source in diff.removed]
+    rows += [f"  cannot read: {error}" for error in diff.errors]
+    return [f"{title}:", *(rows or ["  none"])]
+
+
+def tool_lines(name: str, tool: Tool | None) -> list[str]:
+    if tool is None:
+        return [f"{name}: not run"]
+    return [f"{name}: exit {tool.status}", *(f"  {line}" for line in tool.output.splitlines())]
+
+
+def risk_lines(request: Request, change: Change, risk: Risk) -> list[str]:
+    flagged_paths = [t for t in risk.touched if t.kinds]
+    lines = [
+        f"sandbox-pr report: {describe_change(request, change)}",
+        f"tested {change.tested}, base {change.base}, head {change.head}",
+        f"touched paths: {len(risk.touched)}, flagged: {len(flagged_paths)}",
+    ]
+    for item in risk.touched:
+        lines.append(f"  {item.status} {item.path}")
+        lines += [f"      {kind.name}: {kind.why}" for kind in item.kinds]
+    lines += package_lines("Cargo.lock packages", risk.cargo)
+    lines += package_lines("declared Python packages", risk.python)
+    return lines + [f"flagged: {'yes' if risk.flagged else 'no'}"]
+
+
+def render(report: Report) -> list[str]:
+    outcome = report.outcome
+    run = report.run
+    run_lines = ["run: not run"] if run is None else [
+        f"run: {run.target}: exit {run.status}", *(f"  audit: {line}" for line in run.audit or ("clean",))]
+    return [
+        *risk_lines(report.request, report.change, report.risk),
+        *tool_lines("cargo-deny", outcome.cargo_deny),
+        *tool_lines("pip-audit", outcome.pip_audit),
+        f"confirmed: {combined(list(outcome.answers)).value}",
+        *run_lines,
+        f"image {report.image}, runtime {report.runtime}",
+    ]
+
+
+def packages_json(diff: PackageDiff) -> dict:
+    def rows(packages):
+        return [{"name": n, "old": old, "new": new, "source": source} for n, old, new, source in packages]
+    return {"added": rows(diff.added), "removed": rows(diff.removed), "changed": rows(diff.changed),
+            "errors": list(diff.errors)}
+
+
+def report_json(report: Report) -> dict:
+    outcome, run = report.outcome, report.run
+    return {
+        "change": asdict(report.change),
+        "touched": [{"path": t.path, "status": t.status, "kinds": [k.name for k in t.kinds]}
+                    for t in report.risk.touched],
+        "cargo": packages_json(report.risk.cargo),
+        "python": packages_json(report.risk.python),
+        "cargo_deny": asdict(outcome.cargo_deny),
+        "pip_audit": None if outcome.pip_audit is None else asdict(outcome.pip_audit),
+        "flagged": report.risk.flagged,
+        "confirmed": combined(list(outcome.answers)).value,
+        "run": None if run is None else {"target": run.target, "status": run.status, "audit": list(run.audit)},
+        "image": report.image,
+        "runtime": report.runtime,
+    }
+
+
+def write_reports(review: Path, report: Report) -> None:
+    (review / "report.txt").write_text("\n".join(render(report)) + "\n")
+    (review / "report.json").write_text(json.dumps(report_json(report), indent=1) + "\n")
+    print(f"sandbox-pr: reports in {review / 'report.txt'} and {review / 'report.json'}", file=sys.stderr)
+
+
+def review_change(image: str, host: Path, env: dict[str, str]) -> int:
+    settings = Settings.parse(env)
+    require_git()
+    source = source_checkout(host, env)
+    info = checked_daemon()
+    change, root = fresh_clone(cache_root(env), source, settings.request)
+    plan = ready(image, root, env, info)
+    risk = assess(change, root)
+    risk_text = risk_lines(settings.request, change, risk)
+    outcome, findings = audited(plan, lambda: stages(plan, risk, settings, risk_text))
+    run = Ran(settings.target, outcome.status, tuple(findings.lines())) if outcome.ran else None
+    write_reports(root.parent, Report(settings.request, change, risk, outcome, run, image, plan.runtime.value))
+    return DIRTY_STATUS if findings.dirty else outcome.status
+
+
+def main(argv: list[str]) -> int:
+    parser = argparse.ArgumentParser(prog="sandbox_pr.py", description=__doc__.splitlines()[0])
+    parser.add_argument("--image", required=True, help="the sandbox image, oxedi-sandbox:<hash>")
+    parser.add_argument("--checkout", required=True, type=Path, help="the host checkout whose rules apply")
+    args = parser.parse_args(argv)
+    for signum in STOP_SIGNALS:
+        signal.signal(signum, stop)
+    git_isolation(os.environ)
+    try:
+        return review_change(args.image, args.checkout.resolve(), dict(os.environ))
+    except SandboxError as error:
+        print(f"sandbox-pr: {error}", file=sys.stderr)
+        return 2
+    except Stopped as stopped:
+        print(f"sandbox-pr: interrupted by {stopped}; the container, if it had started, was killed", file=sys.stderr)
+        return 128 + stopped.signum
+
+
+if __name__ == "__main__":
+    sys.exit(main(sys.argv[1:]))

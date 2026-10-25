@@ -246,7 +246,7 @@ class Arguments(World):
                 with self.subTest(phase=phase, path=path):
                     mount = mount_at(argv, f"/work/{path}")
                     self.assertIn("readonly", mount)
-                    if phase is arguments.Phase.FETCH and path == ".cargo":
+                    if phase is not arguments.Phase.RUN and path == ".cargo":
                         self.assertEqual(mount["type"], "tmpfs")
                     else:
                         self.assertEqual((mount["type"], mount["src"]), ("bind", str(checkout / path)))
@@ -594,12 +594,12 @@ class Runner(World):
     def test_a_failed_audit_keeps_the_first_error(self):
         plan = mock.Mock()
         failure = layout.SandboxError("git status failed in /c; the sandbox needs a git checkout: boom")
+        work = mock.Mock(side_effect=sandbox.Stopped(signal.SIGINT))
         with (mock.patch.object(sandbox, "snapshot"),
-              mock.patch.object(sandbox, "phases", side_effect=sandbox.Stopped(signal.SIGINT)),
               mock.patch.object(sandbox, "conclude", side_effect=failure),
               mock.patch("sys.stderr", new_callable=io.StringIO) as err):
             with self.assertRaises(sandbox.Stopped) as caught:
-                sandbox.audited(plan, "true")
+                sandbox.audited(plan, work)
         self.assertEqual(caught.exception.signum, signal.SIGINT)
         self.assertEqual(
             err.getvalue(),

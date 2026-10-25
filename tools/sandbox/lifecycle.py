@@ -101,23 +101,32 @@ def kill(name: str) -> None:
 
 
 class Tee(threading.Thread):
-    """Copies a container's stderr to ours as it comes and keeps its last bytes, which name the
-    cause when docker itself fails."""
+    """Reads a container's stream as it comes: copies it to our stderr when `echo`, keeps all of it
+    when `keep`, and always keeps its last bytes, which name the cause when docker itself fails."""
 
-    def __init__(self, stream):
+    def __init__(self, stream, echo: bool, keep: bool):
         super().__init__(daemon=True)
         self.stream = stream
+        self.echo = echo
+        self.keep = keep
         self.tail = b""
+        self.whole = bytearray()
 
     def run(self) -> None:
         for chunk in iter(lambda: os.read(self.stream.fileno(), 65536), b""):
-            sys.stderr.buffer.write(chunk)
-            sys.stderr.buffer.flush()
+            if self.echo:
+                sys.stderr.buffer.write(chunk)
+                sys.stderr.buffer.flush()
+            if self.keep:
+                self.whole += chunk
             self.tail = (self.tail + chunk)[-STDERR_TAIL_BYTES:]
 
     def last_line(self) -> str:
         lines = self.tail.decode(errors="replace").strip().splitlines()
         return lines[-1] if lines else "docker printed no reason"
+
+    def text(self) -> str:
+        return self.whole.decode(errors="replace")
 
 
 @dataclass(frozen=True)
@@ -125,14 +134,21 @@ class Outcome:
     status: int
     cause: str
     timed_out: bool
+    # What the container printed, stdout then stderr, when the run captured it; empty otherwise.
+    output: str = ""
 
 
-def run_container(argv: list[str], name: str, timeout_s: float) -> Outcome:
+def run_container(argv: list[str], name: str, timeout_s: float, capture: bool = False) -> Outcome:
     """Runs `docker run ...` and waits at most `timeout_s`. Unless it ended by itself (timeout,
-    Ctrl-C, any error), the container is killed before this returns or raises."""
-    process = subprocess.Popen(argv, stdin=subprocess.DEVNULL, stderr=subprocess.PIPE)
-    tee = Tee(process.stderr)
-    tee.start()
+    Ctrl-C, any error), the container is killed before this returns or raises. With `capture`,
+    stdout and stderr are kept for the outcome instead of being copied to ours."""
+    process = subprocess.Popen(argv, stdin=subprocess.DEVNULL, stderr=subprocess.PIPE,
+                               stdout=subprocess.PIPE if capture else None)
+    readers = [Tee(process.stderr, echo=not capture, keep=capture)]
+    if capture:
+        readers.insert(0, Tee(process.stdout, echo=False, keep=True))
+    for reader in readers:
+        reader.start()
     ended = False
     try:
         status = process.wait(timeout=timeout_s)
@@ -146,8 +162,10 @@ def run_container(argv: list[str], name: str, timeout_s: float) -> Outcome:
                 process.wait(timeout=KILL_GRACE_S)
             except subprocess.TimeoutExpired:
                 process.kill()
-        tee.join(timeout=KILL_GRACE_S)
-    return Outcome(status, tee.last_line(), False)
+        for reader in readers:
+            reader.join(timeout=KILL_GRACE_S)
+    output = "".join(reader.text() for reader in readers) if capture else ""
+    return Outcome(status, readers[-1].last_line(), False, output)
 
 
 def explain(outcome: Outcome, limits: Limits, budget: str, failure: str) -> str:

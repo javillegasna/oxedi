@@ -2,6 +2,7 @@
 //! type. Each one either keeps the value exactly or says why it cannot.
 
 use super::TimeUnit;
+use super::calendar::DAY_SECONDS;
 use std::fmt;
 
 /// The largest decimal scale a spec's `R` element takes;
@@ -11,7 +12,7 @@ use std::fmt;
 pub const MAX_SCALE: u8 = 18;
 
 /// Milliseconds in a day.
-const DAY_MILLIS: i64 = 86_400_000;
+const DAY_MILLIS: i64 = DAY_SECONDS * 1000;
 
 /// Why a value cannot become a cell of its column type without changing.
 #[derive(Debug, Clone, PartialEq)]

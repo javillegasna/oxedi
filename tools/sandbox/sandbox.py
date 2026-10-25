@@ -51,7 +51,7 @@ from arguments import (  # noqa: E402
     ImageKind, Limits, Phase, Runtime, docker_args, fetch_commands, own_dirs, run_command,
 )
 from audit import DIRTY_STATUS, Findings, Snapshot, audit, record, refuse_leftovers, report, snapshot  # noqa: E402
-from layout import Checkout, SandboxError, container_name, path_hash, prefixes, survey  # noqa: E402
+from layout import Checkout, SandboxError, container_name, path_hash, refuse_links, survey  # noqa: E402
 from lifecycle import (  # noqa: E402
     DaemonInfo, daemon_info, explain, image_labels, limits_from, refuse_if_running, run_container, running,
 )
@@ -188,11 +188,8 @@ def checkout_playwright(root: Path) -> str:
     """The `playwright==` pin of the checkout's docs/requirements.txt, read as data on the host with
     viewer_image.py's parser; a link anywhere on that path is refused, since its target, not the
     checkout's file, would be read."""
-    steps = prefixes(viewer_image.DOCS_REQUIREMENTS)
-    for part in steps:
-        if (root / part).is_symlink():
-            kind = "file" if part == steps[-1] else "directory"
-            raise SandboxError(f"refused: {part} is a symbolic link; it must be a real {kind}")
+    rule = f"{viewer_image.DOCS_REQUIREMENTS} must be a real file of the checkout"
+    refuse_links(root, viewer_image.DOCS_REQUIREMENTS, rule)
     try:
         return viewer_image.playwright_pin(viewer_image.read(root, viewer_image.DOCS_REQUIREMENTS))
     except SystemExit as error:

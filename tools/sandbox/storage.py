@@ -7,7 +7,7 @@ import sys
 from dataclasses import dataclass
 from pathlib import Path
 
-from layout import Checkout, SandboxError, path_hash, prefixes, refuse_unsafe
+from layout import Checkout, SandboxError, path_hash, refuse_links, refuse_unsafe
 
 
 @dataclass(frozen=True)
@@ -66,11 +66,7 @@ def forget(cache: Path, review: Path) -> None:
 def make_mount_point(root: Path, mount_point: str) -> None:
     """Makes a mount point of the checkout, with its parents. A link anywhere on its path is refused:
     the host would follow it and make the directory outside the checkout."""
-    for part in prefixes(mount_point):
-        if (root / part).is_symlink():
-            raise SandboxError(
-                f"refused: {part} is a symbolic link; the mount point {mount_point} must be a real directory of the checkout"
-            )
+    refuse_links(root, mount_point, f"the mount point {mount_point} must be a real directory of the checkout")
     try:
         (root / mount_point).mkdir(parents=True, exist_ok=True)
     except OSError as error:

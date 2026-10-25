@@ -374,6 +374,19 @@ class Arguments(World):
         self.assertIn("sandbox: refused: tools is a symbolic link", result.stderr)
         self.assertFalse(self.runs())
 
+    def test_symlinked_parent_of_a_fixed_path_refused(self):
+        # A linked parent would have the host file of the fixed name bound into the containers.
+        checkout = self.checkout("c", "Makefile", "crates/README.md")
+        outside = self.tmp / "host-oxedi_py"
+        outside.mkdir()
+        (outside / "pyproject.toml").write_text("host\n")
+        (checkout / "crates" / "oxedi_py").symlink_to(outside)
+        result = self.sandbox(checkout)
+        self.assertEqual((result.returncode, result.stderr.strip()),
+                         (2, "sandbox: refused: crates/oxedi_py is a symbolic link; "
+                             "the read-only and masked paths must be real files of the checkout"))
+        self.assertEqual(self.runs(), [])
+
 
 class Runner(World):
     def test_host_secrets_never_pass(self):
@@ -931,7 +944,8 @@ class Images(World):
         (checkout / "docs" / "requirements.txt").symlink_to(self.tmp / "elsewhere.txt")
         result = self.sandbox(checkout, "viewer", FAKE_PLAYWRIGHT_LABEL="1.64.0")
         self.assertEqual((result.returncode, result.stderr.strip()),
-                         (2, "sandbox: refused: docs/requirements.txt is a symbolic link; it must be a real file"))
+                         (2, "sandbox: refused: docs/requirements.txt is a symbolic link; "
+                             "docs/requirements.txt must be a real file of the checkout"))
         self.assertEqual(self.runs(), [])
         outside = self.tmp / "outside-docs"
         outside.mkdir()
@@ -940,7 +954,7 @@ class Images(World):
         (checkout / "docs").symlink_to(outside)
         result = self.sandbox(checkout, "viewer", FAKE_PLAYWRIGHT_LABEL="1.64.0")
         self.assertEqual((result.returncode, result.stderr.strip()),
-                         (2, "sandbox: refused: docs is a symbolic link; it must be a real directory"))
+                         (2, "sandbox: refused: docs is a symbolic link; docs/requirements.txt must be a real file of the checkout"))
         self.assertEqual(self.runs(), [])
 
     def test_kind_required_with_image(self):

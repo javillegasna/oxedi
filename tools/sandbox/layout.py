@@ -79,10 +79,14 @@ def covered(path: str, outers: set[str]) -> bool:
     return path in outers or inside(path, outers)
 
 
-def prefixes(path: str) -> tuple[PurePosixPath, ...]:
-    """Each step of a relative path, outermost first: `a`, `a/b`, `a/b/c` for `a/b/c`."""
+def refuse_links(root: Path, path: str, rule: str) -> None:
+    """Refuses a symbolic link on any step of `path` under `root`, outermost first (`a`, `a/b`,
+    `a/b/c`): the host would follow it to a target outside the checkout. `rule` says what the path
+    must be."""
     relative = PurePosixPath(path)
-    return (*reversed(relative.parents[:-1]), relative)
+    for step in (*reversed(relative.parents[:-1]), relative):
+        if (root / step).is_symlink():
+            raise SandboxError(f"refused: {step} is a symbolic link; {rule}")
 
 
 def outermost(paths: set[str]) -> set[str]:
@@ -166,19 +170,19 @@ def ignored_paths(root: Path) -> set[str]:
 
 
 def present_real(root: Path, paths: set[str]) -> set[str]:
-    """The paths that exist; a symbolic link or an unsafe name among them is refused."""
+    """The paths that exist; a symbolic link on the path to one of them, or an unsafe name, is
+    refused."""
     present = {p for p in paths if os.path.lexists(root / p)}
     for path in sorted(present):
         refuse_unsafe(path, "checkout")
-        if (root / path).is_symlink():
-            raise SandboxError(f"refused: {path} is a symbolic link; the read-only and masked paths must be real files")
+        refuse_links(root, path, "the read-only and masked paths must be real files of the checkout")
     return present
 
 
 def survey(root: Path) -> Checkout:
     """The read-only, masked and hidden paths of `root`, as git and the fixed lists name them. A
-    symbolic link among them is refused: its target, not the checkout's file, would be bound, and
-    the link itself would stay writable."""
+    symbolic link among them, or on the path to one of them, is refused: its target, not the
+    checkout's file, would be bound, and the link itself would stay writable."""
     refuse_unsafe(root, "checkout")
     secret = set(MASKED) | ignored_paths(root)
     tracked, submodules = tracked_and_submodules(root)

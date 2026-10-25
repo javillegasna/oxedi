@@ -23,7 +23,8 @@ jobs:
           # The complexity ratchet finds the merge base of HEAD with the commit before a push or
           # with a pull request's first parent.
           fetch-depth: 0
-      - name: actionlint and shellcheck
+          persist-credentials: false
+      - name: actionlint, zizmor and shellcheck
         run: .github/scripts/install-lint-tools.sh
       - name: Lint
         run: .github/scripts/lint.sh

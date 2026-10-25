@@ -41,8 +41,9 @@ repo_state() {
   git_isolated -C "$checkout" count-objects -v | grep -E '^(count|in-pack|packs):'
 }
 
-# planted FILE: the probe with the host home and the canary written in; a path holding a quote or a
-# backslash would break the literals, so it is refused.
+# planted FILE: the probe with the host home and the canary written in. It does no checking: a path
+# holding a quote or a backslash would break the literals, so the loop before the first probe is
+# planted refuses one.
 planted() {
   local text
   text=$(< "$1")

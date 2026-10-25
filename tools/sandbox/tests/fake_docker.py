@@ -105,7 +105,7 @@ def run(argv: list[str]) -> int:
     if "cat" in argv:
         print("make\t4.3\ngcc\t13.2")
         return 0
-    if "deny" in argv:
+    if "cargo-deny" in argv:
         sys.stderr.write(os.environ.get("FAKE_DENY_OUTPUT", ""))
         return int(os.environ.get("FAKE_DENY_EXIT", "0"))
     if "pip-audit" in argv:

@@ -43,9 +43,9 @@ class Stdin:
 def kind(call: dict) -> str:
     """Which container a `docker run` was: deny, pip-audit, run or fetch."""
     argv = call["argv"]
-    for name in ("deny", "pip-audit", "bash"):
+    for name in ("cargo-deny", "pip-audit", "bash"):
         if name in argv:
-            return {"bash": "run"}.get(name, name)
+            return {"bash": "run", "cargo-deny": "deny"}.get(name, name)
     return "fetch"
 
 
@@ -150,7 +150,7 @@ class Flow(unittest.TestCase):
         self.review()
         deny, pip = [call["argv"] for call in self.runs() if kind(call) in ("deny", "pip-audit")]
         self.assertEqual(deny[deny.index(IMAGE) + 1:], [
-            "cargo", "deny", "--manifest-path", "/work/Cargo.toml", "check", "--config", "/sandbox/deny.toml",
+            "cargo-deny", "--manifest-path", "/work/Cargo.toml", "check", "--config", "/sandbox/deny.toml",
             "advisories", "sources", "bans"])
         self.assertEqual(pip[pip.index(IMAGE) + 1:], [
             "pip-audit", "--progress-spinner", "off", "--format", "json", "--path",

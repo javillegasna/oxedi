@@ -147,8 +147,10 @@ def fetch_commands() -> list[list[str]]:
 
 def audit_commands() -> list[list[str]]:
     """The audit tools, fixed here: cargo-deny over the change's Cargo.lock before the fetch, with
-    the host's policy, then pip-audit over the packages the fetch installed in the venv."""
-    deny = ["cargo", "deny", "--manifest-path", f"{WORK}/Cargo.toml", "check", "--config", DENY_TOML,
+    the host's policy, then pip-audit over the packages the fetch installed in the venv. cargo-deny
+    is called by its own name: `cargo deny` would look in the writable $CARGO_HOME/bin first, where
+    a binary planted in the shared cargo cache would run instead of the image's."""
+    deny = ["cargo-deny", "--manifest-path", f"{WORK}/Cargo.toml", "check", "--config", DENY_TOML,
             "advisories", "sources", "bans"]
     site_packages = f"{VENV}/lib/python{VENV_PYTHON}/site-packages"
     pip = ["pip-audit", "--progress-spinner", "off", "--format", "json", "--path", site_packages]

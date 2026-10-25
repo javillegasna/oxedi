@@ -120,7 +120,7 @@ class Ran:
 
 
 @dataclass(frozen=True)
-class Outcome:
+class Progress:
     """How far the containers went. `pip_audit` is absent when the flow stopped before the fetch
     or the fetch failed; `ran` is false when the run phase never started."""
 
@@ -136,7 +136,7 @@ class Report:
     request: Request
     change: Change
     risk: Risk
-    outcome: Outcome
+    outcome: Progress
     run: Ran | None
     image: str
     runtime: str
@@ -241,7 +241,7 @@ def first_gate(risk: Risk, deny: Tool) -> tuple[bool, str]:
     return bool(reasons), " and ".join(reasons)
 
 
-def stages(plan: Plan, risk: Risk, settings: Settings, risk_text: list[str]) -> Outcome:
+def stages(plan: Plan, risk: Risk, settings: Settings, risk_text: list[str]) -> Progress:
     """The containers in order, each confirmation before what it guards: cargo-deny, the first
     confirmation, the fetch, pip-audit, the second confirmation, the run. Each part of the report
     is printed before the confirmation that rests on it."""
@@ -251,16 +251,16 @@ def stages(plan: Plan, risk: Risk, settings: Settings, risk_text: list[str]) -> 
     print("\n".join(risk_text + tool_lines("cargo-deny", deny)), flush=True)
     answers = (confirm(*first_gate(risk, deny), settings),)
     if Confirmed.REFUSED in answers:
-        return Outcome(NOT_CONFIRMED_STATUS, deny, None, answers, False)
+        return Progress(NOT_CONFIRMED_STATUS, deny, None, answers, False)
     fetched = fetch_phase(plan)
     if fetched != 0:
-        return Outcome(fetched, deny, None, answers, False)
+        return Progress(fetched, deny, None, answers, False)
     pip = audit_tool(plan, pip_command)
     print("\n".join(tool_lines("pip-audit", pip)), flush=True)
     answers += (confirm(pip.status != 0, "pip-audit failed", settings),)
     if Confirmed.REFUSED in answers:
-        return Outcome(NOT_CONFIRMED_STATUS, deny, pip, answers, False)
-    return Outcome(run_phase(plan, settings.target), deny, pip, answers, True)
+        return Progress(NOT_CONFIRMED_STATUS, deny, pip, answers, False)
+    return Progress(run_phase(plan, settings.target), deny, pip, answers, True)
 
 
 def describe_change(request: Request, change: Change) -> str:

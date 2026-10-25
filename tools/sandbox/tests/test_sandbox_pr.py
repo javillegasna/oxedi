@@ -83,9 +83,11 @@ class Flow(unittest.TestCase):
         return {"PATH": f"{self.bin}{os.pathsep}{os.environ['PATH']}", "HOME": str(self.home),
                 "FAKE_DIR": str(self.fake), "SANDBOX_REF": "feature", "SANDBOX_TARGET": "make gates", **extra}
 
-    def review(self, stdin: Stdin = Stdin(False), **extra: str) -> tuple[int, str, str]:
-        """Runs sandbox_pr.main in this process with only `env` as the environment; returns its
-        status, stdout and stderr."""
+    def review(self, tty: bool = False, answer: str = "", **extra: str) -> tuple[int, str, str]:
+        """Runs sandbox_pr.main in this process with only `env` as the environment and a standard
+        input that is a terminal answering `answer` when `tty`; returns its status, stdout and
+        stderr. The standard input is kept as `self.stdin`."""
+        self.stdin = stdin = Stdin(tty, answer)
         err = io.TextIOWrapper(io.BytesIO(), write_through=True)
         out = io.StringIO()
         with (mock.patch.dict(os.environ, self.env(**extra), clear=True),
@@ -167,24 +169,23 @@ class Flow(unittest.TestCase):
 
     def test_tty_answer(self):
         self.change("crates/oxedi_core/build.rs", "fn main() {}\n")
-        status, _, err = self.review(Stdin(True, "n\n"))
+        status, _, err = self.review(True, "n\n")
         self.assertEqual(status, 4, err)
         self.assertIn("sandbox-pr: the change touches what the report flags. Go on? [y/N] ", err)
         self.assertIn('sandbox-pr: not confirmed (answer "n"), so it stops with exit 4\n', err)
         self.assertEqual(self.kinds(), ["deny"])
         self.assertEqual(self.report()["confirmed"], "refused")
         (self.fake / "calls.jsonl").unlink()
-        status, _, err = self.review(Stdin(True, "yes\n"))
+        status, _, err = self.review(True, "yes\n")
         self.assertEqual(status, 0, err)
         self.assertEqual(self.kinds(), ["deny", "fetch", "fetch", "fetch", "pip-audit", "run"])
         self.assertEqual(self.report()["confirmed"], "tty")
 
     def test_unflagged_runs_without_asking(self):
         self.change("crates/oxedi_core/src/lib.rs", "pub fn g() {}\n")
-        stdin = Stdin(True, "n\n")
-        status, out, err = self.review(stdin)
+        status, out, err = self.review(True, "n\n")
         self.assertEqual(status, 0, err)
-        self.assertEqual(stdin.reads, 0)
+        self.assertEqual(self.stdin.reads, 0)
         self.assertIn("flagged: no\n", out)
         report = self.report()
         self.assertEqual((report["confirmed"], report["flagged"]), ("not needed", False))

@@ -8,6 +8,7 @@ moment. Behaviour comes from variables:
 FAKE_INFO          the JSON `docker info --format '{{json .}}'` prints
 FAKE_RUNNING       what `docker ps` prints (the running container names)
 FAKE_NO_IMAGE      when set, `docker image inspect` fails until a `docker build` ran
+FAKE_PLAYWRIGHT_LABEL  when set, the image's oxedi.sandbox.playwright label (the viewer image's)
 FAKE_RUN_EXIT      exit status of the run-phase container (`bash -c ...`); default 0
 FAKE_RUN_STDERR    what the run-phase container writes to stderr
 FAKE_RUN_SLEEP     seconds the run-phase container sleeps before it exits
@@ -87,7 +88,8 @@ def image_inspect(argv: list[str]) -> int:
         return 1
     template = argv[argv.index("--format") + 1] if "--format" in argv else ""
     if "Labels" in template:
-        print(json.dumps(LABELS))
+        playwright = os.environ.get("FAKE_PLAYWRIGHT_LABEL", "")
+        print(json.dumps({**LABELS, **({"oxedi.sandbox.playwright": playwright} if playwright else {})}))
     elif "Size" in template:
         print("1616000000")
     else:

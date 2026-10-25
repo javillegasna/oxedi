@@ -2,6 +2,7 @@
 whole runner against a fake `docker` (fake_docker.py), so every refusal, error line and kill is
 proven on the arguments docker would receive."""
 
+import hashlib
 import io
 import json
 import os
@@ -24,6 +25,7 @@ import arguments  # noqa: E402
 import layout  # noqa: E402
 import sandbox  # noqa: E402
 import storage  # noqa: E402
+import viewer_image  # noqa: E402
 
 UID, GID = os.getuid(), os.getgid()
 LIMITS = arguments.Limits(cpus=3, memory_gb=4, timeout_s=60)
@@ -84,7 +86,10 @@ def git_init(root: Path) -> Path:
 
 # What `make sandbox` reads from this repository. The tests that go through make copy them into a
 # throwaway checkout, so the runner audits and scrubs that checkout, never this one.
-MAKE_FILES = ("Makefile", "make", "tools/sandbox", "Cargo.toml", "crates/oxedi_duckdb/Cargo.toml")
+MAKE_FILES = (
+    "Makefile", "make", "tools/sandbox", "Cargo.toml", "crates/oxedi_duckdb/Cargo.toml",
+    "crates/oxedi_wasm/scripts/install_tools.sh", "docs/requirements.txt",
+)
 
 
 def make_repo_copy(root: Path) -> Path:
@@ -150,14 +155,15 @@ class World(unittest.TestCase):
             env=self.env(**extra), capture_output=True, text=True, check=False, timeout=120,
         )
 
-    def start(self, checkout: Path, **extra: str) -> subprocess.Popen:
+    def start(self, checkout: Path, kind: str = "base", **extra: str) -> subprocess.Popen:
         return subprocess.Popen(
-            [sys.executable, "-I", str(SCRIPT), "--image", "oxedi-sandbox:test", "--checkout", str(checkout)],
+            [sys.executable, "-I", str(SCRIPT), "--image", "oxedi-sandbox:test", "--kind", kind,
+             "--checkout", str(checkout)],
             env=self.env(**extra), stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True,
         )
 
-    def sandbox(self, checkout: Path, **extra: str) -> subprocess.CompletedProcess:
-        process = self.start(checkout, **extra)
+    def sandbox(self, checkout: Path, kind: str = "base", **extra: str) -> subprocess.CompletedProcess:
+        process = self.start(checkout, kind, **extra)
         out, err = process.communicate(timeout=60)
         return subprocess.CompletedProcess(process.args, process.returncode, out, err)
 
@@ -185,10 +191,10 @@ class World(unittest.TestCase):
         """This checkout's storage directory."""
         return self.home / ".cache" / "oxedi-sandbox" / layout.path_hash(checkout)
 
-    def phase_args(self, phase, checkout: Path) -> list[str]:
+    def phase_args(self, phase, checkout: Path, kind=arguments.ImageKind.BASE) -> list[str]:
         surveyed = layout.survey(checkout)
         own = storage.storage_for(self.home / ".cache" / "oxedi-sandbox", surveyed)
-        return arguments.docker_args(phase, surveyed, UID, GID, arguments.Runtime.RUNC, LIMITS, own)
+        return arguments.docker_args(phase, surveyed, UID, GID, arguments.Runtime.RUNC, LIMITS, own, kind)
 
 
 class Arguments(World):
@@ -521,7 +527,8 @@ class Runner(World):
         self.bin.joinpath("docker").unlink()
         env["PATH"] = str(self.bin)
         result = subprocess.run(
-            [sys.executable, str(SCRIPT), "--image", "oxedi-sandbox:test", "--checkout", str(self.checkout())],
+            [sys.executable, str(SCRIPT), "--image", "oxedi-sandbox:test", "--kind", "base", "--checkout",
+             str(self.checkout())],
             env=env, capture_output=True, text=True, check=False,
         )
         self.assertEqual(result.returncode, 2)
@@ -685,7 +692,7 @@ class Fetch(World):
         return self.home / ".cache" / "oxedi-sandbox" / layout.path_hash(checkout) / "venv"
 
     def test_fetch_commands_fixed(self):
-        self.assertEqual(arguments.fetch_commands(), [CARGO_FETCH, UV_VENV, UV_INSTALL])
+        self.assertEqual(arguments.fetch_commands(arguments.ImageKind.BASE), [CARGO_FETCH, UV_VENV, UV_INSTALL])
 
     def test_fetch_runs_before_the_command(self):
         result = self.sandbox(self.checkout())
@@ -738,6 +745,165 @@ class Fetch(World):
             "and never falls back to the caches offline",
             result.stderr,
         )
+
+
+VIEWER = arguments.ImageKind.VIEWER
+DOCS_FETCH = [
+    ["uv", "venv", "--managed-python", "--python", "3.13", "/work/.venv-docs"],
+    ["uv", "pip", "install", "--python", "/work/.venv-docs/bin/python", "--no-build", "--require-hashes",
+     "-r", "/work/docs/requirements.txt"],
+    ["touch", "/work/.venv-docs/.ready"],
+]
+PIP_AUDIT = ["pip-audit", "--progress-spinner", "off", "--format", "json", "--path"]
+PINNED = "playwright==1.64.0 \\\n    --hash=sha256:00\n"
+
+
+def base_tag() -> str:
+    """The base image tag make derives from this repository's sandbox Dockerfile and pip-audit.txt."""
+    inputs = b"".join((SCRIPT.parent / name).read_bytes() for name in ("Dockerfile", "pip-audit.txt"))
+    return f"oxedi-sandbox:{hashlib.sha256(inputs).hexdigest()[:12]}"
+
+
+class Images(World):
+    def viewer_checkout(self, name: str = "viewer") -> Path:
+        return self.checkout(name, ".gitignore", "Makefile", "docs/requirements.txt", ".venv-docs/bin/python")
+
+    def pin(self, checkout: Path, text: str = PINNED) -> Path:
+        (checkout / "docs" / "requirements.txt").write_text(text)
+        return checkout
+
+    def test_image_values(self):
+        checkout = make_repo_copy(self.tmp / "repo")
+        refusals = (
+            ({"args": ["IMAGE=Viewer"]}, "sandbox: IMAGE must be base or viewer, not 'Viewer'"),
+            ({"args": ["IMAGE=../x"]}, "sandbox: IMAGE must be base or viewer, not '../x'"),
+            ({"args": ["IMAGE="]}, "sandbox: IMAGE must be base or viewer, not ''"),
+            ({"args": [], "IMAGE": "viewer"},
+             "sandbox: IMAGE is read from the command line only; pass it as make sandbox IMAGE=viewer"),
+        )
+        for case, line in refusals:
+            with self.subTest(case=case):
+                env = {k: v for k, v in case.items() if k != "args"}
+                result = self.make(checkout, "sandbox", "CMD=true", *case["args"], **env)
+                self.assertEqual(result.returncode, 2, result.stderr)
+                self.assertEqual(result.stderr.splitlines()[0], line)
+                self.assertEqual(self.calls(), [])
+        pr = self.make(checkout, "sandbox-pr", "REF=x", "IMAGE=Viewer")
+        self.assertEqual(pr.stderr.splitlines()[0], "sandbox-pr: IMAGE must be base or viewer, not 'Viewer'")
+        self.assertEqual(self.calls(), [])
+
+        runs = {}
+        for args in ([], ["IMAGE=base"]):
+            with self.subTest(args=args):
+                result = self.make(checkout, "sandbox", "CMD=true", *args)
+                self.assertEqual(result.returncode, 0, result.stderr)
+                self.assertIn(f"image {base_tag()} (base, Rust 1.99.0)", result.stderr)
+                runs[tuple(args)] = [c["argv"] for c in self.runs()]
+                (self.fake / "calls.jsonl").unlink()
+        self.assertEqual(runs[()], runs[("IMAGE=base",)])
+        self.assertEqual([command_of_image(a, base_tag()) for a in runs[()][:3]], [CARGO_FETCH, UV_VENV, UV_INSTALL])
+        for argv in runs[()]:
+            self.assertEqual(argv[-len(command_of_image(argv, base_tag())) - 1], base_tag())
+            self.assertFalse([m for m in mounts(argv) if m.get("dst") == "/work/.venv-docs" and m["type"] == "bind"])
+
+        label = viewer_image.playwright_pin((REPO / "docs" / "requirements.txt").read_text())
+        result = self.make(checkout, "sandbox", "CMD=true", "IMAGE=viewer", FAKE_PLAYWRIGHT_LABEL=label)
+        self.assertEqual(result.returncode, 0, result.stderr)
+        viewer_tag = viewer_image.tag(checkout, base_tag())
+        self.assertIn(f"image {viewer_tag} (viewer, Rust 1.99.0)", result.stderr)
+        argv = self.run_phase()
+        self.assertEqual(command_of_image(argv, viewer_tag)[:2], ["bash", "-c"])
+        self.assertEqual(mount_at(argv, "/work/.venv-docs")["src"], str(self.own(checkout) / "venv-docs"))
+
+        (self.fake / "calls.jsonl").unlink()
+        result = self.make(checkout, "sandbox-check", "IMAGE=viewer", FAKE_PLAYWRIGHT_LABEL=label)
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertEqual(command_of_image(self.run_phase(), viewer_tag)[-1],
+                         f'mkdir -p "$HOME" && bash tools/sandbox/isolation-check.sh "{self.home}"')
+
+    def test_base_run_has_no_docs_venv(self):
+        checkout = self.viewer_checkout()
+        docs_storage = str(self.own(checkout) / "venv-docs")
+        for phase in arguments.Phase:
+            with self.subTest(phase=phase):
+                argv = self.phase_args(phase, checkout)
+                self.assertFalse([m for m in mounts(argv) if m.get("src") == docs_storage])
+                self.assertEqual(mount_at(argv, "/work/.venv-docs")["type"], "tmpfs")
+                self.assertFalse([a for a in argv if "OXEDI_CHROMIUM_NO_SANDBOX" in a])
+        self.assertEqual(arguments.fetch_commands(arguments.ImageKind.BASE), [CARGO_FETCH, UV_VENV, UV_INSTALL])
+        self.assertEqual(arguments.audit_commands(arguments.ImageKind.BASE)[1:],
+                         [[*PIP_AUDIT, "/work/.venv/lib/python3.13/site-packages"]])
+        result = self.sandbox(checkout)
+        self.assertEqual(result.returncode, 0, result.stderr)
+        for call in self.runs():
+            self.assertFalse([m for m in mounts(call["argv"]) if m.get("src") == docs_storage])
+            self.assertFalse([a for a in call["argv"] if "OXEDI_CHROMIUM_NO_SANDBOX" in a])
+
+    def test_viewer_fetch_installs_the_docs_venv(self):
+        fetch = arguments.fetch_commands(VIEWER)
+        self.assertEqual(fetch, [CARGO_FETCH, UV_VENV, UV_INSTALL, *DOCS_FETCH])
+        self.assertIn("--require-hashes", fetch[-2])
+        self.assertIn("--no-build", fetch[-2])
+        self.assertEqual(arguments.audit_commands(VIEWER)[1:], [
+            [*PIP_AUDIT, "/work/.venv/lib/python3.13/site-packages"],
+            [*PIP_AUDIT, "/work/.venv-docs/lib/python3.13/site-packages"],
+        ])
+        checkout = self.pin(self.viewer_checkout())
+        docs_storage = self.own(checkout) / "venv-docs"
+        for phase, read_only in ((arguments.Phase.FETCH, False), (arguments.Phase.RUN, False),
+                                 (arguments.Phase.AUDIT, True)):
+            with self.subTest(phase=phase):
+                mount = mount_at(self.phase_args(phase, checkout, VIEWER), "/work/.venv-docs")
+                self.assertEqual((mount["type"], mount["src"]), ("bind", str(docs_storage)))
+                self.assertEqual("readonly" in mount, read_only)
+        # What a run left in the docs venv never reaches the next fetch.
+        docs_storage.mkdir(parents=True)
+        (docs_storage / "evil.pth").write_text("import os\n")
+        result = self.sandbox(checkout, "viewer", FAKE_PLAYWRIGHT_LABEL="1.64.0")
+        self.assertEqual(result.returncode, 0, result.stderr)
+        fetches = [c for c in self.runs() if "bash" not in c["argv"]]
+        self.assertEqual([command_of(c["argv"]) for c in fetches], [CARGO_FETCH, UV_VENV, UV_INSTALL, *DOCS_FETCH])
+        self.assertEqual(fetches[0]["binds"][str(docs_storage)]["entries"], [])
+        self.assertIn("readonly", mount_at(fetches[0]["argv"], "/work"))
+
+    def test_playwright_mismatch_refuses(self):
+        checkout = self.pin(self.viewer_checkout())
+        cases = (
+            ({"FAKE_PLAYWRIGHT_LABEL": "1.63.0"},
+             "sandbox: this checkout pins playwright 1.64.0 but the viewer image has 1.63.0; "
+             "run make sandbox-image-viewer"),
+            ({}, "sandbox: this checkout pins playwright 1.64.0 but the viewer image has no "
+                 "oxedi.sandbox.playwright label; run make sandbox-image-viewer"),
+        )
+        for env, line in cases:
+            with self.subTest(env=env):
+                result = self.sandbox(checkout, "viewer", **env)
+                self.assertEqual(result.returncode, 2, result.stderr)
+                self.assertEqual(result.stderr.strip(), line)
+                self.assertEqual(self.runs(), [])
+        self.pin(checkout, "pytest==8.0.0\n")
+        result = self.sandbox(checkout, "viewer", FAKE_PLAYWRIGHT_LABEL="1.64.0")
+        self.assertEqual((result.returncode, result.stderr.strip()),
+                         (2, "sandbox: docs/requirements.txt pins no playwright==<version>"))
+        (checkout / "docs" / "requirements.txt").unlink()
+        (checkout / "docs" / "requirements.txt").symlink_to(self.tmp / "elsewhere.txt")
+        result = self.sandbox(checkout, "viewer", FAKE_PLAYWRIGHT_LABEL="1.64.0")
+        self.assertEqual((result.returncode, result.stderr.strip()),
+                         (2, "sandbox: refused: docs/requirements.txt is a symbolic link; it must be a real file"))
+        self.assertEqual(self.runs(), [])
+
+    def test_kind_required_with_image(self):
+        result = subprocess.run(
+            [sys.executable, "-I", str(SCRIPT), "--image", "oxedi-sandbox:test", "--checkout", str(self.checkout())],
+            env=self.env(), capture_output=True, text=True, check=False, timeout=60,
+        )
+        self.assertEqual(result.returncode, 2)
+        self.assertIn("--image needs --kind base or --kind viewer", result.stderr)
+        self.assertEqual(self.calls(), [])
+
+
+def command_of_image(argv: list[str], image: str) -> list[str]:
+    return argv[argv.index(image) + 1:]
 
 
 if __name__ == "__main__":

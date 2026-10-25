@@ -102,7 +102,7 @@ review="$cache/prs/ref-$branch-${tested:0:12}"
 results="$cache/$(printf '%s' "$review/checkout" | sha256sum | cut -c1-12)/target"
 
 env -u SANDBOX_PR -u SANDBOX_HEAD SANDBOX_REF="$branch" SANDBOX_SOURCE="$clone" SANDBOX_CONFIRM=yes \
-  SANDBOX_TARGET="$target" python3 -I "$sandbox_dir/sandbox_pr.py" --image "$image" --checkout "$checkout"
+  SANDBOX_TARGET="$target" python3 -I "$sandbox_dir/sandbox_pr.py" --image "$image" --kind base --checkout "$checkout"
 status=$?
 
 echo "malicious-pr: sandbox-pr exited $status; the checks:"

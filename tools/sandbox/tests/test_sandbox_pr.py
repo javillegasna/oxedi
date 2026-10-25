@@ -83,7 +83,7 @@ class Flow(unittest.TestCase):
         return {"PATH": f"{self.bin}{os.pathsep}{os.environ['PATH']}", "HOME": str(self.home),
                 "FAKE_DIR": str(self.fake), "SANDBOX_REF": "feature", "SANDBOX_TARGET": "make gates", **extra}
 
-    def review(self, tty: bool = False, answer: str = "", **extra: str) -> tuple[int, str, str]:
+    def review(self, tty: bool = False, answer: str = "", kind: str = "base", **extra: str) -> tuple[int, str, str]:
         """Runs sandbox_pr.main in this process with only `env` as the environment and a standard
         input that is a terminal answering `answer` when `tty`; returns its status, stdout and
         stderr. The standard input is kept as `self.stdin`."""
@@ -93,7 +93,7 @@ class Flow(unittest.TestCase):
         with (mock.patch.dict(os.environ, self.env(**extra), clear=True),
               mock.patch.object(sys, "stdin", stdin), mock.patch.object(sys, "stdout", out),
               mock.patch.object(sys, "stderr", err)):
-            status = sandbox_pr.main(["--image", IMAGE, "--checkout", str(self.host)])
+            status = sandbox_pr.main(["--image", IMAGE, "--kind", kind, "--checkout", str(self.host)])
         return status, out.getvalue(), err.buffer.getvalue().decode()
 
     def calls(self) -> list[dict]:
@@ -124,7 +124,7 @@ class Flow(unittest.TestCase):
             "exit 4: read the report, then set CONFIRM=yes to go on\n", err)
         self.assertIn("  A crates/oxedi_core/build.rs\n      BUILD_SCRIPT: a build script", out)
         report = self.report()
-        self.assertEqual((report["confirmed"], report["run"], report["pip_audit"]), ("refused", None, None))
+        self.assertEqual((report["confirmed"], report["run"], report["pip_audit"]), ("refused", None, []))
         self.assertTrue(report["flagged"])
         self.assertEqual(report["touched"], [{"path": "crates/oxedi_core/build.rs", "status": "A",
                                               "kinds": ["BUILD_SCRIPT"]}])
@@ -139,7 +139,7 @@ class Flow(unittest.TestCase):
         self.assertEqual(self.runs()[-1]["argv"][-1], 'mkdir -p "$HOME" && make gates')
         report = self.report()
         self.assertEqual(report["confirmed"], "env")
-        self.assertEqual(report["pip_audit"], {"status": 0, "output": '{"dependencies": []}'})
+        self.assertEqual(report["pip_audit"], [{"venv": "/work/.venv", "status": 0, "output": '{"dependencies": []}'}])
         self.assertEqual(report["run"], {"target": "make gates", "status": 0, "audit": []})
         self.assertEqual((report["image"], report["runtime"]), (IMAGE, "runc"))
         text = (self.reviews() / f"ref-feature-{report['change']['tested'][:12]}" / "report.txt").read_text()
@@ -197,10 +197,10 @@ class Flow(unittest.TestCase):
         self.assertEqual(status, 4, err)
         self.assertEqual(self.kinds(), ["deny", "fetch", "fetch", "fetch", "pip-audit"])
         self.assertIn("sandbox-pr: pip-audit failed; there is no terminal to ask", err)
-        self.assertIn('pip-audit: exit 1\n  {"vulns": 1}\n', out)
+        self.assertIn('pip-audit /work/.venv: exit 1\n  {"vulns": 1}\n', out)
         report = self.report()
         self.assertEqual((report["confirmed"], report["run"]), ("refused", None))
-        self.assertEqual(report["pip_audit"], {"status": 1, "output": '{"vulns": 1}'})
+        self.assertEqual(report["pip_audit"], [{"venv": "/work/.venv", "status": 1, "output": '{"vulns": 1}'}])
 
     def test_a_failed_cargo_deny_needs_the_first_confirmation(self):
         self.change("crates/oxedi_core/src/lib.rs", "pub fn g() {}\n")
@@ -217,7 +217,33 @@ class Flow(unittest.TestCase):
         self.assertEqual(status, 5, err)
         self.assertEqual(self.kinds(), ["deny", "fetch"])
         report = self.report()
-        self.assertEqual((report["confirmed"], report["pip_audit"], report["run"]), ("not needed", None, None))
+        self.assertEqual((report["confirmed"], report["pip_audit"], report["run"]), ("not needed", [], None))
+
+    def test_viewer_audits_both_venvs(self):
+        self.change("docs/requirements.txt", "playwright==1.64.0 \\\n    --hash=sha256:00\n")
+        self.change("viewer/app.js")
+        status, out, err = self.review(kind="viewer", SANDBOX_CONFIRM="yes", FAKE_PLAYWRIGHT_LABEL="1.64.0",
+                                       FAKE_PIP_AUDIT_OUTPUT='{"dependencies": []}')
+        self.assertEqual(status, 0, err)
+        self.assertEqual(self.kinds(), ["deny", *["fetch"] * 6, "pip-audit", "pip-audit", "run"])
+        self.assertIn("pip-audit /work/.venv-docs: exit 0\n", out)
+        report = self.report()
+        self.assertEqual([audit["venv"] for audit in report["pip_audit"]], ["/work/.venv", "/work/.venv-docs"])
+        self.assertEqual(report["image_hint"], "")
+        pip = [call["argv"] for call in self.runs() if kind(call) == "pip-audit"]
+        self.assertTrue(pip[1][-1].startswith("/work/.venv-docs/"))
+        specs = [b for a, b in zip(pip[1], pip[1][1:]) if a == "--mount"]
+        self.assertTrue([s for s in specs if s.endswith("dst=/work/.venv-docs,readonly")], specs)
+
+    def test_a_viewer_change_reviewed_with_the_base_image_says_to_rerun(self):
+        self.change("viewer/app.js")
+        hint = "this change touches the viewer; rerun with IMAGE=viewer to run its tests"
+        status, _, err = self.review(SANDBOX_CONFIRM="yes")
+        self.assertEqual(status, 0, err)
+        report = self.report()
+        self.assertEqual(report["image_hint"], hint)
+        text = (self.reviews() / f"ref-feature-{report['change']['tested'][:12]}" / "report.txt").read_text()
+        self.assertTrue(text.endswith(f"\n{hint}\n"), text)
 
     def test_deny_toml_comes_from_the_host(self):
         self.change("tools/sandbox/deny.toml", "[advisories]\nignore = ['RUSTSEC-0000-0000']\n")

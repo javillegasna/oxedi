@@ -372,6 +372,7 @@ make sandbox CMD="make py-test"
 make sandbox-check                # prove the isolation from inside: every line says ok
 make sandbox-tools-check          # prove cargo-deny and pip-audit work in the image (needs the network)
 make sandbox-pr PR=251            # review a pull request: see "Reviewing a pull request" below
+make sandbox-pr-check             # prove sandbox-pr keeps a hostile change from your machine
 make sandbox-image                # build the image (make sandbox builds it when it is missing)
 make sandbox-clean                # remove this checkout's storage; ALL=1 removes all of it
 ```
@@ -499,6 +500,13 @@ comment, label, push or status reaches GitHub.
 The exit status is that of `make sandbox` (the command's, 2 refused, 3 dirty audit, 124 timeout,
 130 and 143 on a signal), the fetch's when the fetch failed, and 4 when a confirmation was needed
 and not given. Every refusal is one line starting `sandbox-pr:`.
+
+`make sandbox-pr-check` proves it with a hostile change: in a temporary clone of your checkout, on
+a local branch that is never pushed, it plants a build script and a test hook that try to list your
+home directory, reach the network and write to the cargo cache and to a canary file, recording only
+whether each try worked. It reviews that branch with `CONFIRM=yes`, checks that every try was
+refused, that the canary, your home and your repository's refs are unchanged, and removes the
+clone. One line per check says ok or FAIL.
 
 **Bumping Rust.** When CI moves to a new Rust, change `ARG RUST_VERSION` in
 `tools/sandbox/Dockerfile`, run `make sandbox-image` (the new Dockerfile is a new tag), then run both

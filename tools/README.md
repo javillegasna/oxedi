@@ -36,7 +36,8 @@ the advisory database and checks a scratch crate with the image's cargo-deny. `s
 the host's configuration, `risk.py` lists the paths and the dependencies the change touches
 without running any of it, and the flow reuses `sandbox.py`'s plan and phases, adding the audit
 containers (cargo-deny and pip-audit, with the host's `deny.toml`), the confirmations and the
-reports. `tests/sandbox.sh` runs the runner's tests against a fake
+reports. `malicious-pr.sh` is `make sandbox-pr-check`: it plants the probes of `tests/malicious/`
+in a temporary clone and reviews it for real. `tests/sandbox.sh` runs the runner's tests against a fake
 `docker` (`tests/fake_docker.py`), so they need no Docker; those that go through `make` run it
 over a throwaway copy of the make files, never over this checkout. CONTRIBUTING.md (Sandbox) explains
 how to use it.

@@ -40,7 +40,7 @@ import sys
 import time
 from collections.abc import Callable
 from dataclasses import dataclass
-from pathlib import Path
+from pathlib import Path, PurePosixPath
 from typing import TypeVar
 
 # Isolated mode leaves the script's own directory out of sys.path; tools/ is read-only in a run.
@@ -186,10 +186,13 @@ def checked_daemon() -> DaemonInfo:
 
 def checkout_playwright(root: Path) -> str:
     """The `playwright==` pin of the checkout's docs/requirements.txt, read as data on the host with
-    viewer_image.py's parser; a link there is refused, since its target, not the checkout's file,
-    would be read."""
-    if (root / viewer_image.DOCS_REQUIREMENTS).is_symlink():
-        raise SandboxError(f"refused: {viewer_image.DOCS_REQUIREMENTS} is a symbolic link; it must be a real file")
+    viewer_image.py's parser; a link anywhere on that path is refused, since its target, not the
+    checkout's file, would be read."""
+    relative = PurePosixPath(viewer_image.DOCS_REQUIREMENTS)
+    for part in (*reversed(relative.parents[:-1]), relative):
+        if (root / part).is_symlink():
+            kind = "file" if part == relative else "directory"
+            raise SandboxError(f"refused: {part} is a symbolic link; it must be a real {kind}")
     try:
         return viewer_image.playwright_pin(viewer_image.read(root, viewer_image.DOCS_REQUIREMENTS))
     except SystemExit as error:

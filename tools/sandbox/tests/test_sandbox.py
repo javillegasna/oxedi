@@ -896,6 +896,15 @@ class Images(World):
         self.assertEqual((result.returncode, result.stderr.strip()),
                          (2, "sandbox: refused: docs/requirements.txt is a symbolic link; it must be a real file"))
         self.assertEqual(self.runs(), [])
+        outside = self.tmp / "outside-docs"
+        outside.mkdir()
+        (outside / "requirements.txt").write_text(PINNED)
+        shutil.rmtree(checkout / "docs")
+        (checkout / "docs").symlink_to(outside)
+        result = self.sandbox(checkout, "viewer", FAKE_PLAYWRIGHT_LABEL="1.64.0")
+        self.assertEqual((result.returncode, result.stderr.strip()),
+                         (2, "sandbox: refused: docs is a symbolic link; it must be a real directory"))
+        self.assertEqual(self.runs(), [])
 
     def test_kind_required_with_image(self):
         result = subprocess.run(

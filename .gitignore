@@ -2,9 +2,10 @@
 **/*.rs.bk
 __pycache__/
 
-# Maintainers' working notes (design contract, plans, spikes, state, study notes): kept locally,
-# not part of the repo. The public roadmap is docs/roadmap.md.
+# Maintainers' working notes (design contract, plans, study notes) and their own agent
+# instructions: kept locally, not part of the repo. The public roadmap is docs/roadmap.md.
 .doc/
+CLAUDE.local.md
 
 # Python: local environments, the editable-install extension, test caches.
 .venv/

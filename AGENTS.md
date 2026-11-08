@@ -51,9 +51,10 @@ Rules for every change and refactor, checked by implementers and reviewers alike
 
 - Each implementer works in its own worktree of the feature branch, never in the main checkout.
 - Every command that runs project or dependency code runs as `make sandbox CMD="..."`:
-  `make gates`, `make py-test`, `make viewer-test` (with `IMAGE=viewer`), the sandbox's own tests
-  and a single `cargo test` alike. Only the targets `CONTRIBUTING.md` lists under "What stays on
-  the host" run on the host.
+  `make gates`, `make py-test`, `make viewer-test` (with `IMAGE=viewer`) and a single
+  `cargo test` alike. Only the targets `CONTRIBUTING.md` lists under "What stays on the host" run
+  on the host, and so does `.github/scripts/lint.sh`, which runs the sandbox's own tests: they
+  need `git`, which the sandbox image does not carry.
 - Docker commands use the rootful daemon for that command only, as
   `env -u DOCKER_HOST DOCKER_HOST=unix:///var/run/docker.sock make sandbox CMD="..."`; never
   change the shell's or Docker's configuration. When that daemon does not answer, the agent stops

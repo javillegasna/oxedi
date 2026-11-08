@@ -1,8 +1,10 @@
 # Roadmap
 
 What oxedi is working on, why, and where help is welcome. Nothing here is a promise or a date:
-plans change with what people need. Each item links to an issue that tracks it; comment there to
-weigh in, and comment before starting work so two people do not take the same piece. The
+plans change with what people need. Work that anyone can take is a GitHub issue: issues labelled
+[good first issue](https://github.com/javillegasna/oxedi/labels/good%20first%20issue) have a
+Pointers section with where the code lives and which test pins it. Comment on an issue before
+starting, so two people do not take the same piece. The
 [contributor guide](https://github.com/javillegasna/oxedi/blob/master/CONTRIBUTING.md) says how
 to build, test and send a change.
 
@@ -10,32 +12,24 @@ to build, test and send a change.
 
 oxedi reads and writes the 835, and its structure already comes from a spec that is plain data.
 Before adding other X12 transaction sets, the code underneath is being simplified so that a new
-transaction set is a new spec, not new code. Three pieces, in this order. None of them changes
-what oxedi reads or writes: every expected output stays byte for byte.
+transaction set is a new spec, not new code. None of this changes what oxedi reads or writes:
+every expected output stays byte for byte.
 
-- **Thin bindings** ([#220](https://github.com/javillegasna/oxedi/issues/220)). Python, DuckDB and
-  the browser viewer each repeat a few rules that belong in the Rust core: converting values
-  before writing, picking the spec version of a file, turning diagnostics into rows, choosing a
-  masked or unmasked run. Copies drift apart, and two places name 835 tables outside the spec,
-  which another transaction set would break. Each rule moves to the core once.
-- **One home for X12 values, and a spec the code can build**
-  ([#221](https://github.com/javillegasna/oxedi/issues/221)). Element types, number and date
-  parsing are spread over several modules, and the spec can be read but not produced. Generating
-  specs (next section) needs both in one place.
-- **Checker and projector with one state per concern**
-  ([#222](https://github.com/javillegasna/oxedi/issues/222)). The structure checker and the table
-  projector each track loop instances and match segments to occurrences on their own. Sharing
-  that makes a new check, such as hierarchical (HL) parent pointers, a small addition.
-
-**How to help:** issues labelled
-[good first issue](https://github.com/javillegasna/oxedi/labels/good%20first%20issue) have a
-Pointers section with where the code lives and which test pins it.
+- **Thin bindings** (done). Python, DuckDB and the browser viewer no longer repeat rules that
+  belong in the Rust core: converting values before writing, picking the spec version of a file,
+  turning diagnostics into rows and choosing a masked or unmasked run each live in the core once.
+- **One home for X12 values, and a spec the code can build** (in progress). Element types,
+  number and date parsing now live in one place. Next, the spec gets a typed model that code can
+  build and write back as JSON, which generating specs (next section) needs.
+- **Checker and projector with one state per concern** (after that). The structure checker and
+  the table projector each track loop instances and match segments to occurrences on their own.
+  Sharing that makes a new check, such as hierarchical (HL) parent pointers, a small addition.
 
 ## Next: specs for any X12 transaction set
 
-([#223](https://github.com/javillegasna/oxedi/issues/223)) Writing a spec by hand takes hundreds of
-lines, while the open source [pyx12](https://github.com/azoner/pyx12) project already maps the
-270/271, 276/277, 820, 834, 837 and 999. The plan:
+Writing a spec by hand takes hundreds of lines, while the open source
+[pyx12](https://github.com/azoner/pyx12) project already maps the 270/271, 276/277, 820, 834, 837
+and 999. The plan:
 
 - `oxedi.pyx12.spec_from_map(...)` turns an installed pyx12 map into an oxedi spec, with
   automatic tables (one per loop, one per repeating segment) that a merge patch can rename or

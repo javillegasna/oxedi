@@ -1992,37 +1992,32 @@
 
 <h1 id="roadmap">Roadmap<a class="headerlink" href="#roadmap" title="Permanent link">&para;</a></h1>
 <p>What oxedi is working on, why, and where help is welcome. Nothing here is a promise or a date:
-plans change with what people need. Each item links to an issue that tracks it; comment there to
-weigh in, and comment before starting work so two people do not take the same piece. The
+plans change with what people need. Work that anyone can take is a GitHub issue: issues labelled
+<a href="https://github.com/javillegasna/oxedi/labels/good%20first%20issue">good first issue</a> have a
+Pointers section with where the code lives and which test pins it. Comment on an issue before
+starting, so two people do not take the same piece. The
 <a href="https://github.com/javillegasna/oxedi/blob/master/CONTRIBUTING.md">contributor guide</a> says how
 to build, test and send a change.</p>
 <h2 id="working-on-now-a-solid-base-for-more-transaction-sets">Working on now: a solid base for more transaction sets<a class="headerlink" href="#working-on-now-a-solid-base-for-more-transaction-sets" title="Permanent link">&para;</a></h2>
 <p>oxedi reads and writes the 835, and its structure already comes from a spec that is plain data.
 Before adding other X12 transaction sets, the code underneath is being simplified so that a new
-transaction set is a new spec, not new code. Three pieces, in this order. None of them changes
-what oxedi reads or writes: every expected output stays byte for byte.</p>
+transaction set is a new spec, not new code. None of this changes what oxedi reads or writes:
+every expected output stays byte for byte.</p>
 <ul>
-<li><strong>Thin bindings</strong> (<a href="https://github.com/javillegasna/oxedi/issues/220">#220</a>). Python, DuckDB and
-  the browser viewer each repeat a few rules that belong in the Rust core: converting values
-  before writing, picking the spec version of a file, turning diagnostics into rows, choosing a
-  masked or unmasked run. Copies drift apart, and two places name 835 tables outside the spec,
-  which another transaction set would break. Each rule moves to the core once.</li>
-<li><strong>One home for X12 values, and a spec the code can build</strong>
-  (<a href="https://github.com/javillegasna/oxedi/issues/221">#221</a>). Element types, number and date
-  parsing are spread over several modules, and the spec can be read but not produced. Generating
-  specs (next section) needs both in one place.</li>
-<li><strong>Checker and projector with one state per concern</strong>
-  (<a href="https://github.com/javillegasna/oxedi/issues/222">#222</a>). The structure checker and the table
-  projector each track loop instances and match segments to occurrences on their own. Sharing
-  that makes a new check, such as hierarchical (HL) parent pointers, a small addition.</li>
+<li><strong>Thin bindings</strong> (done). Python, DuckDB and the browser viewer no longer repeat rules that
+  belong in the Rust core: converting values before writing, picking the spec version of a file,
+  turning diagnostics into rows and choosing a masked or unmasked run each live in the core once.</li>
+<li><strong>One home for X12 values, and a spec the code can build</strong> (in progress). Element types,
+  number and date parsing now live in one place. Next, the spec gets a typed model that code can
+  build and write back as JSON, which generating specs (next section) needs.</li>
+<li><strong>Checker and projector with one state per concern</strong> (after that). The structure checker and
+  the table projector each track loop instances and match segments to occurrences on their own.
+  Sharing that makes a new check, such as hierarchical (HL) parent pointers, a small addition.</li>
 </ul>
-<p><strong>How to help:</strong> issues labelled
-<a href="https://github.com/javillegasna/oxedi/labels/good%20first%20issue">good first issue</a> have a
-Pointers section with where the code lives and which test pins it.</p>
 <h2 id="next-specs-for-any-x12-transaction-set">Next: specs for any X12 transaction set<a class="headerlink" href="#next-specs-for-any-x12-transaction-set" title="Permanent link">&para;</a></h2>
-<p>(<a href="https://github.com/javillegasna/oxedi/issues/223">#223</a>) Writing a spec by hand takes hundreds of
-lines, while the open source <a href="https://github.com/azoner/pyx12">pyx12</a> project already maps the
-270/271, 276/277, 820, 834, 837 and 999. The plan:</p>
+<p>Writing a spec by hand takes hundreds of lines, while the open source
+<a href="https://github.com/azoner/pyx12">pyx12</a> project already maps the 270/271, 276/277, 820, 834, 837
+and 999. The plan:</p>
 <ul>
 <li><code>oxedi.pyx12.spec_from_map(...)</code> turns an installed pyx12 map into an oxedi spec, with
   automatic tables (one per loop, one per repeating segment) that a merge patch can rename or

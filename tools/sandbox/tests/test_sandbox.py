@@ -110,7 +110,7 @@ IGNORED = ".venv-docs/\n/viewer/pkg/\nnotes.log\n.env\n/target/\n/.venv/\n__pyca
 
 FULL_SET = [
     "Makefile", "make/", "tools/", ".cargo/", ".github/", "rust-toolchain.toml", "Cargo.toml",
-    "Cargo.lock", "CLAUDE.md", ".claude/", "crates/oxedi_py/pyproject.toml",
+    "Cargo.lock", "AGENTS.md", "CLAUDE.md", ".claude/", "crates/oxedi_py/pyproject.toml",
 ]
 
 

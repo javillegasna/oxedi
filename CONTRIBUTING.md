@@ -459,7 +459,7 @@ nor the host checks set it.
 
 **What stays read-only.** The files your host executes or trusts after a run are bound read-only
 over the checkout in both phases: `Makefile`, `make/`, `tools/`, `.cargo/`, `.github/`,
-`rust-toolchain.toml`, `Cargo.toml`, `Cargo.lock`, `CLAUDE.md`, `.claude/`,
+`rust-toolchain.toml`, `Cargo.toml`, `Cargo.lock`, `AGENTS.md`, `CLAUDE.md`, `.claude/`,
 `crates/oxedi_py/pyproject.toml`, `.git`, `.gitmodules`, every submodule (the DuckDB targets
 include `extension-ci-tools`' makefiles), and every tracked `Cargo.toml`, `Cargo.lock`,
 `rust-toolchain`, `pyproject.toml`, `uv.toml`, `.python-version` and `.cargo/` anywhere, with every

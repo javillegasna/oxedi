@@ -31,7 +31,8 @@ STAND_INS = {"GNUmakefile": "-include makefile\n", "makefile": "-include Makefil
 # What the host executes or trusts after a run: bound read-only over the checkout.
 HOST_EXECUTED = (
     "Makefile", "make", "tools", ".cargo", ".github", "rust-toolchain.toml", "Cargo.toml",
-    "Cargo.lock", "CLAUDE.md", ".claude", "crates/oxedi_py/pyproject.toml", ".git", ".gitmodules", *ROOT_LOADED,
+    "Cargo.lock", "AGENTS.md", "CLAUDE.md", ".claude", "crates/oxedi_py/pyproject.toml", ".git",
+    ".gitmodules", *ROOT_LOADED,
 )
 # Tracked files with these names, anywhere, steer cargo, rustup, uv, pytest, nox, tox, Python or
 # direnv when the host runs them: bound read-only too.

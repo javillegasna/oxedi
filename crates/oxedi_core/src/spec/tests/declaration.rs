@@ -199,8 +199,8 @@ OccurrenceModel an occurrence object: segment pos usage max qualifier codes
 RawOccurrence an occurrence object: segment pos usage max qualifier codes
 SegmentModel a segment object: elements
 RawSegment a segment object: elements
-TableModel a table object: loops ref segment repeat columns phi_seed
-RawTable a table object: loops ref segment repeat columns phi_seed
+TableModel a table object: loops ref segment phi_seed repeat columns
+RawTable a table object: loops ref segment phi_seed repeat columns
 ColumnModel a column object: loop segment where occurrence pick element component group_element segment_index phi
 RawColumn a column object: loop segment where occurrence pick element component group_element segment_index phi";
 

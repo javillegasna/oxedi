@@ -3,7 +3,7 @@
 //! [`ROOT`] lists the sections of a spec; `shape` walks a value against it.
 
 use super::model::{
-    BALANCE, LOOP, REPEAT, SEGMENT, SUMMARY_COLUMN, SUMMARY_ROW, SUMMARY_TABLE, VERSION,
+    BALANCE, LOOP, SEGMENT, SUMMARY_COLUMN, SUMMARY_ROW, SUMMARY_TABLE, TABLE, VERSION,
 };
 use super::shape::{Field, Leaf, ObjectSchema};
 
@@ -59,34 +59,6 @@ pub(super) static ROOT: ObjectSchema = ObjectSchema {
         ("default_table", TEXT),
     ],
     required: &["name", "loops"],
-};
-
-static TABLE: ObjectSchema = ObjectSchema {
-    keys: &[
-        ("loops", TEXTS),
-        ("ref", nullable(Leaf::Text)),
-        ("segment", nullable(Leaf::Text)),
-        ("phi_seed", nullable(Leaf::Text)),
-        ("repeat", Field::Object(&REPEAT)),
-        ("columns", Field::Map(&Field::Object(&COLUMN))),
-    ],
-    required: &["loops"],
-};
-
-static COLUMN: ObjectSchema = ObjectSchema {
-    keys: &[
-        ("loop", nullable(Leaf::Text)),
-        ("segment", nullable(Leaf::Text)),
-        ("where", Field::Map(&TEXT)),
-        ("occurrence", nullable(Leaf::Text)),
-        ("pick", nullable(Leaf::Pick)),
-        ("element", nullable(Leaf::Count)),
-        ("component", nullable(Leaf::Count)),
-        ("group_element", nullable(Leaf::Count)),
-        ("segment_index", leaf(Leaf::Flag)),
-        ("phi", nullable(Leaf::Text)),
-    ],
-    required: &[],
 };
 
 pub(super) static ELEMENT: ObjectSchema = ObjectSchema {

@@ -30,7 +30,8 @@
 //! of its text built from lists; `render` the text used in messages; `patch`
 //! the merge patch; `version` the version declaration and the choice of a
 //! spec by it; `builtin` the registry of shipped specs by transaction and
-//! version.
+//! version; `vocabulary` the closed words and the codes key a spec writes, one
+//! table each.
 
 mod balance;
 mod balance_error;
@@ -61,8 +62,9 @@ pub(crate) mod test_support;
 #[cfg(test)]
 mod tests;
 mod version;
+mod vocabulary;
 
-pub use balance::{BalanceRule, BalanceTerm};
+pub use balance::{BalanceRule, BalanceTerm, Sign};
 pub use balance_error::BalanceError;
 pub use builtin::{Builtin, UnknownVersion, Version};
 pub use error::SpecError;
@@ -78,6 +80,7 @@ pub use summary_error::SummaryDefError;
 pub use table_error::{AnchorChains, AnchorPositions, LoopSegments, TableDefError};
 pub use tables::{ColumnSource, Pick, Repeat, TableDef};
 pub use version::{DeclaredVersion, VersionError};
+pub use vocabulary::ElementPosition;
 
 pub(crate) use balance::render_terms;
 pub(crate) use render::{render_key, render_selector, render_trigger};

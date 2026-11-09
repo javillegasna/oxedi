@@ -247,10 +247,13 @@ fn shared_trigger_pos(spec: &Spec, above: LoopId, anchor: LoopId) -> Option<usiz
 /// The pick as compiled: `first`, `last` or a position from 1.
 fn compile_pick(raw: Option<&RawPick>) -> Result<Pick, TableDefError> {
     match raw {
-        None => Ok(Pick::First),
-        Some(RawPick::Named(name)) if name == "first" => Ok(Pick::First),
-        Some(RawPick::Named(name)) if name == "last" => Ok(Pick::Last),
+        None => Ok(Pick::default()),
         Some(RawPick::Nth(nth)) if *nth > 0 => Ok(Pick::Nth(*nth)),
+        Some(pick @ RawPick::Named(word)) => {
+            Pick::from_word(word).ok_or_else(|| TableDefError::BadPick {
+                written: pick.written(),
+            })
+        }
         Some(other) => Err(TableDefError::BadPick {
             written: other.written(),
         }),

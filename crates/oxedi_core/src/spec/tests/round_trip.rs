@@ -37,40 +37,55 @@ fn round_trip_specs() -> Vec<(&'static str, Spec)> {
     let [five, four] = Builtin::all() else {
         panic!("the registry ships two built-in specs");
     };
-    let parser = Spec::builtin_835()
-        .merge_patch(include_str!("../../../specs/edi_835_parser.json"))
-        .unwrap();
+    let parser = ok(
+        "edi_835_parser",
+        "merge the patch",
+        Spec::builtin_835().merge_patch(include_str!("../../../specs/edi_835_parser.json")),
+    );
     vec![
         ("5010", five.spec.as_ref().clone()),
         ("4010", four.spec.as_ref().clone()),
         ("edi_835_parser", parser),
         ("test_support", test_support::spec()),
-        ("clp_only", Spec::from_json(CLP_ONLY).unwrap()),
+        (
+            "clp_only",
+            ok("clp_only", "load", Spec::from_json(CLP_ONLY)),
+        ),
         (
             "explicit_defaults",
-            Spec::from_json(EXPLICIT_DEFAULTS).unwrap(),
+            ok(
+                "explicit_defaults",
+                "load",
+                Spec::from_json(EXPLICIT_DEFAULTS),
+            ),
         ),
     ]
 }
 
-fn written(spec: &Spec) -> String {
-    spec.model().unwrap().to_json().unwrap()
+// Unwraps a step of the spec `name`, so a failure says which spec and step broke.
+fn ok<T, E: std::fmt::Display>(name: &str, step: &str, result: Result<T, E>) -> T {
+    result.unwrap_or_else(|e| panic!("{name}: {step}: {e}"))
+}
+
+fn written(name: &str, spec: &Spec) -> String {
+    ok(name, "write", ok(name, "model", spec.model()).to_json())
 }
 
 #[test]
 fn every_spec_round_trips() {
     for (name, spec) in round_trip_specs() {
-        let m1 = spec.model().unwrap_or_else(|e| panic!("{name}: {e}"));
-        let text = m1.to_json().unwrap();
-        let m2 = Spec::from_json(&text)
-            .unwrap_or_else(|e| panic!("{name}: {e}"))
-            .model()
-            .unwrap();
+        let m1 = ok(name, "model", spec.model());
+        let text = ok(name, "write", m1.to_json());
+        let m2 = ok(
+            name,
+            "model of the text",
+            ok(name, "load", Spec::from_json(&text)).model(),
+        );
         assert_eq!(m1, m2, "{name}: the model changed");
-        let as_value: Value = serde_json::from_str(&text).unwrap();
+        let as_value: Value = ok(name, "parse the text", serde_json::from_str(&text));
         assert_eq!(
             as_value,
-            serde_json::to_value(&m2).unwrap(),
+            ok(name, "model to value", serde_json::to_value(&m2)),
             "{name}: the text is not the model"
         );
         assert_eq!(
@@ -84,7 +99,7 @@ fn every_spec_round_trips() {
 #[test]
 fn a_round_trip_compiles_to_the_same_spec() {
     for (name, spec) in round_trip_specs() {
-        let back = Spec::from_json(&written(&spec)).unwrap();
+        let back = ok(name, "load", Spec::from_json(&written(name, &spec)));
         assert_eq!(back.name(), spec.name(), "{name}: name");
         assert_eq!(back.loops(), spec.loops(), "{name}: loops");
         assert_eq!(
@@ -117,7 +132,11 @@ fn holds_null(value: &Value) -> bool {
 #[test]
 fn a_written_spec_holds_no_null() {
     for (name, spec) in round_trip_specs() {
-        let value: Value = serde_json::from_str(&written(&spec)).unwrap();
+        let value: Value = ok(
+            name,
+            "parse the text",
+            serde_json::from_str(&written(name, &spec)),
+        );
         assert!(!holds_null(&value), "{name}: the written spec holds a null");
     }
 }
@@ -131,7 +150,8 @@ fn lacks(value: &Value, keys: &[&str]) {
 
 #[test]
 fn explicit_defaults_are_not_written() {
-    let text = written(&Spec::from_json(EXPLICIT_DEFAULTS).unwrap());
+    let name = "explicit_defaults";
+    let text = written(name, &ok(name, "load", Spec::from_json(EXPLICIT_DEFAULTS)));
     let root: Value = serde_json::from_str(&text).unwrap();
     lacks(&root, &["summaries"]);
     let a = &root["loops"]["A"];

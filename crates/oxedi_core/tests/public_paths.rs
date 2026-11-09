@@ -56,8 +56,10 @@ mod by_module {
     use oxedi_core::spec::LoopId;
     use oxedi_core::spec::LoopSegments;
     use oxedi_core::spec::Pick;
+    use oxedi_core::spec::QualifierModel;
     use oxedi_core::spec::ROW_COLUMN;
     use oxedi_core::spec::Repeat;
+    use oxedi_core::spec::RepeatModel;
     use oxedi_core::spec::SEGMENT_COLUMN;
     use oxedi_core::spec::SegmentDef;
     use oxedi_core::spec::Sign;
@@ -77,6 +79,7 @@ mod by_module {
     use oxedi_core::spec::UnknownVersion;
     use oxedi_core::spec::Version;
     use oxedi_core::spec::VersionError;
+    use oxedi_core::spec::VersionModel;
     use oxedi_core::spec::merge_patch;
     use oxedi_core::spec::spec_schema;
     use oxedi_core::spec::table_columns;

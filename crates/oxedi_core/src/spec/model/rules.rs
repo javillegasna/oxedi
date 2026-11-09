@@ -1,6 +1,20 @@
-//! The operations of a summary, as the spec writes them.
+//! The version declaration and the operations of a summary, as the spec
+//! writes them.
 
 use serde::{Deserialize, Serialize};
+
+/// The element of a segment that declares the version a file is written in,
+/// and the values the spec accepts there.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields, expecting = "a version object")]
+pub struct VersionModel {
+    /// The segment that holds the declaration.
+    pub segment: String,
+    /// 1-based element position of the declaration.
+    pub element: usize,
+    /// The values the spec accepts.
+    pub values: Vec<String>,
+}
 
 /// A summary over the rows of a table, written `{"count": {"table": ...}}`.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]

@@ -29,14 +29,6 @@ pub(super) struct RawSpec {
 }
 
 #[derive(Debug, Deserialize)]
-#[serde(deny_unknown_fields, expecting = "a version object")]
-pub(super) struct RawVersion {
-    pub(super) segment: String,
-    pub(super) element: usize,
-    pub(super) values: Vec<String>,
-}
-
-#[derive(Debug, Deserialize)]
 #[serde(deny_unknown_fields, expecting = "a loop object")]
 pub(super) struct RawLoop {
     pub(super) parent: Option<String>,
@@ -59,14 +51,6 @@ pub(super) struct RawOccurrence {
     pub(super) qualifier: Option<RawQualifier>,
     #[serde(default)]
     pub(super) codes: BTreeMap<String, Vec<String>>,
-}
-
-#[derive(Debug, Deserialize)]
-#[serde(deny_unknown_fields, expecting = "a qualifier object")]
-pub(super) struct RawQualifier {
-    pub(super) element: usize,
-    pub(super) component: Option<usize>,
-    pub(super) codes: Vec<String>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -122,13 +106,6 @@ pub(super) struct RawTable {
     #[serde(default)]
     pub(super) columns: BTreeMap<String, IgnoredAny>,
     pub(super) phi_seed: Option<String>,
-}
-
-#[derive(Debug, Deserialize)]
-#[serde(deny_unknown_fields, expecting = "a repeat object")]
-pub(super) struct RawRepeat {
-    pub(super) from: usize,
-    pub(super) step: usize,
 }
 
 #[derive(Debug, Deserialize)]
@@ -197,6 +174,10 @@ pub(super) struct RawSummary {
     pub(super) sum: Option<RawSummaryColumn>,
     pub(super) row: Option<RawSummaryRow>,
 }
+
+pub(super) use super::model::{
+    QualifierModel as RawQualifier, RepeatModel as RawRepeat, VersionModel as RawVersion,
+};
 
 pub(super) use super::model::{
     SummaryColumnModel as RawSummaryColumn, SummaryRowModel as RawSummaryRow,

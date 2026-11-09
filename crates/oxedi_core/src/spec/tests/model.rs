@@ -4,8 +4,8 @@ use serde::Serialize;
 use serde_json::{Value, from_value, json, to_value};
 
 use crate::spec::{
-    ElementModel, LoopModel, OccurrenceModel, QualifierModel, SummaryModel, SummaryTableModel,
-    TriggerModel, Usage,
+    ColumnModel, ElementModel, LoopModel, OccurrenceModel, Pick, QualifierModel, Sign,
+    SummaryModel, SummaryTableModel, TermModel, TriggerModel, Usage,
 };
 use crate::value::{ElementType, TypeCodeError};
 
@@ -134,4 +134,43 @@ fn an_unknown_key_is_refused() {
     assert!(from_value::<LoopModel>(json!({"trigger":{"segment":"ST"},"colour":1})).is_err());
     let occurrence = json!({"segment":"NM1","pos":10,"colour":1});
     assert!(from_value::<OccurrenceModel>(occurrence).is_err());
+}
+
+#[test]
+fn a_written_pick_first_is_kept() {
+    let mut column = ColumnModel {
+        loop_name: None,
+        segment: None,
+        conditions: BTreeMap::new(),
+        occurrence: Some("clp".into()),
+        pick: Some(Pick::First),
+        element: Some(4),
+        component: None,
+        group_element: None,
+        segment_index: false,
+        phi: None,
+    };
+    let written = json!({"occurrence":"clp","pick":"first","element":4});
+    assert_eq!(json_of(&column), written);
+    assert_eq!(from_value::<ColumnModel>(written).unwrap(), column);
+    column.pick = None;
+    assert_eq!(json_of(&column), json!({"occurrence":"clp","element":4}));
+}
+
+#[test]
+fn a_term_sign_is_written_only_when_minus() {
+    let plain = json!({"occurrence":"clp","elements":[4]});
+    for written in [
+        json!({"occurrence":"clp","elements":[4],"sign":null}),
+        json!({"occurrence":"clp","elements":[4],"sign":"+"}),
+        plain.clone(),
+    ] {
+        let term = from_value::<TermModel>(written).unwrap();
+        assert_eq!(term.sign, Sign::Plus);
+        assert_eq!(json_of(&term), plain);
+    }
+    let minus = json!({"occurrence":"clp","elements":[4],"sign":"-"});
+    let term = from_value::<TermModel>(minus.clone()).unwrap();
+    assert_eq!(term.sign, Sign::Minus);
+    assert_eq!(json_of(&term), minus);
 }

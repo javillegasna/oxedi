@@ -35,7 +35,7 @@ fn element(composite: BTreeMap<usize, ElementModel>) -> ElementModel {
     }
 }
 
-// Every field set off its default and every optional one present, written as
+// Every element and summary field set off its default, written as
 // full literals so a field added to a model stops this build until it is set.
 fn every_key_model() -> SpecModel {
     let summary_field = SummaryFieldModel {

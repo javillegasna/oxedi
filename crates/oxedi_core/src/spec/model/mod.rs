@@ -3,7 +3,8 @@
 //! and their occurrences, `segments` the segments and their elements,
 //! `tables` the tables and their columns, and `rules` the version
 //! declaration, the balancing rules and the operations of a summary; which
-//! read checks what is on [`SpecModel`].
+//! read checks what is on [`SpecModel`]. `declare` holds the macro that
+//! emits each object's model, its raw struct and its schema table.
 
 mod declare;
 mod loops;

@@ -2,7 +2,7 @@
 //!
 //! The shape is data: every object the schema defines is an [`ObjectSchema`],
 //! a table of its keys and the [`Field`] each holds (the tables are in
-//! `sections`), and one walk checks a value against it. The root is such a
+//! `model` and `sections`), and one walk checks a value against it. The root is such a
 //! table too, one row per section of the spec, so a section is checked by
 //! looking up its key.
 

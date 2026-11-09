@@ -1,14 +1,14 @@
 //! `spec_object!`: one declaration per spec object, which emits its public
-//! model, the struct the loader deserializes and its registry schema, so the
+//! model, the struct the loader deserializes and its schema table, so the
 //! three cannot name different keys.
 
 /// Declares one object of a spec: the header names the model, the raw struct
 /// (`Model / Raw` emits both; `Model = Raw` makes the raw name an alias of the
 /// model; `Model` alone has no raw struct, for an object only its parent reads),
-/// the registry static and the `expecting` text both structs share.
+/// the schema static and the `expecting` text both structs share.
 /// Each row is one key: its field, the key when it differs (`as "where"`),
 /// the model type, the raw type and its attributes when they differ
-/// (`| #[serde(...)] RawType`), the registry `Field`, and a presence word.
+/// (`| #[serde(...)] RawType`), the schema `Field`, and a presence word.
 ///
 /// ```text
 /// spec_object! {
@@ -27,7 +27,7 @@
 /// default and leaves the default unwritten. `default_or_null` also reads
 /// `null` as the default in the model; its raw type is an `Option`. Any other
 /// word fails to compile, naming the key, and so does a row not in that form or
-/// a `| RawType` in a `Model = Raw` declaration, which has no raw struct.
+/// a `| RawType` in a `Model = Raw` or a `Model` declaration, which have no raw struct.
 ///
 /// The rows are munched one at a time: `@rows` reads a row into a fixed form,
 /// `@word` turns its presence word into serde attributes, `@field` appends the
@@ -58,9 +58,9 @@ macro_rules! spec_object {
         $(#[$fdoc:meta])* $field:ident $(as $key:literal)? : $mty:ty | $($rest:tt)*
     ) => {
         compile_error!(concat!(
-            "spec_object! `", stringify!($model), "` has no raw struct, so the row of `",
+            "spec_object!: `", stringify!($model), "` has no raw struct, so the row of `",
             stringify!($field), "` cannot name a raw type after `|`; declare the object with `",
-            stringify!($model), " / Raw` or `", stringify!($model), " = Raw` instead"
+            stringify!($model), " / Raw` instead"
         ));
     };
     (

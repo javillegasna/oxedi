@@ -1961,14 +1961,15 @@ no external code lists excluded (<code>exclude_external_codes=None</code>),
 and user/system configuration files (<code>~/.pyx12.conf.xml</code>,
 <code>&lt;prefix&gt;/etc/pyx12.conf.xml</code>) are not read, so findings do not
 depend on the machine.</p>
-<p>Every error pyx12's engine records is returned: interchange, group and
-transaction errors, segment errors and element errors, including those
-of the envelope segments. They are read from the error tree pyx12
-builds; pyx12's logging is not used. The <code>pyx12</code> logger gets a
-<code>logging.NullHandler</code> the first time, when it has none, so pyx12's
-records are not printed by default and still reach the handlers the
-caller configures; levels, propagation and <code>logging.disable</code> stay as
-the caller set them.</p>
+<p>The findings are the interchange, group and transaction errors and the
+segment and element errors in the JSON error output pyx12 writes;
+pyx12's logging is not used. Until pyx12's JSON output carries them,
+errors inside the envelope segments (<abbr title="Interchange control header segment">ISA</abbr>, <abbr title="Functional group header segment">GS</abbr>, <abbr title="Transaction set header segment">ST</abbr>, <abbr title="Transaction set trailer segment">SE</abbr>, <abbr title="Functional group trailer segment">GE</abbr>, <abbr title="Interchange control trailer segment">IEA</abbr>) are not
+reported: neither their element errors nor their segment errors. The <code>pyx12</code>
+logger gets a <code>logging.NullHandler</code> the first time, when it has none,
+so pyx12's records are not printed by default and still reach the
+handlers the caller configures; levels, propagation and
+<code>logging.disable</code> stay as the caller set them.</p>
 <p>Each finding is an <code>oxedi.Diagnostic</code>, the type <code>parse</code>
 returns, so both lists mix, sort by <code>level</code> and filter by <code>origin</code>.
 A pyx12 finding has <code>kind == "External"</code>, <code>origin == "pyx12"</code> and

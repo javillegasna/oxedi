@@ -47,6 +47,9 @@ This file covers the Python package; the DuckDB extension has its own changelog 
 - `Spec.builtin` takes a `Version` (the text, such as `"4010"`, is still accepted); introspecting it at
   runtime shows the default of `version` as `...`, its value is `Spec.DEFAULT_VERSION`. The `ValueError` for a version no built-in covers now reads
   `Spec.builtin(version="6020"): unknown version "6020"; version must be one of "5010", "4010"`.
+- `oxedi.pyx12.validate` reads pyx12's JSON error output instead of its internal error tree. Until
+  pyx12's JSON output carries them, element errors inside the envelope segments (ISA, GS, ST, SE,
+  GE, IEA) are not reported.
 
 ## [0.6.0] - 2026-10-18
 

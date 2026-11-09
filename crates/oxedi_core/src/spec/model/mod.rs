@@ -5,6 +5,7 @@
 //! declaration, the balancing rules and the operations of a summary; which
 //! read checks what is on [`SpecModel`].
 
+mod declare;
 mod loops;
 mod rules;
 mod segments;
@@ -23,6 +24,8 @@ pub use rules::{
 };
 pub use segments::{ElementModel, SegmentModel};
 pub use tables::{ColumnModel, RepeatModel, TableModel};
+
+pub(in crate::spec) use loops::{CONTROL, RawControl};
 
 /// A whole spec, as the spec writes it.
 ///

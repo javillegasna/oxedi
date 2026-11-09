@@ -5,6 +5,7 @@ mod builtin;
 mod codes;
 mod columns;
 mod controls;
+mod declaration;
 mod display;
 mod loading;
 mod model;

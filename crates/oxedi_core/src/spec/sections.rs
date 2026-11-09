@@ -2,31 +2,32 @@
 //! spec holds, each listing its keys in the order their values are checked.
 //! [`ROOT`] lists the sections of a spec; `shape` walks a value against it.
 
+use super::model::CONTROL;
 use super::shape::{Field, Leaf, ObjectSchema};
 
-const fn leaf(kind: Leaf) -> Field {
+pub(super) const fn leaf(kind: Leaf) -> Field {
     Field::Leaf {
         kind,
         nullable: false,
     }
 }
 
-const fn nullable(kind: Leaf) -> Field {
+pub(super) const fn nullable(kind: Leaf) -> Field {
     Field::Leaf {
         kind,
         nullable: true,
     }
 }
 
-const TEXT: Field = leaf(Leaf::Text);
-const COUNT: Field = leaf(Leaf::Count);
+pub(super) const TEXT: Field = leaf(Leaf::Text);
+pub(super) const COUNT: Field = leaf(Leaf::Count);
 
-const TEXTS: Field = Field::List {
+pub(super) const TEXTS: Field = Field::List {
     item: &TEXT,
     expected: "an array of strings",
 };
 
-const COUNTS: Field = Field::List {
+pub(super) const COUNTS: Field = Field::List {
     item: &COUNT,
     expected: "an array of non-negative integers",
 };
@@ -77,16 +78,6 @@ static LOOP: ObjectSchema = ObjectSchema {
 static TRIGGER: ObjectSchema = ObjectSchema {
     keys: &[("segment", TEXT), ("where", Field::Map(&TEXT))],
     required: &["segment"],
-};
-
-static CONTROL: ObjectSchema = ObjectSchema {
-    keys: &[
-        ("opener_element", COUNT),
-        ("closer_element", COUNT),
-        ("count_element", COUNT),
-        ("count", TEXT),
-    ],
-    required: &["opener_element", "closer_element", "count_element", "count"],
 };
 
 static OCCURRENCE: ObjectSchema = ObjectSchema {

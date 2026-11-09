@@ -25,7 +25,12 @@ pub use rules::{
 pub use segments::{ElementModel, SegmentModel};
 pub use tables::{ColumnModel, RepeatModel, TableModel};
 
-pub(in crate::spec) use loops::{CONTROL, RawControl};
+pub(in crate::spec) use loops::{CONTROL, QUALIFIER, RawControl, RawQualifier};
+pub(in crate::spec) use rules::{
+    BALANCE, RawBalance, RawSummaryColumn, RawSummaryField, RawSummaryRow, RawSummaryTable,
+    RawTerm, RawVersion, SUMMARY_COLUMN, SUMMARY_ROW, SUMMARY_TABLE, VERSION,
+};
+pub(in crate::spec) use tables::{REPEAT, RawRepeat};
 
 /// A whole spec, as the spec writes it.
 ///

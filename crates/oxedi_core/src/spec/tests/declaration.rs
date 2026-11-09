@@ -169,8 +169,8 @@ QualifierModel a qualifier object: element component codes
 RepeatModel a repeat object: from step
 BalanceModel a balancing rule object: per target sum
 RawBalance a balancing rule object: per target sum
-TermModel a balancing value object: loop occurrence elements component sign
-RawTerm a balancing value object: loop occurrence elements component sign
+TermModel a balancing value object: loop occurrence component sign elements
+RawTerm a balancing value object: loop occurrence component sign elements
 SummaryTableModel a summary operation object: table
 SummaryColumnModel a summary operation object: table column
 SummaryRowModel a summary operation object: table fields

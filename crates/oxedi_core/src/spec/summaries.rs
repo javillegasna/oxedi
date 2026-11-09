@@ -12,7 +12,7 @@ use super::Spec;
 use super::error::SpecError;
 use super::model::SummaryModel;
 use super::phi::ColumnKind;
-use super::raw::{RawSummary, RawSummaryColumn, RawSummaryRow};
+use super::raw::{RawSummary, RawSummaryColumn, RawSummaryField, RawSummaryRow};
 use super::summary_error::SummaryDefError;
 use super::tables::{ColumnSource, TableDef};
 use crate::value::ElementType;
@@ -167,7 +167,7 @@ fn compile_row(spec: &Spec, raw: RawSummaryRow) -> Result<Summary, SummaryDefErr
         fields: raw
             .fields
             .into_iter()
-            .map(|field| (field.name, field.column))
+            .map(|field: RawSummaryField| (field.name, field.column))
             .collect(),
         table: raw.table,
     })

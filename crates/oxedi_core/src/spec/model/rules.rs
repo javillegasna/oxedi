@@ -3,58 +3,55 @@
 
 use serde::{Deserialize, Serialize};
 
-use super::{is_default, null_is_default};
+use super::declare::spec_object;
 use crate::spec::Sign;
+use crate::spec::sections::{COUNT, COUNTS, TEXT, TEXTS, nullable, objects};
+use crate::spec::shape::{Field, Leaf};
 
-/// The element of a segment that declares the version a file is written in,
-/// and the values the spec accepts there.
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(deny_unknown_fields, expecting = "a version object")]
-pub struct VersionModel {
+spec_object! {
+    /// The element of a segment that declares the version a file is written in,
+    /// and the values the spec accepts there.
+    VersionModel = RawVersion, VERSION, "a version object";
     /// The segment that holds the declaration.
-    pub segment: String,
+    segment: String, TEXT, required;
     /// 1-based element position of the declaration.
-    pub element: usize,
+    element: usize, COUNT, required;
     /// The values the spec accepts.
-    pub values: Vec<String>,
+    values: Vec<String>, TEXTS, required;
 }
 
-/// A summary over the rows of a table, written `{"count": {"table": ...}}`.
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(deny_unknown_fields, expecting = "a summary operation object")]
-pub struct SummaryTableModel {
+spec_object! {
+    /// A summary over the rows of a table, written `{"count": {"table": ...}}`.
+    SummaryTableModel = RawSummaryTable, SUMMARY_TABLE, "a summary operation object";
     /// The table.
-    pub table: String,
+    table: String, TEXT, required;
 }
 
-/// A summary over one column of a table.
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(deny_unknown_fields, expecting = "a summary operation object")]
-pub struct SummaryColumnModel {
+spec_object! {
+    /// A summary over one column of a table.
+    SummaryColumnModel = RawSummaryColumn, SUMMARY_COLUMN, "a summary operation object";
     /// The table.
-    pub table: String,
+    table: String, TEXT, required;
     /// The column.
-    pub column: String,
+    column: String, TEXT, required;
 }
 
-/// A summary of named fields of the one row of a table.
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(deny_unknown_fields, expecting = "a summary operation object")]
-pub struct SummaryRowModel {
+spec_object! {
+    /// A summary of named fields of the one row of a table.
+    SummaryRowModel = RawSummaryRow, SUMMARY_ROW, "a summary operation object";
     /// The table.
-    pub table: String,
+    table: String, TEXT, required;
     /// The fields, in the order written.
-    pub fields: Vec<SummaryFieldModel>,
+    fields: Vec<SummaryFieldModel>, objects!(&SUMMARY_FIELD), required;
 }
 
-/// One field of a row summary.
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(deny_unknown_fields, expecting = "a summary field object")]
-pub struct SummaryFieldModel {
+spec_object! {
+    /// One field of a row summary.
+    SummaryFieldModel = RawSummaryField, SUMMARY_FIELD, "a summary field object";
     /// The field's name in the summary.
-    pub name: String,
+    name: String, TEXT, required;
     /// The column it reads.
-    pub column: String,
+    column: String, TEXT, required;
 }
 
 /// The one operation a summary holds, the only key of its object.
@@ -71,34 +68,28 @@ pub enum SummaryModel {
     Row(SummaryRowModel),
 }
 
-/// Amounts that must add up inside each instance of a loop.
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(deny_unknown_fields, expecting = "a balancing rule object")]
-pub struct BalanceModel {
+spec_object! {
+    /// Amounts that must add up inside each instance of a loop.
+    BalanceModel / RawBalance, BALANCE, "a balancing rule object";
     /// The loop whose instances are checked.
-    pub per: String,
+    per: String, TEXT, required;
     /// The values the sum must equal, added together.
-    pub target: Vec<TermModel>,
+    target: Vec<TermModel> | Vec<RawTerm>, objects!(&TERM), required;
     /// The values added together.
-    pub sum: Vec<TermModel>,
+    sum: Vec<TermModel> | Vec<RawTerm>, objects!(&TERM), required;
 }
 
-/// One value of a balancing rule: elements of an occurrence, added with a sign.
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(deny_unknown_fields, expecting = "a balancing value object")]
-pub struct TermModel {
+spec_object! {
+    /// One value of a balancing rule: elements of an occurrence, added with a sign.
+    TermModel / RawTerm, TERM, "a balancing value object";
     /// The loop that holds the occurrence, when not the rule's `per` loop.
-    #[serde(rename = "loop", skip_serializing_if = "Option::is_none")]
-    pub loop_name: Option<String>,
+    loop_name as "loop": Option<String>, nullable(Leaf::Text), optional;
     /// The occurrence.
-    pub occurrence: String,
-    /// 1-based element positions whose values are added.
-    pub elements: Vec<usize>,
+    occurrence: String, TEXT, required;
     /// 1-based component position inside each element, when the value is one.
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub component: Option<usize>,
+    component: Option<usize>, nullable(Leaf::Count), optional;
     /// Whether the value is added or subtracted.
-    #[serde(default, deserialize_with = "null_is_default")]
-    #[serde(skip_serializing_if = "is_default")]
-    pub sign: Sign,
+    sign: Sign | Option<String>, nullable(Leaf::Text), default_or_null;
+    /// 1-based element positions whose values are added.
+    elements: Vec<usize>, COUNTS, required;
 }

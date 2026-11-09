@@ -48,10 +48,18 @@ def is_failure(d):
     return d.origin == "pyx12" and d.level == 1 and d.code is None
 
 
+def is_rollup(error):
+    return (
+        error["err_cde"] == "SEG_8_has_data_element_errors"
+        and error["err_str"] == "Segment has data element errors"
+    )
+
+
 def cli_count(path):
     """The number of errors in the JSON x12valid -J writes for ``path``, leaving out
-    the segment error pyx12 adds next to a segment's element errors, which they
-    already count."""
+    the generic segment error pyx12 adds next to a segment's element errors, which
+    they already count. A segment error of that name with any other text folds a
+    segment-level error (too many elements, a syntax rule) and is counted."""
     subprocess.run([sys.executable, "-c", CLI, str(path)], check=False, capture_output=True)
     tree = json.loads(path.with_name(path.name + ".json").read_text())
     total = 0
@@ -62,7 +70,7 @@ def cli_count(path):
             for transaction in group["transactions"]:
                 total += len(transaction["errors"])
                 for seg in transaction["segments"]:
-                    total += sum(e["err_cde"] != "SEG_8_has_data_element_errors" for e in seg["errors"])
+                    total += sum(not is_rollup(e) for e in seg["errors"])
                     total += sum(len(e["errors"]) for e in seg["elements"])
     return total
 
@@ -144,6 +152,27 @@ def test_a_crafted_file_gets_translated_findings():
     assert count.rule == (
         "SE count of 61 for SE02=000000064 is wrong. I count 62 (reported by pyx12, code 4)"
     )
+
+
+def segment_index(data, prefix):
+    document = oxedi.parse(data).document
+    return next(i for i in range(len(document)) if document[i].raw.lstrip().startswith(prefix))
+
+
+def test_a_segment_with_too_many_elements_is_still_reported():
+    data = balanced_5010().replace(b"TRN*1*CHK100234*1512345678~", b"TRN*1*CHK100234*1512345678*X*Y~")
+    (finding,) = validate(data)
+    assert (finding.level, finding.code, finding.element) == (2, "8", None)
+    assert finding.segment == segment_index(data, b"TRN*")
+    assert finding.rule.startswith("Too many elements in segment")
+
+
+def test_a_broken_syntax_rule_is_still_reported():
+    data = balanced_5010().replace(b"PER*CX*CLAIMS DEPT*TE*8005551234~", b"PER*CX*CLAIMS DEPT*TE~")
+    (finding,) = validate(data)
+    assert (finding.level, finding.code, finding.element) == (2, "8", None)
+    assert finding.segment == segment_index(data, b"PER*")
+    assert finding.rule.startswith("Syntax Error")
 
 
 def test_bytes_a_path_and_a_binary_file_give_the_same_findings(tmp_path):
@@ -545,11 +574,13 @@ def test_segment_errors_pyx12_cannot_attach_to_an_envelope_node_are_reported():
     )
     findings = validate(data)
     on_header = [(f.level, f.code, f.segment, f.element) for f in findings if f.element is None]
-    assert on_header == [(2, "8", 2, None)]
-    assert [f.datum for f in findings if f.element is None] == [b"ST"]
+    assert on_header == [(2, "8", 2, None), (2, "8", 2, None)]
+    assert [f.datum for f in findings if f.element is None] == [b"ST", b"ST"]
     assert [f.rule for f in findings if f.element is None] == [
         "Segment contains trailing element terminators (SEG_8_trailing_terminators)"
-        " (reported by pyx12, code 8)"
+        " (reported by pyx12, code 8)",
+        'Too many elements in segment "Transaction Set Header" (ST). Has 4, should have 3'
+        " (SEG_8_has_data_element_errors) (reported by pyx12, code 8)",
     ]
 
 

@@ -115,13 +115,13 @@ def test_invalid_json_is_a_shape_error():
     assert fails("{").startswith("pyx12 JSON: not valid JSON: ")
 
 
-def segment_report(segment_errors, elements=()):
-    node = SegmentNode(16, tuple(segment_errors), tuple(elements))
+def segment_report(segment_errors, elements=(), line=16):
+    node = SegmentNode(line, tuple(segment_errors), tuple(elements))
     return Report((Interchange(1, (), (Group(2, (), (Transaction(3, (), (node,)),)),)),))
 
 
 def test_the_rollup_of_element_errors_is_not_a_finding():
-    rollup = Error("8", "SEG_8_has_data_element_errors", "has data element errors", None)
+    rollup = Error("8", "SEG_8_has_data_element_errors", "Segment has data element errors", None)
     element = ElementNode(2, None, (Error("7", "ELE_7_invalid_code", "(NP) is not a valid code", "NP"),))
     found = collect(segment_report([rollup], [element]))
     assert [(f.level, f.code, f.line, f.element) for f in found] == [(2, "7", 16, 2)]
@@ -132,6 +132,24 @@ def test_a_segment_error_with_code_8_that_is_not_the_rollup_is_kept():
     (finding,) = collect(segment_report([error]))
     assert finding.code == "8"
     assert finding.text == "trailing terminators (SEG_8_trailing_terminators)"
+
+
+def folded_error():
+    text = 'Too many elements in segment "Reassociation Trace Number" (TRN). Has 5, should have 4'
+    return Error("8", "SEG_8_has_data_element_errors", text, "Y")
+
+
+def test_a_folded_segment_error_is_kept():
+    (finding,) = collect(segment_report([folded_error()], line=4))
+    assert (finding.level, finding.code, finding.line, finding.element) == (2, "8", 4, None)
+    assert finding.value == "Y"
+    assert finding.text.endswith("(SEG_8_has_data_element_errors)")
+
+
+def test_a_folded_segment_error_is_kept_next_to_element_errors():
+    element = ElementNode(2, None, (Error("7", "ELE_7_invalid_code", "(NP) is not a valid code", "NP"),))
+    found = collect(segment_report([folded_error()], [element], line=4))
+    assert [(f.code, f.element) for f in found] == [("8", None), ("7", 2)]
 
 
 def test_a_legacy_code_adds_no_name_to_the_message():

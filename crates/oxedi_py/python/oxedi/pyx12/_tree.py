@@ -51,10 +51,14 @@ PLACES: dict[tuple[str, str], tuple[Place, Optional[int]]] = {
     ("ST", "23"): (HEADER, 2),  # control number not unique
 }
 
-# pyx12 adds this segment error next to the element errors of a segment; the
-# element errors already carry the finding, so the reader drops it by name (a
-# real segment error can share its code, 8).
+# pyx12 writes one segment error of this name per segment with errors. It
+# carries the generic text below when only element errors fired (the element
+# findings already carry those), and the text and value of the first folded
+# segment-level error (too many elements, a syntax rule) otherwise. The reader
+# drops only the generic one, by name and text (a real segment error can share
+# its code, 8).
 ROLLUP = "SEG_8_has_data_element_errors"
+ROLLUP_TEXT = "Segment has data element errors"
 
 # The trailer segment id that closes each envelope.
 _TRAILERS = {"ISA": b"IEA", "GS": b"GE", "ST": b"SE"}
@@ -122,7 +126,7 @@ def _segment(seg: SegmentNode) -> list[Finding]:
     found = [
         Finding(SEGMENT_LEVEL, e.code, _text(e), seg.line, value=e.value)
         for e in seg.errors
-        if e.name != ROLLUP
+        if not (e.name == ROLLUP and e.text == ROLLUP_TEXT)
     ]
     found += [_element(seg, el, e) for el in seg.elements for e in el.errors]
     return found

@@ -62,7 +62,7 @@ fn text_is_deterministic_and_key_sensitive() {
 
 /// The shift worked out here from the formula, with the crates directly.
 fn expected_shift(key: &[u8], seed: &[u8]) -> i32 {
-    use hmac::{Hmac, Mac};
+    use hmac::{Hmac, KeyInit, Mac};
     let mut mac = Hmac::<sha2::Sha256>::new_from_slice(key).unwrap();
     mac.update(b"shift\0");
     mac.update(seed);

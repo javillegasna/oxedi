@@ -14,7 +14,7 @@ mod tests;
 
 use std::fmt;
 
-use hmac::{Hmac, Mac};
+use hmac::{Hmac, KeyInit, Mac};
 use sha2::Sha256;
 
 pub use error::MaskError;

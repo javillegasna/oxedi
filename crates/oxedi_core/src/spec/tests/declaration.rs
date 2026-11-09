@@ -9,13 +9,15 @@ use serde::de::DeserializeOwned;
 use serde_json::{from_value, json};
 
 use crate::spec::model::RawTrigger;
-use crate::spec::raw::{RawBalance, RawControl, RawLoop, RawOccurrence, RawSegment, RawTerm};
+use crate::spec::raw::{
+    RawBalance, RawColumn, RawControl, RawLoop, RawOccurrence, RawSegment, RawTable, RawTerm,
+};
 use crate::spec::sections::ROOT;
 use crate::spec::shape::{Field, Leaf, ObjectSchema};
 use crate::spec::{
-    BalanceModel, ControlModel, LoopModel, OccurrenceModel, QualifierModel, RepeatModel,
-    SegmentModel, SummaryColumnModel, SummaryFieldModel, SummaryRowModel, SummaryTableModel,
-    TermModel, TriggerModel, VersionModel,
+    BalanceModel, ColumnModel, ControlModel, LoopModel, OccurrenceModel, QualifierModel,
+    RepeatModel, SegmentModel, SummaryColumnModel, SummaryFieldModel, SummaryRowModel,
+    SummaryTableModel, TableModel, TermModel, TriggerModel, VersionModel,
 };
 
 /// The registry objects in the order a depth-first walk from the root first
@@ -148,6 +150,10 @@ static STRUCTS: &[Pin] = &[
     ("RawOccurrence", pinned::<RawOccurrence>),
     ("SegmentModel", pinned::<SegmentModel>),
     ("RawSegment", pinned::<RawSegment>),
+    ("TableModel", pinned::<TableModel>),
+    ("RawTable", pinned::<RawTable>),
+    ("ColumnModel", pinned::<ColumnModel>),
+    ("RawColumn", pinned::<RawColumn>),
 ];
 
 const REGISTRY: &str = "\
@@ -192,7 +198,11 @@ RawTrigger a trigger object: segment where
 OccurrenceModel an occurrence object: segment pos usage max qualifier codes
 RawOccurrence an occurrence object: segment pos usage max qualifier codes
 SegmentModel a segment object: elements
-RawSegment a segment object: elements";
+RawSegment a segment object: elements
+TableModel a table object: loops ref segment repeat columns phi_seed
+RawTable a table object: loops ref segment repeat columns phi_seed
+ColumnModel a column object: loop segment where occurrence pick element component group_element segment_index phi
+RawColumn a column object: loop segment where occurrence pick element component group_element segment_index phi";
 
 #[test]
 fn the_registry_reads_as_pinned() {
@@ -207,4 +217,44 @@ fn every_declared_struct_pins_its_expecting_and_its_keys() {
         .collect::<Vec<_>>()
         .join("\n");
     assert_eq!(text, PINNED);
+}
+
+#[test]
+fn a_table_and_its_columns_write_no_default_and_no_null() {
+    let model = TableModel {
+        loops: vec!["A".to_string()],
+        reference: None,
+        segment: None,
+        repeat: None,
+        columns: BTreeMap::from([(
+            "c".to_string(),
+            ColumnModel {
+                loop_name: None,
+                segment: None,
+                conditions: BTreeMap::new(),
+                occurrence: None,
+                pick: None,
+                element: None,
+                component: None,
+                group_element: None,
+                segment_index: false,
+                phi: None,
+            },
+        )]),
+        phi_seed: None,
+    };
+    let written = json!({"loops": ["A"], "columns": {"c": {}}});
+    assert_eq!(serde_json::to_value(&model).unwrap(), written);
+    let nulls = json!({
+        "loops": ["A"], "ref": null, "segment": null, "phi_seed": null,
+        "columns": {"c": {
+            "loop": null, "segment": null, "where": {}, "occurrence": null, "pick": null,
+            "element": null, "component": null, "group_element": null,
+            "segment_index": false, "phi": null
+        }}
+    });
+    assert_eq!(from_value::<TableModel>(nulls.clone()).unwrap(), model);
+    let raw = from_value::<RawColumn>(nulls["columns"]["c"].clone()).unwrap();
+    assert!(raw.loop_name.is_none() && raw.pick.is_none() && raw.phi.is_none());
+    assert!(raw.conditions.is_empty() && !raw.segment_index);
 }

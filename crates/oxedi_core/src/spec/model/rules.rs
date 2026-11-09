@@ -47,7 +47,7 @@ spec_object! {
 
 spec_object! {
     /// One field of a row summary.
-    SummaryFieldModel = RawSummaryField, SUMMARY_FIELD, "a summary field object";
+    SummaryFieldModel, SUMMARY_FIELD, "a summary field object";
     /// The field's name in the summary.
     name: String, TEXT, required;
     /// The column it reads.

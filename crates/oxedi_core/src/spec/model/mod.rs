@@ -27,8 +27,8 @@ pub use tables::{ColumnModel, RepeatModel, TableModel};
 
 pub(in crate::spec) use loops::{CONTROL, QUALIFIER, RawControl, RawQualifier};
 pub(in crate::spec) use rules::{
-    BALANCE, RawBalance, RawSummaryColumn, RawSummaryField, RawSummaryRow, RawSummaryTable,
-    RawTerm, RawVersion, SUMMARY_COLUMN, SUMMARY_ROW, SUMMARY_TABLE, VERSION,
+    BALANCE, RawBalance, RawSummaryColumn, RawSummaryRow, RawSummaryTable, RawTerm, RawVersion,
+    SUMMARY_COLUMN, SUMMARY_ROW, SUMMARY_TABLE, VERSION,
 };
 pub(in crate::spec) use tables::{REPEAT, RawRepeat};
 

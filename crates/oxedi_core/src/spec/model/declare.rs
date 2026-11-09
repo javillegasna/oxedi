@@ -4,7 +4,8 @@
 
 /// Declares one object of a spec: the header names the model, the raw struct
 /// (`Model / Raw` emits both; `Model = Raw` makes the raw name an alias of the
-/// model), the registry static and the `expecting` text both structs share.
+/// model; `Model` alone has no raw struct, for an object only its parent reads),
+/// the registry static and the `expecting` text both structs share.
 /// Each row is one key: its field, the key when it differs (`as "where"`),
 /// the model type, the raw type and its attributes when they differ
 /// (`| #[serde(...)] RawType`), the registry `Field`, and a presence word.
@@ -35,12 +36,32 @@
 macro_rules! spec_object {
     (
         $(#[$doc:meta])*
+        $model:ident, $schema:ident, $expecting:literal;
+        $($rows:tt)*
+    ) => {
+        $crate::spec::model::declare::spec_object! {
+            @rows [$(#[$doc])* $model, $schema, $expecting] {} {} [] [] $($rows)*
+        }
+    };
+    (
+        $(#[$doc:meta])*
         $model:ident $sep:tt $raw:ident, $schema:ident, $expecting:literal;
         $($rows:tt)*
     ) => {
         $crate::spec::model::declare::spec_object! {
             @rows [$(#[$doc])* $model $sep $raw, $schema, $expecting] {} {} [] [] $($rows)*
         }
+    };
+    (
+        @rows [$(#[$doc:meta])* $model:ident, $schema:ident, $expecting:literal]
+        $mf:tt $rf:tt $keys:tt $req:tt
+        $(#[$fdoc:meta])* $field:ident $(as $key:literal)? : $mty:ty | $($rest:tt)*
+    ) => {
+        compile_error!(concat!(
+            "spec_object! `", stringify!($model), "` has no raw struct, so the row of `",
+            stringify!($field), "` cannot name a raw type after `|`; declare the object with `",
+            stringify!($model), " / Raw` or `", stringify!($model), " = Raw` instead"
+        ));
     };
     (
         @rows [$(#[$doc:meta])* $model:ident = $raw:ident, $schema:ident, $expecting:literal]
@@ -168,6 +189,14 @@ macro_rules! spec_object {
         }
 
         pub(in crate::spec) type $raw = $model;
+    };
+    (
+        @rows [$(#[$doc:meta])* $model:ident, $schema:ident, $expecting:literal]
+        $mf:tt $rf:tt $keys:tt $req:tt
+    ) => {
+        $crate::spec::model::declare::spec_object! {
+            @emit [$(#[$doc])* $model, $schema, $expecting] $mf $keys $req
+        }
     };
     (
         @emit [$(#[$doc:meta])* $model:ident, $schema:ident, $expecting:literal]

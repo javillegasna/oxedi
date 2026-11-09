@@ -148,6 +148,6 @@ pub(super) struct RawSummary {
 }
 
 pub(super) use super::model::{
-    RawBalance, RawControl, RawQualifier, RawRepeat, RawSummaryColumn, RawSummaryField,
-    RawSummaryRow, RawSummaryTable, RawTerm, RawVersion,
+    RawBalance, RawControl, RawQualifier, RawRepeat, RawSummaryColumn, RawSummaryRow,
+    RawSummaryTable, RawTerm, RawVersion,
 };

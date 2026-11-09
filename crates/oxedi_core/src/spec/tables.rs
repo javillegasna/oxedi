@@ -57,10 +57,12 @@ impl fmt::Display for Pick {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             Pick::Nth(nth) => write!(f, "{nth}"),
-            named => Pick::NAMED
-                .iter()
-                .filter(|(_, pick)| pick == named)
-                .try_for_each(|(word, _)| write!(f, "\"{word}\"")),
+            pick @ (Pick::First | Pick::Last) => {
+                match Pick::NAMED.iter().find(|(_, named)| named == pick) {
+                    Some((word, _)) => write!(f, "\"{word}\""),
+                    None => write!(f, "{pick:?}"),
+                }
+            }
         }
     }
 }

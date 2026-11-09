@@ -254,8 +254,8 @@ fn compile_pick(raw: Option<&RawPick>) -> Result<Pick, TableDefError> {
                 written: pick.written(),
             })
         }
-        Some(other) => Err(TableDefError::BadPick {
-            written: other.written(),
+        Some(zero @ RawPick::Nth(_)) => Err(TableDefError::BadPick {
+            written: zero.written(),
         }),
     }
 }

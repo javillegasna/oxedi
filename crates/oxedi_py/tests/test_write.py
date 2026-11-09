@@ -51,7 +51,8 @@ EXCERPTS = {"edi835_test_file.RMT", "edi835_test_not_available_claim_id.RMT"}
 PYX12_FINDINGS = {
     "united_healthcare_legacy_sample.txt": ["N402"],
     "edi835_test_eyemed.RMT": ["NM108", "NM109"],
-    "balanced_5010_sample.txt": ["ST03"],
+    # ST03 is an element error of an envelope segment, which pyx12's JSON output does not carry
+    "balanced_5010_sample.txt": [],
     "edge_cases_5010_sample.txt": ["PLB"],
 }
 

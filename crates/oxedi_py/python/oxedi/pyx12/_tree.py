@@ -8,6 +8,7 @@ its segment errors and its element errors.
 from __future__ import annotations
 
 from dataclasses import dataclass
+from enum import Enum
 from typing import Optional, Union
 
 from ._report import ElementNode, Error, Group, Interchange, Report, SegmentNode, Transaction
@@ -18,15 +19,23 @@ from ._report import ElementNode, Error, Group, Interchange, Report, SegmentNode
 ENVELOPE_LEVEL = 1
 SEGMENT_LEVEL = 2
 
-HEADER = "header"
-TRAILER = "trailer"
+
+class Place(Enum):
+    """The segment of its envelope an envelope finding belongs on."""
+
+    HEADER = "header"
+    TRAILER = "trailer"
+
+
+HEADER = Place.HEADER
+TRAILER = Place.TRAILER
 
 # Where each interchange (ISA), group (GS) and transaction set (ST) error of
 # pyx12 lands, by pyx12's node and error code: on the envelope's header or
 # trailer segment, and at the element holding the offending value when one
 # does. A trailer finding of an envelope with no trailer stays on its header.
 # Codes not listed land on the header with no element.
-PLACES: dict[tuple[str, str], tuple[str, Optional[int]]] = {
+PLACES: dict[tuple[str, str], tuple[Place, Optional[int]]] = {
     ("ISA", "001"): (TRAILER, 2),  # trailer control number differs from the header's
     ("ISA", "021"): (TRAILER, 1),  # group count is wrong
     ("ISA", "023"): (HEADER, 13),  # trailer missing
@@ -43,7 +52,19 @@ PLACES: dict[tuple[str, str], tuple[str, Optional[int]]] = {
 }
 
 # The trailer segment id that closes each envelope.
-TRAILERS: dict[str, bytes] = {"ISA": b"IEA", "GS": b"GE", "ST": b"SE"}
+_TRAILERS = {"ISA": b"IEA", "GS": b"GE", "ST": b"SE"}
+
+
+@dataclass(frozen=True)
+class Envelope:
+    """Where in its envelope an envelope finding belongs."""
+
+    header: bytes
+    """The id of the envelope's header segment: ``b"ISA"``, ``b"GS"`` or ``b"ST"``."""
+    trailer: bytes
+    """The id of the trailer segment that closes it: ``b"IEA"``, ``b"GE"`` or ``b"SE"``."""
+    place: Place
+    """Whether ``PLACES`` puts the finding on the header or on the trailer."""
 
 
 @dataclass(frozen=True)
@@ -59,35 +80,30 @@ class Finding:
     element: Optional[int] = None
     component: Optional[int] = None
     value: Optional[str] = None
-    trailer: Optional[bytes] = None
-    """The id of the trailer segment (``b"IEA"``, ``b"GE"``, ``b"SE"``) the
-    finding belongs on when ``PLACES`` sends it to the trailer; ``line`` is
-    then the header's line."""
+    envelope: Optional[Envelope] = None
+    """For an envelope finding, its envelope and the segment of it the
+    finding belongs on; ``line`` is then the trailer's line once pyx12 read
+    the trailer, the header's otherwise. ``None`` for a segment finding."""
 
 
-Envelope = Union[Interchange, Group, Transaction]
+_Node = Union[Interchange, Group, Transaction]
 
 
-def _envelope(kind: str, node: Envelope) -> list[Finding]:
+def _envelope(kind: str, node: _Node) -> list[Finding]:
     found: list[Finding] = []
     for e in node.errors:
         place, position = PLACES.get((kind, e.code), (HEADER, None))
-        trailer = TRAILERS[kind] if place == TRAILER else None
+        envelope = Envelope(kind.encode("ascii"), _TRAILERS[kind], place)
         found.append(
-            Finding(ENVELOPE_LEVEL, e.code, e.text, node.line, element=position, trailer=trailer)
+            Finding(ENVELOPE_LEVEL, e.code, e.text, node.line, element=position, envelope=envelope)
         )
     return found
 
 
 def _element(seg: SegmentNode, el: ElementNode, e: Error) -> Finding:
     return Finding(
-        SEGMENT_LEVEL,
-        e.code,
-        e.text,
-        seg.line,
-        element=el.position,
-        component=el.component,
-        value=e.value,
+        SEGMENT_LEVEL, e.code, e.text, seg.line,
+        element=el.position, component=el.component, value=e.value,
     )
 
 

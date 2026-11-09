@@ -112,7 +112,7 @@ for d in validate(data, mask=oxedi.Mask(key)):
 ```
 
 ```text
-8 b'46891844d3db70db' Data element "Claim Date" (DTM02) contains an invalid date (46891844d3db70db) (reported by pyx12, code 8)
+8 b'46891844d3db70db' Data element "Claim Date" (DTM02) contains an invalid date (46891844d3db70db) (ELE_8_invalid_date) (reported by pyx12, code 8)
 ```
 
 pyx12 still reads the original file: the mask hides what `validate` returns, not what pyx12 is

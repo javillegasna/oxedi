@@ -48,13 +48,17 @@ mod by_module {
     use oxedi_core::spec::Control;
     use oxedi_core::spec::ControlCount;
     use oxedi_core::spec::ControlError;
+    use oxedi_core::spec::ControlModel;
     use oxedi_core::spec::DeclaredVersion;
     use oxedi_core::spec::ElementDef;
     use oxedi_core::spec::ElementDefError;
+    use oxedi_core::spec::ElementModel;
     use oxedi_core::spec::ElementPosition;
     use oxedi_core::spec::LoopDef;
     use oxedi_core::spec::LoopId;
+    use oxedi_core::spec::LoopModel;
     use oxedi_core::spec::LoopSegments;
+    use oxedi_core::spec::OccurrenceModel;
     use oxedi_core::spec::Pick;
     use oxedi_core::spec::QualifierModel;
     use oxedi_core::spec::ROW_COLUMN;
@@ -62,6 +66,7 @@ mod by_module {
     use oxedi_core::spec::RepeatModel;
     use oxedi_core::spec::SEGMENT_COLUMN;
     use oxedi_core::spec::SegmentDef;
+    use oxedi_core::spec::SegmentModel;
     use oxedi_core::spec::Sign;
     use oxedi_core::spec::Spec;
     use oxedi_core::spec::SpecError;
@@ -76,6 +81,7 @@ mod by_module {
     use oxedi_core::spec::TableDefError;
     use oxedi_core::spec::TableSchema;
     use oxedi_core::spec::Trigger;
+    use oxedi_core::spec::TriggerModel;
     use oxedi_core::spec::UnknownVersion;
     use oxedi_core::spec::Version;
     use oxedi_core::spec::VersionError;

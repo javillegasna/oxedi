@@ -72,8 +72,9 @@ pub use builtin::{Builtin, UnknownVersion, Version};
 pub use error::SpecError;
 pub use loops::{Control, ControlCount, ControlError, LoopDef, LoopId, Trigger};
 pub use model::{
-    QualifierModel, RepeatModel, SummaryColumnModel, SummaryFieldModel, SummaryModel,
-    SummaryRowModel, SummaryTableModel, VersionModel,
+    ControlModel, ElementModel, LoopModel, OccurrenceModel, QualifierModel, RepeatModel,
+    SegmentModel, SummaryColumnModel, SummaryFieldModel, SummaryModel, SummaryRowModel,
+    SummaryTableModel, TriggerModel, VersionModel,
 };
 pub use occurrence_error::OccurrenceError;
 pub use occurrences::{OccurrenceDef, Qualifier, Usage};

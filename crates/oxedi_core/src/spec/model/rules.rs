@@ -1,5 +1,4 @@
-//! The version declaration and the operations of a summary, as the spec
-//! writes them.
+//! The version declaration and the operations of a summary, as written.
 
 use serde::{Deserialize, Serialize};
 

@@ -25,11 +25,15 @@ pub use rules::{
 pub use segments::{ElementModel, SegmentModel};
 pub use tables::{ColumnModel, RepeatModel, TableModel};
 
-pub(in crate::spec) use loops::{CONTROL, QUALIFIER, RawControl, RawQualifier};
+pub(in crate::spec) use loops::{LOOP, RawControl, RawLoop, RawOccurrence, RawQualifier};
+// Only the declaration pins read a trigger as the loader does.
+#[cfg(test)]
+pub(in crate::spec) use loops::RawTrigger;
 pub(in crate::spec) use rules::{
     BALANCE, RawBalance, RawSummaryColumn, RawSummaryRow, RawSummaryTable, RawTerm, RawVersion,
     SUMMARY_COLUMN, SUMMARY_ROW, SUMMARY_TABLE, VERSION,
 };
+pub(in crate::spec) use segments::{RawSegment, SEGMENT};
 pub(in crate::spec) use tables::{REPEAT, RawRepeat};
 
 /// A whole spec, as the spec writes it.

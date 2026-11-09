@@ -4,16 +4,19 @@ use std::collections::BTreeMap;
 
 use serde::{Deserialize, Serialize};
 
+use super::declare::spec_object;
 use super::is_default;
+use crate::spec::raw::RawElement;
+use crate::spec::sections::ELEMENT;
+use crate::spec::shape::Field;
 use crate::value::ElementType;
 
-/// The elements of a segment the spec defines.
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(deny_unknown_fields, expecting = "a segment object")]
-pub struct SegmentModel {
+spec_object! {
+    /// The elements of a segment the spec defines.
+    SegmentModel / RawSegment, SEGMENT, "a segment object";
     /// The elements, by 1-based element position.
-    #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
-    pub elements: BTreeMap<usize, ElementModel>,
+    elements: BTreeMap<usize, ElementModel> | BTreeMap<String, RawElement>,
+        Field::Map(&Field::Object(&ELEMENT)), default;
 }
 
 /// An element of a segment, or a component of a composite element.

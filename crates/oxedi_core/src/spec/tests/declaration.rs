@@ -8,12 +8,14 @@ use std::fmt::Debug;
 use serde::de::DeserializeOwned;
 use serde_json::{from_value, json};
 
-use crate::spec::raw::{RawBalance, RawControl, RawTerm};
+use crate::spec::model::RawTrigger;
+use crate::spec::raw::{RawBalance, RawControl, RawLoop, RawOccurrence, RawSegment, RawTerm};
 use crate::spec::sections::ROOT;
 use crate::spec::shape::{Field, Leaf, ObjectSchema};
 use crate::spec::{
-    BalanceModel, ControlModel, QualifierModel, RepeatModel, SummaryColumnModel, SummaryFieldModel,
-    SummaryRowModel, SummaryTableModel, TermModel, VersionModel,
+    BalanceModel, ControlModel, LoopModel, OccurrenceModel, QualifierModel, RepeatModel,
+    SegmentModel, SummaryColumnModel, SummaryFieldModel, SummaryRowModel, SummaryTableModel,
+    TermModel, TriggerModel, VersionModel,
 };
 
 /// The registry objects in the order a depth-first walk from the root first
@@ -138,6 +140,14 @@ static STRUCTS: &[Pin] = &[
     ("SummaryColumnModel", pinned::<SummaryColumnModel>),
     ("SummaryRowModel", pinned::<SummaryRowModel>),
     ("SummaryFieldModel", pinned::<SummaryFieldModel>),
+    ("LoopModel", pinned::<LoopModel>),
+    ("RawLoop", pinned::<RawLoop>),
+    ("TriggerModel", pinned::<TriggerModel>),
+    ("RawTrigger", pinned::<RawTrigger>),
+    ("OccurrenceModel", pinned::<OccurrenceModel>),
+    ("RawOccurrence", pinned::<RawOccurrence>),
+    ("SegmentModel", pinned::<SegmentModel>),
+    ("RawSegment", pinned::<RawSegment>),
 ];
 
 const REGISTRY: &str = "\
@@ -174,7 +184,15 @@ RawTerm a balancing value object: loop occurrence component sign elements
 SummaryTableModel a summary operation object: table
 SummaryColumnModel a summary operation object: table column
 SummaryRowModel a summary operation object: table fields
-SummaryFieldModel a summary field object: name column";
+SummaryFieldModel a summary field object: name column
+LoopModel a loop object: parent end max usage occurrences trigger control
+RawLoop a loop object: parent end max usage occurrences trigger control
+TriggerModel a trigger object: segment where
+RawTrigger a trigger object: segment where
+OccurrenceModel an occurrence object: segment pos usage max qualifier codes
+RawOccurrence an occurrence object: segment pos usage max qualifier codes
+SegmentModel a segment object: elements
+RawSegment a segment object: elements";
 
 #[test]
 fn the_registry_reads_as_pinned() {

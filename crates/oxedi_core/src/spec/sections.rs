@@ -3,7 +3,7 @@
 //! [`ROOT`] lists the sections of a spec; `shape` walks a value against it.
 
 use super::model::{
-    BALANCE, CONTROL, QUALIFIER, REPEAT, SUMMARY_COLUMN, SUMMARY_ROW, SUMMARY_TABLE, VERSION,
+    BALANCE, LOOP, REPEAT, SEGMENT, SUMMARY_COLUMN, SUMMARY_ROW, SUMMARY_TABLE, VERSION,
 };
 use super::shape::{Field, Leaf, ObjectSchema};
 
@@ -61,36 +61,6 @@ pub(super) static ROOT: ObjectSchema = ObjectSchema {
     required: &["name", "loops"],
 };
 
-static LOOP: ObjectSchema = ObjectSchema {
-    keys: &[
-        ("parent", nullable(Leaf::Text)),
-        ("end", nullable(Leaf::Text)),
-        ("max", nullable(Leaf::Count)),
-        ("usage", nullable(Leaf::Text)),
-        ("occurrences", Field::Map(&Field::Object(&OCCURRENCE))),
-        ("trigger", Field::Object(&TRIGGER)),
-        ("control", Field::Object(&CONTROL)),
-    ],
-    required: &["trigger"],
-};
-
-static TRIGGER: ObjectSchema = ObjectSchema {
-    keys: &[("segment", TEXT), ("where", Field::Map(&TEXT))],
-    required: &["segment"],
-};
-
-static OCCURRENCE: ObjectSchema = ObjectSchema {
-    keys: &[
-        ("segment", TEXT),
-        ("pos", COUNT),
-        ("usage", nullable(Leaf::Text)),
-        ("max", nullable(Leaf::Count)),
-        ("qualifier", Field::Object(&QUALIFIER)),
-        ("codes", Field::Map(&TEXTS)),
-    ],
-    required: &["segment", "pos"],
-};
-
 static TABLE: ObjectSchema = ObjectSchema {
     keys: &[
         ("loops", TEXTS),
@@ -119,12 +89,7 @@ static COLUMN: ObjectSchema = ObjectSchema {
     required: &[],
 };
 
-static SEGMENT: ObjectSchema = ObjectSchema {
-    keys: &[("elements", Field::Map(&Field::Object(&ELEMENT)))],
-    required: &[],
-};
-
-static ELEMENT: ObjectSchema = ObjectSchema {
+pub(super) static ELEMENT: ObjectSchema = ObjectSchema {
     keys: &[
         ("codes", TEXTS),
         ("name", TEXT),

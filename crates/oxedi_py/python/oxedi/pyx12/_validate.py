@@ -28,6 +28,7 @@ class Draft:
     component: Optional[int] = None
     own_text: bool = False
 
+
 Source = Union[bytes, bytearray, memoryview, str, "os.PathLike[str]", BinaryIO]
 
 _ORIGIN = "pyx12"

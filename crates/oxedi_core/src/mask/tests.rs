@@ -39,6 +39,18 @@ fn hmac_matches_rfc_4231_case_4() {
 }
 
 #[test]
+fn hmac_matches_rfc_4231_case_6() {
+    let out = hmac_sha256(
+        &[0xaa; 131],
+        b"Test Using Larger Than Block-Size Key - Hash Key First",
+    );
+    assert_eq!(
+        hex(&out),
+        "60e431591ee0b67f0d8a26aacbf5b77f8e0bc6213728c5140546040f0ee37f54"
+    );
+}
+
+#[test]
 fn text_is_the_head_of_the_keyed_digest() {
     let mask = Mask::new(KEY, DateMode::Year).unwrap();
     let full = hmac_sha256(KEY, b"id\0PCN1001");

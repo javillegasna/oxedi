@@ -17,6 +17,8 @@ class PyX12ShapeError(ValueError):
 
 @dataclass(frozen=True)
 class Error:
+    """One error pyx12 recorded against a node."""
+
     code: str
     name: str
     text: str
@@ -25,41 +27,58 @@ class Error:
 
 @dataclass(frozen=True)
 class ElementNode:
+    """An element with errors, or the node that holds them."""
+
     position: int
+    """1-based element position in its segment."""
     component: Optional[int]
+    """1-based component position in a composite, or None for a simple element."""
     errors: tuple[Error, ...]
 
 
 @dataclass(frozen=True)
 class SegmentNode:
+    """A segment with its errors and elements."""
+
     line: int
+    """1-based line (segment count) pyx12 reports for it."""
     errors: tuple[Error, ...]
     elements: tuple[ElementNode, ...]
 
 
 @dataclass(frozen=True)
 class Transaction:
+    """A transaction set (ST to SE) with its errors and children."""
+
     line: int
+    """1-based line (segment count) pyx12 reports; the trailer's once it has been read."""
     errors: tuple[Error, ...]
     segments: tuple[SegmentNode, ...]
 
 
 @dataclass(frozen=True)
 class Group:
+    """A functional group (GS to GE) with its errors and children."""
+
     line: int
+    """1-based line (segment count) pyx12 reports; the trailer's once it has been read."""
     errors: tuple[Error, ...]
     transactions: tuple[Transaction, ...]
 
 
 @dataclass(frozen=True)
 class Interchange:
+    """An interchange (ISA to IEA) with its errors and children."""
+
     line: int
+    """1-based line (segment count) pyx12 reports; the trailer's once it has been read."""
     errors: tuple[Error, ...]
     groups: tuple[Group, ...]
 
 
 @dataclass(frozen=True)
 class Report:
+    """Everything pyx12 reported, one entry per interchange."""
     interchanges: tuple[Interchange, ...]
 
 

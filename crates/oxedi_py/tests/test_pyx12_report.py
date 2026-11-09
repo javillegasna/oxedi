@@ -81,6 +81,18 @@ def test_a_wrong_type_names_the_type():
     assert fails(data).endswith("elements[0] is str, expected int")
 
 
+def test_a_list_item_that_is_not_an_object_names_the_item():
+    data = report()
+    data[0]["interchanges"] = [[]]
+    assert fails(data) == "pyx12 JSON: interchanges[0] is list, expected object"
+
+
+def test_a_bool_is_not_an_int():
+    data = report()
+    data[2]["ele_pos"] = True
+    assert fails(data).endswith("elements[0] is bool, expected int")
+
+
 def test_a_missing_root_list_names_root():
     assert fails("{}") == "pyx12 JSON: 'interchanges' is missing at root"
 

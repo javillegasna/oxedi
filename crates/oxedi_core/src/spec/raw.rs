@@ -29,46 +29,6 @@ pub(super) struct RawSpec {
 }
 
 #[derive(Debug, Deserialize)]
-#[serde(deny_unknown_fields, expecting = "a loop object")]
-pub(super) struct RawLoop {
-    pub(super) parent: Option<String>,
-    pub(super) trigger: RawTrigger,
-    #[serde(default)]
-    pub(super) occurrences: BTreeMap<String, RawOccurrence>,
-    pub(super) max: Option<usize>,
-    pub(super) usage: Option<String>,
-    pub(super) end: Option<String>,
-    pub(super) control: Option<RawControl>,
-}
-
-#[derive(Debug, Deserialize)]
-#[serde(deny_unknown_fields, expecting = "an occurrence object")]
-pub(super) struct RawOccurrence {
-    pub(super) segment: String,
-    pub(super) pos: usize,
-    pub(super) usage: Option<String>,
-    pub(super) max: Option<usize>,
-    pub(super) qualifier: Option<RawQualifier>,
-    #[serde(default)]
-    pub(super) codes: BTreeMap<String, Vec<String>>,
-}
-
-#[derive(Debug, Deserialize)]
-#[serde(deny_unknown_fields, expecting = "a trigger object")]
-pub(super) struct RawTrigger {
-    pub(super) segment: String,
-    #[serde(default, rename = "where")]
-    pub(super) conditions: BTreeMap<String, String>,
-}
-
-#[derive(Debug, Deserialize)]
-#[serde(deny_unknown_fields, expecting = "a segment object")]
-pub(super) struct RawSegment {
-    #[serde(default)]
-    pub(super) elements: BTreeMap<String, RawElement>,
-}
-
-#[derive(Debug, Deserialize)]
 #[serde(deny_unknown_fields, expecting = "an element object")]
 pub(super) struct RawElement {
     pub(super) name: String,
@@ -148,6 +108,6 @@ pub(super) struct RawSummary {
 }
 
 pub(super) use super::model::{
-    RawBalance, RawControl, RawQualifier, RawRepeat, RawSummaryColumn, RawSummaryRow,
-    RawSummaryTable, RawTerm, RawVersion,
+    RawBalance, RawControl, RawLoop, RawOccurrence, RawQualifier, RawRepeat, RawSegment,
+    RawSummaryColumn, RawSummaryRow, RawSummaryTable, RawTerm, RawVersion,
 };

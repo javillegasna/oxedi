@@ -8,9 +8,8 @@ use std::fmt::Debug;
 use serde::de::DeserializeOwned;
 use serde_json::{from_value, json};
 
-use crate::spec::raw::{
-    RawBalance, RawControl, RawLoop, RawOccurrence, RawSegment, RawTerm, RawTrigger,
-};
+use crate::spec::model::RawTrigger;
+use crate::spec::raw::{RawBalance, RawControl, RawLoop, RawOccurrence, RawSegment, RawTerm};
 use crate::spec::sections::ROOT;
 use crate::spec::shape::{Field, Leaf, ObjectSchema};
 use crate::spec::{
@@ -186,8 +185,8 @@ SummaryTableModel a summary operation object: table
 SummaryColumnModel a summary operation object: table column
 SummaryRowModel a summary operation object: table fields
 SummaryFieldModel a summary field object: name column
-LoopModel a loop object: parent trigger occurrences max usage end control
-RawLoop a loop object: parent trigger occurrences max usage end control
+LoopModel a loop object: parent end max usage occurrences trigger control
+RawLoop a loop object: parent end max usage occurrences trigger control
 TriggerModel a trigger object: segment where
 RawTrigger a trigger object: segment where
 OccurrenceModel an occurrence object: segment pos usage max qualifier codes

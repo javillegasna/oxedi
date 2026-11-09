@@ -2,73 +2,57 @@
 
 use std::collections::BTreeMap;
 
-use serde::{Deserialize, Serialize};
-
 use super::declare::spec_object;
-use super::{is_default, null_is_default};
 use crate::spec::sections::{COUNT, TEXT, TEXTS, nullable};
-use crate::spec::shape::Leaf;
+use crate::spec::shape::{Field, Leaf};
 use crate::spec::{ControlCount, ElementPosition, Usage};
 
-/// A loop: the segment that opens it, where it sits and what it holds.
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(deny_unknown_fields, expecting = "a loop object")]
-pub struct LoopModel {
+spec_object! {
+    /// A loop: the segment that opens it, where it sits and what it holds.
+    LoopModel / RawLoop, LOOP, "a loop object";
     /// The loop that holds this one, when it is not a top loop.
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub parent: Option<String>,
-    /// The segment, and the element values, that open an instance.
-    pub trigger: TriggerModel,
-    /// The occurrences an instance holds, by name.
-    #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
-    pub occurrences: BTreeMap<String, OccurrenceModel>,
-    /// The most instances the parent holds, when the spec bounds them.
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub max: Option<usize>,
-    /// Whether every instance of the parent holds one.
-    #[serde(default, deserialize_with = "null_is_default")]
-    #[serde(skip_serializing_if = "is_default")]
-    pub usage: Usage,
+    parent: Option<String>, nullable(Leaf::Text), optional;
     /// The segment that closes an instance, when one does.
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub end: Option<String>,
+    end: Option<String>, nullable(Leaf::Text), optional;
+    /// The most instances the parent holds, when the spec bounds them.
+    max: Option<usize>, nullable(Leaf::Count), optional;
+    /// Whether every instance of the parent holds one.
+    usage: Usage | Option<String>, nullable(Leaf::Text), default_or_null;
+    /// The occurrences an instance holds, by name.
+    occurrences: BTreeMap<String, OccurrenceModel> | BTreeMap<String, RawOccurrence>,
+        Field::Map(&Field::Object(&OCCURRENCE)), default;
+    /// The segment, and the element values, that open an instance.
+    trigger: TriggerModel | RawTrigger, Field::Object(&TRIGGER), required;
     /// The counts the end segment checks, when it checks any.
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub control: Option<ControlModel>,
+    control: Option<ControlModel> | Option<RawControl>, Field::Object(&CONTROL), optional;
 }
 
-/// The segment that opens a loop's instance and the element values it holds.
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(deny_unknown_fields, expecting = "a trigger object")]
-pub struct TriggerModel {
+spec_object! {
+    /// The segment that opens a loop's instance and the element values it holds.
+    TriggerModel / RawTrigger, TRIGGER, "a trigger object";
     /// The segment.
-    pub segment: String,
+    segment: String, TEXT, required;
     /// The value each element must hold, by 1-based element position.
-    #[serde(default, rename = "where", skip_serializing_if = "BTreeMap::is_empty")]
-    pub conditions: BTreeMap<usize, String>,
+    conditions as "where": BTreeMap<usize, String> | BTreeMap<String, String>,
+        Field::Map(&TEXT), default;
 }
 
-/// One place a segment takes inside a loop's instance.
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(deny_unknown_fields, expecting = "an occurrence object")]
-pub struct OccurrenceModel {
+spec_object! {
+    /// One place a segment takes inside a loop's instance.
+    OccurrenceModel / RawOccurrence, OCCURRENCE, "an occurrence object";
     /// The segment.
-    pub segment: String,
+    segment: String, TEXT, required;
     /// The order of the occurrence among those of its loop.
-    pub pos: usize,
+    pos: usize, COUNT, required;
     /// Whether every instance of the loop holds it.
-    #[serde(default, deserialize_with = "null_is_default")]
-    #[serde(skip_serializing_if = "is_default")]
-    pub usage: Usage,
+    usage: Usage | Option<String>, nullable(Leaf::Text), default_or_null;
     /// The most times it repeats in one instance, when the spec bounds it.
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub max: Option<usize>,
+    max: Option<usize>, nullable(Leaf::Count), optional;
     /// What tells it apart from the other occurrences of its segment.
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub qualifier: Option<QualifierModel>,
+    qualifier: Option<QualifierModel>, Field::Object(&QUALIFIER), optional;
     /// The codes an element or component may hold here, by position.
-    #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
-    pub codes: BTreeMap<ElementPosition, Vec<String>>,
+    codes: BTreeMap<ElementPosition, Vec<String>> | BTreeMap<String, Vec<String>>,
+        Field::Map(&TEXTS), default;
 }
 
 spec_object! {

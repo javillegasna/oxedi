@@ -54,15 +54,6 @@ pub(super) struct RawOccurrence {
 }
 
 #[derive(Debug, Deserialize)]
-#[serde(deny_unknown_fields, expecting = "a control object")]
-pub(super) struct RawControl {
-    pub(super) opener_element: usize,
-    pub(super) closer_element: usize,
-    pub(super) count_element: usize,
-    pub(super) count: String,
-}
-
-#[derive(Debug, Deserialize)]
 #[serde(deny_unknown_fields, expecting = "a trigger object")]
 pub(super) struct RawTrigger {
     pub(super) segment: String,
@@ -176,7 +167,8 @@ pub(super) struct RawSummary {
 }
 
 pub(super) use super::model::{
-    QualifierModel as RawQualifier, RepeatModel as RawRepeat, VersionModel as RawVersion,
+    QualifierModel as RawQualifier, RawControl, RepeatModel as RawRepeat,
+    VersionModel as RawVersion,
 };
 
 pub(super) use super::model::{

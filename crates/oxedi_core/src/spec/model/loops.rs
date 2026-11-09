@@ -4,7 +4,9 @@ use std::collections::BTreeMap;
 
 use serde::{Deserialize, Serialize};
 
+use super::declare::spec_object;
 use super::{is_default, null_is_default};
+use crate::spec::sections::{COUNT, TEXT};
 use crate::spec::{ControlCount, ElementPosition, Usage};
 
 /// A loop: the segment that opens it, where it sits and what it holds.
@@ -82,16 +84,15 @@ pub struct QualifierModel {
     pub codes: Vec<String>,
 }
 
-/// The elements of a loop's end segment that check the instance it closes.
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(deny_unknown_fields, expecting = "a control object")]
-pub struct ControlModel {
+spec_object! {
+    /// The elements of a loop's end segment that check the instance it closes.
+    ControlModel / RawControl, CONTROL, "a control object";
     /// 1-based element position of the control number in the opening segment.
-    pub opener_element: usize,
+    opener_element: usize, COUNT, required;
     /// 1-based element position of the control number in the end segment.
-    pub closer_element: usize,
+    closer_element: usize, COUNT, required;
     /// 1-based element position of the count in the end segment.
-    pub count_element: usize,
+    count_element: usize, COUNT, required;
     /// What the count counts.
-    pub count: ControlCount,
+    count: ControlCount | String, TEXT, required;
 }

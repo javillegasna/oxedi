@@ -5,15 +5,28 @@ from __future__ import annotations
 import io
 import os
 from bisect import bisect_right
+from dataclasses import dataclass
 from typing import Any, BinaryIO, Optional, Union
 
-from .. import Diagnostic, Document, Mask, Spec
+from .. import Diagnostic, Document, Mask, Segment, Spec
 from .._core import _external_diagnostic, _loop_paths, _mask_findings, _parse_document
 from . import _capture
 from ._tree import Finding, collect
 
-# The arguments of one finding for ``_external_diagnostic``, but its loop path.
-Draft = dict[str, Any]
+
+@dataclass(frozen=True)
+class Draft:
+    """The arguments of ``_external_diagnostic`` but its loop path;
+    ``own_text`` marks a message oxedi wrote rather than pyx12's."""
+
+    message: str
+    level: int
+    segment: Optional[int]
+    datum: bytes
+    code: Optional[str] = None
+    element: Optional[int] = None
+    component: Optional[int] = None
+    own_text: bool = False
 
 Source = Union[bytes, bytearray, memoryview, str, "os.PathLike[str]", BinaryIO]
 
@@ -66,7 +79,7 @@ class _Positions:
         self.piece_starts = starts
 
     @classmethod
-    def build(cls, document: Any, base: int, text: str) -> "_Positions":
+    def build(cls, document: Document, base: int, text: str) -> "_Positions":
         ends: list[int] = []
         offset = 0
         for index in range(len(document)):
@@ -137,11 +150,11 @@ def _run(text: str) -> _Run:
     return run
 
 
-def _datum(value: Any) -> bytes:
+def _datum(value: Optional[str]) -> bytes:
     return b"" if value is None else str(value).encode("latin-1", "replace")
 
 
-def _diagnostic(found: Finding, positions: _Positions, document: Any) -> Draft:
+def _diagnostic(found: Finding, positions: _Positions, document: Document) -> Draft:
     segment = positions.locate(found.line)
     datum = _datum(found.value)
     if not found.value and segment is not None:
@@ -150,7 +163,7 @@ def _diagnostic(found: Finding, positions: _Positions, document: Any) -> Draft:
             datum = _element_bytes(document[segment], found.element, found.component, separator)
         else:
             datum = bytes(document[segment].id)
-    return dict(
+    return Draft(
         message=found.text,
         level=found.level,
         code=found.code,
@@ -162,7 +175,7 @@ def _diagnostic(found: Finding, positions: _Positions, document: Any) -> Draft:
 
 
 def _element_bytes(
-    segment: Any, element: int, component: Optional[int], separator: bytes
+    segment: Segment, element: int, component: Optional[int], separator: bytes
 ) -> bytes:
     """The bytes of a 1-based element, or of one of its components, of
     ``segment``, a composite's components joined by ``separator``; empty
@@ -177,7 +190,7 @@ def _completed(track: list[int], positions: _Positions) -> Optional[int]:
     return positions.locate(track[-1]) if track else None
 
 
-def _failure(reason: str, track: list[int], positions: _Positions, document: Any) -> Draft:
+def _failure(reason: str, track: list[int], positions: _Positions, document: Document) -> Draft:
     """One failure finding, with no code: pyx12 did not report it, it stopped.
 
     ``track`` holds the segment numbers pyx12 finished. When a segment
@@ -198,7 +211,7 @@ def _failure(reason: str, track: list[int], positions: _Positions, document: Any
         segment = None
         where = "it reached no segment"
     datum = bytes(document[segment].id) if segment is not None else b""
-    return dict(
+    return Draft(
         message=f"could not finish validating: {reason}; {where}",
         level=_FAILURE_LEVEL,
         segment=segment,
@@ -230,7 +243,7 @@ def _rejection(text: str, positions: _Positions, document: Document, masked: boo
             # the leading trivia the document reports before the ISA.
             datum = bytes(document[segment].raw)[positions.base:].rstrip(b"\r\n")
     where = f"it rejected segment #{segment}" if segment is not None else "it reached no segment"
-    return dict(
+    return Draft(
         message=f"could not finish validating: {reason}; {where}",
         level=_FAILURE_LEVEL,
         segment=segment,
@@ -239,12 +252,7 @@ def _rejection(text: str, positions: _Positions, document: Document, masked: boo
 
 
 def _by_segment(draft: Draft) -> tuple[bool, int]:
-    return (draft["segment"] is None, draft["segment"] or 0)
-
-
-def _arguments(draft: Draft) -> Draft:
-    """The arguments of ``_external_diagnostic`` that ``draft`` holds."""
-    return {k: v for k, v in draft.items() if k != "own_text"}
+    return (draft.segment is None, draft.segment or 0)
 
 
 def _finish(
@@ -254,17 +262,23 @@ def _finish(
     path ``parse`` gives its segment, and, for each, whether its message is
     text oxedi wrote (a failure finding) rather than pyx12's."""
     drafts = sorted(drafts, key=_by_segment)
-    segments = [d["segment"] for d in drafts if d["segment"] is not None]
+    segments = [d.segment for d in drafts if d.segment is not None]
     paths = iter(_loop_paths(document, spec, segments))
     found = [
         _external_diagnostic(
             _ORIGIN,
-            path=next(paths) if d["segment"] is not None else None,
-            **_arguments(d),
+            path=next(paths) if d.segment is not None else None,
+            message=d.message,
+            level=d.level,
+            code=d.code,
+            segment=d.segment,
+            element=d.element,
+            component=d.component,
+            datum=d.datum,
         )
         for d in drafts
     ]
-    return found, [d.get("own_text", False) for d in drafts]
+    return found, [d.own_text for d in drafts]
 
 
 def validate(

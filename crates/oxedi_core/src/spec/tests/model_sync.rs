@@ -6,7 +6,7 @@ use std::collections::{BTreeMap, BTreeSet};
 use serde_json::{Value, to_value};
 
 use crate::mask::Phi;
-use crate::spec::sections::ROOT;
+use crate::spec::model::ROOT;
 use crate::spec::shape::{Field, ObjectSchema, check_shape};
 use crate::spec::{
     BalanceModel, ColumnModel, ControlCount, ControlModel, ElementModel, ElementPosition,

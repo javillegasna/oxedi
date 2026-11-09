@@ -1,10 +1,8 @@
-//! The JSON schema of a spec as data: one [`ObjectSchema`] per object the
-//! spec holds, each listing its keys in the order their values are checked.
-//! [`ROOT`] lists the sections of a spec; `shape` walks a value against it.
+//! The helpers that build a registry `Field`, and the two objects no
+//! declaration emits: `ELEMENT` and `SUMMARY`. Every other object's schema is
+//! emitted with its model in `model`; `shape` walks a value against them.
 
-use super::model::{
-    BALANCE, LOOP, SEGMENT, SUMMARY_COLUMN, SUMMARY_ROW, SUMMARY_TABLE, TABLE, VERSION,
-};
+use super::model::{SUMMARY_COLUMN, SUMMARY_ROW, SUMMARY_TABLE};
 use super::shape::{Field, Leaf, ObjectSchema};
 
 pub(super) const fn leaf(kind: Leaf) -> Field {
@@ -46,21 +44,6 @@ macro_rules! objects {
 
 pub(super) use objects;
 
-/// The sections of a spec.
-pub(super) static ROOT: ObjectSchema = ObjectSchema {
-    keys: &[
-        ("name", TEXT),
-        ("version", Field::Object(&VERSION)),
-        ("loops", Field::Map(&Field::Object(&LOOP))),
-        ("tables", Field::Map(&Field::Object(&TABLE))),
-        ("balancing", Field::Map(&Field::Object(&BALANCE))),
-        ("segments", Field::Map(&Field::Object(&SEGMENT))),
-        ("summaries", Field::Map(&Field::Object(&SUMMARY))),
-        ("default_table", TEXT),
-    ],
-    required: &["name", "loops"],
-};
-
 pub(super) static ELEMENT: ObjectSchema = ObjectSchema {
     keys: &[
         ("codes", TEXTS),
@@ -75,7 +58,7 @@ pub(super) static ELEMENT: ObjectSchema = ObjectSchema {
     required: &["name", "type"],
 };
 
-static SUMMARY: ObjectSchema = ObjectSchema {
+pub(super) static SUMMARY: ObjectSchema = ObjectSchema {
     keys: &[
         ("count", Field::Object(&SUMMARY_TABLE)),
         ("distinct", Field::Object(&SUMMARY_COLUMN)),

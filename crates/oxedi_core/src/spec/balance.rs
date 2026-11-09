@@ -23,7 +23,18 @@ use super::occurrences::element_def;
 use super::raw::{RawBalance, RawTerm};
 use super::render::render_key;
 use super::segments::ElementDef;
+use super::vocabulary::Vocabulary;
 use crate::value::ElementType;
+
+/// A balancing term's `sign`, written `"+"` or `"-"`.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub enum Sign {
+    /// Written `"+"`: the value is added.
+    #[default]
+    Plus,
+    /// Written `"-"`: the value is subtracted.
+    Minus,
+}
 
 /// One signed value of a balancing rule: elements of an occurrence.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -245,14 +256,15 @@ fn decimal_scale(def: Option<&ElementDef>, key: &str, place: &str) -> Result<u8,
 /// Reads a term's `sign`, written at `{at}.sign`: `true` for `-`, `false` for
 /// `+` or no sign.
 fn is_negative(at: &str, sign: Option<&str>) -> Result<bool, BalanceError> {
-    match sign {
-        None | Some("+") => Ok(false),
-        Some("-") => Ok(true),
-        Some(found) => Err(BalanceError::UnknownSign {
+    let Some(word) = sign else {
+        return Ok(Sign::default() == Sign::Minus);
+    };
+    Sign::from_word(word)
+        .map(|sign| sign == Sign::Minus)
+        .ok_or_else(|| BalanceError::UnknownSign {
             key: format!("{at}.sign"),
-            found: found.to_string(),
-        }),
-    }
+            found: word.to_string(),
+        })
 }
 
 /// The signed values of one side of a rule, e.g. `sum of CLP04 of 2100

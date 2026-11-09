@@ -17,6 +17,7 @@ mod summaries;
 mod tables;
 mod triggers;
 mod version;
+mod vocabulary;
 
 use crate::segment::Segment;
 use crate::spec::{Spec, SpecError};

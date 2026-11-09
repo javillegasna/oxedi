@@ -73,6 +73,9 @@ impl ElementType {
     /// Largest `scale` an `R` element may declare: [`crate::value::MAX_SCALE`].
     pub const MAX_SCALE: u8 = MAX_SCALE;
 
+    /// Decimal places an `R` element keeps when the spec gives no `scale`.
+    pub const DEFAULT_SCALE: u8 = 2;
+
     /// Reads the type code of an element definition; `scale` is the
     /// definition's `scale` key, which only `R` accepts.
     pub fn parse(code: &str, scale: Option<u8>) -> Result<ElementType, TypeCodeError> {
@@ -80,7 +83,7 @@ impl ElementType {
             b"AN" => ElementType::An,
             b"ID" => ElementType::Id,
             b"R" => ElementType::R {
-                scale: scale.unwrap_or(2),
+                scale: scale.unwrap_or(ElementType::DEFAULT_SCALE),
             },
             b"DT" => ElementType::Dt,
             b"TM" => ElementType::Tm,

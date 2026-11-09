@@ -31,6 +31,9 @@ pub enum Phi {
 }
 
 impl Phi {
+    /// Every kind, in the order a spec lists them.
+    pub const ALL: [Phi; 3] = [Phi::Name, Phi::Id, Phi::Date];
+
     /// The word a spec writes for the kind, also mixed into the digest so the
     /// same value masks differently per kind.
     pub fn word(self) -> &'static str {
@@ -43,12 +46,7 @@ impl Phi {
 
     /// The kind a spec's word names, or `None`.
     pub fn from_word(word: &str) -> Option<Phi> {
-        match word {
-            "name" => Some(Phi::Name),
-            "id" => Some(Phi::Id),
-            "date" => Some(Phi::Date),
-            _ => None,
-        }
+        Phi::ALL.into_iter().find(|kind| kind.word() == word)
     }
 }
 

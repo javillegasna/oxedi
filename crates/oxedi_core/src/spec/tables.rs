@@ -38,13 +38,31 @@ pub enum Pick {
     Nth(usize),
 }
 
+impl Pick {
+    /// The named picks and the word a spec writes for each.
+    pub(crate) const NAMED: [(&'static str, Pick); 2] =
+        [("first", Pick::First), ("last", Pick::Last)];
+
+    /// The named pick a spec's word names, or `None`.
+    pub(crate) fn from_word(word: &str) -> Option<Pick> {
+        Pick::NAMED
+            .iter()
+            .find(|(named, _)| *named == word)
+            .map(|&(_, pick)| pick)
+    }
+}
+
 impl fmt::Display for Pick {
     /// The pick as a spec writes it: `"first"`, `"last"` or the position.
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            Pick::First => write!(f, "\"first\""),
-            Pick::Last => write!(f, "\"last\""),
             Pick::Nth(nth) => write!(f, "{nth}"),
+            pick @ (Pick::First | Pick::Last) => {
+                match Pick::NAMED.iter().find(|(_, named)| named == pick) {
+                    Some((word, _)) => write!(f, "\"{word}\""),
+                    None => write!(f, "{pick:?}"),
+                }
+            }
         }
     }
 }

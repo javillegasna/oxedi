@@ -9,6 +9,7 @@ use super::loops::{Control, ControlCount, ControlError, LoopDef, LoopId, Trigger
 use super::occurrences::parse_usage;
 use super::raw::{RawControl, RawLoop};
 use super::segments::parse_position;
+use super::vocabulary::Vocabulary;
 
 /// A check of a loop's own keys: the error when the loop breaks it.
 type HeaderRule = fn(&str, &RawLoop) -> Option<SpecError>;
@@ -151,15 +152,9 @@ fn compile_control(raw: &RawControl, has_end: bool) -> Result<Control, ControlEr
     if let Some((key, _)) = positions.iter().find(|(_, position)| *position == 0) {
         return Err(ControlError::ZeroPosition { key });
     }
-    let count = match raw.count.as_str() {
-        "segments" => ControlCount::Segments,
-        "children" => ControlCount::Children,
-        _ => {
-            return Err(ControlError::UnknownCount {
-                found: raw.count.clone(),
-            });
-        }
-    };
+    let count = ControlCount::from_word(&raw.count).ok_or_else(|| ControlError::UnknownCount {
+        found: raw.count.clone(),
+    })?;
     Ok(Control {
         opener_element: raw.opener_element,
         closer_element: raw.closer_element,

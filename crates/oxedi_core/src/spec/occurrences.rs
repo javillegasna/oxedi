@@ -9,17 +9,17 @@ use super::loops::Trigger;
 use super::occurrence_error::{OccurrenceError, place};
 use super::raw::{RawOccurrence, RawQualifier};
 use super::render::{render_key, render_trigger};
-use super::segments::{
-    ElementDef, ElementDefError, SegmentDef, compile_codes, holds_code, parse_position,
-};
+use super::segments::{ElementDef, ElementDefError, SegmentDef, compile_codes, holds_code};
+use super::vocabulary::{ElementPosition, Vocabulary};
 use crate::segment::Segment;
 
 /// Whether an occurrence must appear in every instance of its loop.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
 pub enum Usage {
     /// Written `required`: every instance of the loop holds it.
     Required,
-    /// Written `situational`: an instance may hold it or not.
+    /// Written `situational`: an instance may hold it or not; the default.
+    #[default]
     Situational,
 }
 
@@ -126,22 +126,15 @@ fn element_codes(def: &ElementDef, codes: &[String]) -> Result<Vec<String>, Elem
 
 /// Reads a `codes` key: `<element>` or `<element>-<component>`.
 fn parse_codes_key(key: &str) -> Option<(usize, Option<usize>)> {
-    match key.split_once('-') {
-        None => Some((parse_position(key)?, None)),
-        Some((element, component)) => {
-            Some((parse_position(element)?, Some(parse_position(component)?)))
-        }
-    }
+    ElementPosition::parse(key).map(|at| (at.element, at.component))
 }
 
 /// Reads a `usage`: `required`, or `situational` (also when absent); the
 /// value as written when it is neither.
 pub(super) fn parse_usage(usage: Option<&str>) -> Result<Usage, String> {
-    match usage {
-        None | Some("situational") => Ok(Usage::Situational),
-        Some("required") => Ok(Usage::Required),
-        Some(found) => Err(found.to_string()),
-    }
+    usage.map_or(Ok(Usage::default()), |word| {
+        Usage::from_word(word).ok_or_else(|| word.to_string())
+    })
 }
 
 /// Checks the occurrence a loop's trigger opens on, when the loop declares

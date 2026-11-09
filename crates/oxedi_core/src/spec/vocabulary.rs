@@ -12,6 +12,7 @@ use super::loops::ControlCount;
 use super::occurrences::Usage;
 use super::raw::RawPick;
 use super::segments::parse_position;
+use super::table_error::TableDefError;
 use super::tables::Pick;
 use crate::mask::Phi;
 
@@ -141,13 +142,15 @@ impl Pick {
 impl Serialize for Pick {
     fn serialize<S: Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
         match self {
-            Pick::Nth(nth) => serializer.serialize_u64(
-                u64::try_from(*nth).map_err(|_| ser::Error::custom("pick position over u64"))?,
-            ),
-            pick => match Pick::NAMED.iter().find(|(_, named)| named == pick) {
-                Some((word, _)) => serializer.serialize_str(word),
-                None => Err(ser::Error::custom(format!("pick {pick:?} has no word"))),
-            },
+            Pick::Nth(nth) => serializer.serialize_u64(u64::try_from(*nth).map_err(|_| {
+                ser::Error::custom(format!("pick position {nth} does not fit in 64 bits"))
+            })?),
+            pick @ (Pick::First | Pick::Last) => {
+                match Pick::NAMED.iter().find(|(_, named)| named == pick) {
+                    Some((word, _)) => serializer.serialize_str(word),
+                    None => Err(ser::Error::custom(format!("pick {pick:?} has no word"))),
+                }
+            }
         }
     }
 }
@@ -155,11 +158,7 @@ impl Serialize for Pick {
 impl<'de> Deserialize<'de> for Pick {
     fn deserialize<D: Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
         let raw = RawPick::deserialize(deserializer)?;
-        Pick::read(&raw).map_err(|found| {
-            de::Error::custom(format!(
-                "\"pick\" must be \"first\", \"last\" or a 1-based position; found {found}"
-            ))
-        })
+        Pick::read(&raw).map_err(|written| de::Error::custom(TableDefError::BadPick { written }))
     }
 }
 

@@ -1,13 +1,8 @@
-use std::collections::BTreeMap;
-
-use serde_json::json;
+use serde_json::{from_str, from_value, json, to_string, to_value};
 
 use crate::mask::Phi;
 use crate::spec::vocabulary::{Vocabulary, words_text};
-use crate::spec::{
-    BalanceError, ControlCount, ControlError, ElementPosition, OccurrenceError, Pick, Sign, Spec,
-    SpecError, TableDefError, Usage,
-};
+use crate::spec::*;
 use crate::value::ElementType;
 
 fn words<V: Vocabulary>() -> Vec<&'static str> {
@@ -109,61 +104,43 @@ fn a_null_usage_and_sign_read_as_the_default() {
     assert!(!spec.balancing()[0].target[0].negative);
 }
 
+fn refused<T: serde::de::DeserializeOwned>(value: serde_json::Value) -> String {
+    from_value::<T>(value).err().unwrap().to_string()
+}
+
 #[test]
 fn a_vocabulary_writes_and_reads_its_word() {
-    assert_eq!(
-        serde_json::to_string(&Usage::Required).unwrap(),
-        "\"required\""
-    );
-    assert_eq!(serde_json::to_string(&Sign::Minus).unwrap(), "\"-\"");
-    assert_eq!(
-        serde_json::from_str::<ControlCount>("\"children\"").unwrap(),
-        ControlCount::Children
-    );
-    assert_eq!(serde_json::from_str::<Phi>("\"date\"").unwrap(), Phi::Date);
+    assert_eq!(to_string(&Usage::Required).unwrap(), "\"required\"");
+    assert_eq!(to_string(&Sign::Minus).unwrap(), "\"-\"");
+    let count = from_str::<ControlCount>("\"children\"");
+    assert_eq!(count.unwrap(), ControlCount::Children);
+    assert_eq!(from_str::<Phi>("\"date\"").unwrap(), Phi::Date);
 }
 
 #[test]
 fn an_unknown_word_is_refused_with_the_allowed_words() {
+    let usage = refused::<Usage>(json!("often"));
     assert_eq!(
-        serde_json::from_value::<Usage>(json!("often"))
-            .unwrap_err()
-            .to_string(),
+        usage,
         "\"usage\" must be \"required\" or \"situational\"; found \"often\""
     );
-    assert!(serde_json::from_value::<Usage>(json!("Required")).is_err());
-    assert_eq!(
-        serde_json::from_value::<Sign>(json!("plus"))
-            .unwrap_err()
-            .to_string(),
-        "\"sign\" must be \"+\" or \"-\"; found \"plus\""
-    );
+    assert!(from_value::<Usage>(json!("Required")).is_err());
+    let sign = refused::<Sign>(json!("plus"));
+    assert_eq!(sign, "\"sign\" must be \"+\" or \"-\"; found \"plus\"");
 }
 
 #[test]
 fn a_pick_writes_and_reads_as_written() {
-    assert_eq!(serde_json::to_value(Pick::First).unwrap(), json!("first"));
-    assert_eq!(serde_json::to_value(Pick::Nth(3)).unwrap(), json!(3));
-    assert_eq!(
-        serde_json::from_value::<Pick>(json!("last")).unwrap(),
-        Pick::Last
-    );
-    assert_eq!(
-        serde_json::from_value::<Pick>(json!(2)).unwrap(),
-        Pick::Nth(2)
-    );
-    assert_eq!(
-        serde_json::from_value::<Pick>(json!("middle"))
-            .unwrap_err()
-            .to_string(),
-        "\"pick\" must be \"first\", \"last\" or a 1-based position; found \"middle\""
-    );
-    assert_eq!(
-        serde_json::from_value::<Pick>(json!(0))
-            .unwrap_err()
-            .to_string(),
-        "\"pick\" must be \"first\", \"last\" or a 1-based position; found 0"
-    );
+    let read = |value| from_value::<Pick>(value).unwrap();
+    assert_eq!(to_value(Pick::First).unwrap(), json!("first"));
+    assert_eq!(to_value(Pick::Nth(3)).unwrap(), json!(3));
+    assert_eq!(read(json!("last")), Pick::Last);
+    assert_eq!(read(json!(2)), Pick::Nth(2));
+    let text = |found| {
+        format!("\"pick\" must be \"first\", \"last\" or a 1-based position; found {found}")
+    };
+    assert_eq!(refused::<Pick>(json!("middle")), text("\"middle\""));
+    assert_eq!(refused::<Pick>(json!(0)), text("0"));
 }
 
 #[test]
@@ -176,65 +153,56 @@ fn every_named_pick_prints_its_own_word() {
 
 #[test]
 fn a_codes_key_is_a_map_key() {
-    let map = BTreeMap::from([(
-        ElementPosition {
-            element: 3,
-            component: Some(2),
-        },
-        vec!["A".to_string()],
-    )]);
-    let json = serde_json::to_string(&map).unwrap();
-    assert_eq!(json, r#"{"3-2":["A"]}"#);
-    assert_eq!(
-        serde_json::from_str::<BTreeMap<ElementPosition, Vec<String>>>(&json).unwrap(),
-        map
-    );
-    let error = serde_json::from_str::<BTreeMap<ElementPosition, Vec<String>>>(r#"{"03":["A"]}"#)
-        .unwrap_err()
-        .to_string();
-    assert!(
-        error.starts_with(
-            "codes key \"03\" must be \"<element>\" or \"<element>-<component>\", 1-based integers in canonical form"
-        ),
-        "{error}"
-    );
+    type Codes = std::collections::BTreeMap<ElementPosition, Vec<String>>;
+    let at = ElementPosition::parse("3-2").unwrap();
+    let map = Codes::from([(at, vec!["A".to_string()])]);
+    assert_eq!(to_string(&map).unwrap(), r#"{"3-2":["A"]}"#);
+    assert_eq!(from_str::<Codes>(r#"{"3-2":["A"]}"#).unwrap(), map);
+    for key in ["03", "3-0"] {
+        let error = from_str::<Codes>(&format!(r#"{{"{key}":["A"]}}"#))
+            .unwrap_err()
+            .to_string();
+        assert!(
+            error.starts_with(&format!("codes key \"{key}\" must be \"<element>\" or \"<element>-<component>\", 1-based integers in canonical form")),
+            "{error}"
+        );
+    }
 }
 
 #[test]
 fn the_loader_texts_name_every_word() {
-    let own = String::new;
-    assert!(
-        OccurrenceError::UnknownUsage { found: own() }
-            .to_string()
-            .contains(&words_text::<Usage>())
+    let s = String::new;
+    let has = |text: String, words: String| assert!(text.contains(&words), "{text}");
+    let usage = words_text::<Usage>();
+    has(
+        OccurrenceError::UnknownUsage { found: s() }.to_string(),
+        usage.clone(),
     );
-    assert!(
+    has(
         SpecError::UnknownLoopUsage {
-            loop_name: own(),
-            found: own()
+            loop_name: s(),
+            found: s(),
         }
-        .to_string()
-        .contains(&words_text::<Usage>())
+        .to_string(),
+        usage,
     );
-    assert!(
-        ControlError::UnknownCount { found: own() }
-            .to_string()
-            .contains(&words_text::<ControlCount>())
+    has(
+        ControlError::UnknownCount { found: s() }.to_string(),
+        words_text::<ControlCount>(),
     );
-    assert!(
+    has(
         BalanceError::UnknownSign {
-            key: own(),
-            found: own()
+            key: s(),
+            found: s(),
         }
-        .to_string()
-        .contains(&words_text::<Sign>())
+        .to_string(),
+        words_text::<Sign>(),
     );
-    assert!(
-        TableDefError::UnknownPhi { given: own() }
-            .to_string()
-            .contains(&words_text::<Phi>())
+    has(
+        TableDefError::UnknownPhi { given: s() }.to_string(),
+        words_text::<Phi>(),
     );
-    let bad_pick = TableDefError::BadPick { written: own() }.to_string();
+    let bad_pick = TableDefError::BadPick { written: s() }.to_string();
     for (word, _) in Pick::NAMED {
         assert!(bad_pick.contains(&format!("\"{word}\"")), "{bad_pick}");
     }

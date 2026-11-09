@@ -40,8 +40,7 @@ pub struct SummaryFieldModel {
     pub column: String,
 }
 
-/// The one operation a summary holds, written as an object with that
-/// operation as its only key.
+/// The one operation a summary holds, the only key of its object.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "lowercase")]
 pub enum SummaryModel {

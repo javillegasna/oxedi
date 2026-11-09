@@ -23,6 +23,7 @@ This file covers the Python package; the DuckDB extension has its own changelog 
   no such place.
 
 ### Changed
+- `oxedi[pyx12]` requires pyx12 4.1 or later. A pyx12 finding keeps the X12 code in `code`, and its `rule` now ends with pyx12's own name for the error before the `(reported by pyx12, code N)` suffix.
 - The `pyx12` extra now requires pyx12 below 4.0.1, because 4.0.1 reports findings in a shape
   `oxedi.pyx12` does not read yet.
 - `oxedi.pyx12.validate` indexes the file and selects the spec without projecting the tables, so it

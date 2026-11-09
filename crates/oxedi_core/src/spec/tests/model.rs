@@ -4,8 +4,9 @@ use serde::Serialize;
 use serde_json::{Value, from_value, json, to_value};
 
 use crate::spec::{
-    Builtin, ColumnModel, ElementModel, LoopModel, OccurrenceModel, Pick, QualifierModel, Sign,
-    Spec, SpecModel, SummaryModel, SummaryTableModel, TermModel, TriggerModel, Usage, test_support,
+    Builtin, ColumnModel, ElementModel, ElementPosition, LoopModel, OccurrenceModel, Pick,
+    QualifierModel, SegmentModel, Sign, Spec, SpecModel, SummaryModel, SummaryTableModel,
+    TermModel, TriggerModel, Usage, test_support,
 };
 use crate::value::{ElementType, TypeCodeError};
 
@@ -154,7 +155,71 @@ fn a_written_pick_first_is_kept() {
     assert_eq!(json_of(&column), written);
     assert_eq!(from_value::<ColumnModel>(written).unwrap(), column);
     column.pick = None;
-    assert_eq!(json_of(&column), json!({"occurrence":"clp","element":4}));
+    let unpicked = json!({"occurrence":"clp","element":4});
+    assert_eq!(json_of(&column), unpicked);
+    assert_eq!(from_value::<ColumnModel>(unpicked).unwrap(), column);
+}
+
+#[test]
+fn a_trigger_and_occurrence_write_their_position_keys() {
+    let mut model = minimal_loop();
+    model.trigger.segment = "NM1".into();
+    model.trigger.conditions.insert(1, "QC".into());
+    let codes = BTreeMap::from([
+        (
+            ElementPosition {
+                element: 1,
+                component: None,
+            },
+            vec!["QC".to_string(), "IL".to_string()],
+        ),
+        (
+            ElementPosition {
+                element: 3,
+                component: Some(2),
+            },
+            vec!["A".to_string()],
+        ),
+    ]);
+    let occurrence = OccurrenceModel {
+        segment: "NM1".into(),
+        pos: 0,
+        usage: Usage::Situational,
+        max: None,
+        qualifier: None,
+        codes,
+    };
+    model.occurrences.insert("nm1".into(), occurrence);
+    let written = json!({
+        "trigger": {"segment": "NM1", "where": {"1": "QC"}},
+        "occurrences": {"nm1": {
+            "segment": "NM1", "pos": 0, "codes": {"1": ["QC", "IL"], "3-2": ["A"]}
+        }}
+    });
+    assert_eq!(json_of(&model), written);
+    assert_eq!(from_value::<LoopModel>(written).unwrap(), model);
+}
+
+#[test]
+fn a_segment_writes_its_element_and_component_keys() {
+    let named = |kind, name: &str| ElementModel {
+        name: name.into(),
+        ..paid(kind)
+    };
+    let mut procedure = named(ElementType::An, "procedure");
+    procedure
+        .composite
+        .insert(2, named(ElementType::An, "code"));
+    let model = SegmentModel {
+        elements: BTreeMap::from([(1, named(ElementType::Id, "qualifier")), (4, procedure)]),
+    };
+    let written = json!({"elements": {
+        "1": {"name": "qualifier", "type": "ID"},
+        "4": {"name": "procedure", "type": "AN",
+              "composite": {"2": {"name": "code", "type": "AN"}}}
+    }});
+    assert_eq!(json_of(&model), written);
+    assert_eq!(from_value::<SegmentModel>(written).unwrap(), model);
 }
 
 #[test]

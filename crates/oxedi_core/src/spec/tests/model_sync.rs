@@ -1,18 +1,17 @@
-//! The spec model and the section registry name the same keys at every
-//! object, so a key added to one and not the other fails here.
+//! The hand-written spec objects, the element and the summary, and the
+//! section registry name the same keys, so a key added to one and not the
+//! other fails here. The declared objects emit both from one declaration.
 
 use std::collections::{BTreeMap, BTreeSet};
 
-use serde_json::{Value, to_value};
+use serde_json::{Value, from_value, json, to_value};
 
-use crate::mask::Phi;
 use crate::spec::model::ROOT;
+use crate::spec::sections::{ELEMENT, SUMMARY};
 use crate::spec::shape::{Field, ObjectSchema, check_shape};
 use crate::spec::{
-    BalanceModel, ColumnModel, ControlCount, ControlModel, ElementModel, ElementPosition,
-    LoopModel, OccurrenceModel, Pick, QualifierModel, RepeatModel, SegmentModel, Sign, SpecModel,
-    SummaryColumnModel, SummaryFieldModel, SummaryModel, SummaryRowModel, SummaryTableModel,
-    TableModel, TermModel, TriggerModel, Usage, VersionModel,
+    ElementModel, SegmentModel, SpecModel, SummaryColumnModel, SummaryFieldModel, SummaryModel,
+    SummaryRowModel, SummaryTableModel,
 };
 use crate::value::ElementType;
 
@@ -36,72 +35,6 @@ fn element(composite: BTreeMap<usize, ElementModel>) -> ElementModel {
     }
 }
 
-fn occurrence() -> OccurrenceModel {
-    OccurrenceModel {
-        segment: text("CLP"),
-        pos: 0,
-        usage: Usage::Required,
-        max: Some(2),
-        qualifier: Some(QualifierModel {
-            element: 1,
-            component: Some(2),
-            codes: vec![text("Q")],
-        }),
-        codes: one(
-            ElementPosition {
-                element: 1,
-                component: Some(2),
-            },
-            vec![text("C")],
-        ),
-    }
-}
-
-fn loop_model() -> LoopModel {
-    LoopModel {
-        parent: Some(text("2000")),
-        trigger: TriggerModel {
-            segment: text("CLP"),
-            conditions: one(1, text("X")),
-        },
-        occurrences: one(text("clp"), occurrence()),
-        max: Some(3),
-        usage: Usage::Required,
-        end: Some(text("SE")),
-        control: Some(ControlModel {
-            opener_element: 1,
-            closer_element: 2,
-            count_element: 3,
-            count: ControlCount::Segments,
-        }),
-    }
-}
-
-fn column() -> ColumnModel {
-    ColumnModel {
-        loop_name: Some(text("2100")),
-        segment: Some(text("CLP")),
-        conditions: one(1, text("X")),
-        occurrence: Some(text("clp")),
-        pick: Some(Pick::Nth(2)),
-        element: Some(1),
-        component: Some(2),
-        group_element: Some(0),
-        segment_index: true,
-        phi: Some(Phi::Name),
-    }
-}
-
-fn term() -> TermModel {
-    TermModel {
-        loop_name: Some(text("2100")),
-        occurrence: text("clp"),
-        elements: vec![1],
-        component: Some(2),
-        sign: Sign::Minus,
-    }
-}
-
 // Every field set off its default and every optional one present, written as
 // full literals so a field added to a model stops this build until it is set.
 fn every_key_model() -> SpecModel {
@@ -115,37 +48,19 @@ fn every_key_model() -> SpecModel {
     };
     SpecModel {
         name: text("every_key"),
-        version: Some(VersionModel {
-            segment: text("GS"),
-            element: 8,
-            values: vec![text("005010")],
-        }),
-        loops: one(text("2100"), loop_model()),
+        version: None,
+        loops: one(
+            text("2100"),
+            from_value(json!({"trigger": {"segment": "CLP"}})).unwrap(),
+        ),
         segments: one(
             text("CLP"),
             SegmentModel {
                 elements: one(1, element(one(1, element(BTreeMap::new())))),
             },
         ),
-        tables: one(
-            text("claims"),
-            TableModel {
-                loops: vec![text("2100")],
-                reference: Some(text("claim")),
-                segment: Some(text("CLP")),
-                repeat: Some(RepeatModel { from: 2, step: 2 }),
-                columns: one(text("c"), column()),
-                phi_seed: Some(text("c")),
-            },
-        ),
-        balancing: one(
-            text("balance"),
-            BalanceModel {
-                per: text("2100"),
-                target: vec![term()],
-                sum: vec![term()],
-            },
-        ),
+        tables: BTreeMap::new(),
+        balancing: BTreeMap::new(),
         summaries: BTreeMap::from([
             (
                 text("count"),
@@ -166,7 +81,7 @@ fn every_key_model() -> SpecModel {
                 }),
             ),
         ]),
-        default_table: Some(text("claims")),
+        default_table: None,
     }
 }
 
@@ -184,6 +99,8 @@ fn mark(seen: &mut [bool; 4], summary: &SummaryModel) {
 }
 
 static TOP: Field = Field::Object(&ROOT);
+static ELEMENTS: Field = Field::Object(&ELEMENT);
+static SUMMARIES: Field = Field::Object(&SUMMARY);
 
 /// The keys found at each object of a schema, by the schema's address, with
 /// the first key the schema lists to name it.
@@ -278,7 +195,8 @@ fn the_model_and_the_registry_hold_the_same_keys() {
     check_shape(&value).unwrap_or_else(|e| panic!("only in the model: {e}"));
     let (mut in_model, mut in_registry) = (Keys::new(), Keys::new());
     walk_value(&mut in_model, &TOP, &value);
-    walk_registry(&mut in_registry, &TOP);
+    walk_registry(&mut in_registry, &ELEMENTS);
+    walk_registry(&mut in_registry, &SUMMARIES);
     let report = difference(&in_model, &in_registry);
     assert!(report.is_empty(), "{}", report.join("\n"));
 }

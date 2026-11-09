@@ -232,27 +232,19 @@ fn walk_registry(keys: &mut Keys, field: &'static Field) {
     }
 }
 
+// Only the registry side is walked: `check_shape` already refuses a key the
+// registry does not list, naming its path.
 fn difference(model: &Keys, registry: &Keys) -> Vec<String> {
     let none = BTreeSet::new();
     let mut report = Vec::new();
-    for (at, (name, in_model)) in model {
-        let in_registry = registry.get(at).map_or(&none, |(_, keys)| keys);
-        if in_model != in_registry {
+    for (at, (name, in_registry)) in registry {
+        let in_model = model.get(at).map_or(&none, |(_, keys)| keys);
+        if !in_registry.is_subset(in_model) {
             report.push(format!(
-                "the object holding \"{name}\": only in the model {:?}, only in the registry {:?}",
-                in_model.difference(in_registry).collect::<Vec<_>>(),
+                "the object holding \"{name}\": only in the registry {:?}",
                 in_registry.difference(in_model).collect::<Vec<_>>(),
             ));
         }
-    }
-    for (name, in_registry) in registry
-        .iter()
-        .filter(|(at, _)| !model.contains_key(at))
-        .map(|(_, seen)| seen)
-    {
-        report.push(format!(
-            "the object holding \"{name}\": only in the registry {in_registry:?}"
-        ));
     }
     report
 }

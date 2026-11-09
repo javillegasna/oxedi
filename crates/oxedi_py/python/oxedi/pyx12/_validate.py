@@ -269,11 +269,11 @@ def validate(
     ``<prefix>/etc/pyx12.conf.xml``) are not read, so findings do not
     depend on the machine.
 
-    Every error pyx12's engine records is returned: interchange, group and
-    transaction errors, segment errors and element errors. They are read
-    from the JSON error output pyx12 writes; pyx12's logging is not used.
-    Element errors inside the envelope segments (ISA, GS, ST, SE, GE, IEA)
-    are not reported until pyx12's JSON output carries them. The ``pyx12``
+    The findings are the interchange, group and transaction errors and the
+    segment and element errors in the JSON error output pyx12 writes;
+    pyx12's logging is not used. Until pyx12's JSON output carries them,
+    errors inside the envelope segments (ISA, GS, ST, SE, GE, IEA) are not
+    reported: neither their element errors nor their segment errors. The ``pyx12``
     logger gets a ``logging.NullHandler`` the first time, when it has none,
     so pyx12's records are not printed by default and still reach the
     handlers the caller configures; levels, propagation and

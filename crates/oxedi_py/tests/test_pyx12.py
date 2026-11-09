@@ -509,7 +509,7 @@ def balanced_5010():
     return read("balanced_5010_sample.txt")
 
 
-@pytest.mark.xfail(strict=True, reason="pyx12's JSON output carries no element errors of envelope segments")
+@pytest.mark.xfail(strict=True, reason="pyx12's JSON output carries no errors of envelope segments, element or segment errors")
 def test_an_element_error_of_the_transaction_header_is_reported():
     data = balanced_5010()
     (finding,) = validate(data)
@@ -528,7 +528,7 @@ def test_an_element_error_of_the_transaction_header_is_reported():
     )
 
 
-@pytest.mark.xfail(strict=True, reason="pyx12's JSON output carries no element errors of envelope segments")
+@pytest.mark.xfail(strict=True, reason="pyx12's JSON output carries no errors of envelope segments, element or segment errors")
 def test_an_element_error_of_the_transaction_trailer_is_reported_at_the_trailer():
     data = balanced_5010().replace(b"SE*58*0001", b"SE*5X*0001")
     findings = validate(data)
@@ -539,7 +539,7 @@ def test_an_element_error_of_the_transaction_trailer_is_reported_at_the_trailer(
     assert trailer.rule.startswith('Data element "Transaction Segment Count" (SE01) is type N0')
 
 
-@pytest.mark.xfail(strict=True, reason="pyx12's JSON output carries no element errors of envelope segments")
+@pytest.mark.xfail(strict=True, reason="pyx12's JSON output carries no errors of envelope segments, element or segment errors")
 def test_segment_errors_pyx12_cannot_attach_to_an_envelope_node_are_reported():
     data = balanced_5010().replace(
         b"ST*835*0001*005010X221A1~", b"ST*835*0001*005010X221A1*~"

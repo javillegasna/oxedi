@@ -112,7 +112,6 @@ for d in validate(data, mask=oxedi.Mask(key)):
 ```
 
 ```text
-10 b'005010X221A1' Data element "Implementation Convention Reference" (ST03) is marked as Not Used (reported by pyx12, code 10)
 8 b'46891844d3db70db' Data element "Claim Date" (DTM02) contains an invalid date (46891844d3db70db) (reported by pyx12, code 8)
 ```
 
@@ -121,7 +120,7 @@ given. A pyx12 message about a length still states the length of the original va
 raises an exception, its finding keeps the exception's type and leaves out its text, which could
 quote any value of the file: `could not finish validating: ValueError, whose message is not shown
 with a mask; ...`, or `its error tree could not be read (ValueError, whose message is not shown
-with a mask)` when pyx12's error tree cannot be read. The rest of that finding, which says which
+with a mask)` when pyx12's error output cannot be read. The rest of that finding, which says which
 segment pyx12 was processing, is oxedi's own text and is never rewritten, so its segment numbers
 stay readable; its datum is masked like any other. The finding for a file pyx12 refuses to read
 quotes pyx12's own error text, which can hold the ISA line, and is masked like any pyx12 message; its datum is `ISA`, not the ISA line.

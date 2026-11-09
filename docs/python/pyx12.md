@@ -33,10 +33,7 @@ for d in sorted(findings, key=lambda d: d.level):
 ```text
 oxedi None SNIP 1 · SE01 declares "57" but the count is 58 · segment #59, element 1 · at interchange#1/group#1/transaction#1 · datum "57"
 pyx12 4 SNIP 1 · SE count of 57 for SE02=0001 is wrong. I count 58 (reported by pyx12, code 4) · segment #59, element 1 · at interchange#1/group#1/transaction#1 · datum "57"
-pyx12 10 SNIP 2 · Data element "Implementation Convention Reference" (ST03) is marked as Not Used (reported by pyx12, code 10) · segment #2, element 3 · at interchange#1/group#1/transaction#1 · datum "005010X221A1"
 ```
-
-pyx12 also reports `ST03`, which its map marks as not used. It does so on the unedited file too.
 
 - `validate` returns `oxedi.Diagnostic`, the type `parse` returns. The two lists mix, sort by
   `level` and filter by `origin`.
@@ -45,10 +42,12 @@ pyx12 also reports `ST03`, which its map marks as not used. It does so on the un
 
 ## What a pyx12 finding holds
 
-`validate` reports every error pyx12's engine records, read from the error tree pyx12 builds:
+`validate` reports the errors in the JSON error output pyx12 writes:
 
 - Interchange, group and transaction errors. These are level 1.
-- Segment and element errors, those of the envelope segments included. These are level 2.
+- Segment and element errors. These are level 2.
+
+Until pyx12's JSON output carries them, errors inside the envelope segments (ISA, GS, ST, SE, GE, IEA) are not reported: neither their element errors nor their segment errors.
 
 A pyx12 finding has:
 

@@ -2,74 +2,62 @@
 
 use std::collections::BTreeMap;
 
-use serde::{Deserialize, Serialize};
+use serde::de::IgnoredAny;
 
 use super::declare::spec_object;
-use super::is_default;
 use crate::mask::Phi;
 use crate::spec::Pick;
-use crate::spec::sections::COUNT;
+use crate::spec::raw::RawPick;
+use crate::spec::sections::{COUNT, TEXT, TEXTS, leaf, nullable};
+use crate::spec::shape::{Field, Leaf};
 
-/// A table: the loops its rows come from and the columns each row holds.
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(deny_unknown_fields, expecting = "a table object")]
-pub struct TableModel {
+spec_object! {
+    /// A table: the loops its rows come from and the columns each row holds.
+    TableModel / RawTable, TABLE, "a table object";
     /// The loops whose instances become rows, outermost first.
-    pub loops: Vec<String>,
+    loops: Vec<String>, TEXTS, required;
     /// The name of the column that refers to a row of this table from the
     /// tables below it, when not the table's name.
-    #[serde(rename = "ref", skip_serializing_if = "Option::is_none")]
-    pub reference: Option<String>,
+    reference as "ref": Option<String>, nullable(Leaf::Text), optional;
     /// The segment each of whose occurrences is a row, when rows are not
     /// loop instances.
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub segment: Option<String>,
-    /// The repeated elements of the anchor segment, when each is a row.
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub repeat: Option<RepeatModel>,
-    /// The columns, by name.
-    #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
-    pub columns: BTreeMap<String, ColumnModel>,
+    segment: Option<String>, nullable(Leaf::Text), optional;
     /// The column whose value seeds the date shift of the row, when one does.
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub phi_seed: Option<String>,
+    phi_seed: Option<String>, nullable(Leaf::Text), optional;
+    /// The repeated elements of the anchor segment, when each is a row.
+    repeat: Option<RepeatModel> | Option<RawRepeat>, Field::Object(&REPEAT), optional;
+    /// The columns, by name.
+    // The loader checks the columns' outer shape and deserializes them one by
+    // one, so a schema error can name the column.
+    columns: BTreeMap<String, ColumnModel> | BTreeMap<String, IgnoredAny>,
+        Field::Map(&Field::Object(&COLUMN)), default;
 }
 
-/// One column of a table: where its value is read.
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(deny_unknown_fields, expecting = "a column object")]
-pub struct ColumnModel {
+spec_object! {
+    /// One column of a table: where its value is read.
+    ColumnModel / RawColumn, COLUMN, "a column object";
     /// The loop it reads, when not the table's anchor loop.
-    #[serde(rename = "loop", skip_serializing_if = "Option::is_none")]
-    pub loop_name: Option<String>,
+    loop_name as "loop": Option<String>, nullable(Leaf::Text), optional;
     /// The segment it reads, when it names a segment instead of an occurrence.
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub segment: Option<String>,
+    segment: Option<String>, nullable(Leaf::Text), optional;
     /// The value each element of the segment must hold, by 1-based element
     /// position.
-    #[serde(default, rename = "where", skip_serializing_if = "BTreeMap::is_empty")]
-    pub conditions: BTreeMap<usize, String>,
+    conditions as "where": BTreeMap<usize, String> | BTreeMap<String, String>,
+        Field::Map(&TEXT), default;
     /// The occurrence it reads, when it names one.
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub occurrence: Option<String>,
+    occurrence: Option<String>, nullable(Leaf::Text), optional;
     /// Which of the matching segments it reads, when the spec writes it.
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub pick: Option<Pick>,
+    pick: Option<Pick> | Option<RawPick>, nullable(Leaf::Pick), optional;
     /// 1-based element position, when it reads an element.
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub element: Option<usize>,
+    element: Option<usize>, nullable(Leaf::Count), optional;
     /// 1-based component position inside the element, when it reads one.
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub component: Option<usize>,
+    component: Option<usize>, nullable(Leaf::Count), optional;
     /// 0-based position inside the element group, when the table repeats.
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub group_element: Option<usize>,
+    group_element: Option<usize>, nullable(Leaf::Count), optional;
     /// Whether it holds the index of the segment it reads.
-    #[serde(default, skip_serializing_if = "is_default")]
-    pub segment_index: bool,
+    segment_index: bool, leaf(Leaf::Flag), default;
     /// What patient data it holds, when it holds any.
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub phi: Option<Phi>,
+    phi: Option<Phi> | Option<String>, nullable(Leaf::Text), optional;
 }
 
 spec_object! {

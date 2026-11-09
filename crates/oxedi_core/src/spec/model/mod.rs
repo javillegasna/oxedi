@@ -34,7 +34,7 @@ pub(in crate::spec) use rules::{
     SUMMARY_COLUMN, SUMMARY_ROW, SUMMARY_TABLE, VERSION,
 };
 pub(in crate::spec) use segments::{RawSegment, SEGMENT};
-pub(in crate::spec) use tables::{REPEAT, RawRepeat};
+pub(in crate::spec) use tables::{RawColumn, RawTable, TABLE};
 
 /// A whole spec, as the spec writes it.
 ///

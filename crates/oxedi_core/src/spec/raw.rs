@@ -44,39 +44,6 @@ pub(super) struct RawElement {
     pub(super) composite: BTreeMap<String, RawElement>,
 }
 
-// Columns are checked for their outer shape here and deserialized one by one,
-// so a schema error can name the column.
-#[derive(Debug, Deserialize)]
-#[serde(deny_unknown_fields, expecting = "a table object")]
-pub(super) struct RawTable {
-    pub(super) loops: Vec<String>,
-    #[serde(rename = "ref")]
-    pub(super) reference: Option<String>,
-    pub(super) segment: Option<String>,
-    pub(super) repeat: Option<RawRepeat>,
-    #[serde(default)]
-    pub(super) columns: BTreeMap<String, IgnoredAny>,
-    pub(super) phi_seed: Option<String>,
-}
-
-#[derive(Debug, Deserialize)]
-#[serde(deny_unknown_fields, expecting = "a column object")]
-pub(super) struct RawColumn {
-    #[serde(rename = "loop")]
-    pub(super) loop_name: Option<String>,
-    pub(super) segment: Option<String>,
-    #[serde(default, rename = "where")]
-    pub(super) conditions: BTreeMap<String, String>,
-    pub(super) occurrence: Option<String>,
-    pub(super) pick: Option<RawPick>,
-    pub(super) element: Option<usize>,
-    pub(super) component: Option<usize>,
-    pub(super) group_element: Option<usize>,
-    #[serde(default)]
-    pub(super) segment_index: bool,
-    pub(super) phi: Option<String>,
-}
-
 // A pick is a name (`first`, `last`) or a 1-based position; which names are
 // valid is checked when the column compiles, so the error can show the value.
 #[derive(Debug, Clone, Deserialize)]
@@ -108,6 +75,6 @@ pub(super) struct RawSummary {
 }
 
 pub(super) use super::model::{
-    RawBalance, RawControl, RawLoop, RawOccurrence, RawQualifier, RawRepeat, RawSegment,
-    RawSummaryColumn, RawSummaryRow, RawSummaryTable, RawTerm, RawVersion,
+    RawBalance, RawColumn, RawControl, RawLoop, RawOccurrence, RawQualifier, RawSegment,
+    RawSummaryColumn, RawSummaryRow, RawSummaryTable, RawTable, RawTerm, RawVersion,
 };

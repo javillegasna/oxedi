@@ -1,32 +1,10 @@
-//! The deserialization shapes of a spec's JSON entries.
+//! The deserialization shapes of a spec's JSON entries that no declaration
+//! emits: the element, the pick and the summary. The others are emitted with
+//! their model in `model`, and re-exported here.
 
 use std::collections::BTreeMap;
 
 use serde::Deserialize;
-use serde::de::IgnoredAny;
-
-// The loop, segment and table sections are only checked for their outer shape
-// here; each entry is then deserialized on its own, straight from the spec's
-// JSON, so a schema error can name the entry it came from.
-#[derive(Debug, Deserialize)]
-#[serde(
-    deny_unknown_fields,
-    expecting = "a spec object with \"name\" and \"loops\""
-)]
-pub(super) struct RawSpec {
-    pub(super) name: String,
-    pub(super) loops: BTreeMap<String, IgnoredAny>,
-    #[serde(default, rename = "segments")]
-    pub(super) _segments: BTreeMap<String, IgnoredAny>,
-    #[serde(default, rename = "tables")]
-    pub(super) _tables: BTreeMap<String, IgnoredAny>,
-    #[serde(default, rename = "balancing")]
-    pub(super) _balancing: BTreeMap<String, IgnoredAny>,
-    #[serde(default, rename = "summaries")]
-    pub(super) _summaries: BTreeMap<String, IgnoredAny>,
-    pub(super) default_table: Option<String>,
-    pub(super) version: Option<RawVersion>,
-}
 
 #[derive(Debug, Deserialize)]
 #[serde(deny_unknown_fields, expecting = "an element object")]
@@ -75,6 +53,6 @@ pub(super) struct RawSummary {
 }
 
 pub(super) use super::model::{
-    RawBalance, RawColumn, RawControl, RawLoop, RawOccurrence, RawQualifier, RawSegment,
+    RawBalance, RawColumn, RawControl, RawLoop, RawOccurrence, RawQualifier, RawSegment, RawSpec,
     RawSummaryColumn, RawSummaryRow, RawSummaryTable, RawTable, RawTerm, RawVersion,
 };

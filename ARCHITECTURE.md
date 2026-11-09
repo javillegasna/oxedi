@@ -119,10 +119,12 @@ The spec files live in `crates/oxedi_core/specs/`:
 
 Loading goes `Spec::from_json` → `Spec::from_value` (`spec/build.rs`):
 
-1. `shape.rs` checks the JSON shape against `sections.rs`, the schema as data: one table of
-   keys per object, the root's rows being the sections. Its errors name the key path as
-   written and, for an unknown key, the keys allowed there.
-2. `raw.rs` deserializes each entry into serde structs (`RawSpec`, `RawLoop`, …).
+1. `shape.rs` checks the JSON shape against the registry, the schema as data: one table of
+   keys per object, the root's rows being the sections. Each object's declaration in
+   `spec/model/` emits its table (`ELEMENT` and `SUMMARY` sit in `sections.rs`). Its errors
+   name the key path as written and, for an unknown key, the keys allowed there.
+2. The serde structs deserialize each entry (`RawSpec`, `RawLoop`, …). They come from the
+   same declarations as the registry; `RawElement`, `RawSummary` and `RawPick` are in `raw.rs`.
 3. `build.rs` runs the compile steps in order, one per section or structural check:
    loops (`build_loops.rs`: keys, parent, trigger, control), segments, occurrences, the
    version, trigger ambiguity, tables, balancing, summaries (`summaries.rs`) and the
@@ -149,7 +151,7 @@ Every key is listed in [the spec keys reference](docs/customize/spec.md#spec-key
 | I want to… | Start in | Then |
 |---|---|---|
 | Add a column to a built-in table | `tables.<table>.columns` in `crates/oxedi_core/specs/835.json` | `UPDATE_GOLDEN=1 cargo test -p oxedi_core --test project_golden`, review the diff; document it in `docs/reference/tables.md` |
-| Add a key to the spec format | `spec/raw.rs` (serde structs), the model struct in `spec/model/` and `every_key_model` in `spec/tests/model_sync.rs` (which the sync test reads), `spec/sections.rs` (the keys as data), `spec/shape.rs` (JSON check) | Compile it in `spec/build.rs` or `spec/compile.rs`; a new error in `spec/error.rs` (`SpecError`), or in `occurrence_error.rs`, `table_error.rs` or `balance_error.rs` when it is about one of those, with its `Display` test in `spec/tests/`; add the key to `docs/customize/spec.md`; a closed word goes in `spec/vocabulary.rs` |
+| Add a key to the spec format | a row in the object's `spec_object!` declaration in `spec/model/` (field, model type, raw type when it differs, `Field`, presence word); for `ELEMENT` and `SUMMARY`, `spec/raw.rs`, the model, `spec/sections.rs` and `every_key_model` in `spec/tests/model_sync.rs`; `spec/shape.rs` (JSON check) | Compile it in `spec/build.rs` or `spec/compile.rs`; a new error in `spec/error.rs` (`SpecError`), or in `occurrence_error.rs`, `table_error.rs` or `balance_error.rs` when it is about one of those, with its `Display` test in `spec/tests/`; add the key to `docs/customize/spec.md`; a closed word goes in `spec/vocabulary.rs` |
 | Add a diagnostic rule | `diagnostic/rule.rs` (`Rule` variant, `level`, `kind`, and `segment_id` when the rule is about one segment's elements, so its datum can be masked) and `diagnostic/display.rs` (message, written over the pieces of `diagnostic/text.rs`) | Raise it in `check/` (structure) or `project/check.rs` (elements); a full-text `Display` test in `diagnostic/tests.rs` |
 | Change an element check | `project/check.rs` | `cargo test -p oxedi_core --lib project::`, then both golden suites |
 | Change how loops are recognized | `engine/mod.rs` | `cargo test -p oxedi_core --test engine_golden` and `--test engine_invariants` |

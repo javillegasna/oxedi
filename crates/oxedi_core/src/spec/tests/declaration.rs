@@ -8,15 +8,16 @@ use std::fmt::Debug;
 use serde::de::DeserializeOwned;
 use serde_json::{from_value, json};
 
+use crate::spec::model::ROOT;
 use crate::spec::model::RawTrigger;
 use crate::spec::raw::{
-    RawBalance, RawColumn, RawControl, RawLoop, RawOccurrence, RawSegment, RawTable, RawTerm,
+    RawBalance, RawColumn, RawControl, RawLoop, RawOccurrence, RawSegment, RawSpec, RawTable,
+    RawTerm,
 };
-use crate::spec::sections::ROOT;
 use crate::spec::shape::{Field, Leaf, ObjectSchema};
 use crate::spec::{
     BalanceModel, ColumnModel, ControlModel, LoopModel, OccurrenceModel, QualifierModel,
-    RepeatModel, SegmentModel, SummaryColumnModel, SummaryFieldModel, SummaryRowModel,
+    RepeatModel, SegmentModel, SpecModel, SummaryColumnModel, SummaryFieldModel, SummaryRowModel,
     SummaryTableModel, TableModel, TermModel, TriggerModel, VersionModel,
 };
 
@@ -129,6 +130,8 @@ fn pinned<T: DeserializeOwned + Debug>() -> String {
 type Pin = (&'static str, fn() -> String);
 
 static STRUCTS: &[Pin] = &[
+    ("SpecModel", pinned::<SpecModel>),
+    ("RawSpec", pinned::<RawSpec>),
     ("ControlModel", pinned::<ControlModel>),
     ("RawControl", pinned::<RawControl>),
     ("VersionModel", pinned::<VersionModel>),
@@ -178,6 +181,8 @@ summaries.*.row: table!=text, fields!=[@summaries.*.row.fields[]]
 summaries.*.row.fields[]: name!=text, column!=text";
 
 const PINNED: &str = "\
+SpecModel a spec object with \"name\" and \"loops\": name version loops tables balancing segments summaries default_table
+RawSpec a spec object with \"name\" and \"loops\": name version loops tables balancing segments summaries default_table
 ControlModel a control object: opener_element closer_element count_element count
 RawControl a control object: opener_element closer_element count_element count
 VersionModel a version object: segment element values
@@ -255,6 +260,49 @@ fn a_table_and_its_columns_write_no_default_and_no_null() {
     });
     assert_eq!(from_value::<TableModel>(nulls.clone()).unwrap(), model);
     let raw = from_value::<RawColumn>(nulls["columns"]["c"].clone()).unwrap();
-    assert!(raw.loop_name.is_none() && raw.pick.is_none() && raw.phi.is_none());
-    assert!(raw.conditions.is_empty() && !raw.segment_index);
+    assert!(raw.loop_name.is_none(), "RawColumn.loop_name");
+    assert!(raw.segment.is_none(), "RawColumn.segment");
+    assert!(raw.conditions.is_empty(), "RawColumn.conditions");
+    assert!(raw.occurrence.is_none(), "RawColumn.occurrence");
+    assert!(raw.pick.is_none(), "RawColumn.pick");
+    assert!(raw.element.is_none(), "RawColumn.element");
+    assert!(raw.component.is_none(), "RawColumn.component");
+    assert!(raw.group_element.is_none(), "RawColumn.group_element");
+    assert!(!raw.segment_index, "RawColumn.segment_index");
+    assert!(raw.phi.is_none(), "RawColumn.phi");
+}
+
+#[test]
+fn a_spec_model_writes_no_default_and_no_null() {
+    let model = SpecModel {
+        name: "n".to_string(),
+        version: None,
+        loops: BTreeMap::from([(
+            "A".to_string(),
+            LoopModel {
+                parent: None,
+                trigger: TriggerModel {
+                    segment: "ST".to_string(),
+                    conditions: BTreeMap::new(),
+                },
+                occurrences: BTreeMap::new(),
+                max: None,
+                usage: Default::default(),
+                end: None,
+                control: None,
+            },
+        )]),
+        segments: BTreeMap::new(),
+        tables: BTreeMap::new(),
+        balancing: BTreeMap::new(),
+        summaries: BTreeMap::new(),
+        default_table: None,
+    };
+    let written = json!({"name": "n", "loops": {"A": {"trigger": {"segment": "ST"}}}});
+    assert_eq!(serde_json::to_value(&model).unwrap(), written);
+    let nulls = json!({
+        "name": "n", "loops": {"A": {"trigger": {"segment": "ST"}}},
+        "segments": {}, "tables": {}, "balancing": {}, "summaries": {}, "default_table": null
+    });
+    assert_eq!(from_value::<SpecModel>(nulls).unwrap(), model);
 }

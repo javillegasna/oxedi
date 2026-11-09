@@ -13,9 +13,13 @@ mod tables;
 
 use std::collections::BTreeMap;
 
-use serde::{Deserialize, Deserializer, Serialize};
+use serde::de::IgnoredAny;
+use serde::{Deserialize, Deserializer};
 
+use super::sections::{SUMMARY, TEXT};
+use super::shape::Field;
 use super::{Spec, SpecError};
+use declare::spec_object;
 
 pub use loops::{ControlModel, LoopModel, OccurrenceModel, QualifierModel, TriggerModel};
 pub use rules::{
@@ -36,56 +40,53 @@ pub(in crate::spec) use rules::{
 pub(in crate::spec) use segments::{RawSegment, SEGMENT};
 pub(in crate::spec) use tables::{RawColumn, RawTable, TABLE};
 
-/// A whole spec, as the spec writes it.
-///
-/// Read it with `Spec::from_json(..)?.model()`, which checks every loader
-/// rule. Reading a model, or any `*Model`, with serde directly
-/// (`serde_json::from_value::<SummaryModel>(..)`) checks only its shape: it
-/// accepts a table or a column that does not exist and an empty `fields`
-/// list. Load such a model with [`Spec::from_model`] before using it.
-///
-/// A model writes no default and no `null`: a key equal to its default and
-/// an absent value are left out.
-///
-/// ```
-/// # use oxedi_core::spec::{Spec, SummaryModel};
-/// # use serde_json::json;
-/// let mut model = Spec::builtin_835().model()?;
-/// assert_eq!(Spec::from_model(&model)?.name(), "835");
-/// let summary = serde_json::from_value::<SummaryModel>(json!({"count":{"table":"nope"}}))?;
-/// model.summaries.insert("ghost".into(), summary);
-/// assert!(Spec::from_model(&model).is_err());
-/// # Ok::<(), Box<dyn std::error::Error>>(())
-/// ```
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(
-    deny_unknown_fields,
-    expecting = "a spec object with \"name\" and \"loops\""
-)]
-pub struct SpecModel {
+spec_object! {
+    /// A whole spec, as the spec writes it.
+    ///
+    /// Read it with `Spec::from_json(..)?.model()`, which checks every loader
+    /// rule. Reading a model, or any `*Model`, with serde directly
+    /// (`serde_json::from_value::<SummaryModel>(..)`) checks only its shape: it
+    /// accepts a table or a column that does not exist and an empty `fields`
+    /// list. Load such a model with [`Spec::from_model`] before using it.
+    ///
+    /// A model writes no default and no `null`: a key equal to its default and
+    /// an absent value are left out.
+    ///
+    /// ```
+    /// # use oxedi_core::spec::{Spec, SummaryModel};
+    /// # use serde_json::json;
+    /// let mut model = Spec::builtin_835().model()?;
+    /// assert_eq!(Spec::from_model(&model)?.name(), "835");
+    /// let summary = serde_json::from_value::<SummaryModel>(json!({"count":{"table":"nope"}}))?;
+    /// model.summaries.insert("ghost".into(), summary);
+    /// assert!(Spec::from_model(&model).is_err());
+    /// # Ok::<(), Box<dyn std::error::Error>>(())
+    /// ```
+    SpecModel / RawSpec, ROOT, "a spec object with \"name\" and \"loops\"";
     /// The spec's name.
-    pub name: String,
+    name: String, TEXT, required;
     /// The element that declares the version a file is written in, when the
     /// spec declares one.
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub version: Option<VersionModel>,
+    version: Option<VersionModel>, Field::Object(&VERSION), optional;
     /// The loops, by name.
-    pub loops: BTreeMap<String, LoopModel>,
-    /// The segments whose elements the spec names and types, by segment id.
-    #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
-    pub segments: BTreeMap<String, SegmentModel>,
+    // The loader checks the loops' outer shape and deserializes them one by
+    // one, so a schema error can name the loop.
+    loops: BTreeMap<String, LoopModel> | BTreeMap<String, IgnoredAny>,
+        Field::Map(&Field::Object(&LOOP)), required;
     /// The tables, by name.
-    #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
-    pub tables: BTreeMap<String, TableModel>,
+    tables: BTreeMap<String, TableModel> | #[allow(dead_code, reason = "each section is read from the source, entry by entry")] BTreeMap<String, IgnoredAny>,
+        Field::Map(&Field::Object(&TABLE)), default;
     /// The balancing rules, by name.
-    #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
-    pub balancing: BTreeMap<String, BalanceModel>,
+    balancing: BTreeMap<String, BalanceModel> | #[allow(dead_code, reason = "each section is read from the source, entry by entry")] BTreeMap<String, IgnoredAny>,
+        Field::Map(&Field::Object(&BALANCE)), default;
+    /// The segments whose elements the spec names and types, by segment id.
+    segments: BTreeMap<String, SegmentModel> | #[allow(dead_code, reason = "each section is read from the source, entry by entry")] BTreeMap<String, IgnoredAny>,
+        Field::Map(&Field::Object(&SEGMENT)), default;
     /// The summaries, by name.
-    #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
-    pub summaries: BTreeMap<String, SummaryModel>,
+    summaries: BTreeMap<String, SummaryModel> | #[allow(dead_code, reason = "each section is read from the source, entry by entry")] BTreeMap<String, IgnoredAny>,
+        Field::Map(&Field::Object(&SUMMARY)), default;
     /// The table a reader shows when none is named, when the spec names one.
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub default_table: Option<String>,
+    default_table: Option<String>, TEXT, optional;
 }
 
 impl SpecModel {

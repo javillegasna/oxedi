@@ -4,9 +4,11 @@ use std::collections::BTreeMap;
 
 use serde::{Deserialize, Serialize};
 
+use super::declare::spec_object;
 use super::is_default;
 use crate::mask::Phi;
 use crate::spec::Pick;
+use crate::spec::sections::COUNT;
 
 /// A table: the loops its rows come from and the columns each row holds.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -70,13 +72,12 @@ pub struct ColumnModel {
     pub phi: Option<Phi>,
 }
 
-/// Where the repeated elements of a table's segment start and how far apart
-/// they are.
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(deny_unknown_fields, expecting = "a repeat object")]
-pub struct RepeatModel {
+spec_object! {
+    /// Where the repeated elements of a table's segment start and how far apart
+    /// they are.
+    RepeatModel = RawRepeat, REPEAT, "a repeat object";
     /// 1-based element position of the first repetition.
-    pub from: usize,
+    from: usize, COUNT, required;
     /// Elements between one repetition and the next.
-    pub step: usize,
+    step: usize, COUNT, required;
 }

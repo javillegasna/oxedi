@@ -136,25 +136,6 @@ impl RawPick {
     }
 }
 
-#[derive(Debug, Deserialize)]
-#[serde(deny_unknown_fields, expecting = "a balancing rule object")]
-pub(super) struct RawBalance {
-    pub(super) per: String,
-    pub(super) target: Vec<RawTerm>,
-    pub(super) sum: Vec<RawTerm>,
-}
-
-#[derive(Debug, Deserialize)]
-#[serde(deny_unknown_fields, expecting = "a balancing value object")]
-pub(super) struct RawTerm {
-    #[serde(rename = "loop")]
-    pub(super) loop_name: Option<String>,
-    pub(super) occurrence: String,
-    pub(super) elements: Vec<usize>,
-    pub(super) component: Option<usize>,
-    pub(super) sign: Option<String>,
-}
-
 // A summary holds exactly one operation; which ones it holds is checked when
 // it compiles, so the error can list them.
 #[derive(Debug, Deserialize)]
@@ -167,11 +148,6 @@ pub(super) struct RawSummary {
 }
 
 pub(super) use super::model::{
-    QualifierModel as RawQualifier, RawControl, RepeatModel as RawRepeat,
-    VersionModel as RawVersion,
-};
-
-pub(super) use super::model::{
-    SummaryColumnModel as RawSummaryColumn, SummaryRowModel as RawSummaryRow,
-    SummaryTableModel as RawSummaryTable,
+    RawBalance, RawControl, RawQualifier, RawRepeat, RawSummaryColumn, RawSummaryRow,
+    RawSummaryTable, RawTerm, RawVersion,
 };

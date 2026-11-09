@@ -6,7 +6,8 @@ use serde::{Deserialize, Serialize};
 
 use super::declare::spec_object;
 use super::{is_default, null_is_default};
-use crate::spec::sections::{COUNT, TEXT};
+use crate::spec::sections::{COUNT, TEXT, TEXTS, nullable};
+use crate::spec::shape::Leaf;
 use crate::spec::{ControlCount, ElementPosition, Usage};
 
 /// A loop: the segment that opens it, where it sits and what it holds.
@@ -70,18 +71,16 @@ pub struct OccurrenceModel {
     pub codes: BTreeMap<ElementPosition, Vec<String>>,
 }
 
-/// The element (or component) and the codes that tell an occurrence apart
-/// from the other occurrences of its segment in the same loop.
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(deny_unknown_fields, expecting = "a qualifier object")]
-pub struct QualifierModel {
+spec_object! {
+    /// The element (or component) and the codes that tell an occurrence apart
+    /// from the other occurrences of its segment in the same loop.
+    QualifierModel = RawQualifier, QUALIFIER, "a qualifier object";
     /// 1-based element position.
-    pub element: usize,
+    element: usize, COUNT, required;
     /// 1-based component position inside the element, when the qualifier is one.
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub component: Option<usize>,
+    component: Option<usize>, nullable(Leaf::Count), optional;
     /// The codes the element holds in this occurrence.
-    pub codes: Vec<String>,
+    codes: Vec<String>, TEXTS, required;
 }
 
 spec_object! {

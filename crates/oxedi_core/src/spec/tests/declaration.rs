@@ -8,10 +8,13 @@ use std::fmt::Debug;
 use serde::de::DeserializeOwned;
 use serde_json::{from_value, json};
 
-use crate::spec::raw::RawControl;
+use crate::spec::raw::{RawBalance, RawControl, RawTerm};
 use crate::spec::sections::ROOT;
 use crate::spec::shape::{Field, Leaf, ObjectSchema};
-use crate::spec::{ControlModel, VersionModel};
+use crate::spec::{
+    BalanceModel, ControlModel, QualifierModel, RepeatModel, SummaryColumnModel, SummaryFieldModel,
+    SummaryRowModel, SummaryTableModel, TermModel, VersionModel,
+};
 
 /// The registry objects in the order a depth-first walk from the root first
 /// visits them, each with its path, and the path of each by its address.
@@ -125,6 +128,16 @@ static STRUCTS: &[Pin] = &[
     ("ControlModel", pinned::<ControlModel>),
     ("RawControl", pinned::<RawControl>),
     ("VersionModel", pinned::<VersionModel>),
+    ("QualifierModel", pinned::<QualifierModel>),
+    ("RepeatModel", pinned::<RepeatModel>),
+    ("BalanceModel", pinned::<BalanceModel>),
+    ("RawBalance", pinned::<RawBalance>),
+    ("TermModel", pinned::<TermModel>),
+    ("RawTerm", pinned::<RawTerm>),
+    ("SummaryTableModel", pinned::<SummaryTableModel>),
+    ("SummaryColumnModel", pinned::<SummaryColumnModel>),
+    ("SummaryRowModel", pinned::<SummaryRowModel>),
+    ("SummaryFieldModel", pinned::<SummaryFieldModel>),
 ];
 
 const REGISTRY: &str = "\
@@ -151,7 +164,17 @@ summaries.*.row.fields[]: name!=text, column!=text";
 const PINNED: &str = "\
 ControlModel a control object: opener_element closer_element count_element count
 RawControl a control object: opener_element closer_element count_element count
-VersionModel a version object: segment element values";
+VersionModel a version object: segment element values
+QualifierModel a qualifier object: element component codes
+RepeatModel a repeat object: from step
+BalanceModel a balancing rule object: per target sum
+RawBalance a balancing rule object: per target sum
+TermModel a balancing value object: loop occurrence component sign elements
+RawTerm a balancing value object: loop occurrence component sign elements
+SummaryTableModel a summary operation object: table
+SummaryColumnModel a summary operation object: table column
+SummaryRowModel a summary operation object: table fields
+SummaryFieldModel a summary field object: name column";
 
 #[test]
 fn the_registry_reads_as_pinned() {

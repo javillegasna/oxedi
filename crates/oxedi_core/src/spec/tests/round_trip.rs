@@ -89,7 +89,7 @@ fn every_spec_round_trips() {
             "{name}: the text is not the model"
         );
         assert_eq!(
-            m2.to_json().unwrap(),
+            ok(name, "second write", m2.to_json()),
             text,
             "{name}: a second pass changed the text"
         );

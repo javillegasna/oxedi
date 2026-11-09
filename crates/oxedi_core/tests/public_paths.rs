@@ -64,7 +64,12 @@ mod by_module {
     use oxedi_core::spec::Spec;
     use oxedi_core::spec::SpecError;
     use oxedi_core::spec::Summary;
+    use oxedi_core::spec::SummaryColumnModel;
     use oxedi_core::spec::SummaryDefError;
+    use oxedi_core::spec::SummaryFieldModel;
+    use oxedi_core::spec::SummaryModel;
+    use oxedi_core::spec::SummaryRowModel;
+    use oxedi_core::spec::SummaryTableModel;
     use oxedi_core::spec::TableDef;
     use oxedi_core::spec::TableDefError;
     use oxedi_core::spec::TableSchema;

@@ -231,6 +231,7 @@ Internal words used in the code. X12 and payment terms for users are in
 | frame | The byte range of one segment, found knowing only the delimiters. | `frame/` |
 | document | The whole input plus one span per segment; segments parsed on demand. | `document/` |
 | spec | The JSON description of loops, segments, tables and balancing, compiled to index-based definitions. | `spec/`, `specs/*.json` |
+| spec model | The spec as typed data a program builds and writes, shared with the loader. | `spec/model/` |
 | patch | An RFC 7386 JSON Merge Patch over a spec (`835.4010.json`, `edi_835_parser.json`). | `spec/patch.rs` |
 | built-in | The shipped 5010 spec and its 4010 patch, chosen by `Builtin::select` from `GS08`; the registry is `Builtin::all`, each entry with a typed `Version`. | `spec/builtin.rs`, `spec/version.rs` |
 | trigger | The segment (and element conditions) that opens a loop. | `spec/loops.rs` |

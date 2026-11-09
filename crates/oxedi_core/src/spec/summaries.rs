@@ -10,8 +10,9 @@ use serde_json::Value;
 
 use super::Spec;
 use super::error::SpecError;
+use super::model::SummaryModel;
 use super::phi::ColumnKind;
-use super::raw::{RawSummary, RawSummaryColumn, RawSummaryRow, RawSummaryTable};
+use super::raw::{RawSummary, RawSummaryColumn, RawSummaryRow};
 use super::summary_error::SummaryDefError;
 use super::tables::{ColumnSource, TableDef};
 use crate::value::ElementType;
@@ -82,23 +83,15 @@ pub(super) fn compile_default_table(
     }
 }
 
-/// One operation of a summary, as written.
-enum Operation {
-    Count(RawSummaryTable),
-    Distinct(RawSummaryColumn),
-    Sum(RawSummaryColumn),
-    Row(RawSummaryRow),
-}
-
 fn compile_summary(spec: &Spec, name: &str, def: RawSummary) -> Result<Summary, SummaryDefError> {
     if name.is_empty() {
         return Err(SummaryDefError::EmptyName);
     }
-    let mut held: Vec<(&str, Operation)> = [
-        ("count", def.count.map(Operation::Count)),
-        ("distinct", def.distinct.map(Operation::Distinct)),
-        ("row", def.row.map(Operation::Row)),
-        ("sum", def.sum.map(Operation::Sum)),
+    let mut held: Vec<(&str, SummaryModel)> = [
+        ("count", def.count.map(SummaryModel::Count)),
+        ("distinct", def.distinct.map(SummaryModel::Distinct)),
+        ("row", def.row.map(SummaryModel::Row)),
+        ("sum", def.sum.map(SummaryModel::Sum)),
     ]
     .into_iter()
     .filter_map(|(key, operation)| operation.map(|operation| (key, operation)))
@@ -114,22 +107,22 @@ fn compile_summary(spec: &Spec, name: &str, def: RawSummary) -> Result<Summary, 
     }
 }
 
-impl Operation {
+impl SummaryModel {
     fn compile(self, spec: &Spec) -> Result<Summary, SummaryDefError> {
         match self {
-            Operation::Count(raw) => {
+            SummaryModel::Count(raw) => {
                 table_at(spec, "count.table", &raw.table)?;
                 Ok(Summary::Count { table: raw.table })
             }
-            Operation::Distinct(raw) => {
+            SummaryModel::Distinct(raw) => {
                 column_at(spec, "distinct", &raw)?;
                 Ok(Summary::Distinct {
                     table: raw.table,
                     column: raw.column,
                 })
             }
-            Operation::Sum(raw) => compile_sum(spec, raw),
-            Operation::Row(raw) => compile_row(spec, raw),
+            SummaryModel::Sum(raw) => compile_sum(spec, raw),
+            SummaryModel::Row(raw) => compile_row(spec, raw),
         }
     }
 }

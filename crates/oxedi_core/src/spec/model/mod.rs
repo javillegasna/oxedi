@@ -3,7 +3,8 @@
 //! and their occurrences, `segments` the segments and their elements,
 //! `tables` the tables and their columns, and `rules` the version
 //! declaration, the balancing rules and the operations of a summary; which
-//! read checks what is on [`SpecModel`].
+//! read checks what is on [`SpecModel`]. `declare` holds the macro that
+//! emits each object's model, its raw struct and its schema table.
 
 mod declare;
 mod loops;
@@ -30,9 +31,6 @@ pub use segments::{ElementModel, SegmentModel};
 pub use tables::{ColumnModel, RepeatModel, TableModel};
 
 pub(in crate::spec) use loops::{LOOP, RawControl, RawLoop, RawOccurrence, RawQualifier};
-// Only the declaration pins read a trigger as the loader does.
-#[cfg(test)]
-pub(in crate::spec) use loops::RawTrigger;
 pub(in crate::spec) use rules::{
     BALANCE, RawBalance, RawSummaryColumn, RawSummaryRow, RawSummaryTable, RawTerm, RawVersion,
     SUMMARY_COLUMN, SUMMARY_ROW, SUMMARY_TABLE, VERSION,

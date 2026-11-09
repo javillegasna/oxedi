@@ -1,4 +1,4 @@
-//! The helpers that build a registry `Field`, and the two objects no
+//! The helpers that build a schema `Field`, and the two objects no
 //! declaration emits: `ELEMENT` and `SUMMARY`. Every other object's schema is
 //! emitted with its model in `model`; `shape` walks a value against them.
 

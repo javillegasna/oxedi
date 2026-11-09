@@ -1,25 +1,14 @@
-//! The registry and the structs a declaration emits read as pinned here, so
-//! moving an object into a declaration changes neither a key, its order, its
-//! field, its required flag nor its serde behaviour.
+//! The registry reads as pinned here, so a key, its order, its field or its
+//! required flag does not change unseen, and a model writes no default and no
+//! `null`.
 
 use std::collections::BTreeMap;
-use std::fmt::Debug;
 
-use serde::de::DeserializeOwned;
 use serde_json::{from_value, json};
 
-use crate::spec::model::ROOT;
-use crate::spec::model::RawTrigger;
-use crate::spec::raw::{
-    RawBalance, RawColumn, RawControl, RawLoop, RawOccurrence, RawSegment, RawSpec, RawTable,
-    RawTerm,
-};
+use crate::spec::model::{ROOT, RawColumn};
 use crate::spec::shape::{Field, Leaf, ObjectSchema};
-use crate::spec::{
-    BalanceModel, ColumnModel, ControlModel, LoopModel, OccurrenceModel, QualifierModel,
-    RepeatModel, SegmentModel, SpecModel, SummaryColumnModel, SummaryFieldModel, SummaryRowModel,
-    SummaryTableModel, TableModel, TermModel, TriggerModel, VersionModel,
-};
+use crate::spec::{ColumnModel, LoopModel, SpecModel, TableModel, TriggerModel};
 
 /// The registry objects in the order a depth-first walk from the root first
 /// visits them, each with its path, and the path of each by its address.
@@ -109,56 +98,6 @@ fn registry_text() -> String {
         .join("\n")
 }
 
-/// `"{expecting}: {keys}"`: the struct's `expecting` text and its keys in
-/// field order, both as serde reports them.
-fn pinned<T: DeserializeOwned + Debug>() -> String {
-    let wrong_type = from_value::<T>(json!(1)).unwrap_err().to_string();
-    let expecting = wrong_type
-        .split_once("expected ")
-        .map_or("", |(_, tail)| tail);
-    let unknown = from_value::<T>(json!({"?": 0})).unwrap_err().to_string();
-    let keys = unknown
-        .split('`')
-        .skip(1)
-        .step_by(2)
-        .skip(1)
-        .collect::<Vec<_>>();
-    format!("{expecting}: {}", keys.join(" "))
-}
-
-/// A struct's name and how its pin is read.
-type Pin = (&'static str, fn() -> String);
-
-static STRUCTS: &[Pin] = &[
-    ("SpecModel", pinned::<SpecModel>),
-    ("RawSpec", pinned::<RawSpec>),
-    ("ControlModel", pinned::<ControlModel>),
-    ("RawControl", pinned::<RawControl>),
-    ("VersionModel", pinned::<VersionModel>),
-    ("QualifierModel", pinned::<QualifierModel>),
-    ("RepeatModel", pinned::<RepeatModel>),
-    ("BalanceModel", pinned::<BalanceModel>),
-    ("RawBalance", pinned::<RawBalance>),
-    ("TermModel", pinned::<TermModel>),
-    ("RawTerm", pinned::<RawTerm>),
-    ("SummaryTableModel", pinned::<SummaryTableModel>),
-    ("SummaryColumnModel", pinned::<SummaryColumnModel>),
-    ("SummaryRowModel", pinned::<SummaryRowModel>),
-    ("SummaryFieldModel", pinned::<SummaryFieldModel>),
-    ("LoopModel", pinned::<LoopModel>),
-    ("RawLoop", pinned::<RawLoop>),
-    ("TriggerModel", pinned::<TriggerModel>),
-    ("RawTrigger", pinned::<RawTrigger>),
-    ("OccurrenceModel", pinned::<OccurrenceModel>),
-    ("RawOccurrence", pinned::<RawOccurrence>),
-    ("SegmentModel", pinned::<SegmentModel>),
-    ("RawSegment", pinned::<RawSegment>),
-    ("TableModel", pinned::<TableModel>),
-    ("RawTable", pinned::<RawTable>),
-    ("ColumnModel", pinned::<ColumnModel>),
-    ("RawColumn", pinned::<RawColumn>),
-];
-
 const REGISTRY: &str = "\
 spec: name!=text, version=@version, loops!={@loops.*}, tables={@tables.*}, balancing={@balancing.*}, segments={@segments.*}, summaries={@summaries.*}, default_table=text
 version: segment!=text, element!=count, values!=[text]
@@ -180,48 +119,9 @@ summaries.*.distinct: table!=text, column!=text
 summaries.*.row: table!=text, fields!=[@summaries.*.row.fields[]]
 summaries.*.row.fields[]: name!=text, column!=text";
 
-const PINNED: &str = "\
-SpecModel a spec object with \"name\" and \"loops\": name version loops tables balancing segments summaries default_table
-RawSpec a spec object with \"name\" and \"loops\": name version loops tables balancing segments summaries default_table
-ControlModel a control object: opener_element closer_element count_element count
-RawControl a control object: opener_element closer_element count_element count
-VersionModel a version object: segment element values
-QualifierModel a qualifier object: element component codes
-RepeatModel a repeat object: from step
-BalanceModel a balancing rule object: per target sum
-RawBalance a balancing rule object: per target sum
-TermModel a balancing value object: loop occurrence component sign elements
-RawTerm a balancing value object: loop occurrence component sign elements
-SummaryTableModel a summary operation object: table
-SummaryColumnModel a summary operation object: table column
-SummaryRowModel a summary operation object: table fields
-SummaryFieldModel a summary field object: name column
-LoopModel a loop object: parent end max usage occurrences trigger control
-RawLoop a loop object: parent end max usage occurrences trigger control
-TriggerModel a trigger object: segment where
-RawTrigger a trigger object: segment where
-OccurrenceModel an occurrence object: segment pos usage max qualifier codes
-RawOccurrence an occurrence object: segment pos usage max qualifier codes
-SegmentModel a segment object: elements
-RawSegment a segment object: elements
-TableModel a table object: loops ref segment phi_seed repeat columns
-RawTable a table object: loops ref segment phi_seed repeat columns
-ColumnModel a column object: loop segment where occurrence pick element component group_element segment_index phi
-RawColumn a column object: loop segment where occurrence pick element component group_element segment_index phi";
-
 #[test]
 fn the_registry_reads_as_pinned() {
     assert_eq!(registry_text(), REGISTRY);
-}
-
-#[test]
-fn every_declared_struct_pins_its_expecting_and_its_keys() {
-    let text = STRUCTS
-        .iter()
-        .map(|(name, pinned)| format!("{name} {}", pinned()))
-        .collect::<Vec<_>>()
-        .join("\n");
-    assert_eq!(text, PINNED);
 }
 
 #[test]

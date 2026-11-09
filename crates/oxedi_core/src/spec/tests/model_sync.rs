@@ -170,6 +170,19 @@ fn every_key_model() -> SpecModel {
     }
 }
 
+// No `_` arm: a new `SummaryModel` variant stops this build, and its slot must
+// be set by `every_key_model`. The private `type_keys` struct is not an enum,
+// so a key added there for a type other than `R` is not covered.
+fn mark(seen: &mut [bool; 4], summary: &SummaryModel) {
+    let slot = match summary {
+        SummaryModel::Count(_) => 0,
+        SummaryModel::Distinct(_) => 1,
+        SummaryModel::Sum(_) => 2,
+        SummaryModel::Row(_) => 3,
+    };
+    seen[slot] = true;
+}
+
 static TOP: Field = Field::Object(&ROOT);
 
 /// The keys found at each object of a schema, by the schema's address, with
@@ -251,8 +264,18 @@ fn difference(model: &Keys, registry: &Keys) -> Vec<String> {
 
 #[test]
 fn the_model_and_the_registry_hold_the_same_keys() {
-    let value = to_value(every_key_model()).unwrap();
-    check_shape(&value).unwrap();
+    let model = every_key_model();
+    let mut seen = [false; 4];
+    model
+        .summaries
+        .values()
+        .for_each(|summary| mark(&mut seen, summary));
+    assert!(
+        seen.iter().all(|set| *set),
+        "every_key_model misses a summary variant"
+    );
+    let value = to_value(model).unwrap();
+    check_shape(&value).unwrap_or_else(|e| panic!("only in the model: {e}"));
     let (mut in_model, mut in_registry) = (Keys::new(), Keys::new());
     walk_value(&mut in_model, &TOP, &value);
     walk_registry(&mut in_registry, &TOP);

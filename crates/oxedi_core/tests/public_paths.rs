@@ -42,7 +42,9 @@ mod by_module {
     use oxedi_core::segment::SegmentWriteError;
     use oxedi_core::spec::AnchorChains;
     use oxedi_core::spec::AnchorPositions;
+    use oxedi_core::spec::BalanceModel;
     use oxedi_core::spec::Builtin;
+    use oxedi_core::spec::ColumnModel;
     use oxedi_core::spec::ColumnSchema;
     use oxedi_core::spec::ColumnSource;
     use oxedi_core::spec::Control;
@@ -70,6 +72,7 @@ mod by_module {
     use oxedi_core::spec::Sign;
     use oxedi_core::spec::Spec;
     use oxedi_core::spec::SpecError;
+    use oxedi_core::spec::SpecModel;
     use oxedi_core::spec::Summary;
     use oxedi_core::spec::SummaryColumnModel;
     use oxedi_core::spec::SummaryDefError;
@@ -79,7 +82,9 @@ mod by_module {
     use oxedi_core::spec::SummaryTableModel;
     use oxedi_core::spec::TableDef;
     use oxedi_core::spec::TableDefError;
+    use oxedi_core::spec::TableModel;
     use oxedi_core::spec::TableSchema;
+    use oxedi_core::spec::TermModel;
     use oxedi_core::spec::Trigger;
     use oxedi_core::spec::TriggerModel;
     use oxedi_core::spec::UnknownVersion;

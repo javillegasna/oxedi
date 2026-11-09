@@ -58,7 +58,7 @@ crates/oxedi_core/src/spec/columns.rs	by_segment	9	1
 crates/oxedi_core/src/spec/columns.rs	compile_column	22	2
 crates/oxedi_core/src/spec/compile.rs	compile_table	30	4
 crates/oxedi_core/src/spec/compile.rs	link_tables	17	4
-crates/oxedi_core/src/spec/error.rs	fmt	45	2	flat
+crates/oxedi_core/src/spec/error.rs	fmt	46	2	flat
 crates/oxedi_core/src/spec/occurrence_error.rs	fmt	12	0
 crates/oxedi_core/src/spec/occurrences.rs	compile_occurrence	19	2
 crates/oxedi_core/src/spec/occurrences.rs	compile_occurrences	8	3

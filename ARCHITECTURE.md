@@ -131,6 +131,10 @@ Loading goes `Spec::from_json` → `Spec::from_value` (`spec/build.rs`):
    with a `ColumnSource` per column, `BalanceRule`, `Summary`. The engine compares indices,
    never strings.
 
+`Spec::model` reads a loaded spec into `SpecModel` (`spec/model/`), the checked way to read a
+spec as typed data; a serde read of a model checks only its shape. `Spec::from_model` writes the
+model to JSON and loads it through the same steps. A model writes no default and no `null`.
+
 `Spec::merge_patch` (`spec/patch.rs`) applies a patch to the spec's JSON and loads the result
 again, so a patched spec goes through the same checks as a new one.
 

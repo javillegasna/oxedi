@@ -1,6 +1,10 @@
-//! The version declaration and the operations of a summary, as written.
+//! The version declaration, the balancing rules and the operations of a
+//! summary, as written.
 
 use serde::{Deserialize, Serialize};
+
+use super::{is_default, null_is_default};
+use crate::spec::Sign;
 
 /// The element of a segment that declares the version a file is written in,
 /// and the values the spec accepts there.
@@ -65,4 +69,36 @@ pub enum SummaryModel {
     Sum(SummaryColumnModel),
     /// Named fields of the one row of a table.
     Row(SummaryRowModel),
+}
+
+/// Amounts that must add up inside each instance of a loop.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields, expecting = "a balancing rule object")]
+pub struct BalanceModel {
+    /// The loop whose instances are checked.
+    pub per: String,
+    /// The values the sum must equal, added together.
+    pub target: Vec<TermModel>,
+    /// The values added together.
+    pub sum: Vec<TermModel>,
+}
+
+/// One value of a balancing rule: elements of an occurrence, added with a sign.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields, expecting = "a balancing value object")]
+pub struct TermModel {
+    /// The loop that holds the occurrence, when not the rule's `per` loop.
+    #[serde(rename = "loop", skip_serializing_if = "Option::is_none")]
+    pub loop_name: Option<String>,
+    /// The occurrence.
+    pub occurrence: String,
+    /// 1-based element positions whose values are added.
+    pub elements: Vec<usize>,
+    /// 1-based component position inside each element, when the value is one.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub component: Option<usize>,
+    /// Whether the value is added or subtracted.
+    #[serde(default, deserialize_with = "null_is_default")]
+    #[serde(skip_serializing_if = "is_default")]
+    pub sign: Sign,
 }

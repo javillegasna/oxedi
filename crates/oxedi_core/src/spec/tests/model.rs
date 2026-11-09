@@ -4,8 +4,8 @@ use serde::Serialize;
 use serde_json::{Value, from_value, json, to_value};
 
 use crate::spec::{
-    ElementModel, LoopModel, OccurrenceModel, QualifierModel, SummaryModel, SummaryTableModel,
-    TriggerModel, Usage,
+    Builtin, ColumnModel, ElementModel, LoopModel, OccurrenceModel, Pick, QualifierModel, Sign,
+    Spec, SpecModel, SummaryModel, SummaryTableModel, TermModel, TriggerModel, Usage, test_support,
 };
 use crate::value::{ElementType, TypeCodeError};
 
@@ -134,4 +134,102 @@ fn an_unknown_key_is_refused() {
     assert!(from_value::<LoopModel>(json!({"trigger":{"segment":"ST"},"colour":1})).is_err());
     let occurrence = json!({"segment":"NM1","pos":10,"colour":1});
     assert!(from_value::<OccurrenceModel>(occurrence).is_err());
+}
+
+#[test]
+fn a_written_pick_first_is_kept() {
+    let mut column = ColumnModel {
+        loop_name: None,
+        segment: None,
+        conditions: BTreeMap::new(),
+        occurrence: Some("clp".into()),
+        pick: Some(Pick::First),
+        element: Some(4),
+        component: None,
+        group_element: None,
+        segment_index: false,
+        phi: None,
+    };
+    let written = json!({"occurrence":"clp","pick":"first","element":4});
+    assert_eq!(json_of(&column), written);
+    assert_eq!(from_value::<ColumnModel>(written).unwrap(), column);
+    column.pick = None;
+    assert_eq!(json_of(&column), json!({"occurrence":"clp","element":4}));
+}
+
+#[test]
+fn a_term_sign_is_written_only_when_minus() {
+    let plain = json!({"occurrence":"clp","elements":[4]});
+    for written in [
+        json!({"occurrence":"clp","elements":[4],"sign":null}),
+        json!({"occurrence":"clp","elements":[4],"sign":"+"}),
+        plain.clone(),
+    ] {
+        let term = from_value::<TermModel>(written).unwrap();
+        assert_eq!(term.sign, Sign::Plus);
+        assert_eq!(json_of(&term), plain);
+    }
+    let minus = json!({"occurrence":"clp","elements":[4],"sign":"-"});
+    let term = from_value::<TermModel>(minus.clone()).unwrap();
+    assert_eq!(term.sign, Sign::Minus);
+    assert_eq!(json_of(&term), minus);
+}
+
+#[test]
+fn every_shipped_spec_reads_into_its_model() {
+    let specs: Vec<Spec> = Builtin::all()
+        .iter()
+        .map(|builtin| (*builtin.spec).clone())
+        .chain([test_support::spec()])
+        .collect();
+    assert_eq!(specs.len(), 3);
+    for (spec, name) in specs.iter().zip(["835", "835", "t"]) {
+        let model = spec.model().unwrap();
+        assert_eq!(model.name, spec.name());
+        assert_eq!(model.name, name);
+    }
+}
+
+#[test]
+fn a_model_the_loader_refuses_fails_with_its_text() {
+    let mut model = test_support::spec().model().unwrap();
+    model.loops.get_mut("head").unwrap().max = Some(0);
+    assert_eq!(
+        Spec::from_model(&model).unwrap_err().to_string(),
+        "loop \"head\" has \"max\" 0; a loop that may appear appears at least once"
+    );
+}
+
+#[test]
+fn a_built_model_loads() {
+    let mut first = minimal_loop();
+    first.occurrences.insert(
+        "st".into(),
+        OccurrenceModel {
+            segment: "ST".into(),
+            pos: 0,
+            usage: Usage::Situational,
+            max: None,
+            qualifier: None,
+            codes: BTreeMap::new(),
+        },
+    );
+    let model = SpecModel {
+        name: "built".into(),
+        version: None,
+        loops: BTreeMap::from([("st".into(), first)]),
+        segments: BTreeMap::new(),
+        tables: BTreeMap::new(),
+        balancing: BTreeMap::new(),
+        summaries: BTreeMap::new(),
+        default_table: None,
+    };
+    let spec = Spec::from_model(&model).unwrap();
+    assert!(spec.loop_id("st").is_some());
+    let written = json!({"name":"built","loops":{"st":{"trigger":{"segment":"ST"},
+        "occurrences":{"st":{"segment":"ST","pos":0}}}}});
+    assert_eq!(
+        serde_json::from_str::<Value>(&model.to_json().unwrap()).unwrap(),
+        written
+    );
 }

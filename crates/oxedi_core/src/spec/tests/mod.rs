@@ -7,6 +7,7 @@ mod columns;
 mod controls;
 mod display;
 mod loading;
+mod model;
 mod occurrences;
 mod patch;
 mod phi;

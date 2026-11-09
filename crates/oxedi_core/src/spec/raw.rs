@@ -198,29 +198,7 @@ pub(super) struct RawSummary {
     pub(super) row: Option<RawSummaryRow>,
 }
 
-#[derive(Debug, Deserialize)]
-#[serde(deny_unknown_fields, expecting = "a summary operation object")]
-pub(super) struct RawSummaryTable {
-    pub(super) table: String,
-}
-
-#[derive(Debug, Deserialize)]
-#[serde(deny_unknown_fields, expecting = "a summary operation object")]
-pub(super) struct RawSummaryColumn {
-    pub(super) table: String,
-    pub(super) column: String,
-}
-
-#[derive(Debug, Deserialize)]
-#[serde(deny_unknown_fields, expecting = "a summary operation object")]
-pub(super) struct RawSummaryRow {
-    pub(super) table: String,
-    pub(super) fields: Vec<RawSummaryField>,
-}
-
-#[derive(Debug, Deserialize)]
-#[serde(deny_unknown_fields, expecting = "a summary field object")]
-pub(super) struct RawSummaryField {
-    pub(super) name: String,
-    pub(super) column: String,
-}
+pub(super) use super::model::{
+    SummaryColumnModel as RawSummaryColumn, SummaryRowModel as RawSummaryRow,
+    SummaryTableModel as RawSummaryTable,
+};

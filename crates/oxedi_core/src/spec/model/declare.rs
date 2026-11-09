@@ -25,7 +25,8 @@
 /// `Option`) leaves `None` unwritten. `default` reads an absent key as its
 /// default and leaves the default unwritten. `default_or_null` also reads
 /// `null` as the default in the model; its raw type is an `Option`. Any other
-/// word fails to compile, naming the key.
+/// word fails to compile, naming the key, and so does a row not in that form or
+/// a `| RawType` in a `Model = Raw` declaration, which has no raw struct.
 ///
 /// The rows are munched one at a time: `@rows` reads a row into a fixed form,
 /// `@word` turns its presence word into serde attributes, `@field` appends the
@@ -40,6 +41,18 @@ macro_rules! spec_object {
         $crate::spec::model::declare::spec_object! {
             @rows [$(#[$doc])* $model $sep $raw, $schema, $expecting] {} {} [] [] $($rows)*
         }
+    };
+    (
+        @rows [$(#[$doc:meta])* $model:ident = $raw:ident, $schema:ident, $expecting:literal]
+        $mf:tt $rf:tt $keys:tt $req:tt
+        $(#[$fdoc:meta])* $field:ident $(as $key:literal)? : $mty:ty | $($rest:tt)*
+    ) => {
+        compile_error!(concat!(
+            "spec_object!: `", stringify!($model), " = ", stringify!($raw), "` makes the raw ",
+            "struct the model, so the row of `", stringify!($field), "` cannot name another ",
+            "raw type after `|`; declare the object with `", stringify!($model), " / ",
+            stringify!($raw), "` instead"
+        ));
     };
     (
         @rows $head:tt $mf:tt $rf:tt $keys:tt $req:tt
@@ -61,6 +74,15 @@ macro_rules! spec_object {
             @word $word $head $mf $rf $keys $req [$(#[$fdoc])*] $field [$($key)?]
             ($mty) [] ($mty) ($kind) $($rest)*
         }
+    };
+    (
+        @rows $head:tt $mf:tt $rf:tt $keys:tt $req:tt
+        $(#[$fdoc:meta])* $field:ident $($row:tt)+
+    ) => {
+        compile_error!(concat!(
+            "spec_object!: the row of `", stringify!($field), "` is not `field $(as \"key\")? : ",
+            "Model $(| Raw)?, Field, presence;`"
+        ));
     };
     (
         @word required $head:tt $mf:tt $rf:tt $keys:tt [$($req:tt)*]

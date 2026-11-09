@@ -4,8 +4,8 @@ use serde::Serialize;
 use serde_json::{Value, from_value, json, to_value};
 
 use crate::spec::{
-    ColumnModel, ElementModel, LoopModel, OccurrenceModel, Pick, QualifierModel, Sign,
-    SummaryModel, SummaryTableModel, TermModel, TriggerModel, Usage,
+    Builtin, ColumnModel, ElementModel, LoopModel, OccurrenceModel, Pick, QualifierModel, Sign,
+    Spec, SpecModel, SummaryModel, SummaryTableModel, TermModel, TriggerModel, Usage, test_support,
 };
 use crate::value::{ElementType, TypeCodeError};
 
@@ -173,4 +173,63 @@ fn a_term_sign_is_written_only_when_minus() {
     let term = from_value::<TermModel>(minus.clone()).unwrap();
     assert_eq!(term.sign, Sign::Minus);
     assert_eq!(json_of(&term), minus);
+}
+
+#[test]
+fn every_shipped_spec_reads_into_its_model() {
+    let specs: Vec<Spec> = Builtin::all()
+        .iter()
+        .map(|builtin| (*builtin.spec).clone())
+        .chain([test_support::spec()])
+        .collect();
+    assert_eq!(specs.len(), 3);
+    for (spec, name) in specs.iter().zip(["835", "835", "t"]) {
+        let model = spec.model().unwrap();
+        assert_eq!(model.name, spec.name());
+        assert_eq!(model.name, name);
+    }
+}
+
+#[test]
+fn a_model_the_loader_refuses_fails_with_its_text() {
+    let mut model = test_support::spec().model().unwrap();
+    model.loops.get_mut("head").unwrap().max = Some(0);
+    assert_eq!(
+        Spec::from_model(&model).unwrap_err().to_string(),
+        "loop \"head\" has \"max\" 0; a loop that may appear appears at least once"
+    );
+}
+
+#[test]
+fn a_built_model_loads() {
+    let mut first = minimal_loop();
+    first.occurrences.insert(
+        "st".into(),
+        OccurrenceModel {
+            segment: "ST".into(),
+            pos: 0,
+            usage: Usage::Situational,
+            max: None,
+            qualifier: None,
+            codes: BTreeMap::new(),
+        },
+    );
+    let model = SpecModel {
+        name: "built".into(),
+        version: None,
+        loops: BTreeMap::from([("st".into(), first)]),
+        segments: BTreeMap::new(),
+        tables: BTreeMap::new(),
+        balancing: BTreeMap::new(),
+        summaries: BTreeMap::new(),
+        default_table: None,
+    };
+    let spec = Spec::from_model(&model).unwrap();
+    assert!(spec.loop_id("st").is_some());
+    let written = json!({"name":"built","loops":{"st":{"trigger":{"segment":"ST"},
+        "occurrences":{"st":{"segment":"ST","pos":0}}}}});
+    assert_eq!(
+        serde_json::from_str::<Value>(&model.to_json().unwrap()).unwrap(),
+        written
+    );
 }

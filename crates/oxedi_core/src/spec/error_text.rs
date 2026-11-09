@@ -84,7 +84,8 @@ impl std::error::Error for SpecError {
             | SpecError::OverlappingTriggers { .. }
             | SpecError::SummarySchema { .. }
             | SpecError::BadSummary { .. }
-            | SpecError::UnknownDefaultTable { .. } => None,
+            | SpecError::UnknownDefaultTable { .. }
+            | SpecError::ModelMismatch { .. } => None,
         }
     }
 }

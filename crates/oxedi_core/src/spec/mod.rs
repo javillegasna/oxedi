@@ -25,7 +25,8 @@
 //! shared by the spec and projector tests; `build` the construction of a
 //! [`Spec`] as a pipeline of steps, `build_loops` the compilation of one loop,
 //! `compile` that of the tables and `columns` that of one table column;
-//! `model` the spec as typed data;
+//! `model` the spec as typed data, read checked through `Spec::model` and
+//! loaded through `Spec::from_model`;
 //! `phi` the check of the columns flagged as patient data and of the seed
 //! column; `error` the load error and `error_text` its `source` and the parts
 //! of its text built from lists; `render` the text used in messages; `patch`
@@ -73,8 +74,9 @@ pub use error::SpecError;
 pub use loops::{Control, ControlCount, ControlError, LoopDef, LoopId, Trigger};
 pub use model::{
     BalanceModel, ColumnModel, ControlModel, ElementModel, LoopModel, OccurrenceModel,
-    QualifierModel, RepeatModel, SegmentModel, SummaryColumnModel, SummaryFieldModel, SummaryModel,
-    SummaryRowModel, SummaryTableModel, TableModel, TermModel, TriggerModel, VersionModel,
+    QualifierModel, RepeatModel, SegmentModel, SpecModel, SummaryColumnModel, SummaryFieldModel,
+    SummaryModel, SummaryRowModel, SummaryTableModel, TableModel, TermModel, TriggerModel,
+    VersionModel,
 };
 pub use occurrence_error::OccurrenceError;
 pub use occurrences::{OccurrenceDef, Qualifier, Usage};

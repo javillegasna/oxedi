@@ -72,6 +72,7 @@ mod by_module {
     use oxedi_core::spec::Sign;
     use oxedi_core::spec::Spec;
     use oxedi_core::spec::SpecError;
+    use oxedi_core::spec::SpecModel;
     use oxedi_core::spec::Summary;
     use oxedi_core::spec::SummaryColumnModel;
     use oxedi_core::spec::SummaryDefError;

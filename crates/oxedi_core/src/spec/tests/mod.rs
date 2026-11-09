@@ -8,6 +8,7 @@ mod controls;
 mod display;
 mod loading;
 mod model;
+mod model_sync;
 mod occurrences;
 mod patch;
 mod phi;

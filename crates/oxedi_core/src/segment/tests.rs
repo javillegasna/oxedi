@@ -1,4 +1,5 @@
 use super::*;
+use crate::delimiters::test_support::plain;
 use crate::{Delimiters, Frame};
 use std::borrow::Cow;
 
@@ -10,10 +11,13 @@ fn frame(body: &[u8]) -> Frame<'_> {
     }
 }
 
+fn parsed(index: usize, body: &[u8]) -> Segment<'_> {
+    Segment::parse(index, frame(body), &plain())
+}
+
 #[test]
 fn parse_splits_id_and_elements() {
-    let delims = Delimiters::new(b'*', b':', b'~');
-    let segment = Segment::parse(7, frame(b"ST*835*1234"), &delims);
+    let segment = parsed(7, b"ST*835*1234");
     assert_eq!(segment.index, 7);
     assert_eq!(segment.id, b"ST");
     assert_eq!(
@@ -28,8 +32,7 @@ fn parse_splits_id_and_elements() {
 
 #[test]
 fn parse_of_empty_body_is_an_empty_segment() {
-    let delims = Delimiters::new(b'*', b':', b'~');
-    let segment = Segment::parse(0, frame(b""), &delims);
+    let segment = parsed(0, b"");
     assert_eq!(segment.id, b"");
     assert!(segment.elements.is_empty());
     assert!(segment.is_empty());
@@ -37,16 +40,14 @@ fn parse_of_empty_body_is_an_empty_segment() {
 
 #[test]
 fn parse_keeps_trailing_empty_elements() {
-    let delims = Delimiters::new(b'*', b':', b'~');
-    let segment = Segment::parse(0, frame(b"BPR*I**C"), &delims);
+    let segment = parsed(0, b"BPR*I**C");
     assert_eq!(segment.elements.len(), 3);
     assert_eq!(segment.element(2).and_then(Element::simple), Some(&b""[..]));
 }
 
 #[test]
 fn element_is_one_based_like_x12() {
-    let delims = Delimiters::new(b'*', b':', b'~');
-    let segment = Segment::parse(0, frame(b"CLP*123*1"), &delims);
+    let segment = parsed(0, b"CLP*123*1");
     assert_eq!(
         segment.element(1).and_then(Element::simple),
         Some(&b"123"[..])
@@ -61,8 +62,7 @@ fn element_is_one_based_like_x12() {
 
 #[test]
 fn component_is_one_based_and_component_one_of_a_simple_element_is_the_element() {
-    let delims = Delimiters::new(b'*', b':', b'~');
-    let segment = Segment::parse(0, frame(b"XX*a*b:c"), &delims);
+    let segment = parsed(0, b"XX*a*b:c");
     assert_eq!(segment.component(1, 1), Some(&b"a"[..]));
     assert_eq!(segment.component(1, 2), None);
     assert_eq!(segment.component(2, 2), Some(&b"c"[..]));
@@ -80,17 +80,16 @@ fn written(segment: &Segment<'_>, delims: &Delimiters) -> Result<Vec<u8>, Segmen
 
 #[test]
 fn write_to_rebuilds_id_elements_and_terminator() {
-    let delims = Delimiters::new(b'*', b':', b'~');
-    let segment = Segment::parse(0, frame(b"SVC*HC:99213*100**12"), &delims);
+    let segment = parsed(0, b"SVC*HC:99213*100**12");
     assert_eq!(
-        written(&segment, &delims).unwrap(),
+        written(&segment, &plain()).unwrap(),
         b"SVC*HC:99213*100**12~"
     );
 }
 
 #[test]
 fn write_to_escapes_delimiters_inside_values_when_release_is_set() {
-    let delims = Delimiters::new(b'*', b':', b'~').with_release(b'?');
+    let delims = plain().with_release(b'?');
     let segment = Segment {
         index: 0,
         raw: b"",
@@ -103,7 +102,7 @@ fn write_to_escapes_delimiters_inside_values_when_release_is_set() {
 
 #[test]
 fn write_to_without_release_rejects_a_delimiter_in_a_value() {
-    let delims = Delimiters::new(b'*', b':', b'~');
+    let delims = plain();
     let segment = Segment {
         index: 0,
         raw: b"",
@@ -123,7 +122,7 @@ fn write_to_without_release_rejects_a_delimiter_in_a_value() {
 
 #[test]
 fn write_to_reports_the_element_and_component_holding_the_delimiter() {
-    let delims = Delimiters::new(b'*', b':', b'~');
+    let delims = plain();
     let segment = Segment {
         index: 0,
         raw: b"",
@@ -147,7 +146,7 @@ fn write_to_reports_the_element_and_component_holding_the_delimiter() {
 
 #[test]
 fn write_to_does_not_write_trivia_from_raw() {
-    let delims = Delimiters::new(b'*', b':', b'~');
+    let delims = plain();
     let segment = Segment::parse(
         0,
         Frame {
@@ -200,7 +199,7 @@ fn io_error_displays_the_sink_failure() {
 
 #[test]
 fn write_to_rejects_an_id_containing_a_delimiter_or_release_byte() {
-    let delims = Delimiters::new(b'*', b':', b'~');
+    let delims = plain();
     for (id, byte) in [(&b"A*B"[..], b'*'), (b"A~B", b'~'), (b"A:B", b':')] {
         let segment = Segment {
             index: 0,
@@ -235,7 +234,7 @@ fn write_to_rejects_an_id_containing_a_delimiter_or_release_byte() {
 
 #[test]
 fn reparse_into_one_buffer_equals_a_fresh_parse_of_each_frame() {
-    let delims = Delimiters::new(b'*', b':', b'~').with_release(b'?');
+    let delims = plain().with_release(b'?');
     // Long, then short, then composite, then simple at the composite's
     // position, then a composite with fewer components after a longer one,
     // an escaped value, an empty frame, and an unterminated last frame.
@@ -268,7 +267,7 @@ fn reparse_into_one_buffer_equals_a_fresh_parse_of_each_frame() {
 
 #[test]
 fn reparse_overwrites_a_composite_slot_with_a_simple_value_and_back() {
-    let delims = Delimiters::new(b'*', b':', b'~');
+    let delims = plain();
     let mut buffer = Segment::empty();
     buffer.reparse(0, frame(b"SVC*HC:1:2:3"), &delims);
     buffer.reparse(1, frame(b"SVC*HC"), &delims);
@@ -293,9 +292,9 @@ proptest::proptest! {
         release in proptest::bool::ANY,
     ) {
         let delims = if release {
-            Delimiters::new(b'*', b':', b'~').with_release(b'?')
+            plain().with_release(b'?')
         } else {
-            Delimiters::new(b'*', b':', b'~')
+            plain()
         };
         let mut buffer = Segment::empty();
         for (index, body) in bodies.iter().enumerate() {
@@ -307,8 +306,7 @@ proptest::proptest! {
 
 #[test]
 fn leaf_reads_an_element_or_a_component_and_a_composite_at_its_first_component() {
-    let delims = Delimiters::new(b'*', b':', b'~');
-    let segment = Segment::parse(0, frame(b"SV*HC:99213:*A**"), &delims);
+    let segment = parsed(0, b"SV*HC:99213:*A**");
     assert_eq!(segment.leaf(1, None), Some(&b"HC"[..]));
     assert_eq!(segment.leaf(1, Some(1)), Some(&b"HC"[..]));
     assert_eq!(segment.leaf(1, Some(2)), Some(&b"99213"[..]));
@@ -324,8 +322,7 @@ fn leaf_reads_an_element_or_a_component_and_a_composite_at_its_first_component()
 
 #[test]
 fn text_joins_a_composite_and_conditions_hold_on_simple_elements_only() {
-    let delims = Delimiters::new(b'*', b':', b'~');
-    let segment = Segment::parse(0, frame(b"SV*HC:99213*A"), &delims);
+    let segment = parsed(0, b"SV*HC:99213*A");
     let mut joined = Vec::new();
     assert_eq!(segment.text(1, b':', &mut joined), Some(&b"HC:99213"[..]));
     assert_eq!(segment.text(2, b':', &mut joined), Some(&b"A"[..]));

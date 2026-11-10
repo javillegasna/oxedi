@@ -65,7 +65,23 @@ jobs:
           SPEC: ${{ steps.spec.outcome }}
           TESTS: ${{ steps.test.outcome }}
         run: |
-          python -c "import importlib.metadata as m, os, tomllib; g = tomllib.load(open('crates/oxedi_py/pyproject.toml', 'rb'))['dependency-groups']['contributor']; pin = next(d for d in g if isinstance(d, str) and d.startswith('pyx12==')); v = m.version('pyx12'); print(f'pyx12 {v} (CI pins {pin}): spec check {os.environ[\"SPEC\"]}, tests {os.environ[\"TESTS\"]}')" >> "$GITHUB_STEP_SUMMARY"
+          python - <<'PY' >> "$GITHUB_STEP_SUMMARY"
+          import importlib.metadata as m
+          import os
+          import tomllib
+
+          with open("crates/oxedi_py/pyproject.toml", "rb") as f:
+              group = tomllib.load(f)["dependency-groups"]["contributor"]
+          pins = [d for d in group if isinstance(d, str) and d.startswith("pyx12==")]
+          if not pins:
+              raise SystemExit("no pyx12== entry in the contributor group of crates/oxedi_py/pyproject.toml")
+          try:
+              v = m.version("pyx12")
+          except m.PackageNotFoundError:
+              v = "not installed"
+          pin = pins[0].removeprefix("pyx12==")
+          print(f"pyx12 {v} (CI pins {pin}): spec check {os.environ['SPEC']}, tests {os.environ['TESTS']}")
+          PY
 
   docs:
     name: Docs

@@ -33,3 +33,21 @@ updates:
       pyo3-arrow-major:
         patterns: ["pyo3*", "arrow*"]
         update-types: ["major"]
+
+  - package-ecosystem: pip
+    # The binding's contributor group and the docs lock.
+    directories: ["/crates/oxedi_py", "/docs"]
+    schedule:
+      interval: weekly
+    cooldown:
+      default-days: 7
+    # A range such as `pyarrow>=14` is a supported floor, not a pin: a release moves a range only
+    # when it no longer allows it, so the floors are never raised.
+    versioning-strategy: increase-if-necessary
+    groups:
+      # The exact pyx12 and the docs lock move in one pull request, where the pyx12 goldens are
+      # regenerated and read.
+      pyx12:
+        patterns: ["pyx12"]
+      python:
+        patterns: ["*"]

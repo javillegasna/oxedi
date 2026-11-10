@@ -17,6 +17,10 @@ measurements() {
   printf '%s\n' "$@" > "$tmp/measured.csv"
 }
 
+duplicates() {
+  printf '%s\n' "$@" > "$tmp/duplicates.csv"
+}
+
 # expect STATUS PATTERN [ARGS...]: runs the check and wants that exit status and output line.
 expect() {
   local status=$1 pattern=$2 output actual
@@ -338,6 +342,49 @@ if grep -qE 'kept|e.rs' <<< "$(grep -E 'flat' <<< "$output")"; then
   echo "FAIL: an unchanged or moved flat entry was reported:"; echo "$output"; failed=1
 fi
 grep -q 'marked flat' "$tmp/summary" || { echo "FAIL: flat marks missing from the summary"; failed=1; }
+
+# Duplicate blocks: every distinct block fails, and a block reported twice counts once.
+baseline 'a.rs big 12 2' 'a.rs fmt 20 0' 'a.rs fmt 9 1'
+measurements 'a.rs,big,12,2' 'a.rs,fmt,9,1' 'a.rs,fmt,20,0' 'a.rs,small,7,3'
+duplicates
+expect 0 'ok, 4 functions measured; baseline: .*; no duplicate code' \
+  --duplicate-blocks "$tmp/duplicates.csv"
+
+duplicates '1,a.rs,10,13' '1,b.py,40,43'
+expect 1 '^complexity: DUPLICATE a.rs:10-13, b.py:40-43: the same code is written 2 times; write it once \(a helper, a fixture, a table of cases or a shared base\) and use it from each place$' \
+  --duplicate-blocks "$tmp/duplicates.csv"
+expect 1 '1 duplicate block\(s\); each line above says how to resolve it' \
+  --duplicate-blocks "$tmp/duplicates.csv"
+
+duplicates '1,a.rs,1,4' '1,a.rs,9,12' '1,a.rs,20,23'
+expect 1 'DUPLICATE a.rs:1-4, a.rs:9-12, a.rs:20-23: the same code is written 3 times' \
+  --duplicate-blocks "$tmp/duplicates.csv"
+
+duplicates '1,a.rs,1,4' '1,b.rs,9,12' '2,a.rs,1,4' '2,b.rs,9,12'
+expect 1 '1 duplicate block\(s\)' --duplicate-blocks "$tmp/duplicates.csv"
+if [ "$(python3 "$script" "$tmp/baseline" --measurements "$tmp/measured.csv" \
+  --duplicate-blocks "$tmp/duplicates.csv" | grep -c DUPLICATE)" != 1 ]; then
+  echo "FAIL: a block reported twice was not one DUPLICATE line"; failed=1
+fi
+
+# One block whose copies come in another order is one line, not two.
+duplicates '1,a.rs,1,4' '1,b.rs,9,12' '2,b.rs,9,12' '2,a.rs,1,4'
+expect 1 '1 duplicate block\(s\)' --duplicate-blocks "$tmp/duplicates.csv"
+if [ "$(python3 "$script" "$tmp/baseline" --measurements "$tmp/measured.csv" \
+  --duplicate-blocks "$tmp/duplicates.csv" | grep -c DUPLICATE)" != 1 ]; then
+  echo "FAIL: one_block_in_another_order_is_one_line"; failed=1
+fi
+
+measurements 'a.rs,big,12,2' 'a.rs,fmt,9,1' 'a.rs,fmt,20,0' 'a.rs,small,8,3'
+duplicates '1,a.rs,10,13' '1,b.py,40,43'
+expect 1 'FAIL a.rs: small' --duplicate-blocks "$tmp/duplicates.csv"
+expect 1 'DUPLICATE a.rs:10-13' --duplicate-blocks "$tmp/duplicates.csv"
+
+# The update and the comparison do not read the duplicates.
+measurements 'a.rs,big,12,2' 'a.rs,fmt,9,1' 'a.rs,fmt,20,0'
+expect 0 'wrote ' --update --duplicate-blocks "$tmp/duplicates.csv"
+
+expect 2 'not allowed with argument' --duplicates x --duplicate-blocks y
 
 if [ "$failed" = 0 ]; then echo "complexity: ok"; fi
 exit "$failed"

@@ -19,8 +19,10 @@ The complexity ratchet. `complexity.sh` measures the cyclomatic complexity and n
 Rust, Python and JS function with a pinned lizard and compares them with
 `.github/complexity-baseline.txt` through `complexity.py`; `make complexity` and
 `make complexity-update` run it. `complexity-baseline-diff.sh` reports, on a pull request, the
-baseline entries the change adds or raises. `tests/complexity.sh` checks the comparison on
-hand-written measurements. CONTRIBUTING.md (Complexity) explains the targets and the baseline.
+baseline entries the change adds or raises. `complexity.sh` also passes every tracked source file
+to the duplicate check. `tests/complexity.sh` checks the comparison and the duplicate report on
+hand-written measurements and blocks. CONTRIBUTING.md (Complexity) explains the targets and the
+baseline.
 
 ## sandbox
 

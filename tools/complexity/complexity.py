@@ -7,7 +7,9 @@ targets, measured lower, or gone must be removed or lowered, so the baseline onl
 
 Usage:
   complexity.py BASELINE --files LIST [--base REF] [--update [--accept PATH::FUNCTION]...]
+                [--duplicates LIST | --duplicate-blocks CSV]
   complexity.py BASELINE --measurements CSV [--base REF] [--update [--accept PATH::FUNCTION]...]
+                [--duplicates LIST | --duplicate-blocks CSV]
   complexity.py BASELINE --compare-with OLD_BASELINE
 
 --files measures every path listed in LIST (one per line) with lizard, which must be importable;
@@ -15,12 +17,19 @@ Python nesting is measured with the ast module instead, because lizard's count f
 over from one function to the next. --measurements reads `path,function,ccn,nesting` rows instead
 (used by the tests); a row may end with the first and last line of the function.
 
+--duplicates LIST also looks for copied code in every path listed in LIST (one per line) with
+lizard's duplicate extension, at DUPLICATE_MIN_TOKENS tokens; --duplicate-blocks CSV reads
+`block,path,first,last` rows instead (used by the tests), the rows of one block sharing its
+number. There is no baseline for duplicates: every block found fails. --update and
+--compare-with do not read either.
+
 Each finding says how to resolve it:
-  FAIL     a function is over a target and not in the baseline, or worse than its entry;
-  TOUCHED  a function in the baseline that the change modifies and that is still over a target;
-  STALE    an entry is better than recorded, within the targets, or its function is gone;
-  MOVED    a function not in the baseline matches, no worse, a gone entry with the same name in
-           another file (a moved or renamed file).
+  FAIL      a function is over a target and not in the baseline, or worse than its entry;
+  TOUCHED   a function in the baseline that the change modifies and that is still over a target;
+  STALE     an entry is better than recorded, within the targets, or its function is gone;
+  MOVED     a function not in the baseline matches, no worse, a gone entry with the same name in
+            another file (a moved or renamed file);
+  DUPLICATE a block of code is written in two or more places (see --duplicates).
 --update rewrites the baseline from the measurements. It records STALE and MOVED findings, and
 refuses while a FAIL or TOUCHED is left, unless --accept names that function (a reviewed
 exception) or the baseline does not exist yet.
@@ -54,6 +63,7 @@ from pathlib import Path
 from typing import NamedTuple
 
 CCN_TARGET = 7
+DUPLICATE_MIN_TOKENS = 70
 NESTING_TARGET = 3
 FLAT_FIELD = "\tflat"
 
@@ -155,6 +165,54 @@ def measure_files(paths: list[str]) -> list[Row]:
             rows.append(Row(path, f.name, Measure(f.cyclomatic_complexity, depth),
                             (f.start_line, f.end_line)))
     return rows
+
+
+class Copy(NamedTuple):
+    path: str
+    first: int  # 1-based, inclusive
+    last: int  # 1-based, inclusive
+
+
+Block = tuple[Copy, ...]
+
+
+def find_duplicates(paths: list[str]) -> list[Block]:
+    import lizard  # pinned in complexity.sh
+    from lizard_ext import lizardduplicate
+
+    extensions = lizard.get_extensions(["duplicate"])
+    # The extension joins the files in cross_file_process, so the pass is consumed fully.
+    for _ in lizard.analyze_files(paths, exts=extensions):
+        pass
+    finder = next((e for e in extensions if isinstance(e, lizardduplicate.LizardExtension)), None)
+    if finder is None:
+        sys.exit("complexity: lizard's duplicate extension did not load; install the lizard "
+                 "version pinned in tools/complexity/complexity.sh")
+    return [tuple(Copy(s.file_name, s.start_line, s.end_line) for s in snippets)
+            for snippets in finder.get_duplicates(min_duplicate_tokens=DUPLICATE_MIN_TOKENS)]
+
+
+def read_blocks(path: str) -> list[Block]:
+    copies: dict[str, list[Copy]] = {}
+    with open(path, newline="", encoding="utf-8") as fh:
+        for r in csv.reader(fh):
+            if r:
+                copies.setdefault(r[0], []).append(Copy(r[1], int(r[2]), int(r[3])))
+    return [tuple(c) for c in copies.values()]
+
+
+def unique_blocks(blocks: list[Block]) -> list[Block]:
+    # The same copies in another order are one block; the first order lizard gave is kept.
+    seen: dict[Block, Block] = {}
+    for block in blocks:
+        seen.setdefault(tuple(sorted(block)), block)
+    return list(seen.values())
+
+
+def duplicate_message(block: Block) -> str:
+    where = ", ".join(f"{c.path}:{c.first}-{c.last}" for c in block)
+    return (f"DUPLICATE {where}: the same code is written {len(block)} times; write it once "
+            "(a helper, a fixture, a table of cases or a shared base) and use it from each place")
 
 
 def read_measurements(path: str) -> list[Row]:
@@ -444,14 +502,23 @@ def update(path: Path, current: Table, findings: list[Finding], accept: list[str
     return 0
 
 
-def check(baseline: Table, findings: list[Finding], measured: int) -> int:
+def check(baseline: Table, findings: list[Finding], measured: int,
+          blocks: list[Block] | None) -> int:
     for f in findings:
         print(f"complexity: {message(f)}")
     if findings:
         print(f"complexity: {len(findings)} difference(s) from the baseline; each line above says "
               "how to resolve it")
+    found = unique_blocks(blocks or [])
+    for block in found:
+        print(f"complexity: {duplicate_message(block)}")
+    if found:
+        print(f"complexity: {len(found)} duplicate block(s); each line above says how to "
+              "resolve it")
+    if findings or found:
         return 1
-    print(f"complexity: ok, {measured} functions measured; baseline: {summary(baseline)}")
+    clean = "" if blocks is None else "; no duplicate code"
+    print(f"complexity: ok, {measured} functions measured; baseline: {summary(baseline)}{clean}")
     return 0
 
 
@@ -497,6 +564,14 @@ def report_changes(new: Table, old: Table, new_flat: set[Key], old_flat: set[Key
     return 0
 
 
+def duplicate_blocks(args: argparse.Namespace) -> list[Block] | None:
+    if args.duplicates:
+        return find_duplicates(Path(args.duplicates).read_text(encoding="utf-8").split())
+    if args.duplicate_blocks:
+        return read_blocks(args.duplicate_blocks)
+    return None
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     parser.add_argument("baseline", type=Path)
@@ -504,6 +579,10 @@ def main() -> int:
     source.add_argument("--files", help="file listing the paths to measure, one per line")
     source.add_argument("--measurements", help="CSV of path,function,ccn,nesting")
     source.add_argument("--compare-with", type=Path, help="older baseline to report changes from")
+    duplicates = parser.add_mutually_exclusive_group()
+    duplicates.add_argument("--duplicates", help="file listing the paths to search for copied "
+                                                 "code, one per line")
+    duplicates.add_argument("--duplicate-blocks", help="CSV of block,path,first,last")
     parser.add_argument("--base", default=os.environ.get("COMPLEXITY_BASE") or "origin/master",
                         help="git ref the change is measured against (default $COMPLEXITY_BASE, "
                              "else origin/master)")
@@ -529,7 +608,7 @@ def main() -> int:
     findings += find_touched(rows, baseline, flat, args.base, findings)
     if args.update:
         return update(args.baseline, current, findings, args.accept, flat)
-    return check(baseline, findings, len(rows))
+    return check(baseline, findings, len(rows), duplicate_blocks(args))
 
 
 if __name__ == "__main__":

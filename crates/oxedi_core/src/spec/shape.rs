@@ -63,7 +63,7 @@ impl Leaf {
             Leaf::Flag => "a boolean",
             Leaf::Count => "a non-negative integer",
             Leaf::Byte => "an integer from 0 to 255",
-            Leaf::Pick => "\"first\", \"last\" or a positive integer",
+            Leaf::Pick => "\"first\", \"last\" or a 1-based position",
         }
     }
 

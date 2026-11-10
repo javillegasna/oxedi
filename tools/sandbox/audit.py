@@ -35,10 +35,11 @@ DIRTY_STATUS = 3
 STATUS = ("status", "--porcelain=v1", "--untracked-files=all", "--ignored=matching", "--ignore-submodules=all")
 # Names host tools look up in a directory without being told: make reads GNUmakefile and makefile
 # before Makefile, Python imports sitecustomize and usercustomize, pytest a conftest.py, direnv an
-# .envrc, cargo a .cargo/ and rustup a rust-toolchain of the directory or any parent. A *.py at
-# the root shadows a module for a Python started there.
+# .envrc, cargo a .cargo/, rustup a rust-toolchain and Bun a bunfig.toml or .npmrc (its registry and
+# preload) of the directory or any parent. A *.py at the root shadows a module for a Python started
+# there.
 LOOKED_UP = ("GNUmakefile", "makefile", "sitecustomize.py", "usercustomize.py", "conftest.py", ".envrc", ".cargo",
-             "rust-toolchain*")
+             "rust-toolchain*", "bunfig.toml", ".npmrc")
 UNREADABLE = "unreadable"
 
 

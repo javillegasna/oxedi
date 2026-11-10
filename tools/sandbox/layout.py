@@ -34,12 +34,14 @@ HOST_EXECUTED = (
     "Cargo.lock", "AGENTS.md", "CLAUDE.md", ".claude", "crates/oxedi_py/pyproject.toml", ".git",
     ".gitmodules", *ROOT_LOADED,
 )
-# Tracked files with these names, anywhere, steer cargo, rustup, uv, pytest, nox, tox, Python or
-# direnv when the host runs them: bound read-only too.
+# Tracked files with these names, anywhere, steer cargo, rustup, uv, pytest, nox, tox, Python,
+# direnv, or Bun and the JavaScript tools it runs (its registry and preload, TypeScript, Vite and
+# Vitest) when the host runs them: bound read-only too.
 TRACKED_NAMES = frozenset({
     "Cargo.toml", "Cargo.lock", "rust-toolchain", "rust-toolchain.toml", "pyproject.toml", "uv.toml",
     ".python-version", "conftest.py", "pytest.ini", "setup.cfg", "tox.ini", "noxfile.py", "sitecustomize.py",
-    "usercustomize.py", ".envrc",
+    "usercustomize.py", ".envrc", "package.json", "bun.lock", "bunfig.toml", ".npmrc", "tsconfig.json",
+    "vite.config.ts", "vitest.config.ts",
 })
 # The lockfile of the browser interface's JavaScript dependencies. Only a tracked one switches on
 # the viewer image's ui/ mounts and its install in the fetch: one a run left is not the checkout's.

@@ -292,6 +292,18 @@ class Arguments(World):
         checkout = self.checkout("c", "Makefile", *loaded, "crates/oxedi_py/tests/test_x.py")
         self.assert_bound_read_only(checkout, loaded, ("crates/oxedi_py/tests/test_x.py",))
 
+    def test_the_bun_and_javascript_tool_files_are_read_only(self):
+        tool_files = [
+            "ui/package.json", "ui/bun.lock", "ui/bunfig.toml", "ui/.npmrc", "ui/tsconfig.json", "ui/vite.config.ts",
+            "ui/vitest.config.ts",
+        ]
+        checkout = self.checkout("c", "Makefile", *tool_files, "ui/src/main.ts")
+        read_only = layout.survey(checkout).read_only
+        for path in tool_files:
+            with self.subTest(path=path):
+                self.assertIn(path, read_only)
+        self.assertNotIn("ui/src/main.ts", read_only)
+
     def test_absent_root_names_held_in_the_run_only(self):
         checkout = self.checkout("c", "Makefile")
         stand_ins = self.own(checkout) / "stand-ins"

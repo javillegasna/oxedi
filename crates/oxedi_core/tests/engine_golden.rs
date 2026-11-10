@@ -36,38 +36,38 @@ fn line(spec: &Spec, event: Event, segment_id: &[u8]) -> String {
     }
 }
 
-fn full_stream(spec: &Spec, bytes: &[u8], delims: oxedi_core::Delimiters) -> String {
-    let mut out = String::new();
+/// One line per engine event, in order, with the id of the segment the event
+/// names.
+fn lines(spec: &Spec, bytes: &[u8], delims: oxedi_core::Delimiters) -> Vec<String> {
     let segments: Vec<_> = Tokenizer::with_delimiters(bytes, delims).collect();
-    let events = common::run_engine(spec, segments.iter().cloned());
-    for event in events {
-        let segment_id = match event {
-            oxedi_core::Event::Captured { segment, .. }
-            | oxedi_core::Event::Unmatched { segment }
-            | oxedi_core::Event::Empty { segment } => {
-                segments.get(segment).map(|s| s.id).unwrap_or(b"")
-            }
-            _ => b"",
-        };
-        let _ = writeln!(out, "{}", line(spec, event, segment_id));
-    }
-    out
+    common::run_engine(spec, segments.iter().cloned())
+        .into_iter()
+        .map(|event| {
+            let segment_id = match event {
+                oxedi_core::Event::Captured { segment, .. }
+                | oxedi_core::Event::Unmatched { segment }
+                | oxedi_core::Event::Empty { segment } => {
+                    segments.get(segment).map(|s| s.id).unwrap_or(b"")
+                }
+                _ => b"",
+            };
+            line(spec, event, segment_id)
+        })
+        .collect()
+}
+
+fn full_stream(spec: &Spec, bytes: &[u8], delims: oxedi_core::Delimiters) -> String {
+    lines(spec, bytes, delims)
+        .iter()
+        .fold(String::new(), |mut out, l| {
+            let _ = writeln!(out, "{l}");
+            out
+        })
 }
 
 fn summary(spec: &Spec, bytes: &[u8], delims: oxedi_core::Delimiters) -> String {
     let mut counts: BTreeMap<String, usize> = BTreeMap::new();
-    let segments: Vec<_> = Tokenizer::with_delimiters(bytes, delims).collect();
-    let events = common::run_engine(spec, segments.iter().cloned());
-    for event in events {
-        let segment_id = match event {
-            oxedi_core::Event::Captured { segment, .. }
-            | oxedi_core::Event::Unmatched { segment }
-            | oxedi_core::Event::Empty { segment } => {
-                segments.get(segment).map(|s| s.id).unwrap_or(b"")
-            }
-            _ => b"",
-        };
-        let key = line(spec, event, segment_id);
+    for key in lines(spec, bytes, delims) {
         let key = key
             .rsplit_once(" #")
             .map(|(k, _)| k.to_string())

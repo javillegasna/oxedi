@@ -5,6 +5,14 @@ mod common;
 
 use oxedi_core::{Delimiters, Event, LoopTree, Spec, Tokenizer};
 
+/// How many segments of `bytes` no loop of `spec` holds.
+fn unmatched(spec: &Spec, bytes: &[u8], delims: Delimiters) -> usize {
+    common::events_of(spec, bytes, delims)
+        .iter()
+        .filter(|e| matches!(e, Event::Unmatched { .. }))
+        .count()
+}
+
 #[test]
 fn a_patch_makes_the_bogus_trizetto_segment_captured() {
     let bytes = common::load_fixture("trizetto_sample.rmt");
@@ -21,14 +29,8 @@ fn a_patch_makes_the_bogus_trizetto_segment_captured() {
     );
     assert_eq!(payer.segments.last(), Some(&b"XX".to_vec()));
     let delims = Delimiters::from_isa(&bytes).unwrap();
-    let unmatched = |spec: &Spec| {
-        common::events_of(spec, &bytes, delims)
-            .iter()
-            .filter(|e| matches!(e, Event::Unmatched { .. }))
-            .count()
-    };
-    assert_eq!(unmatched(&builtin), 1);
-    assert_eq!(unmatched(&patched), 0);
+    assert_eq!(unmatched(&builtin, &bytes, delims), 1);
+    assert_eq!(unmatched(&patched, &bytes, delims), 0);
     let tree = LoopTree::build(&patched, Tokenizer::new(&bytes).unwrap());
     let payer = tree
         .nodes_of(patched.loop_id("1000A").unwrap())
@@ -58,14 +60,12 @@ fn a_patch_adding_n3_n4_to_loop_2100_captures_the_multi_claim_addresses() {
         )
         .unwrap();
     let delims = Delimiters::from_isa(&bytes).unwrap();
-    let unmatched = |spec: &Spec| {
-        common::events_of(spec, &bytes, delims)
-            .iter()
-            .filter(|e| matches!(e, Event::Unmatched { .. }))
-            .count()
-    };
-    assert_eq!(unmatched(&builtin), 4, "N3 and N4 in each of two claims");
-    assert_eq!(unmatched(&patched), 0);
+    assert_eq!(
+        unmatched(&builtin, &bytes, delims),
+        4,
+        "N3 and N4 in each of two claims"
+    );
+    assert_eq!(unmatched(&patched, &bytes, delims), 0);
 }
 
 #[test]

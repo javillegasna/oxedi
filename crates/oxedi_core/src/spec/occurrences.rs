@@ -121,7 +121,7 @@ pub(super) fn element_def<'d>(
 /// Validates a code list against the element it is for, with the checks an
 /// element's own `codes` gets, and returns it sorted by bytes.
 fn element_codes(def: &ElementDef, codes: &[String]) -> Result<Vec<String>, ElementDefError> {
-    compile_codes(codes, def.kind, def.min, def.max, !def.composite.is_empty())
+    compile_codes(codes, def.kind, def.length, !def.composite.is_empty())
 }
 
 /// Reads a `codes` key: `<element>` or `<element>-<component>`.

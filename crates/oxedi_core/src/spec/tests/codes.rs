@@ -2,6 +2,7 @@
 
 use super::element_error;
 use crate::spec::*;
+use crate::value::LengthRange;
 
 #[test]
 fn codes_load_sorted_on_elements_and_components() {
@@ -48,8 +49,10 @@ fn every_code_list_fault_names_the_position_and_the_code() {
                 index: 1,
                 code: "ABCD".into(),
                 length: 4,
-                min: Some(2),
-                max: Some(3),
+                allowed: LengthRange {
+                    min: Some(2),
+                    max: Some(3),
+                },
             },
         ),
         (
@@ -59,8 +62,10 @@ fn every_code_list_fault_names_the_position_and_the_code() {
                 index: 0,
                 code: "A".into(),
                 length: 1,
-                min: Some(2),
-                max: None,
+                allowed: LengthRange {
+                    min: Some(2),
+                    max: None,
+                },
             },
         ),
         (
@@ -124,8 +129,7 @@ fn code_list_faults_display_segment_position_and_code() {
         index: 1,
         code: "ABCD".into(),
         length: 4,
-        min,
-        max,
+        allowed: LengthRange { min, max },
     };
     assert_eq!(
         at("1", length(Some(2), Some(3))),

@@ -2,6 +2,7 @@
 
 use super::{CLP_ONLY, TABLED};
 use crate::spec::*;
+use crate::value::LengthRange;
 
 #[test]
 fn a_patch_retouches_one_element_and_keeps_the_rest() {
@@ -10,7 +11,13 @@ fn a_patch_retouches_one_element_and_keeps_the_rest() {
         .merge_patch(r#"{"segments":{"CLP":{"elements":{"1":{"max":30}}}}}"#)
         .unwrap();
     let clp = spec.segment(b"CLP").unwrap();
-    assert_eq!(clp.elements[&1].max, Some(30));
+    assert_eq!(
+        clp.elements[&1].length,
+        LengthRange {
+            min: Some(1),
+            max: Some(30)
+        }
+    );
     assert_eq!(clp.elements[&1].name, "claim_submitter_id");
     assert_eq!(clp.elements.len(), 3);
 }

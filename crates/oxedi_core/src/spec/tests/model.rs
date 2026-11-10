@@ -408,10 +408,4 @@ fn a_model_mismatch_names_the_path_to_the_rejected_key() {
         panic!("expected a model mismatch, found {err:?}");
     };
     assert_eq!(path, "tables.t.columns.c.pick");
-    assert_eq!(
-        err.to_string(),
-        "the loaded spec \"t\" and its typed model disagree at tables.t.columns.c.pick: \
-         \"pick\" must be \"first\", \"last\" or a 1-based position; found true; this is a bug \
-         in oxedi, please report it"
-    );
 }

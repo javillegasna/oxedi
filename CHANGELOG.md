@@ -23,9 +23,9 @@ This file covers the Python package; the DuckDB extension has its own changelog 
   no such place.
 
 ### Changed
-- A spec's `pick` that is neither `"first"`, `"last"` nor a 1-based position names the value found in
-  every case (before, a boolean, a negative or fractional number or an array said only `a pick`),
-  and a spec that does not read into its typed model names where in the spec it failed.
+- The spec shape check names a `pick` that is not `"first"`, `"last"` or a 1-based position with the
+  same words as the pick error. A Rust read of a pick or of a spec model names the value found, and
+  a spec that does not read into its typed model names the path to the key it rejected.
 - `oxedi[pyx12]` requires pyx12 4.1 or later. A pyx12 finding keeps the X12 code in `code`, and its
   `rule` now ends with pyx12's own name for the error before the `(reported by pyx12, code N)`
   suffix.

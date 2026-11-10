@@ -36,6 +36,9 @@ pub(in crate::spec) use rules::{
     BALANCE, RawBalance, RawSummaryColumn, RawSummaryRow, RawSummaryTable, RawTerm, RawVersion,
     SUMMARY_COLUMN, SUMMARY_ROW, SUMMARY_TABLE, VERSION,
 };
+// Read only by the sync test, which holds the list to the keys the model writes.
+#[cfg(test)]
+pub(in crate::spec) use segments::ELEMENT_MODEL_KEYS;
 pub(in crate::spec) use segments::{RawSegment, SEGMENT};
 pub(in crate::spec) use tables::{RawColumn, RawTable, TABLE};
 

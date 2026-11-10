@@ -2,7 +2,7 @@
 
 use std::collections::BTreeMap;
 
-use serde::{Deserialize, Deserializer};
+use serde::Deserializer;
 
 use super::declare::spec_object;
 use super::positions;

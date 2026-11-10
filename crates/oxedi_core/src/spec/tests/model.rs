@@ -135,6 +135,7 @@ fn an_unknown_key_is_refused() {
     assert!(from_value::<LoopModel>(json!({"trigger":{"segment":"ST"},"colour":1})).is_err());
     let occurrence = json!({"segment":"NM1","pos":10,"colour":1});
     assert!(from_value::<OccurrenceModel>(occurrence).is_err());
+    assert!(from_value::<ElementModel>(json!({"name":"paid","type":"ID","colour":1})).is_err());
 }
 
 #[test]
@@ -355,7 +356,40 @@ fn a_position_key_the_loader_refuses_is_refused_naming_the_map() {
     );
     let segment = from_value::<SegmentModel>(json!({"elements":{"12":{"name":"a","type":"AN"}}}));
     assert_eq!(
-        segment.unwrap().elements.keys().copied().collect::<Vec<_>>(),
+        segment
+            .unwrap()
+            .elements
+            .keys()
+            .copied()
+            .collect::<Vec<_>>(),
         vec![12]
     );
+}
+
+#[test]
+fn an_unknown_element_key_is_refused_with_the_keys_it_takes() {
+    let component = json!({"1":{"name":"b","type":"AN","colour":1}});
+    let element = json!({"name":"a","type":"AN","composite":component});
+    let reads = [
+        (
+            "sclae",
+            from_value::<ElementModel>(json!({"name":"paid","type":"R","sclae":4})),
+        ),
+        (
+            "requird",
+            from_value::<ElementModel>(json!({"name":"paid","type":"AN","requird":true})),
+        ),
+        ("colour", {
+            let segment = from_value::<SegmentModel>(json!({"elements":{"1":element}}));
+            segment.map(|model| model.elements[&1].clone())
+        }),
+    ];
+    for (key, read) in reads {
+        assert_eq!(
+            read.unwrap_err().to_string(),
+            format!(
+                "unknown field `{key}`, expected one of `name`, `type`, `scale`, `required`, `min`, `max`, `codes`, `composite`"
+            )
+        );
+    }
 }

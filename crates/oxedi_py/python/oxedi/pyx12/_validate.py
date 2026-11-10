@@ -282,7 +282,8 @@ def validate(
     Each finding is an ``oxedi.Diagnostic``, the type ``parse``
     returns, so both lists mix, sort by ``level`` and filter by ``origin``.
     A pyx12 finding has ``kind == "External"``, ``origin == "pyx12"`` and
-    ``code`` set to pyx12's own error code; ``rule`` is pyx12's message.
+    ``code`` set to the X12 acknowledgement code pyx12 reports; ``rule`` is
+    pyx12's message, followed by pyx12's own name for the error when it has one.
     ``level`` follows where pyx12 reports it: interchange, group and
     transaction findings are level 1, segment and element findings level 2.
     ``segment`` is the index of the segment at fault in the file's document

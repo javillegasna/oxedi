@@ -25,7 +25,7 @@ result = oxedi.parse(data)
 findings = result.diagnostics + validate(data)    # bytes, a path or a binary file object
 
 for d in sorted(findings, key=lambda d: d.level):
-    print(d.origin, d.code, d)                    # "oxedi" or "pyx12"; pyx12's own code
+    print(d.origin, d.code, d)                    # "oxedi" or "pyx12"; the X12 code pyx12 reports
     if d.segment is not None:
         start, end = result.document[d.segment].span  # the segment's bytes in your file
 ```

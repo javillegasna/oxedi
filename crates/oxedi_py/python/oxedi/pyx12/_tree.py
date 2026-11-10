@@ -51,6 +51,15 @@ PLACES: dict[tuple[str, str], tuple[Place, Optional[int]]] = {
     ("ST", "23"): (HEADER, 2),  # control number not unique
 }
 
+# pyx12 writes one segment error of this name per segment with errors. It
+# carries the generic text below when only element errors fired (the element
+# findings already carry those), and the text and value of the first folded
+# segment-level error (too many elements, a syntax rule) otherwise. The reader
+# drops only the generic one, by name and text (a real segment error can share
+# its code, 8).
+ROLLUP = "SEG_8_has_data_element_errors"
+ROLLUP_TEXT = "Segment has data element errors"
+
 # The trailer segment id that closes each envelope.
 _TRAILERS = {"ISA": b"IEA", "GS": b"GE", "ST": b"SE"}
 
@@ -86,6 +95,12 @@ class Finding:
     the trailer, the header's otherwise. ``None`` for a segment finding."""
 
 
+def _text(e: Error) -> str:
+    """pyx12's message, followed by its own name for the error unless that is
+    the code itself (a legacy code pyx12 passes through)."""
+    return e.text if e.name == e.code else f"{e.text} ({e.name})"
+
+
 _Node = Union[Interchange, Group, Transaction]
 
 
@@ -95,20 +110,24 @@ def _envelope(kind: str, node: _Node) -> list[Finding]:
         place, position = PLACES.get((kind, e.code), (HEADER, None))
         envelope = Envelope(kind.encode("ascii"), _TRAILERS[kind], place)
         found.append(
-            Finding(ENVELOPE_LEVEL, e.code, e.text, node.line, element=position, envelope=envelope)
+            Finding(ENVELOPE_LEVEL, e.code, _text(e), node.line, element=position, envelope=envelope)
         )
     return found
 
 
 def _element(seg: SegmentNode, el: ElementNode, e: Error) -> Finding:
     return Finding(
-        SEGMENT_LEVEL, e.code, e.text, seg.line,
+        SEGMENT_LEVEL, e.code, _text(e), seg.line,
         element=el.position, component=el.component, value=e.value,
     )
 
 
 def _segment(seg: SegmentNode) -> list[Finding]:
-    found = [Finding(SEGMENT_LEVEL, e.code, e.text, seg.line, value=e.value) for e in seg.errors]
+    found = [
+        Finding(SEGMENT_LEVEL, e.code, _text(e), seg.line, value=e.value)
+        for e in seg.errors
+        if not (e.name == ROLLUP and e.text == ROLLUP_TEXT)
+    ]
     found += [_element(seg, el, e) for el in seg.elements for e in el.errors]
     return found
 

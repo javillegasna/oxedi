@@ -186,7 +186,7 @@ class Audit(World):
     def test_an_unreadable_record_refuses(self):
         checkout = self.checkout("c", *TRACKED)
         self.assertEqual(self.sandbox(checkout).returncode, 0)
-        [own] = [p for p in (self.home / ".cache" / "oxedi-sandbox").iterdir() if p.name not in ("cargo", "uv")]
+        own = self.own(checkout)
         (own / "audit.json").write_text("[1]")
         result = self.sandbox(checkout)
         self.assertEqual(result.returncode, 2, result.stderr)

@@ -23,8 +23,9 @@ can shadow a module it imports.
 usage: sandbox.py --image TAG --kind {base,viewer} --checkout DIR
        sandbox.py --clean {checkout,all} --checkout DIR
 `--kind viewer` names a viewer image (make sandbox-image-viewer): its runs also get the docs venv
-at .venv-docs, made by the fetch from the hashed docs/requirements.txt, and the run is refused when
-the checkout pins another Playwright, wasm-bindgen or binaryen than the image was built with.
+at .venv-docs, made by the fetch from the hashed docs/requirements.txt, and, when the checkout
+tracks ui/bun.lock, ui/dist and ui/node_modules, which the fetch installs with Bun. The run is
+refused when the checkout pins another Playwright, wasm-bindgen or binaryen than the image was built with.
 The command comes from SANDBOX_CMD. SANDBOX_CPUS (default: the daemon's CPUs minus one),
 SANDBOX_MEMORY (GB; default 60 % of the daemon's memory) and SANDBOX_TIMEOUT (seconds; default
 3600) set the limits.
@@ -110,12 +111,13 @@ class Plan:
 def describe(plan: Plan, labels: dict[str, str]) -> str:
     rust = labels.get("oxedi.sandbox.rust", "unlabelled")
     limits = plan.limits
-    own = ", ".join(p.name for p in (plan.storage.target, *own_sources(plan.storage, plan.kind).values()))
+    sources = own_sources(plan.storage, plan.kind, plan.checkout).values()
+    own = ", ".join(p.name for p in (plan.storage.target, *sources))
     return " · ".join([
         f"sandbox: runtime {plan.runtime.value}",
         f"image {plan.image} ({plan.kind.value}, Rust {rust})",
         f"{limits.cpus} CPUs, {limits.memory_gb} GB, {limits.timeout_s} s",
-        f"storage {plan.storage.target.parent} ({own}), shared {plan.storage.cache} (cargo, uv)",
+        f"storage {plan.storage.target.parent} ({own}), shared {plan.storage.cache} (cargo, uv, bun)",
         f"read-only: {', '.join(plan.checkout.read_only) or 'none'}",
         f"masked: {', '.join(plan.checkout.masked) or 'none'}",
         f"hidden: {', '.join(plan.checkout.hidden) or 'none'}",
@@ -127,10 +129,11 @@ def fetch_phase(plan: Plan) -> int:
     """Runs the fetch commands, each in its own container, within one budget; stops at the first
     failure."""
     started = time.monotonic()
-    # The run phase writes the venvs: a planted interpreter or .pth must never run with the network.
-    empty_dir(plan.storage.venv)
-    empty_dir(plan.storage.docs_venv)
-    for command in fetch_commands(plan.kind):
+    # The run phase writes the venvs and ui/node_modules: a planted interpreter, .pth or package
+    # must never run with the network.
+    for installed in (plan.storage.venv, plan.storage.docs_venv, plan.storage.ui_modules):
+        empty_dir(installed)
+    for command in fetch_commands(plan.kind, plan.checkout):
         remaining = FETCH_BUDGET_S - (time.monotonic() - started)
         outcome = run_container(plan.argv(Phase.FETCH, command), plan.checkout.name, max(1.0, remaining))
         if outcome.status != 0:
@@ -261,7 +264,7 @@ def ready(image: str, kind: ImageKind, checkout_dir: Path, env: dict[str, str], 
     if kind is ImageKind.VIEWER:
         refuse_stale_image(checkout.root, labels)
     refuse_leftovers(checkout.root, plan.storage.record)
-    prepare(plan.storage, checkout, ("target", *own_dirs(kind)))
+    prepare(plan.storage, checkout, ("target", *own_dirs(kind, checkout)))
     print(describe(plan, labels), file=sys.stderr)
     return plan
 

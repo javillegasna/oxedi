@@ -1,13 +1,9 @@
 use super::*;
+use crate::spec::test_support::nested;
 use crate::{Delimiters, Spec, Tokenizer};
 
-const TINY: &str = r#"{"name":"t","loops":{
-    "A":{"trigger":{"segment":"AA"},"occurrences":{"aa":{"segment":"AA","pos":0},"a1":{"segment":"A1","pos":1}},"end":"AE"},
-    "B":{"parent":"A","trigger":{"segment":"BB"},"occurrences":{"bb":{"segment":"BB","pos":0},"b1":{"segment":"B1","pos":1}}}
-}}"#;
-
 fn tree(input: &[u8]) -> (Spec, LoopTree) {
-    let spec = Spec::from_json(TINY).unwrap();
+    let spec = nested();
     let tree = LoopTree::build(
         &spec,
         Tokenizer::with_delimiters(input, Delimiters::new(b'*', b':', b'~')),
@@ -92,7 +88,7 @@ fn every_node_but_the_root_knows_the_segment_that_opened_it() {
 
 #[test]
 fn a_builder_folds_hand_built_events_in_slices() {
-    let spec = Spec::from_json(TINY).unwrap();
+    let spec = nested();
     let a = spec.loop_id("A").unwrap();
     let b = spec.loop_id("B").unwrap();
     let mut builder = LoopTree::builder();

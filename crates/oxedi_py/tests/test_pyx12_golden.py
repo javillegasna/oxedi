@@ -1,8 +1,9 @@
 """What ``oxedi.pyx12.validate`` finds in each file, pinned as JSON goldens.
 
-A golden holds one row per finding, in segment order: level, X12 code,
-segment, element, component, datum and message. A change in what pyx12 or
-the binding reports shows as a diff of the golden; read it, then commit it.
+A golden holds one row per finding, in the order ``validate`` returns them:
+level, X12 code, segment, element, component, datum and message. A change in
+what pyx12 or the binding reports shows as a diff of the golden; read it, then
+commit it.
 Regenerate with ``make sandbox CMD="UPDATE_GOLDEN=1 make py-test"``.
 """
 
@@ -16,10 +17,9 @@ pytest.importorskip("pyx12")
 
 from oxedi.pyx12 import validate
 
-from conftest import VALIDATED, pyx12_golden, read
+from conftest import REGENERATE, VALIDATED, pyx12_golden, read
 
 KEYS = ("level", "code", "segment", "element", "component", "datum", "rule")
-REGENERATE = 'make sandbox CMD="UPDATE_GOLDEN=1 make py-test"'
 
 
 def rows(findings):

@@ -13,7 +13,7 @@ pytest.importorskip("pyx12")
 import oxedi
 from oxedi.pyx12 import validate
 
-from conftest import ALL_FILES, NO_ISA, SAMPLES, path_of, read
+from conftest import SAMPLES, VALIDATED, path_of, read
 
 EYEMED = "edi835_test_eyemed.RMT"
 LEGACY = "united_healthcare_legacy_sample.txt"
@@ -850,11 +850,8 @@ def place(d):
     return (d.code, d.level, d.segment, d.element, d.component, d.path)
 
 
-WITH_ISA = [name for name in ALL_FILES if name not in NO_ISA]
-
-
 @pytest.mark.parametrize("dates", ["year", "shift"])
-@pytest.mark.parametrize("name", WITH_ISA)
+@pytest.mark.parametrize("name", VALIDATED)
 def test_a_masked_validation_keeps_every_finding_and_quotes_no_patient_value(name, dates):
     assert_masked_like_plain(name, read(name), dates)
 

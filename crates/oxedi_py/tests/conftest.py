@@ -15,6 +15,9 @@ GOLDEN = CORE_TESTS / "golden" / "project"
 # CORE_TESTS, so they travel with the suite when it runs from a copy.
 PYX12_GOLDEN = Path(__file__).resolve().parent / "golden" / "pyx12"
 
+# How to rewrite the goldens of oxedi.pyx12.validate.
+REGENERATE = 'make sandbox CMD="UPDATE_GOLDEN=1 make py-test"'
+
 FIXTURES = [
     "emedny_sample.txt",
     "united_healthcare_legacy_sample.txt",

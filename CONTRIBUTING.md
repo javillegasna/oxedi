@@ -156,7 +156,7 @@ cargo bench --workspace --no-run --locked
 
 ## Tests and test data
 
-Test data comes in three kinds, all under `crates/oxedi_core/tests/`:
+Test data comes in three kinds, all under `crates/oxedi_core/tests/` (the pyx12 goldens are under `crates/oxedi_py/tests/golden/pyx12/`):
 
 - **Fixtures** (`fixtures/`): small synthetic files. Never edited.
 - **Samples** (`samples/`): real payer files, anonymized before they entered the repository.

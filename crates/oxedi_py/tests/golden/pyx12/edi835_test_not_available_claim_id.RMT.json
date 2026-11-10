@@ -1,0 +1,11 @@
+[
+ {
+  "level": 1,
+  "code": "4",
+  "segment": 256,
+  "element": 1,
+  "component": null,
+  "datum": "302",
+  "rule": "SE count of 302 for SE02=000000001 is wrong. I count 255 (reported by pyx12, code 4)"
+ }
+]

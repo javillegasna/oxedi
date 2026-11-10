@@ -1,0 +1,20 @@
+[
+ {
+  "level": 2,
+  "code": "1",
+  "segment": 333,
+  "element": 8,
+  "component": null,
+  "datum": "",
+  "rule": "Mandatory data element \"Identification Code Qualifier\" (NM108) is missing (ELE_1_mandatory_missing) (reported by pyx12, code 1)"
+ },
+ {
+  "level": 2,
+  "code": "1",
+  "segment": 333,
+  "element": 9,
+  "component": null,
+  "datum": "",
+  "rule": "Mandatory data element \"Rendering Provider Identifier\" (NM109) is missing (ELE_1_mandatory_missing) (reported by pyx12, code 1)"
+ }
+]

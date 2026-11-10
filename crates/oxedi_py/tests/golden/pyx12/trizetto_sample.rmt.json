@@ -1,0 +1,11 @@
+[
+ {
+  "level": 1,
+  "code": null,
+  "segment": 0,
+  "element": null,
+  "component": null,
+  "datum": "ISA*00*          *00*          *ZZ*SENDER       *ZZ*RECEIVER     *240416*0930*U*00401*000001234*0*P*>~",
+  "rule": "could not finish validating: X12Error: ISA Interchange Control Version Number is unknown: 1*000 for ISA*00*          *00*          *ZZ*SENDER       *ZZ*RECEIVER     *240416*0930*U*00401*000001234*0*P*>~\nGS*; it rejected segment #0 (reported by pyx12)"
+ }
+]

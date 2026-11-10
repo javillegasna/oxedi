@@ -17,36 +17,30 @@ fn load(name: &str) -> Vec<u8> {
     common::load_from("tests/fixtures", name)
 }
 
-fn tokenize_fixtures(c: &mut Criterion) {
-    let mut group = c.benchmark_group("tokenize");
+/// Times `work` over every fixture, one benchmark id per fixture name, with
+/// the throughput in input bytes. Generic so each closure is inlined.
+fn bench_fixtures<F: Fn(&[u8]) -> usize>(c: &mut Criterion, group: &str, work: F) {
+    let mut group = c.benchmark_group(group);
     for name in FIXTURES {
         let bytes = load(name);
         group.throughput(Throughput::Bytes(bytes.len() as u64));
         group.bench_with_input(BenchmarkId::from_parameter(name), &bytes, |b, bytes| {
-            b.iter(|| {
-                Tokenizer::new(black_box(bytes))
-                    .expect("fixture has an ISA")
-                    .count()
-            });
+            b.iter(|| work(black_box(bytes)));
         });
     }
     group.finish();
 }
 
+fn tokenize_fixtures(c: &mut Criterion) {
+    bench_fixtures(c, "tokenize", |bytes| {
+        Tokenizer::new(bytes).expect("fixture has an ISA").count()
+    });
+}
+
 fn index_fixtures(c: &mut Criterion) {
-    let mut group = c.benchmark_group("index");
-    for name in FIXTURES {
-        let bytes = load(name);
-        group.throughput(Throughput::Bytes(bytes.len() as u64));
-        group.bench_with_input(BenchmarkId::from_parameter(name), &bytes, |b, bytes| {
-            b.iter(|| {
-                Document::parse(black_box(&bytes[..]))
-                    .expect("fixture has an ISA")
-                    .len()
-            });
-        });
-    }
-    group.finish();
+    bench_fixtures(c, "index", |bytes| {
+        Document::parse(bytes).expect("fixture has an ISA").len()
+    });
 }
 
 criterion_group! {

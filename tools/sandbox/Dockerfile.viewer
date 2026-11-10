@@ -1,7 +1,7 @@
 # The image the viewer's checks run in: the base sandbox image plus Node, Bun, Chromium and the
-# wasm tools. Every input is pinned: Node and Bun by version and SHA-256, wasm-bindgen and binaryen by the
-# version and SHA-256 of crates/oxedi_wasm/scripts/install_tools.sh, Playwright by hash
-# (playwright.txt), and the Chromium it installs by the SHA-256 of its installed tree. The wasm
+# wasm tools. Every input is pinned: Node and Bun by version and SHA-256, wasm-bindgen and
+# binaryen by the version and SHA-256 of crates/oxedi_wasm/scripts/install_tools.sh, Playwright by
+# hash (playwright.txt), and the Chromium it installs by the SHA-256 of its installed tree. The wasm
 # and Playwright arguments come from `make sandbox-image-viewer` (viewer_image.py reads them from
 # the repository); the image never runs install_tools.sh. The tag is
 # oxedi-sandbox-viewer:<first 12 hex of sha256 of the base tag, this file, playwright.txt,

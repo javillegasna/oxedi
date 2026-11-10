@@ -5,7 +5,7 @@ from __future__ import annotations
 import dataclasses
 import enum
 import functools
-from typing import TYPE_CHECKING, Dict, List, Optional
+from typing import TYPE_CHECKING, ClassVar, Dict, List, Optional
 
 from . import _codes
 from ._convert import date, integer, money, name, text, written
@@ -181,15 +181,26 @@ def at_segment(items, index):
     return next((item for item in items if item.index == index), None)
 
 
-class Service:
-    """One service line (loop 2110)."""
+class _LoopView:
+    """A loop of the facade over its table: `_rows` holds the loop's rows and
+    `_loop` is the name `under` takes to find what hangs below one."""
+
+    _rows: ClassVar[str]
+    _loop: ClassVar[str]
 
     def __init__(self, tables: Dict[str, Rows], document: Optional[Document], at: int, file_path: str) -> None:
         self._t, self._d, self._at, self._file_path = tables, document, at, file_path
-        self._row = tables["rows"]["row"][at]
+        self._row = tables[self._rows]["row"][at]
 
     def _under(self, table):
-        return self._t[table], self._t[table].under("service", self._row)
+        return self._t[table], self._t[table].under(self._loop, self._row)
+
+
+class Service(_LoopView):
+    """One service line (loop 2110)."""
+
+    _rows = "rows"
+    _loop = "service"
 
     @functools.cached_property
     def service(self) -> ServiceSegment:
@@ -265,15 +276,11 @@ class Service:
         return self._date("service_period_end_segment") or self.service_date
 
 
-class Claim:
+class Claim(_LoopView):
     """One claim (loop 2100) with its services."""
 
-    def __init__(self, tables: Dict[str, Rows], document: Optional[Document], at: int, file_path: str) -> None:
-        self._t, self._d, self._at, self._file_path = tables, document, at, file_path
-        self._row = tables["rows_claims"]["row"][at]
-
-    def _under(self, table):
-        return self._t[table], self._t[table].under("claim", self._row)
+    _rows = "rows_claims"
+    _loop = "claim"
 
     @functools.cached_property
     def claim(self) -> ClaimSegment:

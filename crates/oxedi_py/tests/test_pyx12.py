@@ -86,11 +86,6 @@ def test_the_samples_have_as_many_findings_as_x12valid_reports(name, tmp_path):
     assert all(f.path.startswith("interchange#1") for f in findings)
 
 
-@pytest.mark.parametrize("name", ["edi835_test_united.rmt", "edi835_test_davisvision.RMT"])
-def test_united_and_davisvision_have_no_findings(name):
-    assert validate(read(name)) == []
-
-
 def test_a_finding_points_at_the_bytes_of_its_segment():
     data = read(EYEMED)
     document = oxedi.parse(data).document

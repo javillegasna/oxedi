@@ -3,7 +3,7 @@
 import ast
 import pathlib
 
-from conftest import ALL_FILES, CORE_TESTS, FIXTURES, SAMPLES
+from conftest import ALL_FILES, CORE_TESTS, FIXTURES, PYX12_GOLDEN, SAMPLES, VALIDATED
 
 
 def test_every_fixture_and_sample_is_in_the_lists():
@@ -62,4 +62,16 @@ def test_the_write_lists_name_every_file_but_the_stated_exceptions():
     assert named == expected, (
         f"test_write.py CLEAN + REFUSED vs conftest.py files: "
         f"missing {sorted(expected - named)}, unknown {sorted(named - expected)}"
+    )
+
+
+def test_every_validated_file_has_a_pyx12_golden_and_nothing_else_does():
+    on_disk = {p.name.removesuffix(".json") for p in PYX12_GOLDEN.iterdir()}
+    expected = set(VALIDATED)
+    missing = sorted(expected - on_disk)
+    stale = sorted(on_disk - expected)
+    assert not missing and not stale, (
+        f"tests/golden/pyx12: goldens missing for {missing} "
+        f'(run make sandbox CMD="UPDATE_GOLDEN=1 make py-test"); '
+        f"goldens for no listed file: {stale}"
     )

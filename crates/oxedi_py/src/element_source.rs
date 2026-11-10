@@ -15,7 +15,7 @@ use pyo3_stub_gen::derive::{gen_stub_pyclass, gen_stub_pymethods};
     frozen,
     eq,
     hash,
-    from_py_object
+    skip_from_py_object
 )]
 #[derive(Clone, PartialEq, Eq, Hash)]
 pub struct PyElementSource {

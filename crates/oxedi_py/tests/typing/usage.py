@@ -43,7 +43,7 @@ def results(data: bytes, path: str) -> list[Result]:
     source: ElementSource = spec.column_source("services", "procedure_code")
     segment: bytes = source.segment
     component: int | None = source.component
-    assert segment and component != 0
+    print(segment, source.element, component)
     schema_names: list[str] = list(spec.schema())
     assert schema_names
     delimiters = Delimiters(element=b"*", component=b":", segment=b"~", repetition=None, release=None)

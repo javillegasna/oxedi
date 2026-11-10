@@ -3,13 +3,13 @@ use std::collections::BTreeMap;
 use serde::Serialize;
 use serde_json::{Value, from_value, json, to_value};
 
+use crate::spec::SpecError;
+use crate::spec::model::read_model;
 use crate::spec::{
     Builtin, ColumnModel, ElementModel, ElementPosition, LoopModel, OccurrenceModel, Pick,
     QualifierModel, SegmentModel, Sign, Spec, SpecModel, SummaryModel, SummaryTableModel,
     TermModel, TriggerModel, Usage, test_support,
 };
-use crate::spec::SpecError;
-use crate::spec::model::read_model;
 use crate::value::{ElementType, TypeCodeError};
 
 fn minimal_loop() -> LoopModel {

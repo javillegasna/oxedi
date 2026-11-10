@@ -99,17 +99,29 @@ impl SpecModel {
     }
 }
 
+/// Reads a spec's JSON into its model, naming the path to the rejected key.
+pub(in crate::spec) fn read_model(
+    spec_name: &str,
+    source: &serde_json::Value,
+) -> Result<SpecModel, SpecError> {
+    serde_path_to_error::deserialize::<_, SpecModel>(source).map_err(|err| {
+        SpecError::ModelMismatch {
+            spec_name: spec_name.to_owned(),
+            path: err.path().to_string(),
+            source: err.into_inner(),
+        }
+    })
+}
+
 impl Spec {
     /// The spec as typed data, read from the JSON the loader accepted, so
     /// every loader rule holds for it.
     ///
     /// A failure means the loader and the model disagree on what a spec may
-    /// hold, a bug in oxedi: [`SpecError::ModelMismatch`].
+    /// hold, a bug in oxedi: [`SpecError::ModelMismatch`], whose error names
+    /// the path to the key the model rejected.
     pub fn model(&self) -> Result<SpecModel, SpecError> {
-        SpecModel::deserialize(&self.source).map_err(|source| SpecError::ModelMismatch {
-            spec_name: self.name.clone(),
-            source,
-        })
+        read_model(&self.name, &self.source)
     }
 
     /// Loads a spec from its model: the model is written to JSON and loaded

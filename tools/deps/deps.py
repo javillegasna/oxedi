@@ -21,7 +21,7 @@ from pathlib import Path
 # The normal dependencies of each published crate, workspace members included. Adding a
 # dependency to a crate's [dependencies] means adding it here, in the same change, after review.
 ALLOWED_CRATES = {
-    "oxedi_core": ["hmac", "serde", "serde_json", "sha2"],
+    "oxedi_core": ["hmac", "serde", "serde_json", "serde_path_to_error", "sha2"],
     "oxedi_py": [
         "arrow-array",
         "arrow-buffer",

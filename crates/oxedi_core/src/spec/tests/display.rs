@@ -1,6 +1,7 @@
 //! The full text of every error and diagnostic.
 
 use super::element_error;
+use crate::spec::model::read_model;
 use crate::spec::raw::{RawColumn, RawLoop, RawSpec, RawSummary, RawTable};
 use crate::spec::*;
 use crate::value::ElementType;
@@ -34,17 +35,14 @@ fn schema_error_displays_the_loop_and_the_serde_message() {
 }
 
 #[test]
-fn model_mismatch_displays_the_spec_the_serde_message_and_that_it_is_a_bug() {
-    let err = SpecError::ModelMismatch {
-        spec_name: "835".into(),
-        source: serde_json::from_value::<SpecModel>(serde_json::json!(1)).unwrap_err(),
-    };
+fn model_mismatch_displays_the_spec_the_path_the_serde_message_and_that_it_is_a_bug() {
+    let err = read_model("t", &serde_json::json!({"name": "t", "loops": {"A": 1}})).unwrap_err();
     assert_eq!(
         err.to_string(),
-        "the loaded spec \"835\" and its typed model disagree: invalid type: integer `1`, \
-         expected a spec object with \"name\" and \"loops\"; this is a bug in oxedi, please \
-         report it"
+        "the loaded spec \"t\" and its typed model disagree at loops.A: invalid type: integer \
+         `1`, expected a loop object; this is a bug in oxedi, please report it"
     );
+    assert!(std::error::Error::source(&err).is_none());
 }
 
 #[test]
@@ -364,6 +362,7 @@ fn no_spec_error_chains_its_source() {
     };
     let mismatch = SpecError::ModelMismatch {
         spec_name: "t".into(),
+        path: ".".into(),
         source: json_error("{"),
     };
     for err in [

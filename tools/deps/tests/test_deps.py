@@ -18,6 +18,7 @@ CORE_TREE = """oxedi_core v0.6.0 (/repo/crates/oxedi_core)
 hmac v0.12.1
 serde v1.0.229
 serde_json v1.0.151
+serde_path_to_error v0.1.20
 sha2 v0.10.9
 """
 
@@ -68,7 +69,7 @@ class Crates(unittest.TestCase):
         self.assertEqual(
             done.stderr.strip(),
             "deps-check: oxedi_core: normal dependency `pprof` is not in the allowed list "
-            "(hmac, serde, serde_json, sha2); a development tool belongs in [dev-dependencies], "
+            "(hmac, serde, serde_json, serde_path_to_error, sha2); a development tool belongs in [dev-dependencies], "
             "and a real new dependency needs review and an entry in ALLOWED_CRATES of "
             "tools/deps/deps.py",
         )
@@ -84,7 +85,7 @@ class Crates(unittest.TestCase):
         )
 
     def test_the_crate_itself_on_the_first_line_is_not_a_dependency(self):
-        self.assertEqual(deps.tree_dependencies(CORE_TREE), ["hmac", "serde", "serde_json", "sha2"])
+        self.assertEqual(deps.tree_dependencies(CORE_TREE), ["hmac", "serde", "serde_json", "serde_path_to_error", "sha2"])
         self.assertEqual(deps.crate_findings("oxedi_core", ["oxedi_core"], []), [])
 
     def test_a_cargo_failure_is_reported_as_a_check_that_could_not_run(self):

@@ -8,6 +8,8 @@ use crate::spec::{
     QualifierModel, SegmentModel, Sign, Spec, SpecModel, SummaryModel, SummaryTableModel,
     TermModel, TriggerModel, Usage, test_support,
 };
+use crate::spec::SpecError;
+use crate::spec::model::read_model;
 use crate::value::{ElementType, TypeCodeError};
 
 fn minimal_loop() -> LoopModel {
@@ -392,4 +394,24 @@ fn an_unknown_element_key_is_refused_with_the_keys_it_takes() {
             )
         );
     }
+}
+
+#[test]
+fn a_model_mismatch_names_the_path_to_the_rejected_key() {
+    let source = json!({
+        "name": "t",
+        "loops": {},
+        "tables": {"t": {"loops": ["A"], "columns": {"c": {"pick": true}}}}
+    });
+    let err = read_model("t", &source).unwrap_err();
+    let SpecError::ModelMismatch { path, .. } = &err else {
+        panic!("expected a model mismatch, found {err:?}");
+    };
+    assert_eq!(path, "tables.t.columns.c.pick");
+    assert_eq!(
+        err.to_string(),
+        "the loaded spec \"t\" and its typed model disagree at tables.t.columns.c.pick: \
+         \"pick\" must be \"first\", \"last\" or a 1-based position; found true; this is a bug \
+         in oxedi, please report it"
+    );
 }

@@ -73,12 +73,38 @@ fn columns_fill_from_the_first_matching_segment_and_rows_close_with_their_loop()
     );
 }
 
+/// Sets the column offset limit and puts the previous one back when dropped,
+/// also when the test panics.
+struct OffsetLimit(usize);
+
+impl OffsetLimit {
+    fn set(limit: usize) -> OffsetLimit {
+        OffsetLimit(crate::column::OFFSET_LIMIT.with(|l| l.replace(limit)))
+    }
+}
+
+impl Drop for OffsetLimit {
+    fn drop(&mut self) {
+        crate::column::OFFSET_LIMIT.with(|l| l.set(self.0));
+    }
+}
+
+#[test]
+fn offset_limit_guard_restores_the_previous_limit() {
+    let before = crate::column::OFFSET_LIMIT.with(|l| l.get());
+    let result = std::panic::catch_unwind(|| {
+        let _l = OffsetLimit::set(3);
+        panic!("inside")
+    });
+    assert!(result.is_err());
+    assert_eq!(crate::column::OFFSET_LIMIT.with(|l| l.get()), before);
+}
+
 #[test]
 fn a_text_value_past_the_column_limit_is_reported_and_its_cell_is_null() {
     let spec = spec();
-    crate::column::OFFSET_LIMIT.with(|limit| limit.set(6));
+    let _limit = OffsetLimit::set(6);
     let (tables, diagnostics) = project(&spec, "HD*ABCD~TR~HD*EFGH~TR~");
-    crate::column::OFFSET_LIMIT.with(|limit| limit.set(i32::MAX as usize));
     assert_eq!(
         rows(&tables, "heads"),
         vec![
@@ -99,9 +125,8 @@ fn a_text_value_past_the_column_limit_is_reported_and_its_cell_is_null() {
 #[test]
 fn a_text_value_past_the_limit_in_a_segment_row_is_reported() {
     let spec = spec();
-    crate::column::OFFSET_LIMIT.with(|limit| limit.set(3));
+    let _limit = OffsetLimit::set(3);
     let (tables, diagnostics) = project(&spec, "HD*A~CL*C*1~AJ*CO*X*1~AJ*CO*Y*2~TR~");
-    crate::column::OFFSET_LIMIT.with(|limit| limit.set(i32::MAX as usize));
     assert_eq!(
         rows(&tables, "adjustments")[1..],
         [

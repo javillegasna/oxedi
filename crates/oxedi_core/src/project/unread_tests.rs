@@ -187,11 +187,11 @@ const TYPED_SPEC: &str = r#"{"name":"typed",
     }
 }"#;
 
-/// Projects `input` with the typed spec read by its tables and without them,
+/// Projects `input` with the spec read by its tables and without them,
 /// asserts both give the same diagnostics, and returns them.
-fn typed_parity(input: &str) -> Vec<Diagnostic> {
-    let read_spec = Spec::from_json(TYPED_SPEC).unwrap();
-    let bare = without_tables(TYPED_SPEC);
+fn parity(spec_json: &str, input: &str) -> Vec<Diagnostic> {
+    let read_spec = Spec::from_json(spec_json).unwrap();
+    let bare = without_tables(spec_json);
     let (_, read) = project(&read_spec, input);
     let (_, unread) = project(&bare, input);
     assert_eq!(rendered(&unread), rendered(&read));
@@ -244,7 +244,7 @@ fn implied_decimals_n0_to_n9_raise_the_same_diagnostics_read_or_unread() {
         NA*1*-1*12345*-12345*0*123456*7*-1*99999*5~\
         NA*1.2*+12*1 2*A*-*12-*--1*.5*1:2*ZZ~\
         TR~";
-    let diagnostics = typed_parity(input);
+    let diagnostics = parity(TYPED_SPEC, input);
     let found = kinds(&diagnostics);
     assert_eq!(
         found
@@ -275,7 +275,7 @@ fn r_with_a_custom_scale_raises_the_same_diagnostics_read_or_unread() {
         RS*1.5*1.2345*1.1234567890123456789*1.234~\
         RS*-*.*1e3*+1~\
         TR~";
-    let diagnostics = typed_parity(input);
+    let diagnostics = parity(TYPED_SPEC, input);
     let found = kinds(&diagnostics);
     // Row 3: three short values and 1.2345, which scale 3 does not parse.
     assert!(found.contains(&("LengthOutOfRange", Some(1), None)));
@@ -312,7 +312,7 @@ fn typed_composite_components_raise_the_same_diagnostics_read_or_unread() {
         CP*AB:12:12:20240101:1200:ab:EXTRA~\
         CP*~\
         TR~";
-    let diagnostics = typed_parity(input);
+    let diagnostics = parity(TYPED_SPEC, input);
     let found = kinds(&diagnostics);
     assert!(found.contains(&("RequiredElementMissing", Some(1), Some(1))));
     assert!(found.contains(&("CompositeShape", Some(1), Some(7))));
@@ -338,7 +338,7 @@ fn lengths_at_and_one_past_each_bound_raise_the_same_diagnostics_read_or_unread(
         TX*abcde*ABCDE*20240101*1230451~\
         TX***~\
         TR~";
-    let diagnostics = typed_parity(input);
+    let diagnostics = parity(TYPED_SPEC, input);
     assert_eq!(
         kinds(&diagnostics),
         vec![
@@ -426,16 +426,6 @@ const CODED_SPEC: &str = r#"{"name":"coded",
     }
 }"#;
 
-fn coded_parity(input: &str) -> Vec<Diagnostic> {
-    let read_spec = Spec::from_json(CODED_SPEC).unwrap();
-    let bare = without_tables(CODED_SPEC);
-    let (_, read) = project(&read_spec, input);
-    let (_, unread) = project(&bare, input);
-    assert_eq!(rendered(&unread), rendered(&read));
-    assert_eq!(unread, read);
-    read
-}
-
 #[test]
 fn values_outside_their_code_list_raise_the_same_diagnostic_read_or_unread() {
     let input = "HD~\
@@ -446,7 +436,7 @@ fn values_outside_their_code_list_raise_the_same_diagnostic_read_or_unread() {
         PX*ZZ:99213~\
         PX*AD~\
         TR~";
-    let diagnostics = coded_parity(input);
+    let diagnostics = parity(CODED_SPEC, input);
     assert_eq!(
         rendered(&diagnostics),
         vec![
@@ -469,7 +459,7 @@ fn a_value_that_fails_its_type_or_length_is_not_also_reported_against_its_codes(
         PX*~\
         PX*:1~\
         TR~";
-    let diagnostics = coded_parity(input);
+    let diagnostics = parity(CODED_SPEC, input);
     assert_eq!(
         kinds(&diagnostics),
         vec![
@@ -545,16 +535,6 @@ const OCCURRENCE_SPEC: &str = r#"{"name":"occurrence codes",
     }
 }"#;
 
-fn occurrence_parity(input: &str) -> Vec<Diagnostic> {
-    let read_spec = Spec::from_json(OCCURRENCE_SPEC).unwrap();
-    let bare = without_tables(OCCURRENCE_SPEC);
-    let (_, read) = project(&read_spec, input);
-    let (_, unread) = project(&bare, input);
-    assert_eq!(rendered(&unread), rendered(&read));
-    assert_eq!(unread, read);
-    read
-}
-
 #[test]
 fn an_occurrence_list_replaces_the_element_list_read_or_unread() {
     // `NM*QC*2` is valid for the element but not for `patient`; `NM*IL*2`
@@ -568,7 +548,7 @@ fn an_occurrence_list_replaces_the_element_list_read_or_unread() {
         DT*150*20240101~\
         DT*472*20240101~\
         TR~";
-    let diagnostics = occurrence_parity(input);
+    let diagnostics = parity(OCCURRENCE_SPEC, input);
     assert_eq!(
         rendered(&diagnostics),
         vec![

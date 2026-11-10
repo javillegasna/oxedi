@@ -16,6 +16,7 @@ __all__ = [
     "Diagnostic",
     "Document",
     "EDI_835_PARSER_PATCH",
+    "ElementSource",
     "Envelope",
     "Mask",
     "ParseError",
@@ -173,6 +174,34 @@ class Document:
         """
     def __repr__(self) -> builtins.str: ...
     def __getitem__(self, index: builtins.int, /) -> Segment: ...
+
+@typing.final
+class ElementSource:
+    r"""
+    Where a table column reads its value: one element, or one component of it,
+    of a segment.
+    """
+    @property
+    def segment(self) -> bytes:
+        r"""
+        The id of the segment the column reads, such as `b"CLP"`; for a named
+        occurrence, the occurrence's segment; in a table with `segment`, that
+        segment.
+        """
+    @property
+    def element(self) -> builtins.int:
+        r"""
+        The 1-based element position.
+        """
+    @property
+    def component(self) -> typing.Optional[builtins.int]:
+        r"""
+        The 1-based component position, when the column reads one component of
+        a composite.
+        """
+    def __eq__(self, other: builtins.object, /) -> builtins.bool: ...
+    def __hash__(self) -> builtins.int: ...
+    def __repr__(self) -> builtins.str: ...
 
 @typing.final
 class Envelope:
@@ -435,6 +464,13 @@ class Spec:
     def loops(self) -> builtins.list[builtins.str]:
         r"""
         The loop names, in spec order.
+        """
+    def column_source(self, table: builtins.str, column: builtins.str) -> ElementSource:
+        r"""
+        Where column `column` of table `table` reads its value, as the spec
+        compiled it. Raises `KeyError` for a table or column the spec does not
+        declare, and `ValueError` for a column that reads a segment index or an
+        element of a repeated group, which has no single element.
         """
     def __repr__(self) -> builtins.str: ...
 

@@ -185,3 +185,100 @@ def test_a_given_spec_is_used_as_given():
     assert "CodeNotInList" not in [d.kind for d in oxedi.parse(data).diagnostics]
     streamed = [d.kind for b in oxedi.stream(data, spec=Spec.builtin()) for d in b.diagnostics]
     assert streamed.count("CodeNotInList") == 2
+
+
+def _patched(patch):
+    return lambda: Spec.builtin().patch(patch)
+
+
+@pytest.mark.parametrize(
+    ("make_spec", "table", "column", "expected"),
+    [
+        (Spec.builtin, "claims", "claim_id", (b"CLP", 1, None)),
+        (Spec.builtin, "claims", "patient_last_name", (b"NM1", 3, None)),
+        (Spec.builtin, "payments", "payer_name", (b"N1", 2, None)),
+        (Spec.builtin, "services", "procedure_code", (b"SVC", 1, 2)),
+        (Spec.builtin, "adjustments", "group_code", (b"CAS", 1, None)),
+        (
+            _patched(
+                {
+                    "tables": {
+                        "services": {
+                            "columns": {
+                                "claim_id": {
+                                    "loop": "2100",
+                                    "occurrence": "claim_payment_information",
+                                    "element": 1,
+                                }
+                            }
+                        }
+                    }
+                }
+            ),
+            "services",
+            "claim_id",
+            (b"CLP", 1, None),
+        ),
+    ],
+)
+def test_column_source_names_the_segment_element_and_component(make_spec, table, column, expected):
+    source = make_spec().column_source(table, column)
+    assert (source.segment, source.element, source.component) == expected
+
+
+def test_a_column_source_is_a_frozen_value():
+    a = Spec.builtin().column_source("services", "procedure_code")
+    again = Spec.builtin().column_source("services", "procedure_code")
+    assert repr(a) == "ElementSource(segment=b'SVC', element=1, component=2)"
+    assert a == again
+    assert hash(a) == hash(again)
+    assert isinstance(a, oxedi.ElementSource)
+    with pytest.raises(AttributeError):
+        a.element = 3
+
+
+@pytest.mark.parametrize(
+    ("make_spec", "table", "column", "error", "text"),
+    [
+        (
+            Spec.builtin,
+            "claim",
+            "claim_id",
+            KeyError,
+            'Spec.column_source("claim", "claim_id"): the spec defines no table "claim"; '
+            'pass one of its tables: "adjustments", "claims", "payments", '
+            '"provider_adjustments", "services"',
+        ),
+        (
+            Spec.builtin,
+            "services",
+            "code",
+            KeyError,
+            'Spec.column_source("services", "code"): table "services" declares no column "code"; '
+            'pass one of its columns: "allowed_amount", "charge_amount", '
+            '"line_item_control_number", "original_units", "payment_amount", '
+            '"procedure_code", "procedure_qualifier", "service_date", "units_paid"',
+        ),
+        (
+            _patched({"tables": {"claims": {"columns": {"clp_segment": {"segment": "CLP", "segment_index": True}}}}}),
+            "claims",
+            "clp_segment",
+            ValueError,
+            'Spec.column_source("claims", "clp_segment"): column "clp_segment" of table "claims" '
+            "holds the index of a CLP segment, not an element; ask for a column that reads an element",
+        ),
+        (
+            Spec.builtin,
+            "adjustments",
+            "reason_code",
+            ValueError,
+            'Spec.column_source("adjustments", "reason_code"): column "reason_code" of table '
+            '"adjustments" reads offset 0 of each repeated element group, so its element changes '
+            "from row to row; ask for a column that reads one fixed element",
+        ),
+    ],
+)
+def test_column_source_refuses_with_the_call_what_and_what_to_do(make_spec, table, column, error, text):
+    with pytest.raises(error) as info:
+        make_spec().column_source(table, column)
+    assert info.value.args[0] == text

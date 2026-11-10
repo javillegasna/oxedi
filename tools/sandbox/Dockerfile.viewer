@@ -1,5 +1,5 @@
-# The image the viewer's checks run in: the base sandbox image plus Node, Chromium and the wasm
-# tools. Every input is pinned: Node by version and SHA-256, wasm-bindgen and binaryen by the
+# The image the viewer's checks run in: the base sandbox image plus Node, Bun, Chromium and the
+# wasm tools. Every input is pinned: Node and Bun by version and SHA-256, wasm-bindgen and binaryen by the
 # version and SHA-256 of crates/oxedi_wasm/scripts/install_tools.sh, Playwright by hash
 # (playwright.txt), and the Chromium it installs by the SHA-256 of its installed tree. The wasm
 # and Playwright arguments come from `make sandbox-image-viewer` (viewer_image.py reads them from
@@ -12,6 +12,8 @@ FROM ${BASE_IMAGE}
 ARG TARGETARCH
 ARG NODE_VERSION=24.22.1
 ARG NODE_SHA256=6c172a9ab6718f7b801fb5a7bd486af2ee5e32758086a04b84fcce2aa77095e6
+ARG BUN_VERSION=1.4.4
+ARG BUN_SHA256=bf8ccbfb2b0b80159e0f9a6d15c55317add8077534dbc6130a3edb52fccb395c
 ARG WASM_BINDGEN_VERSION
 ARG WASM_BINDGEN_SHA256
 ARG BINARYEN_VERSION
@@ -39,6 +41,12 @@ RUN set -eu; \
     tar -xJf "/tmp/$node.tar.xz" -C /opt/node --strip-components=1; \
     ln -s /opt/node/bin/node /usr/local/bin/node; \
     rm "/tmp/$node.tar.xz"; \
+    curl --proto '=https' --tlsv1.2 -fsSL -o /tmp/bun.zip \
+      "https://github.com/oven-sh/bun/releases/download/bun-v$BUN_VERSION/bun-linux-x64.zip"; \
+    echo "$BUN_SHA256  /tmp/bun.zip" | sha256sum -c -; \
+    python3 -I -m zipfile -e /tmp/bun.zip /tmp/bun; \
+    install -m 0755 /tmp/bun/bun-linux-x64/bun /usr/local/bin/bun; \
+    rm -r /tmp/bun.zip /tmp/bun; \
     rustup target add wasm32-unknown-unknown; \
     bindgen="wasm-bindgen-$WASM_BINDGEN_VERSION-x86_64-unknown-linux-musl"; \
     curl --proto '=https' --tlsv1.2 -fsSL -o /tmp/bindgen.tar.gz \
@@ -78,6 +86,7 @@ ENV OXEDI_CHROMIUM_NO_SANDBOX=1
 RUN dpkg-query -W > /usr/share/oxedi-sandbox.manifest
 LABEL org.opencontainers.image.title="oxedi-sandbox-viewer" \
       oxedi.sandbox.node="$NODE_VERSION" \
+      oxedi.sandbox.bun="$BUN_VERSION" \
       oxedi.sandbox.playwright="$PLAYWRIGHT_VERSION" \
       oxedi.sandbox.wasm-bindgen="$WASM_BINDGEN_VERSION" \
       oxedi.sandbox.binaryen="$BINARYEN_VERSION"

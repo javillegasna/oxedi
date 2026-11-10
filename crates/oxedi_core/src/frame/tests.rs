@@ -6,48 +6,56 @@ fn with_release() -> Delimiters {
     plain().with_release(b'?')
 }
 
+/// Asserts the frame's raw, body and terminator flag and the rest of the input in one comparison.
+fn assert_frame(
+    got: Option<(Frame<'_>, &[u8])>,
+    raw: &[u8],
+    body: &[u8],
+    terminated: bool,
+    rest: &[u8],
+) {
+    let (frame, tail) = got.unwrap();
+    assert_eq!(
+        (frame.raw, frame.body, frame.terminated, tail),
+        (raw, body, terminated, rest)
+    );
+}
+
 #[test]
 fn splits_at_the_terminator() {
-    let (frame, rest) = next_frame(b"ST*835~BPR~", &plain()).unwrap();
-    assert_eq!(frame.raw, b"ST*835~");
-    assert_eq!(frame.body, b"ST*835");
-    assert!(frame.terminated);
-    assert_eq!(rest, b"BPR~");
+    assert_frame(
+        next_frame(b"ST*835~BPR~", &plain()),
+        b"ST*835~",
+        b"ST*835",
+        true,
+        b"BPR~",
+    );
 }
 
 #[test]
 fn leading_trivia_belongs_to_raw_not_body() {
-    let (frame, rest) = next_frame(b"\r\n GS*HP~", &plain()).unwrap();
-    assert_eq!(frame.raw, b"\r\n GS*HP~");
-    assert_eq!(frame.body, b"GS*HP");
-    assert_eq!(rest, b"");
+    assert_frame(
+        next_frame(b"\r\n GS*HP~", &plain()),
+        b"\r\n GS*HP~",
+        b"GS*HP",
+        true,
+        b"",
+    );
 }
 
 #[test]
 fn unterminated_tail_is_a_frame() {
-    let (frame, rest) = next_frame(b"SE*5", &plain()).unwrap();
-    assert_eq!(frame.raw, b"SE*5");
-    assert_eq!(frame.body, b"SE*5");
-    assert!(!frame.terminated);
-    assert_eq!(rest, b"");
+    assert_frame(next_frame(b"SE*5", &plain()), b"SE*5", b"SE*5", false, b"");
 }
 
 #[test]
 fn trivia_only_tail_is_a_frame_with_empty_body() {
-    let (frame, rest) = next_frame(b"\n", &plain()).unwrap();
-    assert_eq!(frame.raw, b"\n");
-    assert_eq!(frame.body, b"");
-    assert!(!frame.terminated);
-    assert_eq!(rest, b"");
+    assert_frame(next_frame(b"\n", &plain()), b"\n", b"", false, b"");
 }
 
 #[test]
 fn empty_segment_is_a_frame() {
-    let (frame, rest) = next_frame(b"~SE~", &plain()).unwrap();
-    assert_eq!(frame.raw, b"~");
-    assert_eq!(frame.body, b"");
-    assert!(frame.terminated);
-    assert_eq!(rest, b"SE~");
+    assert_frame(next_frame(b"~SE~", &plain()), b"~", b"", true, b"SE~");
 }
 
 #[test]
@@ -73,20 +81,24 @@ fn dangling_release_at_end_does_not_panic() {
 
 #[test]
 fn a_leading_byte_order_mark_is_trivia_of_the_first_frame() {
-    let (frame, rest) = first_frame(b"\xEF\xBB\xBF\r\nISA*00~GS~", &plain()).unwrap();
-    assert_eq!(frame.raw, b"\xEF\xBB\xBF\r\nISA*00~");
-    assert_eq!(frame.body, b"ISA*00");
-    assert!(frame.terminated);
-    assert_eq!(rest, b"GS~");
+    assert_frame(
+        first_frame(b"\xEF\xBB\xBF\r\nISA*00~GS~", &plain()),
+        b"\xEF\xBB\xBF\r\nISA*00~",
+        b"ISA*00",
+        true,
+        b"GS~",
+    );
 }
 
 #[test]
 fn a_byte_order_mark_alone_is_a_trivia_only_frame() {
-    let (frame, rest) = first_frame(b"\xEF\xBB\xBF", &plain()).unwrap();
-    assert_eq!(frame.raw, b"\xEF\xBB\xBF");
-    assert_eq!(frame.body, b"");
-    assert!(!frame.terminated);
-    assert_eq!(rest, b"");
+    assert_frame(
+        first_frame(b"\xEF\xBB\xBF", &plain()),
+        b"\xEF\xBB\xBF",
+        b"",
+        false,
+        b"",
+    );
 }
 
 #[test]

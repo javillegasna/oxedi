@@ -1,5 +1,5 @@
-//! A small spec with four tables, shared by the unit tests of the spec and the
-//! projector.
+//! Small specs shared by the unit tests: a four-table spec for the spec and the
+//! projector, and a three-loop nested spec for the engine and the tree.
 
 use super::Spec;
 
@@ -64,4 +64,14 @@ pub(crate) const SPEC: &str = r#"{"name":"t",
 
 pub(crate) fn spec() -> Spec {
     Spec::from_json(SPEC).unwrap()
+}
+
+pub(crate) const NESTED: &str = r#"{"name":"t","loops":{
+    "A":{"trigger":{"segment":"AA"},"occurrences":{"aa":{"segment":"AA","pos":0},"a1":{"segment":"A1","pos":1}},"end":"AE"},
+    "B":{"parent":"A","trigger":{"segment":"BB"},"occurrences":{"bb":{"segment":"BB","pos":0},"b1":{"segment":"B1","pos":1}}},
+    "C":{"parent":"B","trigger":{"segment":"CC","where":{"1":"X"}},"occurrences":{"cc":{"segment":"CC","pos":0},"c1":{"segment":"C1","pos":1}}}
+}}"#;
+
+pub(crate) fn nested() -> Spec {
+    Spec::from_json(NESTED).unwrap()
 }

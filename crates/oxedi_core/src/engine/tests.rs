@@ -1,15 +1,6 @@
 use super::*;
+use crate::spec::test_support::nested;
 use crate::{Delimiters, Spec, Tokenizer};
-
-const TINY: &str = r#"{"name":"t","loops":{
-    "A":{"trigger":{"segment":"AA"},"occurrences":{"aa":{"segment":"AA","pos":0},"a1":{"segment":"A1","pos":1}},"end":"AE"},
-    "B":{"parent":"A","trigger":{"segment":"BB"},"occurrences":{"bb":{"segment":"BB","pos":0},"b1":{"segment":"B1","pos":1}}},
-    "C":{"parent":"B","trigger":{"segment":"CC","where":{"1":"X"}},"occurrences":{"cc":{"segment":"CC","pos":0},"c1":{"segment":"C1","pos":1}}}
-}}"#;
-
-fn spec() -> Spec {
-    Spec::from_json(TINY).unwrap()
-}
 
 fn segs(input: &[u8]) -> Vec<Segment<'_>> {
     Tokenizer::with_delimiters(input, Delimiters::new(b'*', b':', b'~')).collect()
@@ -27,117 +18,116 @@ fn run<'s>(spec: &'s Spec, input: &[u8]) -> (Vec<Event>, Vec<&'s str>) {
     (last, path)
 }
 
+/// Runs the input and asserts the events of its last segment and the loop path after it.
+fn assert_run(spec: &Spec, input: &[u8], events: Vec<Event>, path: Vec<&str>) {
+    let (got_events, got_path) = run(spec, input);
+    assert_eq!(got_events, events);
+    assert_eq!(got_path, path);
+}
+
 fn id(spec: &Spec, name: &str) -> LoopId {
     spec.loop_id(name).unwrap()
 }
 
+/// The event that opens the loop `name` at `segment`.
+fn opened(spec: &Spec, name: &str, implicit: bool, segment: usize) -> Event {
+    Event::LoopOpened {
+        id: id(spec, name),
+        implicit,
+        segment,
+    }
+}
+
+/// The event that captures `segment` into the loop `name`.
+fn captured(spec: &Spec, name: &str, segment: usize) -> Event {
+    Event::Captured {
+        id: id(spec, name),
+        segment,
+    }
+}
+
 #[test]
 fn trigger_opens_child_and_captures_it() {
-    let spec = spec();
-    let (events, path) = run(&spec, b"AA~");
-    assert_eq!(
-        events,
-        vec![
-            Event::LoopOpened {
-                id: id(&spec, "A"),
-                implicit: false,
-                segment: 0
-            },
-            Event::Captured {
-                id: id(&spec, "A"),
-                segment: 0
-            }
-        ]
+    let spec = nested();
+    assert_run(
+        &spec,
+        b"AA~",
+        vec![opened(&spec, "A", false, 0), captured(&spec, "A", 0)],
+        vec!["A"],
     );
-    assert_eq!(path, vec!["A"]);
 }
 
 #[test]
 fn segment_in_current_loop_is_captured() {
-    let spec = spec();
-    let (events, path) = run(&spec, b"AA~BB~B1~");
-    assert_eq!(
-        events,
-        vec![Event::Captured {
-            id: id(&spec, "B"),
-            segment: 2
-        }]
+    let spec = nested();
+    assert_run(
+        &spec,
+        b"AA~BB~B1~",
+        vec![captured(&spec, "B", 2)],
+        vec!["A", "B"],
     );
-    assert_eq!(path, vec!["A", "B"]);
 }
 
 #[test]
 fn sibling_trigger_closes_and_reopens() {
-    let spec = spec();
-    let (events, path) = run(&spec, b"AA~BB~B1~BB~");
-    assert_eq!(
-        events,
+    let spec = nested();
+    assert_run(
+        &spec,
+        b"AA~BB~B1~BB~",
         vec![
             Event::LoopClosed { id: id(&spec, "B") },
-            Event::LoopOpened {
-                id: id(&spec, "B"),
-                implicit: false,
-                segment: 3
-            },
-            Event::Captured {
-                id: id(&spec, "B"),
-                segment: 3
-            },
-        ]
+            opened(&spec, "B", false, 3),
+            captured(&spec, "B", 3),
+        ],
+        vec!["A", "B"],
     );
-    assert_eq!(path, vec!["A", "B"]);
 }
 
 #[test]
 fn segment_of_an_outer_loop_pops_the_inner() {
-    let spec = spec();
-    let (events, path) = run(&spec, b"AA~BB~CC*X~A1~");
-    assert_eq!(
-        events,
+    let spec = nested();
+    assert_run(
+        &spec,
+        b"AA~BB~CC*X~A1~",
         vec![
             Event::LoopClosed { id: id(&spec, "C") },
             Event::LoopClosed { id: id(&spec, "B") },
-            Event::Captured {
-                id: id(&spec, "A"),
-                segment: 3
-            },
-        ]
+            captured(&spec, "A", 3),
+        ],
+        vec!["A"],
     );
-    assert_eq!(path, vec!["A"]);
 }
 
 #[test]
 fn end_segment_captures_then_closes() {
-    let spec = spec();
-    let (events, path) = run(&spec, b"AA~BB~AE~");
-    assert_eq!(
-        events,
+    let spec = nested();
+    assert_run(
+        &spec,
+        b"AA~BB~AE~",
         vec![
             Event::LoopClosed { id: id(&spec, "B") },
-            Event::Captured {
-                id: id(&spec, "A"),
-                segment: 2
-            },
+            captured(&spec, "A", 2),
             Event::LoopClosed { id: id(&spec, "A") },
-        ]
+        ],
+        vec![],
     );
-    assert!(path.is_empty());
 }
 
 #[test]
 fn unknown_segment_is_unmatched_and_keeps_the_path() {
-    let spec = spec();
-    let (events, path) = run(&spec, b"AA~BB~ZZ*1~");
-    assert_eq!(events, vec![Event::Unmatched { segment: 2 }]);
-    assert_eq!(path, vec!["A", "B"]);
-    let (events, path) = run(&spec, b"ZZ~");
-    assert_eq!(events, vec![Event::Unmatched { segment: 0 }]);
-    assert!(path.is_empty());
+    let spec = nested();
+    assert_run(
+        &spec,
+        b"AA~BB~ZZ*1~",
+        vec![Event::Unmatched { segment: 2 }],
+        vec!["A", "B"],
+    );
+    assert_run(&spec, b"ZZ~", vec![Event::Unmatched { segment: 0 }], vec![]);
 }
 
 #[test]
 fn trigger_condition_must_match() {
-    let spec = spec();
+    let spec = nested();
     let (events, path) = run(&spec, b"AA~BB~CC*Y~");
     assert_eq!(
         events,
@@ -146,61 +136,35 @@ fn trigger_condition_must_match() {
     );
     assert_eq!(path, vec!["A", "B"]);
     let (events, path) = run(&spec, b"AA~BB~CC*X~");
-    assert_eq!(
-        events[0],
-        Event::LoopOpened {
-            id: id(&spec, "C"),
-            implicit: false,
-            segment: 2
-        }
-    );
+    assert_eq!(events[0], opened(&spec, "C", false, 2));
     assert_eq!(path, vec!["A", "B", "C"]);
 }
 
 #[test]
 fn missing_ancestors_open_implicitly() {
-    let spec = spec();
-    let (events, path) = run(&spec, b"CC*X~");
-    assert_eq!(
-        events,
+    let spec = nested();
+    assert_run(
+        &spec,
+        b"CC*X~",
         vec![
-            Event::LoopOpened {
-                id: id(&spec, "A"),
-                implicit: true,
-                segment: 0
-            },
-            Event::LoopOpened {
-                id: id(&spec, "B"),
-                implicit: true,
-                segment: 0
-            },
-            Event::LoopOpened {
-                id: id(&spec, "C"),
-                implicit: false,
-                segment: 0
-            },
-            Event::Captured {
-                id: id(&spec, "C"),
-                segment: 0
-            },
-        ]
+            opened(&spec, "A", true, 0),
+            opened(&spec, "B", true, 0),
+            opened(&spec, "C", false, 0),
+            captured(&spec, "C", 0),
+        ],
+        vec!["A", "B", "C"],
     );
-    assert_eq!(path, vec!["A", "B", "C"]);
     let (events, _) = run(&spec, b"AA~CC*X~");
     assert_eq!(
         events[0],
-        Event::LoopOpened {
-            id: id(&spec, "B"),
-            implicit: true,
-            segment: 1
-        },
+        opened(&spec, "B", true, 1),
         "only the missing ancestor is implicit"
     );
 }
 
 #[test]
 fn finish_closes_everything_innermost_first() {
-    let spec = spec();
+    let spec = nested();
     let mut engine = LoopEngine::new(&spec);
     for segment in &segs(b"AA~BB~CC*X~") {
         engine.feed(segment);
@@ -219,10 +183,13 @@ fn finish_closes_everything_innermost_first() {
 
 #[test]
 fn empty_segment_is_reported_as_empty() {
-    let spec = spec();
-    let (events, path) = run(&spec, b"AA~\n");
-    assert_eq!(events, vec![Event::Empty { segment: 1 }]);
-    assert_eq!(path, vec!["A"]);
+    let spec = nested();
+    assert_run(
+        &spec,
+        b"AA~\n",
+        vec![Event::Empty { segment: 1 }],
+        vec!["A"],
+    );
 }
 
 #[test]
@@ -236,24 +203,17 @@ fn a_reachable_trigger_wins_over_capture_in_the_current_loop() {
         }}"#,
     )
     .unwrap();
-    let (events, path) = run(&spec, b"AA~BB~CC~N1~");
-    assert_eq!(
-        events,
+    assert_run(
+        &spec,
+        b"AA~BB~CC~N1~",
         vec![
             Event::LoopClosed { id: id(&spec, "C") },
             Event::LoopClosed { id: id(&spec, "B") },
-            Event::LoopOpened {
-                id: id(&spec, "D"),
-                implicit: false,
-                segment: 3
-            },
-            Event::Captured {
-                id: id(&spec, "D"),
-                segment: 3
-            },
-        ]
+            opened(&spec, "D", false, 3),
+            captured(&spec, "D", 3),
+        ],
+        vec!["A", "D"],
     );
-    assert_eq!(path, vec!["A", "D"]);
 }
 
 #[test]
@@ -267,28 +227,17 @@ fn implicit_open_keeps_the_nearest_open_ancestor_below_the_top() {
         }}"#,
     )
     .unwrap();
-    let (events, path) = run(&spec, b"AA~BB~TT~");
-    assert_eq!(
-        events,
+    assert_run(
+        &spec,
+        b"AA~BB~TT~",
         vec![
             Event::LoopClosed { id: id(&spec, "B") },
-            Event::LoopOpened {
-                id: id(&spec, "P"),
-                implicit: true,
-                segment: 2
-            },
-            Event::LoopOpened {
-                id: id(&spec, "T"),
-                implicit: false,
-                segment: 2
-            },
-            Event::Captured {
-                id: id(&spec, "T"),
-                segment: 2
-            },
-        ]
+            opened(&spec, "P", true, 2),
+            opened(&spec, "T", false, 2),
+            captured(&spec, "T", 2),
+        ],
+        vec!["A", "P", "T"],
     );
-    assert_eq!(path, vec!["A", "P", "T"]);
 }
 
 #[test]
@@ -302,22 +251,12 @@ fn a_trigger_matching_at_two_depths_opens_under_the_innermost_parent() {
         }}"#,
     )
     .unwrap();
-    let (events, path) = run(&spec, b"AA~BB~XX~");
-    assert_eq!(
-        events,
-        vec![
-            Event::LoopOpened {
-                id: id(&spec, "Y"),
-                implicit: false,
-                segment: 2
-            },
-            Event::Captured {
-                id: id(&spec, "Y"),
-                segment: 2
-            },
-        ]
+    assert_run(
+        &spec,
+        b"AA~BB~XX~",
+        vec![opened(&spec, "Y", false, 2), captured(&spec, "Y", 2)],
+        vec!["A", "B", "Y"],
     );
-    assert_eq!(path, vec!["A", "B", "Y"]);
 }
 
 #[test]
@@ -329,20 +268,17 @@ fn an_end_segment_listed_by_an_inner_loop_is_captured_there_and_closes_nothing()
         }}"#,
     )
     .unwrap();
-    let (events, path) = run(&spec, b"AA~BB~AE~");
-    assert_eq!(
-        events,
-        vec![Event::Captured {
-            id: id(&spec, "B"),
-            segment: 2
-        }]
+    assert_run(
+        &spec,
+        b"AA~BB~AE~",
+        vec![captured(&spec, "B", 2)],
+        vec!["A", "B"],
     );
-    assert_eq!(path, vec!["A", "B"]);
 }
 
 #[test]
 fn feeding_after_finish_behaves_like_a_fresh_engine() {
-    let spec = spec();
+    let spec = nested();
     let segments = segs(b"AA~BB~CC*X~");
     let mut fresh = LoopEngine::new(&spec);
     let expected: Vec<Vec<Event>> = segments
@@ -371,9 +307,9 @@ fn an_event_stays_three_words() {
 
 #[test]
 fn every_explicit_opening_names_its_own_trigger() {
-    let spec = spec();
+    let spec = nested();
     let mut engine = LoopEngine::new(&spec);
-    let opened: Vec<(&str, bool, usize)> = segs(b"AA~BB~B1~BB~CC*X~")
+    let openings: Vec<(&str, bool, usize)> = segs(b"AA~BB~B1~BB~CC*X~")
         .iter()
         .flat_map(|segment| engine.feed(segment).to_vec())
         .filter_map(|event| match event {
@@ -386,7 +322,7 @@ fn every_explicit_opening_names_its_own_trigger() {
         })
         .collect();
     assert_eq!(
-        opened,
+        openings,
         vec![
             ("A", false, 0),
             ("B", false, 1),
@@ -398,7 +334,7 @@ fn every_explicit_opening_names_its_own_trigger() {
 
 #[test]
 fn feed_returns_the_events_of_that_call_only() {
-    let spec = spec();
+    let spec = nested();
     let mut engine = LoopEngine::new(&spec);
     let segments = segs(b"AA~A1~");
     assert_eq!(engine.feed(&segments[0]).len(), 2);

@@ -11,14 +11,19 @@ fn json_error(text: &str) -> serde_json::Error {
     serde_json::from_str::<Value>(text).unwrap_err()
 }
 
+/// Pins an error's full `Display` text and that it chains no source.
+fn assert_displays_without_source(err: &SpecError, text: &str) {
+    assert_eq!(err.to_string(), text);
+    assert!(std::error::Error::source(err).is_none());
+}
+
 #[test]
 fn json_error_displays_the_parser_message() {
     let err = SpecError::Json(json_error("{"));
-    assert_eq!(
-        err.to_string(),
-        "invalid spec JSON: EOF while parsing an object at line 1 column 1"
+    assert_displays_without_source(
+        &err,
+        "invalid spec JSON: EOF while parsing an object at line 1 column 1",
     );
-    assert!(std::error::Error::source(&err).is_none());
 }
 
 #[test]
@@ -27,22 +32,20 @@ fn schema_error_displays_the_loop_and_the_serde_message() {
         loop_name: Some("2100".into()),
         source: serde_json::from_value::<RawLoop>(serde_json::json!(1)).unwrap_err(),
     };
-    assert_eq!(
-        err.to_string(),
-        "loop \"2100\" does not match the schema: invalid type: integer `1`, expected a loop object"
+    assert_displays_without_source(
+        &err,
+        "loop \"2100\" does not match the schema: invalid type: integer `1`, expected a loop object",
     );
-    assert!(std::error::Error::source(&err).is_none());
 }
 
 #[test]
 fn model_mismatch_displays_the_spec_the_path_the_serde_message_and_that_it_is_a_bug() {
     let err = read_model("t", &serde_json::json!({"name": "t", "loops": {"A": 1}})).unwrap_err();
-    assert_eq!(
-        err.to_string(),
+    assert_displays_without_source(
+        &err,
         "the loaded spec \"t\" and its typed model disagree at loops.A: invalid type: integer \
-         `1`, expected a loop object; this is a bug in oxedi, please report it"
+         `1`, expected a loop object; this is a bug in oxedi, please report it",
     );
-    assert!(std::error::Error::source(&err).is_none());
 }
 
 #[test]

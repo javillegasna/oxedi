@@ -686,9 +686,9 @@ target may only shrink. Two checks hold that line:
 - `make complexity` (needs uv) measures CCN and nesting of every Rust, Python and JS function
   outside tests, benches, examples and tooling, with a pinned lizard (Python nesting with the
   `ast` module). It compares the functions over a target (CCN above 7, nesting above 3) with
-  `.github/complexity-baseline.txt`. CI runs it in the Workflows area (see [CI](#ci)). The
-  tool is in `tools/complexity/` (see [tools/README.md](tools/README.md)); its tests run with
-  `.github/scripts/lint.sh`.
+  `.github/complexity-baseline.txt`, and fails on any duplicate block (below). CI runs it in the
+  Workflows area (see [CI](#ci)). The tool is in `tools/complexity/` (see
+  [tools/README.md](tools/README.md)); its tests run with `.github/scripts/lint.sh`.
 
 **What it reports.** Every line says how to resolve it:
 
@@ -701,6 +701,15 @@ target may only shrink. Two checks hold that line:
   target. See [Touch it, fix it](#touch-it-fix-it).
 - `MOVED`: a file was moved or renamed, and a function in it matches its old entry, no worse.
   Run `make complexity-update` to record the new path.
+- `DUPLICATE`: the same code is written in two or more places. Write it once and use it from
+  each place.
+
+**Duplicate code.** `make complexity` also looks for copied code in every tracked Rust, Python
+and JavaScript file, tests, benches, examples and tooling included, with the same pinned lizard
+(its duplicate extension at its default size of 70 tokens). There is no baseline: every block it
+finds fails with a `DUPLICATE` line naming each copy's file and lines. Remove it at its cause: a
+helper or fixture each place calls, a table of cases or `pytest.mark.parametrize`, a shared base
+class. Rewording one copy until it no longer matches does not count.
 
 **Touch it, fix it.** A change that modifies a function listed in the baseline must leave it
 within the targets (CCN 7 or less, nesting 3 or less). The check diffs your change against the

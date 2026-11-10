@@ -7,7 +7,10 @@ use pyo3::types::PyBytes;
 use pyo3_stub_gen::derive::{gen_stub_pyclass, gen_stub_pymethods};
 
 /// Where a table column reads its value: one element, or one component of it,
-/// of a segment.
+/// of a segment. It names only the segment, element and component a column
+/// reads, not the qualifier, loop, occurrence or pick that select which
+/// occurrence of that segment, so two columns reading the same position of
+/// differently qualified segments compare equal.
 #[gen_stub_pyclass(module = "oxedi._core")]
 #[pyclass(
     name = "ElementSource",

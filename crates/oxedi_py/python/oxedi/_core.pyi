@@ -179,7 +179,10 @@ class Document:
 class ElementSource:
     r"""
     Where a table column reads its value: one element, or one component of it,
-    of a segment.
+    of a segment. It names only the segment, element and component a column
+    reads, not the qualifier, loop, occurrence or pick that select which
+    occurrence of that segment, so two columns reading the same position of
+    differently qualified segments compare equal.
     """
     @property
     def segment(self) -> bytes:

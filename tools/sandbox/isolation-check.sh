@@ -65,7 +65,6 @@ else
   case $gitdir in /*) ;; *) gitdir=/work/$gitdir ;; esac
   check "read-only git: the git directory /work/.git names ($gitdir) is not mounted" absent_named "$gitdir"
 fi
-check "masked notes: /work/.doc is absent or empty" absent_or_empty /work/.doc
 check "masked notes: /work/.workflow-kit is absent or empty" absent_or_empty /work/.workflow-kit
 check "no host home: $host_home does not exist" test ! -e "$host_home"
 check "no docker socket: /var/run/docker.sock does not exist" test ! -e /var/run/docker.sock

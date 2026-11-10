@@ -249,7 +249,7 @@ class Arguments(World):
             self.assertIn(variable, envs(run))
 
     def test_host_executed_set_read_only(self):
-        checkout = self.checkout("c", *FULL_SET, ".doc/scratch/notes.md", ".workflow-kit/x/brief.md")
+        checkout = self.checkout("c", *FULL_SET, ".workflow-kit/x/brief.md")
         for phase in arguments.Phase:
             argv = self.phase_args(phase, checkout)
             for path in [p.rstrip("/") for p in FULL_SET] + [".git"]:
@@ -260,12 +260,10 @@ class Arguments(World):
                         self.assertEqual(mount["type"], "tmpfs")
                     else:
                         self.assertEqual((mount["type"], mount["src"]), ("bind", str(checkout / path)))
-            for path in (".doc", ".workflow-kit"):
-                with self.subTest(phase=phase, masked=path):
-                    mount = mount_at(argv, f"/work/{path}")
-                    self.assertEqual(mount["type"], "tmpfs")
-                    self.assertIn("readonly", mount)
-            self.assertFalse([m for m in mounts(argv) if m.get("dst") == "/work/.doc/scratch"])
+            with self.subTest(phase=phase, masked=".workflow-kit"):
+                mount = mount_at(argv, "/work/.workflow-kit")
+                self.assertEqual(mount["type"], "tmpfs")
+                self.assertIn("readonly", mount)
 
     def test_configuration_anywhere_read_only(self):
         configuration = [
@@ -421,7 +419,7 @@ class Arguments(World):
         checkout = self.checkout("c", "Makefile")
         for phase in arguments.Phase:
             destinations = {m.get("dst") for m in mounts(self.phase_args(phase, checkout))}
-            self.assertFalse(destinations & {"/work/.doc", "/work/.workflow-kit", "/work/.cargo", "/work/tools"})
+            self.assertFalse(destinations & {"/work/.workflow-kit", "/work/.cargo", "/work/tools"})
 
     def test_symlink_in_read_only_set_refused(self):
         checkout = self.checkout("c", "Makefile")

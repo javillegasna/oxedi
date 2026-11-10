@@ -167,6 +167,7 @@ Test data comes in three kinds, all under `crates/oxedi_core/tests/`:
   ```bash
   UPDATE_GOLDEN=1 cargo test -p oxedi_core --test engine_golden    # events per file
   UPDATE_GOLDEN=1 cargo test -p oxedi_core --test project_golden   # tables and diagnostics
+  make sandbox CMD="UPDATE_GOLDEN=1 make py-test"                   # pyx12 findings per file (Python suite)
   ```
 
 A new fixture or sample goes in the lists of `crates/oxedi_core/tests/common/mod.rs`

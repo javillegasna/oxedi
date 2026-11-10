@@ -22,6 +22,7 @@ goldens (see below).
 ```bash
 UPDATE_GOLDEN=1 cargo test -p oxedi_core --test engine_golden
 UPDATE_GOLDEN=1 cargo test -p oxedi_core --test project_golden
+make sandbox CMD="UPDATE_GOLDEN=1 make py-test"   # pyx12 findings per file (Python suite)
 git diff crates/oxedi_core/tests/golden   # read it: every change must be intended
 ```
 
@@ -34,6 +35,9 @@ produced, and on a produced one that is missing.
 | `golden/project/` | `project_golden` | Tables (`*.tables.txt`, or `*.tables.summary.txt` for the large samples) and diagnostics (`*.diagnostics.txt`) under the built-in spec. |
 | `golden/project/edi_835_parser/` | `project_golden` | The same tables under the `edi_835_parser.json` patch. |
 | `golden/project/masked/` | `project_golden` | The same, masked with a fixed key and dates reduced to the year; one file also with shifted dates. |
+| `crates/oxedi_py/tests/golden/pyx12/` | `test_pyx12_golden.py` (pytest) | What `oxedi.pyx12.validate` finds in each file but the ISA-less fragment: level, X12 code, segment, element, component, datum and message, in segment order. |
+
+The Python goldens live next to the Python tests so the suite carries them when it runs from a copy. The sandbox audit lists the regenerated files, which is expected; `git add` keeps them.
 
 ## Suites
 

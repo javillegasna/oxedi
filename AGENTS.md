@@ -90,6 +90,7 @@ cargo clippy --workspace --all-targets --locked -- -D warnings
 cargo fmt --all && cargo fmt --all -- --check
 UPDATE_GOLDEN=1 cargo test -p oxedi_core --test engine_golden   # regenerate goldens, then inspect
 UPDATE_GOLDEN=1 cargo test -p oxedi_core --test project_golden  # table and diagnostic goldens
+make sandbox CMD="UPDATE_GOLDEN=1 make py-test"                  # pyx12 findings per file (Python suite)
 cargo bench --workspace                                           # ~5 min; baselines go in commit messages
 ```
 

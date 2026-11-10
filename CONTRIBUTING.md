@@ -341,7 +341,9 @@ path filters; a change under `.github/` runs Rust, and a change to the composite
 when it is marked ready for review. A new push to a pull request cancels its running checks.
 
 `nightly.yml` runs every area on `master` each night, whatever changed, plus the DuckDB
-pre-release leg (`next`), which reports and does not block. Run it by hand from the Actions tab
+pre-release leg (`next`), which reports and does not block. Its `pyx12-next` leg runs the pyx12
+tests against the newest pyx12, also without blocking, and its summary names the installed and
+the pinned versions. Run it by hand from the Actions tab
 when a change needs the full set before merging.
 
 **A pull request from a fork.** Its checks wait for the maintainer's approval before any of them
@@ -357,7 +359,8 @@ build, CI or dependency files (`Makefile`, `make/`, `.github/`, `tools/`, the `C
 `Cargo.lock`, `pyproject.toml`, `build.rs` and `rust-toolchain.toml` files and
 `docs/requirements.txt`) needs the code owner's review, as `.github/CODEOWNERS` says. Dependabot
 refreshes the pinned actions every week and proposes a release only after it has been out for
-seven days (a cooldown).
+seven days (a cooldown). It also proposes the exact pyx12 of the `contributor` group and the docs
+lock in one pull request, which is where the pyx12 goldens are regenerated and read.
 
 `CI result` is the one check to require: it fails when an area failed or was cancelled and
 passes when each one passed or was not needed. Caches are written only from `master`;

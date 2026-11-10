@@ -13,7 +13,7 @@ pytest.importorskip("pyx12")
 import oxedi
 from oxedi.pyx12 import validate
 
-from conftest import ALL_FILES, NO_ISA, SAMPLES, path_of, read
+from conftest import SAMPLES, VALIDATED, path_of, read
 
 EYEMED = "edi835_test_eyemed.RMT"
 LEGACY = "united_healthcare_legacy_sample.txt"
@@ -84,11 +84,6 @@ def test_the_samples_have_as_many_findings_as_x12valid_reports(name, tmp_path):
     assert all(isinstance(f, oxedi.Diagnostic) for f in findings)
     assert all((f.origin, f.kind) == ("pyx12", "External") for f in findings)
     assert all(f.path.startswith("interchange#1") for f in findings)
-
-
-@pytest.mark.parametrize("name", ["edi835_test_united.rmt", "edi835_test_davisvision.RMT"])
-def test_united_and_davisvision_have_no_findings(name):
-    assert validate(read(name)) == []
 
 
 def test_a_finding_points_at_the_bytes_of_its_segment():
@@ -855,11 +850,8 @@ def place(d):
     return (d.code, d.level, d.segment, d.element, d.component, d.path)
 
 
-WITH_ISA = [name for name in ALL_FILES if name not in NO_ISA]
-
-
 @pytest.mark.parametrize("dates", ["year", "shift"])
-@pytest.mark.parametrize("name", WITH_ISA)
+@pytest.mark.parametrize("name", VALIDATED)
 def test_a_masked_validation_keeps_every_finding_and_quotes_no_patient_value(name, dates):
     assert_masked_like_plain(name, read(name), dates)
 

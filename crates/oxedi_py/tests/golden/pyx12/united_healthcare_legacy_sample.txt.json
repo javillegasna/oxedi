@@ -1,0 +1,11 @@
+[
+ {
+  "level": 2,
+  "code": "7",
+  "segment": 15,
+  "element": 2,
+  "component": null,
+  "datum": "NP",
+  "rule": "(NP) is not a valid code for Payee State Code (N402) (ELE_7_invalid_code) (reported by pyx12, code 7)"
+ }
+]

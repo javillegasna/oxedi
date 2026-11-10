@@ -11,6 +11,12 @@ CORE_TESTS = Path(
     )
 )
 GOLDEN = CORE_TESTS / "golden" / "project"
+# The goldens of oxedi.pyx12.validate: next to the tests and not under
+# CORE_TESTS, so they travel with the suite when it runs from a copy.
+PYX12_GOLDEN = Path(__file__).resolve().parent / "golden" / "pyx12"
+
+# How to rewrite the goldens of oxedi.pyx12.validate.
+REGENERATE = 'make sandbox CMD="UPDATE_GOLDEN=1 make py-test"'
 
 FIXTURES = [
     "emedny_sample.txt",
@@ -37,6 +43,8 @@ ALL_FILES = FIXTURES + SAMPLES
 SUMMARY_ONLY = {"edi835_test_united.rmt", "edi835_test_versant.RMT"}
 NO_ISA = {"blue_cross_nc_sample.txt"}
 LARGEST = "edi835_test_united.rmt"
+# The files oxedi.pyx12.validate accepts.
+VALIDATED = [name for name in ALL_FILES if name not in NO_ISA]
 
 
 def path_of(name):
@@ -57,6 +65,10 @@ def delimiters_for(name):
     import oxedi
 
     return oxedi.Delimiters() if name in NO_ISA else None
+
+
+def pyx12_golden(name):
+    return PYX12_GOLDEN / f"{name}.json"
 
 
 def parse_named(name):

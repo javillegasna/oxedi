@@ -1,0 +1,11 @@
+[
+ {
+  "level": 2,
+  "code": "4",
+  "segment": 46,
+  "element": null,
+  "component": null,
+  "datum": "PLB",
+  "rule": "Loop FOOTER exceeded max count.  Found 2, should have 1 (SEG_4_loop_repeat_exceeded) (reported by pyx12, code 4)"
+ }
+]

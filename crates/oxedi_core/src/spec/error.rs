@@ -283,6 +283,9 @@ pub enum SpecError {
     ModelMismatch {
         /// The spec's `name`.
         spec_name: String,
+        /// Where in the spec the model rejected the value: map keys joined by
+        /// `.`, a list item as `[i]` with a 0-based `i`; `.` for the root.
+        path: String,
         /// What serde rejected.
         source: serde_json::Error,
     },
@@ -498,10 +501,14 @@ impl fmt::Display for SpecError {
                  its tables are: {}",
                 known.join(", ")
             ),
-            SpecError::ModelMismatch { spec_name, source } => write!(
+            SpecError::ModelMismatch {
+                spec_name,
+                path,
+                source,
+            } => write!(
                 f,
-                "the loaded spec {spec_name:?} and its typed model disagree: {source}; this is \
-                 a bug in oxedi, please report it"
+                "the loaded spec {spec_name:?} and its typed model disagree at {path}: {source}; \
+                 this is a bug in oxedi, please report it"
             ),
         }
     }

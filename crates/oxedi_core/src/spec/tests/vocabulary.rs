@@ -1,6 +1,7 @@
 use serde_json::{from_str, from_value, json, to_string, to_value};
 
 use crate::mask::Phi;
+use crate::spec::raw::RawPick;
 use crate::spec::vocabulary::{Vocabulary, words_text};
 use crate::spec::*;
 use crate::value::ElementType;
@@ -108,6 +109,14 @@ fn refused<T: serde::de::DeserializeOwned>(value: serde_json::Value) -> String {
     from_value::<T>(value).err().unwrap().to_string()
 }
 
+fn refused_text<T: serde::de::DeserializeOwned>(json: &str) -> String {
+    refused::<T>(from_str(json).unwrap())
+}
+
+fn bad_pick_text(found: &str) -> String {
+    format!("\"pick\" must be \"first\", \"last\" or a 1-based position; found {found}")
+}
+
 #[test]
 fn a_vocabulary_writes_and_reads_its_word() {
     assert_eq!(to_string(&Usage::Required).unwrap(), "\"required\"");
@@ -136,11 +145,40 @@ fn a_pick_writes_and_reads_as_written() {
     assert_eq!(to_value(Pick::Nth(3)).unwrap(), json!(3));
     assert_eq!(read(json!("last")), Pick::Last);
     assert_eq!(read(json!(2)), Pick::Nth(2));
-    let text = |found| {
-        format!("\"pick\" must be \"first\", \"last\" or a 1-based position; found {found}")
-    };
-    assert_eq!(refused::<Pick>(json!("middle")), text("\"middle\""));
-    assert_eq!(refused::<Pick>(json!(0)), text("0"));
+    assert_eq!(
+        refused::<Pick>(json!("middle")),
+        bad_pick_text("\"middle\"")
+    );
+    assert_eq!(refused::<Pick>(json!(0)), bad_pick_text("0"));
+}
+
+#[test]
+fn a_pick_of_any_other_json_value_names_it() {
+    let rows = [
+        ("true", "true"),
+        ("false", "false"),
+        ("-1", "-1"),
+        ("1.5", "1.5"),
+        ("null", "null"),
+        ("[1]", "an array"),
+        ("{}", "an object"),
+        ("18446744073709551616", "18446744073709552000"),
+    ];
+    for (json, found) in rows {
+        assert_eq!(refused_text::<Pick>(json), bad_pick_text(found), "{json}");
+        assert_eq!(
+            refused_text::<RawPick>(json),
+            bad_pick_text(found),
+            "{json}"
+        );
+    }
+}
+
+#[test]
+fn a_null_column_pick_reads_as_absent() {
+    let column =
+        from_value::<ColumnModel>(json!({"occurrence": "clp", "pick": null, "element": 4}));
+    assert_eq!(column.unwrap().pick, None);
 }
 
 #[test]

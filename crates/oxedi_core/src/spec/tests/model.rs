@@ -3,6 +3,8 @@ use std::collections::BTreeMap;
 use serde::Serialize;
 use serde_json::{Value, from_value, json, to_value};
 
+use crate::spec::SpecError;
+use crate::spec::model::read_model;
 use crate::spec::{
     Builtin, ColumnModel, ElementModel, ElementPosition, LoopModel, OccurrenceModel, Pick,
     QualifierModel, SegmentModel, Sign, Spec, SpecModel, SummaryModel, SummaryTableModel,
@@ -392,4 +394,18 @@ fn an_unknown_element_key_is_refused_with_the_keys_it_takes() {
             )
         );
     }
+}
+
+#[test]
+fn a_model_mismatch_names_the_path_to_the_rejected_key() {
+    let source = json!({
+        "name": "t",
+        "loops": {},
+        "tables": {"t": {"loops": ["A"], "columns": {"c": {"pick": true}}}}
+    });
+    let err = read_model("t", &source).unwrap_err();
+    let SpecError::ModelMismatch { path, .. } = &err else {
+        panic!("expected a model mismatch, found {err:?}");
+    };
+    assert_eq!(path, "tables.t.columns.c.pick");
 }

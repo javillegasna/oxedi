@@ -97,10 +97,10 @@ the structure. The Rust bindings (`crates/oxedi_py/src`, `crates/oxedi_duckdb/sr
 &Builtin::select(document.segments()).spec
 ```
 
-**The core stays sans-IO.** `oxedi_core`'s `[dependencies]` are `serde`, `serde_json`, `hmac`
-and `sha2`. Nothing that does I/O, uses threads or needs a runtime. Open an issue before adding
-any dependency to the core. The Python binding holds the only `pyo3` and `arrow-*`
-dependencies, and every binding delegates the work to the core.
+**The core stays sans-IO.** `oxedi_core`'s `[dependencies]` are `serde`, `serde_json`,
+`serde_path_to_error`, `hmac` and `sha2`. Nothing that does I/O, uses threads or needs a runtime.
+Open an issue before adding any dependency to the core. The Python binding holds the only `pyo3`
+and `arrow-*` dependencies, and every binding delegates the work to the core.
 
 **Comments explain the implementation, nothing else.** Comments and doc comments say what the
 code does and why (an invariant, a non-obvious offset, the reason for a choice), or hold a `TODO`

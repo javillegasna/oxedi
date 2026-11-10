@@ -18,7 +18,7 @@ beyond loading that file, and the Rust bindings and the viewer name no 835 segme
 
 | Crate | What it is | Depends on |
 |---|---|---|
-| `crates/oxedi_core` | The parser, checker, projector and writer. Sans-IO: bytes in, values out. | `serde`, `serde_json`, `hmac`, `sha2` |
+| `crates/oxedi_core` | The parser, checker, projector and writer. Sans-IO: bytes in, values out. | `serde`, `serde_json`, `serde_path_to_error`, `hmac`, `sha2` |
 | `crates/oxedi_py` | The Python package `oxedi` (Rust in `src/`, Python in `python/oxedi/`). | core, `pyo3`, `arrow-*` |
 | `crates/oxedi_duckdb` | The DuckDB extension `oxedi`, on DuckDB's C API. | core, `libduckdb-sys` |
 | `crates/oxedi_wasm` | The WebAssembly module of the viewer in `viewer/` (plain JS, no build step). | core, `wasm-bindgen` |

@@ -298,3 +298,64 @@ fn a_built_model_loads() {
         written
     );
 }
+
+#[test]
+fn a_position_key_the_loader_refuses_is_refused_naming_the_map() {
+    type Read = Box<dyn Fn(&str) -> String>;
+    let reads: [(Read, &str); 4] = [
+        (
+            Box::new(|key| {
+                from_value::<TriggerModel>(json!({"segment":"CLP","where":{key:"X"}}))
+                    .unwrap_err()
+                    .to_string()
+            }),
+            "trigger \"where\"",
+        ),
+        (
+            Box::new(|key| {
+                from_value::<ColumnModel>(json!({"segment":"CLP","where":{key:"X"},"element":1}))
+                    .unwrap_err()
+                    .to_string()
+            }),
+            "column \"where\"",
+        ),
+        (
+            Box::new(|key| {
+                from_value::<SegmentModel>(json!({"elements":{key:{"name":"a","type":"AN"}}}))
+                    .unwrap_err()
+                    .to_string()
+            }),
+            "segment \"elements\"",
+        ),
+        (
+            Box::new(|key| {
+                let component = json!({key:{"name":"b","type":"AN"}});
+                let element = json!({"name":"a","type":"AN","composite":component});
+                from_value::<SegmentModel>(json!({"elements":{"1":element}}))
+                    .unwrap_err()
+                    .to_string()
+            }),
+            "element \"composite\"",
+        ),
+    ];
+    for key in ["0", "01", "+1", "x"] {
+        for (read, map) in &reads {
+            assert_eq!(
+                read(key),
+                format!(
+                    "{map} key {key:?} is not a position: positions are 1-based integers written in canonical form"
+                )
+            );
+        }
+    }
+    let trigger = from_value::<TriggerModel>(json!({"segment":"CLP","where":{"10":"X"}}));
+    assert_eq!(
+        trigger.unwrap().conditions,
+        BTreeMap::from([(10, "X".to_string())])
+    );
+    let segment = from_value::<SegmentModel>(json!({"elements":{"12":{"name":"a","type":"AN"}}}));
+    assert_eq!(
+        segment.unwrap().elements.keys().copied().collect::<Vec<_>>(),
+        vec![12]
+    );
+}

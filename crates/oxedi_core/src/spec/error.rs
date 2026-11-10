@@ -6,7 +6,7 @@ use super::balance_error::BalanceError;
 use super::error_text::{Under, write_ambiguous, write_cycle};
 use super::loops::ControlError;
 use super::occurrence_error::OccurrenceError;
-use super::segments::ElementDefError;
+use super::segments::{ElementDefError, POSITION_RULE};
 use super::summary_error::SummaryDefError;
 use super::table_error::TableDefError;
 use super::version::VersionError;
@@ -368,7 +368,7 @@ impl fmt::Display for SpecError {
             } => write!(
                 f,
                 "loop {loop_name:?} has an invalid \"where\" position {position:?}: \
-                 positions are 1-based integers written in canonical form"
+                 {POSITION_RULE}"
             ),
             SpecError::SegmentSchema { segment, source } => {
                 write!(f, "segment {segment:?} does not match the schema: {source}")

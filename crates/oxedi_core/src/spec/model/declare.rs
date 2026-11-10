@@ -9,6 +9,8 @@
 /// Each row is one key: its field, the key when it differs (`as "where"`),
 /// the model type, the raw type and its attributes when they differ
 /// (`| #[serde(...)] RawType`), the schema `Field`, and a presence word.
+/// Attributes before a row, its docs and a model-side `#[serde(...)]`, go on the
+/// model field only; the raw struct takes its attributes after the "|".
 ///
 /// ```text
 /// spec_object! {

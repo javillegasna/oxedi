@@ -2,9 +2,11 @@
 
 use std::collections::BTreeMap;
 
+use serde::Deserializer;
 use serde::de::IgnoredAny;
 
 use super::declare::spec_object;
+use super::positions;
 use crate::mask::Phi;
 use crate::spec::Pick;
 use crate::spec::raw::RawPick;
@@ -42,6 +44,7 @@ spec_object! {
     segment: Option<String>, nullable(Leaf::Text), optional;
     /// The value each element of the segment must hold, by 1-based element
     /// position.
+    #[serde(deserialize_with = "column_where")]
     conditions as "where": BTreeMap<usize, String> | BTreeMap<String, String>,
         Field::Map(&TEXT), default;
     /// The occurrence it reads, when it names one.
@@ -58,6 +61,12 @@ spec_object! {
     segment_index: bool, leaf(Leaf::Flag), default;
     /// What patient data it holds, when it holds any.
     phi: Option<Phi> | Option<String>, nullable(Leaf::Text), optional;
+}
+
+fn column_where<'de, D: Deserializer<'de>>(
+    deserializer: D,
+) -> Result<BTreeMap<usize, String>, D::Error> {
+    positions(deserializer, "column \"where\"")
 }
 
 spec_object! {

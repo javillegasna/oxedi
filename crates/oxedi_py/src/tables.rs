@@ -53,6 +53,20 @@ fn to_pandas<'py>(
         .call_method0("to_pandas")
 }
 
+/// Every table of `slf` converted by `convert`, by name, in table order.
+fn frames<'py>(
+    slf: &Bound<'py, PyTables>,
+    convert: fn(Python<'py>, &str, Bound<'py, PyTable>) -> PyResult<Bound<'py, PyAny>>,
+) -> PyResult<Bound<'py, PyDict>> {
+    let frames = PyDict::new(slf.py());
+    for index in 0..slf.get().count() {
+        let table = Bound::new(slf.py(), slf.get().table_at(index))?;
+        let name = table.get().name()?;
+        frames.set_item(name, convert(slf.py(), "Tables", table)?)?;
+    }
+    Ok(frames)
+}
+
 /// The tables of one parse or one batch, by name. Shared, never copied.
 #[gen_stub_pyclass(module = "oxedi._core")]
 #[pyclass(name = "Tables", module = "oxedi", frozen, mapping)]
@@ -154,25 +168,13 @@ impl PyTables {
     /// Every table as a polars `DataFrame`, by name, in table order.
     #[gen_stub(override_return_type(type_repr = "builtins.dict[builtins.str, polars.DataFrame]", imports = ("builtins", "polars")))]
     fn to_polars<'py>(slf: &Bound<'py, Self>) -> PyResult<Bound<'py, PyDict>> {
-        let frames = PyDict::new(slf.py());
-        for index in 0..slf.get().count() {
-            let table = Bound::new(slf.py(), slf.get().table_at(index))?;
-            let name = table.get().name()?;
-            frames.set_item(name, to_polars(slf.py(), "Tables", table)?)?;
-        }
-        Ok(frames)
+        frames(slf, to_polars)
     }
 
     /// Every table as a pandas `DataFrame`, by name, in table order.
     #[gen_stub(override_return_type(type_repr = "builtins.dict[builtins.str, pandas.DataFrame]", imports = ("builtins", "pandas")))]
     fn to_pandas<'py>(slf: &Bound<'py, Self>) -> PyResult<Bound<'py, PyDict>> {
-        let frames = PyDict::new(slf.py());
-        for index in 0..slf.get().count() {
-            let table = Bound::new(slf.py(), slf.get().table_at(index))?;
-            let name = table.get().name()?;
-            frames.set_item(name, to_pandas(slf.py(), "Tables", table)?)?;
-        }
-        Ok(frames)
+        frames(slf, to_pandas)
     }
 
     fn __repr__(&self) -> String {

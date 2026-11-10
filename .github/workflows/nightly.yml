@@ -1,7 +1,7 @@
 name: Nightly
 
-# Every area of CI on master, whatever changed, plus DuckDB's pre-release (`next`), which reports
-# and does not block. A manual run checks the ref it is started on.
+# Every area of CI on master, whatever changed, plus DuckDB's pre-release (`next`) and the newest
+# pyx12 (`pyx12-next`), which report and do not block. A manual run checks the ref it is started on.
 on:
   schedule:
     - cron: "23 4 * * *"
@@ -28,6 +28,44 @@ jobs:
     uses: ./.github/workflows/_duckdb.yml
     with:
       legs: '["stable", "latest", "next"]'
+
+  # The pyx12 tests against the newest pyx12 release, not the exact one the contributor group pins.
+  # The job never fails the run, and its summary line says which versions it compared.
+  pyx12-next:
+    name: pyx12 next
+    runs-on: ubuntu-latest
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: ./.github/actions/setup-rust
+        with:
+          cache-key: python-pyx12-next
+      - uses: ./.github/actions/setup-uv
+        with:
+          python-version: "3.13"
+          cache-suffix: pyx12-next
+      - name: Tools
+        run: uv pip install "maturin>=1.9.4,<2" --group crates/oxedi_py/pyproject.toml:test pyx12
+      - name: Build
+        run: maturin develop --uv --release --manifest-path crates/oxedi_py/Cargo.toml
+      - name: Spec against pyx12's maps
+        id: spec
+        run: |
+          python crates/oxedi_core/scripts/spec_vs_pyx12.py --check
+          python crates/oxedi_core/scripts/spec_vs_pyx12.py --check --version 4010
+      - name: Test
+        id: test
+        run: pytest crates/oxedi_py/tests/test_pyx12*.py crates/oxedi_py/tests/test_spec_vs_pyx12.py crates/oxedi_py/tests/test_write.py
+      # The pin is read from the contributor group, the one place it is written.
+      - name: Report
+        if: always()
+        env:
+          SPEC: ${{ steps.spec.outcome }}
+          TESTS: ${{ steps.test.outcome }}
+        run: |
+          python -c "import importlib.metadata as m, os, tomllib; g = tomllib.load(open('crates/oxedi_py/pyproject.toml', 'rb'))['dependency-groups']['contributor']; pin = next(d for d in g if isinstance(d, str) and d.startswith('pyx12==')); v = m.version('pyx12'); print(f'pyx12 {v} (CI pins {pin}): spec check {os.environ[\"SPEC\"]}, tests {os.environ[\"TESTS\"]}')" >> "$GITHUB_STEP_SUMMARY"
 
   docs:
     name: Docs

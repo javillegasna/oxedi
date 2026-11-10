@@ -311,8 +311,8 @@ fn field_value(
                 .as_deref()
                 .unwrap_or(envelope.receiver_id.trim_end()),
         ),
-        Field::Date => Some(envelope_date(envelope.date, def.max).map(|text| (text, true))),
-        Field::Time => Some(envelope_time(envelope.time, def.max).map(|text| (text, true))),
+        Field::Date => Some(envelope_date(envelope.date, def.length.max).map(|text| (text, true))),
+        Field::Time => Some(envelope_time(envelope.time, def.length.max).map(|text| (text, true))),
         Field::UsageIndicator => text(&envelope.usage_indicator),
         Field::Repetition => match def.codes.first() {
             Some(code) => Some(Ok((code.as_bytes().to_vec(), true))),
@@ -326,11 +326,11 @@ fn field_value(
 /// Pads a value to its element's width when the element allows one width
 /// only, or when it is a number shorter than its minimum.
 pub(super) fn pad(mut bytes: Vec<u8>, def: &ElementDef) -> Vec<u8> {
-    let Some(min) = def.min else {
+    let Some(min) = def.length.min else {
         return bytes;
     };
     let numeric = matches!(def.kind, ElementType::N(_));
-    let fixed = def.max == Some(min);
+    let fixed = def.length.max == Some(min);
     if bytes.len() >= min || !(numeric || fixed) {
         return bytes;
     }
@@ -349,7 +349,7 @@ pub(super) fn pad(mut bytes: Vec<u8>, def: &ElementDef) -> Vec<u8> {
 /// zeros to the element's minimum.
 pub(super) fn control_text(number: u64, def: Option<&ElementDef>) -> Vec<u8> {
     let digits = number.to_string().into_bytes();
-    let min = def.and_then(|def| def.min).unwrap_or(0);
+    let min = def.and_then(|def| def.length.min).unwrap_or(0);
     if digits.len() >= min {
         return digits;
     }

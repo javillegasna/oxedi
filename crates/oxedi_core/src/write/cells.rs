@@ -35,7 +35,7 @@ impl Emitter<'_> {
         let spec = self.spec;
         let max = || {
             spec.element_def(segment, element, component)
-                .and_then(|def| def.max)
+                .and_then(|def| def.length.max)
         };
         let start = self.texts.len();
         let written = cell_text(cell, data.kind(), max, &mut self.texts);

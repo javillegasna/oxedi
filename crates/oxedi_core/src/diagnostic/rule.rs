@@ -1,6 +1,6 @@
 //! The rules a diagnostic reports, their SNIP levels and variant names.
 
-use crate::value::ElementType;
+use crate::value::{ElementType, LengthRange};
 
 use super::SnipLevel;
 
@@ -105,10 +105,8 @@ pub enum Rule {
         component: Option<usize>,
         /// The element's name in the spec.
         name: String,
-        /// Declared minimum length.
-        min: Option<usize>,
-        /// Declared maximum length.
-        max: Option<usize>,
+        /// The lengths the definition allows.
+        allowed: LengthRange,
         /// The value's length.
         length: usize,
     },

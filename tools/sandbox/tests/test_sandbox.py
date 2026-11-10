@@ -265,20 +265,24 @@ class Arguments(World):
                 self.assertEqual(mount["type"], "tmpfs")
                 self.assertIn("readonly", mount)
 
+    def assert_bound_read_only(self, checkout: Path, paths: list[str], unmounted: tuple[str, ...] = ()) -> None:
+        for phase in arguments.Phase:
+            argv = self.phase_args(phase, checkout)
+            for path in unmounted:
+                self.assertFalse([m for m in mounts(argv) if m.get("dst") == f"/work/{path}"])
+            for path in paths:
+                with self.subTest(phase=phase, path=path):
+                    mount = mount_at(argv, f"/work/{path}")
+                    self.assertEqual((mount["type"], mount["src"]), ("bind", str(checkout / path)))
+                    self.assertIn("readonly", mount)
+
     def test_configuration_anywhere_read_only(self):
         configuration = [
             "crates/m/Cargo.toml", "crates/m/uv.toml", "crates/p/pyproject.toml", "rust-toolchain",
             "sub/.python-version",
         ]
         checkout = self.checkout("c", "Makefile", *configuration, "crates/m/.cargo/config.toml", "crates/m/src/lib.rs")
-        for phase in arguments.Phase:
-            argv = self.phase_args(phase, checkout)
-            for path in configuration + ["crates/m/.cargo"]:
-                with self.subTest(phase=phase, path=path):
-                    mount = mount_at(argv, f"/work/{path}")
-                    self.assertEqual((mount["type"], mount["src"]), ("bind", str(checkout / path)))
-                    self.assertIn("readonly", mount)
-            self.assertFalse([m for m in mounts(argv) if m.get("dst") == "/work/crates/m/src/lib.rs"])
+        self.assert_bound_read_only(checkout, configuration + ["crates/m/.cargo"], ("crates/m/src/lib.rs",))
 
     def test_names_the_host_loads_read_only(self):
         loaded = [
@@ -286,14 +290,7 @@ class Arguments(World):
             "crates/p/sitecustomize.py", "crates/p/usercustomize.py", "sub/.envrc",
         ]
         checkout = self.checkout("c", "Makefile", *loaded, "crates/oxedi_py/tests/test_x.py")
-        for phase in arguments.Phase:
-            argv = self.phase_args(phase, checkout)
-            for path in loaded:
-                with self.subTest(phase=phase, path=path):
-                    mount = mount_at(argv, f"/work/{path}")
-                    self.assertEqual((mount["type"], mount["src"]), ("bind", str(checkout / path)))
-                    self.assertIn("readonly", mount)
-            self.assertFalse([m for m in mounts(argv) if m.get("dst") == "/work/crates/oxedi_py/tests/test_x.py"])
+        self.assert_bound_read_only(checkout, loaded, ("crates/oxedi_py/tests/test_x.py",))
 
     def test_absent_root_names_held_in_the_run_only(self):
         checkout = self.checkout("c", "Makefile")
@@ -376,13 +373,7 @@ class Arguments(World):
 
     def test_submodules_read_only(self):
         checkout = self.submodule_checkout("crates/declared")
-        for phase in arguments.Phase:
-            argv = self.phase_args(phase, checkout)
-            for path in ("crates/sub", "crates/declared", ".gitmodules"):
-                with self.subTest(phase=phase, path=path):
-                    mount = mount_at(argv, f"/work/{path}")
-                    self.assertEqual((mount["type"], mount["src"]), ("bind", str(checkout / path)))
-                    self.assertIn("readonly", mount)
+        self.assert_bound_read_only(checkout, ["crates/sub", "crates/declared", ".gitmodules"])
 
     def test_submodule_path_outside_the_checkout_refused(self):
         checkout = self.submodule_checkout("../outside")
@@ -1060,6 +1051,11 @@ class Images(World):
         self.assertEqual(len(self.runs()), calls)
         self.assertEqual(list(outside.iterdir()), [])
 
+    def assert_viewer_refused(self, checkout: Path, line: str, **extra: str) -> None:
+        result = self.sandbox(checkout, "viewer", **extra)
+        self.assertEqual((result.returncode, result.stderr.strip()), (2, line))
+        self.assertEqual(self.runs(), [])
+
     def test_playwright_mismatch_refuses(self):
         checkout = self.pin(self.viewer_checkout())
         cases = (
@@ -1071,30 +1067,31 @@ class Images(World):
         )
         for env, line in cases:
             with self.subTest(env=env):
-                result = self.sandbox(checkout, "viewer", **env)
-                self.assertEqual(result.returncode, 2, result.stderr)
-                self.assertEqual(result.stderr.strip(), line)
-                self.assertEqual(self.runs(), [])
+                self.assert_viewer_refused(checkout, line, **env)
         self.pin(checkout, "pytest==8.0.0\n")
-        result = self.sandbox(checkout, "viewer", FAKE_PLAYWRIGHT_LABEL="1.64.0")
-        self.assertEqual((result.returncode, result.stderr.strip()),
-                         (2, "sandbox: docs/requirements.txt pins no playwright==<version>"))
+        self.assert_viewer_refused(
+            checkout,
+            "sandbox: docs/requirements.txt pins no playwright==<version>",
+            FAKE_PLAYWRIGHT_LABEL="1.64.0",
+        )
         (checkout / "docs" / "requirements.txt").unlink()
         (checkout / "docs" / "requirements.txt").symlink_to(self.tmp / "elsewhere.txt")
-        result = self.sandbox(checkout, "viewer", FAKE_PLAYWRIGHT_LABEL="1.64.0")
-        self.assertEqual((result.returncode, result.stderr.strip()),
-                         (2, "sandbox: refused: docs/requirements.txt is a symbolic link; "
-                             "docs/requirements.txt must be a real file of the checkout"))
-        self.assertEqual(self.runs(), [])
+        self.assert_viewer_refused(
+            checkout,
+            "sandbox: refused: docs/requirements.txt is a symbolic link; "
+            "docs/requirements.txt must be a real file of the checkout",
+            FAKE_PLAYWRIGHT_LABEL="1.64.0",
+        )
         outside = self.tmp / "outside-docs"
         outside.mkdir()
         (outside / "requirements.txt").write_text(PINNED)
         shutil.rmtree(checkout / "docs")
         (checkout / "docs").symlink_to(outside)
-        result = self.sandbox(checkout, "viewer", FAKE_PLAYWRIGHT_LABEL="1.64.0")
-        self.assertEqual((result.returncode, result.stderr.strip()),
-                         (2, "sandbox: refused: docs is a symbolic link; docs/requirements.txt must be a real file of the checkout"))
-        self.assertEqual(self.runs(), [])
+        self.assert_viewer_refused(
+            checkout,
+            "sandbox: refused: docs is a symbolic link; docs/requirements.txt must be a real file of the checkout",
+            FAKE_PLAYWRIGHT_LABEL="1.64.0",
+        )
 
     def test_wasm_pin_mismatch_refuses(self):
         # The image's wasm tools are those of the install_tools.sh it was built from: a checkout that
@@ -1114,28 +1111,31 @@ class Images(World):
         )
         for env, line in cases:
             with self.subTest(env=env):
-                result = self.sandbox(checkout, "viewer", FAKE_PLAYWRIGHT_LABEL="1.64.0", **env)
-                self.assertEqual((result.returncode, result.stderr.strip()), (2, line))
-                self.assertEqual(self.runs(), [])
+                self.assert_viewer_refused(checkout, line, FAKE_PLAYWRIGHT_LABEL="1.64.0", **env)
         tools = checkout / viewer_image.INSTALL_TOOLS
         tools.write_text(INSTALL_TOOLS.replace(f'BINARYEN_VERSION="{binaryen}"', 'BINARYEN_VERSION="134"'))
-        result = self.sandbox(checkout, "viewer", FAKE_PLAYWRIGHT_LABEL="1.64.0")
-        self.assertEqual((result.returncode, result.stderr.strip()),
-                         (2, f"sandbox: this checkout pins binaryen 134 but the viewer image has {binaryen}; "
-                             "run make sandbox-image-viewer"))
+        self.assert_viewer_refused(
+            checkout,
+            f"sandbox: this checkout pins binaryen 134 but the viewer image has {binaryen}; "
+            "run make sandbox-image-viewer",
+            FAKE_PLAYWRIGHT_LABEL="1.64.0",
+        )
         tools.write_text("#!/usr/bin/env bash\n")
-        result = self.sandbox(checkout, "viewer", FAKE_PLAYWRIGHT_LABEL="1.64.0")
-        self.assertEqual((result.returncode, result.stderr.strip()),
-                         (2, f'sandbox: {viewer_image.INSTALL_TOOLS} has no WASM_BINDGEN_VERSION="<value>" line'))
+        self.assert_viewer_refused(
+            checkout,
+            f'sandbox: {viewer_image.INSTALL_TOOLS} has no WASM_BINDGEN_VERSION="<value>" line',
+            FAKE_PLAYWRIGHT_LABEL="1.64.0",
+        )
         tools.unlink()
         elsewhere = self.tmp / "install_tools.sh"
         elsewhere.write_text(INSTALL_TOOLS)
         tools.symlink_to(elsewhere)
-        result = self.sandbox(checkout, "viewer", FAKE_PLAYWRIGHT_LABEL="1.64.0")
-        self.assertEqual((result.returncode, result.stderr.strip()),
-                         (2, f"sandbox: refused: {viewer_image.INSTALL_TOOLS} is a symbolic link; "
-                             f"{viewer_image.INSTALL_TOOLS} must be a real file of the checkout"))
-        self.assertEqual(self.runs(), [])
+        self.assert_viewer_refused(
+            checkout,
+            f"sandbox: refused: {viewer_image.INSTALL_TOOLS} is a symbolic link; "
+            f"{viewer_image.INSTALL_TOOLS} must be a real file of the checkout",
+            FAKE_PLAYWRIGHT_LABEL="1.64.0",
+        )
 
     def test_storage_names_follow_the_own_mounts(self):
         # The plan line names the storage directories the runs mount, from the table the mounts use.

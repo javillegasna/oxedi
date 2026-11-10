@@ -770,15 +770,8 @@ def test_the_extended_column_order_is_the_library_s():
     assert list(LIBRARY_COLUMNS) == [c for c in strict.columns if not c.startswith(("adj_", "ref_", "rem_"))]
 
 
-def test_trailing_blanks_before_the_terminator_are_stripped_as_the_library_does(tmp_path):
-    import re
-
-    text = path_of(SAMPLES[2]).read_bytes().decode()
-    for segment in ("CLP", "DTM", "AMT", "N4", "NM1", "BPR", "CAS", "SVC", "REF", "TRN", "N1"):
-        text = re.sub(rf"({segment}\*[^~]*)~", r"\1  ~", text)
-    path = tmp_path / "blanks.txt"
-    path.write_text(text)
-    assert "  ~" in text
+def assert_parses_as_the_library(path):
+    """The library and the facade agree on the file; returns the facade's one transaction set."""
     expected, actual = old(path), compat.parse(path)
     pd.testing.assert_frame_equal(actual.to_dataframe(), expected.to_dataframe(), check_exact=True)
     (e,), (a,) = list(expected), list(actual)
@@ -788,7 +781,20 @@ def test_trailing_blanks_before_the_terminator_are_stripped_as_the_library_does(
     assert [getattr(a.financial_information, f) for f in fields] == [
         getattr(e.financial_information, f) for f in fields]
     assert [c.claim.icn for c in a.claims] == [c.claim.icn for c in e.claims]
-    assert all(not c.claim.icn.endswith(" ") for c in a.claims)
+    return a
+
+
+def test_trailing_blanks_before_the_terminator_are_stripped_as_the_library_does(tmp_path):
+    import re
+
+    text = path_of(SAMPLES[2]).read_bytes().decode()
+    for segment in ("CLP", "DTM", "AMT", "N4", "NM1", "BPR", "CAS", "SVC", "REF", "TRN", "N1"):
+        text = re.sub(rf"({segment}\*[^~]*)~", r"\1  ~", text)
+    path = tmp_path / "blanks.txt"
+    path.write_text(text)
+    assert "  ~" in text
+    transaction_set = assert_parses_as_the_library(path)
+    assert all(not c.claim.icn.endswith(" ") for c in transaction_set.claims)
 
 
 UNICODE_BLANKS = ["\u00a0", " \u2003", "\u0085", "\u3000 "]
@@ -807,15 +813,7 @@ def test_unicode_whitespace_before_the_terminator_is_stripped_as_the_library_doe
         pytest.skip("the locale encoding cannot write these characters")
     path = tmp_path / "unicode.txt"
     path.write_bytes(data)
-    expected, actual = old(path), compat.parse(path)
-    pd.testing.assert_frame_equal(actual.to_dataframe(), expected.to_dataframe(), check_exact=True)
-    (e,), (a,) = list(expected), list(actual)
-    assert organization(a.payer) == organization(e.payer)
-    assert organization(a.payee) == organization(e.payee)
-    fields = ("amount_paid", "payment_method", "routing_number", "transaction_date")
-    assert [getattr(a.financial_information, f) for f in fields] == [
-        getattr(e.financial_information, f) for f in fields]
-    assert [c.claim.icn for c in a.claims] == [c.claim.icn for c in e.claims]
+    assert_parses_as_the_library(path)
 
 
 def test_repeated_groups_strip_trailing_blanks_as_the_strict_columns_do():

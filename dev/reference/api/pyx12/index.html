@@ -1973,7 +1973,8 @@ handlers the caller configures; levels, propagation and
 <p>Each finding is an <code>oxedi.Diagnostic</code>, the type <code>parse</code>
 returns, so both lists mix, sort by <code>level</code> and filter by <code>origin</code>.
 A pyx12 finding has <code>kind == "External"</code>, <code>origin == "pyx12"</code> and
-<code>code</code> set to pyx12's own error code; <code>rule</code> is pyx12's message.
+<code>code</code> set to the X12 acknowledgement code pyx12 reports; <code>rule</code> is
+pyx12's message, followed by pyx12's own name for the error when it has one.
 <code>level</code> follows where pyx12 reports it: interchange, group and
 transaction findings are level 1, segment and element findings level 2.
 <code>segment</code> is the index of the segment at fault in the file's document

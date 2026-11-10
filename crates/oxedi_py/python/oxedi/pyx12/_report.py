@@ -5,10 +5,11 @@ from __future__ import annotations
 
 import json
 from dataclasses import dataclass
-from functools import partial
 from typing import Callable, Optional, TypeVar, cast
 
 T = TypeVar("T")
+C = TypeVar("C")
+R = TypeVar("R")
 
 
 class PyX12ShapeError(ValueError):
@@ -125,20 +126,36 @@ def _element(value: object, where: str) -> ElementNode:
     return ElementNode(position, component, _items(d, "errors", where, _error))
 
 
-# Each level: its record and the key of its list; the last holds elements.
-_LEVELS: tuple[tuple[Callable[..., object], str], ...] = (
-    (Interchange, "groups"), (Group, "transactions"),
-    (Transaction, "segments"), (SegmentNode, "elements"),
-)
-
-
-def _level(depth: int, value: object, where: str) -> object:
-    record, key = _LEVELS[depth]
+# Reads one node level: its line, its errors and the list under `key`, read by
+# `child`. `record` builds the level's record, and its argument types are what
+# mypy checks against the child reader and the record's fields.
+def _level(
+    value: object,
+    where: str,
+    key: str,
+    child: Callable[[object, str], C],
+    record: Callable[[int, tuple[Error, ...], tuple[C, ...]], R],
+) -> R:
     d = _node(value, where)
-    last = depth + 1 == len(_LEVELS)
-    child: Callable[[object, str], object] = _element if last else partial(_level, depth + 1)
     line = _field(d, "cur_line", int, where)
-    return record(line, _items(d, "errors", where, _error), _items(d, key, where, child))
+    errors = _items(d, "errors", where, _error)
+    return record(line, errors, _items(d, key, where, child))
+
+
+def _segment(value: object, where: str) -> SegmentNode:
+    return _level(value, where, "elements", _element, SegmentNode)
+
+
+def _transaction(value: object, where: str) -> Transaction:
+    return _level(value, where, "segments", _segment, Transaction)
+
+
+def _group(value: object, where: str) -> Group:
+    return _level(value, where, "transactions", _transaction, Group)
+
+
+def _interchange(value: object, where: str) -> Interchange:
+    return _level(value, where, "groups", _group, Interchange)
 
 
 def parse_report(text: str) -> Report:
@@ -147,5 +164,4 @@ def parse_report(text: str) -> Report:
         data = json.loads(text)
     except json.JSONDecodeError as err:
         raise PyX12ShapeError(f"pyx12 JSON: not valid JSON: {err}") from err
-    items = _items(_node(data, "root"), "interchanges", "root", partial(_level, 0))
-    return Report(cast(tuple[Interchange, ...], items))
+    return Report(_items(_node(data, "root"), "interchanges", "root", _interchange))

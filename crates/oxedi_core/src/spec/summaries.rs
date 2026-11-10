@@ -203,9 +203,7 @@ fn column_of<'t>(
     column: &str,
 ) -> Result<&'t ColumnSource, SummaryDefError> {
     table
-        .columns
-        .iter()
-        .find_map(|(name, source)| (name == column).then_some(source))
+        .column(column)
         .ok_or_else(|| SummaryDefError::UnknownColumn {
             key: key.to_string(),
             table: table.name.clone(),

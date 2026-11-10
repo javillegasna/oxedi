@@ -42,7 +42,7 @@ TRACKED_NAMES = frozenset({
     "usercustomize.py", ".envrc",
 })
 # The maintainers' local notes: masked by an empty read-only tmpfs.
-MASKED = (".doc", ".workflow-kit", ".doc/scratch")
+MASKED = (".workflow-kit",)
 # What a run writes on purpose: its own storage at the top, and the Python caches and the built
 # extension anywhere. These ignored paths are not masked.
 OUTPUT_TOP = frozenset({"target", ".venv"})

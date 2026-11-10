@@ -25,7 +25,8 @@ usage: sandbox.py --image TAG --kind {base,viewer} --checkout DIR
 `--kind viewer` names a viewer image (make sandbox-image-viewer): its runs also get the docs venv
 at .venv-docs, made by the fetch from the hashed docs/requirements.txt, and, when the checkout
 tracks ui/bun.lock, ui/dist and ui/node_modules, which the fetch installs with Bun. The run is
-refused when the checkout pins another Playwright, wasm-bindgen or binaryen than the image was built with.
+refused when the checkout pins another Playwright, wasm-bindgen or binaryen than the image was
+built with.
 The command comes from SANDBOX_CMD. SANDBOX_CPUS (default: the daemon's CPUs minus one),
 SANDBOX_MEMORY (GB; default 60 % of the daemon's memory) and SANDBOX_TIMEOUT (seconds; default
 3600) set the limits.
@@ -139,7 +140,8 @@ def fetch_phase(plan: Plan) -> int:
         if outcome.status != 0:
             budget = f"the fetch ran past its {FETCH_BUDGET_S} s budget"
             failure = (f"fetch failed: {' '.join(command)} exited {outcome.status}; "
-                       "read its output above (no network, or a package or group the checkout does not declare)")
+                       "read its output above (no network, a package or group the checkout does not declare, "
+                       "or a ui/bun.lock out of date with ui/package.json: bun install --lockfile-only in ui/)")
             print(f"sandbox: {explain(outcome, plan.limits, budget, failure)}", file=sys.stderr)
             return outcome.status
     print(f"sandbox: fetch took {time.monotonic() - started:.1f} s", file=sys.stderr)

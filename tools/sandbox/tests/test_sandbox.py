@@ -186,6 +186,9 @@ class World(unittest.TestCase):
     def runs(self) -> list[dict]:
         return [call for call in self.calls() if call["argv"][:1] == ["run"]]
 
+    def fetches(self) -> list[list[str]]:
+        return [c["argv"] for c in self.runs() if "bash" not in c["argv"]]
+
     def run_phase(self) -> list[str]:
         runs = [call["argv"] for call in self.runs() if "bash" in call["argv"]]
         self.assertEqual(len(runs), 1, self.calls())
@@ -830,10 +833,11 @@ UV_INSTALL = [
 ]
 
 
-class Fetch(World):
-    def fetches(self) -> list[list[str]]:
-        return [c["argv"] for c in self.runs() if "bash" not in c["argv"]]
+FETCH_CAUSES = ("(no network, a package or group the checkout does not declare, or a ui/bun.lock out of date "
+                "with ui/package.json: bun install --lockfile-only in ui/)")
 
+
+class Fetch(World):
     def venv(self, checkout: Path) -> Path:
         return self.home / ".cache" / "oxedi-sandbox" / layout.path_hash(checkout) / "venv"
 
@@ -888,8 +892,7 @@ class Fetch(World):
         self.assertEqual(len(self.fetches()), 1)
         self.assertFalse([c for c in self.runs() if "bash" in c["argv"]])
         self.assertIn(
-            "sandbox: fetch failed: cargo fetch --locked exited 101; read its output above "
-            "(no network, or a package or group the checkout does not declare)",
+            f"sandbox: fetch failed: cargo fetch --locked exited 101; read its output above {FETCH_CAUSES}",
             result.stderr,
         )
 
@@ -1187,6 +1190,21 @@ class Images(World):
                 mount = mount_at(run, destination)
                 self.assertEqual((mount["type"], mount["src"]), ("bind", str(self.own(checkout) / source)))
                 self.assertNotIn("readonly", mount)
+        fetch = self.phase_args(arguments.Phase.FETCH, checkout, VIEWER)
+        self.assertNotIn("readonly", mount_at(fetch, "/work/ui/node_modules"))
+        self.assertIn("readonly", mount_at(fetch, "/work/ui/dist"))
+
+    def test_a_failed_bun_install_stops_the_run_without_offline_fallback(self):
+        result = self.sandbox(self.ui_checkout(), "viewer", FAKE_PLAYWRIGHT_LABEL="1.64.0", FAKE_FETCH_EXIT="1",
+                              FAKE_FETCH_FAIL_ON="bun")
+        self.assertEqual(result.returncode, 1)
+        self.assertEqual(command_of(self.fetches()[-1]), arguments.BUN_INSTALL)
+        self.assertFalse([c for c in self.runs() if "bash" in c["argv"]])
+        self.assertIn(
+            "sandbox: fetch failed: bun install --frozen-lockfile --ignore-scripts --cwd /work/ui exited 1; "
+            f"read its output above {FETCH_CAUSES}",
+            result.stderr,
+        )
 
     def test_a_viewer_run_makes_no_ui_directory_without_a_tracked_lock(self):
         checkout = self.pin(self.viewer_checkout())

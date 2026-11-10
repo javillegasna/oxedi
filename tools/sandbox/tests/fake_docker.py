@@ -17,6 +17,8 @@ FAKE_RUN_STDERR    what the run-phase container writes to stderr
 FAKE_RUN_SLEEP     seconds the run-phase container sleeps before it exits
 FAKE_RUN_WRITES    a shell command the run-phase container runs in the checkout (/work's source)
 FAKE_FETCH_EXIT    exit status of every fetch-phase container; default 0
+FAKE_FETCH_FAIL_ON  when set, a word of the command: FAKE_FETCH_EXIT applies only to the fetch
+                   containers whose argv holds it, and the others exit 0
 FAKE_DENY_EXIT     exit status of the cargo-deny container; default 0
 FAKE_DENY_OUTPUT   what the cargo-deny container writes to stderr
 FAKE_PIP_AUDIT_EXIT    exit status of the pip-audit container; default 0
@@ -122,7 +124,8 @@ def run(argv: list[str]) -> int:
         sys.stdout.write(os.environ.get("FAKE_PIP_AUDIT_OUTPUT", ""))
         return int(os.environ.get("FAKE_PIP_AUDIT_EXIT", "0"))
     if "bash" not in argv:
-        return int(os.environ.get("FAKE_FETCH_EXIT", "0"))
+        fail_on = os.environ.get("FAKE_FETCH_FAIL_ON", "")
+        return int(os.environ.get("FAKE_FETCH_EXIT", "0")) if not fail_on or fail_on in argv else 0
     writes = os.environ.get("FAKE_RUN_WRITES", "")
     if writes:
         subprocess.run(["sh", "-c", writes], cwd=work_source(argv), check=True)

@@ -471,10 +471,10 @@ include `extension-ci-tools`' makefiles), and every tracked `Cargo.toml`, `Cargo
 `rust-toolchain`, `pyproject.toml`, `uv.toml`, `.python-version`, `package.json`, `bun.lock`,
 `tsconfig.json`, `vite.config.ts`, `vitest.config.ts` and `.cargo/` anywhere, with every tracked
 file a host tool loads by its name alone: `conftest.py`, `pytest.ini`, `setup.cfg`, `tox.ini`,
-`noxfile.py`, `sitecustomize.py`, `usercustomize.py`, `.envrc`, and Bun's `bunfig.toml` and `.npmrc`
-(its registry and preload). The names make and
-pytest load from the root, `GNUmakefile`, `makefile` and `conftest.py`, are read-only when present;
-when absent, the run phase binds a read-only stand-in over each, so the run cannot create one; the
+`noxfile.py`, `sitecustomize.py`, `usercustomize.py`, `.envrc`, and Bun's `bunfig.toml` and
+`.npmrc` (its registry and preload). The names make and pytest load from the root, `GNUmakefile`,
+`makefile` and `conftest.py`, are read-only when present; when absent, the run phase binds a
+read-only stand-in over each, so the run cannot create one; the
 stand-ins of the two make names include the next name, so make in the run still reads `Makefile`.
 While the run lasts, the checkout holds a placeholder of each name, one line that says what it is,
 removed when the run ends; host `make` in that checkout stops with that line meanwhile, so use

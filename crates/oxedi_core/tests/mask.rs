@@ -502,10 +502,8 @@ fn a_finding_on_a_flagged_place_has_its_datum_replaced() {
         ] {
             let bytes = common::load_fixture(name);
             let delims = oxedi_core::Delimiters::from_isa(&bytes).unwrap();
-            let spec = common::select(&five, &four, &bytes, delims);
-            let document = Document::with_delimiters(&bytes[..], delims).unwrap();
-            let (_, plain) = Processor::run(spec, &document, None);
-            let (_, masked) = Processor::run(spec, &document, Some(&mask));
+            let (_, _, plain) = common::run_builtin(&five, &four, &bytes, delims, None);
+            let (_, _, masked) = common::run_builtin(&five, &four, &bytes, delims, Some(&mask));
             let datums = |found: &[Diagnostic]| -> Vec<String> {
                 found
                     .iter()

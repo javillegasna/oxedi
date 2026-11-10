@@ -107,6 +107,37 @@ pub fn select<'a>(
     )
 }
 
+/// Pick the built-in spec the file declares, parse it with `delims` and project
+/// it, masked when `mask` is given. Returns the chosen spec with the tables
+/// and the diagnostics.
+pub fn run_builtin<'a>(
+    five: &'a oxedi_core::Spec,
+    four: &'a oxedi_core::Spec,
+    bytes: &[u8],
+    delims: oxedi_core::Delimiters,
+    mask: Option<&oxedi_core::Mask>,
+) -> (
+    &'a oxedi_core::Spec,
+    oxedi_core::Tables,
+    Vec<oxedi_core::Diagnostic>,
+) {
+    let spec = select(five, four, bytes, delims);
+    let (tables, diagnostics) = process(spec, bytes, delims, mask);
+    (spec, tables, diagnostics)
+}
+
+/// Parse `bytes` with `delims` and project them with `spec`, masked when
+/// `mask` is given.
+pub fn process(
+    spec: &oxedi_core::Spec,
+    bytes: &[u8],
+    delims: oxedi_core::Delimiters,
+    mask: Option<&oxedi_core::Mask>,
+) -> (oxedi_core::Tables, Vec<oxedi_core::Diagnostic>) {
+    let document = oxedi_core::Document::with_delimiters(bytes, delims).unwrap();
+    oxedi_core::Processor::run(spec, &document, mask)
+}
+
 /// Feed every segment to a fresh engine, then `finish`, and return every event and the engine.
 pub fn run_engine_keeping<'s, 'a>(
     spec: &'s oxedi_core::Spec,

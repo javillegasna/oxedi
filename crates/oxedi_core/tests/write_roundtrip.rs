@@ -86,9 +86,7 @@ fn clean_files_write_back_to_the_same_tables() {
         if !CLEAN.contains(&name.as_str()) {
             continue;
         }
-        let spec = common::select(&five, &four, &bytes, delims);
-        let document = Document::with_delimiters(&bytes[..], delims).unwrap();
-        let (tables, diagnostics) = Processor::run(spec, &document, None);
+        let (spec, tables, diagnostics) = common::run_builtin(&five, &four, &bytes, delims, None);
         assert!(diagnostics.is_empty(), "{name} reads clean");
         let written = match write(spec, &tables, &envelope()) {
             Ok(written) => written,
@@ -109,9 +107,7 @@ fn files_with_findings_write_only_when_allowed() {
         if CLEAN.contains(&name.as_str()) {
             continue;
         }
-        let spec = common::select(&five, &four, &bytes, delims);
-        let document = Document::with_delimiters(&bytes[..], delims).unwrap();
-        let (tables, _) = Processor::run(spec, &document, None);
+        let (spec, tables, _) = common::run_builtin(&five, &four, &bytes, delims, None);
         let (written, findings) = write_with_findings(spec, &tables, &envelope()).unwrap();
         assert!(!findings.is_empty(), "{name}");
         match write(spec, &tables, &envelope()) {

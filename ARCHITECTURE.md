@@ -134,8 +134,9 @@ Loading goes `Spec::from_json` → `Spec::from_value` (`spec/build.rs`):
    never strings.
 
 `Spec::model` reads a loaded spec into `SpecModel` (`spec/model/`), the checked way to read a
-spec as typed data; a serde read of a model checks only its shape. `Spec::from_model` writes the
-model to JSON and loads it through the same steps. A model writes no default and no `null`.
+spec as typed data; a serde read of a model checks only its shape and its position keys.
+`Spec::from_model` writes the model to JSON and loads it through the same steps. A model writes no
+default and no `null`.
 
 `Spec::merge_patch` (`spec/patch.rs`) applies a patch to the spec's JSON and loads the result
 again, so a patched spec goes through the same checks as a new one.
@@ -151,7 +152,7 @@ Every key is listed in [the spec keys reference](docs/customize/spec.md#spec-key
 | I want to… | Start in | Then |
 |---|---|---|
 | Add a column to a built-in table | `tables.<table>.columns` in `crates/oxedi_core/specs/835.json` | `UPDATE_GOLDEN=1 cargo test -p oxedi_core --test project_golden`, review the diff; document it in `docs/reference/tables.md` |
-| Add a key to the spec format | a row in the object's `spec_object!` declaration in `spec/model/` (field, model type, raw type when it differs, `Field`, presence word); for `ELEMENT` and `SUMMARY`, `spec/raw.rs`, the model, `spec/sections.rs` and `every_key_model` in `spec/tests/model_sync.rs`; `spec/shape.rs` only for a new kind of leaf | Compile it in `spec/build.rs` or `spec/compile.rs`; a new error in `spec/error.rs` (`SpecError`), or in `occurrence_error.rs`, `table_error.rs` or `balance_error.rs` when it is about one of those, with its `Display` test in `spec/tests/`; add the key to `docs/customize/spec.md`; a closed word goes in `spec/vocabulary.rs` |
+| Add a key to the spec format | a row in the object's `spec_object!` declaration in `spec/model/` (field, model type, raw type when it differs, `Field`, presence word); for `ELEMENT` and `SUMMARY`, `spec/raw.rs`, the model (and, for `ELEMENT`, `ELEMENT_MODEL_KEYS` in `spec/model/segments.rs`), `spec/sections.rs` and `every_key_model` in `spec/tests/model_sync.rs`; `spec/shape.rs` only for a new kind of leaf | Compile it in `spec/build.rs` or `spec/compile.rs`; a new error in `spec/error.rs` (`SpecError`), or in `occurrence_error.rs`, `table_error.rs` or `balance_error.rs` when it is about one of those, with its `Display` test in `spec/tests/`; add the key to `docs/customize/spec.md`; a closed word goes in `spec/vocabulary.rs` |
 | Add a diagnostic rule | `diagnostic/rule.rs` (`Rule` variant, `level`, `kind`, and `segment_id` when the rule is about one segment's elements, so its datum can be masked) and `diagnostic/display.rs` (message, written over the pieces of `diagnostic/text.rs`) | Raise it in `check/` (structure) or `project/check.rs` (elements); a full-text `Display` test in `diagnostic/tests.rs` |
 | Change an element check | `project/check.rs` | `cargo test -p oxedi_core --lib project::`, then both golden suites |
 | Change how loops are recognized | `engine/mod.rs` | `cargo test -p oxedi_core --test engine_golden` and `--test engine_invariants` |

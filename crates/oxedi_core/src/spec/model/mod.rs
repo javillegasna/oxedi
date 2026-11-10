@@ -14,10 +14,11 @@ mod tables;
 
 use std::collections::BTreeMap;
 
-use serde::de::IgnoredAny;
+use serde::de::{self, IgnoredAny};
 use serde::{Deserialize, Deserializer};
 
 use super::sections::{SUMMARY, TEXT};
+use super::segments::{POSITION_RULE, parse_position};
 use super::shape::Field;
 use super::{Spec, SpecError};
 use declare::spec_object;
@@ -35,6 +36,9 @@ pub(in crate::spec) use rules::{
     BALANCE, RawBalance, RawSummaryColumn, RawSummaryRow, RawSummaryTable, RawTerm, RawVersion,
     SUMMARY_COLUMN, SUMMARY_ROW, SUMMARY_TABLE, VERSION,
 };
+// Read only by the sync test, which holds the list to the keys the model writes.
+#[cfg(test)]
+pub(in crate::spec) use segments::ELEMENT_MODEL_KEYS;
 pub(in crate::spec) use segments::{RawSegment, SEGMENT};
 pub(in crate::spec) use tables::{RawColumn, RawTable, TABLE};
 
@@ -43,9 +47,9 @@ spec_object! {
     ///
     /// Read it with `Spec::from_json(..)?.model()`, which checks every loader
     /// rule. Reading a model, or any `*Model`, with serde directly
-    /// (`serde_json::from_value::<SummaryModel>(..)`) checks only its shape: it
-    /// accepts a table or a column that does not exist and an empty `fields`
-    /// list. Load such a model with [`Spec::from_model`] before using it.
+    /// (`serde_json::from_value::<SummaryModel>(..)`) checks only its shape and
+    /// its position keys: it accepts a table or a column that does not exist and
+    /// an empty `fields` list. Load such a model with [`Spec::from_model`] before using it.
     ///
     /// A model writes no default and no `null`: a key equal to its default and
     /// an absent value are left out.
@@ -120,6 +124,24 @@ impl Spec {
 // A key equal to its default is not written.
 fn is_default<T: Default + PartialEq>(value: &T) -> bool {
     *value == T::default()
+}
+
+// A map keyed by 1-based position, read through the loader's rule: the first
+// key (in key order) that is not a canonical position refuses the whole map,
+// naming it. The map is read whole first, a cold path.
+fn positions<'de, D: Deserializer<'de>, V: Deserialize<'de>>(
+    deserializer: D,
+    map: &str,
+) -> Result<BTreeMap<usize, V>, D::Error> {
+    BTreeMap::<String, V>::deserialize(deserializer)?
+        .into_iter()
+        .map(|(key, value)| match parse_position(&key) {
+            Some(position) => Ok((position, value)),
+            None => Err(de::Error::custom(format!(
+                "{map} key {key:?} is not a position: {POSITION_RULE}"
+            ))),
+        })
+        .collect()
 }
 
 // A key written `null` reads as its default, as an absent key does.

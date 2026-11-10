@@ -135,6 +135,7 @@ fn an_unknown_key_is_refused() {
     assert!(from_value::<LoopModel>(json!({"trigger":{"segment":"ST"},"colour":1})).is_err());
     let occurrence = json!({"segment":"NM1","pos":10,"colour":1});
     assert!(from_value::<OccurrenceModel>(occurrence).is_err());
+    assert!(from_value::<ElementModel>(json!({"name":"paid","type":"ID","colour":1})).is_err());
 }
 
 #[test]
@@ -297,4 +298,98 @@ fn a_built_model_loads() {
         serde_json::from_str::<Value>(&model.to_json().unwrap()).unwrap(),
         written
     );
+}
+
+#[test]
+fn a_position_key_the_loader_refuses_is_refused_naming_the_map() {
+    type Read = Box<dyn Fn(&str) -> String>;
+    let reads: [(Read, &str); 4] = [
+        (
+            Box::new(|key| {
+                from_value::<TriggerModel>(json!({"segment":"CLP","where":{key:"X"}}))
+                    .unwrap_err()
+                    .to_string()
+            }),
+            "trigger \"where\"",
+        ),
+        (
+            Box::new(|key| {
+                from_value::<ColumnModel>(json!({"segment":"CLP","where":{key:"X"},"element":1}))
+                    .unwrap_err()
+                    .to_string()
+            }),
+            "column \"where\"",
+        ),
+        (
+            Box::new(|key| {
+                from_value::<SegmentModel>(json!({"elements":{key:{"name":"a","type":"AN"}}}))
+                    .unwrap_err()
+                    .to_string()
+            }),
+            "segment \"elements\"",
+        ),
+        (
+            Box::new(|key| {
+                let component = json!({key:{"name":"b","type":"AN"}});
+                let element = json!({"name":"a","type":"AN","composite":component});
+                from_value::<SegmentModel>(json!({"elements":{"1":element}}))
+                    .unwrap_err()
+                    .to_string()
+            }),
+            "element \"composite\"",
+        ),
+    ];
+    for key in ["0", "01", "+1", "x"] {
+        for (read, map) in &reads {
+            assert_eq!(
+                read(key),
+                format!(
+                    "{map} key {key:?} is not a position: positions are 1-based integers written in canonical form"
+                )
+            );
+        }
+    }
+    let trigger = from_value::<TriggerModel>(json!({"segment":"CLP","where":{"10":"X"}}));
+    assert_eq!(
+        trigger.unwrap().conditions,
+        BTreeMap::from([(10, "X".to_string())])
+    );
+    let segment = from_value::<SegmentModel>(json!({"elements":{"12":{"name":"a","type":"AN"}}}));
+    assert_eq!(
+        segment
+            .unwrap()
+            .elements
+            .keys()
+            .copied()
+            .collect::<Vec<_>>(),
+        vec![12]
+    );
+}
+
+#[test]
+fn an_unknown_element_key_is_refused_with_the_keys_it_takes() {
+    let component = json!({"1":{"name":"b","type":"AN","colour":1}});
+    let element = json!({"name":"a","type":"AN","composite":component});
+    let reads = [
+        (
+            "sclae",
+            from_value::<ElementModel>(json!({"name":"paid","type":"R","sclae":4})),
+        ),
+        (
+            "requird",
+            from_value::<ElementModel>(json!({"name":"paid","type":"AN","requird":true})),
+        ),
+        ("colour", {
+            let segment = from_value::<SegmentModel>(json!({"elements":{"1":element}}));
+            segment.map(|model| model.elements[&1].clone())
+        }),
+    ];
+    for (key, read) in reads {
+        assert_eq!(
+            read.unwrap_err().to_string(),
+            format!(
+                "unknown field `{key}`, expected one of `name`, `type`, `scale`, `required`, `min`, `max`, `codes`, `composite`"
+            )
+        );
+    }
 }

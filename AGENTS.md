@@ -36,8 +36,8 @@ Rules for every change and refactor, checked by implementers and reviewers alike
   `cargo bench` groups before and after, with the numbers in the commit message.
 - Keep verification cheap: compare benchmarks with only the affected groups and short times
   (`cargo bench -p oxedi_core --bench <group> -- --warm-up-time 1 --measurement-time 3`) and
-  leave the full measurement to the final review; when checking each commit in a temporary
-  worktree, share one `CARGO_TARGET_DIR` so only what changed is rebuilt.
+  leave the full measurement to the final review. The gate runs on the branch head; an
+  intermediate commit need not pass it.
 - An open issue a change touches is fixed or fulfilled and closed by that change
   (`Closes #N`), never left out of date.
 - Names say what the work does: a branch, a commit subject, a pull request title or a plan is

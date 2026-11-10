@@ -2,7 +2,10 @@
 
 use std::collections::BTreeMap;
 
+use serde::Deserializer;
+
 use super::declare::spec_object;
+use super::positions;
 use crate::spec::sections::{COUNT, TEXT, TEXTS, nullable};
 use crate::spec::shape::{Field, Leaf};
 use crate::spec::{ControlCount, ElementPosition, Usage};
@@ -33,8 +36,15 @@ spec_object! {
     /// The segment.
     segment: String, TEXT, required;
     /// The value each element must hold, by 1-based element position.
+    #[serde(deserialize_with = "trigger_where")]
     conditions as "where": BTreeMap<usize, String> | BTreeMap<String, String>,
         Field::Map(&TEXT), default;
+}
+
+fn trigger_where<'de, D: Deserializer<'de>>(
+    deserializer: D,
+) -> Result<BTreeMap<usize, String>, D::Error> {
+    positions(deserializer, "trigger \"where\"")
 }
 
 spec_object! {

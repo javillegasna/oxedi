@@ -6,7 +6,7 @@ use std::collections::{BTreeMap, BTreeSet};
 
 use serde_json::{Value, from_value, json, to_value};
 
-use crate::spec::model::ROOT;
+use crate::spec::model::{ELEMENT_MODEL_KEYS, ROOT};
 use crate::spec::sections::{ELEMENT, SUMMARY};
 use crate::spec::shape::{Field, ObjectSchema, check_shape};
 use crate::spec::{
@@ -199,4 +199,21 @@ fn the_model_and_the_registry_hold_the_same_keys() {
     walk_registry(&mut in_registry, &SUMMARIES);
     let report = difference(&in_model, &in_registry);
     assert!(report.is_empty(), "{}", report.join("\n"));
+}
+
+#[test]
+fn the_element_model_lists_every_key_it_writes() {
+    let written: BTreeSet<String> = to_value(element(one(1, element(BTreeMap::new()))))
+        .unwrap()
+        .as_object()
+        .unwrap()
+        .keys()
+        .cloned()
+        .collect();
+    let listed: BTreeSet<String> = ELEMENT_MODEL_KEYS
+        .iter()
+        .map(|key| key.to_string())
+        .collect();
+    assert_eq!(listed, written);
+    assert_eq!(ELEMENT_MODEL_KEYS.len(), written.len());
 }

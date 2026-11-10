@@ -153,10 +153,7 @@ impl From<TypeCodeError> for ElementDefError {
 impl fmt::Display for ElementDefError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            ElementDefError::NonCanonicalPosition => write!(
-                f,
-                "positions are 1-based integers written in canonical form"
-            ),
+            ElementDefError::NonCanonicalPosition => write!(f, "{POSITION_RULE}"),
             ElementDefError::EmptyName => write!(f, "\"name\" is empty"),
             ElementDefError::DuplicateName { name, first } => {
                 write!(f, "name {name:?} is already used by position {first:?}")
@@ -231,6 +228,9 @@ pub const ROW_COLUMN: &str = "row";
 /// segment: the segment that opened the anchor loop instance, or the
 /// anchored segment itself.
 pub const SEGMENT_COLUMN: &str = "segment";
+
+/// The rule a position key is read by, as the errors that refuse one print it.
+pub(super) const POSITION_RULE: &str = "positions are 1-based integers written in canonical form";
 
 /// A 1-based element position written in canonical form (`"1"`, never
 /// `"01"` or `"+1"`), so no two keys can name the same position.

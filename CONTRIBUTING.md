@@ -141,7 +141,8 @@ a "finding" is a writing or external-validator result.
 updates [ARCHITECTURE.md](ARCHITECTURE.md) and `crates/oxedi_core/tests/public_paths.rs` (which
 names every public path) in the same commit.
 
-**Every commit passes the gates.** CI runs the same commands:
+**The head of a branch passes the gates.** An intermediate commit of the same branch need not;
+CI runs the same commands on the head:
 
 ```bash
 cargo test --workspace --locked

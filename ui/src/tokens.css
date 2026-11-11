@@ -1,0 +1,11 @@
+:root,
+:host {
+  /* TODO: declare the light-theme --ox-* custom properties. */
+}
+
+@media (prefers-color-scheme: dark) {
+  :root,
+  :host {
+    /* TODO: declare the dark-theme --ox-* custom properties. */
+  }
+}

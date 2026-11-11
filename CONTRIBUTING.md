@@ -287,14 +287,15 @@ build is one self-contained `dist/oxedi-viewer.js`, with its type declarations a
 elements manifest; its stories run as browser tests, accessibility checks included.
 
 Only the lockfile is written on the host: after a change to `ui/package.json`, run
-`bun install --lockfile-only` in `ui/` and track `ui/bun.lock` with `git add`. Everything else runs
+`bun install --lockfile-only` in `ui/`, with the Bun version the sandbox image pins (`BUN_VERSION`
+in `tools/sandbox/Dockerfile.viewer`), and track `ui/bun.lock` with `git add`. Everything else runs
 in the sandbox's viewer image (see [Sandbox](#sandbox)):
 
 ```bash
 make sandbox CMD="make wasm && cd ui && bun run build" IMAGE=viewer             # dist/oxedi-viewer.js
 make sandbox CMD="make wasm && cd ui && bun run test" IMAGE=viewer              # the stories in Chromium
 make sandbox CMD="make wasm && cd ui && bun run build-storybook" IMAGE=viewer   # dist/storybook
-python3 -m http.server -b 127.0.0.1 -d <storage>/ui-dist/storybook 6006         # browse it
+python3 -I -m http.server -b 127.0.0.1 -d <storage>/ui-dist/storybook 6006      # browse it
 ```
 
 Every tool writes under `ui/dist`, or its caches under `ui/node_modules`, and the sandbox keeps
@@ -380,8 +381,8 @@ switched off for the whole repository is `self-repository`, in `.github/zizmor.y
 reason. A change to the
 build, CI or dependency files (`Makefile`, `make/`, `.github/`, `tools/`, the `Cargo.toml`,
 `Cargo.lock`, `pyproject.toml`, `build.rs`, `package.json`, `bun.lock` and `rust-toolchain.toml`
-files and `docs/requirements.txt`) needs the code owner's review, as `.github/CODEOWNERS` says. Dependabot
-refreshes the pinned actions every week and proposes a release only after it has been out for
+files and `docs/requirements.txt`) needs the code owner's review, as `.github/CODEOWNERS` says.
+Dependabot refreshes the pinned actions every week and proposes a release only after it has been out for
 seven days (a cooldown). It also proposes the exact pyx12 of the `contributor` group and the docs
 lock in one pull request, which is where the pyx12 goldens are regenerated and read.
 

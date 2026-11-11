@@ -279,6 +279,30 @@ The page's Content-Security-Policy forbids network connections, so it loads the 
 generated ES modules instead of fetching it. Do not add a request, a font or a script from
 another origin.
 
+## UI package (`@oxedi/ui`)
+
+`ui/` is the embeddable viewer: a Lit and TypeScript package whose `<oxedi-viewer>` element runs
+the same WebAssembly module as `viewer/` (it imports `viewer/pkg`, so `make wasm` comes first). Its
+build is one self-contained `dist/oxedi-viewer.js`, with its type declarations and a custom
+elements manifest; its stories run as browser tests, accessibility checks included.
+
+Only the lockfile is written on the host: after a change to `ui/package.json`, run
+`bun install --lockfile-only` in `ui/`, with the Bun version the sandbox image pins (`BUN_VERSION`
+in `tools/sandbox/Dockerfile.viewer`), and track `ui/bun.lock` with `git add`. Everything else runs
+in the sandbox's viewer image (see [Sandbox](#sandbox)):
+
+```bash
+make sandbox CMD="make wasm && cd ui && bun run build" IMAGE=viewer             # dist/oxedi-viewer.js
+make sandbox CMD="make wasm && cd ui && bun run test" IMAGE=viewer              # the stories in Chromium
+make sandbox CMD="make wasm && cd ui && bun run build-storybook" IMAGE=viewer   # dist/storybook
+python3 -I -m http.server -b 127.0.0.1 -d <storage>/ui-dist/storybook 6006      # browse it
+```
+
+Every tool writes under `ui/dist`, or its caches under `ui/node_modules`, and the sandbox keeps
+both in the checkout's storage, not in the checkout: `<storage>` is the directory the first line
+of `make sandbox` names. Serving it from the host runs no project code there; the Storybook pages
+run in your browser.
+
 ## Documentation
 
 `README.md` is for GitHub and links to the guides under `docs/` with relative links.
@@ -356,9 +380,9 @@ reason after the rule: `# zizmor: ignore[github-env] why the step is safe`. The 
 switched off for the whole repository is `self-repository`, in `.github/zizmor.yml`, with its
 reason. A change to the
 build, CI or dependency files (`Makefile`, `make/`, `.github/`, `tools/`, the `Cargo.toml`,
-`Cargo.lock`, `pyproject.toml`, `build.rs` and `rust-toolchain.toml` files and
-`docs/requirements.txt`) needs the code owner's review, as `.github/CODEOWNERS` says. Dependabot
-refreshes the pinned actions every week and proposes a release only after it has been out for
+`Cargo.lock`, `pyproject.toml`, `build.rs`, `package.json`, `bun.lock` and `rust-toolchain.toml`
+files and `docs/requirements.txt`) needs the code owner's review, as `.github/CODEOWNERS` says.
+Dependabot refreshes the pinned actions every week and proposes a release only after it has been out for
 seven days (a cooldown). It also proposes the exact pyx12 of the `contributor` group and the docs
 lock in one pull request, which is where the pyx12 goldens are regenerated and read.
 

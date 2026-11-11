@@ -3,6 +3,7 @@
   "version": "0.0.0",
   "private": true,
   "type": "module",
+  "customElements": "dist/custom-elements.json",
   "scripts": {
     "build": "vite build && tsc -p tsconfig.json && cem analyze --globs src/oxedi-viewer.ts --outdir dist",
     "test": "vitest run",

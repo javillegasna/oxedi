@@ -66,19 +66,11 @@ mod carry;
 mod check;
 mod fill;
 mod mask;
-#[cfg(test)]
-mod mask_tests;
 mod plan;
 mod quote;
 #[cfg(test)]
-mod schema_tests;
-#[cfg(test)]
-mod source_tests;
-#[cfg(test)]
 mod tests;
 mod unknown;
-#[cfg(test)]
-mod unread_tests;
 
 use crate::column::{Cell, Table, Tables};
 use crate::delimiters::Delimiters;

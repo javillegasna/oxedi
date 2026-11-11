@@ -1,6 +1,10 @@
+//! Unit tests of the processor; the masking tests are in `mask.rs`.
+
 use super::*;
 use crate::delimiters::test_support::plain as delimiters;
 use crate::{Cell, SnipLevel, Tokenizer};
+
+mod mask;
 
 const ISA: &str = "ISA*00*          *00*          *ZZ*SENDER         *ZZ*RECEIVER       *240101*1200*^*00501*000000001*0*P*>~";
 

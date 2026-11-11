@@ -1,8 +1,8 @@
 //! Elements no column reads are validated without keeping their value; their
 //! diagnostics must not depend on whether a column reads them.
 
-use super::tests::{SPEC, delimiters, project, rendered, spec};
-use super::*;
+use super::{SPEC, delimiters, project, rendered, spec};
+use crate::project::*;
 use proptest::prelude::*;
 
 /// The test spec without its tables, so no column reads any element.

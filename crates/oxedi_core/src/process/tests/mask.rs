@@ -1,6 +1,6 @@
-use super::tests::interchange;
-use super::*;
+use super::interchange;
 use crate::delimiters::test_support::plain as delimiters;
+use crate::process::*;
 use crate::{Cell, DateMode, Mask, Phi, Rule, Tables, parse_dt};
 
 const KEY: &[u8] = b"oxedi-test-key-0";
@@ -310,6 +310,6 @@ fn without_a_mask_nothing_changes() {
         Cell::Binary(b"C2"),
         "the plain run keeps the values"
     );
-    let bytes = include_bytes!("../../tests/fixtures/balanced_5010_sample.txt");
+    let bytes = include_bytes!("../../../tests/fixtures/balanced_5010_sample.txt");
     plain_run_matches_feeding(&spec, &Document::parse(&bytes[..]).unwrap());
 }

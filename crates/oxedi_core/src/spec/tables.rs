@@ -152,6 +152,15 @@ pub struct TableDef {
 }
 
 impl TableDef {
+    /// The source of the declared column `name`; `None` for a name the table
+    /// does not declare, including the automatic `row`, `segment` and
+    /// reference columns.
+    pub fn column(&self, name: &str) -> Option<&ColumnSource> {
+        self.columns
+            .iter()
+            .find_map(|(column, source)| (column == name).then_some(source))
+    }
+
     /// The kind of patient data column `column_index` of [`Self::columns`]
     /// holds, or `None` when it holds none.
     pub fn phi(&self, column_index: usize) -> Option<Phi> {

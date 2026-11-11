@@ -21,6 +21,9 @@ This file covers the Python package; the DuckDB extension has its own changelog 
 - `Segment.element(position, component=None)` and `Segment.has(position, component=None)`: read an
   element or one of its components by 1-based position, `None` or `False` where the segment has
   no such place.
+- `Spec.column_source(table, column)` → `ElementSource` (`segment`, `element`, `component`): where a
+  table column reads its value, as the spec resolved it; `KeyError` for an unknown table or column,
+  `ValueError` for a column that reads a segment index or a repeated group.
 
 ### Changed
 - The spec shape check names a `pick` that is not `"first"`, `"last"` or a 1-based position with the

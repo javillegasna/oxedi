@@ -6,7 +6,6 @@ from __future__ import annotations
 import dataclasses
 import decimal as decimal_module
 import functools
-import json
 from typing import TYPE_CHECKING, Any, Callable, Optional
 
 from ._convert import ENCODING, STRIPPED, ints, unpadded
@@ -15,51 +14,6 @@ from ._patch import PATCH, spec
 if TYPE_CHECKING:
     import numpy as np
     import numpy.typing as npt
-
-
-@functools.cache
-def _loops():
-    """The compat spec's loops, as its JSON holds them."""
-    return json.loads(spec().to_json())["loops"]
-
-
-def _occurrence_segment(table, column, loop, name):
-    """The segment id of occurrence ``name`` in ``loop`` or the nearest of its
-    parents that declares it, or ``None``. A ``loop`` the spec does not have
-    raises a ``ValueError`` naming the table, the column and the loop."""
-    loops = _loops()
-    while loop is not None:
-        if loop not in loops:
-            raise ValueError(f"table {table!r}, column {column!r}: loop {loop!r} is not in the spec")
-        occurrences = loops[loop].get("occurrences")
-        if occurrences is None:
-            raise ValueError(f"table {table!r}, column {column!r}: loop {loop!r} declares no occurrences")
-        declared = occurrences.get(name)
-        if declared is not None:
-            return declared["segment"].encode()
-        loop = loops[loop].get("parent")
-    return None
-
-
-def source_segment(table: str, column: str, source: dict) -> bytes:
-    """The segment id a column source reads: the ``segment`` it names, or the
-    segment of the ``occurrence`` it names, looked up in its ``loop`` or else in
-    the loops of ``table`` and their parents. A source naming neither, or an
-    occurrence no such loop declares, raises a ``ValueError`` naming the table,
-    the column and what was found."""
-    if "segment" in source:
-        return source["segment"].encode()
-    name = source.get("occurrence")
-    if name is None:
-        raise ValueError(f"table {table!r}, column {column!r}: the source {source} names neither a segment nor an occurrence")
-    starts = [source["loop"]] if "loop" in source else PATCH["tables"][table].get("loops", [])
-    for loop in starts:
-        found = _occurrence_segment(table, column, loop, name)
-        if found is not None:
-            return found
-    raise ValueError(
-        f"table {table!r}, column {column!r}: occurrence {name!r} is not declared by {starts} or their parents"
-    )
 
 
 def _last_of(elements, element, component):
@@ -250,7 +204,7 @@ class _Read:
 
     @classmethod
     def of(cls, name, config, column, source):
-        segment = None if config.get("segment") else source_segment(name, column, source)
+        segment = None if config.get("segment") else spec().column_source(name, column).segment
         return cls(source, config.get("repeat"), segment, "group_element" in source)
 
     def raw(self, document, anchoring, row):

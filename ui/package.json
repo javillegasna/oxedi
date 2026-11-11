@@ -7,7 +7,7 @@
   "scripts": {
     "build": "vite build && tsc -p tsconfig.json && cem analyze --globs src/oxedi-viewer.ts --outdir dist",
     "test": "vitest run",
-    "storybook": "storybook dev",
+    "storybook": "storybook dev --no-version-updates",
     "build-storybook": "storybook build -o dist/storybook"
   },
   "dependencies": {

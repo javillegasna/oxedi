@@ -2341,6 +2341,11 @@ column gives each service its claim's id:</p>
 │ 3   ┆ CLM2001  ┆ 99212          │
 └─────┴──────────┴────────────────┘
 </code></pre></div>
+<p><code>Spec.column_source(table, column)</code> says which segment, element and component a column reads, as the spec resolved it:</p>
+<div class="highlight"><pre><span></span><code><span class="nb">print</span><span class="p">(</span><span class="n">spec</span><span class="o">.</span><span class="n">column_source</span><span class="p">(</span><span class="s2">"services"</span><span class="p">,</span> <span class="s2">"claim_id"</span><span class="p">))</span>
+</code></pre></div>
+<div class="highlight"><pre><span></span><code>ElementSource(segment=b'CLP', element=1, component=None)
+</code></pre></div>
 <details class="note">
 <summary>Details: when the segment repeats</summary>
 <p>When an occurrence repeats, <code>pick</code> chooses <code>"first"</code> (the default), <code>"last"</code> or the n-th

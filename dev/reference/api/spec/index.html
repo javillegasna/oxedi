@@ -1663,6 +1663,67 @@
   
 </li>
         
+          <li class="md-nav__item">
+  <a href="#oxedi.Spec.column_source" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        column_source
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#oxedi.ElementSource" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        ElementSource
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="ElementSource">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#oxedi.ElementSource.segment" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        segment
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#oxedi.ElementSource.element" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        element
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#oxedi.ElementSource.component" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        component
+      
+    </span>
+  </a>
+  
+</li>
+        
       </ul>
     </nav>
   
@@ -2144,6 +2205,67 @@
   
 </li>
         
+          <li class="md-nav__item">
+  <a href="#oxedi.Spec.column_source" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        column_source
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#oxedi.ElementSource" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        ElementSource
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="ElementSource">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#oxedi.ElementSource.segment" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        segment
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#oxedi.ElementSource.element" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        element
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#oxedi.ElementSource.component" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        component
+      
+    </span>
+  </a>
+  
+</li>
+        
       </ul>
     </nav>
   
@@ -2442,6 +2564,154 @@ Needs pyarrow.</p>
     </div>
 
 </div>
+
+<div class="doc doc-object doc-function">
+
+
+<h3 id="oxedi.Spec.column_source" class="doc doc-heading">
+            <span class="doc doc-object-name doc-function-name">column_source</span>
+
+
+<a href="#oxedi.Spec.column_source" class="headerlink" title="Permanent link">&para;</a></h3>
+<div class="doc-signature highlight"><pre><span></span><code><span class="nf">column_source</span><span class="p">(</span><span class="n">table</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">column</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">ElementSource</span>
+</code></pre></div>
+
+    <div class="doc doc-contents ">
+
+        <p>Where column <code>column</code> of table <code>table</code> reads its value, as the spec
+compiled it. Raises <code>KeyError</code> for a table or column the spec does not
+declare, and <code>ValueError</code> for a column that reads a segment index or an
+element of a repeated group, which has no single element.</p>
+
+
+    </div>
+
+</div>
+
+
+
+  </div>
+
+    </div>
+
+</div>
+
+<div class="doc doc-object doc-class">
+
+
+
+<h2 id="oxedi.ElementSource" class="doc doc-heading">
+            <span class="doc doc-object-name doc-class-name">ElementSource</span>
+
+
+<a href="#oxedi.ElementSource" class="headerlink" title="Permanent link">&para;</a></h2>
+
+
+    <div class="doc doc-contents first">
+
+
+
+        <p>Where a table column reads its value: one element, or one component of it,
+of a segment. It names only the segment, element and component a column
+reads, not the qualifier, loop, occurrence or pick that select which
+occurrence of that segment, so two columns reading the same position of
+differently qualified segments compare equal.</p>
+
+
+
+
+
+
+
+
+
+
+
+<div class="doc doc-children">
+
+
+
+
+
+
+
+<div class="doc doc-object doc-attribute">
+
+
+
+<h3 id="oxedi.ElementSource.segment" class="doc doc-heading">
+            <span class="doc doc-object-name doc-attribute-name">segment</span>
+
+
+  <span class="doc doc-labels">
+      <small class="doc doc-label doc-label-property"><code>property</code></small>
+  </span>
+
+<a href="#oxedi.ElementSource.segment" class="headerlink" title="Permanent link">&para;</a></h3>
+<div class="doc-signature highlight"><pre><span></span><code><span class="n">segment</span><span class="p">:</span> <span class="nb">bytes</span>
+</code></pre></div>
+
+    <div class="doc doc-contents ">
+
+        <p>The id of the segment the column reads, such as <code>b"CLP"</code>; for a named
+occurrence, the occurrence's segment; in a table with <code>segment</code>, that
+segment.</p>
+
+    </div>
+
+</div>
+
+<div class="doc doc-object doc-attribute">
+
+
+
+<h3 id="oxedi.ElementSource.element" class="doc doc-heading">
+            <span class="doc doc-object-name doc-attribute-name">element</span>
+
+
+  <span class="doc doc-labels">
+      <small class="doc doc-label doc-label-property"><code>property</code></small>
+  </span>
+
+<a href="#oxedi.ElementSource.element" class="headerlink" title="Permanent link">&para;</a></h3>
+<div class="doc-signature highlight"><pre><span></span><code><span class="n">element</span><span class="p">:</span> <span class="nb">int</span>
+</code></pre></div>
+
+    <div class="doc doc-contents ">
+
+        <p>The 1-based element position.</p>
+
+    </div>
+
+</div>
+
+<div class="doc doc-object doc-attribute">
+
+
+
+<h3 id="oxedi.ElementSource.component" class="doc doc-heading">
+            <span class="doc doc-object-name doc-attribute-name">component</span>
+
+
+  <span class="doc doc-labels">
+      <small class="doc doc-label doc-label-property"><code>property</code></small>
+  </span>
+
+<a href="#oxedi.ElementSource.component" class="headerlink" title="Permanent link">&para;</a></h3>
+<div class="doc-signature highlight"><pre><span></span><code><span class="n">component</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">int</span><span class="p">]</span>
+</code></pre></div>
+
+    <div class="doc doc-contents ">
+
+        <p>The 1-based component position, when the column reads one component of
+a composite.</p>
+
+    </div>
+
+</div>
+
+
+
 
 
 

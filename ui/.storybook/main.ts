@@ -15,9 +15,13 @@ const config: StorybookConfig = {
   previewHead: (head) =>
     `${head}<script>(globalThis.litIssuedWarnings ??= new Set()).add('dev-mode');</script>`,
   // The renderer imports `lit/directive-helpers.js` besides `lit`; pre-bundling both together
-  // keeps one copy of lit-html in the page.
+  // keeps one copy of lit-html in the page. The static Storybook is a local tool whose axe and
+  // engine chunks are each over Vite's 500 kB advice, so its limit is set above them.
   viteFinal: (viteConfig) =>
-    mergeConfig(viteConfig, { optimizeDeps: { include: ['lit', 'lit/directive-helpers.js'] } }),
+    mergeConfig(viteConfig, {
+      optimizeDeps: { include: ['lit', 'lit/directive-helpers.js'] },
+      build: { chunkSizeWarningLimit: 1024 },
+    }),
 };
 
 export default config;

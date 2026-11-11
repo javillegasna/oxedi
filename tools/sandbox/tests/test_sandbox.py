@@ -186,6 +186,9 @@ class World(unittest.TestCase):
     def runs(self) -> list[dict]:
         return [call for call in self.calls() if call["argv"][:1] == ["run"]]
 
+    def fetches(self) -> list[list[str]]:
+        return [c["argv"] for c in self.runs() if "bash" not in c["argv"]]
+
     def run_phase(self) -> list[str]:
         runs = [call["argv"] for call in self.runs() if "bash" in call["argv"]]
         self.assertEqual(len(runs), 1, self.calls())
@@ -291,6 +294,18 @@ class Arguments(World):
         ]
         checkout = self.checkout("c", "Makefile", *loaded, "crates/oxedi_py/tests/test_x.py")
         self.assert_bound_read_only(checkout, loaded, ("crates/oxedi_py/tests/test_x.py",))
+
+    def test_the_bun_and_javascript_tool_files_are_read_only(self):
+        tool_files = [
+            "ui/package.json", "ui/bun.lock", "ui/bunfig.toml", "ui/.npmrc", "ui/tsconfig.json", "ui/vite.config.ts",
+            "ui/vitest.config.ts",
+        ]
+        checkout = self.checkout("c", "Makefile", *tool_files, "ui/src/main.ts")
+        read_only = layout.survey(checkout).read_only
+        for path in tool_files:
+            with self.subTest(path=path):
+                self.assertIn(path, read_only)
+        self.assertNotIn("ui/src/main.ts", read_only)
 
     def test_absent_root_names_held_in_the_run_only(self):
         checkout = self.checkout("c", "Makefile")
@@ -818,15 +833,17 @@ UV_INSTALL = [
 ]
 
 
-class Fetch(World):
-    def fetches(self) -> list[list[str]]:
-        return [c["argv"] for c in self.runs() if "bash" not in c["argv"]]
+FETCH_CAUSES = ("(no network, a package or group the checkout does not declare, or a ui/bun.lock out of date "
+                "with ui/package.json: bun install --lockfile-only in ui/)")
 
+
+class Fetch(World):
     def venv(self, checkout: Path) -> Path:
         return self.home / ".cache" / "oxedi-sandbox" / layout.path_hash(checkout) / "venv"
 
     def test_fetch_commands_fixed(self):
-        self.assertEqual(arguments.fetch_commands(arguments.ImageKind.BASE), [CARGO_FETCH, UV_VENV, UV_INSTALL])
+        surveyed = layout.survey(self.checkout())
+        self.assertEqual(arguments.fetch_commands(arguments.ImageKind.BASE, surveyed), [CARGO_FETCH, UV_VENV, UV_INSTALL])
 
     def test_fetch_runs_before_the_command(self):
         result = self.sandbox(self.checkout())
@@ -875,8 +892,7 @@ class Fetch(World):
         self.assertEqual(len(self.fetches()), 1)
         self.assertFalse([c for c in self.runs() if "bash" in c["argv"]])
         self.assertIn(
-            "sandbox: fetch failed: cargo fetch --locked exited 101; read its output above "
-            "(no network, or a package or group the checkout does not declare)",
+            f"sandbox: fetch failed: cargo fetch --locked exited 101; read its output above {FETCH_CAUSES}",
             result.stderr,
         )
 
@@ -978,7 +994,8 @@ class Images(World):
                 self.assertFalse([m for m in mounts(argv) if m.get("src") == docs_storage])
                 self.assertEqual(mount_at(argv, "/work/.venv-docs")["type"], "tmpfs")
                 self.assertFalse([a for a in argv if "OXEDI_CHROMIUM_NO_SANDBOX" in a])
-        self.assertEqual(arguments.fetch_commands(arguments.ImageKind.BASE), [CARGO_FETCH, UV_VENV, UV_INSTALL])
+        self.assertEqual(arguments.fetch_commands(arguments.ImageKind.BASE, layout.survey(checkout)),
+                         [CARGO_FETCH, UV_VENV, UV_INSTALL])
         self.assertEqual(arguments.audit_commands(arguments.ImageKind.BASE)[1:],
                          [[*PIP_AUDIT, "/work/.venv/lib/python3.13/site-packages"]])
         result = self.sandbox(checkout)
@@ -988,7 +1005,8 @@ class Images(World):
             self.assertFalse([a for a in call["argv"] if "OXEDI_CHROMIUM_NO_SANDBOX" in a])
 
     def test_viewer_fetch_installs_the_docs_venv(self):
-        fetch = arguments.fetch_commands(VIEWER)
+        checkout = self.pin(self.viewer_checkout())
+        fetch = arguments.fetch_commands(VIEWER, layout.survey(checkout))
         self.assertEqual(fetch, [CARGO_FETCH, UV_VENV, UV_INSTALL, *DOCS_FETCH])
         self.assertIn("--require-hashes", fetch[-2])
         self.assertIn("--no-build", fetch[-2])
@@ -996,7 +1014,6 @@ class Images(World):
             [*PIP_AUDIT, "/work/.venv/lib/python3.13/site-packages"],
             [*PIP_AUDIT, "/work/.venv-docs/lib/python3.13/site-packages"],
         ])
-        checkout = self.pin(self.viewer_checkout())
         docs_storage = self.own(checkout) / "venv-docs"
         for phase, read_only in ((arguments.Phase.FETCH, False), (arguments.Phase.RUN, False),
                                  (arguments.Phase.AUDIT, True)):
@@ -1136,6 +1153,94 @@ class Images(World):
             f"{viewer_image.INSTALL_TOOLS} must be a real file of the checkout",
             FAKE_PLAYWRIGHT_LABEL="1.64.0",
         )
+
+    def ui_checkout(self, name: str = "ui") -> Path:
+        """A viewer checkout that tracks ui/bun.lock."""
+        return self.pin(self.checkout(name, ".gitignore", "Makefile", "docs/requirements.txt", "ui/package.json",
+                                      "ui/bun.lock"))
+
+    def test_the_viewer_fetch_installs_the_ui_dependencies_when_the_lock_is_tracked(self):
+        fetch = arguments.fetch_commands(VIEWER, layout.survey(self.ui_checkout()))
+        self.assertEqual(fetch[-1], ["bun", "install", "--frozen-lockfile", "--ignore-scripts", "--cwd", "/work/ui"])
+
+    def test_no_fetch_command_runs_bun_without_a_tracked_lock(self):
+        untracked = self.viewer_checkout("untracked")
+        (untracked / "ui").mkdir()
+        (untracked / "ui" / "bun.lock").write_text("{}\n")
+        cases = (
+            ("viewer without the file", VIEWER, self.viewer_checkout("absent"),
+             [CARGO_FETCH, UV_VENV, UV_INSTALL, *DOCS_FETCH]),
+            ("viewer with an untracked lock", VIEWER, untracked, [CARGO_FETCH, UV_VENV, UV_INSTALL, *DOCS_FETCH]),
+            ("base with a tracked lock", arguments.ImageKind.BASE, self.ui_checkout(),
+             [CARGO_FETCH, UV_VENV, UV_INSTALL]),
+        )
+        for case, kind, checkout, today in cases:
+            with self.subTest(case=case):
+                fetch = arguments.fetch_commands(kind, layout.survey(checkout))
+                self.assertFalse([command for command in fetch if command[0] == "bun"])
+                self.assertEqual(fetch, today)
+
+    def test_the_ui_mounts_come_from_the_storage_with_a_tracked_lock(self):
+        checkout = self.ui_checkout()
+        self.assertEqual(arguments.own_dirs(VIEWER, layout.survey(checkout)),
+                         (".venv", ".venv-docs", "viewer/pkg", "ui/node_modules", "ui/dist"))
+        run = self.phase_args(arguments.Phase.RUN, checkout, VIEWER)
+        for destination, source in (("/work/ui/node_modules", "ui-node-modules"), ("/work/ui/dist", "ui-dist")):
+            with self.subTest(destination=destination):
+                mount = mount_at(run, destination)
+                self.assertEqual((mount["type"], mount["src"]), ("bind", str(self.own(checkout) / source)))
+                self.assertNotIn("readonly", mount)
+        fetch = self.phase_args(arguments.Phase.FETCH, checkout, VIEWER)
+        self.assertNotIn("readonly", mount_at(fetch, "/work/ui/node_modules"))
+        self.assertIn("readonly", mount_at(fetch, "/work/ui/dist"))
+
+    def test_a_failed_bun_install_stops_the_run_without_offline_fallback(self):
+        result = self.sandbox(self.ui_checkout(), "viewer", FAKE_PLAYWRIGHT_LABEL="1.64.0", FAKE_FETCH_EXIT="1",
+                              FAKE_FETCH_FAIL_ON="bun")
+        self.assertEqual(result.returncode, 1)
+        self.assertEqual(command_of(self.fetches()[-1]), arguments.BUN_INSTALL)
+        self.assertFalse([c for c in self.runs() if "bash" in c["argv"]])
+        self.assertIn(
+            "sandbox: fetch failed: bun install --frozen-lockfile --ignore-scripts --cwd /work/ui exited 1; "
+            f"read its output above {FETCH_CAUSES}",
+            result.stderr,
+        )
+
+    def test_a_viewer_run_makes_no_ui_directory_without_a_tracked_lock(self):
+        checkout = self.pin(self.viewer_checkout())
+        result = self.sandbox(checkout, "viewer", FAKE_PLAYWRIGHT_LABEL="1.64.0")
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertFalse((checkout / "ui").exists())
+        self.assertEqual(arguments.own_dirs(VIEWER, layout.survey(checkout)), (".venv", ".venv-docs", "viewer/pkg"))
+
+    def test_the_fetch_empties_ui_node_modules_before_its_first_command(self):
+        checkout = self.ui_checkout()
+        modules = self.own(checkout) / "ui-node-modules"
+        modules.mkdir(parents=True)
+        (modules / "planted.js").write_text("require('child_process').execSync('touch /work/marker')\n")
+        result = self.sandbox(checkout, "viewer", FAKE_PLAYWRIGHT_LABEL="1.64.0")
+        self.assertEqual(result.returncode, 0, result.stderr)
+        first = [c for c in self.runs() if "bash" not in c["argv"]][0]
+        self.assertEqual(command_of(first["argv"]), CARGO_FETCH)
+        self.assertEqual(first["binds"][str(modules)]["entries"], [])
+        self.assertFalse((modules / "planted.js").exists())
+
+    def test_only_the_fetch_binds_the_bun_cache(self):
+        checkout = self.ui_checkout()
+        bun = str(self.home / ".cache" / "oxedi-sandbox" / "bun")
+        fetch = self.phase_args(arguments.Phase.FETCH, checkout, VIEWER)
+        mount = mount_at(fetch, "/sandbox/bun")
+        self.assertEqual((mount["type"], mount["src"]), ("bind", bun))
+        self.assertNotIn("readonly", mount)
+        self.assertIn("BUN_INSTALL_CACHE_DIR=/sandbox/bun", envs(fetch))
+        others = (
+            ("run", self.phase_args(arguments.Phase.RUN, checkout, VIEWER)),
+            ("audit", self.phase_args(arguments.Phase.AUDIT, checkout, VIEWER)),
+            ("base fetch", self.phase_args(arguments.Phase.FETCH, checkout)),
+        )
+        for case, argv in others:
+            with self.subTest(case=case):
+                self.assertFalse([a for a in argv if "/sandbox/bun" in a or bun in a])
 
     def test_storage_names_follow_the_own_mounts(self):
         # The plan line names the storage directories the runs mount, from the table the mounts use.

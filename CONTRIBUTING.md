@@ -430,7 +430,7 @@ environment, never a variable of your shell, and no part of your home other than
 no `~/.ssh`, `~/.pypirc`, `~/.config/gh`, Docker socket or the private samples.
 
 `IMAGE=viewer` runs in a second image, `tools/sandbox/Dockerfile.viewer`, built `FROM` the base
-image's exact tag, which it leaves unchanged: Node 24 by version and SHA-256, Playwright's
+image's exact tag, which it leaves unchanged: Node 24 and Bun by version and SHA-256, Playwright's
 `chromium-headless-shell` at the revision the `playwright==` pin of `docs/requirements.txt`
 installs (checked by the SHA-256 of the installed tree), and the `wasm32-unknown-unknown` target,
 `wasm-bindgen` and `wasm-opt` at the versions and SHA-256s of
@@ -458,7 +458,11 @@ nor the host checks set it.
   project code run. It runs `cargo fetch --locked` and installs wheels only (never an sdist)
   into a fresh `.venv` from the `contributor` group of `crates/oxedi_py/pyproject.toml`. With
   `IMAGE=viewer` it also makes a fresh `.venv-docs` from `docs/requirements.txt`, wheels only and
-  with `--require-hashes`, and the stamp `make docs-venv` checks. Without the network it stops
+  with `--require-hashes`, and the stamp `make docs-venv` checks, and, when the checkout tracks
+  `ui/bun.lock`, installs the browser interface's dependencies into a fresh `ui/node_modules` with
+  `bun install --frozen-lockfile --ignore-scripts`: a lock that does not match `ui/package.json`
+  fails, no dependency's install script runs, and an untracked lock installs nothing. Write that
+  lock on the host with `bun install --lockfile-only` in `ui/`. Without the network it stops
   with one line; it never falls back to the caches offline.
 - *run*, with no network: your command, with the cargo registry read-only.
 
@@ -467,11 +471,13 @@ over the checkout in both phases: `Makefile`, `make/`, `tools/`, `.cargo/`, `.gi
 `rust-toolchain.toml`, `Cargo.toml`, `Cargo.lock`, `AGENTS.md`, `CLAUDE.md`, `.claude/`,
 `crates/oxedi_py/pyproject.toml`, `.git`, `.gitmodules`, every submodule (the DuckDB targets
 include `extension-ci-tools`' makefiles), and every tracked `Cargo.toml`, `Cargo.lock`,
-`rust-toolchain`, `pyproject.toml`, `uv.toml`, `.python-version` and `.cargo/` anywhere, with every
-tracked file a host tool loads by its name alone: `conftest.py`, `pytest.ini`, `setup.cfg`,
-`tox.ini`, `noxfile.py`, `sitecustomize.py`, `usercustomize.py` and `.envrc`. The names make and
-pytest load from the root, `GNUmakefile`, `makefile` and `conftest.py`, are read-only when present;
-when absent, the run phase binds a read-only stand-in over each, so the run cannot create one; the
+`rust-toolchain`, `pyproject.toml`, `uv.toml`, `.python-version`, `package.json`, `bun.lock`,
+`tsconfig.json`, `vite.config.ts`, `vitest.config.ts` and `.cargo/` anywhere, with every tracked
+file a host tool loads by its name alone: `conftest.py`, `pytest.ini`, `setup.cfg`, `tox.ini`,
+`noxfile.py`, `sitecustomize.py`, `usercustomize.py`, `.envrc`, and Bun's `bunfig.toml` and
+`.npmrc` (its registry and preload). The names make and pytest load from the root, `GNUmakefile`,
+`makefile` and `conftest.py`, are read-only when present; when absent, the run phase binds a
+read-only stand-in over each, so the run cannot create one; the
 stand-ins of the two make names include the next name, so make in the run still reads `Makefile`.
 While the run lasts, the checkout holds a placeholder of each name, one line that says what it is,
 removed when the run ends; host `make` in that checkout stops with that line meanwhile, so use
@@ -500,7 +506,8 @@ container and run the audit first.
 A new path that host tools look up by name comes first in the report, with a line that says not
 to run `make` or any tool in the checkout until you remove it: `GNUmakefile` and `makefile` (make
 reads them before `Makefile`, so `make sandbox` itself would run them), a `*.py` at the root,
-`sitecustomize.py`, `usercustomize.py`, `conftest.py`, `.envrc`, `.cargo/` and `rust-toolchain*`.
+`sitecustomize.py`, `usercustomize.py`, `conftest.py`, `.envrc`, `.cargo/`, `rust-toolchain*`,
+`bunfig.toml` and `.npmrc`.
 Every Python that `make/sandbox.mk` starts runs isolated (`python3 -I`), so a module left in the
 checkout never loads. A dirty audit is recorded in the checkout's storage, where no run can
 write, and the next run refuses to start (exit 2, naming the paths) while one of them is still as
@@ -530,10 +537,12 @@ returns it as is (`make sandbox` prints the image tag in its first line).
 `make sandbox CMD="make gates" SANDBOX_MEMORY=8`. A run killed at the memory limit exits 137 and
 says how to raise it.
 
-**Storage.** `${XDG_CACHE_HOME:-~/.cache}/oxedi-sandbox/` holds the cargo registry and the uv
-cache, shared by every checkout, and one directory per checkout with its `target/`, `.venv` and
-(for `IMAGE=viewer` runs) `.venv-docs` and `viewer/pkg`, so the sandbox never touches the ones you
-build on the host.
+**Storage.** `${XDG_CACHE_HOME:-~/.cache}/oxedi-sandbox/` holds the cargo registry, the uv
+cache and Bun's download cache, shared by every checkout (Bun's is mounted by the `IMAGE=viewer`
+fetch only, so no run can plant a package in it), and one directory per checkout with its
+`target/`, `.venv` and (for `IMAGE=viewer` runs) `.venv-docs`, `viewer/pkg` and, with a tracked
+`ui/bun.lock`, `ui/node_modules` and `ui/dist`, so the sandbox never touches the ones you build on
+the host.
 `make sandbox-clean` removes this checkout's directory; `make sandbox-clean ALL=1` removes all of
 `oxedi-sandbox/`. Both refuse while a sandbox run or a sandbox container that uses the storage runs.
 
@@ -662,6 +671,8 @@ request.
 - `wasm-bindgen` and `wasm-opt`: change the versions and checksums in
   `crates/oxedi_wasm/scripts/install_tools.sh`; the image reads them from there.
 - Node: `NODE_VERSION` and `NODE_SHA256` in `tools/sandbox/Dockerfile.viewer`.
+- Bun: `BUN_VERSION` and `BUN_SHA256` in `tools/sandbox/Dockerfile.viewer`; the checksum of
+  `bun-linux-x64.zip` is in the release's `SHASUMS256.txt`.
 
 **Bumping the audit tools.** A cargo-deny or pip-audit bump must pass `make sandbox-tools-check`.
 cargo-deny 0.19.1 and later need the `git` command to fetch the advisory database, which the image

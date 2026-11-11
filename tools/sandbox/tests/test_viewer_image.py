@@ -2,6 +2,7 @@
 
 import hashlib
 import os
+import re
 import stat
 import subprocess
 import sys
@@ -90,6 +91,20 @@ class Pins(unittest.TestCase):
         with self.assertRaises(SystemExit) as raised:
             viewer_image.build_args(Path(tempfile.mkdtemp()))
         self.assertTrue(str(raised.exception).startswith("sandbox-image-viewer: cannot read "))
+
+
+class Dockerfile(unittest.TestCase):
+    def test_the_dockerfile_pins_bun_by_version_and_sha256(self):
+        lines = (REPO / viewer_image.DOCKERFILE).read_text().splitlines()
+        self.assertIn("ARG BUN_VERSION=1.4.4", lines)
+        self.assertTrue(any(re.fullmatch(r"ARG BUN_SHA256=[0-9a-f]{64}", line) for line in lines))
+        check = next(
+            index for index, line in enumerate(lines)
+            if '"$BUN_SHA256  /tmp/bun.zip" | sha256sum -c -' in line
+        )
+        unpack = next(index for index, line in enumerate(lines) if "-m zipfile -e /tmp/bun.zip" in line)
+        self.assertLess(check, unpack)
+        self.assertTrue(any('oxedi.sandbox.bun="$BUN_VERSION"' in line for line in lines))
 
 
 class Tag(unittest.TestCase):

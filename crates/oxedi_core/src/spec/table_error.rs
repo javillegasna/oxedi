@@ -5,7 +5,19 @@ use std::fmt;
 use super::phi::ColumnKind;
 use super::render::render_chain;
 use super::tables::Pick;
-use crate::message::render_names;
+use crate::message::{ElementRef, render_names};
+
+/// The occurrences a loop declares, or that it declares none.
+pub(super) struct Declared<'a>(pub(super) &'a [String]);
+
+impl fmt::Display for Declared<'_> {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        if self.0.is_empty() {
+            return f.write_str("it declares none");
+        }
+        write!(f, "it declares {}", render_names(self.0))
+    }
+}
 
 /// The tables above two anchor loops, outermost first.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -319,14 +331,11 @@ impl fmt::Display for TableDefError {
                 loop_name,
                 occurrence,
                 known,
-            } => {
-                write!(f, "loop {loop_name:?} has no occurrence {occurrence:?}; ")?;
-                if known.is_empty() {
-                    write!(f, "it declares none")
-                } else {
-                    write!(f, "it declares {}", render_names(known))
-                }
-            }
+            } => write!(
+                f,
+                "loop {loop_name:?} has no occurrence {occurrence:?}; {}",
+                Declared(known)
+            ),
             TableDefError::OccurrenceAndSegment { key, written } => write!(
                 f,
                 "\"occurrence\" already names the segment and its qualifier; {key:?} ({written}) does not go with it"
@@ -419,7 +428,8 @@ impl fmt::Display for TableDefError {
             TableDefError::PhiOnControlElement { segment, element } => {
                 write!(
                     f,
-                    "\"phi\" cannot flag {segment}{element:02}: it is an envelope control number or count; findings about envelope controls quote it unmasked, so it cannot be flagged; remove \"phi\" from this column"
+                    "\"phi\" cannot flag {}: it is an envelope control number or count; findings about envelope controls quote it unmasked, so it cannot be flagged; remove \"phi\" from this column",
+                    ElementRef::simple(segment.as_bytes(), *element)
                 )
             }
             TableDefError::UnknownPhiSeed { name } => {

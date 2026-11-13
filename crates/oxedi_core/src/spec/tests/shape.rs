@@ -1,6 +1,7 @@
 //! The JSON shape checks and the paths they report.
 
 use super::{element_error, table_error};
+use crate::message::render_key;
 use crate::spec::shape::kind_of;
 use crate::spec::*;
 

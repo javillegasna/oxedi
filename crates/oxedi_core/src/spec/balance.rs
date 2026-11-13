@@ -18,12 +18,11 @@ use super::Spec;
 use super::balance_error::BalanceError;
 use super::error::SpecError;
 use super::loops::LoopId;
-use super::occurrence_error::place;
 use super::occurrences::element_def;
 use super::raw::{RawBalance, RawTerm};
-use super::render::render_key;
 use super::segments::ElementDef;
 use super::vocabulary::Vocabulary;
+use crate::message::{place, render_key};
 use crate::value::ElementType;
 
 /// A balancing term's `sign`, written `"+"` or `"-"`.
@@ -185,10 +184,9 @@ fn read_elements(
             key: format!("{at}.elements"),
         });
     }
-    let segment_text = String::from_utf8_lossy(segment);
     for (j, &element) in term.elements.iter().enumerate() {
         let key = format!("{at}.elements[{j}]");
-        let place = place(&segment_text, element, term.component);
+        let place = place(segment, element, term.component);
         let found = element_def(&spec.segments, segment, element, term.component);
         *scale = (*scale).max(decimal_scale(found, &key, &place)?);
         let address = (term.loop_id, term.occurrence, element, term.component);

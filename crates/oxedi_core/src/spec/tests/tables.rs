@@ -775,3 +775,11 @@ fn table_errors_display_the_table_the_column_and_every_reason() {
         assert!(std::error::Error::source(&in_table).is_none());
     }
 }
+
+#[test]
+fn table_names_lists_the_tables_in_spec_order() {
+    let spec = Spec::builtin_835();
+    let expected: Vec<String> = spec.tables().iter().map(|t| t.name.clone()).collect();
+    assert!(!expected.is_empty());
+    assert_eq!(spec.table_names(), expected);
+}

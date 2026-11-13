@@ -1,5 +1,6 @@
 use std::fmt;
 
+use crate::message::render_names;
 use crate::spec::Spec;
 
 /// A table name that the spec does not define, asked for when choosing which
@@ -17,19 +18,18 @@ impl UnknownTable {
     pub(crate) fn new(spec: &Spec, name: &str) -> Self {
         Self {
             name: name.to_owned(),
-            tables: spec.tables().iter().map(|def| def.name.clone()).collect(),
+            tables: spec.table_names(),
         }
     }
 }
 
 impl fmt::Display for UnknownTable {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        let quoted: Vec<String> = self.tables.iter().map(|name| format!("{name:?}")).collect();
         write!(
             f,
             "table {:?} is not defined by the spec, so it cannot be filled; its tables are {}",
             self.name,
-            quoted.join(", ")
+            render_names(&self.tables)
         )
     }
 }

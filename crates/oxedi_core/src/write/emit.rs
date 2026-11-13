@@ -19,7 +19,7 @@ use super::finding::{Finding, ValueOrigin};
 use super::layout::{Item, Layout};
 use super::nest::Nest;
 use super::plan::{Instances, SegmentPlan, SegmentSource, ValueSource, WritePlan};
-use super::refusal::place;
+use crate::message::place;
 use super::render::{Part, Separators};
 use super::trace::{Src, Traces};
 use super::walk::Context;

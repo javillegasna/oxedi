@@ -77,7 +77,7 @@ pub(super) fn compile_default_table(
     match raw {
         Some(table) if spec.table(&table).is_none() => Err(SpecError::UnknownDefaultTable {
             table,
-            known: table_names(spec),
+            known: spec.table_names(),
         }),
         raw => Ok(raw),
     }
@@ -179,7 +179,7 @@ fn table_at<'s>(spec: &'s Spec, key: &str, name: &str) -> Result<&'s TableDef, S
         .ok_or_else(|| SummaryDefError::UnknownTable {
             key: key.to_string(),
             table: name.to_string(),
-            known: table_names(spec),
+            known: spec.table_names(),
         })
 }
 
@@ -210,11 +210,4 @@ fn column_of<'t>(
             column: column.to_string(),
             known: table.columns.iter().map(|(name, _)| name.clone()).collect(),
         })
-}
-
-fn table_names(spec: &Spec) -> Vec<String> {
-    spec.tables()
-        .iter()
-        .map(|table| table.name.clone())
-        .collect()
 }

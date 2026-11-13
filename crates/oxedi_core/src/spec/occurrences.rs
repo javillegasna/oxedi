@@ -6,11 +6,12 @@ use std::collections::BTreeMap;
 
 use super::error::SpecError;
 use super::loops::Trigger;
-use super::occurrence_error::{OccurrenceError, place};
+use super::occurrence_error::OccurrenceError;
 use super::raw::{RawOccurrence, RawQualifier};
-use super::render::{render_key, render_trigger};
+use super::render::render_trigger;
 use super::segments::{ElementDef, ElementDefError, SegmentDef, compile_codes, holds_code};
 use super::vocabulary::{ElementPosition, Vocabulary};
+use crate::message::{place, render_key};
 use crate::segment::Segment;
 
 /// Whether an occurrence must appear in every instance of its loop.

@@ -6,7 +6,7 @@ use crate::column::Cell;
 
 use super::emit::Emitter;
 use super::finding::{Finding, ValueOrigin};
-use super::refusal::place;
+use crate::message::place;
 use super::render::{Part, cell_text, write_segment};
 use super::trace::Src;
 

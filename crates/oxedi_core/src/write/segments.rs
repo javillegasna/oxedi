@@ -7,7 +7,8 @@ use crate::spec::{OccurrenceDef, Pick};
 
 use super::build::{Builder, Entry};
 use super::plan::{ElementPlan, SegmentPlan, SegmentSource, ValueSource};
-use super::refusal::{Refusal, place};
+use super::refusal::Refusal;
+use crate::message::place;
 use super::required::add_qualifier;
 
 impl Builder<'_> {

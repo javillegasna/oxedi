@@ -7,6 +7,7 @@ use super::error::SpecError;
 use super::table_error::TableDefError;
 use super::tables::ColumnSource;
 use super::tables::TableDef;
+use super::vocabulary::Vocabulary;
 use crate::mask::Phi;
 use crate::value::ElementType;
 

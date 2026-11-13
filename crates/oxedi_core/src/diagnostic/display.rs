@@ -4,11 +4,11 @@
 
 use std::fmt;
 
-use super::text::{
-    CodeCount, Cut, InOccurrence, MAX_LISTED_SEGMENTS, OfSegment, OffBy, OpenedAt,
-    Opener, Parent, Reporter, ShortList, debug_name, quoted_code, segment_index,
-};
 use super::Rule;
+use super::text::{
+    CodeCount, Cut, InOccurrence, MAX_LISTED_SEGMENTS, OfSegment, OffBy, OpenedAt, Opener, Parent,
+    Reporter, ShortList, debug_name, quoted_code, segment_index,
+};
 use crate::message::{ElementRef, Quoted};
 use crate::value::decimal_display;
 

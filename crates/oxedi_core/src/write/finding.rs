@@ -4,8 +4,8 @@
 use std::fmt;
 
 use crate::diagnostic::Diagnostic;
-use crate::message::Quoted;
 use crate::document::DocumentError;
+use crate::message::Quoted;
 use crate::value::{ColumnType, ElementTextError};
 
 use super::refusal::PlanError;

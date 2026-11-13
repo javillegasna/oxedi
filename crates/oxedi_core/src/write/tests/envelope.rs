@@ -1,6 +1,7 @@
 use super::super::envelope::interchange_version;
-use super::super::{Envelope, WriteError, write, write_with_findings};
+use super::super::{Envelope, Finding, WriteError, write, write_with_findings};
 use crate::delimiters::Delimiters;
+use crate::diagnostic::Rule;
 use crate::{Document, Processor, Spec};
 
 #[test]
@@ -44,11 +45,20 @@ fn a_00402_spec_with_a_code_on_isa11_writes_the_separator() {
         .merge_patch(r#"{"segments":{"ISA":{"elements":{"11":{"codes":["U"]}}}}}"#)
         .unwrap();
     let envelope = envelope_with(Delimiters::new(b'*', b':', b'~').with_repetition(b'^'));
-    // The spec's code list for ISA11 does not hold the separator, so the
-    // read-back reports it; the bytes are what the test is about.
     let document = Document::parse(BALANCED_5010).unwrap();
     let (tables, _) = Processor::run(&spec, &document, None);
-    let (bytes, _) = write_with_findings(&spec, &tables, &envelope).unwrap();
+    let (bytes, findings) = write_with_findings(&spec, &tables, &envelope).unwrap();
+    // The spec's code list for ISA11 does not hold the separator, so the
+    // read-back reports it, and only that.
+    assert!(
+        matches!(
+            findings.as_slice(),
+            [Finding::ReadBack { diagnostic, .. }]
+                if matches!(diagnostic.rule, Rule::CodeNotInList { element: 11, .. })
+                    && diagnostic.element == Some(11)
+        ),
+        "{findings:#?}"
+    );
     let isa = String::from_utf8_lossy(&bytes);
     assert!(isa.contains("*^*00501*"), "{isa}");
     assert_eq!(Delimiters::from_isa(&bytes).unwrap().repetition, Some(b'^'));
@@ -111,11 +121,18 @@ fn the_version_the_rule_reads_is_the_isa12_the_writer_writes() {
     let patched = Spec::builtin_835()
         .merge_patch(r#"{"segments":{"ISA":{"elements":{"12":{"codes":["00402"]}}}}}"#)
         .unwrap();
+    let declared = Spec::builtin_835()
+        .merge_patch(
+            r#"{"version":{"segment":"ISA","element":12,"values":["00401"]},
+                "segments":{"ISA":{"elements":{"11":{"required":false},"12":{"codes":["00401"]}}}}}"#,
+        )
+        .unwrap();
     let envelope = envelope_with(Delimiters::new(b'*', b':', b'~').with_repetition(b'^'));
     for (spec, input) in [
         (Spec::builtin_835(), BALANCED_5010),
         (Spec::builtin_835_4010(), BALANCED_4010),
         (patched, BALANCED_5010),
+        (declared, BALANCED_5010),
     ] {
         let bytes = written(&spec, input, &envelope).unwrap();
         let isa = bytes.split(|&byte| byte == b'~').next().unwrap();

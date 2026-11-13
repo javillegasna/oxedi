@@ -12,7 +12,7 @@ use std::sync::Arc;
 use std::sync::atomic::{AtomicUsize, Ordering};
 use std::time::{Duration, Instant};
 
-use oxedi_core::{Delimiters, Document, Frame, Segment, Span, next_frame, trivia::is_trivia};
+use oxedi_core::{Delimiters, Document, Frame, Segment, SegmentEnd, Span, next_frame, trivia::is_trivia};
 
 /// The system allocator, counting the bytes currently allocated.
 struct Counting;
@@ -58,9 +58,10 @@ impl SharedDocument {
         let bytes: Arc<[u8]> = Arc::from(bytes);
         let start = bytes.iter().position(|&b| !is_trivia(b)).unwrap_or(0);
         let delims = Delimiters::from_isa(&bytes[start..]).expect("sample has an ISA");
+        let end = SegmentEnd::new(delims.segment, delims.release);
         let mut spans = Vec::new();
         let (mut rest, mut offset) = (&bytes[..], 0);
-        while let Some((frame, next)) = next_frame(rest, &delims) {
+        while let Some((frame, next)) = next_frame(rest, end) {
             let trivia = frame.raw.len() - frame.body.len() - usize::from(frame.terminated);
             let raw = offset..offset + frame.raw.len();
             let body = raw.start + trivia..raw.start + trivia + frame.body.len();

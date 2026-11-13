@@ -6,7 +6,7 @@
 //! id means. Between two calls to `next` the tokenizer is simply paused.
 
 use crate::delimiters::{Delimiters, IsaError};
-use crate::frame::{first_frame, next_frame};
+use crate::frame::{SegmentEnd, first_frame, next_frame};
 use crate::segment::Segment;
 
 /// Iterator of segments over `input`.
@@ -14,6 +14,8 @@ use crate::segment::Segment;
 pub struct Tokenizer<'a> {
     rest: &'a [u8],
     delims: Delimiters,
+    /// `delims`' segment terminator and release byte, built once for the whole input.
+    end: SegmentEnd,
     next_index: usize,
 }
 
@@ -34,6 +36,7 @@ impl<'a> Tokenizer<'a> {
         Self {
             rest: input,
             delims,
+            end: SegmentEnd::new(delims.segment, delims.release),
             next_index: 0,
         }
     }
@@ -49,9 +52,9 @@ impl<'a> Iterator for Tokenizer<'a> {
 
     fn next(&mut self) -> Option<Self::Item> {
         let (frame, rest) = if self.next_index == 0 {
-            first_frame(self.rest, &self.delims)?
+            first_frame(self.rest, self.end)?
         } else {
-            next_frame(self.rest, &self.delims)?
+            next_frame(self.rest, self.end)?
         };
         self.rest = rest;
         let segment = Segment::parse(self.next_index, frame, &self.delims);

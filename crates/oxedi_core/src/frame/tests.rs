@@ -1,9 +1,10 @@
 use super::*;
-use crate::Delimiters;
-use crate::delimiters::test_support::plain;
+fn plain() -> SegmentEnd {
+    SegmentEnd::new(b'~', None)
+}
 
-fn with_release() -> Delimiters {
-    plain().with_release(b'?')
+fn with_release() -> SegmentEnd {
+    SegmentEnd::new(b'~', Some(b'?'))
 }
 
 /// Asserts the frame's raw, body and terminator flag and the rest of the input in one comparison.
@@ -24,7 +25,7 @@ fn assert_frame(
 #[test]
 fn splits_at_the_terminator() {
     assert_frame(
-        next_frame(b"ST*835~BPR~", &plain()),
+        next_frame(b"ST*835~BPR~", plain()),
         b"ST*835~",
         b"ST*835",
         true,
@@ -35,7 +36,7 @@ fn splits_at_the_terminator() {
 #[test]
 fn leading_trivia_belongs_to_raw_not_body() {
     assert_frame(
-        next_frame(b"\r\n GS*HP~", &plain()),
+        next_frame(b"\r\n GS*HP~", plain()),
         b"\r\n GS*HP~",
         b"GS*HP",
         true,
@@ -45,35 +46,35 @@ fn leading_trivia_belongs_to_raw_not_body() {
 
 #[test]
 fn unterminated_tail_is_a_frame() {
-    assert_frame(next_frame(b"SE*5", &plain()), b"SE*5", b"SE*5", false, b"");
+    assert_frame(next_frame(b"SE*5", plain()), b"SE*5", b"SE*5", false, b"");
 }
 
 #[test]
 fn trivia_only_tail_is_a_frame_with_empty_body() {
-    assert_frame(next_frame(b"\n", &plain()), b"\n", b"", false, b"");
+    assert_frame(next_frame(b"\n", plain()), b"\n", b"", false, b"");
 }
 
 #[test]
 fn empty_segment_is_a_frame() {
-    assert_frame(next_frame(b"~SE~", &plain()), b"~", b"", true, b"SE~");
+    assert_frame(next_frame(b"~SE~", plain()), b"~", b"", true, b"SE~");
 }
 
 #[test]
 fn release_makes_the_terminator_literal() {
-    let (frame, rest) = next_frame(b"N1*A?~B~X~", &with_release()).unwrap();
+    let (frame, rest) = next_frame(b"N1*A?~B~X~", with_release()).unwrap();
     assert_eq!(frame.body, b"N1*A?~B");
     assert_eq!(rest, b"X~");
 }
 
 #[test]
 fn escaped_release_does_not_escape_the_terminator() {
-    let (frame, _) = next_frame(b"N1*A??~B~", &with_release()).unwrap();
+    let (frame, _) = next_frame(b"N1*A??~B~", with_release()).unwrap();
     assert_eq!(frame.body, b"N1*A??");
 }
 
 #[test]
 fn dangling_release_at_end_does_not_panic() {
-    let (frame, rest) = next_frame(b"N1*A?", &with_release()).unwrap();
+    let (frame, rest) = next_frame(b"N1*A?", with_release()).unwrap();
     assert_eq!(frame.body, b"N1*A?");
     assert!(!frame.terminated);
     assert_eq!(rest, b"");
@@ -82,7 +83,7 @@ fn dangling_release_at_end_does_not_panic() {
 #[test]
 fn a_leading_byte_order_mark_is_trivia_of_the_first_frame() {
     assert_frame(
-        first_frame(b"\xEF\xBB\xBF\r\nISA*00~GS~", &plain()),
+        first_frame(b"\xEF\xBB\xBF\r\nISA*00~GS~", plain()),
         b"\xEF\xBB\xBF\r\nISA*00~",
         b"ISA*00",
         true,
@@ -93,7 +94,7 @@ fn a_leading_byte_order_mark_is_trivia_of_the_first_frame() {
 #[test]
 fn a_byte_order_mark_alone_is_a_trivia_only_frame() {
     assert_frame(
-        first_frame(b"\xEF\xBB\xBF", &plain()),
+        first_frame(b"\xEF\xBB\xBF", plain()),
         b"\xEF\xBB\xBF",
         b"",
         false,
@@ -104,21 +105,21 @@ fn a_byte_order_mark_alone_is_a_trivia_only_frame() {
 #[test]
 fn without_a_byte_order_mark_the_first_frame_is_the_next_frame() {
     let input = b"\nST*835~SE~";
-    assert_eq!(first_frame(input, &plain()), next_frame(input, &plain()));
-    assert_eq!(first_frame(b"", &plain()), None);
+    assert_eq!(first_frame(input, plain()), next_frame(input, plain()));
+    assert_eq!(first_frame(b"", plain()), None);
 }
 
 #[test]
 fn a_byte_order_mark_after_the_first_frame_is_data() {
-    let (frame, _) = next_frame(b"\xEF\xBB\xBFST~", &plain()).unwrap();
+    let (frame, _) = next_frame(b"\xEF\xBB\xBFST~", plain()).unwrap();
     assert_eq!(frame.body, b"\xEF\xBB\xBFST");
-    let (frame, _) = first_frame(b"\xEF\xBB\xBF\xEF\xBB\xBFST~", &plain()).unwrap();
+    let (frame, _) = first_frame(b"\xEF\xBB\xBF\xEF\xBB\xBFST~", plain()).unwrap();
     assert_eq!(frame.body, b"\xEF\xBB\xBFST");
 }
 
 #[test]
 fn empty_input_yields_no_frame() {
-    assert_eq!(next_frame(b"", &plain()), None);
+    assert_eq!(next_frame(b"", plain()), None);
 }
 
 #[test]

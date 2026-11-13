@@ -66,14 +66,24 @@ def _replace(table, column, changes, kind):
 
 
 @functools.cache
+def _blanks():
+    """The ASCII bytes ``str.strip`` removes, as a 256-entry table. Shared:
+    callers never write to it."""
+    import numpy as np
+
+    table = np.zeros(256, dtype=bool)
+    table[list(STRIPPED)] = True
+    return table
+
+
+@functools.cache
 def _endings():
     """The bytes that may end whitespace: the ASCII bytes ``str.strip``
     removes and every non-ASCII byte (the last byte of a multi-byte
     character)."""
     import numpy as np
 
-    table = np.zeros(256, dtype=bool)
-    table[list(STRIPPED)] = True
+    table = _blanks().copy()
     table[0x80:] = True
     return table
 
@@ -92,9 +102,7 @@ def any_padded(view, delimiters):
     if _endings()[data[ends[ends > 0] - 1]].any():
         return True
     tail = data[ends[-1] + 1:] if len(ends) else data
-    blank = np.zeros(256, dtype=bool)
-    blank[list(STRIPPED)] = True
-    return bool(len(tail) and not blank[tail].all() and _endings()[tail[-1]])
+    return bool(len(tail) and not _blanks()[tail].all() and _endings()[tail[-1]])
 
 
 def _ending_in_blanks(column):

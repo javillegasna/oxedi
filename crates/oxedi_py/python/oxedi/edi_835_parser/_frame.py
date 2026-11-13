@@ -20,8 +20,8 @@ import functools
 import numpy as np
 
 from . import _codes
-from ._convert import ENCODING, element_date
-from ._tables import ints, position
+from ._convert import ENCODING, as_integer, element_date, ints
+from ._tables import CLAIM_DATE, SERVICE_DATE
 
 UTF8 = codecs.lookup(ENCODING).name == "utf-8"
 LIBRARY_COLUMNS = (
@@ -51,8 +51,6 @@ SERVICE_EXTRAS = (
     ("x_svc_adj", "rows_adjustment_groups", GROUP),
     ("x_svc_amt", "rows_service_amounts", AMOUNT),
 )
-SERVICE_DATE, _ = position("rows_service_dates", "date")
-CLAIM_DATE, _ = position("rows_claim_dates", "date")
 
 
 def column_of(n, value):
@@ -154,16 +152,6 @@ def lookup(values, function):
         mapped[at] = function(value)
     mapped[-1] = function(None)
     return mapped[codes]
-
-
-def as_integer(value):
-    """The library's ``int()`` with its fallback to the text."""
-    if value is None:
-        return None
-    try:
-        return int(value)
-    except ValueError:
-        return value
 
 
 def numbered(rows, parent, keys, prefix, fields):

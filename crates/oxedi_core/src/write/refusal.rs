@@ -214,10 +214,7 @@ impl fmt::Display for Refusal {
             } => write!(
                 f,
                 "{} reads {source} in loop {loop_name:?}, which {}",
-                Source {
-                    table,
-                    column: column.as_deref()
-                },
+                Source(table, column.as_deref()),
                 Matches(candidates)
             ),
             Refusal::PickNotContiguous {
@@ -303,10 +300,7 @@ impl fmt::Display for Refusal {
                 f,
                 "{} writes occurrence {occurrence:?} in loop {loop_name:?} with the fixed code \
                  {value:?} in {place}, which its code list ({}) does not allow",
-                Source {
-                    table,
-                    column: column.as_deref()
-                },
+                Source(table, column.as_deref()),
                 render_names(codes)
             ),
         }
@@ -328,11 +322,7 @@ impl fmt::Display for PlanError {
             f,
             "spec {:?} cannot be written ({}){}",
             self.spec,
-            Counted {
-                count: self.refusals.len(),
-                one: "reason",
-                many: "reasons"
-            },
+            Counted(self.refusals.len(), "reason", "reasons"),
             Numbered(&self.refusals)
         )
     }

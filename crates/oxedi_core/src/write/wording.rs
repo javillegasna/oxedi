@@ -1,5 +1,8 @@
-//! The pieces the writer's messages are written from: where a column or an
-//! anchor reads, what writes a loop, and the occurrences a selector matches.
+//! The pieces the writer's messages are written from: [`Source`] (where a
+//! column or an anchor reads), [`WrittenBy`] (what writes an occurrence),
+//! [`Matches`] (the occurrences a selector matches), [`Reference`] (a row
+//! reference), [`ReadBackOrigin`] (what a read-back diagnostic is about),
+//! [`Counted`] (a count and its noun) and [`Numbered`] (numbered lines).
 
 use std::fmt;
 
@@ -7,18 +10,15 @@ use crate::message::render_names;
 
 use super::finding::ValueOrigin;
 
-/// Where a table reads: a column of it, or its anchor segment when `column`
-/// is `None`.
-pub(super) struct Source<'a> {
-    pub(super) table: &'a str,
-    pub(super) column: Option<&'a str>,
-}
+/// Where a table reads, as the table and its column, or its anchor segment
+/// when the column is `None`.
+pub(super) struct Source<'a>(pub(super) &'a str, pub(super) Option<&'a str>);
 
 impl fmt::Display for Source<'_> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match self.column {
-            Some(column) => write!(f, "table {:?} column {column:?}", self.table),
-            None => write!(f, "table {:?} anchor segment", self.table),
+        match self.1 {
+            Some(column) => write!(f, "table {:?} column {column:?}", self.0),
+            None => write!(f, "table {:?} anchor segment", self.0),
         }
     }
 }
@@ -42,33 +42,26 @@ pub(super) struct Matches<'a>(pub(super) &'a [String]);
 
 impl fmt::Display for Matches<'_> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        if self.0.is_empty() {
-            return f.write_str("matches none of its occurrences");
+        match self.0 {
+            [] => f.write_str("matches none of its occurrences"),
+            names => write!(
+                f,
+                "matches {} of its occurrences ({}); name one with \"occurrence\"",
+                names.len(),
+                render_names(names)
+            ),
         }
-        write!(
-            f,
-            "matches {} of its occurrences ({}); name one with \"occurrence\"",
-            self.0.len(),
-            render_names(self.0)
-        )
     }
 }
 
 /// A row reference of a column: the row it names in the parent table, or
 /// that it is null.
-pub(super) struct Reference<'a> {
-    pub(super) value: Option<i64>,
-    pub(super) parent: &'a str,
-}
+pub(super) struct Reference<'a>(pub(super) Option<i64>, pub(super) &'a str);
 
 impl fmt::Display for Reference<'_> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match self.value {
-            Some(value) => write!(
-                f,
-                "refers to row {value}, which table {:?} lacks",
-                self.parent
-            ),
+        match self.0 {
+            Some(value) => write!(f, "refers to row {value}, which table {:?} lacks", self.1),
             None => f.write_str("is null"),
         }
     }
@@ -88,16 +81,16 @@ impl fmt::Display for ReadBackOrigin<'_> {
 }
 
 /// A count and its noun, in the singular for one and the plural otherwise.
-pub(super) struct Counted {
-    pub(super) count: usize,
-    pub(super) one: &'static str,
-    pub(super) many: &'static str,
-}
+pub(super) struct Counted(
+    pub(super) usize,
+    pub(super) &'static str,
+    pub(super) &'static str,
+);
 
 impl fmt::Display for Counted {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        let noun = if self.count == 1 { self.one } else { self.many };
-        write!(f, "{} {noun}", self.count)
+        let noun = if self.0 == 1 { self.1 } else { self.2 };
+        write!(f, "{} {noun}", self.0)
     }
 }
 

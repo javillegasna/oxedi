@@ -201,10 +201,7 @@ impl fmt::Display for Finding {
                 f,
                 "table {table:?} row {row} column {column:?} {}, so the row has no place in the \
                  file",
-                Reference {
-                    value: *value,
-                    parent
-                }
+                Reference(*value, parent)
             ),
             Finding::MismatchedReference {
                 table,
@@ -367,11 +364,7 @@ impl fmt::Display for WriteError {
             WriteError::Findings(findings) => write!(
                 f,
                 "the tables do not make a valid file ({}); nothing was written{}",
-                Counted {
-                    count: findings.len(),
-                    one: "finding",
-                    many: "findings"
-                },
+                Counted(findings.len(), "finding", "findings"),
                 Numbered(findings)
             ),
         }

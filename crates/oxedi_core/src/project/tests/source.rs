@@ -1,7 +1,8 @@
 //! Columns that name an occurrence, read a loop above the anchor or pick a
 //! matching segment other than the first.
 
-use super::tests::{delimiters, project, rendered, rows};
+use super::{delimiters, project, rendered, rows};
+use crate::project::Projector;
 use crate::spec::Spec;
 
 const SPEC: &str = r#"{"name":"t",
@@ -97,14 +98,13 @@ fn a_value_read_above_the_anchor_starts_over_with_each_instance_of_its_loop() {
 fn values_read_above_the_anchor_do_not_outlive_finish() {
     let spec = Spec::from_json(SPEC).unwrap();
     let mut engine = crate::LoopEngine::new(&spec);
-    let mut projector = super::Projector::new(&spec, &delimiters());
-    let feed =
-        |engine: &mut crate::LoopEngine<'_>, projector: &mut super::Projector<'_>, input: &str| {
-            for segment in crate::Tokenizer::with_delimiters(input.as_bytes(), delimiters()) {
-                let events = engine.feed(&segment);
-                projector.on(&segment, events);
-            }
-        };
+    let mut projector = Projector::new(&spec, &delimiters());
+    let feed = |engine: &mut crate::LoopEngine<'_>, projector: &mut Projector<'_>, input: &str| {
+        for segment in crate::Tokenizer::with_delimiters(input.as_bytes(), delimiters()) {
+            let events = engine.feed(&segment);
+            projector.on(&segment, events);
+        }
+    };
     feed(&mut engine, &mut projector, "HD*B1~NM*P*ACME~CL*C1~");
     engine.finish();
     projector.finish();

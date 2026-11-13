@@ -1,3 +1,4 @@
+use super::super::calendar::clock;
 use super::super::calendar::days_from_civil_unchecked;
 use super::super::{civil_from_days, days_from_civil, seconds_of_day, time_of_day, year_start};
 
@@ -54,7 +55,7 @@ fn reference_year_start(days: i32) -> i32 {
 }
 
 #[test]
-fn year_start_matches_the_mask_on_every_day() {
+fn year_start_matches_the_reference_on_every_day() {
     let first = days_from_civil(1, 1, 1).unwrap();
     let last = days_from_civil(9999, 12, 31).unwrap();
     for days in first..=last {
@@ -84,4 +85,11 @@ fn a_day_whose_year_does_not_fit_is_none() {
     assert_eq!(civil_from_days(i32::MAX), None);
     assert_eq!(civil_from_days(i32::MAX - 719_467), None);
     assert_eq!(civil_from_days(i32::MAX - 719_468), Some((5_879_610, 9, 9)));
+}
+
+#[test]
+fn clock_splits_a_time_of_day() {
+    assert_eq!(clock(0), (0, 0, 0));
+    assert_eq!(clock(3661), (1, 1, 1));
+    assert_eq!(clock(86_399), (23, 59, 59));
 }

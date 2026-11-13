@@ -9,14 +9,11 @@ from typing import TYPE_CHECKING, ClassVar, Dict, List, Optional
 
 from . import _codes
 from ._convert import date, integer, money, name, text, written
-from ._tables import position
+from ._tables import CLAIM_DATE, SERVICE_DATE
 
 if TYPE_CHECKING:
     from .. import Document
     from ._tables import Rows
-
-SERVICE_DATE, _ = position("rows_service_dates", "date")
-CLAIM_DATE, _ = position("rows_claim_dates", "date")
 
 
 class PayerClassification(enum.Enum):

@@ -27,6 +27,10 @@ def position(table: str, column: str) -> Tuple[int, Optional[int]]:
     return source["element"], source.get("component")
 
 
+SERVICE_DATE, _ = position("rows_service_dates", "date")
+CLAIM_DATE, _ = position("rows_claim_dates", "date")
+
+
 class Rows:
     """One table's rows of one transaction: an Arrow table, read as columns of
     Python values on demand."""

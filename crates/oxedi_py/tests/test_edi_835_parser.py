@@ -16,7 +16,7 @@ from edi_835_parser.segments import organization as library_organization  # noqa
 import oxedi  # noqa: E402
 from oxedi import ParseError  # noqa: E402
 from oxedi import edi_835_parser as compat  # noqa: E402
-from oxedi.edi_835_parser import _codes  # noqa: E402
+from oxedi.edi_835_parser import _codes, _convert, _frame, _tables, _unpad, _views  # noqa: E402
 from oxedi.edi_835_parser._convert import ENCODING  # noqa: E402
 from oxedi.edi_835_parser._patch import PATCH, spec  # noqa: E402
 
@@ -847,3 +847,33 @@ def test_the_oracle_reports_every_file_with_counts_and_exception_types_only(tmp_
         "  skipped: the compat layer does not read it as an 835",
     ]
 
+
+def test_library_integer_keeps_its_empty_cases():
+    assert _convert.integer(None) is None
+    assert _convert.integer(b"") is None
+    assert _convert.integer(b"12") == 12
+    assert _convert.integer(b" 12") == 12
+    assert _convert.integer(b"1.0") == "1.0"
+    assert _convert.as_integer(None) is None
+    assert _convert.as_integer("") == ""
+    assert _convert.as_integer("7") == 7
+    assert _convert.as_integer("x") == "x"
+
+
+def test_blank_and_ending_tables():
+    blanks = _unpad._blanks()
+    assert blanks[0x20] and blanks[0x0A]
+    assert not blanks[0x80] and not blanks[ord("a")]
+    endings = _unpad._endings()
+    assert endings[0x80] and endings[0x20]
+    assert not endings[ord("a")]
+    assert not _unpad._blanks()[0x80]
+    for table in (blanks, endings):
+        with pytest.raises(ValueError):
+            table[0x41] = True
+
+
+def test_date_columns_are_defined_once():
+    assert _frame.SERVICE_DATE is _tables.SERVICE_DATE
+    assert _views.CLAIM_DATE is _tables.CLAIM_DATE
+    assert (_tables.SERVICE_DATE, _tables.CLAIM_DATE) == (2, 2)

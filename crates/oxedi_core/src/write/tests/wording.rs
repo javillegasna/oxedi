@@ -1,6 +1,9 @@
 //! The text of the writer's message pieces.
 
-use crate::write::wording::{Matches, Source, WrittenBy};
+use crate::write::ValueOrigin;
+use crate::write::wording::{
+    Counted, Matches, Numbered, ReadBackOrigin, Reference, Source, WrittenBy,
+};
 
 #[test]
 fn a_source_with_a_column_names_the_table_and_the_column() {
@@ -45,4 +48,56 @@ fn candidates_are_counted_and_named() {
         Matches(&candidates).to_string(),
         "matches 2 of its occurrences (\"a\", \"b\"); name one with \"occurrence\""
     );
+}
+
+#[test]
+fn a_reference_to_a_missing_row_names_the_row_and_the_parent() {
+    let reference = Reference {
+        value: Some(7),
+        parent: "claims",
+    };
+    assert_eq!(
+        reference.to_string(),
+        "refers to row 7, which table \"claims\" lacks"
+    );
+}
+
+#[test]
+fn a_null_reference_is_said_so() {
+    let reference = Reference {
+        value: None,
+        parent: "claims",
+    };
+    assert_eq!(reference.to_string(), "is null");
+}
+
+#[test]
+fn a_read_back_origin_names_the_origin_or_the_written_file() {
+    let origin = ValueOrigin::Row {
+        table: "claims".into(),
+        row: 3,
+    };
+    assert_eq!(
+        ReadBackOrigin(Some(&origin)).to_string(),
+        "table \"claims\" row 3"
+    );
+    assert_eq!(ReadBackOrigin(None).to_string(), "the written file");
+}
+
+#[test]
+fn a_count_takes_the_singular_only_for_one() {
+    let count = |count| Counted {
+        count,
+        one: "finding",
+        many: "findings",
+    };
+    assert_eq!(count(1).to_string(), "1 finding");
+    assert_eq!(count(0).to_string(), "0 findings");
+    assert_eq!(count(2).to_string(), "2 findings");
+}
+
+#[test]
+fn numbered_items_start_at_one_each_on_its_own_line() {
+    assert_eq!(Numbered(&["a", "b"]).to_string(), "\n1. a\n2. b");
+    assert_eq!(Numbered::<&str>(&[]).to_string(), "");
 }

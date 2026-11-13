@@ -3,8 +3,9 @@
 use std::fmt;
 
 use super::phi::ColumnKind;
-use super::render::{render_chain, render_names};
+use super::render::render_chain;
 use super::tables::Pick;
+use crate::message::render_names;
 
 /// The tables above two anchor loops, outermost first.
 #[derive(Debug, Clone, PartialEq, Eq)]

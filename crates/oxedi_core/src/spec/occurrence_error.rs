@@ -3,6 +3,7 @@
 use std::fmt;
 
 use super::segments::ElementDefError;
+use crate::message::place;
 
 /// Why an occurrence was rejected.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -88,13 +89,6 @@ pub enum OccurrenceError {
         /// The code both accept.
         code: String,
     },
-}
-
-pub(super) fn place(segment: &str, element: usize, component: Option<usize>) -> String {
-    match component {
-        Some(component) => format!("{segment}{element:02}-{component}"),
-        None => format!("{segment}{element:02}"),
-    }
 }
 
 impl fmt::Display for OccurrenceError {

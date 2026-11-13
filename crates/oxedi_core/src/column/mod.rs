@@ -14,7 +14,7 @@
 
 use std::fmt;
 
-use crate::diagnostic::Quoted;
+use crate::message::Quoted;
 use crate::value::{ColumnType, date_display, decimal_display, time_display};
 
 mod table;

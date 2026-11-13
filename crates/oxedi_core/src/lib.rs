@@ -45,6 +45,7 @@ pub mod element;
 pub mod engine;
 pub mod frame;
 pub mod mask;
+mod message;
 pub mod process;
 pub mod project;
 pub mod segment;

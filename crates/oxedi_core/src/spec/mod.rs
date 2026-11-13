@@ -93,7 +93,7 @@ pub use version::{DeclaredVersion, VersionError};
 pub use vocabulary::ElementPosition;
 
 pub(crate) use balance::render_terms;
-pub(crate) use render::{render_key, render_selector, render_trigger};
+pub(crate) use render::{render_selector, render_trigger};
 pub(crate) use schema::column_type;
 pub(crate) use segments::rejects_code;
 
@@ -257,6 +257,11 @@ impl Spec {
     /// Every table, in name order.
     pub fn tables(&self) -> &[TableDef] {
         &self.tables
+    }
+
+    /// The names of the tables, in the order of [`Spec::tables`].
+    pub(crate) fn table_names(&self) -> Vec<String> {
+        self.tables.iter().map(|table| table.name.clone()).collect()
     }
 
     /// The tables and loops, editable past the loader's checks, to build

@@ -11,11 +11,11 @@ use super::error::SpecError;
 use super::loops::LoopId;
 use super::phi::compile_phi;
 use super::raw::{RawColumn, RawTable};
-use super::render::render_key;
 use super::segments::{ROW_COLUMN, SEGMENT_COLUMN};
 use super::shape::section;
 use super::table_error::{AnchorChains, TableDefError};
 use super::tables::{Repeat, TableDef};
+use crate::message::render_key;
 
 /// Compiles the `tables` section against the loops of `spec`, then links
 /// every table to the tables above it.

@@ -6,9 +6,9 @@ use crate::column::Cell;
 
 use super::emit::Emitter;
 use super::finding::{Finding, ValueOrigin};
-use super::refusal::place;
 use super::render::{Part, cell_text, write_segment};
 use super::trace::Src;
+use crate::message::place;
 
 impl Emitter<'_> {
     /// Adds the text of one cell, checked, as an element or component.

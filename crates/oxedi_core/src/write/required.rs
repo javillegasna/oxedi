@@ -6,7 +6,8 @@ use crate::spec::{OccurrenceDef, Spec, Usage, render_selector, render_trigger};
 
 use super::build::Builder;
 use super::plan::{ElementPlan, Instances, SegmentPlan, SegmentSource, ValueSource};
-use super::refusal::{Refusal, place};
+use super::refusal::Refusal;
+use crate::message::place;
 
 impl Builder<'_> {
     /// Refuses what a written loop requires and nothing writes: a child

@@ -2,26 +2,15 @@
 
 use std::fmt;
 
-/// An element or component as X12 names it: `CLP01`, `SVC01-2`.
-pub(super) fn place(segment: &[u8], element: usize, component: Option<usize>) -> String {
-    let segment = String::from_utf8_lossy(segment);
-    match component {
-        Some(component) => format!("{segment}{element:02}-{component}"),
-        None => format!("{segment}{element:02}"),
-    }
-}
+use crate::message::Conditions;
 
 /// A segment and its conditions as a message shows them.
 pub(super) fn render_source(segment: &[u8], conditions: &[(usize, Vec<u8>)]) -> String {
-    let segment = String::from_utf8_lossy(segment);
-    if conditions.is_empty() {
-        return format!("{segment:?}");
-    }
-    let parts: Vec<String> = conditions
-        .iter()
-        .map(|(position, value)| format!("{position}: {:?}", String::from_utf8_lossy(value)))
-        .collect();
-    format!("{segment:?} where {{{}}}", parts.join(", "))
+    format!(
+        "{:?}{}",
+        String::from_utf8_lossy(segment),
+        Conditions(conditions)
+    )
 }
 
 /// One reason a spec's tables cannot be turned back into a file.

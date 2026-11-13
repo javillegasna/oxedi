@@ -58,9 +58,14 @@ pub fn write_with_findings(
 ) -> Result<(Vec<u8>, Vec<Finding>), WriteError> {
     let plan = WritePlan::new(spec)?;
     let data = bind(spec, tables)?;
-    let for_spec = for_spec(envelope, spec);
-    let envelope = &*for_spec;
-    let delimiters = delimiters(envelope, carries_repetition(spec))?;
+    let repetition = spec
+        .roots()
+        .iter()
+        .find(|&&root| spec.get(root).control.is_some())
+        .is_some_and(|&root| carries_repetition(spec, &spec.get(root).trigger.segment));
+    let effective = for_spec(envelope, repetition);
+    let envelope = &*effective;
+    let delimiters = delimiters(envelope, repetition)?;
     let mut findings = Vec::new();
     unwritten(spec, &plan, &data, &mut findings);
     let nest = nest(spec, &plan, &data, &mut findings);

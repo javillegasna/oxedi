@@ -1,3 +1,4 @@
+use super::super::envelope::interchange_version;
 use super::super::{Envelope, WriteError, write, write_with_findings};
 use crate::delimiters::Delimiters;
 use crate::{Document, Processor, Spec};
@@ -74,13 +75,51 @@ fn a_00402_spec_without_a_separator_is_refused() {
 }
 
 #[test]
-fn a_spec_without_a_version_writes_no_separator() {
+fn a_spec_with_no_value_for_isa12_writes_no_separator() {
     let spec = Spec::builtin_835()
         .merge_patch(
-            r#"{"version":null,"segments":{"ISA":{"elements":{"11":{"required":false}}}}}"#,
+            r#"{"segments":{"ISA":{"elements":{"11":{"required":false},"12":{"codes":null,"required":false}}}}}"#,
         )
         .unwrap();
     let envelope = envelope_with(Delimiters::new(b'*', b':', b'~').with_repetition(b'^'));
     let bytes = written(&spec, BALANCED_5010, &envelope).unwrap();
     assert_eq!(Delimiters::from_isa(&bytes).unwrap().repetition, None);
+}
+
+#[test]
+fn a_declared_version_that_is_not_isa12_does_not_decide_the_separator() {
+    let spec = Spec::builtin_835_4010()
+        .merge_patch(
+            r#"{"version":{"values":["4010"]},"segments":{"GS":{"elements":{"8":{"codes":["4010"]}}}}}"#,
+        )
+        .unwrap();
+    let envelope = envelope_with(Delimiters::new(b'*', b':', b'~'));
+    let bytes = written(&spec, BALANCED_4010, &envelope).unwrap();
+    assert!(String::from_utf8_lossy(&bytes).contains("*U*00401*"));
+    assert_eq!(Delimiters::from_isa(&bytes).unwrap().repetition, None);
+}
+
+#[test]
+fn a_below_00402_spec_with_a_code_writes_the_code_over_the_envelope_separator() {
+    let envelope = envelope_with(Delimiters::new(b'*', b':', b'~').with_repetition(b'^'));
+    let bytes = written(&Spec::builtin_835_4010(), BALANCED_4010, &envelope).unwrap();
+    assert!(String::from_utf8_lossy(&bytes).contains("*U*00401*"));
+}
+
+#[test]
+fn the_version_the_rule_reads_is_the_isa12_the_writer_writes() {
+    let patched = Spec::builtin_835()
+        .merge_patch(r#"{"segments":{"ISA":{"elements":{"12":{"codes":["00402"]}}}}}"#)
+        .unwrap();
+    let envelope = envelope_with(Delimiters::new(b'*', b':', b'~').with_repetition(b'^'));
+    for (spec, input) in [
+        (Spec::builtin_835(), BALANCED_5010),
+        (Spec::builtin_835_4010(), BALANCED_4010),
+        (patched, BALANCED_5010),
+    ] {
+        let bytes = written(&spec, input, &envelope).unwrap();
+        let isa = bytes.split(|&byte| byte == b'~').next().unwrap();
+        let isa12 = isa.split(|&byte| byte == b'*').nth(12).unwrap();
+        assert_eq!(interchange_version(&spec, b"ISA"), isa12);
+    }
 }

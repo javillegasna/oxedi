@@ -65,7 +65,7 @@ crates/oxedi_core/src/spec/occurrences.rs	compile_occurrences	8	3
 crates/oxedi_core/src/spec/phi.rs	control_element	13	2
 crates/oxedi_core/src/spec/segments.rs	fmt	16	0	flat
 crates/oxedi_core/src/spec/shape.rs	mismatch	8	3
-crates/oxedi_core/src/spec/table_error.rs	fmt	37	2
+crates/oxedi_core/src/spec/table_error.rs	fmt	35	0	flat
 crates/oxedi_core/src/value/convert.rs	fmt	10	0	flat
 crates/oxedi_core/src/value/parse.rs	parse_r	12	1
 crates/oxedi_core/src/write/build.rs	loop_table	12	4
@@ -77,11 +77,11 @@ crates/oxedi_core/src/write/emit.rs	repeat_segments	11	4
 crates/oxedi_core/src/write/envelope.rs	field_value	13	0	flat
 crates/oxedi_core/src/write/envelope.rs	name	13	0
 crates/oxedi_core/src/write/envelope.rs	trigger_values	9	5
-crates/oxedi_core/src/write/finding.rs	fmt	15	0
-crates/oxedi_core/src/write/finding.rs	fmt	13	2
+crates/oxedi_core/src/write/finding.rs	fmt	9	0	flat
+crates/oxedi_core/src/write/finding.rs	fmt	8	0	flat
 crates/oxedi_core/src/write/layout.rs	new	12	3
 crates/oxedi_core/src/write/nest.rs	nest	19	5
-crates/oxedi_core/src/write/refusal.rs	fmt	24	2
+crates/oxedi_core/src/write/refusal.rs	fmt	12	0	flat
 crates/oxedi_core/src/write/render.rs	write_segment	8	3
 crates/oxedi_core/src/write/required.rs	fill_required	14	4
 crates/oxedi_core/src/write/required.rs	required	14	4

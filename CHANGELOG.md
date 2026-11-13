@@ -58,6 +58,12 @@ This file covers the Python package; the DuckDB extension has its own changelog 
   pyx12's JSON output carries them, errors inside the envelope segments (ISA, GS, ST, SE, GE, IEA)
   are not reported: neither their element errors nor their segment errors.
 
+### Fixed
+- The writer and the reader agree on the repetition separator of a custom spec: at interchange
+  version 00402 or later the writer writes the envelope's repetition separator in ISA11, and below
+  it the element's code. A spec that lists codes for ISA11 at such a version is reported by the
+  read-back (code not in list), so `write()` refuses it.
+
 ## [0.6.0] - 2026-10-18
 
 ### Added

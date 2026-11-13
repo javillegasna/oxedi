@@ -33,7 +33,6 @@ crates/oxedi_core/src/check/occurrences.rs	report_missing	8	2
 crates/oxedi_core/src/column/mod.rs	get	17	1
 crates/oxedi_core/src/column/mod.rs	raw_text	12	3
 crates/oxedi_core/src/delimiters/mod.rs	fmt	17	3
-crates/oxedi_core/src/delimiters/mod.rs	from_isa	13	1
 crates/oxedi_core/src/diagnostic/display.rs	fmt	21	0	flat
 crates/oxedi_core/src/diagnostic/mod.rs	fmt	16	3
 crates/oxedi_core/src/diagnostic/rule.rs	kind	21	0
@@ -74,7 +73,7 @@ crates/oxedi_core/src/write/codes.rs	resolve	13	3
 crates/oxedi_core/src/write/data.rs	bind	8	4
 crates/oxedi_core/src/write/emit.rs	instance	12	3
 crates/oxedi_core/src/write/emit.rs	repeat_segments	11	4
-crates/oxedi_core/src/write/envelope.rs	field_value	13	0	flat
+crates/oxedi_core/src/write/envelope.rs	field_value	14	0	flat
 crates/oxedi_core/src/write/envelope.rs	name	13	0
 crates/oxedi_core/src/write/envelope.rs	trigger_values	9	5
 crates/oxedi_core/src/write/finding.rs	fmt	9	0	flat

@@ -194,6 +194,65 @@ const ISA_SEPARATORS: usize = 16;
 /// First interchange version in which ISA11 is a repetition separator.
 const FIRST_VERSION_WITH_REPETITION: &[u8] = b"00402";
 
+/// `true` when an interchange of `version` (ISA12) uses ISA11 as the
+/// repetition separator. The comparison is on bytes, so a version that is not
+/// a five-digit number is ordered as its bytes are.
+pub(crate) fn version_carries_repetition(version: &[u8]) -> bool {
+    version >= FIRST_VERSION_WITH_REPETITION
+}
+
+/// The positions of the 16 element separators of an ISA segment, found once,
+/// so each field is read from them instead of being searched again, with the
+/// component separator and the segment terminator that follow the last one.
+struct IsaSeparators<'a> {
+    input: &'a [u8],
+    element: u8,
+    component: u8,
+    segment: u8,
+    at: [usize; ISA_SEPARATORS],
+}
+
+impl<'a> IsaSeparators<'a> {
+    /// Locates the separators of the ISA at the start of `input`, which
+    /// begins with `ISA`; the error is how many separators were found before
+    /// the input ended, `ISA_SEPARATORS` when ISA16 or the terminator is
+    /// missing.
+    fn locate(input: &'a [u8]) -> Result<Self, usize> {
+        let element = *input.get(3).ok_or(0usize)?;
+        let mut found = input
+            .iter()
+            .enumerate()
+            .skip(3)
+            .filter(|&(_, &byte)| byte == element)
+            .map(|(at, _)| at);
+        let mut at = [0usize; ISA_SEPARATORS];
+        for (count, slot) in at.iter_mut().enumerate() {
+            *slot = found.next().ok_or(count)?;
+        }
+        let last = at[ISA_SEPARATORS - 1];
+        let component = *input.get(last + 1).ok_or(ISA_SEPARATORS)?;
+        let segment = *input.get(last + 2).ok_or(ISA_SEPARATORS)?;
+        Ok(Self {
+            input,
+            element,
+            component,
+            segment,
+            at,
+        })
+    }
+
+    /// The bytes of ISA`number` (1-based, `1..=15`): between separators
+    /// #`number` and #`number + 1`. Empty for any other number.
+    fn field(&self, number: usize) -> &'a [u8] {
+        let start = number.checked_sub(1).and_then(|at| self.at.get(at));
+        let end = self.at.get(number);
+        match (start, end) {
+            (Some(&start), Some(&end)) => self.input.get(start + 1..end).unwrap_or_default(),
+            _ => &[],
+        }
+    }
+}
+
 impl Delimiters {
     /// Delimiters with no repetition and no release byte.
     pub const fn new(element: u8, component: u8, segment: u8) -> Self {
@@ -232,44 +291,21 @@ impl Delimiters {
                 whitespace: 0,
             });
         }
-        let truncated = |separators_found| IsaError::Truncated {
+        let isa = IsaSeparators::locate(input).map_err(|separators_found| IsaError::Truncated {
             len: input.len(),
             separators_found,
             byte_order_mark: false,
             whitespace: 0,
-        };
-        let element = *input.get(3).ok_or_else(|| truncated(0))?;
-
-        let mut separators = input
-            .iter()
-            .enumerate()
-            .skip(3)
-            .filter(|&(_, &byte)| byte == element)
-            .map(|(at, _)| at);
-        let mut at = [0usize; ISA_SEPARATORS];
-        for (found, slot) in at.iter_mut().enumerate() {
-            *slot = separators.next().ok_or_else(|| truncated(found))?;
-        }
-
-        let component = *input
-            .get(at[15] + 1)
-            .ok_or_else(|| truncated(ISA_SEPARATORS))?;
-        let segment = *input
-            .get(at[15] + 2)
-            .ok_or_else(|| truncated(ISA_SEPARATORS))?;
-
-        // ISA11 sits between separators #11 and #12, ISA12 between #12 and #13.
-        let isa11 = &input[at[10] + 1..at[11]];
-        let isa12 = &input[at[11] + 1..at[12]];
-        let repetition = match isa11 {
-            [byte] if isa12 >= FIRST_VERSION_WITH_REPETITION => Some(*byte),
+        })?;
+        let repetition = match isa.field(11) {
+            [byte] if version_carries_repetition(isa.field(12)) => Some(*byte),
             _ => None,
         };
 
         Ok(Self {
-            element,
-            component,
-            segment,
+            element: isa.element,
+            component: isa.component,
+            segment: isa.segment,
             repetition,
             release: None,
         })

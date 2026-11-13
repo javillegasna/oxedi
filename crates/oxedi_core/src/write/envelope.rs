@@ -11,7 +11,9 @@
 //! element. An element that allows a fixed width only is padded to it:
 //! numbers with leading zeros, text with trailing spaces.
 
-use crate::delimiters::Delimiters;
+use std::borrow::Cow;
+
+use crate::delimiters::{Delimiters, version_carries_repetition};
 use crate::spec::{ElementDef, Spec};
 use crate::value::{ElementTextError, ElementType};
 
@@ -43,8 +45,8 @@ pub struct Envelope {
     /// transaction set's; each later transaction set takes the next one.
     pub control_number: u64,
     /// The delimiters to write with. The repetition separator is written
-    /// where the interchange header carries one (its element has no code of
-    /// its own); the release byte is never used.
+    /// where the interchange version (ISA12) is 00402 or later, which the reader
+    /// takes as carrying one, and is ignored below it; the release byte is never used.
     pub delimiters: Delimiters,
     /// Whether a line break follows each segment terminator.
     pub line_break: bool,
@@ -218,11 +220,47 @@ pub(super) fn delimiters(
     Ok(all)
 }
 
-/// `true` when the interchange header carries a repetition separator: its
-/// element in the layout has no code of its own in the spec.
+/// The element of the interchange header that holds its version, which a
+/// reader compares to decide whether ISA11 is a repetition separator.
+const VERSION_ELEMENT: usize = 12;
+
+/// The bytes the writer puts in the interchange header's version element
+/// (ISA12): the spec's declared version when it sits on that segment and
+/// element, else the element's first code, else nothing.
+pub(super) fn interchange_version(spec: &Spec, trigger: &[u8]) -> Vec<u8> {
+    let declared = spec
+        .version()
+        .filter(|version| version.segment == trigger && version.element == VERSION_ELEMENT)
+        .and_then(|version| version.values.first().cloned());
+    let def = spec.element_def(trigger, VERSION_ELEMENT, None);
+    let bytes = declared
+        .or_else(|| {
+            def.and_then(|def| def.codes.first())
+                .map(|code| code.as_bytes().to_vec())
+        })
+        .unwrap_or_default();
+    match def {
+        Some(def) => pad(bytes, def),
+        None => bytes,
+    }
+}
+
+/// `true` when the interchange header carries a repetition separator: the
+/// version the writer gives it is 00402 or later, as a reader decides it.
 pub(super) fn carries_repetition(spec: &Spec, trigger: &[u8]) -> bool {
-    spec.element_def(trigger, 11, None)
-        .is_some_and(|def| def.codes.is_empty())
+    version_carries_repetition(&interchange_version(spec, trigger))
+}
+
+/// The envelope the writer emits with: the caller's, with no repetition
+/// separator when the header carries none, so a delimiter the file cannot
+/// hold is never written.
+pub(super) fn for_spec(envelope: &Envelope, carries_repetition: bool) -> Cow<'_, Envelope> {
+    if carries_repetition || envelope.delimiters.repetition.is_none() {
+        return Cow::Borrowed(envelope);
+    }
+    let mut owned = envelope.clone();
+    owned.delimiters.repetition = None;
+    Cow::Owned(owned)
 }
 
 /// The values of an envelope loop's trigger segment, at `depth` among the
@@ -314,9 +352,10 @@ fn field_value(
         Field::Date => Some(envelope_date(envelope.date, def.length.max).map(|text| (text, true))),
         Field::Time => Some(envelope_time(envelope.time, def.length.max).map(|text| (text, true))),
         Field::UsageIndicator => text(&envelope.usage_indicator),
-        Field::Repetition => match def.codes.first() {
-            Some(code) => Some(Ok((code.as_bytes().to_vec(), true))),
-            None => delimiters.repetition.map(|byte| Ok((vec![byte], false))),
+        Field::Repetition => match (delimiters.repetition, def.codes.first()) {
+            (Some(byte), _) => Some(Ok((vec![byte], false))),
+            (None, Some(code)) => Some(Ok((code.as_bytes().to_vec(), true))),
+            (None, None) => None,
         },
         Field::Component => Some(Ok((vec![delimiters.component], false))),
         Field::Version | Field::ControlNumber => None,

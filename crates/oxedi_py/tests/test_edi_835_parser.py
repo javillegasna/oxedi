@@ -868,6 +868,9 @@ def test_blank_and_ending_tables():
     assert endings[0x80] and endings[0x20]
     assert not endings[ord("a")]
     assert not _unpad._blanks()[0x80]
+    for table in (blanks, endings):
+        with pytest.raises(ValueError):
+            table[0x41] = True
 
 
 def test_date_columns_are_defined_once():

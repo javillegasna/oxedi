@@ -68,11 +68,12 @@ def _replace(table, column, changes, kind):
 @functools.cache
 def _blanks():
     """The ASCII bytes ``str.strip`` removes, as a 256-entry table. Shared:
-    callers never write to it."""
+    a write raises."""
     import numpy as np
 
     table = np.zeros(256, dtype=bool)
     table[list(STRIPPED)] = True
+    table.flags.writeable = False
     return table
 
 
@@ -85,6 +86,7 @@ def _endings():
 
     table = _blanks().copy()
     table[0x80:] = True
+    table.flags.writeable = False
     return table
 
 

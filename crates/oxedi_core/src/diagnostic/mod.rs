@@ -7,7 +7,7 @@
 //! the spec or the document that produced it.
 //!
 //! The folder holds: this file (the loop and diagnostic types, the SNIP
-//! levels and the byte quoting helper), `flat.rs` (the flat record of a
+//! levels), `flat.rs` (the flat record of a
 //! diagnostic), `rule.rs` (the rules, their levels
 //! and variant names), `display.rs` (the message text of each rule), `text.rs`
 //! (the pieces those messages are written from) and `tests.rs`.
@@ -15,7 +15,7 @@
 use std::fmt;
 
 use crate::document::{Document, Span};
-use crate::spec::render_key;
+use crate::message::{Quoted, render_key};
 
 pub use flat::{FlatDiagnostic, PARSER_ORIGIN};
 pub use rule::Rule;
@@ -50,28 +50,6 @@ pub struct LoopRef {
 impl fmt::Display for LoopRef {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(f, "{}#{}", render_key(&self.name), self.ordinal)
-    }
-}
-
-/// Bytes from the file, quoted on one line: valid text is escaped as a Rust
-/// string literal is, and each invalid byte is written as `\xNN`.
-pub(crate) struct Quoted<'a>(pub(crate) &'a [u8]);
-
-impl fmt::Display for Quoted<'_> {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        f.write_str("\"")?;
-        for chunk in self.0.utf8_chunks() {
-            let escaped = format!("{:?}", chunk.valid());
-            let inner = escaped
-                .strip_prefix('"')
-                .and_then(|text| text.strip_suffix('"'))
-                .unwrap_or(&escaped);
-            f.write_str(inner)?;
-            for byte in chunk.invalid() {
-                write!(f, "\\x{byte:02X}")?;
-            }
-        }
-        f.write_str("\"")
     }
 }
 

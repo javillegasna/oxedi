@@ -3,7 +3,8 @@
 
 use std::fmt;
 
-use crate::diagnostic::{Diagnostic, Quoted};
+use crate::diagnostic::Diagnostic;
+use crate::message::Quoted;
 use crate::document::DocumentError;
 use crate::value::{ColumnType, ElementTextError};
 

@@ -15,7 +15,7 @@ use crate::spec::Spec;
 
 use super::data::{Data, bind};
 use super::emit::Emitter;
-use super::envelope::{Envelope, carries_repetition, delimiters};
+use super::envelope::{Envelope, carries_repetition, delimiters, for_spec};
 use super::finding::{Finding, ValueOrigin, WriteError};
 use super::layout::Layout;
 use super::nest::nest;
@@ -58,12 +58,9 @@ pub fn write_with_findings(
 ) -> Result<(Vec<u8>, Vec<Finding>), WriteError> {
     let plan = WritePlan::new(spec)?;
     let data = bind(spec, tables)?;
-    let repetition = spec
-        .roots()
-        .iter()
-        .find(|&&root| spec.get(root).control.is_some())
-        .is_some_and(|&root| carries_repetition(spec, &spec.get(root).trigger.segment));
-    let delimiters = delimiters(envelope, repetition)?;
+    let for_spec = for_spec(envelope, spec);
+    let envelope = &*for_spec;
+    let delimiters = delimiters(envelope, carries_repetition(spec))?;
     let mut findings = Vec::new();
     unwritten(spec, &plan, &data, &mut findings);
     let nest = nest(spec, &plan, &data, &mut findings);

@@ -73,7 +73,7 @@ crates/oxedi_core/src/write/codes.rs	resolve	13	3
 crates/oxedi_core/src/write/data.rs	bind	8	4
 crates/oxedi_core/src/write/emit.rs	instance	12	3
 crates/oxedi_core/src/write/emit.rs	repeat_segments	11	4
-crates/oxedi_core/src/write/envelope.rs	field_value	13	0	flat
+crates/oxedi_core/src/write/envelope.rs	field_value	14	0	flat
 crates/oxedi_core/src/write/envelope.rs	name	13	0
 crates/oxedi_core/src/write/envelope.rs	trigger_values	9	5
 crates/oxedi_core/src/write/finding.rs	fmt	15	0

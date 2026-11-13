@@ -1,4 +1,6 @@
-use super::super::Envelope;
+use super::super::{Envelope, WriteError, write, write_with_findings};
+use crate::delimiters::Delimiters;
+use crate::{Document, Processor, Spec};
 
 #[test]
 fn with_ids_uses_the_default_qualifiers() {
@@ -17,4 +19,68 @@ fn the_defaults_are_the_constants() {
     assert_eq!(Envelope::DEFAULT_QUALIFIER, "ZZ");
     assert_eq!(Envelope::DEFAULT_USAGE_INDICATOR, "P");
     assert_eq!(Envelope::DEFAULT_CONTROL_NUMBER, 1);
+}
+
+const BALANCED_5010: &[u8] = include_bytes!("../../../tests/fixtures/balanced_5010_sample.txt");
+const BALANCED_4010: &[u8] = include_bytes!("../../../tests/fixtures/balanced_4010_sample.txt");
+
+fn envelope_with(delimiters: Delimiters) -> Envelope {
+    let mut envelope = Envelope::with_ids("SENDER", "RECEIVER", 19_723, 45_000);
+    envelope.delimiters = delimiters;
+    envelope
+}
+
+/// The tables `spec` reads from `bytes`, written with `envelope`.
+fn written(spec: &Spec, bytes: &[u8], envelope: &Envelope) -> Result<Vec<u8>, WriteError> {
+    let document = Document::parse(bytes).unwrap();
+    let (tables, _) = Processor::run(spec, &document, None);
+    write(spec, &tables, envelope)
+}
+
+#[test]
+fn a_00402_spec_with_a_code_on_isa11_writes_the_separator() {
+    let spec = Spec::builtin_835()
+        .merge_patch(r#"{"segments":{"ISA":{"elements":{"11":{"codes":["U"]}}}}}"#)
+        .unwrap();
+    let envelope = envelope_with(Delimiters::new(b'*', b':', b'~').with_repetition(b'^'));
+    // The spec's code list for ISA11 does not hold the separator, so the
+    // read-back reports it; the bytes are what the test is about.
+    let document = Document::parse(BALANCED_5010).unwrap();
+    let (tables, _) = Processor::run(&spec, &document, None);
+    let (bytes, _) = write_with_findings(&spec, &tables, &envelope).unwrap();
+    let isa = String::from_utf8_lossy(&bytes);
+    assert!(isa.contains("*^*00501*"), "{isa}");
+    assert_eq!(Delimiters::from_isa(&bytes).unwrap().repetition, Some(b'^'));
+}
+
+#[test]
+fn a_spec_below_00402_without_a_code_needs_no_separator() {
+    let spec = Spec::builtin_835_4010()
+        .merge_patch(r#"{"segments":{"ISA":{"elements":{"11":{"codes":null,"required":false}}}}}"#)
+        .unwrap();
+    let envelope = envelope_with(Delimiters::new(b'*', b':', b'~'));
+    let bytes = written(&spec, BALANCED_4010, &envelope).unwrap();
+    assert_eq!(Delimiters::from_isa(&bytes).unwrap().repetition, None);
+}
+
+#[test]
+fn a_00402_spec_without_a_separator_is_refused() {
+    let spec = Spec::builtin_835();
+    let envelope = envelope_with(Delimiters::new(b'*', b':', b'~'));
+    assert!(matches!(
+        written(&spec, BALANCED_5010, &envelope),
+        Err(WriteError::NoRepetition)
+    ));
+}
+
+#[test]
+fn a_spec_without_a_version_writes_no_separator() {
+    let spec = Spec::builtin_835()
+        .merge_patch(
+            r#"{"version":null,"segments":{"ISA":{"elements":{"11":{"required":false}}}}}"#,
+        )
+        .unwrap();
+    let envelope = envelope_with(Delimiters::new(b'*', b':', b'~').with_repetition(b'^'));
+    let bytes = written(&spec, BALANCED_5010, &envelope).unwrap();
+    assert_eq!(Delimiters::from_isa(&bytes).unwrap().repetition, None);
 }

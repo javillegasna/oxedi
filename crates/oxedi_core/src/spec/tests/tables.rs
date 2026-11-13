@@ -1,7 +1,7 @@
 //! Table definitions and their errors.
 
 use super::{TABLED, table_error};
-use crate::spec::table_error::Declared;
+use crate::spec::render::Declared;
 use crate::spec::*;
 
 #[test]

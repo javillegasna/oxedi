@@ -3,21 +3,9 @@
 use std::fmt;
 
 use super::phi::ColumnKind;
-use super::render::render_chain;
+use super::render::{Declared, render_chain};
 use super::tables::Pick;
 use crate::message::{ElementRef, render_names};
-
-/// The occurrences a loop declares, or that it declares none.
-pub(super) struct Declared<'a>(pub(super) &'a [String]);
-
-impl fmt::Display for Declared<'_> {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        if self.0.is_empty() {
-            return f.write_str("it declares none");
-        }
-        write!(f, "it declares {}", render_names(self.0))
-    }
-}
 
 /// The tables above two anchor loops, outermost first.
 #[derive(Debug, Clone, PartialEq, Eq)]

@@ -6,7 +6,7 @@ mod common;
 
 use common::delimiters;
 
-use oxedi_core::frame::{SegmentEnd, first_frame, next_frame};
+use oxedi_core::frame::{first_frame, next_frame};
 use oxedi_core::trivia::BYTE_ORDER_MARK;
 use oxedi_core::{Delimiters, Document, Span, Tokenizer};
 use proptest::prelude::*;
@@ -14,7 +14,7 @@ use proptest::prelude::*;
 /// The spans as recorded straight from each frame, without deriving anything:
 /// the reference the compact index must reproduce.
 fn reference_spans(bytes: &[u8], delims: &Delimiters) -> Vec<Span> {
-    let end = SegmentEnd::new(delims.segment, delims.release);
+    let end = delims.segment_end();
     let mut spans = Vec::new();
     let mut rest = bytes;
     let mut offset = 0;

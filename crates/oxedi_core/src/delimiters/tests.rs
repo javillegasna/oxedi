@@ -373,3 +373,13 @@ fn isa_datum_of_input_shorter_than_the_skipped_bytes_is_empty() {
     };
     assert_eq!(error.datum(b"\xEF"), b"");
 }
+
+#[test]
+fn segment_end_carries_the_terminator_and_the_release_byte() {
+    let delims = Delimiters::new(b'*', b':', b'~');
+    assert_eq!(delims.segment_end(), SegmentEnd::new(b'~', None));
+    assert_eq!(
+        delims.with_release(b'?').segment_end(),
+        SegmentEnd::new(b'~', Some(b'?'))
+    );
+}

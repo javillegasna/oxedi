@@ -3,11 +3,11 @@
 mod common;
 
 use common::delimiters;
-use oxedi_core::{Delimiters, Frame, SegmentEnd, next_frame};
+use oxedi_core::{Delimiters, Frame, next_frame};
 use proptest::prelude::*;
 
 fn all_frames<'a>(mut input: &'a [u8], delims: &Delimiters) -> Vec<Frame<'a>> {
-    let end = SegmentEnd::new(delims.segment, delims.release);
+    let end = delims.segment_end();
     let mut frames = Vec::new();
     while let Some((frame, rest)) = next_frame(input, end) {
         frames.push(frame);

@@ -36,7 +36,7 @@ impl<'a> Tokenizer<'a> {
         Self {
             rest: input,
             delims,
-            end: SegmentEnd::new(delims.segment, delims.release),
+            end: delims.segment_end(),
             next_index: 0,
         }
     }

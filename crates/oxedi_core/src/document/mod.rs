@@ -14,7 +14,7 @@ use std::ops::Range;
 
 use crate::delimiters::Delimiters;
 use crate::element::Pieces;
-use crate::frame::{Frame, SegmentEnd, first_frame, next_frame};
+use crate::frame::{Frame, first_frame, next_frame};
 use crate::segment::Segment;
 
 mod error;
@@ -256,7 +256,7 @@ const fn offset(at: u32) -> usize {
 /// length does; an offset that does not fails with the length's [`SizeError`].
 fn index(bytes: &[u8], delims: &Delimiters) -> Result<Vec<Body>, SizeError> {
     let to_u32 = |at: usize| u32::try_from(at).map_err(|_| SizeError { len: bytes.len() });
-    let end = SegmentEnd::new(delims.segment, delims.release);
+    let end = delims.segment_end();
     let mut bodies = Vec::new();
     let mut rest = bytes;
     let mut raw_start = 0;

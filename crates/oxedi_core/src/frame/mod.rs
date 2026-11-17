@@ -1,4 +1,4 @@
-//! Framing: find the next segment's bytes knowing only the delimiters.
+//! Framing: find the next segment's bytes knowing only the segment end.
 //!
 //! Pure and allocation-free. It does not know what a segment means; it only
 //! knows where one ends. Every byte of the input is accounted for by exactly
@@ -6,8 +6,27 @@
 //! byte order mark at the very start of the input is leading trivia of the
 //! first frame ([`first_frame`]); anywhere else it is data.
 
-use crate::delimiters::Delimiters;
 use crate::trivia::{BYTE_ORDER_MARK, is_trivia};
+
+/// The bytes that end a segment: its terminator and, when the format has one,
+/// the release byte that makes the byte after it literal.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct SegmentEnd {
+    /// The byte that terminates a segment.
+    pub terminator: u8,
+    /// The byte that escapes the next one, `None` when the input has no release byte.
+    pub release: Option<u8>,
+}
+
+impl SegmentEnd {
+    /// A segment end from its terminator and optional release byte.
+    pub const fn new(terminator: u8, release: Option<u8>) -> Self {
+        Self {
+            terminator,
+            release,
+        }
+    }
+}
 
 /// One segment's worth of bytes.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -24,11 +43,11 @@ pub struct Frame<'a> {
 /// Splits the first frame off the front of a whole input: as [`next_frame`],
 /// except that a UTF-8 byte order mark at the very start is leading trivia,
 /// kept in the frame's `raw` before the body.
-pub fn first_frame<'a>(input: &'a [u8], delims: &Delimiters) -> Option<(Frame<'a>, &'a [u8])> {
+pub fn first_frame<'a>(input: &'a [u8], end: SegmentEnd) -> Option<(Frame<'a>, &'a [u8])> {
     let Some(after) = input.strip_prefix(BYTE_ORDER_MARK) else {
-        return next_frame(input, delims);
+        return next_frame(input, end);
     };
-    let Some((frame, rest)) = next_frame(after, delims) else {
+    let Some((frame, rest)) = next_frame(after, end) else {
         // `next_frame` returns `None` only for empty input: the input is the mark alone.
         let frame = Frame {
             raw: input,
@@ -53,7 +72,7 @@ pub fn first_frame<'a>(input: &'a [u8], delims: &Delimiters) -> Option<(Frame<'a
 /// Returns the frame and the remaining input. Returns `None` only when `input`
 /// is empty, so a loop over it always terminates: every call consumes at least
 /// one byte.
-pub fn next_frame<'a>(input: &'a [u8], delims: &Delimiters) -> Option<(Frame<'a>, &'a [u8])> {
+pub fn next_frame<'a>(input: &'a [u8], end: SegmentEnd) -> Option<(Frame<'a>, &'a [u8])> {
     if input.is_empty() {
         return None;
     }
@@ -64,7 +83,7 @@ pub fn next_frame<'a>(input: &'a [u8], delims: &Delimiters) -> Option<(Frame<'a>
     // `body_start <= input.len()` by construction of `position`/`unwrap_or`, and
     // `terminator_at < input.len()` because `offset` indexes into `input[body_start..]`,
     // so every slice and split below is in range.
-    match find_unescaped(&input[body_start..], delims.segment, delims.release) {
+    match find_unescaped(&input[body_start..], end.terminator, end.release) {
         Some(offset) => {
             let terminator_at = body_start + offset;
             let (raw, rest) = input.split_at(terminator_at + 1);

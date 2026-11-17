@@ -12,6 +12,7 @@
 
 use std::fmt;
 
+use crate::frame::SegmentEnd;
 use crate::trivia::LeadingTrivia;
 
 /// The five delimiters of an interchange. Only `release` is never read from the
@@ -277,6 +278,13 @@ impl Delimiters {
     pub const fn with_release(mut self, release: u8) -> Self {
         self.release = Some(release);
         self
+    }
+
+    /// The bytes that end a segment under these delimiters: the segment
+    /// terminator and the release byte, when there is one.
+    #[must_use]
+    pub const fn segment_end(&self) -> SegmentEnd {
+        SegmentEnd::new(self.segment, self.release)
     }
 
     /// Reads the delimiters from an ISA segment at the start of `input`.

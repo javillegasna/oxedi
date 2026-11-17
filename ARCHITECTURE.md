@@ -45,7 +45,8 @@ flowchart LR
 
 1. `Document::parse` (`document/`) reads the delimiters from the ISA header
    (`Delimiters::from_isa_after_leading_trivia`, `delimiters/`, which splits off the leading
-   byte order mark and whitespace with `trivia/`), then cuts the input into frames (`frame/`),
+   byte order mark and whitespace with `trivia/`), then cuts the input into frames (`frame/`, which
+   takes the segment terminator and the release byte, not the delimiters),
    one per segment. It keeps the input and one span per segment; a segment
    is parsed only when asked for. `Tokenizer` (`tokenizer/`) yields the same segments lazily,
    for streaming.
@@ -237,7 +238,7 @@ Internal words used in the code. X12 and payment terms for users are in
 
 | Term | Meaning | Where |
 |---|---|---|
-| frame | The byte range of one segment, found knowing only the delimiters. | `frame/` |
+| frame | The byte range of one segment, found knowing only the segment terminator and the release byte (`SegmentEnd`). | `frame/` |
 | document | The whole input plus one span per segment; segments parsed on demand. | `document/` |
 | spec | The JSON description of loops, segments, tables and balancing, compiled to index-based definitions. | `spec/`, `specs/*.json` |
 | spec model | The spec as typed data a program builds and writes, shared with the loader. | `spec/model/` |

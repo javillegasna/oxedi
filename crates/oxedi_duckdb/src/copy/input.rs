@@ -7,12 +7,13 @@
 //! table, with a DuckDB type its values convert from.
 
 use libduckdb_sys as ffi;
+use oxedi_core::ColumnType;
+use oxedi_core::spec::{require_column, table_columns};
 use oxedi_core::value::TimeUnit;
 use oxedi_core::write::WriteError;
-use oxedi_core::{ColumnType, UnknownColumn, UnknownTable};
 
 use super::error::CopyError;
-use crate::builtins::{BuiltinSchema, BuiltinTable};
+use crate::builtins::BuiltinSchema;
 use crate::types::LogicalType;
 use crate::value::{primitive_name, take_text};
 
@@ -182,12 +183,11 @@ pub fn bind(
     fields
         .iter()
         .map(|(name, input)| {
-            let table = builtin.table(name).ok_or_else(|| {
-                CopyError::Write(WriteError::UnknownTable(UnknownTable {
-                    name: name.clone(),
-                    tables: builtin.table_names(),
-                }))
-            })?;
+            let def = builtin
+                .spec()
+                .require_table(name)
+                .map_err(|unknown| CopyError::Write(WriteError::UnknownTable(unknown)))?;
+            let columns = table_columns(builtin.spec(), def);
             let fields = match input {
                 InputTable::Rows(fields) => fields,
                 InputTable::Other(found) => {
@@ -199,34 +199,26 @@ pub fn bind(
             };
             let fields = fields
                 .iter()
-                .map(|field| bind_field(table, field))
+                .map(|field| bind_field(&def.name, &columns, field))
                 .collect::<Result<Vec<_>, _>>()?;
             Ok(BoundTable {
-                table: table.name.clone(),
+                table: def.name.clone(),
                 fields,
             })
         })
         .collect()
 }
 
-fn bind_field(table: &BuiltinTable, field: &InputField) -> Result<BoundField, CopyError> {
-    let kind = table
-        .columns
-        .iter()
-        .find(|(column, _)| *column == field.name)
-        .map(|(_, kind)| *kind)
-        .ok_or_else(|| {
-            let columns = table.columns.iter().map(|(name, _)| name.clone()).collect();
-            CopyError::Write(WriteError::UnknownColumn(UnknownColumn {
-                table: table.name.clone(),
-                column: field.name.clone(),
-                columns,
-            }))
-        })?;
+fn bind_field(
+    table: &str,
+    columns: &[(String, ColumnType)],
+    field: &InputField,
+) -> Result<BoundField, CopyError> {
+    let (_, kind) = require_column(table, columns, &field.name)
+        .map_err(|unknown| CopyError::Write(WriteError::UnknownColumn(unknown)))?;
     if !field.kind.converts_to(kind) {
         let float = matches!(field.kind, FieldType::Float | FieldType::Double);
-        let (table, field_name, found) =
-            (table.name.clone(), field.name.clone(), field.sql.clone());
+        let (table, field_name, found) = (table.to_owned(), field.name.clone(), field.sql.clone());
         return Err(if float && matches!(kind, ColumnType::Decimal128 { .. }) {
             CopyError::FloatForDecimal {
                 table,

@@ -29,7 +29,13 @@ This file covers the Python package; the DuckDB extension has its own changelog 
 - The Rust core and DuckDB `COPY` refuse a table the spec does not define with `table "x" is not a
   table of the spec; its tables are ...`. In Rust, `Spec::require_table` returns `UnknownTable`
   (now in `spec`, with the name in `name`), and `WriteError::UnknownTable` and
-  `WriteError::UnknownColumn` hold an `UnknownTable` and an `UnknownColumn`.
+  `WriteError::UnknownColumn` hold an `UnknownTable` and an `UnknownColumn`. A column the spec
+  does not have comes from `spec::require_column` (over a table's schema) or
+  `TableDef::require_column` (over its declared columns).
+- Python: `oxedi.write` refuses an unknown table with `table "x" is not a table of the spec; its
+  tables are ...`, and `Spec.column_source` raises `KeyError` with `table "x" is not a table of the
+  spec; its tables are ...` or `table "t" has no column "c" in the spec; its columns are ...`
+  after the `Spec.column_source("t", "c"): ` prefix.
 - Rust: `first_frame` and `next_frame` take a `SegmentEnd` (the segment terminator and the optional
   release byte) instead of `Delimiters`; `SegmentEnd` is a new public type, and
   `Delimiters::segment_end` builds one from the delimiters.

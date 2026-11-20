@@ -198,6 +198,97 @@ fn a_value_holding_a_delimiter_is_a_finding() {
     );
 }
 
+/// The emedny tables with the first claim id set to `claim_id`, written with
+/// the release character `?`: the envelope, the bytes and the findings.
+fn written_with_release(claim_id: &'static [u8]) -> (Envelope, Vec<u8>, Vec<Finding>) {
+    let (spec, tables) = emedny();
+    let edited = set(&tables, "claims", "claim_id", 0, Cell::Binary(claim_id));
+    let mut envelope = envelope();
+    envelope.delimiters = envelope.delimiters.with_release(b'?');
+    let (bytes, found) = write_with_findings(&spec, &edited, &envelope).unwrap();
+    (envelope, bytes, found)
+}
+
+/// The first claim's id, read from `bytes` with the envelope's delimiters,
+/// release character included, is `expected`.
+fn assert_claim_id_reads_back(envelope: &Envelope, bytes: &[u8], expected: &[u8]) {
+    let document = Document::with_delimiters(bytes, envelope.delimiters).unwrap();
+    let claim = document
+        .segments()
+        .find(|segment| segment.id == b"CLP")
+        .unwrap();
+    assert_eq!(claim.component(1, 1), Some(expected));
+}
+
+#[test]
+fn a_value_holding_a_delimiter_is_escaped_with_a_release_character() {
+    let (envelope, bytes, found) = written_with_release(b"A*B");
+    assert!(found.is_empty(), "{found:?}");
+    assert!(text(&bytes).contains("~CLP*A?*B*"), "{}", text(&bytes));
+    assert_claim_id_reads_back(&envelope, &bytes, b"A*B");
+}
+
+#[test]
+fn every_structural_byte_and_the_release_character_are_escaped_and_read_back() {
+    let (envelope, bytes, found) = written_with_release(b"A:B~C?D");
+    assert!(found.is_empty(), "{found:?}");
+    assert!(
+        text(&bytes).contains("~CLP*A?:B?~C??D*"),
+        "{}",
+        text(&bytes)
+    );
+    assert_claim_id_reads_back(&envelope, &bytes, b"A:B~C?D");
+}
+
+#[test]
+fn the_interchange_header_is_written_without_the_release_character() {
+    let (spec, tables) = emedny();
+    let mut envelope = envelope();
+    envelope.delimiters = envelope.delimiters.with_release(b'?');
+    envelope.sender_id = "A*B".into();
+    let (bytes, found) = write_with_findings(&spec, &tables, &envelope).unwrap();
+    assert_eq!(
+        found.iter().map(ToString::to_string).collect::<Vec<_>>(),
+        vec![
+            "envelope field \"sender_id\" writes ISA06 with \"A*B            \", which holds the element separator \"*\"; a value cannot hold the interchange's delimiters"
+        ]
+    );
+    let header = bytes.iter().position(|&byte| byte == b'~').unwrap() + 1;
+    assert_eq!(header, 106);
+    assert!(text(&bytes[..header]).contains("*A*B            *"));
+    assert!(text(&bytes[..header]).ends_with("*:~"));
+}
+
+#[test]
+fn a_value_holding_the_repetition_separator_is_a_finding_with_a_release_character() {
+    let (_, bytes, found) = written_with_release(b"A^B");
+    assert!(text(&bytes).contains("~CLP*A^B*"));
+    assert_eq!(
+        found.iter().map(ToString::to_string).collect::<Vec<_>>(),
+        vec![
+            "table \"claims\" row 0 column \"claim_id\" writes CLP01 with \"A^B\", which holds the repetition separator \"^\"; a value cannot hold the interchange's delimiters"
+        ]
+    );
+}
+
+#[test]
+fn the_release_character_is_checked() {
+    let (spec, tables) = emedny();
+    let error = |release: u8| {
+        let mut envelope = envelope();
+        envelope.delimiters = envelope.delimiters.with_release(release);
+        write(&spec, &tables, &envelope).unwrap_err().to_string()
+    };
+    assert_eq!(
+        error(b'A'),
+        "the release character \"A\" is a letter, a digit or white space, which values hold"
+    );
+    assert_eq!(
+        error(b'*'),
+        "the element separator and the release character are both \"*\"; each delimiter needs its own byte"
+    );
+}
+
 #[test]
 fn references_to_no_row_and_rows_out_of_order_are_findings() {
     let (spec, tables) = emedny();

@@ -14,7 +14,7 @@ use crate::spec::{ControlCount, LoopId, Spec};
 use crate::value::{date_display, time_display};
 
 use super::data::Data;
-use super::envelope::{Envelope, Field, control_text, trigger_values};
+use super::envelope::{Envelope, EnvelopeValue, Field, control_text, trigger_values};
 use super::finding::{Finding, ValueOrigin};
 use super::layout::{Item, Layout};
 use super::nest::Nest;
@@ -33,7 +33,8 @@ pub(super) struct Emitter<'a> {
     pub(super) data: &'a [Data<'a>],
     pub(super) nest: &'a Nest,
     pub(super) envelope: &'a Envelope,
-    /// The bytes every segment is written with.
+    /// The bytes every segment is written with, except the interchange header,
+    /// which is written without a release byte.
     pub(super) syntax: Syntax,
     /// Every delimiter byte the file uses, with its role.
     pub(super) delimiters: Vec<(u8, &'static str)>,
@@ -197,13 +198,21 @@ impl Emitter<'_> {
         );
         self.parts.clear();
         self.texts.clear();
+        let syntax = self.header_syntax(&values);
         for value in values {
             if let Some(field) = value.field {
                 let origin = ValueOrigin::Envelope {
                     field: field.name().to_string(),
                 };
                 if value.checked {
-                    self.check_delimiters(&origin, &trigger, value.element, None, &value.bytes);
+                    self.check_delimiters(
+                        syntax,
+                        &origin,
+                        &trigger,
+                        value.element,
+                        None,
+                        &value.bytes,
+                    );
                 }
                 if let Some(reason) = value.refused {
                     let shown = match field {
@@ -221,8 +230,23 @@ impl Emitter<'_> {
             }
             self.push_text(value.element, None, &value.bytes);
         }
-        self.finish_segment(&trigger, None);
+        self.finish_segment_with(syntax, &trigger, None);
         control
+    }
+
+    /// The syntax an envelope segment is written and checked with. The segment
+    /// that holds the delimiters has fixed-width elements and is read at fixed
+    /// offsets before any release byte applies, so it is written and checked
+    /// without one.
+    fn header_syntax(&self, values: &[EnvelopeValue]) -> Syntax {
+        let holds_delimiters = values
+            .iter()
+            .any(|value| value.field == Some(Field::Component));
+        let mut syntax = self.syntax;
+        if holds_delimiters {
+            syntax.end.release = None;
+        }
+        syntax
     }
 
     /// Writes the segment a row gives, when it has a value or is required.

@@ -26,6 +26,12 @@ This file covers the Python package; the DuckDB extension has its own changelog 
   `ValueError` for a column that reads a segment index or a repeated group.
 
 ### Changed
+- With a release character in the envelope's delimiters, the table writer writes a value holding the
+  element separator, the component separator, the segment terminator or the release character
+  escaped instead of reporting it (a value holding the repetition separator stays a finding) (the interchange header's values excepted: they stay
+  findings), and checks the release character like the other
+  delimiters; a file written that way reads back only with the same release character given to
+  the reader.
 - The Rust core and DuckDB `COPY` refuse a table the spec does not define with `table "x" is not a
   table of the spec; its tables are ...`. In Rust, `Spec::require_table` returns `UnknownTable`
   (now in `spec`, with the name in `name`), and `WriteError::UnknownTable` and

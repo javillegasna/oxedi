@@ -211,8 +211,10 @@ fn write_errors_display_their_full_text() {
             "the component separator \" \" is a letter, a digit or white space, which values hold",
         ),
         (
-            WriteError::NoRepetition,
-            "the interchange header carries a repetition separator, but the envelope field \"delimiters.repetition\" is not set",
+            WriteError::NoRepetition {
+                version: b"00501".to_vec(),
+            },
+            "the interchange version \"00501\" (ISA12) carries a repetition separator in ISA11, but the envelope field \"delimiters.repetition\" is not set; set it to the separator to write",
         ),
         (
             WriteError::Unreadable(DocumentError::Isa(IsaError::NotIsa {

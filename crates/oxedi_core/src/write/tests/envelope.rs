@@ -80,7 +80,7 @@ fn a_00402_spec_without_a_separator_is_refused() {
     let envelope = envelope_with(Delimiters::new(b'*', b':', b'~'));
     assert!(matches!(
         written(&spec, BALANCED_5010, &envelope),
-        Err(WriteError::NoRepetition)
+        Err(WriteError::NoRepetition { version }) if version == b"00501"
     ));
 }
 
@@ -116,9 +116,16 @@ fn a_below_00402_spec_with_a_code_writes_the_code_over_the_envelope_separator() 
     assert!(String::from_utf8_lossy(&bytes).contains("*U*00401*"));
 }
 
+/// The ISA12 text of the interchange header `spec` writes for `input`.
+fn written_isa12(spec: &Spec, input: &[u8], envelope: &Envelope) -> Vec<u8> {
+    let bytes = written(spec, input, envelope).unwrap();
+    let isa = bytes.split(|&byte| byte == b'~').next().unwrap();
+    isa.split(|&byte| byte == b'*').nth(12).unwrap().to_vec()
+}
+
 #[test]
-fn the_version_the_rule_reads_is_the_isa12_the_writer_writes() {
-    let patched = Spec::builtin_835()
+fn the_interchange_version_is_the_value_the_header_writes() {
+    let only_a_code = Spec::builtin_835()
         .merge_patch(r#"{"segments":{"ISA":{"elements":{"12":{"codes":["00402"]}}}}}"#)
         .unwrap();
     let declared = Spec::builtin_835()
@@ -127,16 +134,21 @@ fn the_version_the_rule_reads_is_the_isa12_the_writer_writes() {
                 "segments":{"ISA":{"elements":{"11":{"required":false},"12":{"codes":["00401"]}}}}}"#,
         )
         .unwrap();
+    let neither = Spec::builtin_835()
+        .merge_patch(
+            r#"{"segments":{"ISA":{"elements":{"11":{"required":false},"12":{"codes":null,"required":false}}}}}"#,
+        )
+        .unwrap();
     let envelope = envelope_with(Delimiters::new(b'*', b':', b'~').with_repetition(b'^'));
-    for (spec, input) in [
-        (Spec::builtin_835(), BALANCED_5010),
-        (Spec::builtin_835_4010(), BALANCED_4010),
-        (patched, BALANCED_5010),
-        (declared, BALANCED_5010),
-    ] {
-        let bytes = written(&spec, input, &envelope).unwrap();
-        let isa = bytes.split(|&byte| byte == b'~').next().unwrap();
-        let isa12 = isa.split(|&byte| byte == b'*').nth(12).unwrap();
-        assert_eq!(interchange_version(&spec, b"ISA"), isa12);
+    let cases: [(Spec, &[u8], &[u8]); 5] = [
+        (Spec::builtin_835(), BALANCED_5010, b"00501"),
+        (Spec::builtin_835_4010(), BALANCED_4010, b"00401"),
+        (only_a_code, BALANCED_5010, b"00402"),
+        (declared, BALANCED_5010, b"00401"),
+        (neither, BALANCED_5010, b"     "),
+    ];
+    for (spec, input, expected) in cases {
+        assert_eq!(interchange_version(&spec, &envelope), expected);
+        assert_eq!(written_isa12(&spec, input, &envelope), expected);
     }
 }

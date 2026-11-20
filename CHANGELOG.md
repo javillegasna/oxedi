@@ -26,6 +26,10 @@ This file covers the Python package; the DuckDB extension has its own changelog 
   `ValueError` for a column that reads a segment index or a repeated group.
 
 ### Changed
+- The error for an interchange whose version carries a repetition separator while the envelope has
+  none names the version: `the interchange version "00501" (ISA12) carries a repetition separator
+  in ISA11, but the envelope field "delimiters.repetition" is not set; set it to the separator to
+  write`. In Rust, `WriteError::NoRepetition` holds that `version`.
 - With a release character in the envelope's delimiters, the table writer writes a value holding the
   element separator, the component separator, the segment terminator or the release character
   escaped instead of reporting it (a value holding the repetition separator stays a finding) (the interchange header's values excepted: they stay

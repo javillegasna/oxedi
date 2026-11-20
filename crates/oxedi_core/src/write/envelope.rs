@@ -4,16 +4,14 @@
 //!
 //! The envelope loops are the spec's loops with a `control`, outermost
 //! first: an interchange, a functional group and a transaction set, the X12
-//! envelope. Each element of an envelope trigger takes, in order: the
-//! control number the loop's `control` places; the caller's field for that
-//! element in the X12 envelope layout; the spec's declared version, for the
-//! element that declares it; or the first code the spec lists for the
-//! element. An element that allows a fixed width only is padded to it:
-//! numbers with leading zeros, text with trailing spaces.
+//! envelope. Each element of an envelope trigger takes its value from the
+//! first of the sources `Header::source` lists that applies. An element that
+//! allows a fixed width only is padded to it: numbers with leading zeros,
+//! text with trailing spaces.
 
 use std::borrow::Cow;
 
-use crate::delimiters::{Delimiters, version_carries_repetition};
+use crate::delimiters::Delimiters;
 use crate::spec::{ElementDef, Spec};
 use crate::value::{ElementTextError, ElementType};
 
@@ -197,10 +195,11 @@ pub(super) struct EnvelopeValue {
 }
 
 /// The delimiters the written file uses: those of the envelope, with the
-/// repetition separator only when `repetition` is.
+/// repetition separator only when the header carries one, which `carrying`
+/// says by the interchange version that makes it so.
 pub(super) fn delimiters(
     envelope: &Envelope,
-    repetition: bool,
+    carrying: Option<&[u8]>,
 ) -> Result<Vec<(u8, &'static str)>, WriteError> {
     let given = &envelope.delimiters;
     let mut all = vec![
@@ -208,9 +207,11 @@ pub(super) fn delimiters(
         (given.component, COMPONENT),
         (given.segment, SEGMENT),
     ];
-    if repetition {
+    if let Some(version) = carrying {
         let Some(byte) = given.repetition else {
-            return Err(WriteError::NoRepetition);
+            return Err(WriteError::NoRepetition {
+                version: version.to_vec(),
+            });
         };
         all.push((byte, REPETITION));
     }
@@ -236,31 +237,39 @@ pub(super) fn delimiters(
 /// reader compares to decide whether ISA11 is a repetition separator.
 const VERSION_ELEMENT: usize = 12;
 
-/// The bytes the writer puts in the interchange header's version element
-/// (ISA12): the spec's declared version when it sits on that segment and
-/// element, else the element's first code, else nothing.
-pub(super) fn interchange_version(spec: &Spec, trigger: &[u8]) -> Vec<u8> {
-    let declared = spec
-        .version()
-        .filter(|version| version.segment == trigger && version.element == VERSION_ELEMENT)
-        .and_then(|version| version.values.first().cloned());
-    let def = spec.element_def(trigger, VERSION_ELEMENT, None);
-    let bytes = declared
-        .or_else(|| {
-            def.and_then(|def| def.codes.first())
-                .map(|code| code.as_bytes().to_vec())
-        })
-        .unwrap_or_default();
-    match def {
-        Some(def) => pad(bytes, def),
-        None => bytes,
-    }
-}
+/// Depth of the interchange among the envelope loops: it is the root
+/// envelope loop, and a loop's depth is the number of envelope loops above it.
+const INTERCHANGE_DEPTH: usize = 0;
 
-/// `true` when the interchange header carries a repetition separator: the
-/// version the writer gives it is 00402 or later, as a reader decides it.
-pub(super) fn carries_repetition(spec: &Spec, trigger: &[u8]) -> bool {
-    version_carries_repetition(&interchange_version(spec, trigger))
+/// The bytes the writer puts in the interchange header's version element
+/// (ISA12), found the way the header writes every element, or nothing when
+/// the spec has no envelope loop or its header has no such element.
+pub(super) fn interchange_version(spec: &Spec, envelope: &Envelope) -> Vec<u8> {
+    let Some((root, control)) = spec
+        .roots()
+        .iter()
+        .map(|&root| spec.get(root))
+        .find_map(|def| def.control.as_ref().map(|control| (def, control)))
+    else {
+        return Vec::new();
+    };
+    let trigger = root.trigger.segment.as_slice();
+    let number = control_text(
+        envelope.control_number,
+        spec.element_def(trigger, control.opener_element, None),
+    );
+    let header = Header {
+        spec,
+        trigger,
+        depth: INTERCHANGE_DEPTH,
+        opener_element: control.opener_element,
+        control: &number,
+        envelope,
+    };
+    spec.element_def(trigger, VERSION_ELEMENT, None)
+        .and_then(|def| header.value(VERSION_ELEMENT, def))
+        .map(|value| value.bytes)
+        .unwrap_or_default()
 }
 
 /// The envelope the writer emits with: the caller's, with no repetition
@@ -285,53 +294,138 @@ pub(super) fn trigger_values(
     control: &[u8],
     envelope: &Envelope,
 ) -> Vec<EnvelopeValue> {
-    let mut values = Vec::new();
     let Some(segment) = spec.segment(trigger) else {
-        return values;
+        return Vec::new();
     };
-    let layout = LAYOUT.get(depth).copied().unwrap_or_default();
-    let version = spec.version().and_then(|version| {
-        (version.segment == trigger)
-            .then_some(version)
-            .map(|v| (v.element, v.values.first().cloned().unwrap_or_default()))
-    });
-    for (&position, def) in &segment.elements {
-        let field = layout
+    let header = Header {
+        spec,
+        trigger,
+        depth,
+        opener_element,
+        control,
+        envelope,
+    };
+    segment
+        .elements
+        .iter()
+        .filter_map(|(&position, def)| header.value(position, def))
+        .collect()
+}
+
+/// Where the value of one element of an envelope trigger comes from.
+enum Source<'a> {
+    /// The control number the loop's `control` places on the opener element.
+    Control,
+    /// The caller's field for that element in the X12 envelope layout.
+    Field(Field),
+    /// The spec's declared version, when it sits on that segment and element.
+    Version(&'a [u8]),
+    /// The first code the spec lists for the element.
+    Code(&'a str),
+    /// Nothing: the element is written empty.
+    Nothing,
+}
+
+/// One envelope trigger being written: what decides the value of each of its
+/// elements.
+struct Header<'a> {
+    spec: &'a Spec,
+    trigger: &'a [u8],
+    depth: usize,
+    opener_element: usize,
+    control: &'a [u8],
+    envelope: &'a Envelope,
+}
+
+impl<'a> Header<'a> {
+    /// The source of the value of `position`, in order: the control number,
+    /// the caller's field, the declared version, the element's first code,
+    /// nothing.
+    fn source(&self, position: usize, def: &'a ElementDef) -> Source<'a> {
+        if position == self.opener_element {
+            return Source::Control;
+        }
+        if let Some(field) = self.field(position) {
+            return Source::Field(field);
+        }
+        if let Some(version) = self.declared_version(position) {
+            return Source::Version(version);
+        }
+        def.codes
+            .first()
+            .map_or(Source::Nothing, |code| Source::Code(code))
+    }
+
+    /// The caller's field the X12 envelope layout puts on `position`.
+    fn field(&self, position: usize) -> Option<Field> {
+        let layout = LAYOUT.get(self.depth).copied().unwrap_or_default();
+        layout
             .iter()
             .find(|(at, _)| *at == position)
-            .map(|(_, field)| *field);
-        let mut refused = None;
-        let (bytes, field, checked) = if position == opener_element {
-            (control.to_vec(), Some(Field::ControlNumber), true)
-        } else if let Some(field) = field {
-            match field_value(field, def, envelope) {
-                Some(Ok((bytes, checked))) => (bytes, Some(field), checked),
-                Some(Err(reason)) => {
-                    refused = Some(reason);
-                    (Vec::new(), Some(field), true)
-                }
-                None => continue,
-            }
-        } else if let Some((_, value)) = version.as_ref().filter(|(at, _)| *at == position) {
-            (value.clone(), Some(Field::Version), true)
-        } else if let Some(code) = def.codes.first() {
-            (code.as_bytes().to_vec(), None, true)
-        } else {
-            (Vec::new(), None, true)
-        };
-        values.push(EnvelopeValue {
-            element: position,
-            bytes: if refused.is_some() {
-                bytes
-            } else {
-                pad(bytes, def)
-            },
-            field,
-            checked,
-            refused,
-        });
+            .map(|(_, field)| *field)
     }
-    values
+
+    /// The spec's declared version, when it sits on this segment and
+    /// `position`.
+    fn declared_version(&self, position: usize) -> Option<&'a [u8]> {
+        let version = self.spec.version()?;
+        let sits_here = version.segment == self.trigger && version.element == position;
+        sits_here.then(|| version.values.first().map_or(&[][..], Vec::as_slice))
+    }
+
+    /// The value of `position`, padded to its element's width, or `None`
+    /// when its caller's field has nothing to write there.
+    fn value(&self, position: usize, def: &'a ElementDef) -> Option<EnvelopeValue> {
+        let mut value = match self.source(position, def) {
+            Source::Control => {
+                EnvelopeValue::plain(position, self.control, Some(Field::ControlNumber))
+            }
+            Source::Field(field) => EnvelopeValue::of_field(position, field, def, self.envelope)?,
+            Source::Version(bytes) => EnvelopeValue::plain(position, bytes, Some(Field::Version)),
+            Source::Code(code) => EnvelopeValue::plain(position, code.as_bytes(), None),
+            Source::Nothing => EnvelopeValue::plain(position, &[], None),
+        };
+        if value.refused.is_none() {
+            value.bytes = pad(value.bytes, def);
+        }
+        Some(value)
+    }
+}
+
+impl EnvelopeValue {
+    /// A checked value with no refusal.
+    fn plain(element: usize, bytes: &[u8], field: Option<Field>) -> EnvelopeValue {
+        EnvelopeValue {
+            element,
+            bytes: bytes.to_vec(),
+            field,
+            checked: true,
+            refused: None,
+        }
+    }
+
+    /// The value of a caller's field, or `None` when it has nothing to write
+    /// on the element; the field's refusal when it has no text the element
+    /// can hold.
+    fn of_field(
+        element: usize,
+        field: Field,
+        def: &ElementDef,
+        envelope: &Envelope,
+    ) -> Option<EnvelopeValue> {
+        let plain = EnvelopeValue::plain(element, &[], Some(field));
+        Some(match field_value(field, def, envelope)? {
+            Ok((bytes, checked)) => EnvelopeValue {
+                bytes,
+                checked,
+                ..plain
+            },
+            Err(reason) => EnvelopeValue {
+                refused: Some(reason),
+                ..plain
+            },
+        })
+    }
 }
 
 /// The value of a caller's field for an element, and whether it is checked

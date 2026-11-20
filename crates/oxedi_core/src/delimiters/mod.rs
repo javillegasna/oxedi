@@ -13,6 +13,7 @@
 use std::fmt;
 
 use crate::frame::SegmentEnd;
+use crate::segment::Syntax;
 use crate::trivia::LeadingTrivia;
 
 /// The five delimiters of an interchange. Only `release` is never read from the
@@ -287,6 +288,15 @@ impl Delimiters {
         SegmentEnd::new(self.segment, self.release)
     }
 
+    /// The bytes a segment is written with under these delimiters.
+    pub(crate) const fn syntax(&self) -> Syntax {
+        Syntax {
+            element: self.element,
+            component: self.component,
+            end: self.segment_end(),
+        }
+    }
+
     /// Reads the delimiters from an ISA segment at the start of `input`.
     ///
     /// Bytes after the ISA terminator are ignored. `release` is always `None`.
@@ -353,10 +363,7 @@ impl Delimiters {
     /// splits on, plus the release byte itself. The repetition separator is not
     /// split on, so it is written as data (ISA11 itself contains it).
     pub fn is_special(&self, byte: u8) -> bool {
-        byte == self.element
-            || byte == self.component
-            || byte == self.segment
-            || self.release == Some(byte)
+        self.syntax().is_structural(byte)
     }
 }
 

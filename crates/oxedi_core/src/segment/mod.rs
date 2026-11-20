@@ -11,6 +11,10 @@ use crate::delimiters::Delimiters;
 use crate::element::{Element, Pieces};
 use crate::frame::Frame;
 
+mod serializer;
+
+pub(crate) use serializer::{SegmentOutput, SegmentSerializer, Sink, Syntax};
+
 /// One segment of the input. Everything borrows from the buffer except
 /// values that needed unescaping (see [`Element`]).
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -208,64 +212,56 @@ impl Segment<'_> {
         delims: &Delimiters,
         out: &mut W,
     ) -> Result<(), SegmentWriteError> {
-        if let Some(&byte) = self.id.iter().find(|&&byte| delims.is_special(byte)) {
-            return Err(SegmentWriteError::DelimiterInValue {
-                byte,
-                element: 0,
-                component: None,
-            });
+        let syntax = delims.syntax();
+        if let Some(byte) = syntax.first_structural(self.id) {
+            return Err(delimiter_in_value(byte, 0, None));
         }
-        out.write_all(self.id)?;
+        let mut sink = Sink(out);
+        let mut writer = SegmentSerializer::begin(&mut sink, syntax, self.id)?;
         for (position, element) in (1..).zip(&self.elements) {
-            out.write_all(&[delims.element])?;
-            match element {
-                Element::Simple(value) => write_value(value, delims, out, position, None)?,
-                Element::Composite(values) => {
-                    for (component, value) in (1..).zip(values) {
-                        if component > 1 {
-                            out.write_all(&[delims.component])?;
-                        }
-                        write_value(value, delims, out, position, Some(component))?;
-                    }
-                }
-            }
+            writer.element()?;
+            write_element(&mut writer, &syntax, element, position)?;
         }
-        out.write_all(&[delims.segment])?;
-        Ok(())
+        Ok(writer.end()?)
     }
 }
 
-/// Writes one value; `element` and `component` locate it for the error.
-fn write_value<W: io::Write>(
-    value: &[u8],
-    delims: &Delimiters,
-    out: &mut W,
-    element: usize,
-    component: Option<usize>,
+/// Writes the values of one element; `position` locates them for the error.
+/// Without a release byte a value holding a structural byte is refused before
+/// anything of it is written.
+fn write_element<O: SegmentOutput<Error = io::Error>>(
+    writer: &mut SegmentSerializer<'_, O>,
+    syntax: &Syntax,
+    element: &Element<'_>,
+    position: usize,
 ) -> Result<(), SegmentWriteError> {
-    if !value.iter().any(|&byte| delims.is_special(byte)) {
-        return Ok(out.write_all(value)?);
-    }
-    let Some(release) = delims.release else {
-        let byte = value
-            .iter()
-            .copied()
-            .find(|&byte| delims.is_special(byte))
-            .unwrap_or_default();
-        return Err(SegmentWriteError::DelimiterInValue {
-            byte,
-            element,
-            component,
-        });
+    let (values, composite) = match element {
+        Element::Simple(value) => (std::slice::from_ref(value), false),
+        Element::Composite(values) => (values.as_slice(), true),
     };
-    for &byte in value {
-        if delims.is_special(byte) {
-            out.write_all(&[release, byte])?;
-        } else {
-            out.write_all(&[byte])?;
+    for (component, value) in (1..).zip(values) {
+        if component > 1 {
+            writer.component();
         }
+        let at = composite.then_some(component);
+        if syntax.end.release.is_none()
+            && let Some(byte) = syntax.first_structural(value)
+        {
+            return Err(delimiter_in_value(byte, position, at));
+        }
+        writer.value(value)?;
     }
     Ok(())
+}
+
+/// The error for a value holding the structural `byte` at `element` (`0` is
+/// the id) and `component`.
+fn delimiter_in_value(byte: u8, element: usize, component: Option<usize>) -> SegmentWriteError {
+    SegmentWriteError::DelimiterInValue {
+        byte,
+        element,
+        component,
+    }
 }
 
 #[cfg(test)]

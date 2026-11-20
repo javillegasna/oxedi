@@ -121,6 +121,20 @@ fn write_to_without_release_rejects_a_delimiter_in_a_value() {
 }
 
 #[test]
+fn write_to_writes_nothing_of_a_refused_value() {
+    let segment = Segment {
+        index: 0,
+        raw: b"",
+        id: b"N1",
+        elements: vec![Element::Simple(Cow::Borrowed(b"A*B"))],
+        terminated: true,
+    };
+    let mut out = Vec::new();
+    assert!(segment.write_to(&plain(), &mut out).is_err());
+    assert_eq!(out, b"N1");
+}
+
+#[test]
 fn write_to_reports_the_element_and_component_holding_the_delimiter() {
     let delims = plain();
     let segment = Segment {

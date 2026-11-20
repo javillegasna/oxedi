@@ -14,7 +14,7 @@ use std::io;
 use crate::frame::SegmentEnd;
 
 /// Where the bytes of a segment go.
-pub(crate) trait Output {
+pub(crate) trait SegmentOutput {
     /// What a failed write reports.
     type Error;
 
@@ -22,7 +22,7 @@ pub(crate) trait Output {
     fn put(&mut self, bytes: &[u8]) -> Result<(), Self::Error>;
 }
 
-impl Output for Vec<u8> {
+impl SegmentOutput for Vec<u8> {
     type Error = Infallible;
 
     fn put(&mut self, bytes: &[u8]) -> Result<(), Infallible> {
@@ -31,10 +31,10 @@ impl Output for Vec<u8> {
     }
 }
 
-/// An [`io::Write`] used as an [`Output`].
+/// An [`io::Write`] used as a [`SegmentOutput`].
 pub(crate) struct Sink<'w, W: io::Write>(pub(crate) &'w mut W);
 
-impl<W: io::Write> Output for Sink<'_, W> {
+impl<W: io::Write> SegmentOutput for Sink<'_, W> {
     type Error = io::Error;
 
     fn put(&mut self, bytes: &[u8]) -> Result<(), io::Error> {
@@ -68,9 +68,9 @@ impl Syntax {
     }
 }
 
-/// Writes one segment into an [`Output`], one call per id, element,
+/// Writes one segment into a [`SegmentOutput`], one call per id, element,
 /// component and value.
-pub(crate) struct SegmentSerializer<'o, O: Output> {
+pub(crate) struct SegmentSerializer<'o, O: SegmentOutput> {
     out: &'o mut O,
     syntax: Syntax,
     /// Element separators owed before the next value, empty elements included.
@@ -79,7 +79,7 @@ pub(crate) struct SegmentSerializer<'o, O: Output> {
     components: usize,
 }
 
-impl<'o, O: Output> SegmentSerializer<'o, O> {
+impl<'o, O: SegmentOutput> SegmentSerializer<'o, O> {
     /// Starts a segment by writing `id` as it is: the caller has checked it
     /// holds no structural byte.
     pub(crate) fn begin(out: &'o mut O, syntax: Syntax, id: &[u8]) -> Result<Self, O::Error> {

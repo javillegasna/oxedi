@@ -13,7 +13,7 @@ use crate::frame::Frame;
 
 mod serializer;
 
-pub(crate) use serializer::{Output, SegmentSerializer, Sink, Syntax};
+pub(crate) use serializer::{SegmentOutput, SegmentSerializer, Sink, Syntax};
 
 /// One segment of the input. Everything borrows from the buffer except
 /// values that needed unescaping (see [`Element`]).
@@ -229,7 +229,7 @@ impl Segment<'_> {
 /// Writes the values of one element; `position` locates them for the error.
 /// Without a release byte a value holding a structural byte is refused before
 /// anything of it is written.
-fn write_element<O: Output<Error = io::Error>>(
+fn write_element<O: SegmentOutput<Error = io::Error>>(
     writer: &mut SegmentSerializer<'_, O>,
     syntax: &Syntax,
     element: &Element<'_>,

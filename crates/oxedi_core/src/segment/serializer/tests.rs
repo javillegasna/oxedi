@@ -11,8 +11,7 @@ fn syntax(release: Option<u8>) -> Syntax {
 /// One element of a test segment: its components (one for a simple element).
 type Parts<'a> = &'a [&'a [u8]];
 
-/// Writes segment `NM1` with `elements` into a vector, returning the output
-/// or the refusal.
+/// Writes segment `NM1` with `elements` into a vector and returns the bytes written.
 fn written(syntax: Syntax, elements: &[Parts<'_>]) -> Vec<u8> {
     let mut out = Vec::new();
     let Ok(mut writer) = SegmentSerializer::begin(&mut out, syntax, b"NM1");

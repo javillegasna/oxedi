@@ -18,7 +18,8 @@
 //! The module is split by responsibility: `loops`, `occurrences`, `segments`,
 //! `tables`, `balance` and `summaries` hold the definitions,
 //! `occurrence_error`, `table_error`, `balance_error` and `summary_error` why
-//! an occurrence, a table, a balancing rule or a summary is rejected; `raw`
+//! an occurrence, a table, a balancing rule or a summary is rejected; `unknown`
+//! the error for a table the spec does not define; `raw`
 //! the deserialization shapes of the element, the summary and the pick; `schema` the columns of each table, known from
 //! the spec alone; `sections` the helpers of the JSON shape as data (each object's table is emitted by `model`) and `shape` the walk that
 //! checks a value against it; `test_support` (test builds only) the small spec
@@ -65,6 +66,7 @@ mod tables;
 pub(crate) mod test_support;
 #[cfg(test)]
 mod tests;
+mod unknown;
 mod version;
 mod vocabulary;
 
@@ -89,6 +91,7 @@ pub use summaries::Summary;
 pub use summary_error::SummaryDefError;
 pub use table_error::{AnchorChains, AnchorPositions, LoopSegments, TableDefError};
 pub use tables::{ColumnSource, Pick, Repeat, TableDef};
+pub use unknown::UnknownTable;
 pub use version::{DeclaredVersion, VersionError};
 pub use vocabulary::ElementPosition;
 
@@ -277,6 +280,15 @@ impl Spec {
     /// A table by name.
     pub fn table(&self, name: &str) -> Option<&TableDef> {
         self.tables.iter().find(|table| table.name == name)
+    }
+
+    /// A table by name; a name the spec does not define is an
+    /// [`UnknownTable`] that lists the spec's tables.
+    pub fn require_table(&self, name: &str) -> Result<&TableDef, UnknownTable> {
+        self.table(name).ok_or_else(|| UnknownTable {
+            name: name.to_owned(),
+            tables: self.table_names(),
+        })
     }
 
     /// Every balancing rule, in name order.

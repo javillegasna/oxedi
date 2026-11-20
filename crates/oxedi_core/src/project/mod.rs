@@ -70,7 +70,6 @@ mod plan;
 mod quote;
 #[cfg(test)]
 mod tests;
-mod unknown;
 
 use crate::column::{Cell, Table, Tables};
 use crate::delimiters::Delimiters;
@@ -78,14 +77,13 @@ use crate::diagnostic::Diagnostic;
 use crate::engine::Event;
 use crate::mask::Mask;
 use crate::segment::Segment;
-use crate::spec::{LoopId, OccurrenceDef, Spec, column_type, table_columns};
+use crate::spec::{LoopId, OccurrenceDef, Spec, UnknownTable, column_type, table_columns};
 use crate::value::ColumnType;
 
 use carry::Carried;
 use check::Checked;
 use fill::append;
 use plan::{Candidate, ElementPlan, Plans};
-pub use unknown::UnknownTable;
 
 /// A column value of a row being collected.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -270,11 +268,8 @@ impl<'s> Projector<'s> {
         delimiters: &Delimiters,
         names: &[&str],
     ) -> Result<Self, UnknownTable> {
-        if let Some(name) = names
-            .iter()
-            .find(|name| !spec.tables().iter().any(|def| def.name == **name))
-        {
-            return Err(UnknownTable::new(spec, name));
+        for name in names {
+            spec.require_table(name)?;
         }
         let mut projector = Self::new(spec, delimiters);
         for (state, def) in projector.tables.iter_mut().zip(spec.tables()) {

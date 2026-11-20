@@ -558,21 +558,3 @@ proptest! {
         }
     }
 }
-
-#[test]
-fn an_unknown_table_displays_the_rule_the_name_and_the_spec_tables() {
-    let spec = Spec::builtin_835();
-    let error = UnknownTable::new(&spec, "claim");
-    let names: Vec<String> = spec
-        .tables()
-        .iter()
-        .map(|def| format!("{:?}", def.name))
-        .collect();
-    assert_eq!(
-        error.to_string(),
-        format!(
-            "table \"claim\" is not defined by the spec, so it cannot be filled; its tables are {}",
-            names.join(", ")
-        )
-    );
-}

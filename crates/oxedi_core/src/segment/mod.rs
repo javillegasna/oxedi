@@ -232,11 +232,9 @@ fn write_element<O: Output<Error = io::Error>>(
     element: &Element<'_>,
     position: usize,
 ) -> Result<(), SegmentWriteError> {
-    let values = match element {
-        Element::Simple(value) => {
-            return writer.value(value).map_err(|r| located(r, position, None));
-        }
-        Element::Composite(values) => values,
+    let (values, composite) = match element {
+        Element::Simple(value) => (std::slice::from_ref(value), false),
+        Element::Composite(values) => (values.as_slice(), true),
     };
     for (component, value) in (1..).zip(values) {
         if component > 1 {
@@ -244,7 +242,7 @@ fn write_element<O: Output<Error = io::Error>>(
         }
         writer
             .value(value)
-            .map_err(|refused| located(refused, position, Some(component)))?;
+            .map_err(|refused| located(refused, position, composite.then_some(component)))?;
     }
     Ok(())
 }

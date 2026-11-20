@@ -53,7 +53,7 @@ pub(crate) enum Trailing {
         not(test),
         expect(
             dead_code,
-            reason = "no writer outside the tests trims trailing separators yet"
+            reason = "TODO: the table writer's segment renderer trims trailing separators with this serializer; until then only the tests build it"
         )
     )]
     Trim,
@@ -78,21 +78,10 @@ impl Syntax {
             || byte == self.end.terminator
             || self.end.release == Some(byte)
     }
-}
 
-impl Syntax {
     /// The first structural byte of `bytes`, if any.
     pub(crate) fn first_structural(&self, bytes: &[u8]) -> Option<u8> {
         bytes.iter().copied().find(|&byte| self.is_structural(byte))
-    }
-
-    /// `bytes` cut at its first structural byte: the run before it, the byte
-    /// and the rest after it.
-    fn split_structural<'b>(&self, bytes: &'b [u8]) -> Option<(&'b [u8], u8, &'b [u8])> {
-        let at = bytes.iter().position(|&byte| self.is_structural(byte))?;
-        let (run, tail) = bytes.split_at(at);
-        let (&byte, after) = tail.split_first()?;
-        Some((run, byte, after))
     }
 }
 
@@ -180,8 +169,15 @@ impl<'o, O: Output> SegmentSerializer<'o, O> {
 
     /// Writes `bytes` in runs, each structural byte after a `release`.
     fn put_escaped(&mut self, release: u8, mut rest: &[u8]) -> Result<(), O::Error> {
-        while let Some((run, byte, after)) = self.syntax.split_structural(rest) {
+        while let Some(at) = rest
+            .iter()
+            .position(|&byte| self.syntax.is_structural(byte))
+        {
+            let (run, tail) = rest.split_at(at);
             self.out.put(run)?;
+            let Some((&byte, after)) = tail.split_first() else {
+                break;
+            };
             self.out.put(&[release, byte])?;
             rest = after;
         }

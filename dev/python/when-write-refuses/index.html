@@ -2078,6 +2078,10 @@ is anything the writer cannot place. For example:</p>
 <p class="admonition-title">A value holding a delimiter</p>
 <p>This one is reported first. The file then splits where the data does not, so it cannot be
 read back. The other findings show once that value is fixed.</p>
+<p>With a release character in the delimiters, the writer puts it before a value's element
+separator, component separator, segment terminator or release character instead of
+reporting it. The interchange header's values and a value holding the repetition separator
+stay findings. See <a href="../writing/#fill-in-the-envelope">Fill in the envelope</a>.</p>
 </div>
 <h2 id="write-anyway">Write anyway<a class="headerlink" href="#write-anyway" title="Permanent link">&para;</a></h2>
 <p>With <code>allow_findings=True</code>, <code>write</code> returns <code>(data, findings)</code> instead of raising. Use it, for

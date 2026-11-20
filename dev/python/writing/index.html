@@ -2110,6 +2110,14 @@ TRN*1*CHK100235*1512345678~
 <li><code>delimiters</code>: default <code>*</code>, <code>:</code>, <code>~</code> and repetition <code>^</code>.</li>
 <li><code>line_break</code>: a line break after each segment.</li>
 </ul>
+<p>A value holding a delimiter is reported, unless the delimiters give a release character
+(<code>oxedi.Delimiters(repetition=b"^", release=b"?")</code>; on 5010 the delimiters need the repetition
+separator too). Then a value holding the element separator, the component
+separator, the segment terminator or the release character is written with the release
+character before it, for example <code>A?*B</code>, and gives no finding. The values of the interchange
+header and a value holding the repetition separator are still reported. A file written this
+way reads back only when the reader is given the same release character:
+<code>oxedi.parse(data, delimiters=...)</code>.</p>
 <p>The writer works out the rest:</p>
 <ul>
 <li>The fixed-width <code>ISA</code>.</li>

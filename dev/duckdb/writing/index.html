@@ -2109,6 +2109,12 @@ same defaults.</p>
 <code>component</code>, <code>segment</code>, <code>repetition</code> and <code>release</code>. Fields left out take the defaults of
 <code>oxedi.Delimiters()</code>: <code>*</code>, <code>:</code>, <code>~</code>, and no repetition or release. So on 5010, give
 <code>repetition</code>.</p>
+<p>With a <code>release</code> character, a value holding the element separator, the component
+separator, the segment terminator or the release character is written with the release
+character before it, for example <code>A?*B</code>, instead of being a finding. The values of the
+interchange header and a value holding the repetition separator are still findings. The
+file cannot be read back with <code>read_835</code>, which has no release option. Python's
+<code>oxedi.parse(data, delimiters=oxedi.Delimiters(repetition=b"^", release=b"?"))</code> reads it.</p>
 </details>
 <h2 id="when-copy-refuses">When COPY refuses<a class="headerlink" href="#when-copy-refuses" title="Permanent link">&para;</a></h2>
 <p><code>COPY</code> is strict, like <code>oxedi.write</code>. The written file is read back with the spec. Every

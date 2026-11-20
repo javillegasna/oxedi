@@ -580,7 +580,7 @@ fn a_5010_interchange_needs_a_repetition_separator() {
     envelope.delimiters = Delimiters::new(b'*', b':', b'~');
     assert!(matches!(
         write(&spec, &tables, &envelope),
-        Err(WriteError::NoRepetition)
+        Err(WriteError::NoRepetition { version }) if version == b"00501"
     ));
 }
 

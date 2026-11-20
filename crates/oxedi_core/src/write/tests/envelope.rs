@@ -80,7 +80,7 @@ fn a_00402_spec_without_a_separator_is_refused() {
     let envelope = envelope_with(Delimiters::new(b'*', b':', b'~'));
     assert!(matches!(
         written(&spec, BALANCED_5010, &envelope),
-        Err(WriteError::NoRepetition)
+        Err(WriteError::NoRepetition { version }) if version == b"00501"
     ));
 }
 

@@ -18,6 +18,9 @@ and the extension has its own version.
   `parent` (the table a reference column points at, else NULL) and `position`, without a file.
 
 ### Changed
+- `COPY` names the interchange version when it is refused for a missing repetition separator:
+  `the interchange version "00501" (ISA12) carries a repetition separator in ISA11, but the
+  envelope field "delimiters.repetition" is not set; set it to the separator to write`.
 - The error for a table macro parameter given with `:=` or `=>` says that this DuckDB version
   does not substitute it, since newer versions (2.0.1) do and the macro then works.
 - `COPY`'s `release` option now makes values holding the element separator, the component

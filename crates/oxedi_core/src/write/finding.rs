@@ -294,7 +294,10 @@ pub enum WriteError {
     },
     /// The interchange header carries a repetition separator, and the
     /// envelope's delimiters have none.
-    NoRepetition,
+    NoRepetition {
+        /// The interchange version (ISA12) the header writes.
+        version: Vec<u8>,
+    },
     /// The written file could not be read back.
     Unreadable(DocumentError),
     /// The tables do not make a valid file; nothing was written.
@@ -330,10 +333,12 @@ impl fmt::Display for WriteError {
                 "the {role} {} is a letter, a digit or white space, which values hold",
                 Quoted(&[*byte])
             ),
-            WriteError::NoRepetition => write!(
+            WriteError::NoRepetition { version } => write!(
                 f,
-                "the interchange header carries a repetition separator, but the envelope field \
-                 \"delimiters.repetition\" is not set"
+                "the interchange version {} (ISA12) carries a repetition separator in ISA11, but \
+                 the envelope field \"delimiters.repetition\" is not set; set it to the separator \
+                 to write",
+                Quoted(version)
             ),
             WriteError::Unreadable(error) => {
                 write!(f, "the written file could not be read back: {error}")
@@ -359,7 +364,7 @@ impl std::error::Error for WriteError {
             | WriteError::ColumnType { .. }
             | WriteError::SameDelimiter { .. }
             | WriteError::DelimiterNotAllowed { .. }
-            | WriteError::NoRepetition
+            | WriteError::NoRepetition { .. }
             | WriteError::Unreadable(_)
             | WriteError::Findings(_) => None,
         }

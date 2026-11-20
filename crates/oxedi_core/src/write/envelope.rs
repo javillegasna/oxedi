@@ -210,7 +210,9 @@ pub(super) fn delimiters(
     ];
     if version_carries_repetition(version) {
         let Some(byte) = given.repetition else {
-            return Err(WriteError::NoRepetition);
+            return Err(WriteError::NoRepetition {
+                version: version.to_vec(),
+            });
         };
         all.push((byte, REPETITION));
     }

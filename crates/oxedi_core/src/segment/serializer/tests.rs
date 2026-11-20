@@ -13,13 +13,9 @@ type Parts<'a> = &'a [&'a [u8]];
 
 /// Writes segment `NM1` with `elements` into a vector, returning the output
 /// or the refusal.
-fn written(
-    syntax: Syntax,
-    elements: &[Parts<'_>],
-    trailing: Trailing,
-) -> Result<Vec<u8>, Refused<Infallible>> {
+fn written(syntax: Syntax, elements: &[Parts<'_>]) -> Result<Vec<u8>, Refused<Infallible>> {
     let mut out = Vec::new();
-    let Ok(mut writer) = SegmentSerializer::begin(&mut out, syntax, trailing, b"NM1");
+    let Ok(mut writer) = SegmentSerializer::begin(&mut out, syntax, b"NM1");
     for parts in elements {
         let Ok(()) = writer.element();
         for (at, part) in parts.iter().enumerate() {
@@ -33,71 +29,59 @@ fn written(
     Ok(out)
 }
 
-/// Each row: the case, its elements, and the segment with `Keep` and `Trim`.
-const LAYOUTS: &[(&str, &[Parts<'_>], &str, &str)] = &[
+/// Each row: the case, its elements, and the segment written from them.
+const LAYOUTS: &[(&str, &[Parts<'_>], &str)] = &[
     (
         "trailing empty elements",
         &[&[b"IL"], &[b""], &[b""]],
         "NM1*IL**~",
-        "NM1*IL~",
     ),
     (
         "an empty element between values",
         &[&[b"IL"], &[b""], &[b"DOE"]],
-        "NM1*IL**DOE~",
         "NM1*IL**DOE~",
     ),
     (
         "trailing empty components",
         &[&[b"A", b"", b""]],
         "NM1*A::~",
-        "NM1*A~",
     ),
     (
         "the separators of an element in order",
         &[&[b"A", b"", b""], &[b"B"]],
         "NM1*A::*B~",
-        "NM1*A*B~",
     ),
-    (
-        "an empty first component",
-        &[&[b"", b"B"]],
-        "NM1*:B~",
-        "NM1*:B~",
-    ),
+    ("an empty first component", &[&[b"", b"B"]], "NM1*:B~"),
     (
         "an empty composite then a value",
         &[&[b"", b""], &[b"B"]],
         "NM1*:*B~",
-        "NM1**B~",
     ),
-    ("no elements", &[], "NM1~", "NM1~"),
+    ("no elements", &[], "NM1~"),
 ];
 
 #[test]
 fn lays_out_the_separators() {
-    for &(case, elements, keep, trim) in LAYOUTS {
-        for (trailing, expected) in [(Trailing::Keep, keep), (Trailing::Trim, trim)] {
-            let out = written(syntax(None), elements, trailing);
-            assert_eq!(
-                out.as_deref().map(String::from_utf8_lossy).as_deref(),
-                Ok(expected),
-                "{case} with {trailing:?}"
-            );
-        }
+    for &(case, elements, expected) in LAYOUTS {
+        let out = written(syntax(None), elements);
+        assert_eq!(
+            out.as_deref().map(String::from_utf8_lossy).as_deref(),
+            Ok(expected),
+            "{case}"
+        );
     }
 }
 
 #[test]
 fn escapes_structural_bytes_with_a_release_character() {
-    let out = written(syntax(Some(b'?')), &[&[b"a*b:c~d?e"]], Trailing::Keep);
+    let out = written(syntax(Some(b'?')), &[&[b"a*b:c~d?e"]]);
     assert_eq!(out, Ok(b"NM1*a?*b?:c?~d??e~".to_vec()));
 }
 
 #[test]
 fn refuses_a_structural_byte_without_a_release_character() {
     let mut out = Vec::new();
-    let Ok(mut writer) = SegmentSerializer::begin(&mut out, syntax(None), Trailing::Keep, b"X");
+    let Ok(mut writer) = SegmentSerializer::begin(&mut out, syntax(None), b"X");
     let Ok(()) = writer.element();
     assert_eq!(writer.value(b"a*b"), Err(Refused::Structural(b'*')));
     assert_eq!(out, b"X");
@@ -106,6 +90,6 @@ fn refuses_a_structural_byte_without_a_release_character() {
 #[test]
 fn writes_the_repetition_separator_as_data() {
     let delimiters = crate::Delimiters::new(b'*', b':', b'~').with_repetition(b'^');
-    let out = written(delimiters.syntax(), &[&[b"a^b"]], Trailing::Keep);
+    let out = written(delimiters.syntax(), &[&[b"a^b"]]);
     assert_eq!(out, Ok(b"NM1*a^b~".to_vec()));
 }

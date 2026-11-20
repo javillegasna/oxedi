@@ -116,7 +116,14 @@ impl Emitter<'_> {
 
     /// Writes the segment built in `parts`, recording the row it comes from.
     pub(super) fn finish_segment(&mut self, id: &[u8], row: Option<(usize, usize)>) {
-        write_segment(id, &self.parts, &self.texts, self.separators, &mut self.out);
+        write_segment(
+            id,
+            &self.parts,
+            &self.texts,
+            self.syntax,
+            self.envelope.line_break,
+            &mut self.out,
+        );
         self.traces.close(row);
     }
 }

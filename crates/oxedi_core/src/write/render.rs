@@ -9,6 +9,7 @@ use std::io::Write as _;
 use std::ops::Range;
 
 use crate::column::{Cell, ColumnData};
+use crate::segment::{SegmentOutput, SegmentSerializer, Syntax, Trailing};
 use crate::value::{
     ColumnType, ElementTextError, date_element, decimal_element, time_element, time_of_day,
 };
@@ -87,72 +88,80 @@ pub(super) struct Part {
     pub(super) text: Option<Range<usize>>,
 }
 
-/// The bytes a segment is written with.
-#[derive(Debug, Clone, Copy)]
-pub(super) struct Separators {
-    pub(super) element: u8,
-    pub(super) component: u8,
-    pub(super) segment: u8,
-    pub(super) line_break: bool,
+/// Where the serializer stands among the elements and components, both
+/// 1-based, so that a part is reached with the calls its place needs.
+struct Cursor {
+    element: usize,
+    component: usize,
+    /// The place of the last part seen, empty or not (element, component).
+    seen: (usize, usize),
+}
+
+impl Cursor {
+    /// `true` for the first part at its place: of two parts for one place,
+    /// the first is written and the second ignored.
+    fn first_at_place(&mut self, part: &Part) -> bool {
+        let place = (part.element, part.component.unwrap_or(1));
+        let first = place > self.seen;
+        self.seen = self.seen.max(place);
+        first
+    }
+
+    /// Starts every element up to the part's, then every component up to
+    /// its own. An element holds either one simple part or components.
+    fn move_to<O: SegmentOutput>(
+        &mut self,
+        writer: &mut SegmentSerializer<'_, O>,
+        part: &Part,
+    ) -> Result<(), O::Error> {
+        while self.element < part.element {
+            writer.element()?;
+            self.element += 1;
+            self.component = 1;
+        }
+        let component = part.component.unwrap_or(1);
+        while self.component < component {
+            writer.component();
+            self.component += 1;
+        }
+        Ok(())
+    }
 }
 
 /// Writes segment `id` from `parts` (sorted by element, then component),
-/// whose texts live in `texts`.
+/// whose texts live in `texts`. A value holding a structural byte is written
+/// as it is: the caller reports it.
 pub(super) fn write_segment(
     id: &[u8],
     parts: &[Part],
     texts: &[u8],
-    separators: Separators,
+    syntax: Syntax,
+    line_break: bool,
     out: &mut Vec<u8>,
 ) {
-    let text = |part: &Part| {
-        part.text
-            .as_ref()
-            .and_then(|range| texts.get(range.clone()))
-            .unwrap_or_default()
+    let Ok(mut writer) = SegmentSerializer::begin(out, syntax, Trailing::Trim, id);
+    let mut cursor = Cursor {
+        element: 0,
+        component: 1,
+        seen: (0, 0),
     };
-    let last = parts
-        .iter()
-        .filter(|part| !text(part).is_empty())
-        .map(|part| part.element)
-        .max()
-        .unwrap_or(0);
-    out.extend_from_slice(id);
-    let mut rest = parts;
-    for position in 1..=last {
-        out.push(separators.element);
-        let count = rest
-            .iter()
-            .take_while(|part| part.element == position)
-            .count();
-        let (here, after) = rest.split_at(count);
-        rest = after;
-        if here.iter().all(|part| part.component.is_none()) {
-            if let Some(part) = here.first() {
-                out.extend_from_slice(text(part));
-            }
+    for part in parts {
+        if !cursor.first_at_place(part) {
             continue;
         }
-        let last_component = here
-            .iter()
-            .filter(|part| !text(part).is_empty())
-            .map(|part| part.component.unwrap_or(1))
-            .max()
-            .unwrap_or(0);
-        for component in 1..=last_component {
-            if component > 1 {
-                out.push(separators.component);
-            }
-            if let Some(part) = here
-                .iter()
-                .find(|part| part.component.unwrap_or(1) == component)
-            {
-                out.extend_from_slice(text(part));
-            }
+        let text = part
+            .text
+            .as_ref()
+            .and_then(|range| texts.get(range.clone()))
+            .unwrap_or_default();
+        if text.is_empty() {
+            continue;
         }
+        let Ok(()) = cursor.move_to(&mut writer, part);
+        let Ok(()) = writer.value(text);
     }
-    out.push(separators.segment);
-    if separators.line_break {
+    let Ok(()) = writer.end();
+    if line_break {
         out.push(b'\n');
     }
 }

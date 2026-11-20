@@ -3,10 +3,10 @@
 //!
 //! A [`SegmentSerializer`] never looks ahead. A separator is remembered as
 //! pending when an element or component starts, and written only when a
-//! non-empty value arrives; at the end the pending ones are written too, so
-//! trailing empty elements and components are kept. Nothing is allocated
-//! per segment, element or value: values are written in runs between the
-//! bytes that need the release byte.
+//! non-empty value arrives. What happens to the pending ones when an element
+//! or the segment ends is the [`Trailing`] mode: written (kept) or dropped
+//! (trimmed). Nothing is allocated per segment, element or value: values are
+//! written in runs between the bytes that need the release byte.
 
 use std::convert::Infallible;
 use std::io;
@@ -68,11 +68,23 @@ impl Syntax {
     }
 }
 
+/// What happens to separators that no value follows.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) enum Trailing {
+    /// Every pending separator is written, so empty elements and components
+    /// at the end survive.
+    Keep,
+    /// The pending separators are dropped when the segment ends, and an
+    /// element's trailing empty components when the element ends.
+    Trim,
+}
+
 /// Writes one segment into a [`SegmentOutput`], one call per id, element,
 /// component and value.
 pub(crate) struct SegmentSerializer<'o, O: SegmentOutput> {
     out: &'o mut O,
     syntax: Syntax,
+    trailing: Trailing,
     /// Element separators owed before the next value, empty elements included.
     elements: usize,
     /// Component separators owed before the next value, within the current element.
@@ -82,11 +94,17 @@ pub(crate) struct SegmentSerializer<'o, O: SegmentOutput> {
 impl<'o, O: SegmentOutput> SegmentSerializer<'o, O> {
     /// Starts a segment by writing `id` as it is: the caller has checked it
     /// holds no structural byte.
-    pub(crate) fn begin(out: &'o mut O, syntax: Syntax, id: &[u8]) -> Result<Self, O::Error> {
+    pub(crate) fn begin(
+        out: &'o mut O,
+        syntax: Syntax,
+        trailing: Trailing,
+        id: &[u8],
+    ) -> Result<Self, O::Error> {
         out.put(id)?;
         Ok(Self {
             out,
             syntax,
+            trailing,
             elements: 0,
             components: 0,
         })
@@ -96,8 +114,10 @@ impl<'o, O: SegmentOutput> SegmentSerializer<'o, O> {
     pub(crate) fn element(&mut self) -> Result<(), O::Error> {
         // The separators come out in order: those of the elements up to the
         // one that ends here, then its components.
-        if self.components > 0 {
-            self.flush()?;
+        match self.trailing {
+            Trailing::Keep if self.components > 0 => self.flush()?,
+            Trailing::Keep => {}
+            Trailing::Trim => self.components = 0,
         }
         self.elements += 1;
         Ok(())
@@ -141,10 +161,12 @@ impl<'o, O: SegmentOutput> SegmentSerializer<'o, O> {
         self.out.put(rest)
     }
 
-    /// Ends the segment: the pending separators are written, then the
-    /// terminator.
+    /// Ends the segment: the pending separators are written (kept) or dropped
+    /// (trimmed), then the terminator.
     pub(crate) fn end(mut self) -> Result<(), O::Error> {
-        self.flush()?;
+        if self.trailing == Trailing::Keep {
+            self.flush()?;
+        }
         self.out.put(&[self.syntax.end.terminator])
     }
 

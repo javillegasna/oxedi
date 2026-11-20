@@ -4,16 +4,14 @@
 //!
 //! The envelope loops are the spec's loops with a `control`, outermost
 //! first: an interchange, a functional group and a transaction set, the X12
-//! envelope. Each element of an envelope trigger takes, in order: the
-//! control number the loop's `control` places; the caller's field for that
-//! element in the X12 envelope layout; the spec's declared version, for the
-//! element that declares it; or the first code the spec lists for the
-//! element. An element that allows a fixed width only is padded to it:
-//! numbers with leading zeros, text with trailing spaces.
+//! envelope. Each element of an envelope trigger takes its value from the
+//! first of the sources `Header::source` lists that applies. An element that
+//! allows a fixed width only is padded to it: numbers with leading zeros,
+//! text with trailing spaces.
 
 use std::borrow::Cow;
 
-use crate::delimiters::{Delimiters, version_carries_repetition};
+use crate::delimiters::Delimiters;
 use crate::spec::{ElementDef, Spec};
 use crate::value::{ElementTextError, ElementType};
 
@@ -197,10 +195,11 @@ pub(super) struct EnvelopeValue {
 }
 
 /// The delimiters the written file uses: those of the envelope, with the
-/// repetition separator only when the interchange `version` carries one.
+/// repetition separator only when the header carries one, which `carrying`
+/// says by the interchange version that makes it so.
 pub(super) fn delimiters(
     envelope: &Envelope,
-    version: &[u8],
+    carrying: Option<&[u8]>,
 ) -> Result<Vec<(u8, &'static str)>, WriteError> {
     let given = &envelope.delimiters;
     let mut all = vec![
@@ -208,7 +207,7 @@ pub(super) fn delimiters(
         (given.component, COMPONENT),
         (given.segment, SEGMENT),
     ];
-    if version_carries_repetition(version) {
+    if let Some(version) = carrying {
         let Some(byte) = given.repetition else {
             return Err(WriteError::NoRepetition {
                 version: version.to_vec(),
@@ -238,7 +237,8 @@ pub(super) fn delimiters(
 /// reader compares to decide whether ISA11 is a repetition separator.
 const VERSION_ELEMENT: usize = 12;
 
-/// Depth of the interchange among the envelope loops.
+/// Depth of the interchange among the envelope loops: it is the root
+/// envelope loop, and a loop's depth is the number of envelope loops above it.
 const INTERCHANGE_DEPTH: usize = 0;
 
 /// The bytes the writer puts in the interchange header's version element

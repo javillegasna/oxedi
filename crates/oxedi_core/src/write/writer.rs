@@ -60,9 +60,10 @@ pub fn write_with_findings(
     let plan = WritePlan::new(spec)?;
     let data = bind(spec, tables)?;
     let version = interchange_version(spec, envelope);
-    let effective = for_spec(envelope, version_carries_repetition(&version));
+    let carries = version_carries_repetition(&version);
+    let effective = for_spec(envelope, carries);
     let envelope = &*effective;
-    let delimiters = delimiters(envelope, &version)?;
+    let delimiters = delimiters(envelope, carries.then_some(version.as_slice()))?;
     let mut findings = Vec::new();
     unwritten(spec, &plan, &data, &mut findings);
     let nest = nest(spec, &plan, &data, &mut findings);

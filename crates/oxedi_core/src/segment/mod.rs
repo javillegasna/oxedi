@@ -11,6 +11,10 @@ use crate::delimiters::Delimiters;
 use crate::element::{Element, Pieces};
 use crate::frame::Frame;
 
+mod serializer;
+
+pub(crate) use serializer::{Output, Refused, SegmentSerializer, Sink, Syntax, Trailing};
+
 /// One segment of the input. Everything borrows from the buffer except
 /// values that needed unescaping (see [`Element`]).
 #[derive(Debug, Clone, PartialEq, Eq)]

@@ -1,0 +1,200 @@
+//! The syntax of one written segment: where the separators, the terminator
+//! and the release byte go.
+//!
+//! A [`SegmentSerializer`] never looks ahead. A separator is remembered as
+//! pending when an element or component starts, and written only when a
+//! non-empty value arrives; at the end the pending ones are written
+//! ([`Trailing::Keep`]) or dropped ([`Trailing::Trim`]). Nothing is allocated
+//! per segment, element or value: values are written in runs between the
+//! bytes that need the release byte.
+
+use std::convert::Infallible;
+use std::io;
+
+use crate::frame::SegmentEnd;
+
+/// Where the bytes of a segment go.
+pub(crate) trait Output {
+    /// What a failed write reports.
+    type Error;
+
+    /// Appends `bytes`.
+    fn put(&mut self, bytes: &[u8]) -> Result<(), Self::Error>;
+}
+
+impl Output for Vec<u8> {
+    type Error = Infallible;
+
+    fn put(&mut self, bytes: &[u8]) -> Result<(), Infallible> {
+        self.extend_from_slice(bytes);
+        Ok(())
+    }
+}
+
+/// An [`io::Write`] used as an [`Output`].
+pub(crate) struct Sink<'w, W: io::Write>(pub(crate) &'w mut W);
+
+impl<W: io::Write> Output for Sink<'_, W> {
+    type Error = io::Error;
+
+    fn put(&mut self, bytes: &[u8]) -> Result<(), io::Error> {
+        self.0.write_all(bytes)
+    }
+}
+
+/// What happens to the separators that no value follows.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) enum Trailing {
+    /// Written: `NM1*IL**~`, `X*A::~`.
+    Keep,
+    /// Dropped: `NM1*IL~`, `X*A~`. An element's trailing component
+    /// separators are dropped even when a later element has a value.
+    #[cfg_attr(
+        not(test),
+        expect(
+            dead_code,
+            reason = "no writer outside the tests trims trailing separators yet"
+        )
+    )]
+    Trim,
+}
+
+/// The bytes a segment is written with. The terminator and the release byte
+/// are the [`SegmentEnd`] the reading side already names.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct Syntax {
+    pub(crate) element: u8,
+    pub(crate) component: u8,
+    pub(crate) end: SegmentEnd,
+}
+
+impl Syntax {
+    /// `true` when `byte` cannot be written as data: the bytes the tokenizer
+    /// splits on, plus the release byte itself. The repetition separator is
+    /// not split on, so it is data.
+    pub(crate) fn is_structural(&self, byte: u8) -> bool {
+        byte == self.element
+            || byte == self.component
+            || byte == self.end.terminator
+            || self.end.release == Some(byte)
+    }
+}
+
+/// Why a value could not be written.
+#[derive(Debug, PartialEq, Eq)]
+pub(crate) enum Refused<E> {
+    /// The output failed.
+    Output(E),
+    /// The value holds this structural byte and no release byte is configured.
+    Structural(u8),
+}
+
+impl<E> From<E> for Refused<E> {
+    fn from(error: E) -> Self {
+        Refused::Output(error)
+    }
+}
+
+/// Writes one segment into an [`Output`], one call per id, element,
+/// component and value.
+pub(crate) struct SegmentSerializer<'o, O: Output> {
+    out: &'o mut O,
+    syntax: Syntax,
+    trailing: Trailing,
+    /// Element separators owed before the next value, empty elements included.
+    elements: usize,
+    /// Component separators owed before the next value, within the current element.
+    components: usize,
+}
+
+impl<'o, O: Output> SegmentSerializer<'o, O> {
+    /// Starts a segment by writing `id` as it is: the caller has checked it
+    /// holds no structural byte.
+    pub(crate) fn begin(
+        out: &'o mut O,
+        syntax: Syntax,
+        trailing: Trailing,
+        id: &[u8],
+    ) -> Result<Self, O::Error> {
+        out.put(id)?;
+        Ok(Self {
+            out,
+            syntax,
+            trailing,
+            elements: 0,
+            components: 0,
+        })
+    }
+
+    /// Starts the next element.
+    pub(crate) fn element(&mut self) -> Result<(), O::Error> {
+        match self.trailing {
+            Trailing::Trim => self.components = 0,
+            // The separators come out in order: those of the elements up to
+            // the one that ends here, then its components.
+            Trailing::Keep if self.components > 0 => self.flush()?,
+            Trailing::Keep => {}
+        }
+        self.elements += 1;
+        Ok(())
+    }
+
+    /// Starts the next component of the current element; the first component
+    /// needs no call.
+    pub(crate) fn component(&mut self) {
+        self.components += 1;
+    }
+
+    /// Writes a value of the current element or component, escaping each
+    /// structural byte with the release byte. An empty value writes nothing.
+    pub(crate) fn value(&mut self, bytes: &[u8]) -> Result<(), Refused<O::Error>> {
+        if bytes.is_empty() {
+            return Ok(());
+        }
+        let release = self.syntax.end.release;
+        if release.is_none()
+            && let Some(&byte) = bytes.iter().find(|&&byte| self.syntax.is_structural(byte))
+        {
+            return Err(Refused::Structural(byte));
+        }
+        self.flush()?;
+        let mut rest = bytes;
+        while let Some(release) = release
+            && let Some(at) = rest
+                .iter()
+                .position(|&byte| self.syntax.is_structural(byte))
+        {
+            let (run, tail) = rest.split_at(at);
+            self.out.put(run)?;
+            let Some((&byte, after)) = tail.split_first() else {
+                break;
+            };
+            self.out.put(&[release, byte])?;
+            rest = after;
+        }
+        Ok(self.out.put(rest)?)
+    }
+
+    /// Ends the segment: the pending separators are written or dropped as
+    /// [`Trailing`] says, then the terminator.
+    pub(crate) fn end(mut self) -> Result<(), O::Error> {
+        if self.trailing == Trailing::Keep {
+            self.flush()?;
+        }
+        self.out.put(&[self.syntax.end.terminator])
+    }
+
+    /// Writes the pending element separators, then the pending component ones.
+    fn flush(&mut self) -> Result<(), O::Error> {
+        for _ in 0..std::mem::take(&mut self.elements) {
+            self.out.put(&[self.syntax.element])?;
+        }
+        for _ in 0..std::mem::take(&mut self.components) {
+            self.out.put(&[self.syntax.component])?;
+        }
+        Ok(())
+    }
+}
+
+#[cfg(test)]
+mod tests;

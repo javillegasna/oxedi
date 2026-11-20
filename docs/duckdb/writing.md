@@ -85,6 +85,12 @@ same defaults.
     `oxedi.Delimiters()`: `*`, `:`, `~`, and no repetition or release. So on 5010, give
     `repetition`.
 
+    With a `release` character, a value holding the element separator, the component
+    separator, the segment terminator or the release character is written with the release
+    character before it, for example `A?*B`, instead of being a finding. The values of the
+    interchange header and a value holding the repetition separator are still findings. The
+    file reads back only when the reader is given the same release character.
+
 ## When COPY refuses
 
 `COPY` is strict, like `oxedi.write`. The written file is read back with the spec. Every

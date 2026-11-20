@@ -73,6 +73,11 @@ is anything the writer cannot place. For example:
     This one is reported first. The file then splits where the data does not, so it cannot be
     read back. The other findings show once that value is fixed.
 
+    With a release character in the delimiters, the writer puts it before a value's element
+    separator, component separator, segment terminator or release character instead of
+    reporting it. The interchange header's values and a value holding the repetition separator
+    stay findings. See [Fill in the envelope](writing.md#envelope).
+
 ## Write anyway
 
 With `allow_findings=True`, `write` returns `(data, findings)` instead of raising. Use it, for

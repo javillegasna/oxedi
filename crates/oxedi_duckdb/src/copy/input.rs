@@ -7,9 +7,9 @@
 //! table, with a DuckDB type its values convert from.
 
 use libduckdb_sys as ffi;
-use oxedi_core::ColumnType;
 use oxedi_core::value::TimeUnit;
 use oxedi_core::write::WriteError;
+use oxedi_core::{ColumnType, UnknownTable};
 
 use super::error::CopyError;
 use crate::builtins::{BuiltinSchema, BuiltinTable};
@@ -183,10 +183,10 @@ pub fn bind(
         .iter()
         .map(|(name, input)| {
             let table = builtin.table(name).ok_or_else(|| {
-                CopyError::Write(WriteError::UnknownTable {
-                    table: name.clone(),
+                CopyError::Write(WriteError::UnknownTable(UnknownTable {
+                    name: name.clone(),
                     tables: builtin.table_names(),
-                })
+                }))
             })?;
             let fields = match input {
                 InputTable::Rows(fields) => fields,
@@ -216,10 +216,11 @@ fn bind_field(table: &BuiltinTable, field: &InputField) -> Result<BoundField, Co
         .find(|(column, _)| *column == field.name)
         .map(|(_, kind)| *kind)
         .ok_or_else(|| {
+            let columns = table.columns.iter().map(|(name, _)| name.clone()).collect();
             CopyError::Write(WriteError::UnknownColumn {
                 table: table.name.clone(),
                 column: field.name.clone(),
-                columns: table.columns.iter().map(|(name, _)| name.clone()).collect(),
+                columns,
             })
         })?;
     if !field.kind.converts_to(kind) {

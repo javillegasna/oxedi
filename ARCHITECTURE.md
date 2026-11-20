@@ -92,7 +92,9 @@ up by transaction and version.
   built at the start of each call. A spec that cannot be written is refused with a `PlanError`
   holding every `Refusal` (`write/refusal.rs`).
 - **Write the tables.**
-  1. `bind` (`write/data.rs`) matches the caller's tables and columns to the spec's.
+  1. `bind` (`write/data.rs`) matches the caller's tables and columns to the spec's; a table the
+     spec does not define comes from `Spec::require_table` as `UnknownTable` (`spec/unknown.rs`, held by
+     `WriteError`).
   2. `nest` (`write/nest.rs`) nests the rows under their parent rows by their reference columns.
   3. `Layout::new` (`write/layout.rs`) works out the order of segments and loops.
   4. `Emitter::run` (`write/emit.rs`) walks the loops and writes the bytes, recording which

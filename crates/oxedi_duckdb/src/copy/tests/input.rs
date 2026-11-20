@@ -169,7 +169,7 @@ fn an_unknown_table_reads_as_python() {
             whole("claims"),
             ("nope".to_owned(), InputTable::Rows(Vec::new()))
         ])),
-        "edi835: table \"nope\" is not a table of the spec, whose tables are \"adjustments\", \
+        "edi835: table \"nope\" is not a table of the spec; its tables are \"adjustments\", \
          \"claims\", \"payments\", \"provider_adjustments\", \"services\""
     );
 }

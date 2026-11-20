@@ -328,7 +328,7 @@ fn tables_and_delimiters_that_do_not_fit_are_errors() {
     let stray = Tables::new(vec![Table::new("notes", Vec::new())]);
     assert_eq!(
         error(&stray, &envelope()),
-        "table \"notes\" is not a table of the spec, whose tables are \"adjustments\", \"claims\", \"payments\", \"provider_adjustments\", \"services\""
+        "table \"notes\" is not a table of the spec; its tables are \"adjustments\", \"claims\", \"payments\", \"provider_adjustments\", \"services\""
     );
     let extra = Tables::new(vec![Table::new(
         "claims",

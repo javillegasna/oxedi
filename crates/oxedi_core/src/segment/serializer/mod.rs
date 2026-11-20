@@ -80,6 +80,22 @@ impl Syntax {
     }
 }
 
+impl Syntax {
+    /// The first structural byte of `bytes`, if any.
+    pub(crate) fn first_structural(&self, bytes: &[u8]) -> Option<u8> {
+        bytes.iter().copied().find(|&byte| self.is_structural(byte))
+    }
+
+    /// `bytes` cut at its first structural byte: the run before it, the byte
+    /// and the rest after it.
+    fn split_structural<'b>(&self, bytes: &'b [u8]) -> Option<(&'b [u8], u8, &'b [u8])> {
+        let at = bytes.iter().position(|&byte| self.is_structural(byte))?;
+        let (run, tail) = bytes.split_at(at);
+        let (&byte, after) = tail.split_first()?;
+        Some((run, byte, after))
+    }
+}
+
 /// Why a value could not be written.
 #[derive(Debug, PartialEq, Eq)]
 pub(crate) enum Refused<E> {
@@ -151,28 +167,25 @@ impl<'o, O: Output> SegmentSerializer<'o, O> {
         if bytes.is_empty() {
             return Ok(());
         }
-        let release = self.syntax.end.release;
-        if release.is_none()
-            && let Some(&byte) = bytes.iter().find(|&&byte| self.syntax.is_structural(byte))
-        {
-            return Err(Refused::Structural(byte));
-        }
+        let Some(release) = self.syntax.end.release else {
+            if let Some(byte) = self.syntax.first_structural(bytes) {
+                return Err(Refused::Structural(byte));
+            }
+            self.flush()?;
+            return Ok(self.out.put(bytes)?);
+        };
         self.flush()?;
-        let mut rest = bytes;
-        while let Some(release) = release
-            && let Some(at) = rest
-                .iter()
-                .position(|&byte| self.syntax.is_structural(byte))
-        {
-            let (run, tail) = rest.split_at(at);
+        Ok(self.put_escaped(release, bytes)?)
+    }
+
+    /// Writes `bytes` in runs, each structural byte after a `release`.
+    fn put_escaped(&mut self, release: u8, mut rest: &[u8]) -> Result<(), O::Error> {
+        while let Some((run, byte, after)) = self.syntax.split_structural(rest) {
             self.out.put(run)?;
-            let Some((&byte, after)) = tail.split_first() else {
-                break;
-            };
             self.out.put(&[release, byte])?;
             rest = after;
         }
-        Ok(self.out.put(rest)?)
+        self.out.put(rest)
     }
 
     /// Ends the segment: the pending separators are written or dropped as

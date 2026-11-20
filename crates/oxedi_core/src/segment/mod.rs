@@ -212,64 +212,57 @@ impl Segment<'_> {
         delims: &Delimiters,
         out: &mut W,
     ) -> Result<(), SegmentWriteError> {
-        if let Some(&byte) = self.id.iter().find(|&&byte| delims.is_special(byte)) {
-            return Err(SegmentWriteError::DelimiterInValue {
-                byte,
-                element: 0,
-                component: None,
-            });
+        let syntax = delims.syntax();
+        if let Some(byte) = syntax.first_structural(self.id) {
+            return Err(located(Refused::Structural(byte), 0, None));
         }
-        out.write_all(self.id)?;
+        let mut sink = Sink(out);
+        let mut writer = SegmentSerializer::begin(&mut sink, syntax, Trailing::Keep, self.id)?;
         for (position, element) in (1..).zip(&self.elements) {
-            out.write_all(&[delims.element])?;
-            match element {
-                Element::Simple(value) => write_value(value, delims, out, position, None)?,
-                Element::Composite(values) => {
-                    for (component, value) in (1..).zip(values) {
-                        if component > 1 {
-                            out.write_all(&[delims.component])?;
-                        }
-                        write_value(value, delims, out, position, Some(component))?;
-                    }
-                }
-            }
+            writer.element()?;
+            write_element(&mut writer, element, position)?;
         }
-        out.write_all(&[delims.segment])?;
-        Ok(())
+        Ok(writer.end()?)
     }
 }
 
-/// Writes one value; `element` and `component` locate it for the error.
-fn write_value<W: io::Write>(
-    value: &[u8],
-    delims: &Delimiters,
-    out: &mut W,
+/// Writes the values of one element; `position` locates them for the error.
+fn write_element<O: Output<Error = io::Error>>(
+    writer: &mut SegmentSerializer<'_, O>,
+    element: &Element<'_>,
+    position: usize,
+) -> Result<(), SegmentWriteError> {
+    let values = match element {
+        Element::Simple(value) => {
+            return writer.value(value).map_err(|r| located(r, position, None));
+        }
+        Element::Composite(values) => values,
+    };
+    for (component, value) in (1..).zip(values) {
+        if component > 1 {
+            writer.component();
+        }
+        writer
+            .value(value)
+            .map_err(|refused| located(refused, position, Some(component)))?;
+    }
+    Ok(())
+}
+
+/// The error for a refused value at `element` (`0` is the id) and `component`.
+fn located(
+    refused: Refused<io::Error>,
     element: usize,
     component: Option<usize>,
-) -> Result<(), SegmentWriteError> {
-    if !value.iter().any(|&byte| delims.is_special(byte)) {
-        return Ok(out.write_all(value)?);
-    }
-    let Some(release) = delims.release else {
-        let byte = value
-            .iter()
-            .copied()
-            .find(|&byte| delims.is_special(byte))
-            .unwrap_or_default();
-        return Err(SegmentWriteError::DelimiterInValue {
+) -> SegmentWriteError {
+    match refused {
+        Refused::Output(error) => SegmentWriteError::Io(error),
+        Refused::Structural(byte) => SegmentWriteError::DelimiterInValue {
             byte,
             element,
             component,
-        });
-    };
-    for &byte in value {
-        if delims.is_special(byte) {
-            out.write_all(&[release, byte])?;
-        } else {
-            out.write_all(&[byte])?;
-        }
+        },
     }
-    Ok(())
 }
 
 #[cfg(test)]

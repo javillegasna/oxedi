@@ -52,7 +52,9 @@ flowchart LR
    for streaming.
 2. A `Segment` (`segment/`) is the id, the elements and `raw`: every byte from the end of the
    previous segment to its own terminator, trivia (line breaks, a byte order mark) included.
-   Concatenating every `raw` gives the input back.
+   Concatenating every `raw` gives the input back. `Segment::write_to` is the inverse: it feeds
+   `SegmentSerializer` (`segment/serializer/`), which owns the separators, the terminator and the
+   escape.
 3. `LoopEngine` (`engine/`) is a state machine driven by the spec. For each segment it emits
    `Event`s: `LoopOpened`, `LoopClosed`, `Captured`, `Unmatched`, `Empty`.
 4. `Processor` (`process/`) feeds each segment to the engine, then hands the events to the

@@ -4,20 +4,38 @@
 
 require oxedi
 
-# A bare macro parameter given with := reaches the bind as its qualified name, not a value.
-# The macro cannot be created, and the error says what to write instead.
+# A bare macro parameter given with := is substituted by newer DuckDB versions, so the macro
+# works. Older ones hand the bind the parameter's qualified name instead, so the macro cannot
+# be created and the error says what to write. The runner has no per-version directive, so each
+# statement allows exactly those two outcomes: the macro is created and forwards the value, or
+# the creation fails with the message.
 
-statement error
-CREATE MACRO one(tbl) AS TABLE
+statement maybe
+CREATE MACRO bare_table(tbl) AS TABLE
 SELECT * FROM read_835('../oxedi_core/tests/samples/edi835_test_eyemed.RMT', table_name := tbl);
 ----
-read_835: table_name must be a constant string; a table macro passed its parameter "tbl" as "0_macro_parametersone.tbl"; DuckDB does not substitute a macro parameter given with := or =>, so write table_name = tbl
+read_835: table_name must be a constant string; a table macro passed its parameter "tbl" as "0_macro_parametersbare_table.tbl"; this DuckDB version does not substitute a macro parameter given with := or =>, so write table_name = tbl
 
-statement error
-CREATE MACRO pinned(v) AS TABLE
+statement maybe
+SELECT CASE WHEN count(*) = 82 THEN 1 ELSE error('bare_table did not forward the table name') END FROM bare_table('claims');
+----
+Table Function with name bare_table does not exist
+
+statement maybe
+SELECT CASE WHEN count(*) = 1 THEN 1 ELSE error('bare_table did not forward the table name') END FROM bare_table('payments');
+----
+Table Function with name bare_table does not exist
+
+statement maybe
+CREATE MACRO bare_version(v) AS TABLE
 SELECT * FROM read_835('../oxedi_core/tests/samples/edi835_test_eyemed.RMT', version := v);
 ----
-read_835: version must be a constant string; a table macro passed its parameter "v" as "0_macro_parameterspinned.v"; DuckDB does not substitute a macro parameter given with := or =>, so write version = v
+read_835: version must be a constant string; a table macro passed its parameter "v" as "0_macro_parametersbare_version.v"; this DuckDB version does not substitute a macro parameter given with := or =>, so write version = v
+
+statement maybe
+SELECT CASE WHEN count(*) = 82 THEN 1 ELSE error('bare_version did not forward the version') END FROM bare_version('4010');
+----
+Table Function with name bare_version does not exist
 
 # Writing the argument with = forwards the parameter.
 

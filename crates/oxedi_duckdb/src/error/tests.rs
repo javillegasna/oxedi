@@ -51,7 +51,7 @@ fn macro_parameter() {
             value: "0_macro_parametersone.tbl".to_owned(),
         }),
         "read_835: table_name must be a constant string; a table macro passed its parameter \
-         \"tbl\" as \"0_macro_parametersone.tbl\"; DuckDB does not substitute a macro \
+         \"tbl\" as \"0_macro_parametersone.tbl\"; this DuckDB version does not substitute a macro \
          parameter given with := or =>, so write table_name = tbl"
     );
 }
@@ -65,7 +65,7 @@ fn macro_parameter_without_a_name() {
             value: "0_macro_parametersm.a.b".to_owned(),
         }),
         "read_835: table_name must be a constant string; a table macro passed a parameter as \
-         \"0_macro_parametersm.a.b\"; DuckDB does not substitute a macro parameter given with \
+         \"0_macro_parametersm.a.b\"; this DuckDB version does not substitute a macro parameter given with \
          := or =>, so write table_name = <the parameter>"
     );
 }
@@ -79,7 +79,7 @@ fn macro_parameter_that_needs_quoting() {
             value: "0_macro_parametersone.My \"Ver\"".to_owned(),
         }),
         "read_835: version must be a constant string; a table macro passed its parameter \
-         \"My \\\"Ver\\\"\" as \"0_macro_parametersone.My \\\"Ver\\\"\"; DuckDB does not \
+         \"My \\\"Ver\\\"\" as \"0_macro_parametersone.My \\\"Ver\\\"\"; this DuckDB version does not \
          substitute a macro parameter given with := or =>, so write version = \"My \"\"Ver\"\"\""
     );
 }

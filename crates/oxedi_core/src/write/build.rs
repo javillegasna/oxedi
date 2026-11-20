@@ -8,7 +8,8 @@ use crate::spec::{ColumnSource, LoopId, OccurrenceDef, Pick, Spec, TableDef};
 
 use super::codes::Resolved;
 use super::plan::{
-    ElementPlan, Instances, LoopPlan, SegmentPlan, SegmentSource, Unwritten, ValueSource, WritePlan,
+    ElementPlan, Instances, LoopPlan, Place, SegmentPlan, SegmentSource, Unwritten, ValueSource,
+    WritePlan,
 };
 use super::refusal::{PlanError, Refusal, render_source};
 use super::required::add_qualifier;
@@ -22,6 +23,16 @@ pub(super) struct Entry {
     pub(super) pick: Pick,
     pub(super) element: usize,
     pub(super) component: Option<usize>,
+}
+
+impl Entry {
+    /// The element (or component) the column writes.
+    pub(super) fn place(&self) -> Place {
+        Place {
+            element: self.element,
+            component: self.component,
+        }
+    }
 }
 
 /// The segments a loop's columns write, keyed by loop, occurrence, table and
@@ -108,6 +119,14 @@ impl Builder<'_> {
             .get(table)
             .and_then(|def| def.columns.get(column))
             .map(|(name, _)| name.clone())
+            .unwrap_or_default()
+    }
+
+    pub(super) fn loop_name(&self, id: usize) -> String {
+        self.spec
+            .loops()
+            .get(id)
+            .map(|def| def.name.clone())
             .unwrap_or_default()
     }
 

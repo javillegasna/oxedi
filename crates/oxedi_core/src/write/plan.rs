@@ -4,6 +4,8 @@
 #[cfg(doc)]
 use crate::spec::{Spec, TableDef};
 
+use crate::message::place;
+
 /// Where the instances of a loop come from.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Instances {
@@ -89,6 +91,42 @@ pub struct ElementPlan {
     pub component: Option<usize>,
     /// Where its value comes from.
     pub value: ValueSource,
+}
+
+/// Where a value lands in a segment: an element, or one component of it.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(super) struct Place {
+    /// 1-based element position.
+    pub(super) element: usize,
+    /// 1-based component position, for one component of a composite.
+    pub(super) component: Option<usize>,
+}
+
+impl Place {
+    /// Whether both places write the same bytes of a segment: the same
+    /// element, and either one is the whole element or both are the same
+    /// component.
+    pub(super) fn overlaps(self, other: Place) -> bool {
+        self.element == other.element
+            && (self.component.is_none()
+                || other.component.is_none()
+                || self.component == other.component)
+    }
+
+    /// The place as a reference into `segment`, e.g. `CLP01` or `IT02-1`.
+    pub(super) fn to_string_in(self, segment: &(impl AsRef<[u8]> + ?Sized)) -> String {
+        place(segment, self.element, self.component)
+    }
+}
+
+impl ElementPlan {
+    /// The element or component this plan writes.
+    pub(super) fn place(&self) -> Place {
+        Place {
+            element: self.element,
+            component: self.component,
+        }
+    }
 }
 
 /// One segment a loop instance writes.

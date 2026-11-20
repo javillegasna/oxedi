@@ -453,6 +453,47 @@ fn a_component_and_an_implied_loop_are_refused_with_what_is_missing() {
 }
 
 #[test]
+fn a_component_column_after_a_whole_element_column_is_refused() {
+    assert_eq!(
+        refusals(
+            r#"{"tables":{"items":{"columns":{
+                "a_pair":{"segment":"IT","element":2},
+                "b_pair_kind":{"segment":"IT","element":2,"component":1}}}},
+            "segments":{"IT":{"elements":{"2":{"composite":{"1":{"required":false}}}}}}}"#
+        ),
+        vec![
+            "table \"items\" column \"b_pair_kind\" writes IT02-1 of occurrence \"it\" in loop \"item\", which column \"a_pair\" already writes"
+        ]
+    );
+}
+
+#[test]
+fn a_whole_element_column_after_a_component_column_is_refused() {
+    assert_eq!(
+        refusals(
+            r#"{"tables":{"items":{"columns":{
+                "a_pair_kind":{"segment":"IT","element":2,"component":1},
+                "b_pair":{"segment":"IT","element":2}}}}}"#
+        ),
+        vec![
+            "table \"items\" column \"b_pair\" writes IT02 of occurrence \"it\" in loop \"item\", which column \"a_pair_kind\" already writes"
+        ]
+    );
+}
+
+#[test]
+fn two_components_of_one_element_are_accepted() {
+    assert_eq!(
+        refusals(
+            r#"{"tables":{"items":{"columns":{
+                "pair_kind":{"segment":"IT","element":2,"component":1},
+                "pair_value":{"segment":"IT","element":2,"component":2}}}}}"#
+        ),
+        Vec::<String>::new()
+    );
+}
+
+#[test]
 fn an_ambiguous_anchor_segment_is_refused() {
     assert_eq!(
         refusals(

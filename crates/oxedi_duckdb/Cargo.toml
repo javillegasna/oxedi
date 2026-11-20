@@ -26,4 +26,4 @@ oxedi_core = { path = "../oxedi_core" }
 # The C API, reached through the function table DuckDB hands the extension.
 # Pinned: upgrade only after checking that the struct it generates has no
 # unstable tail this crate calls into.
-libduckdb-sys = { version = "=1.10506.0", default-features = false, features = ["loadable-extension"] }
+libduckdb-sys = { version = "=1.10506.1", default-features = false, features = ["loadable-extension"] }

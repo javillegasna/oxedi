@@ -8,6 +8,7 @@
 //! splits where the data does not.
 
 use crate::column::{Cell, Tables};
+use crate::delimiters::version_carries_repetition;
 use crate::diagnostic::{Diagnostic, Rule};
 use crate::document::Document;
 use crate::process::Processor;
@@ -15,7 +16,7 @@ use crate::spec::Spec;
 
 use super::data::{Data, bind};
 use super::emit::Emitter;
-use super::envelope::{Envelope, carries_repetition, delimiters, for_spec};
+use super::envelope::{Envelope, delimiters, for_spec, interchange_version};
 use super::finding::{Finding, ValueOrigin, WriteError};
 use super::layout::Layout;
 use super::nest::nest;
@@ -58,14 +59,10 @@ pub fn write_with_findings(
 ) -> Result<(Vec<u8>, Vec<Finding>), WriteError> {
     let plan = WritePlan::new(spec)?;
     let data = bind(spec, tables)?;
-    let repetition = spec
-        .roots()
-        .iter()
-        .find(|&&root| spec.get(root).control.is_some())
-        .is_some_and(|&root| carries_repetition(spec, &spec.get(root).trigger.segment));
-    let effective = for_spec(envelope, repetition);
+    let version = interchange_version(spec, envelope);
+    let effective = for_spec(envelope, version_carries_repetition(&version));
     let envelope = &*effective;
-    let delimiters = delimiters(envelope, repetition)?;
+    let delimiters = delimiters(envelope, &version)?;
     let mut findings = Vec::new();
     unwritten(spec, &plan, &data, &mut findings);
     let nest = nest(spec, &plan, &data, &mut findings);

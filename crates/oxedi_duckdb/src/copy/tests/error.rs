@@ -2,7 +2,7 @@ use std::error::Error;
 
 use oxedi_core::column::{CellError, RowError};
 use oxedi_core::write::WriteError;
-use oxedi_core::{ColumnType, UnknownTable};
+use oxedi_core::{ColumnType, UnknownColumn, UnknownTable};
 
 use super::super::error::CopyError;
 use super::super::options::{DELIMITER_FIELDS, OPTIONS, REQUIRED};
@@ -262,11 +262,11 @@ fn row_does_not_chain_its_source() {
 
 #[test]
 fn write_does_not_chain_its_source() {
-    let error = CopyError::Write(WriteError::UnknownColumn {
+    let error = CopyError::Write(WriteError::UnknownColumn(UnknownColumn {
         table: "claims".to_owned(),
         column: "nope".to_owned(),
         columns: vec!["row".to_owned(), "segment".to_owned()],
-    });
+    }));
     assert_eq!(
         error.to_string(),
         "edi835: table \"claims\" has no column \"nope\" in the spec; its columns are \"row\", \

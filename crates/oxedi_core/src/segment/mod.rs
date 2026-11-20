@@ -13,7 +13,7 @@ use crate::frame::Frame;
 
 mod serializer;
 
-pub(crate) use serializer::{SegmentOutput, SegmentSerializer, Sink, Syntax};
+pub(crate) use serializer::{SegmentOutput, SegmentSerializer, Sink, Syntax, Trailing};
 
 /// One segment of the input. Everything borrows from the buffer except
 /// values that needed unescaping (see [`Element`]).
@@ -217,7 +217,7 @@ impl Segment<'_> {
             return Err(delimiter_in_value(byte, 0, None));
         }
         let mut sink = Sink(out);
-        let mut writer = SegmentSerializer::begin(&mut sink, syntax, self.id)?;
+        let mut writer = SegmentSerializer::begin(&mut sink, syntax, Trailing::Keep, self.id)?;
         for (position, element) in (1..).zip(&self.elements) {
             writer.element()?;
             write_element(&mut writer, &syntax, element, position)?;

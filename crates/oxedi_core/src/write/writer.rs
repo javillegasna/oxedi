@@ -10,7 +10,9 @@
 use crate::column::{Cell, Tables};
 use crate::diagnostic::{Diagnostic, Rule};
 use crate::document::Document;
+use crate::frame::SegmentEnd;
 use crate::process::Processor;
+use crate::segment::Syntax;
 use crate::spec::Spec;
 
 use super::data::{Data, bind};
@@ -20,7 +22,7 @@ use super::finding::{Finding, ValueOrigin, WriteError};
 use super::layout::Layout;
 use super::nest::nest;
 use super::plan::WritePlan;
-use super::render::{Separators, cell_display};
+use super::render::cell_display;
 use super::trace::Traces;
 
 /// Writes `tables` as one interchange of `spec`, or returns every finding
@@ -77,11 +79,11 @@ pub fn write_with_findings(
         data: &data,
         nest: &nest,
         envelope,
-        separators: Separators {
-            element: envelope.delimiters.element,
-            component: envelope.delimiters.component,
-            segment: envelope.delimiters.segment,
-            line_break: envelope.line_break,
+        // Without a release byte a value holding a delimiter is written as it
+        // is and reported as a finding, so the table writer never escapes.
+        syntax: Syntax {
+            end: SegmentEnd::new(envelope.delimiters.segment, None),
+            ..envelope.delimiters.syntax()
         },
         delimiters,
         out: Vec::new(),

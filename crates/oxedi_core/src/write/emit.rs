@@ -19,10 +19,11 @@ use super::finding::{Finding, ValueOrigin};
 use super::layout::{Item, Layout};
 use super::nest::Nest;
 use super::plan::{Instances, SegmentPlan, SegmentSource, ValueSource, WritePlan};
-use super::render::{Part, Separators};
+use super::render::Part;
 use super::trace::{Src, Traces};
 use super::walk::Context;
 use crate::message::place;
+use crate::segment::Syntax;
 
 /// The writer's state while it walks the loops.
 pub(super) struct Emitter<'a> {
@@ -32,7 +33,8 @@ pub(super) struct Emitter<'a> {
     pub(super) data: &'a [Data<'a>],
     pub(super) nest: &'a Nest,
     pub(super) envelope: &'a Envelope,
-    pub(super) separators: Separators,
+    /// The bytes every segment is written with.
+    pub(super) syntax: Syntax,
     /// Every delimiter byte the file uses, with its role.
     pub(super) delimiters: Vec<(u8, &'static str)>,
     pub(super) out: Vec<u8>,

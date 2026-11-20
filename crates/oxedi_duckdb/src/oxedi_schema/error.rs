@@ -68,7 +68,7 @@ impl fmt::Display for SchemaError {
                 write!(
                     f,
                     "{FUNCTION}: version must be a constant string; a table macro passed \
-                     {passed}; DuckDB does not substitute a macro parameter given with := or \
+                     {passed}; this DuckDB version does not substitute a macro parameter given with := or \
                      =>, so write version = {written}"
                 )
             }

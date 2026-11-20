@@ -4,6 +4,7 @@
 
 use super::envelope::Field;
 use super::finding::ValueOrigin;
+use super::plan::Place;
 
 /// The source of one written element.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -24,6 +25,16 @@ struct Entry {
     element: usize,
     component: Option<usize>,
     src: Src,
+}
+
+impl Entry {
+    /// The element or component this entry writes.
+    fn place(&self) -> Place {
+        Place {
+            element: self.element,
+            component: self.component,
+        }
+    }
 }
 
 /// The sources of every written segment, in file order.
@@ -74,12 +85,8 @@ impl Traces {
             .map_or(self.entries.len(), |(next, _)| *next);
         let entries = self.entries.get(start..end).unwrap_or_default();
         let found = element.and_then(|element| {
-            entries.iter().find(|entry| {
-                entry.element == element
-                    && (component.is_none()
-                        || entry.component.is_none()
-                        || entry.component == component)
-            })
+            let asked = Place { element, component };
+            entries.iter().find(|entry| entry.place().overlaps(asked))
         });
         match found.map(|entry| entry.src) {
             Some(Src::Cell { table, row, column }) => Some(ValueOrigin::Cell {

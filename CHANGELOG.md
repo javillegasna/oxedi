@@ -89,6 +89,9 @@ This file covers the Python package; the DuckDB extension has its own changelog 
 - A spec whose table has a column for the whole element of a segment and another for a component of
   the same element is refused with the column that already writes it, where the second column's
   value used to be dropped without a finding.
+- A column that writes the whole of a composite element no longer leaves the writer refusing the
+  element's required components, and no longer adds a single-code component beside it, where that
+  value was dropped when the segment was written.
 
 ## [0.6.0] - 2026-10-18
 

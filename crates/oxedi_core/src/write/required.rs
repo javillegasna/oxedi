@@ -5,7 +5,7 @@
 use crate::spec::{OccurrenceDef, Spec, Usage, render_selector, render_trigger};
 
 use super::build::Builder;
-use super::plan::{ElementPlan, Instances, SegmentPlan, SegmentSource, ValueSource};
+use super::plan::{ElementPlan, Instances, Place, SegmentPlan, SegmentSource, ValueSource};
 use super::refusal::Refusal;
 use crate::message::place;
 
@@ -98,10 +98,11 @@ pub(super) fn add_qualifier(plan: &mut SegmentPlan, occurrence: &OccurrenceDef) 
     let [code] = qualifier.codes.as_slice() else {
         return;
     };
-    let taken = plan
-        .elements
-        .iter()
-        .any(|e| (e.element, e.component) == (qualifier.element, qualifier.component));
+    let place = Place {
+        element: qualifier.element,
+        component: qualifier.component,
+    };
+    let taken = plan.elements.iter().any(|e| e.place().overlaps(place));
     if !taken {
         plan.elements.push(ElementPlan {
             element: qualifier.element,

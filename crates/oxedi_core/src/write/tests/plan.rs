@@ -493,6 +493,56 @@ fn two_components_of_one_element_are_accepted() {
     );
 }
 
+/// The elements at IT02 of the segment of occurrence `it2` of loop `head`, an
+/// IT occurrence whose qualifier is a code on component 1 of IT02, after
+/// patching the spec with `columns`; no refusal is expected.
+fn qualified_item_elements(columns: &str) -> Vec<ElementPlan> {
+    let patch = format!(
+        r#"{{"loops":{{"head":{{"occurrences":{{"it2":{{"segment":"IT","pos":35,
+            "qualifier":{{"element":2,"component":1,"codes":["K"]}}}}}}}}}},
+            "segments":{{"IT":{{"elements":{{"2":{{"composite":{{"1":{{"required":false}}}}}}}}}}}},
+            "tables":{{"heads":{{"columns":{columns}}}}}}}"#
+    );
+    let spec = spec(&patch);
+    let plan = WritePlan::new(&spec).unwrap();
+    let head = spec.loop_id("head").unwrap();
+    let at = spec
+        .get(head)
+        .occurrences
+        .iter()
+        .position(|o| o.name == "it2")
+        .unwrap();
+    let it2 = loop_plan(&spec, &plan, "head")
+        .segments
+        .iter()
+        .find(|s| s.occurrence == at)
+        .unwrap();
+    it2.elements
+        .iter()
+        .filter(|e| e.element == 2)
+        .cloned()
+        .collect()
+}
+
+#[test]
+fn a_column_replaces_the_qualifier_code_on_a_place_it_overlaps() {
+    let at_two = qualified_item_elements(
+        r#"{"k_code":{"occurrence":"it2","element":1},"k_pair":{"occurrence":"it2","element":2}}"#,
+    );
+    assert_eq!(at_two.len(), 1, "{at_two:#?}");
+    assert_eq!(at_two[0].component, None);
+    assert!(matches!(at_two[0].value, ValueSource::Column { .. }));
+}
+
+#[test]
+fn a_qualifier_code_is_not_added_over_a_where_code_on_the_whole_element() {
+    let at_two =
+        qualified_item_elements(r#"{"k_code":{"segment":"IT","where":{"2":"X"},"element":1}}"#);
+    assert_eq!(at_two.len(), 1, "{at_two:#?}");
+    assert_eq!(at_two[0].component, None);
+    assert_eq!(at_two[0].value, ValueSource::Code(b"X".to_vec()));
+}
+
 #[test]
 fn an_ambiguous_anchor_segment_is_refused() {
     assert_eq!(

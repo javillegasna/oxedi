@@ -76,7 +76,7 @@ is anything the writer cannot place. For example:
     With a release character in the delimiters, the writer puts it before a value's element
     separator, component separator, segment terminator or release character instead of
     reporting it. The interchange header's values and a value holding the repetition separator
-    stay findings. See [Fill in the envelope](writing.md#envelope).
+    stay findings. See [Fill in the envelope](writing.md#fill-in-the-envelope).
 
 ## Write anyway
 

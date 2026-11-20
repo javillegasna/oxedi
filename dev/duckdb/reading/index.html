@@ -2141,8 +2141,9 @@ row number together. <a href="../../recipes/lakehouse/">A Parquet lakehouse</a> 
 <div class="admonition note">
 <p class="admonition-title">Forwarding a macro parameter</p>
 <p>Inside a macro with a literal path, forward the parameter with <code>=</code>, as in
-<code>table_name = tbl</code>. DuckDB does not substitute a macro parameter given with <code>:=</code> or <code>=&gt;</code>,
-so <code>read_835</code> refuses it when the macro is created.</p>
+<code>table_name = tbl</code>; it works in every DuckDB version. Newer versions also substitute a
+parameter given with <code>:=</code> or <code>=&gt;</code>; older ones do not, and <code>read_835</code> refuses it when the
+macro is created.</p>
 <div class="highlight"><pre><span></span><code><span class="k">CREATE</span><span class="w"> </span><span class="n">MACRO</span><span class="w"> </span><span class="n">remit_table</span><span class="p">(</span><span class="n">tbl</span><span class="p">)</span><span class="w"> </span><span class="k">AS</span><span class="w"> </span><span class="k">TABLE</span>
 <span class="w">    </span><span class="k">SELECT</span><span class="w"> </span><span class="o">*</span><span class="w"> </span><span class="k">FROM</span><span class="w"> </span><span class="n">read_835</span><span class="p">(</span><span class="s1">'remits/a.835'</span><span class="p">,</span><span class="w"> </span><span class="k">table_name</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">tbl</span><span class="p">);</span>
 <span class="k">SELECT</span><span class="w"> </span><span class="k">count</span><span class="p">(</span><span class="o">*</span><span class="p">)</span><span class="w"> </span><span class="k">FROM</span><span class="w"> </span><span class="n">remit_table</span><span class="p">(</span><span class="s1">'payments'</span><span class="p">);</span>

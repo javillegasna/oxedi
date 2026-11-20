@@ -5,10 +5,10 @@ use super::error::SpecError;
 use super::loops::LoopId;
 use super::occurrences::OccurrenceDef;
 use super::raw::{RawColumn, RawPick};
-use super::render::render_key;
 use super::segments::{ROW_COLUMN, SEGMENT_COLUMN, parse_position};
 use super::table_error::{AnchorPositions, LoopSegments, TableDefError};
 use super::tables::{ColumnSource, Pick, Repeat};
+use crate::message::render_key;
 
 /// Compiles the column `column` of table `table`, anchored in `anchors` (on
 /// `anchor_segment`, when the table has one).

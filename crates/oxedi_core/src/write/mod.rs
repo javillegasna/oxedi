@@ -17,7 +17,8 @@
 //! (the parts of the segment being written),
 //! `render.rs` (values as text and segments as bytes), `trace.rs` (where
 //! each written element came from), `finding.rs` (the findings and the write
-//! error) and `tests/`.
+//! error), `wording.rs` (the pieces those messages are written from) and
+//! `tests/`.
 
 mod build;
 mod cells;
@@ -38,6 +39,7 @@ mod segments;
 mod tests;
 mod trace;
 mod walk;
+mod wording;
 mod writer;
 
 pub use envelope::Envelope;

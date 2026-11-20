@@ -1,6 +1,7 @@
 use super::*;
 use crate::Delimiters;
-use crate::value::ElementType;
+use crate::message::Quoted;
+use crate::value::{ElementType, LengthRange};
 
 fn path(loops: &[(&str, usize)]) -> Vec<LoopRef> {
     loops
@@ -89,8 +90,10 @@ fn every_rule_names_its_variant() {
                 element: 1,
                 component: None,
                 name: "n".into(),
-                min: Some(1),
-                max: Some(2),
+                allowed: LengthRange {
+                    min: Some(1),
+                    max: Some(2),
+                },
                 length: 3,
             },
             "LengthOutOfRange",
@@ -486,8 +489,7 @@ fn length_out_of_range_displays_the_length_and_the_bounds() {
         element: 1,
         component: None,
         name: "claim_submitter_identifier".into(),
-        min,
-        max,
+        allowed: LengthRange { min, max },
         length: 40,
     };
     let diagnostic = Diagnostic::new(

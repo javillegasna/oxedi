@@ -25,6 +25,12 @@ class Storage:
     docs_venv: Path
     # The viewer image's built module, mounted at viewer/pkg by its runs only.
     viewer_pkg: Path
+    # Bun's download cache, shared like the uv cache; mounted by the viewer image's fetch only.
+    bun: Path
+    # The browser interface's installed dependencies and its build, mounted at ui/node_modules and
+    # ui/dist by the viewer image's runs of a checkout that tracks ui/bun.lock.
+    ui_modules: Path
+    ui_dist: Path
     # An empty read-only file, bound over every file git ignores so a run cannot read it.
     empty: Path
     # One read-only file per name of `layout.STAND_INS`, bound over that root name when it is absent.
@@ -68,8 +74,8 @@ def storage_for(cache: Path, checkout: Checkout) -> Storage:
     own = own_dir(cache, checkout.root)
     return Storage(
         cache, cache / "cargo", cache / "uv", own / "target", own / "venv", own / "venv-docs",
-        own / "viewer-pkg", own / "empty", own / "stand-ins", record_for(cache, checkout.root),
-        held_for(cache, checkout.root),
+        own / "viewer-pkg", cache / "bun", own / "ui-node-modules", own / "ui-dist", own / "empty",
+        own / "stand-ins", record_for(cache, checkout.root), held_for(cache, checkout.root),
     )
 
 
@@ -108,7 +114,9 @@ def make_mount_point(root: Path, mount_point: str) -> None:
 def prepare(storage: Storage, checkout: Checkout, mount_points: tuple[str, ...]) -> None:
     """Creates the storage and the checkout's `mount_points` as the user, so docker never creates
     them as root."""
-    for directory in (storage.cargo, storage.uv, storage.target, storage.venv, storage.docs_venv, storage.viewer_pkg):
+    made = (storage.cargo, storage.uv, storage.bun, storage.target, storage.venv, storage.docs_venv, storage.viewer_pkg,
+            storage.ui_modules, storage.ui_dist)
+    for directory in made:
         directory.mkdir(mode=0o700, parents=True, exist_ok=True)
     for mount_point in mount_points:
         make_mount_point(checkout.root, mount_point)

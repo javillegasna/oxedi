@@ -1,3 +1,7 @@
+//! Unit tests of the projector, with the helpers the topic files share: masking (`mask.rs`),
+//! the tables' schema (`schema.rs`), column sources (`source.rs`) and elements no column
+//! reads (`unread.rs`).
+
 use super::*;
 use crate::{LoopEngine, Tokenizer};
 use proptest::prelude::*;
@@ -5,6 +9,11 @@ use proptest::prelude::*;
 pub(super) use crate::spec::test_support::{SPEC, spec};
 
 pub(super) use crate::delimiters::test_support::plain as delimiters;
+
+mod mask;
+mod schema;
+mod source;
+mod unread;
 
 /// Runs the engine and a projector over `input`, `finish` included.
 pub(super) fn project(spec: &Spec, input: &str) -> (Tables, Vec<Diagnostic>) {
@@ -548,22 +557,4 @@ proptest! {
             }
         }
     }
-}
-
-#[test]
-fn an_unknown_table_displays_the_rule_the_name_and_the_spec_tables() {
-    let spec = Spec::builtin_835();
-    let error = UnknownTable::new(&spec, "claim");
-    let names: Vec<String> = spec
-        .tables()
-        .iter()
-        .map(|def| format!("{:?}", def.name))
-        .collect();
-    assert_eq!(
-        error.to_string(),
-        format!(
-            "table \"claim\" is not defined by the spec, so it cannot be filled; its tables are {}",
-            names.join(", ")
-        )
-    );
 }

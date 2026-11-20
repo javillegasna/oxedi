@@ -94,9 +94,13 @@ def integer(value):
     library's ``int()`` with its fallback; a decimal column cannot give this
     back, since it reads ``"1.0"`` and ``"1"`` as the same number. An empty
     cell is ``None``, as a null one."""
-    if not value:
+    return None if not value else as_integer(text(value))
+
+
+def as_integer(value):
+    """The library's ``int()`` with its fallback to the text."""
+    if value is None:
         return None
-    value = text(value)
     try:
         return int(value)
     except ValueError:

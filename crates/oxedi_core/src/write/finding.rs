@@ -3,11 +3,14 @@
 
 use std::fmt;
 
-use crate::diagnostic::{Diagnostic, Quoted};
+use crate::diagnostic::Diagnostic;
 use crate::document::DocumentError;
+use crate::message::{Quoted, render_names};
+use crate::spec::{UnknownColumn, UnknownTable};
 use crate::value::{ColumnType, ElementTextError};
 
 use super::refusal::PlanError;
+use super::wording::{Counted, Numbered, ReadBackOrigin, Reference};
 
 /// Where a written value comes from. Rows are 0-based positions in the
 /// table as given.
@@ -183,31 +186,24 @@ impl fmt::Display for Finding {
                 place,
                 code,
                 codes,
-            } => {
-                let quoted: Vec<String> = codes.iter().map(|code| format!("{code:?}")).collect();
-                write!(
-                    f,
-                    "{origin} holds {value}, but the column reads {place} {code:?}, which the \
-                     element's code list ({}) excludes, so no valid file holds it",
-                    quoted.join(", ")
-                )
-            }
+            } => write!(
+                f,
+                "{origin} holds {value}, but the column reads {place} {code:?}, which the \
+                 element's code list ({}) excludes, so no valid file holds it",
+                render_names(codes)
+            ),
             Finding::MissingParent {
                 table,
                 row,
                 column,
                 value,
                 parent,
-            } => {
-                write!(f, "table {table:?} row {row} column {column:?} ")?;
-                match value {
-                    Some(value) => {
-                        write!(f, "refers to row {value}, which table {parent:?} lacks")?
-                    }
-                    None => write!(f, "is null")?,
-                }
-                write!(f, ", so the row has no place in the file")
-            }
+            } => write!(
+                f,
+                "table {table:?} row {row} column {column:?} {}, so the row has no place in the \
+                 file",
+                Reference(*value, parent)
+            ),
             Finding::MismatchedReference {
                 table,
                 row,
@@ -254,11 +250,7 @@ impl fmt::Display for Finding {
                 "{origin} holds {value}, which {place} cannot hold: {reason}"
             ),
             Finding::ReadBack { origin, diagnostic } => {
-                match origin {
-                    Some(origin) => write!(f, "{origin}: ")?,
-                    None => write!(f, "the written file: ")?,
-                }
-                write!(f, "{diagnostic}")
+                write!(f, "{}: {diagnostic}", ReadBackOrigin(origin.as_ref()))
             }
         }
     }
@@ -270,21 +262,9 @@ pub enum WriteError {
     /// The spec's tables cannot make a valid file.
     Plan(PlanError),
     /// A table the spec does not define.
-    UnknownTable {
-        /// The table.
-        table: String,
-        /// The spec's tables, in name order.
-        tables: Vec<String>,
-    },
+    UnknownTable(UnknownTable),
     /// A column the spec's table does not have.
-    UnknownColumn {
-        /// The table.
-        table: String,
-        /// The column.
-        column: String,
-        /// The table's columns, in schema order.
-        columns: Vec<String>,
-    },
+    UnknownColumn(UnknownColumn),
     /// A column whose type is not the one the spec gives it.
     ColumnType {
         /// The table.
@@ -325,26 +305,8 @@ impl fmt::Display for WriteError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             WriteError::Plan(error) => write!(f, "{error}"),
-            WriteError::UnknownTable { table, tables } => {
-                let quoted: Vec<String> = tables.iter().map(|name| format!("{name:?}")).collect();
-                write!(
-                    f,
-                    "table {table:?} is not a table of the spec, whose tables are {}",
-                    quoted.join(", ")
-                )
-            }
-            WriteError::UnknownColumn {
-                table,
-                column,
-                columns,
-            } => {
-                let quoted: Vec<String> = columns.iter().map(|name| format!("{name:?}")).collect();
-                write!(
-                    f,
-                    "table {table:?} has no column {column:?} in the spec; its columns are {}",
-                    quoted.join(", ")
-                )
-            }
+            WriteError::UnknownTable(error) => write!(f, "{error}"),
+            WriteError::UnknownColumn(error) => write!(f, "{error}"),
             WriteError::ColumnType {
                 table,
                 column,
@@ -376,18 +338,12 @@ impl fmt::Display for WriteError {
             WriteError::Unreadable(error) => {
                 write!(f, "the written file could not be read back: {error}")
             }
-            WriteError::Findings(findings) => {
-                let count = findings.len();
-                let noun = if count == 1 { "finding" } else { "findings" };
-                write!(
-                    f,
-                    "the tables do not make a valid file ({count} {noun}); nothing was written"
-                )?;
-                for (i, finding) in findings.iter().enumerate() {
-                    write!(f, "\n{}. {finding}", i + 1)?;
-                }
-                Ok(())
-            }
+            WriteError::Findings(findings) => write!(
+                f,
+                "the tables do not make a valid file ({}); nothing was written{}",
+                Counted(findings.len(), "finding", "findings"),
+                Numbered(findings)
+            ),
         }
     }
 }
@@ -398,8 +354,8 @@ impl std::error::Error for WriteError {
         // chain stops here instead of printing it a second time.
         match self {
             WriteError::Plan(_)
-            | WriteError::UnknownTable { .. }
-            | WriteError::UnknownColumn { .. }
+            | WriteError::UnknownTable(_)
+            | WriteError::UnknownColumn(_)
             | WriteError::ColumnType { .. }
             | WriteError::SameDelimiter { .. }
             | WriteError::DelimiterNotAllowed { .. }
@@ -407,6 +363,18 @@ impl std::error::Error for WriteError {
             | WriteError::Unreadable(_)
             | WriteError::Findings(_) => None,
         }
+    }
+}
+
+impl From<UnknownTable> for WriteError {
+    fn from(error: UnknownTable) -> Self {
+        WriteError::UnknownTable(error)
+    }
+}
+
+impl From<UnknownColumn> for WriteError {
+    fn from(error: UnknownColumn) -> Self {
+        WriteError::UnknownColumn(error)
     }
 }
 

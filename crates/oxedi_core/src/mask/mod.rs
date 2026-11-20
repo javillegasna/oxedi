@@ -43,11 +43,6 @@ impl Phi {
             Phi::Date => "date",
         }
     }
-
-    /// The kind a spec's word names, or `None`.
-    pub fn from_word(word: &str) -> Option<Phi> {
-        Phi::ALL.into_iter().find(|kind| kind.word() == word)
-    }
 }
 
 /// What happens to a date.
@@ -145,12 +140,6 @@ impl Mask {
         let head = [digest[0], digest[1], digest[2], digest[3]];
         // Remainder is below 365, so the conversion cannot fail.
         i32::try_from(u32::from_be_bytes(head) % 365).unwrap_or(0) - 182
-    }
-
-    /// January 1 of the year containing `days` (days since 1970-01-01), as
-    /// days; `None` when that January 1 is before `i32::MIN`.
-    pub fn year_start(days: i32) -> Option<i32> {
-        crate::value::year_start(days)
     }
 
     fn digest(&self, tag: &[u8], value: &[u8]) -> [u8; 32] {

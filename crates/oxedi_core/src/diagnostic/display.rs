@@ -4,12 +4,13 @@
 
 use std::fmt;
 
+use super::Rule;
 use super::text::{
-    CodeCount, Cut, ElementRef, InOccurrence, MAX_LISTED_SEGMENTS, OfSegment, OffBy, OpenedAt,
-    Opener, Parent, Reporter, ShortList, debug_name, quoted_code, segment_index,
+    CodeCount, Cut, InOccurrence, MAX_LISTED_SEGMENTS, OfSegment, OffBy, OpenedAt, Opener, Parent,
+    Reporter, ShortList, debug_name, quoted_code, segment_index,
 };
-use super::{Quoted, Rule};
-use crate::value::{LengthRange, decimal_display};
+use crate::message::{ElementRef, Quoted};
+use crate::value::decimal_display;
 
 impl fmt::Display for Rule {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
@@ -104,17 +105,12 @@ impl fmt::Display for Rule {
                 element,
                 component,
                 name,
-                min,
-                max,
+                allowed,
                 length,
             } => write!(
                 f,
-                "element {} ({name}) has length {length}; the spec allows {}",
+                "element {} ({name}) has length {length}; the spec allows {allowed}",
                 ElementRef::new(segment_id, *element, *component),
-                LengthRange {
-                    min: *min,
-                    max: *max
-                }
             ),
             Rule::ValueDropped {
                 table,

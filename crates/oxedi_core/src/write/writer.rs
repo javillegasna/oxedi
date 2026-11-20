@@ -15,7 +15,7 @@ use crate::spec::Spec;
 
 use super::data::{Data, bind};
 use super::emit::Emitter;
-use super::envelope::{Envelope, carries_repetition, delimiters};
+use super::envelope::{Envelope, carries_repetition, delimiters, for_spec};
 use super::finding::{Finding, ValueOrigin, WriteError};
 use super::layout::Layout;
 use super::nest::nest;
@@ -63,6 +63,8 @@ pub fn write_with_findings(
         .iter()
         .find(|&&root| spec.get(root).control.is_some())
         .is_some_and(|&root| carries_repetition(spec, &spec.get(root).trigger.segment));
+    let effective = for_spec(envelope, repetition);
+    let envelope = &*effective;
     let delimiters = delimiters(envelope, repetition)?;
     let mut findings = Vec::new();
     unwritten(spec, &plan, &data, &mut findings);

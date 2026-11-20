@@ -2,26 +2,17 @@
 
 use std::fmt;
 
-/// An element or component as X12 names it: `CLP01`, `SVC01-2`.
-pub(super) fn place(segment: &[u8], element: usize, component: Option<usize>) -> String {
-    let segment = String::from_utf8_lossy(segment);
-    match component {
-        Some(component) => format!("{segment}{element:02}-{component}"),
-        None => format!("{segment}{element:02}"),
-    }
-}
+use crate::message::{Conditions, render_names};
+
+use super::wording::{Counted, Matches, Numbered, Source, WrittenBy};
 
 /// A segment and its conditions as a message shows them.
 pub(super) fn render_source(segment: &[u8], conditions: &[(usize, Vec<u8>)]) -> String {
-    let segment = String::from_utf8_lossy(segment);
-    if conditions.is_empty() {
-        return format!("{segment:?}");
-    }
-    let parts: Vec<String> = conditions
-        .iter()
-        .map(|(position, value)| format!("{position}: {:?}", String::from_utf8_lossy(value)))
-        .collect();
-    format!("{segment:?} where {{{}}}", parts.join(", "))
+    format!(
+        "{:?}{}",
+        String::from_utf8_lossy(segment),
+        Conditions(conditions)
+    )
 }
 
 /// One reason a spec's tables cannot be turned back into a file.
@@ -208,42 +199,24 @@ impl fmt::Display for Refusal {
                 occurrence,
                 place,
                 name,
-            } => {
-                write!(
-                    f,
-                    "required element {place} ({name}) of occurrence {occurrence:?} in loop {loop_name:?}"
-                )?;
-                match table {
-                    Some(table) => write!(f, ", written by table {table:?},")?,
-                    None => write!(f, ", which no table writes,")?,
-                }
-                write!(f, " has no column and no single code to write")
-            }
+            } => write!(
+                f,
+                "required element {place} ({name}) of occurrence {occurrence:?} in loop \
+                 {loop_name:?}{} has no column and no single code to write",
+                WrittenBy(table.as_deref())
+            ),
             Refusal::AmbiguousSource {
                 table,
                 column,
                 loop_name,
                 source,
                 candidates,
-            } => {
-                match column {
-                    Some(column) => write!(f, "table {table:?} column {column:?}")?,
-                    None => write!(f, "table {table:?} anchor segment")?,
-                }
-                write!(f, " reads {source} in loop {loop_name:?}, which ")?;
-                if candidates.is_empty() {
-                    write!(f, "matches none of its occurrences")
-                } else {
-                    let quoted: Vec<String> =
-                        candidates.iter().map(|name| format!("{name:?}")).collect();
-                    write!(
-                        f,
-                        "matches {} of its occurrences ({}); name one with \"occurrence\"",
-                        candidates.len(),
-                        quoted.join(", ")
-                    )
-                }
-            }
+            } => write!(
+                f,
+                "{} reads {source} in loop {loop_name:?}, which {}",
+                Source(table, column.as_deref()),
+                Matches(candidates)
+            ),
             Refusal::PickNotContiguous {
                 table,
                 column,
@@ -298,16 +271,13 @@ impl fmt::Display for Refusal {
                 "table {table:?} is anchored on loop {loop_name:?}, whose rows table {other:?} \
                  already gives; a loop takes its rows from one table"
             ),
-            Refusal::SeveralAnchorLoops { table, loops } => {
-                let quoted: Vec<String> = loops.iter().map(|name| format!("{name:?}")).collect();
-                write!(
-                    f,
-                    "table {table:?} is anchored on {} loops ({}); a written row opens one loop \
-                     instance and nothing in the row says which",
-                    loops.len(),
-                    quoted.join(", ")
-                )
-            }
+            Refusal::SeveralAnchorLoops { table, loops } => write!(
+                f,
+                "table {table:?} is anchored on {} loops ({}); a written row opens one loop \
+                 instance and nothing in the row says which",
+                loops.len(),
+                render_names(loops)
+            ),
             Refusal::RepeatWithoutInstances {
                 table,
                 loop_name,
@@ -326,19 +296,13 @@ impl fmt::Display for Refusal {
                 place,
                 value,
                 codes,
-            } => {
-                match column {
-                    Some(column) => write!(f, "table {table:?} column {column:?}")?,
-                    None => write!(f, "table {table:?} anchor segment")?,
-                }
-                let quoted: Vec<String> = codes.iter().map(|code| format!("{code:?}")).collect();
-                write!(
-                    f,
-                    " writes occurrence {occurrence:?} in loop {loop_name:?} with the fixed code \
-                     {value:?} in {place}, which its code list ({}) does not allow",
-                    quoted.join(", ")
-                )
-            }
+            } => write!(
+                f,
+                "{} writes occurrence {occurrence:?} in loop {loop_name:?} with the fixed code \
+                 {value:?} in {place}, which its code list ({}) does not allow",
+                Source(table, column.as_deref()),
+                render_names(codes)
+            ),
         }
     }
 }
@@ -354,13 +318,13 @@ pub struct PlanError {
 
 impl fmt::Display for PlanError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        let count = self.refusals.len();
-        let noun = if count == 1 { "reason" } else { "reasons" };
-        write!(f, "spec {:?} cannot be written ({count} {noun})", self.spec)?;
-        for (i, refusal) in self.refusals.iter().enumerate() {
-            write!(f, "\n{}. {refusal}", i + 1)?;
-        }
-        Ok(())
+        write!(
+            f,
+            "spec {:?} cannot be written ({}){}",
+            self.spec,
+            Counted(self.refusals.len(), "reason", "reasons"),
+            Numbered(&self.refusals)
+        )
     }
 }
 

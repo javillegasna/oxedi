@@ -32,6 +32,7 @@ mod by_module {
     use oxedi_core::engine::Event;
     use oxedi_core::engine::LoopEngine;
     use oxedi_core::frame::Frame;
+    use oxedi_core::frame::SegmentEnd;
     use oxedi_core::frame::find_unescaped;
     use oxedi_core::frame::first_frame;
     use oxedi_core::frame::next_frame;
@@ -87,11 +88,14 @@ mod by_module {
     use oxedi_core::spec::TermModel;
     use oxedi_core::spec::Trigger;
     use oxedi_core::spec::TriggerModel;
+    use oxedi_core::spec::UnknownColumn;
+    use oxedi_core::spec::UnknownTable;
     use oxedi_core::spec::UnknownVersion;
     use oxedi_core::spec::Version;
     use oxedi_core::spec::VersionError;
     use oxedi_core::spec::VersionModel;
     use oxedi_core::spec::merge_patch;
+    use oxedi_core::spec::require_column;
     use oxedi_core::spec::spec_schema;
     use oxedi_core::spec::table_columns;
     use oxedi_core::spec::table_schema;
@@ -146,8 +150,8 @@ use oxedi_core::Tokenizer;
 use oxedi_core::{
     AnchorChains, AnchorPositions, Builtin, ColumnSource, Control, ControlCount, ControlError,
     DeclaredVersion, ElementDef, ElementDefError, ElementType, LoopDef, LoopId, LoopSegments, Pick,
-    Repeat, SegmentDef, Spec, SpecError, TableDef, TableDefError, Trigger, UnknownVersion, Version,
-    VersionError, merge_patch,
+    Repeat, SegmentDef, Spec, SpecError, TableDef, TableDefError, Trigger, UnknownColumn,
+    UnknownTable, UnknownVersion, Version, VersionError, merge_patch,
 };
 use oxedi_core::{
     Bitmap, Cell, CellError, Column, ColumnData, ColumnType, RowError, Table, Tables,
@@ -158,7 +162,7 @@ use oxedi_core::{Diagnostic, FlatDiagnostic, LoopRef, PARSER_ORIGIN, Rule, SnipL
 use oxedi_core::{Document, DocumentError, Segments, SizeError, Span, Spans};
 use oxedi_core::{Element, Value};
 use oxedi_core::{Event, LoopEngine};
-use oxedi_core::{Frame, next_frame};
+use oxedi_core::{Frame, SegmentEnd, next_frame};
 use oxedi_core::{LoopTree, Node, NodeId, TreeBuilder};
 use oxedi_core::{Output, Processor};
 use oxedi_core::{Segment, SegmentWriteError};

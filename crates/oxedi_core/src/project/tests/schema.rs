@@ -1,7 +1,7 @@
 //! The schema of a spec's tables agrees with what the projector fills.
 
-use super::Projector;
-use super::tests::{delimiters, spec};
+use super::{delimiters, spec};
+use crate::project::Projector;
 use crate::spec::{Spec, TableSchema, spec_schema};
 use crate::value::ColumnType;
 

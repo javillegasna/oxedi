@@ -1,8 +1,8 @@
 //! The caller's tables bound to the spec's: each spec table's columns found
 //! by name and checked against the types the spec gives them.
 
-use crate::column::{Cell, ColumnData, Tables};
-use crate::spec::{ROW_COLUMN, SEGMENT_COLUMN, Spec, table_columns};
+use crate::column::{Cell, ColumnData, Table, Tables};
+use crate::spec::{ROW_COLUMN, SEGMENT_COLUMN, Spec, TableDef, require_column, table_columns};
 use crate::value::ColumnType;
 
 use super::finding::WriteError;
@@ -67,66 +67,71 @@ impl<'t> Data<'t> {
 /// Binds every spec table to the caller's table of the same name.
 pub(super) fn bind<'t>(spec: &Spec, tables: &'t Tables) -> Result<Vec<Data<'t>>, WriteError> {
     for table in tables {
-        if spec.table(table.name()).is_none() {
-            return Err(WriteError::UnknownTable {
-                table: table.name().to_string(),
-                tables: spec.tables().iter().map(|def| def.name.clone()).collect(),
-            });
+        spec.require_table(table.name())?;
+    }
+    spec.tables()
+        .iter()
+        .map(|def| bind_table(spec, def, tables.get(&def.name)))
+        .collect()
+}
+
+/// One spec table bound to the caller's table of that name, when given.
+fn bind_table<'t>(
+    spec: &Spec,
+    def: &TableDef,
+    given: Option<&'t Table>,
+) -> Result<Data<'t>, WriteError> {
+    let schema = table_columns(spec, def);
+    let mut found: Vec<Option<&ColumnData>> = vec![None; schema.len()];
+    for (name, data) in given.map_or(&[][..], |table| table.columns()) {
+        let at = locate(def, &schema, name, data)?;
+        if let Some(slot) = found.get_mut(at) {
+            *slot = Some(data);
         }
     }
-    let mut bound = Vec::with_capacity(spec.tables().len());
-    for def in spec.tables() {
-        let schema = table_columns(spec, def);
-        let given = tables.get(&def.name);
-        let mut found: Vec<Option<&ColumnData>> = vec![None; schema.len()];
-        if let Some(table) = given {
-            for (name, data) in table.columns() {
-                let Some(at) = schema.iter().position(|(column, _)| column == name) else {
-                    return Err(WriteError::UnknownColumn {
-                        table: def.name.clone(),
-                        column: name.clone(),
-                        columns: schema.iter().map(|(column, _)| column.clone()).collect(),
-                    });
-                };
-                let expected = schema.get(at).map_or(ColumnType::Binary, |(_, kind)| *kind);
-                if data.kind() != expected {
-                    return Err(WriteError::ColumnType {
-                        table: def.name.clone(),
-                        column: name.clone(),
-                        expected,
-                        found: data.kind(),
-                    });
-                }
-                if let Some(slot) = found.get_mut(at) {
-                    *slot = Some(data);
-                }
-            }
-        }
-        let by_name = |name: &str| {
-            schema
-                .iter()
-                .position(|(column, _)| column == name)
-                .and_then(|at| found.get(at).copied().flatten())
-        };
-        bound.push(Data {
-            name: def.name.clone(),
-            rows: given.map_or(0, |table| table.len()),
-            row: by_name(ROW_COLUMN),
-            segment: by_name(SEGMENT_COLUMN),
-            refs: def
-                .ancestors
-                .iter()
-                .map(|&above| {
-                    let reference = spec
-                        .tables()
-                        .get(above)
-                        .map(|table| table.reference.as_str())
-                        .unwrap_or_default();
-                    (above, by_name(reference))
-                })
-                .collect(),
-            columns: def.columns.iter().map(|(name, _)| by_name(name)).collect(),
+    let by_name = |name: &str| {
+        schema
+            .iter()
+            .position(|(column, _)| column == name)
+            .and_then(|at| found.get(at).copied().flatten())
+    };
+    Ok(Data {
+        name: def.name.clone(),
+        rows: given.map_or(0, |table| table.len()),
+        row: by_name(ROW_COLUMN),
+        segment: by_name(SEGMENT_COLUMN),
+        refs: def
+            .ancestors
+            .iter()
+            .map(|&above| {
+                let reference = spec
+                    .tables()
+                    .get(above)
+                    .map(|table| table.reference.as_str())
+                    .unwrap_or_default();
+                (above, by_name(reference))
+            })
+            .collect(),
+        columns: def.columns.iter().map(|(name, _)| by_name(name)).collect(),
+    })
+}
+
+/// The position in `schema` of the caller's column `name`, refused when the
+/// table has no such column or the column's type is not the spec's.
+fn locate(
+    def: &TableDef,
+    schema: &[(String, ColumnType)],
+    name: &str,
+    data: &ColumnData,
+) -> Result<usize, WriteError> {
+    let (at, expected) = require_column(&def.name, schema, name)?;
+    if data.kind() != expected {
+        return Err(WriteError::ColumnType {
+            table: def.name.clone(),
+            column: name.to_owned(),
+            expected,
+            found: data.kind(),
         });
     }
-    Ok(bound)
+    Ok(at)
 }

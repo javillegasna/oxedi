@@ -1,8 +1,9 @@
-use super::mask::{date_datum, masked_date};
-use super::*;
+use crate::project::mask::{date_datum, masked_date};
+use crate::project::quote::unquoted;
+use crate::project::*;
 use crate::{DateMode, Document, Mask, Phi, Rule, SnipLevel};
 
-const SAMPLE: &[u8] = include_bytes!("../../tests/fixtures/balanced_5010_sample.txt");
+const SAMPLE: &[u8] = include_bytes!("../../../tests/fixtures/balanced_5010_sample.txt");
 const KEY: &[u8] = b"oxedi-test-key-0";
 
 fn mask() -> Mask {
@@ -272,11 +273,7 @@ fn unquoted_replaces_a_short_value_that_stands_alone() {
         ("last is 7", "last is <7>"),
         ("7*7", "<7>*<7>"),
     ] {
-        assert_eq!(
-            super::quote::unquoted(message, &quoted),
-            expected,
-            "{message}"
-        );
+        assert_eq!(unquoted(message, &quoted), expected, "{message}");
     }
 }
 
@@ -284,17 +281,14 @@ fn unquoted_replaces_a_short_value_that_stands_alone() {
 fn unquoted_leaves_a_short_value_inside_a_word_or_number() {
     let quoted = pairs(&[(b"7", "<7>"), (b"D", "<D>")]);
     for message in ["CLP07", "17 of 27", "7A", "Data element", "ID", "x7y"] {
-        assert_eq!(super::quote::unquoted(message, &quoted), message);
+        assert_eq!(unquoted(message, &quoted), message);
     }
 }
 
 #[test]
 fn unquoted_replaces_a_value_of_four_characters_or_more_anywhere() {
     let quoted = pairs(&[(b"ABCD", "<abcd>")]);
-    assert_eq!(
-        super::quote::unquoted("xABCDx and ABCD", &quoted),
-        "x<abcd>x and <abcd>"
-    );
+    assert_eq!(unquoted("xABCDx and ABCD", &quoted), "x<abcd>x and <abcd>");
 }
 
 #[test]
@@ -303,29 +297,29 @@ fn unquoted_replaces_overlapping_values_by_their_tokens_in_start_order() {
         pairs(&[(b"XAB", "<x>"), (b"ABYZ", "<y>")]),
         pairs(&[(b"ABYZ", "<y>"), (b"XAB", "<x>")]),
     ] {
-        assert_eq!(super::quote::unquoted("(XABYZ)", &quoted), "(<x><y>)");
-        assert_eq!(super::quote::unquoted("XABYZ", &quoted), "<x><y>");
+        assert_eq!(unquoted("(XABYZ)", &quoted), "(<x><y>)");
+        assert_eq!(unquoted("XABYZ", &quoted), "<x><y>");
     }
     let quoted = pairs(&[(b"WXAB", "<w>"), (b"ABYZ", "<y>")]);
-    assert_eq!(super::quote::unquoted("is WXABYZ.", &quoted), "is <w><y>.");
+    assert_eq!(unquoted("is WXABYZ.", &quoted), "is <w><y>.");
 }
 
 #[test]
 fn unquoted_replaces_a_value_held_in_a_longer_one_by_the_longer_token() {
     let quoted = pairs(&[(b"AB", "<ab>"), (b"ABCD", "<abcd>")]);
-    assert_eq!(super::quote::unquoted("ABCD AB", &quoted), "<abcd> <ab>");
+    assert_eq!(unquoted("ABCD AB", &quoted), "<abcd> <ab>");
 }
 
 #[test]
 fn unquoted_reads_a_short_value_as_latin_1_or_utf_8_on_boundaries() {
     let latin1 = pairs(&[(b"D\xe9", "<d>")]);
     assert_eq!(
-        super::quote::unquoted("character(D\u{e9}) not XD\u{e9}", &latin1),
+        unquoted("character(D\u{e9}) not XD\u{e9}", &latin1),
         "character(<d>) not XD\u{e9}"
     );
     let utf8 = pairs(&[("\u{e9}".as_bytes(), "<e>")]);
     assert_eq!(
-        super::quote::unquoted("character(\u{e9}) not a\u{e9}", &utf8),
+        unquoted("character(\u{e9}) not a\u{e9}", &utf8),
         "character(<e>) not a\u{e9}"
     );
 }
@@ -343,31 +337,27 @@ fn unquoted_replaces_short_values_glued_to_each_other_as_one_group() {
         ),
     ];
     for (values, message, expected) in cases {
-        assert_eq!(
-            super::quote::unquoted(message, &pairs(values)),
-            expected,
-            "{message}"
-        );
+        assert_eq!(unquoted(message, &pairs(values)), expected, "{message}");
     }
 }
 
 #[test]
 fn unquoted_leaves_a_group_of_short_values_glued_to_a_word() {
     let quoted = pairs(&[(b"AB", "<ab>"), (b"CD", "<cd>")]);
-    assert_eq!(super::quote::unquoted("xABCD", &quoted), "xABCD");
+    assert_eq!(unquoted("xABCD", &quoted), "xABCD");
 }
 
 #[test]
 fn unquoted_leaves_a_short_value_glued_to_a_letter_no_value_holds() {
     let quoted = pairs(&[(b"XAB", "<x>"), (b"ABYZ", "<y>")]);
-    assert_eq!(super::quote::unquoted("QXABYZ", &quoted), "QX<y>");
+    assert_eq!(unquoted("QXABYZ", &quoted), "QX<y>");
 }
 
 #[test]
 fn unquoted_replaces_a_word_two_short_values_spell_together() {
     let quoted = pairs(&[(b"A", "<a>"), (b"N", "<n>")]);
     assert_eq!(
-        super::quote::unquoted("Data element is type AN", &quoted),
+        unquoted("Data element is type AN", &quoted),
         "Data element is type <a><n>"
     );
 }
@@ -376,11 +366,11 @@ fn unquoted_replaces_a_word_two_short_values_spell_together() {
 fn unquoted_counts_a_value_by_the_characters_of_its_utf_8_reading() {
     let quoted = pairs(&[("AB\u{e9}".as_bytes(), "<v>")]);
     assert_eq!(
-        super::quote::unquoted("xAB\u{c3}\u{a9}x and xAB\u{e9}x", &quoted),
+        unquoted("xAB\u{c3}\u{a9}x and xAB\u{e9}x", &quoted),
         "xAB\u{c3}\u{a9}x and xAB\u{e9}x"
     );
     assert_eq!(
-        super::quote::unquoted("(AB\u{c3}\u{a9}) and (AB\u{e9})", &quoted),
+        unquoted("(AB\u{c3}\u{a9}) and (AB\u{e9})", &quoted),
         "(<v>) and (<v>)"
     );
 }
@@ -388,10 +378,7 @@ fn unquoted_counts_a_value_by_the_characters_of_its_utf_8_reading() {
 #[test]
 fn unquoted_takes_an_accented_letter_or_a_hyphen_as_a_boundary() {
     let quoted = pairs(&[(b"D", "<d>")]);
-    assert_eq!(
-        super::quote::unquoted("D\u{e9} and D-1", &quoted),
-        "<d>\u{e9} and <d>-1"
-    );
+    assert_eq!(unquoted("D\u{e9} and D-1", &quoted), "<d>\u{e9} and <d>-1");
 }
 
 #[test]

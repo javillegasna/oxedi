@@ -21,3 +21,7 @@ crates/oxedi_py/python/oxedi/*.so
 
 # Browser viewer: the generated module and its glue (make wasm).
 /viewer/pkg/
+
+# UI package: installed dependencies and build output (sandbox runs write here).
+/ui/node_modules
+/ui/dist

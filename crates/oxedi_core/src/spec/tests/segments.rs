@@ -3,7 +3,7 @@
 use super::{CLP_ONLY, element_error};
 use crate::spec::raw::RawSegment;
 use crate::spec::*;
-use crate::value::ElementType;
+use crate::value::{ElementType, LengthRange};
 
 #[test]
 fn an_empty_segment_id_in_the_segments_section_is_rejected() {
@@ -78,7 +78,13 @@ fn segments_are_keyed_by_id_and_elements_by_position() {
     assert_eq!(first.name, "claim_submitter_id");
     assert_eq!(first.kind, ElementType::An);
     assert!(first.required);
-    assert_eq!((first.min, first.max), (Some(1), Some(38)));
+    assert_eq!(
+        first.length,
+        LengthRange {
+            min: Some(1),
+            max: Some(38)
+        }
+    );
     assert_eq!(clp.elements[&3].kind, ElementType::R { scale: 2 });
     assert!(!clp.elements[&12].required, "required defaults to false");
     assert_eq!(clp.elements[&12].kind, ElementType::R { scale: 4 });

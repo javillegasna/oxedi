@@ -36,6 +36,14 @@ fn isa11_is_not_a_repetition_separator_before_version_00402() {
 }
 
 #[test]
+fn version_carries_repetition_from_00402() {
+    assert!(!version_carries_repetition(b"00401"));
+    assert!(!version_carries_repetition(b""));
+    assert!(version_carries_repetition(b"00402"));
+    assert!(version_carries_repetition(b"00501"));
+}
+
+#[test]
 fn from_isa_ignores_bytes_after_the_terminator() {
     let mut input = ISA_5010.to_vec();
     input.extend_from_slice(b"GS*HP*X~");
@@ -364,4 +372,14 @@ fn isa_datum_of_input_shorter_than_the_skipped_bytes_is_empty() {
         whitespace: 4,
     };
     assert_eq!(error.datum(b"\xEF"), b"");
+}
+
+#[test]
+fn segment_end_carries_the_terminator_and_the_release_byte() {
+    let delims = Delimiters::new(b'*', b':', b'~');
+    assert_eq!(delims.segment_end(), SegmentEnd::new(b'~', None));
+    assert_eq!(
+        delims.with_release(b'?').segment_end(),
+        SegmentEnd::new(b'~', Some(b'?'))
+    );
 }

@@ -21,8 +21,24 @@ This file covers the Python package; the DuckDB extension has its own changelog 
 - `Segment.element(position, component=None)` and `Segment.has(position, component=None)`: read an
   element or one of its components by 1-based position, `None` or `False` where the segment has
   no such place.
+- `Spec.column_source(table, column)` → `ElementSource` (`segment`, `element`, `component`): where a
+  table column reads its value, as the spec resolved it; `KeyError` for an unknown table or column,
+  `ValueError` for a column that reads a segment index or a repeated group.
 
 ### Changed
+- The Rust core and DuckDB `COPY` refuse a table the spec does not define with `table "x" is not a
+  table of the spec; its tables are ...`. In Rust, `Spec::require_table` returns `UnknownTable`
+  (now in `spec`, with the name in `name`), and `WriteError::UnknownTable` and
+  `WriteError::UnknownColumn` hold an `UnknownTable` and an `UnknownColumn`. A column the spec
+  does not have comes from `spec::require_column` (over a table's schema) or
+  `TableDef::require_column` (over its declared columns).
+- Python: `oxedi.write` refuses an unknown table with `table "x" is not a table of the spec; its
+  tables are ...`, and `Spec.column_source` raises `KeyError` with `table "x" is not a table of the
+  spec; its tables are ...` or `table "t" has no column "c" in the spec; its columns are ...`
+  after the `Spec.column_source("t", "c"): ` prefix.
+- Rust: `first_frame` and `next_frame` take a `SegmentEnd` (the segment terminator and the optional
+  release byte) instead of `Delimiters`; `SegmentEnd` is a new public type, and
+  `Delimiters::segment_end` builds one from the delimiters.
 - The spec shape check names a `pick` that is not `"first"`, `"last"` or a 1-based position with the
   same words as the pick error. A Rust read of a pick or of a spec model names the value found, and
   a spec that does not read into its typed model names the path to the key it rejected.
@@ -54,6 +70,12 @@ This file covers the Python package; the DuckDB extension has its own changelog 
 - `oxedi.pyx12.validate` reads pyx12's JSON error output instead of its internal error tree. Until
   pyx12's JSON output carries them, errors inside the envelope segments (ISA, GS, ST, SE, GE, IEA)
   are not reported: neither their element errors nor their segment errors.
+
+### Fixed
+- The writer and the reader agree on the repetition separator of a custom spec: at interchange
+  version 00402 or later the writer writes the envelope's repetition separator in ISA11, and below
+  it the element's code. A spec that lists codes for ISA11 at such a version is reported by the
+  read-back (code not in list), so `write()` refuses it.
 
 ## [0.6.0] - 2026-10-18
 

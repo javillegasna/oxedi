@@ -17,9 +17,9 @@ use crate::diagnostic::Diagnostic;
 use crate::document::Document;
 use crate::engine::{Event, LoopEngine};
 use crate::mask::Mask;
-use crate::project::{Projector, UnknownTable};
+use crate::project::Projector;
 use crate::segment::Segment;
-use crate::spec::Spec;
+use crate::spec::{Spec, UnknownTable};
 
 /// What one segment, or the end of the stream, produced.
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
@@ -201,7 +201,5 @@ impl<'s> Processor<'s> {
     }
 }
 
-#[cfg(test)]
-mod mask_tests;
 #[cfg(test)]
 mod tests;

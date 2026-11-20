@@ -11,6 +11,7 @@ use pyo3_stub_gen::derive::{gen_stub_pyclass, gen_stub_pymethods};
 use pyo3_stub_gen::{PyStubType, TypeInfo};
 
 use crate::arrow;
+use crate::element_source::{self, PyElementSource};
 use crate::tables::extra;
 
 native_exception!(
@@ -293,6 +294,14 @@ impl PySpec {
             .iter()
             .map(|def| def.name.clone())
             .collect()
+    }
+
+    /// Where column `column` of table `table` reads its value, as the spec
+    /// compiled it. Raises `KeyError` for a table or column the spec does not
+    /// declare, and `ValueError` for a column that reads a segment index or an
+    /// element of a repeated group, which has no single element.
+    fn column_source(&self, table: &str, column: &str) -> PyResult<PyElementSource> {
+        element_source::resolve(&self.inner, table, column)
     }
 
     fn __repr__(&self) -> String {

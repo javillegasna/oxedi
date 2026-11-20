@@ -276,12 +276,22 @@ def test_tables_that_do_not_fit_the_spec_are_refused():
     with pytest.raises(oxedi.WriteError) as info:
         oxedi.write({"notes": pyarrow.table({"a": [1]})}, envelope())
     assert str(info.value) == (
-        'table "notes" is not a table of the spec, whose tables are '
+        'table "notes" is not a table of the spec; its tables are '
         '"adjustments", "claims", "payments", "provider_adjustments", "services"'
     )
     assert info.value.findings == []
-    with pytest.raises(oxedi.WriteError, match='has no column "color" in the spec'):
+    with pytest.raises(oxedi.WriteError) as info:
         oxedi.write({"claims": pyarrow.table({"color": ["red"]})}, envelope())
+    assert str(info.value) == (
+        'table "claims" has no column "color" in the spec; its columns are "row", "segment", '
+        '"payment", "charge_amount", "claim_id", "claim_status", "coverage_amount", '
+        '"discharge_fraction", "drg_code", "drg_weight", "facility_type", "filing_indicator", '
+        '"frequency_code", "group_number", "header_number", "patient_first_name", "patient_id", '
+        '"patient_id_qualifier", "patient_last_name", "patient_responsibility", '
+        '"payer_control_number", "payment_amount", "rendering_provider_entity_type", '
+        '"rendering_provider_id", "rendering_provider_id_qualifier", "rendering_provider_name", '
+        '"statement_from", "statement_to"'
+    )
     with pytest.raises(oxedi.WriteError, match=r"column \"charge_amount\" row 0: an Arrow Float64"):
         oxedi.write(
             {"claims": pyarrow.table({"charge_amount": pyarrow.array([1.234])})},

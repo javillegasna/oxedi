@@ -11,6 +11,7 @@ WORK = "/work"
 HOME = "/tmp/home"
 CARGO_HOME = "/sandbox/cargo"
 UV_CACHE = "/sandbox/uv"
+BUN_CACHE = "/sandbox/bun"
 # Docker mounts a --tmpfs noexec by default; rustdoc builds and runs every doctest from the
 # temporary directory, so /tmp is exec (still nosuid and nodev).
 TMP_MOUNT = "/tmp:rw,exec,nosuid,nodev,size=2g"
@@ -45,6 +46,19 @@ VIEWER_PKG = f"{WORK}/viewer/pkg"
 # What each image's runs mount from the checkout's storage over the checkout: the venvs and, for the
 # viewer image, its built module.
 OWN_MOUNTS = {ImageKind.BASE: VENVS[ImageKind.BASE], ImageKind.VIEWER: (*VENVS[ImageKind.VIEWER], VIEWER_PKG)}
+# The browser interface's installed dependencies and its build: the viewer image's runs of a checkout
+# that tracks ui/bun.lock keep them in the checkout's storage, so the host never runs a package a
+# run wrote.
+UI = f"{WORK}/ui"
+UI_MODULES = f"{UI}/node_modules"
+UI_DIST = f"{UI}/dist"
+UI_MOUNTS = {ImageKind.BASE: (), ImageKind.VIEWER: (UI_MODULES, UI_DIST)}
+# What each image's fetch installs into: the venvs and, for the viewer image, ui/node_modules (bound
+# only when the checkout tracks ui/bun.lock).
+FETCH_WRITES = {ImageKind.BASE: VENVS[ImageKind.BASE], ImageKind.VIEWER: (*VENVS[ImageKind.VIEWER], UI_MODULES)}
+# Installs ui/bun.lock exactly (a lock that does not match package.json fails) and runs no
+# dependency's install script, so the fetch runs no code of a package.
+BUN_INSTALL = ["bun", "install", "--frozen-lockfile", "--ignore-scripts", "--cwd", UI]
 
 
 class Phase(Enum):
@@ -92,23 +106,32 @@ def hardened_base(checkout: Checkout, uid: int, gid: int, runtime: Runtime, limi
     ]
 
 
-def own_sources(storage: Storage, kind: ImageKind) -> dict[str, Path]:
+def own_mounts(kind: ImageKind, checkout: Checkout) -> tuple[str, ...]:
+    """The places the image's runs of `checkout` mount from its storage: the ui/ ones only when the
+    checkout tracks ui/bun.lock, so a checkout without it gains no ui/ directory."""
+    return OWN_MOUNTS[kind] + (UI_MOUNTS[kind] if checkout.ui_lock else ())
+
+
+def own_sources(storage: Storage, kind: ImageKind, checkout: Checkout) -> dict[str, Path]:
     """Each of the image's own mounts, by its place in the container, with its source in the
     checkout's storage."""
-    sources = {VENV: storage.venv, DOCS_VENV: storage.docs_venv, VIEWER_PKG: storage.viewer_pkg}
-    return {place: sources[place] for place in OWN_MOUNTS[kind]}
+    sources = {
+        VENV: storage.venv, DOCS_VENV: storage.docs_venv, VIEWER_PKG: storage.viewer_pkg,
+        UI_MODULES: storage.ui_modules, UI_DIST: storage.ui_dist,
+    }
+    return {place: sources[place] for place in own_mounts(kind, checkout)}
 
 
-def own_binds(storage: Storage, kind: ImageKind, writable: tuple[str, ...]) -> list[str]:
+def own_binds(storage: Storage, kind: ImageKind, checkout: Checkout, writable: tuple[str, ...]) -> list[str]:
     """A bind of each of the image's own mounts from the checkout's storage, read-only unless its
     place is in `writable`."""
-    sources = own_sources(storage, kind).items()
+    sources = own_sources(storage, kind, checkout).items()
     return [a for place, source in sources for a in bind(source, place, place not in writable)]
 
 
-def own_dirs(kind: ImageKind) -> tuple[str, ...]:
+def own_dirs(kind: ImageKind, checkout: Checkout) -> tuple[str, ...]:
     """The image's own mounts as paths of the checkout: their mount points."""
-    return tuple(place.removeprefix(f"{WORK}/") for place in OWN_MOUNTS[kind])
+    return tuple(place.removeprefix(f"{WORK}/") for place in own_mounts(kind, checkout))
 
 
 def read_only_set(checkout: Checkout, storage: Storage, skip: tuple[str, ...], kind: ImageKind) -> list[str]:
@@ -116,7 +139,7 @@ def read_only_set(checkout: Checkout, storage: Storage, skip: tuple[str, ...], k
     binds = [bind(checkout.root / p, f"{WORK}/{p}", True) for p in checkout.read_only if p not in skip]
     # A bind from the storage stands in for what the host holds there, so that path is neither
     # masked nor hidden.
-    own = set(own_dirs(kind))
+    own = set(own_dirs(kind, checkout))
     masks = [mask(f"{WORK}/{p}") for p in checkout.masked if not covered(p, own)]
     blanks = [bind(storage.empty, f"{WORK}/{p}", True) for p in checkout.hidden if not covered(p, own)]
     return [a for mount in binds + masks + blanks for a in mount]
@@ -142,14 +165,22 @@ def network_delta(checkout: Checkout, storage: Storage, kind: ImageKind, writabl
             "UV_NO_CONFIG": "1",
         }),
         *bind(checkout.root, WORK, True), *read_only_set(checkout, storage, (".cargo",), kind), *cargo_mask,
-        *own_binds(storage, kind, writable),
+        *own_binds(storage, kind, checkout, writable),
         *bind(storage.cargo, CARGO_HOME, False), *bind(storage.uv, UV_CACHE, False),
     ]
 
 
+def bun_cache(storage: Storage, kind: ImageKind) -> list[str]:
+    """Bun's download cache, shared and writable, for the viewer image's fetch only. No other phase
+    mounts it, so a run never plants a package that another checkout's fetch would install."""
+    if kind is not ImageKind.VIEWER:
+        return []
+    return [*env_args({"BUN_INSTALL_CACHE_DIR": BUN_CACHE}), *bind(storage.bun, BUN_CACHE, False)]
+
+
 def fetch_delta(checkout: Checkout, storage: Storage, kind: ImageKind) -> list[str]:
-    """The network set with the venvs writable: the fetch installs into them."""
-    return network_delta(checkout, storage, kind, VENVS[kind])
+    """The network set with what the fetch installs into writable (`FETCH_WRITES`), and Bun's cache."""
+    return [*network_delta(checkout, storage, kind, FETCH_WRITES[kind]), *bun_cache(storage, kind)]
 
 
 def audit_delta(checkout: Checkout, storage: Storage, kind: ImageKind) -> list[str]:
@@ -172,7 +203,8 @@ def run_delta(checkout: Checkout, storage: Storage, kind: ImageKind) -> list[str
         }),
         *bind(checkout.root, WORK, False), *read_only_set(checkout, storage, (), kind),
         *placeholder_binds(checkout, storage),
-        *bind(storage.target, f"{WORK}/target", False), *own_binds(storage, kind, OWN_MOUNTS[kind]),
+        *bind(storage.target, f"{WORK}/target", False),
+        *own_binds(storage, kind, checkout, own_mounts(kind, checkout)),
         *bind(storage.cargo, CARGO_HOME, True),
     ]
 
@@ -188,12 +220,13 @@ def docker_args(
     return hardened_base(checkout, uid, gid, runtime, limits) + PHASE_DELTA[phase](checkout, storage, kind)
 
 
-def fetch_commands(kind: ImageKind) -> list[list[str]]:
+def fetch_commands(kind: ImageKind, checkout: Checkout) -> list[list[str]]:
     """The fetch phase, fixed here: it never runs make, a repository script, a build script or an
     sdist. `cargo fetch` builds nothing; `--no-build` lets uv install wheels only. The venv is made
     anew from the image's own CPython (`--managed-python`: the one under /opt/python), so the only
     interpreter the fetch executes is one no run has written. The viewer image also gets the docs
-    venv, from the hashed docs/requirements.txt, and the stamp `make docs-venv` checks."""
+    venv, from the hashed docs/requirements.txt, and the stamp `make docs-venv` checks, and, when the
+    checkout tracks ui/bun.lock, the browser interface's dependencies (`BUN_INSTALL`)."""
     venv = ["uv", "venv", "--managed-python", "--python", VENV_PYTHON, VENV]
     install = ["uv", "pip", "install", "--python", f"{VENV}/bin/python", "--no-build", "--group", CONTRIBUTOR_GROUP]
     base = [["cargo", "fetch", "--locked"], venv, install]
@@ -202,7 +235,8 @@ def fetch_commands(kind: ImageKind) -> list[list[str]]:
     docs_venv = ["uv", "venv", "--managed-python", "--python", VENV_PYTHON, DOCS_VENV]
     docs_install = ["uv", "pip", "install", "--python", f"{DOCS_VENV}/bin/python", "--no-build", "--require-hashes",
                     "-r", DOCS_REQUIREMENTS]
-    return [*base, docs_venv, docs_install, ["touch", f"{DOCS_VENV}/.ready"]]
+    ui = [BUN_INSTALL] if checkout.ui_lock else []
+    return [*base, docs_venv, docs_install, ["touch", f"{DOCS_VENV}/.ready"], *ui]
 
 
 def deny_command() -> list[str]:

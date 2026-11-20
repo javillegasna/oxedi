@@ -2,7 +2,6 @@
 //! type. Each one either keeps the value exactly or says why it cannot.
 
 use super::TimeUnit;
-use super::calendar::DAY_SECONDS;
 use std::fmt;
 
 /// The largest decimal scale a spec's `R` element takes;
@@ -10,9 +9,6 @@ use std::fmt;
 /// scaled by `10^scale` in a column of precision 38, so a scale of 18 still
 /// leaves 20 digits for the integer part.
 pub const MAX_SCALE: u8 = 18;
-
-/// Milliseconds in a day.
-const DAY_MILLIS: i64 = DAY_SECONDS * 1000;
 
 /// Why a value cannot become a cell of its column type without changing.
 #[derive(Debug, Clone, PartialEq)]
@@ -132,7 +128,8 @@ pub fn date_from_midnight(value: i64, unit: TimeUnit) -> Result<i32, ConvertErro
 
 /// Days since 1970-01-01 of a millisecond date (Arrow `Date64`).
 pub fn date_from_millis(millis: i64) -> Result<i32, ConvertError> {
-    let days = whole_units(millis, DAY_MILLIS).ok_or(ConvertError::NotWholeDay { millis })?;
+    let days = whole_units(millis, TimeUnit::Millisecond.ticks_per_day())
+        .ok_or(ConvertError::NotWholeDay { millis })?;
     i32::try_from(days).map_err(|_| ConvertError::DayOutOfRange { millis })
 }
 

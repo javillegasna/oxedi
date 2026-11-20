@@ -1,8 +1,8 @@
 use std::error::Error;
 
-use oxedi_core::ColumnType;
 use oxedi_core::column::{CellError, RowError};
 use oxedi_core::write::WriteError;
+use oxedi_core::{ColumnType, UnknownColumn, UnknownTable};
 
 use super::super::error::CopyError;
 use super::super::options::{DELIMITER_FIELDS, OPTIONS, REQUIRED};
@@ -178,13 +178,13 @@ fn not_rows() {
 
 #[test]
 fn unknown_table_reads_as_python() {
-    let error = CopyError::Write(WriteError::UnknownTable {
-        table: "nope".to_owned(),
+    let error = CopyError::Write(WriteError::UnknownTable(UnknownTable {
+        name: "nope".to_owned(),
         tables: vec!["claims".to_owned(), "payments".to_owned()],
-    });
+    }));
     assert_eq!(
         error.to_string(),
-        "edi835: table \"nope\" is not a table of the spec, whose tables are \"claims\", \
+        "edi835: table \"nope\" is not a table of the spec; its tables are \"claims\", \
          \"payments\""
     );
     assert!(error.source().is_none());
@@ -262,11 +262,11 @@ fn row_does_not_chain_its_source() {
 
 #[test]
 fn write_does_not_chain_its_source() {
-    let error = CopyError::Write(WriteError::UnknownColumn {
+    let error = CopyError::Write(WriteError::UnknownColumn(UnknownColumn {
         table: "claims".to_owned(),
         column: "nope".to_owned(),
         columns: vec!["row".to_owned(), "segment".to_owned()],
-    });
+    }));
     assert_eq!(
         error.to_string(),
         "edi835: table \"claims\" has no column \"nope\" in the spec; its columns are \"row\", \

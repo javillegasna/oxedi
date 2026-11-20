@@ -6,9 +6,9 @@ use crate::column::Cell;
 
 use super::emit::Emitter;
 use super::finding::{Finding, ValueOrigin};
-use super::refusal::place;
 use super::render::{Part, cell_text, write_segment};
 use super::trace::Src;
+use crate::message::place;
 
 impl Emitter<'_> {
     /// Adds the text of one cell, checked, as an element or component.
@@ -35,7 +35,7 @@ impl Emitter<'_> {
         let spec = self.spec;
         let max = || {
             spec.element_def(segment, element, component)
-                .and_then(|def| def.max)
+                .and_then(|def| def.length.max)
         };
         let start = self.texts.len();
         let written = cell_text(cell, data.kind(), max, &mut self.texts);

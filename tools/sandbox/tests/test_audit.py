@@ -161,6 +161,17 @@ class Audit(World):
         self.assertEqual(after_run[1], warning)
         self.assertIn("sandbox: the run left a new path .envrc\n", result.stderr)
 
+    def test_a_bunfig_or_npmrc_a_run_leaves_comes_first_in_the_report(self):
+        checkout = self.checkout("c", *TRACKED)
+        result = self.sandbox(checkout, FAKE_RUN_WRITES="mkdir -p ui && echo x > ui/bunfig.toml && echo x > .npmrc")
+        self.assertEqual(result.returncode, 3, result.stderr)
+        warning = (
+            "sandbox: do not run make or any tool in this checkout until you remove .npmrc, ui/bunfig.toml: "
+            "host tools load them by name (make reads GNUmakefile and makefile before Makefile)"
+        )
+        after_run = result.stderr[result.stderr.index("sandbox: run took"):].splitlines()
+        self.assertEqual(after_run[1], warning)
+
     def test_a_dirty_audit_blocks_the_next_start_until_the_paths_go(self):
         checkout = self.checkout("c", *TRACKED)
         writes = "echo edit >> src/lib.rs && echo x > .envrc && " + self.planted("marker")
@@ -186,7 +197,7 @@ class Audit(World):
     def test_an_unreadable_record_refuses(self):
         checkout = self.checkout("c", *TRACKED)
         self.assertEqual(self.sandbox(checkout).returncode, 0)
-        [own] = [p for p in (self.home / ".cache" / "oxedi-sandbox").iterdir() if p.name not in ("cargo", "uv")]
+        own = self.own(checkout)
         (own / "audit.json").write_text("[1]")
         result = self.sandbox(checkout)
         self.assertEqual(result.returncode, 2, result.stderr)

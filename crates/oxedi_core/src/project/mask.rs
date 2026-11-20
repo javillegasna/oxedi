@@ -35,8 +35,8 @@ use crate::element::Element;
 use crate::mask::{DateMode, Mask, Phi};
 use crate::segment::Segment;
 use crate::spec::Spec;
-use crate::value::civil_from_days;
 use crate::value::parse_dt;
+use crate::value::{civil_from_days, year_start};
 
 use super::plan::Plans;
 use super::quote::unquoted;
@@ -266,7 +266,7 @@ impl<'s> Projector<'s> {
 /// keyed token of the datum when it is not a date or its year start has no
 /// civil form.
 pub(super) fn date_datum(mask: &Mask, days: Option<i32>, datum: &[u8]) -> Vec<u8> {
-    match days.and_then(Mask::year_start).and_then(civil_from_days) {
+    match days.and_then(year_start).and_then(civil_from_days) {
         Some((year, month, day)) => format!("{year:04}{month:02}{day:02}").into_bytes(),
         None => mask.text(Phi::Date, datum).to_vec(),
     }
@@ -278,9 +278,9 @@ pub(super) fn date_datum(mask: &Mask, days: Option<i32>, datum: &[u8]) -> Vec<u8
 pub(super) fn masked_date(dates: DateMode, days: i32, shift: Option<i32>) -> Option<i32> {
     match dates {
         DateMode::Keep => Some(days),
-        DateMode::Year => Mask::year_start(days),
+        DateMode::Year => year_start(days),
         DateMode::Shift => shift
             .and_then(|shift| days.checked_add(shift))
-            .or_else(|| Mask::year_start(days)),
+            .or_else(|| year_start(days)),
     }
 }

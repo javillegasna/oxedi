@@ -186,7 +186,7 @@ statement error
 COPY (SELECT {'claims': list(c), 'nope': list(c)} FROM claims c) TO '__TEST_DIR__/options.835'
     (FORMAT edi835, sender_id 'SENDER', receiver_id 'RECEIVER', date '2024-01-02', time '10:30');
 ----
-edi835: table "nope" is not a table of the spec, whose tables are "adjustments", "claims", "payments", "provider_adjustments", "services"
+edi835: table "nope" is not a table of the spec; its tables are "adjustments", "claims", "payments", "provider_adjustments", "services"
 
 statement error
 COPY (SELECT {'claims': list({'claim_id': c.claim_id, 'nope': 1})} FROM claims c)

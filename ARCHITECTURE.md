@@ -45,7 +45,8 @@ flowchart LR
 
 1. `Document::parse` (`document/`) reads the delimiters from the ISA header
    (`Delimiters::from_isa_after_leading_trivia`, `delimiters/`, which splits off the leading
-   byte order mark and whitespace with `trivia/`), then cuts the input into frames (`frame/`),
+   byte order mark and whitespace with `trivia/`), then cuts the input into frames (`frame/`, which
+   takes the segment terminator and the release byte, not the delimiters),
    one per segment. It keeps the input and one span per segment; a segment
    is parsed only when asked for. `Tokenizer` (`tokenizer/`) yields the same segments lazily,
    for streaming.
@@ -91,7 +92,11 @@ up by transaction and version.
   built at the start of each call. A spec that cannot be written is refused with a `PlanError`
   holding every `Refusal` (`write/refusal.rs`).
 - **Write the tables.**
-  1. `bind` (`write/data.rs`) matches the caller's tables and columns to the spec's.
+  1. `bind` (`write/data.rs`) matches the caller's tables and columns to the spec's; a table the
+     spec does not define comes from `Spec::require_table` as `UnknownTable`, and a column it does
+     not have is an `UnknownColumn` from `spec::require_column` over `table_columns` (both errors in
+     `spec/unknown.rs`, held by `WriteError`). `TableDef::require_column` is the same lookup over
+     the declared columns only; the bindings call these instead of searching.
   2. `nest` (`write/nest.rs`) nests the rows under their parent rows by their reference columns.
   3. `Layout::new` (`write/layout.rs`) works out the order of segments and loops.
   4. `Emitter::run` (`write/emit.rs`) walks the loops and writes the bytes, recording which
@@ -153,7 +158,8 @@ Every key is listed in [the spec keys reference](docs/customize/spec.md#spec-key
 |---|---|---|
 | Add a column to a built-in table | `tables.<table>.columns` in `crates/oxedi_core/specs/835.json` | `UPDATE_GOLDEN=1 cargo test -p oxedi_core --test project_golden`, review the diff; document it in `docs/reference/tables.md` |
 | Add a key to the spec format | a row in the object's `spec_object!` declaration in `spec/model/` (field, model type, raw type when it differs, `Field`, presence word); for `ELEMENT` and `SUMMARY`, `spec/raw.rs`, the model (and, for `ELEMENT`, `ELEMENT_MODEL_KEYS` in `spec/model/segments.rs`), `spec/sections.rs` and `every_key_model` in `spec/tests/model_sync.rs`; `spec/shape.rs` only for a new kind of leaf | Compile it in `spec/build.rs` or `spec/compile.rs`; a new error in `spec/error.rs` (`SpecError`), or in `occurrence_error.rs`, `table_error.rs` or `balance_error.rs` when it is about one of those, with its `Display` test in `spec/tests/`; add the key to `docs/customize/spec.md`; a closed word goes in `spec/vocabulary.rs` |
-| Add a diagnostic rule | `diagnostic/rule.rs` (`Rule` variant, `level`, `kind`, and `segment_id` when the rule is about one segment's elements, so its datum can be masked) and `diagnostic/display.rs` (message, written over the pieces of `diagnostic/text.rs`) | Raise it in `check/` (structure) or `project/check.rs` (elements); a full-text `Display` test in `diagnostic/tests.rs` |
+| Change how a message names an element, a set of conditions or a list of names, or quotes file bytes or a key | `message/mod.rs` | `message/tests.rs`; the `Display` tests of the messages that use it |
+| Add a diagnostic rule | `diagnostic/rule.rs` (`Rule` variant, `level`, `kind`, and `segment_id` when the rule is about one segment's elements, so its datum can be masked) and `diagnostic/display.rs` (message, written over the pieces of `diagnostic/text.rs` and `message/`) | Raise it in `check/` (structure) or `project/check.rs` (elements); a full-text `Display` test in `diagnostic/tests.rs` |
 | Change an element check | `project/check.rs` | `cargo test -p oxedi_core --lib project::`, then both golden suites |
 | Change how loops are recognized | `engine/mod.rs` | `cargo test -p oxedi_core --test engine_golden` and `--test engine_invariants` |
 | Change what a caller's value may become on write (integers, decimals, dates, times) | `value/convert.rs` (`ConvertError`), `value/unit.rs` (`TimeUnit`), `value/calendar.rs` | Bindings call it and add no rule of their own; test in `value/tests/` |
@@ -181,6 +187,7 @@ The same concept, named in each binding. The Rust files are under `crates/oxedi_
 | Choose the spec (`Builtin::select`, `Builtin::find`) | `Spec.builtin("4010")`, `Spec.from_json`, `Spec.patch` (`spec.rs`) | `version := '4010'` (`builtins/`, `BuiltinTable`) | by the file's declared version |
 | Tables (`Tables`, `Table`) | `Result.tables`, `Table.to_polars()` (`tables.rs`, `arrow.rs`) | the rows of `table_name` (`scan/`, `types/`) | `View.tables` (`TableView`, `ColumnView`) |
 | Table schema (`spec_schema`, `spec/schema.rs`) | `Spec.schema()` | `oxedi_schema()` (`oxedi_schema/`) | — |
+| Column source (`TableDef::column`, `ColumnSource`) | `Spec.column_source(table, column)` → `ElementSource` (`element_source.rs`) | — | — |
 | Diagnostics (`Diagnostic`) | `Result.diagnostics`, `Diagnostic.kind`, `.rule`, `.datum` (`diagnostic.rs`, reading `Diagnostic::flat`) | `table_name := 'diagnostics'` (`diagnostics/`) | `View.diagnostics` (`DiagnosticView`) |
 | Segments (`Document`, `Segment`) | `Result.document[i]`, `Segment.element(position, component)`, `Segment.has(...)` over `Segment::component` (`document.rs`) | — | `View.segments` (`SegmentView`) |
 | Summaries (`summarize`, `Spec::summaries`) | `Result.count_claims()`, `count_patients()`, `sum_payments()`, `.payer`, `.payee` (`native.rs`) | — | — |
@@ -235,7 +242,7 @@ Internal words used in the code. X12 and payment terms for users are in
 
 | Term | Meaning | Where |
 |---|---|---|
-| frame | The byte range of one segment, found knowing only the delimiters. | `frame/` |
+| frame | The byte range of one segment, found knowing only the segment terminator and the release byte (`SegmentEnd`). | `frame/` |
 | document | The whole input plus one span per segment; segments parsed on demand. | `document/` |
 | spec | The JSON description of loops, segments, tables and balancing, compiled to index-based definitions. | `spec/`, `specs/*.json` |
 | spec model | The spec as typed data a program builds and writes, shared with the loader. | `spec/model/` |

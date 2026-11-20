@@ -16,10 +16,9 @@ pub struct ElementDef {
     pub kind: ElementType,
     /// `true` when the element must be present and non-empty.
     pub required: bool,
-    /// Minimum length, when the spec sets one.
-    pub min: Option<usize>,
-    /// Maximum length, when the spec sets one.
-    pub max: Option<usize>,
+    /// Lengths the element allows, as the spec sets them; a bound the spec
+    /// leaves out is not checked.
+    pub length: LengthRange,
     /// Components by 1-based position; empty for a simple element.
     pub composite: BTreeMap<usize, ElementDef>,
     /// The values the element may hold, sorted by their bytes; empty when
@@ -107,7 +106,7 @@ pub enum ElementDefError {
         /// The code's 0-based index in `codes` as written.
         index: usize,
     },
-    /// A code's length is outside the element's `min` and `max`.
+    /// A code's length is outside the element's allowed lengths.
     CodeLength {
         /// The code's 0-based index in `codes` as written.
         index: usize,
@@ -115,10 +114,8 @@ pub enum ElementDefError {
         code: String,
         /// Its length, counted as the element check counts it.
         length: usize,
-        /// The element's minimum length.
-        min: Option<usize>,
-        /// The element's maximum length.
-        max: Option<usize>,
+        /// The lengths the element allows.
+        allowed: LengthRange,
     },
     /// A code is listed more than once.
     DuplicateCode {
@@ -190,15 +187,10 @@ impl fmt::Display for ElementDefError {
                 index,
                 code,
                 length,
-                min,
-                max,
+                allowed,
             } => write!(
                 f,
-                "code {code:?} at codes[{index}] has length {length}; the element allows {}",
-                LengthRange {
-                    min: *min,
-                    max: *max
-                }
+                "code {code:?} at codes[{index}] has length {length}; the element allows {allowed}"
             ),
             ElementDefError::DuplicateCode {
                 code,
@@ -306,11 +298,15 @@ fn claim_name<'r>(
 /// and whether it may declare a composite (`component` when it is one).
 fn compile_element(def: &RawElement, component: bool) -> Result<ElementDef, ElementDefError> {
     let kind = element_type(&def.kind, def.scale)?;
-    check_lengths(def.min, def.max)?;
+    let length = LengthRange {
+        min: def.min,
+        max: def.max,
+    };
+    check_lengths(length)?;
     let composite = !def.composite.is_empty();
     let codes = match &def.codes {
         None => Vec::new(),
-        Some(codes) => compile_codes(codes, kind, def.min, def.max, composite)?,
+        Some(codes) => compile_codes(codes, kind, length, composite)?,
     };
     if composite {
         composite_allowed(kind, component)?;
@@ -319,8 +315,7 @@ fn compile_element(def: &RawElement, component: bool) -> Result<ElementDef, Elem
         name: def.name.clone(),
         kind,
         required: def.required,
-        min: def.min,
-        max: def.max,
+        length,
         composite: BTreeMap::new(),
         codes,
     })
@@ -339,8 +334,8 @@ fn element_type(code: &str, scale: Option<u8>) -> Result<ElementType, ElementDef
 
 /// Checks `min` and `max`: a `max` of 0 admits no value, and `min` may not
 /// pass `max`.
-fn check_lengths(min: Option<usize>, max: Option<usize>) -> Result<(), ElementDefError> {
-    match (min, max) {
+fn check_lengths(length: LengthRange) -> Result<(), ElementDefError> {
+    match (length.min, length.max) {
         (_, Some(0)) => Err(ElementDefError::ZeroMax),
         (Some(min), Some(max)) if min > max => Err(ElementDefError::MinAboveMax { min, max }),
         _ => Ok(()),
@@ -360,13 +355,12 @@ fn composite_allowed(kind: ElementType, component: bool) -> Result<(), ElementDe
 }
 
 /// Validates a code list against its element (of type `kind`, with lengths
-/// `min` and `max`, declaring a composite when `composite`) and returns it
+/// `length`, declaring a composite when `composite`) and returns it
 /// sorted by bytes, the order the element check searches.
 pub(super) fn compile_codes(
     codes: &[String],
     kind: ElementType,
-    min: Option<usize>,
-    max: Option<usize>,
+    length: LengthRange,
     composite: bool,
 ) -> Result<Vec<String>, ElementDefError> {
     codes_apply(kind, composite)?;
@@ -378,13 +372,12 @@ pub(super) fn compile_codes(
         if code.is_empty() {
             return Err(ElementDefError::EmptyCode { index });
         }
-        if !kind.length_in_range(code.as_bytes(), LengthRange { min, max }) {
+        if !kind.length_in_range(code.as_bytes(), length) {
             return Err(ElementDefError::CodeLength {
                 index,
                 code: code.clone(),
                 length: kind.length_of(code.as_bytes()),
-                min,
-                max,
+                allowed: length,
             });
         }
         if let Some(first) = seen.insert(code.as_str(), index) {

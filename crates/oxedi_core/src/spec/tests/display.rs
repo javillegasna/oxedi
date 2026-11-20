@@ -413,3 +413,30 @@ fn summary_errors_display_the_summary_and_the_reason() {
          are: claims, payments"
     );
 }
+
+#[test]
+fn unknown_table_display() {
+    let error = UnknownTable {
+        name: "nope".to_owned(),
+        tables: vec!["claims".to_owned(), "services".to_owned()],
+    };
+    assert_eq!(
+        error.to_string(),
+        "table \"nope\" is not a table of the spec; its tables are \"claims\", \"services\""
+    );
+    assert!(std::error::Error::source(&error).is_none());
+}
+
+#[test]
+fn unknown_column_display() {
+    let error = UnknownColumn {
+        table: "claims".to_owned(),
+        column: "nope".to_owned(),
+        columns: vec!["id".to_owned(), "status".to_owned()],
+    };
+    assert_eq!(
+        error.to_string(),
+        "table \"claims\" has no column \"nope\" in the spec; its columns are \"id\", \"status\""
+    );
+    assert!(std::error::Error::source(&error).is_none());
+}

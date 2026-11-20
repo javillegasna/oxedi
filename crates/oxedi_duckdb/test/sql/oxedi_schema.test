@@ -273,10 +273,18 @@ oxedi_schema: binary must not be NULL; leave it out to use its default
 
 # ---- inside a table macro, as for read_835 ----
 
-statement error
+# A bare parameter given with := is substituted by newer DuckDB versions; older ones refuse the
+# macro with this message. Each statement allows exactly those two outcomes.
+
+statement maybe
 CREATE MACRO schema_pinned(v) AS TABLE SELECT * FROM oxedi_schema(version := v);
 ----
-oxedi_schema: version must be a constant string; a table macro passed its parameter "v" as "0_macro_parametersschema_pinned.v"; DuckDB does not substitute a macro parameter given with := or =>, so write version = v
+oxedi_schema: version must be a constant string; a table macro passed its parameter "v" as "0_macro_parametersschema_pinned.v"; this DuckDB version does not substitute a macro parameter given with := or =>, so write version = v
+
+statement maybe
+SELECT CASE WHEN count(*) = 28 THEN 1 ELSE error('schema_pinned did not forward the version') END FROM schema_pinned('4010') WHERE table_name = 'claims';
+----
+Table Function with name schema_pinned does not exist
 
 statement ok
 CREATE MACRO schema_of(v) AS TABLE SELECT * FROM oxedi_schema(version := v::VARCHAR);

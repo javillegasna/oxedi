@@ -256,14 +256,15 @@ const fn offset(at: u32) -> usize {
 /// length does; an offset that does not fails with the length's [`SizeError`].
 fn index(bytes: &[u8], delims: &Delimiters) -> Result<Vec<Body>, SizeError> {
     let to_u32 = |at: usize| u32::try_from(at).map_err(|_| SizeError { len: bytes.len() });
+    let end = delims.segment_end();
     let mut bodies = Vec::new();
     let mut rest = bytes;
     let mut raw_start = 0;
     loop {
         let split = if raw_start == 0 {
-            first_frame(rest, delims)
+            first_frame(rest, end)
         } else {
-            next_frame(rest, delims)
+            next_frame(rest, end)
         };
         let Some((frame, next)) = split else {
             break;

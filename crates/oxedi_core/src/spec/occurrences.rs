@@ -6,11 +6,12 @@ use std::collections::BTreeMap;
 
 use super::error::SpecError;
 use super::loops::Trigger;
-use super::occurrence_error::{OccurrenceError, place};
+use super::occurrence_error::OccurrenceError;
 use super::raw::{RawOccurrence, RawQualifier};
-use super::render::{render_key, render_trigger};
+use super::render::render_trigger;
 use super::segments::{ElementDef, ElementDefError, SegmentDef, compile_codes, holds_code};
 use super::vocabulary::{ElementPosition, Vocabulary};
+use crate::message::{place, render_key};
 use crate::segment::Segment;
 
 /// Whether an occurrence must appear in every instance of its loop.
@@ -121,7 +122,7 @@ pub(super) fn element_def<'d>(
 /// Validates a code list against the element it is for, with the checks an
 /// element's own `codes` gets, and returns it sorted by bytes.
 fn element_codes(def: &ElementDef, codes: &[String]) -> Result<Vec<String>, ElementDefError> {
-    compile_codes(codes, def.kind, def.min, def.max, !def.composite.is_empty())
+    compile_codes(codes, def.kind, def.length, !def.composite.is_empty())
 }
 
 /// Reads a `codes` key: `<element>` or `<element>-<component>`.

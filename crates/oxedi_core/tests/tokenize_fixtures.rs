@@ -17,8 +17,9 @@ const ENVELOPED: &[(&str, usize)] = &[
 const FRAGMENT: (&str, usize) = ("blue_cross_nc_sample.txt", 32);
 
 fn count_frames(mut input: &[u8], delims: &Delimiters) -> usize {
+    let end = delims.segment_end();
     let mut n = 0;
-    while let Some((_, rest)) = next_frame(input, delims) {
+    while let Some((_, rest)) = next_frame(input, end) {
         n += 1;
         input = rest;
     }

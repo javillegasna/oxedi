@@ -125,7 +125,7 @@ fn macro_parameter() {
         }
         .to_string(),
         "oxedi_schema: version must be a constant string; a table macro passed its parameter \
-         \"ver\" as \"0_macro_parametersm.ver\"; DuckDB does not substitute a macro parameter \
+         \"ver\" as \"0_macro_parametersm.ver\"; this DuckDB version does not substitute a macro parameter \
          given with := or =>, so write version = ver"
     );
 }
@@ -139,7 +139,7 @@ fn macro_parameter_without_a_name() {
         }
         .to_string(),
         "oxedi_schema: version must be a constant string; a table macro passed a parameter as \
-         \"0_macro_parametersm.a.b\"; DuckDB does not substitute a macro parameter given with \
+         \"0_macro_parametersm.a.b\"; this DuckDB version does not substitute a macro parameter given with \
          := or =>, so write version = <the parameter>"
     );
 }

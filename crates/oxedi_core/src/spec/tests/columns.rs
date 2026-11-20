@@ -47,8 +47,7 @@ fn a_column_names_an_occurrence_of_its_anchor_or_of_a_loop_above_with_a_pick() {
     )
     .unwrap();
     let a = spec.loop_id("A").unwrap();
-    let columns = &spec.table("t").unwrap().columns;
-    let source = |name: &str| &columns.iter().find(|(n, _)| n == name).unwrap().1;
+    let source = |name: &str| spec.table("t").unwrap().column(name).unwrap();
     assert_eq!(
         source("own"),
         &ColumnSource::Element {
@@ -275,4 +274,17 @@ fn the_built_in_claims_cannot_read_the_transaction_after_the_claims() {
         err.to_string(),
         "applying patch: table \"claims\" column \"plb\": occurrence \"provider_adjustment\" (position 30100) of loop \"transaction\" comes after anchor loop \"2100\" opens (position 20100): its segments arrive after the rows are appended, so the column never fills"
     );
+}
+
+#[test]
+fn a_table_finds_a_declared_column_by_name() {
+    let spec = Spec::builtin_835();
+    let table = spec.table("claims").unwrap();
+    assert!(matches!(
+        table.column("claim_id"),
+        Some(ColumnSource::Element { segment, element: 1, component: None, .. }) if segment == b"CLP"
+    ));
+    assert!(table.column("row").is_none());
+    assert!(table.column("claim").is_none());
+    assert!(table.column("nope").is_none());
 }

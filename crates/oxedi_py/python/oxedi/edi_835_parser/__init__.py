@@ -3,7 +3,7 @@
 from ._sets import (
     TransactionSet, TransactionSets, parse, parse_bytes, parse_file_obj, parse_many,
 )
-from ._tables import spec
+from ._patch import spec
 
 __all__ = [
     "TransactionSet", "TransactionSets", "parse", "parse_bytes", "parse_file_obj",

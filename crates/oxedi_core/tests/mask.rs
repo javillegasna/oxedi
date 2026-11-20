@@ -8,10 +8,18 @@ mod common;
 
 use std::collections::BTreeSet;
 
+use oxedi_core::value::{date_display, days_from_civil};
 use oxedi_core::{Cell, DateMode, Diagnostic, Document, Mask, Phi, Processor, Spec, Table, Tables};
 
 const KEY: &[u8] = b"oxedi-test-key-0";
 const OTHER_KEY: &[u8] = b"oxedi-test-key-1";
+
+/// January 1 of the year of `days`, read from the date's `CCYY-MM-DD` form;
+/// `None` for a day outside the years 1..=9999.
+fn year_start(days: i32) -> Option<i32> {
+    let year = date_display(days).get(..4)?.parse().ok()?;
+    days_from_civil(year, 1, 1)
+}
 
 /// Every file with its bytes, its spec, and its unmasked and masked runs.
 fn runs(
@@ -81,11 +89,7 @@ fn a_mask_keeps_the_shape_and_every_column_it_does_not_flag() {
                                 );
                             }
                             (Some(Phi::Date), Cell::Date32(days)) => {
-                                assert_eq!(
-                                    now,
-                                    Cell::Date32(Mask::year_start(days).unwrap()),
-                                    "{at}"
-                                );
+                                assert_eq!(now, Cell::Date32(year_start(days).unwrap()), "{at}");
                             }
                             (Some(kind), other) => panic!("{at}: {kind:?} column holds {other:?}"),
                         }
@@ -188,7 +192,7 @@ fn originals(spec: &Spec, plain: &Tables) -> Vec<Original> {
                     Some(Cell::Date32(days)) => {
                         let rendered = data.render(row).unwrap();
                         push(rendered.replace('-', ""), row);
-                        if Mask::year_start(days) != Some(days) {
+                        if year_start(days) != Some(days) {
                             push(rendered, row);
                         }
                     }
@@ -474,7 +478,7 @@ fn shifted_dates_equal_their_own_date_plus_the_rows_offset() {
                             seeded += 1;
                             was + mask.shift_days(seed)
                         }
-                        None => Mask::year_start(was).unwrap(),
+                        None => year_start(was).unwrap(),
                     };
                     assert_eq!(
                         now, expected,

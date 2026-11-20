@@ -17,3 +17,5 @@
 /docs/requirements.txt @javillegasna
 **/build.rs @javillegasna
 /rust-toolchain.toml @javillegasna
+**/package.json @javillegasna
+**/bun.lock @javillegasna

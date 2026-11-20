@@ -1,6 +1,7 @@
 //! Table definitions and their errors.
 
 use super::{TABLED, table_error};
+use crate::spec::render::Declared;
 use crate::spec::*;
 
 #[test]
@@ -774,4 +775,29 @@ fn table_errors_display_the_table_the_column_and_every_reason() {
         );
         assert!(std::error::Error::source(&in_table).is_none());
     }
+}
+
+#[test]
+fn table_names_lists_the_tables_in_spec_order() {
+    let spec = Spec::builtin_835();
+    let expected: Vec<String> = spec.tables().iter().map(|t| t.name.clone()).collect();
+    assert!(!expected.is_empty());
+    assert_eq!(spec.table_names(), expected);
+}
+
+#[test]
+fn require_table_returns_the_table_or_the_error() {
+    let spec = Spec::builtin_835();
+    let default = spec.default_table().unwrap();
+    assert_eq!(spec.require_table(default).unwrap().name, default);
+    let error = spec.require_table("nope").unwrap_err();
+    assert_eq!(error.name, "nope");
+    assert_eq!(error.tables, spec.table_names());
+}
+
+#[test]
+fn declared_occurrences_are_listed_or_none_is_said() {
+    assert_eq!(Declared(&[]).to_string(), "it declares none");
+    let known = ["a".to_string(), "b".to_string()];
+    assert_eq!(Declared(&known).to_string(), "it declares \"a\", \"b\"");
 }

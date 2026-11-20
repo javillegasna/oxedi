@@ -4,8 +4,7 @@
 # how). Measured: crates/*/src (Rust), crates/*/python and crates/*/scripts (Python) and
 # viewer/js. Not measured: tests (tests/, test/, tests.rs), benches, examples, the tooling under
 # .github/ and tools/, docs/ and viewer/tests, and anything git does not track (target/, site/,
-# viewer/pkg/) or that is not a source file (the generated .pyi stubs). Files named *_tests.rs
-# are not measured for complexity either.
+# viewer/pkg/) or that is not a source file (the generated .pyi stubs).
 # The duplicate check reads every tracked .rs, .py, .js, .mjs and .cjs file, tests, benches,
 # examples and tooling included, and fails on any copied block.
 # A baseline function the change modifies must end within the targets. The change is measured
@@ -44,7 +43,7 @@ trap 'rm -f "$files" "$all"' EXIT
 
 git ls-files -- \
   'crates/*/src/*.rs' 'crates/*/python/*.py' 'crates/*/scripts/*.py' 'viewer/js/*.js' \
-  | grep -vE '(^|/)tests?(/|\.rs$)|_tests\.rs$' > "$files"
+  | grep -vE '(^|/)tests?(/|\.rs$)' > "$files"
 git ls-files -- '*.rs' '*.py' '*.js' '*.mjs' '*.cjs' > "$all"
 
 uvx --python "$PYTHON_VERSION" --from "lizard==$LIZARD_VERSION" \

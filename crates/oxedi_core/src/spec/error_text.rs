@@ -4,6 +4,7 @@
 use std::fmt;
 
 use super::error::SpecError;
+use crate::message::Conditions;
 
 /// The parent of sibling loops as a message names it: quoted, or `the root`.
 pub(super) struct Under<'a>(pub(super) Option<&'a str>);
@@ -38,14 +39,7 @@ pub(super) fn write_ambiguous(
         "loops {first:?} and {second:?} under {} share the identical trigger {segment:?}",
         Under(parent)
     )?;
-    if conditions.is_empty() {
-        return Ok(());
-    }
-    let conditions: Vec<String> = conditions
-        .iter()
-        .map(|(position, value)| format!("{position}: {value:?}"))
-        .collect();
-    write!(f, " where {{{}}}", conditions.join(", "))
+    write!(f, "{}", Conditions(conditions))
 }
 
 impl std::error::Error for SpecError {

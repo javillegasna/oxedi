@@ -1,58 +1,16 @@
-//! The pieces the rule messages are written from: an element reference, the
+//! The pieces the rule messages are written from: the
 //! segment that opened a loop, lists cut at a limit, counts and amounts, and
 //! who reported an external finding. Each is a small value with its own
 //! `Display`, so a message is one `write!` over them.
 
 use std::fmt;
 
-use super::Quoted;
+use crate::message::{MAX_LISTED_CODES, Quoted};
 use crate::value::decimal_display;
-
-/// The longest code or name list a message spells out; longer lists keep
-/// the count.
-pub(super) const MAX_LISTED_CODES: usize = 5;
 
 /// The most segment indexes a balancing message spells out; a longer list
 /// ends with the count of the rest.
 pub(super) const MAX_LISTED_SEGMENTS: usize = 10;
-
-/// An element reference in X12 style: `CLP01`, or `SVC01-2` for a component.
-pub(super) struct ElementRef<'a> {
-    segment_id: &'a [u8],
-    element: usize,
-    component: Option<usize>,
-}
-
-impl<'a> ElementRef<'a> {
-    /// A simple element, or a component when `component` is `Some`.
-    pub(super) fn new(segment_id: &'a [u8], element: usize, component: Option<usize>) -> Self {
-        ElementRef {
-            segment_id,
-            element,
-            component,
-        }
-    }
-
-    /// A simple element.
-    pub(super) fn simple(segment_id: &'a [u8], element: usize) -> Self {
-        ElementRef::new(segment_id, element, None)
-    }
-}
-
-impl fmt::Display for ElementRef<'_> {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(
-            f,
-            "{}{:02}",
-            String::from_utf8_lossy(self.segment_id),
-            self.element
-        )?;
-        match self.component {
-            Some(component) => write!(f, "-{component}"),
-            None => Ok(()),
-        }
-    }
-}
 
 /// The segment that opened a loop, before the rest of the sentence:
 /// `opened at segment #2 `, or nothing when the loop opened implicitly.

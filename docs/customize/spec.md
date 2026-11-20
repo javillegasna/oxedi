@@ -91,6 +91,16 @@ print(services.select("row", pl.col("claim_id", "procedure_code").cast(pl.String
 └─────┴──────────┴────────────────┘
 ```
 
+`Spec.column_source(table, column)` says which segment, element and component a column reads, as the spec resolved it:
+
+```python
+print(spec.column_source("services", "claim_id"))
+```
+
+```text
+ElementSource(segment=b'CLP', element=1, component=None)
+```
+
 ??? note "Details: when the segment repeats"
     When an occurrence repeats, `pick` chooses `"first"` (the default), `"last"` or the n-th
     match, counting from 1. It chooses among the segments read while the row's loop instance

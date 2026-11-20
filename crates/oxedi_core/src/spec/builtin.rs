@@ -5,6 +5,7 @@ use std::sync::{Arc, OnceLock};
 
 use super::Spec;
 use super::version::chosen;
+use crate::message::render_names;
 use crate::segment::Segment;
 
 /// An X12 release a built-in spec covers. It is not specific to one
@@ -147,8 +148,7 @@ impl fmt::Display for UnknownVersion {
                 self.transaction
             );
         }
-        let known: Vec<String> = self.known.iter().map(|name| format!("{name:?}")).collect();
-        write!(f, "version must be one of {}", known.join(", "))
+        write!(f, "version must be one of {}", render_names(&self.known))
     }
 }
 

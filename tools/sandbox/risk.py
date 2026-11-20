@@ -44,7 +44,8 @@ class Kind(Enum):
         return self.value
 
 
-MANIFEST_NAMES = frozenset({"Cargo.toml", "Cargo.lock", "pyproject.toml", "uv.toml", ".python-version"})
+MANIFEST_NAMES = frozenset({"Cargo.toml", "Cargo.lock", "pyproject.toml", "uv.toml", ".python-version",
+                            "package.json", "bun.lock", "bunfig.toml", ".npmrc"})
 MANIFEST_PATTERNS = ("requirements*.txt", "rust-toolchain*")
 SCRIPT_PATTERNS = ("*.sh", "*.py", "*.mjs", "*.js")
 # The crates' own sources, the Python package's modules included: library code, not scripts. They

@@ -58,8 +58,9 @@ COPY (SELECT * FROM read_835('remits/*.835', table_name := 'claims')) TO 'claims
 
 !!! note "Forwarding a macro parameter"
     Inside a macro with a literal path, forward the parameter with `=`, as in
-    `table_name = tbl`. DuckDB does not substitute a macro parameter given with `:=` or `=>`,
-    so `read_835` refuses it when the macro is created.
+    `table_name = tbl`; it works in every DuckDB version. Newer versions also substitute a
+    parameter given with `:=` or `=>`; older ones do not, and `read_835` refuses it when the
+    macro is created.
 
     ```sql
     CREATE MACRO remit_table(tbl) AS TABLE

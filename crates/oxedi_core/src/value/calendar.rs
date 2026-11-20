@@ -114,6 +114,12 @@ pub fn seconds_of_day(hour: i32, minute: i32, second: i32) -> Option<i32> {
     in_range.then(|| hour * 3600 + minute * 60 + second)
 }
 
+/// Hour, minute and second of a time of day the caller already checked with
+/// `time_of_day`.
+pub(crate) const fn clock(seconds: i32) -> (i32, i32, i32) {
+    (seconds / 3600, seconds / 60 % 60, seconds % 60)
+}
+
 /// `seconds` when it is a time of day (one day of seconds), else `None`.
 pub fn time_of_day(seconds: i64) -> Option<i32> {
     (0..DAY_SECONDS)

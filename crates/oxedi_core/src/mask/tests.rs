@@ -94,11 +94,6 @@ fn shift_days_matches_the_formula_for_two_known_pairs() {
     }
 }
 
-#[test]
-fn year_start_has_no_value_before_the_i32_range() {
-    assert_eq!(Mask::year_start(i32::MIN), None);
-}
-
 proptest! {
     #![proptest_config(ProptestConfig::with_cases(4096))]
     #[test]
@@ -108,16 +103,6 @@ proptest! {
         prop_assert!((-182..=182).contains(&d));
         prop_assert_eq!(d, mask.shift_days(&seed));
     }
-}
-
-#[test]
-fn year_start_known_dates() {
-    assert_eq!(Mask::year_start(19_800), Some(19_723)); // 2024-03-18
-    assert_eq!(Mask::year_start(10_956), Some(10_592)); // 1999-12-31
-    assert_eq!(Mask::year_start(0), Some(0));
-    assert_eq!(Mask::year_start(-165), Some(-365)); // 1969-07-20
-    assert_eq!(Mask::year_start(11_016), Some(10_957)); // 2000-02-29
-    assert_eq!(Mask::year_start(-25_508), Some(-25_567)); // 1900-03-01
 }
 
 #[test]

@@ -6,7 +6,7 @@ use std::fmt;
 use std::iter;
 
 use super::ColumnType;
-use super::calendar::{civil_from_days, time_of_day};
+use super::calendar::{civil_from_days, clock, time_of_day};
 
 /// The most decimal digits a `u128` has, and so an `i128`'s magnitude.
 const MAX_DIGITS: usize = 39;
@@ -130,12 +130,8 @@ pub fn time_display(seconds: i32) -> String {
     if time_of_day(i64::from(seconds)).is_none() {
         return format!("time32({seconds})");
     }
-    format!(
-        "{:02}:{:02}:{:02}",
-        seconds / 3600,
-        seconds / 60 % 60,
-        seconds % 60
-    )
+    let (hours, minutes, rest) = clock(seconds);
+    format!("{hours:02}:{minutes:02}:{rest:02}")
 }
 
 /// A date (days since 1970-01-01) as an element holds it: `CCYYMMDD`, or
@@ -164,7 +160,7 @@ pub fn time_element(seconds: i32, max: Option<usize>) -> Result<Vec<u8>, Element
     if time_of_day(i64::from(seconds)).is_none() {
         return Err(ElementTextError::TimeOutsideDay);
     }
-    let (hours, minutes, rest) = (seconds / 3600, seconds / 60 % 60, seconds % 60);
+    let (hours, minutes, rest) = clock(seconds);
     if rest == 0 {
         return Ok(format!("{hours:02}{minutes:02}").into_bytes());
     }

@@ -58,9 +58,10 @@ impl SharedDocument {
         let bytes: Arc<[u8]> = Arc::from(bytes);
         let start = bytes.iter().position(|&b| !is_trivia(b)).unwrap_or(0);
         let delims = Delimiters::from_isa(&bytes[start..]).expect("sample has an ISA");
+        let end = delims.segment_end();
         let mut spans = Vec::new();
         let (mut rest, mut offset) = (&bytes[..], 0);
-        while let Some((frame, next)) = next_frame(rest, &delims) {
+        while let Some((frame, next)) = next_frame(rest, end) {
             let trivia = frame.raw.len() - frame.body.len() - usize::from(frame.terminated);
             let raw = offset..offset + frame.raw.len();
             let body = raw.start + trivia..raw.start + trivia + frame.body.len();

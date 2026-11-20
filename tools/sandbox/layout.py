@@ -34,13 +34,18 @@ HOST_EXECUTED = (
     "Cargo.lock", "AGENTS.md", "CLAUDE.md", ".claude", "crates/oxedi_py/pyproject.toml", ".git",
     ".gitmodules", *ROOT_LOADED,
 )
-# Tracked files with these names, anywhere, steer cargo, rustup, uv, pytest, nox, tox, Python or
-# direnv when the host runs them: bound read-only too.
+# Tracked files with these names, anywhere, steer cargo, rustup, uv, pytest, nox, tox, Python,
+# direnv, or Bun and the JavaScript tools it runs (its registry and preload, TypeScript, Vite and
+# Vitest) when the host runs them: bound read-only too.
 TRACKED_NAMES = frozenset({
     "Cargo.toml", "Cargo.lock", "rust-toolchain", "rust-toolchain.toml", "pyproject.toml", "uv.toml",
     ".python-version", "conftest.py", "pytest.ini", "setup.cfg", "tox.ini", "noxfile.py", "sitecustomize.py",
-    "usercustomize.py", ".envrc",
+    "usercustomize.py", ".envrc", "package.json", "bun.lock", "bunfig.toml", ".npmrc", "tsconfig.json",
+    "vite.config.ts", "vitest.config.ts",
 })
+# The lockfile of the browser interface's JavaScript dependencies. Only a tracked one switches on
+# the viewer image's ui/ mounts and its install in the fetch: one a run left is not the checkout's.
+UI_LOCK = "ui/bun.lock"
 # The maintainers' local notes: masked by an empty read-only tmpfs.
 MASKED = (".workflow-kit",)
 # What a run writes on purpose: its own storage at the top, and the Python caches and the built
@@ -60,13 +65,14 @@ class SandboxError(Exception):
 class Checkout:
     """A checkout, the paths bound read-only over it, the directories masked, the files hidden and
     the absent root names the run phase holds with a read-only stand-in (`STAND_INS`) (relative,
-    `/`-separated)."""
+    `/`-separated), and whether git tracks `UI_LOCK`."""
 
     root: Path
     read_only: tuple[str, ...]
     masked: tuple[str, ...]
     hidden: tuple[str, ...]
     placeholders: tuple[str, ...]
+    ui_lock: bool
 
     @property
     def name(self) -> str:
@@ -210,4 +216,6 @@ def survey(root: Path) -> Checkout:
     read_only = outermost(free - hidden)
     # `lexists`: a dangling link, or `makefile` on a file system that folds case, is not absent.
     placeholders = tuple(name for name in ROOT_LOADED if not os.path.lexists(root / name))
-    return Checkout(root, tuple(sorted(read_only)), tuple(sorted(masked)), tuple(sorted(hidden)), placeholders)
+    return Checkout(
+        root, tuple(sorted(read_only)), tuple(sorted(masked)), tuple(sorted(hidden)), placeholders, UI_LOCK in tracked,
+    )

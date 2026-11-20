@@ -6,7 +6,8 @@ use crate::spec::{LoopId, OccurrenceDef};
 
 use super::build::{Builder, Codes};
 use super::plan::{SegmentPlan, ValueSource};
-use super::refusal::{Refusal, place};
+use super::refusal::Refusal;
+use crate::message::place;
 
 /// A `where` code the element's own code list excludes.
 #[derive(Debug, Clone, PartialEq, Eq)]

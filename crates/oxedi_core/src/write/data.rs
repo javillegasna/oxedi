@@ -2,7 +2,7 @@
 //! by name and checked against the types the spec gives them.
 
 use crate::column::{Cell, ColumnData, Table, Tables};
-use crate::spec::{ROW_COLUMN, SEGMENT_COLUMN, Spec, TableDef, table_columns};
+use crate::spec::{ROW_COLUMN, SEGMENT_COLUMN, Spec, TableDef, UnknownColumn, table_columns};
 use crate::value::ColumnType;
 
 use super::finding::WriteError;
@@ -130,7 +130,7 @@ fn locate(
         .find(|(_, (column, _))| column == name)
         .ok_or_else(|| {
             let columns = schema.iter().map(|(column, _)| column.clone()).collect();
-            WriteError::UnknownColumn {
+            UnknownColumn {
                 table: def.name.clone(),
                 column: name.to_owned(),
                 columns,

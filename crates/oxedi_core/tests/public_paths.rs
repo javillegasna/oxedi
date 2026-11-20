@@ -88,6 +88,7 @@ mod by_module {
     use oxedi_core::spec::TermModel;
     use oxedi_core::spec::Trigger;
     use oxedi_core::spec::TriggerModel;
+    use oxedi_core::spec::UnknownColumn;
     use oxedi_core::spec::UnknownTable;
     use oxedi_core::spec::UnknownVersion;
     use oxedi_core::spec::Version;
@@ -148,8 +149,8 @@ use oxedi_core::Tokenizer;
 use oxedi_core::{
     AnchorChains, AnchorPositions, Builtin, ColumnSource, Control, ControlCount, ControlError,
     DeclaredVersion, ElementDef, ElementDefError, ElementType, LoopDef, LoopId, LoopSegments, Pick,
-    Repeat, SegmentDef, Spec, SpecError, TableDef, TableDefError, Trigger, UnknownTable,
-    UnknownVersion, Version, VersionError, merge_patch,
+    Repeat, SegmentDef, Spec, SpecError, TableDef, TableDefError, Trigger, UnknownColumn,
+    UnknownTable, UnknownVersion, Version, VersionError, merge_patch,
 };
 use oxedi_core::{
     Bitmap, Cell, CellError, Column, ColumnData, ColumnType, RowError, Table, Tables,

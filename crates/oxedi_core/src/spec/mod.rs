@@ -19,7 +19,7 @@
 //! `tables`, `balance` and `summaries` hold the definitions,
 //! `occurrence_error`, `table_error`, `balance_error` and `summary_error` why
 //! an occurrence, a table, a balancing rule or a summary is rejected; `unknown`
-//! the error for a table the spec does not define; `raw`
+//! the errors for a table or a column the spec does not define; `raw`
 //! the deserialization shapes of the element, the summary and the pick; `schema` the columns of each table, known from
 //! the spec alone; `sections` the helpers of the JSON shape as data (each object's table is emitted by `model`) and `shape` the walk that
 //! checks a value against it; `test_support` (test builds only) the small spec
@@ -91,7 +91,7 @@ pub use summaries::Summary;
 pub use summary_error::SummaryDefError;
 pub use table_error::{AnchorChains, AnchorPositions, LoopSegments, TableDefError};
 pub use tables::{ColumnSource, Pick, Repeat, TableDef};
-pub use unknown::UnknownTable;
+pub use unknown::{UnknownColumn, UnknownTable};
 pub use version::{DeclaredVersion, VersionError};
 pub use vocabulary::ElementPosition;
 

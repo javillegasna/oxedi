@@ -426,3 +426,17 @@ fn unknown_table_display() {
     );
     assert!(std::error::Error::source(&error).is_none());
 }
+
+#[test]
+fn unknown_column_display() {
+    let error = UnknownColumn {
+        table: "claims".to_owned(),
+        column: "nope".to_owned(),
+        columns: vec!["id".to_owned(), "status".to_owned()],
+    };
+    assert_eq!(
+        error.to_string(),
+        "table \"claims\" has no column \"nope\" in the spec; its columns are \"id\", \"status\""
+    );
+    assert!(std::error::Error::source(&error).is_none());
+}

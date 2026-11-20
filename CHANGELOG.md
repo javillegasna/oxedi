@@ -28,8 +28,8 @@ This file covers the Python package; the DuckDB extension has its own changelog 
 ### Changed
 - The Rust core and DuckDB `COPY` refuse a table the spec does not define with `table "x" is not a
   table of the spec; its tables are ...`. In Rust, `Spec::require_table` returns `UnknownTable`
-  (now in `spec`, with the name in `name`), and `WriteError::UnknownTable`
-  holds an `UnknownTable`.
+  (now in `spec`, with the name in `name`), and `WriteError::UnknownTable` and
+  `WriteError::UnknownColumn` hold an `UnknownTable` and an `UnknownColumn`.
 - Rust: `first_frame` and `next_frame` take a `SegmentEnd` (the segment terminator and the optional
   release byte) instead of `Delimiters`; `SegmentEnd` is a new public type, and
   `Delimiters::segment_end` builds one from the delimiters.

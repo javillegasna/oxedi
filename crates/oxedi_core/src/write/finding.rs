@@ -6,7 +6,7 @@ use std::fmt;
 use crate::diagnostic::Diagnostic;
 use crate::document::DocumentError;
 use crate::message::{Quoted, render_names};
-use crate::spec::UnknownTable;
+use crate::spec::{UnknownColumn, UnknownTable};
 use crate::value::{ColumnType, ElementTextError};
 
 use super::refusal::PlanError;
@@ -264,14 +264,7 @@ pub enum WriteError {
     /// A table the spec does not define.
     UnknownTable(UnknownTable),
     /// A column the spec's table does not have.
-    UnknownColumn {
-        /// The table.
-        table: String,
-        /// The column.
-        column: String,
-        /// The table's columns, in schema order.
-        columns: Vec<String>,
-    },
+    UnknownColumn(UnknownColumn),
     /// A column whose type is not the one the spec gives it.
     ColumnType {
         /// The table.
@@ -313,15 +306,7 @@ impl fmt::Display for WriteError {
         match self {
             WriteError::Plan(error) => write!(f, "{error}"),
             WriteError::UnknownTable(error) => write!(f, "{error}"),
-            WriteError::UnknownColumn {
-                table,
-                column,
-                columns,
-            } => write!(
-                f,
-                "table {table:?} has no column {column:?} in the spec; its columns are {}",
-                render_names(columns)
-            ),
+            WriteError::UnknownColumn(error) => write!(f, "{error}"),
             WriteError::ColumnType {
                 table,
                 column,
@@ -370,7 +355,7 @@ impl std::error::Error for WriteError {
         match self {
             WriteError::Plan(_)
             | WriteError::UnknownTable(_)
-            | WriteError::UnknownColumn { .. }
+            | WriteError::UnknownColumn(_)
             | WriteError::ColumnType { .. }
             | WriteError::SameDelimiter { .. }
             | WriteError::DelimiterNotAllowed { .. }
@@ -384,6 +369,12 @@ impl std::error::Error for WriteError {
 impl From<UnknownTable> for WriteError {
     fn from(error: UnknownTable) -> Self {
         WriteError::UnknownTable(error)
+    }
+}
+
+impl From<UnknownColumn> for WriteError {
+    fn from(error: UnknownColumn) -> Self {
+        WriteError::UnknownColumn(error)
     }
 }
 

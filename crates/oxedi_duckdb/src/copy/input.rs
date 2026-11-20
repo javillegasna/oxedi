@@ -9,7 +9,7 @@
 use libduckdb_sys as ffi;
 use oxedi_core::value::TimeUnit;
 use oxedi_core::write::WriteError;
-use oxedi_core::{ColumnType, UnknownTable};
+use oxedi_core::{ColumnType, UnknownColumn, UnknownTable};
 
 use super::error::CopyError;
 use crate::builtins::{BuiltinSchema, BuiltinTable};
@@ -217,11 +217,11 @@ fn bind_field(table: &BuiltinTable, field: &InputField) -> Result<BoundField, Co
         .map(|(_, kind)| *kind)
         .ok_or_else(|| {
             let columns = table.columns.iter().map(|(name, _)| name.clone()).collect();
-            CopyError::Write(WriteError::UnknownColumn {
+            CopyError::Write(WriteError::UnknownColumn(UnknownColumn {
                 table: table.name.clone(),
                 column: field.name.clone(),
                 columns,
-            })
+            }))
         })?;
     if !field.kind.converts_to(kind) {
         let float = matches!(field.kind, FieldType::Float | FieldType::Double);

@@ -3,7 +3,7 @@
 use crate::delimiters::IsaError;
 use crate::diagnostic::{Diagnostic, Rule};
 use crate::document::DocumentError;
-use crate::spec::UnknownTable;
+use crate::spec::{UnknownColumn, UnknownTable};
 use crate::value::{ColumnType, ElementTextError};
 use crate::write::*;
 
@@ -176,11 +176,11 @@ fn write_errors_display_their_full_text() {
             "table \"notes\" is not a table of the spec; its tables are \"claims\", \"payments\"",
         ),
         (
-            WriteError::UnknownColumn {
+            WriteError::UnknownColumn(UnknownColumn {
                 table: "claims".into(),
                 column: "color".into(),
                 columns: vec!["row".into(), "segment".into()],
-            },
+            }),
             "table \"claims\" has no column \"color\" in the spec; its columns are \"row\", \"segment\"",
         ),
         (

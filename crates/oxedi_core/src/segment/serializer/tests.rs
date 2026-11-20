@@ -13,7 +13,7 @@ type Parts<'a> = &'a [&'a [u8]];
 
 /// Writes segment `NM1` with `elements` into a vector, returning the output
 /// or the refusal.
-fn written(syntax: Syntax, elements: &[Parts<'_>]) -> Result<Vec<u8>, Refused<Infallible>> {
+fn written(syntax: Syntax, elements: &[Parts<'_>]) -> Vec<u8> {
     let mut out = Vec::new();
     let Ok(mut writer) = SegmentSerializer::begin(&mut out, syntax, b"NM1");
     for parts in elements {
@@ -22,11 +22,11 @@ fn written(syntax: Syntax, elements: &[Parts<'_>]) -> Result<Vec<u8>, Refused<In
             if at > 0 {
                 writer.component();
             }
-            writer.value(part)?;
+            let Ok(()) = writer.value(part);
         }
     }
     let Ok(()) = writer.end();
-    Ok(out)
+    out
 }
 
 /// Each row: the case, its elements, and the segment written from them.
@@ -64,32 +64,25 @@ const LAYOUTS: &[(&str, &[Parts<'_>], &str)] = &[
 fn lays_out_the_separators() {
     for &(case, elements, expected) in LAYOUTS {
         let out = written(syntax(None), elements);
-        assert_eq!(
-            out.as_deref().map(String::from_utf8_lossy).as_deref(),
-            Ok(expected),
-            "{case}"
-        );
+        assert_eq!(String::from_utf8_lossy(&out), expected, "{case}");
     }
 }
 
 #[test]
 fn escapes_structural_bytes_with_a_release_character() {
     let out = written(syntax(Some(b'?')), &[&[b"a*b:c~d?e"]]);
-    assert_eq!(out, Ok(b"NM1*a?*b?:c?~d??e~".to_vec()));
+    assert_eq!(out, b"NM1*a?*b?:c?~d??e~");
 }
 
 #[test]
-fn refuses_a_structural_byte_without_a_release_character() {
-    let mut out = Vec::new();
-    let Ok(mut writer) = SegmentSerializer::begin(&mut out, syntax(None), b"X");
-    let Ok(()) = writer.element();
-    assert_eq!(writer.value(b"a*b"), Err(Refused::Structural(b'*')));
-    assert_eq!(out, b"X");
+fn writes_a_structural_byte_as_it_is_without_a_release_character() {
+    let out = written(syntax(None), &[&[b"a*b"]]);
+    assert_eq!(out, b"NM1*a*b~");
 }
 
 #[test]
 fn writes_the_repetition_separator_as_data() {
     let delimiters = crate::Delimiters::new(b'*', b':', b'~').with_repetition(b'^');
     let out = written(delimiters.syntax(), &[&[b"a^b"]]);
-    assert_eq!(out, Ok(b"NM1*a^b~".to_vec()));
+    assert_eq!(out, b"NM1*a^b~");
 }

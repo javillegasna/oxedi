@@ -13,7 +13,7 @@ use crate::frame::Frame;
 
 mod serializer;
 
-pub(crate) use serializer::{Output, Refused, SegmentSerializer, Sink, Syntax};
+pub(crate) use serializer::{Output, SegmentSerializer, Sink, Syntax};
 
 /// One segment of the input. Everything borrows from the buffer except
 /// values that needed unescaping (see [`Element`]).
@@ -214,21 +214,24 @@ impl Segment<'_> {
     ) -> Result<(), SegmentWriteError> {
         let syntax = delims.syntax();
         if let Some(byte) = syntax.first_structural(self.id) {
-            return Err(located(Refused::Structural(byte), 0, None));
+            return Err(delimiter_in_value(byte, 0, None));
         }
         let mut sink = Sink(out);
         let mut writer = SegmentSerializer::begin(&mut sink, syntax, self.id)?;
         for (position, element) in (1..).zip(&self.elements) {
             writer.element()?;
-            write_element(&mut writer, element, position)?;
+            write_element(&mut writer, &syntax, element, position)?;
         }
         Ok(writer.end()?)
     }
 }
 
 /// Writes the values of one element; `position` locates them for the error.
+/// Without a release byte a value holding a structural byte is refused before
+/// anything of it is written.
 fn write_element<O: Output<Error = io::Error>>(
     writer: &mut SegmentSerializer<'_, O>,
+    syntax: &Syntax,
     element: &Element<'_>,
     position: usize,
 ) -> Result<(), SegmentWriteError> {
@@ -240,26 +243,24 @@ fn write_element<O: Output<Error = io::Error>>(
         if component > 1 {
             writer.component();
         }
-        writer
-            .value(value)
-            .map_err(|refused| located(refused, position, composite.then_some(component)))?;
+        let at = composite.then_some(component);
+        if syntax.end.release.is_none()
+            && let Some(byte) = syntax.first_structural(value)
+        {
+            return Err(delimiter_in_value(byte, position, at));
+        }
+        writer.value(value)?;
     }
     Ok(())
 }
 
-/// The error for a refused value at `element` (`0` is the id) and `component`.
-fn located(
-    refused: Refused<io::Error>,
-    element: usize,
-    component: Option<usize>,
-) -> SegmentWriteError {
-    match refused {
-        Refused::Output(error) => SegmentWriteError::Io(error),
-        Refused::Structural(byte) => SegmentWriteError::DelimiterInValue {
-            byte,
-            element,
-            component,
-        },
+/// The error for a value holding the structural `byte` at `element` (`0` is
+/// the id) and `component`.
+fn delimiter_in_value(byte: u8, element: usize, component: Option<usize>) -> SegmentWriteError {
+    SegmentWriteError::DelimiterInValue {
+        byte,
+        element,
+        component,
     }
 }
 

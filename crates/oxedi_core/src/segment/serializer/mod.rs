@@ -68,21 +68,6 @@ impl Syntax {
     }
 }
 
-/// Why a value could not be written.
-#[derive(Debug, PartialEq, Eq)]
-pub(crate) enum Refused<E> {
-    /// The output failed.
-    Output(E),
-    /// The value holds this structural byte and no release byte is configured.
-    Structural(u8),
-}
-
-impl<E> From<E> for Refused<E> {
-    fn from(error: E) -> Self {
-        Refused::Output(error)
-    }
-}
-
 /// Writes one segment into an [`Output`], one call per id, element,
 /// component and value.
 pub(crate) struct SegmentSerializer<'o, O: Output> {
@@ -124,21 +109,19 @@ impl<'o, O: Output> SegmentSerializer<'o, O> {
         self.components += 1;
     }
 
-    /// Writes a value of the current element or component, escaping each
-    /// structural byte with the release byte. An empty value writes nothing.
-    pub(crate) fn value(&mut self, bytes: &[u8]) -> Result<(), Refused<O::Error>> {
+    /// Writes a value of the current element or component. With a release
+    /// byte each structural byte is escaped with it; without one the bytes are
+    /// written as they are, so the caller checks them first. An empty value
+    /// writes nothing.
+    pub(crate) fn value(&mut self, bytes: &[u8]) -> Result<(), O::Error> {
         if bytes.is_empty() {
             return Ok(());
         }
-        let Some(release) = self.syntax.end.release else {
-            if let Some(byte) = self.syntax.first_structural(bytes) {
-                return Err(Refused::Structural(byte));
-            }
-            self.flush()?;
-            return Ok(self.out.put(bytes)?);
-        };
         self.flush()?;
-        Ok(self.put_escaped(release, bytes)?)
+        match self.syntax.end.release {
+            Some(release) => self.put_escaped(release, bytes),
+            None => self.out.put(bytes),
+        }
     }
 
     /// Writes `bytes` in runs, each structural byte after a `release`.

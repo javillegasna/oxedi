@@ -2,8 +2,9 @@
 //! errors, the write findings and the project errors: file bytes quoted on
 //! one line ([`Quoted`]), a key in a rendered path ([`render_key`]), an
 //! element reference ([`ElementRef`], [`place`]), a trigger's conditions
-//! ([`Conditions`]), a list of names ([`render_names`]) and the longest code
-//! list a message spells out ([`MAX_LISTED_CODES`]).
+//! ([`Conditions`]), a list of names ([`render_names`]), a count and its noun
+//! ([`Counted`]) and the longest code list a message spells out
+//! ([`MAX_LISTED_CODES`]).
 //!
 //! The module depends on nothing else in the crate, so every part of the
 //! crate that writes a message can use it without a cycle.
@@ -13,6 +14,20 @@ use std::fmt;
 
 /// The longest code list a message spells out; a longer list gives its count.
 pub(crate) const MAX_LISTED_CODES: usize = 5;
+
+/// A count and its noun, in the singular for one and the plural otherwise.
+pub(crate) struct Counted(
+    pub(crate) usize,
+    pub(crate) &'static str,
+    pub(crate) &'static str,
+);
+
+impl fmt::Display for Counted {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let noun = if self.0 == 1 { self.1 } else { self.2 };
+        write!(f, "{} {noun}", self.0)
+    }
+}
 
 /// Bytes from the file, quoted on one line: valid text is escaped as a Rust
 /// string literal is, and each invalid byte is written as `\xNN`.

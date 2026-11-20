@@ -43,3 +43,11 @@ fn names_are_quoted_and_joined() {
     assert_eq!(render_names(&["a", "b c"]), "\"a\", \"b c\"");
     assert_eq!(render_names(&["x".to_string()]), "\"x\"");
 }
+
+#[test]
+fn counted_writes_the_singular_for_one_and_the_plural_otherwise() {
+    let count = |count| Counted(count, "byte", "bytes").to_string();
+    assert_eq!(count(0), "0 bytes");
+    assert_eq!(count(1), "1 byte");
+    assert_eq!(count(2), "2 bytes");
+}

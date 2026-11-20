@@ -1,8 +1,8 @@
 //! The pieces the writer's messages are written from: [`Source`] (where a
 //! column or an anchor reads), [`WrittenBy`] (what writes an occurrence),
 //! [`Matches`] (the occurrences a selector matches), [`Reference`] (a row
-//! reference), [`ReadBackOrigin`] (what a read-back diagnostic is about),
-//! [`Counted`] (a count and its noun) and [`Numbered`] (numbered lines).
+//! reference), [`ReadBackOrigin`] (what a read-back diagnostic is about)
+//! and [`Numbered`] (numbered lines).
 
 use std::fmt;
 
@@ -77,20 +77,6 @@ impl fmt::Display for ReadBackOrigin<'_> {
             Some(origin) => write!(f, "{origin}"),
             None => f.write_str("the written file"),
         }
-    }
-}
-
-/// A count and its noun, in the singular for one and the plural otherwise.
-pub(super) struct Counted(
-    pub(super) usize,
-    pub(super) &'static str,
-    pub(super) &'static str,
-);
-
-impl fmt::Display for Counted {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        let noun = if self.0 == 1 { self.1 } else { self.2 };
-        write!(f, "{} {noun}", self.0)
     }
 }
 

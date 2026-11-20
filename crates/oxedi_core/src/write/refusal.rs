@@ -2,9 +2,9 @@
 
 use std::fmt;
 
-use crate::message::{Conditions, render_names};
+use crate::message::{Conditions, Counted, render_names};
 
-use super::wording::{Counted, Matches, Numbered, Source, WrittenBy};
+use super::wording::{Matches, Numbered, Source, WrittenBy};
 
 /// A segment and its conditions as a message shows them.
 pub(super) fn render_source(segment: &[u8], conditions: &[(usize, Vec<u8>)]) -> String {

@@ -13,6 +13,7 @@
 use std::fmt;
 
 use crate::frame::SegmentEnd;
+use crate::message::Counted;
 use crate::segment::Syntax;
 use crate::trivia::LeadingTrivia;
 
@@ -178,15 +179,11 @@ impl Skipped {
 
 impl fmt::Display for Skipped {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        let unit = if self.whitespace == 1 {
-            "byte"
-        } else {
-            "bytes"
-        };
+        let whitespace = Counted(self.whitespace, "byte", "bytes");
         match (self.byte_order_mark, self.whitespace) {
             (true, 0) => write!(f, "a UTF-8 byte order mark"),
-            (true, n) => write!(f, "a UTF-8 byte order mark and {n} {unit} of whitespace"),
-            (false, n) => write!(f, "{n} {unit} of whitespace"),
+            (true, _) => write!(f, "a UTF-8 byte order mark and {whitespace} of whitespace"),
+            (false, _) => write!(f, "{whitespace} of whitespace"),
         }
     }
 }

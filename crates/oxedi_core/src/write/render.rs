@@ -129,8 +129,9 @@ impl Cursor {
 }
 
 /// Writes segment `id` from `parts` (sorted by element, then component),
-/// whose texts live in `texts`. A value holding a structural byte is written
-/// as it is: the caller reports it.
+/// whose texts live in `texts`. A value holding a structural byte is escaped
+/// with the syntax's release byte when it has one, and otherwise written as it
+/// is: the caller reports it.
 pub(super) fn write_segment(
     id: &[u8],
     parts: &[Part],

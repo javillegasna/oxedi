@@ -63,8 +63,21 @@ impl<'a> Document<'a> {
     /// Fails when the ISA cannot be read or the input is longer than
     /// [`SizeError::LIMIT`] bytes.
     pub fn parse(bytes: impl Into<Cow<'a, [u8]>>) -> Result<Self, DocumentError> {
+        Self::parse_with_release(bytes, None)
+    }
+
+    /// [`Document::parse`] with `release` as the release byte, which no ISA
+    /// carries; `None` reads no release byte.
+    pub(crate) fn parse_with_release(
+        bytes: impl Into<Cow<'a, [u8]>>,
+        release: Option<u8>,
+    ) -> Result<Self, DocumentError> {
         let bytes = bytes.into();
-        let delims = Delimiters::from_isa_after_leading_trivia(&bytes)?;
+        let read = Delimiters::from_isa_after_leading_trivia(&bytes)?;
+        let delims = match release {
+            Some(release) => read.with_release(release),
+            None => read,
+        };
         Self::with_delimiters(bytes, delims).map_err(DocumentError::Size)
     }
 

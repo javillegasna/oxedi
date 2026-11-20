@@ -10,9 +10,7 @@
 use crate::column::{Cell, Tables};
 use crate::diagnostic::{Diagnostic, Rule};
 use crate::document::Document;
-use crate::frame::SegmentEnd;
 use crate::process::Processor;
-use crate::segment::Syntax;
 use crate::spec::Spec;
 
 use super::data::{Data, bind};
@@ -79,12 +77,7 @@ pub fn write_with_findings(
         data: &data,
         nest: &nest,
         envelope,
-        // Without a release byte a value holding a delimiter is written as it
-        // is and reported as a finding, so the table writer never escapes.
-        syntax: Syntax {
-            end: SegmentEnd::new(envelope.delimiters.segment, None),
-            ..envelope.delimiters.syntax()
-        },
+        syntax: envelope.delimiters.syntax(),
         delimiters,
         out: Vec::new(),
         traces: Traces::default(),
@@ -106,7 +99,14 @@ pub fn write_with_findings(
         .iter()
         .any(|finding| matches!(finding, Finding::DelimiterInValue { .. }));
     if !split {
-        read_back(spec, &data, &out, &traces, &mut findings)?;
+        read_back(
+            spec,
+            &data,
+            &out,
+            envelope.delimiters.release,
+            &traces,
+            &mut findings,
+        )?;
     }
     Ok((out, findings))
 }
@@ -150,10 +150,11 @@ fn read_back(
     spec: &Spec,
     data: &[Data<'_>],
     bytes: &[u8],
+    release: Option<u8>,
     traces: &Traces,
     findings: &mut Vec<Finding>,
 ) -> Result<(), WriteError> {
-    let document = match Document::parse(bytes) {
+    let document = match Document::parse_with_release(bytes, release) {
         Ok(document) => document,
         Err(_) if !findings.is_empty() => return Ok(()),
         Err(error) => return Err(WriteError::Unreadable(error)),

@@ -20,6 +20,11 @@ and the extension has its own version.
 ### Changed
 - The error for a table macro parameter given with `:=` or `=>` says that this DuckDB version
   does not substitute it, since newer versions (2.0.1) do and the macro then works.
+- `COPY`'s `release` option now makes values holding the element separator, the component
+  separator, the segment terminator or the release character be written escaped with it, instead of
+  reported (the repetition separator stays a finding); the interchange header's values are the
+  exception and stay findings. `COPY` now refuses a `release` that is a letter, a digit, whitespace
+  or equal to another delimiter.
 - `COPY ... (FORMAT edi835)` names a table the spec does not define as `table "x" is not a table of
   the spec; its tables are ...` (it was `..., whose tables are ...`).
 - Without `table_name`, `read_835` returns the table the chosen spec declares as its

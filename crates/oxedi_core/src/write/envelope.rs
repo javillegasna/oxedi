@@ -46,7 +46,15 @@ pub struct Envelope {
     pub control_number: u64,
     /// The delimiters to write with. The repetition separator is written
     /// where the interchange version (ISA12) is 00402 or later, which the reader
-    /// takes as carrying one, and is ignored below it; the release byte is never used.
+    /// takes as carrying one, and is ignored below it. With a release byte, a
+    /// value holding the element separator, the component separator, the
+    /// segment terminator or the release byte is written escaped with it;
+    /// without one, such a value is a finding. The interchange header is the
+    /// exception: its elements are fixed width and the reader takes the
+    /// delimiters from fixed offsets, so a header value holding a delimiter is
+    /// a finding and written as it is. A value holding the repetition
+    /// separator is always a finding: the spec does not say which elements
+    /// repeat, so the writer cannot tell a repeat from data.
     pub delimiters: Delimiters,
     /// Whether a line break follows each segment terminator.
     pub line_break: bool,
@@ -173,6 +181,7 @@ pub(super) const ELEMENT: &str = "element separator";
 pub(super) const COMPONENT: &str = "component separator";
 pub(super) const SEGMENT: &str = "segment terminator";
 pub(super) const REPETITION: &str = "repetition separator";
+pub(super) const RELEASE: &str = "release character";
 
 /// One value of an envelope trigger.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -204,6 +213,9 @@ pub(super) fn delimiters(
             return Err(WriteError::NoRepetition);
         };
         all.push((byte, REPETITION));
+    }
+    if let Some(byte) = given.release {
+        all.push((byte, RELEASE));
     }
     for (i, &(byte, role)) in all.iter().enumerate() {
         if byte.is_ascii_alphanumeric() || byte.is_ascii_whitespace() {

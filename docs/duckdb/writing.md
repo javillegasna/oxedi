@@ -85,6 +85,13 @@ same defaults.
     `oxedi.Delimiters()`: `*`, `:`, `~`, and no repetition or release. So on 5010, give
     `repetition`.
 
+    With a `release` character, a value holding the element separator, the component
+    separator, the segment terminator or the release character is written with the release
+    character before it, for example `A?*B`, instead of being a finding. The values of the
+    interchange header and a value holding the repetition separator are still findings. The
+    file cannot be read back with `read_835`, which has no release option. Python's
+    `oxedi.parse(data, delimiters=oxedi.Delimiters(repetition=b"^", release=b"?"))` reads it.
+
 ## When COPY refuses
 
 `COPY` is strict, like `oxedi.write`. The written file is read back with the spec. Every

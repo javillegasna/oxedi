@@ -81,6 +81,15 @@ The writer uses the spec that parsed the tables, else the built-in 5010 spec.
 - `delimiters`: default `*`, `:`, `~` and repetition `^`.
 - `line_break`: a line break after each segment.
 
+A value holding a delimiter is reported, unless the delimiters give a release character
+(`oxedi.Delimiters(repetition=b"^", release=b"?")`; on 5010 the delimiters need the repetition
+separator too). Then a value holding the element separator, the component
+separator, the segment terminator or the release character is written with the release
+character before it, for example `A?*B`, and gives no finding. The values of the interchange
+header and a value holding the repetition separator are still reported. A file written this
+way reads back only when the reader is given the same release character:
+`oxedi.parse(data, delimiters=...)`.
+
 The writer works out the rest:
 
 - The fixed-width `ISA`.

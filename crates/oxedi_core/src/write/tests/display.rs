@@ -3,6 +3,7 @@
 use crate::delimiters::IsaError;
 use crate::diagnostic::{Diagnostic, Rule};
 use crate::document::DocumentError;
+use crate::spec::UnknownTable;
 use crate::value::{ColumnType, ElementTextError};
 use crate::write::*;
 
@@ -168,11 +169,11 @@ fn write_errors_display_their_full_text() {
             "spec \"s\" cannot be written (1 reason)\n1. table \"names\" is anchored on 2 loops (\"1000A\", \"1000B\"); a written row opens one loop instance and nothing in the row says which",
         ),
         (
-            WriteError::UnknownTable {
-                table: "notes".into(),
+            WriteError::UnknownTable(UnknownTable {
+                name: "notes".into(),
                 tables: vec!["claims".into(), "payments".into()],
-            },
-            "table \"notes\" is not a table of the spec, whose tables are \"claims\", \"payments\"",
+            }),
+            "table \"notes\" is not a table of the spec; its tables are \"claims\", \"payments\"",
         ),
         (
             WriteError::UnknownColumn {

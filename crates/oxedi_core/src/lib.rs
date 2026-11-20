@@ -67,14 +67,14 @@ pub use engine::{Event, LoopEngine};
 pub use frame::{Frame, SegmentEnd, next_frame};
 pub use mask::{DateMode, Mask, MaskError, Phi};
 pub use process::{Output, Processor};
-pub use project::{Projector, UnknownTable};
+pub use project::Projector;
 pub use segment::{Segment, SegmentWriteError};
 pub use spec::{
     AnchorChains, AnchorPositions, BalanceError, BalanceRule, BalanceTerm, Builtin, ColumnSchema,
     ColumnSource, Control, ControlCount, ControlError, DeclaredVersion, ElementDef,
     ElementDefError, LoopDef, LoopId, LoopSegments, Pick, Repeat, SegmentDef, Spec, SpecError,
-    Summary, SummaryDefError, TableDef, TableDefError, TableSchema, Trigger, UnknownVersion,
-    Version, VersionError, merge_patch, spec_schema,
+    Summary, SummaryDefError, TableDef, TableDefError, TableSchema, Trigger, UnknownTable,
+    UnknownVersion, Version, VersionError, merge_patch, spec_schema,
 };
 pub use summary::{SummaryError, SummaryValue, summarize};
 pub use tokenizer::Tokenizer;

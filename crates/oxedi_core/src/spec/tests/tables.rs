@@ -786,6 +786,16 @@ fn table_names_lists_the_tables_in_spec_order() {
 }
 
 #[test]
+fn require_table_returns_the_table_or_the_error() {
+    let spec = Spec::builtin_835();
+    let default = spec.default_table().unwrap();
+    assert_eq!(spec.require_table(default).unwrap().name, default);
+    let error = spec.require_table("nope").unwrap_err();
+    assert_eq!(error.name, "nope");
+    assert_eq!(error.tables, spec.table_names());
+}
+
+#[test]
 fn declared_occurrences_are_listed_or_none_is_said() {
     assert_eq!(Declared(&[]).to_string(), "it declares none");
     let known = ["a".to_string(), "b".to_string()];

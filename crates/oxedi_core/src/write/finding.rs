@@ -6,6 +6,7 @@ use std::fmt;
 use crate::diagnostic::Diagnostic;
 use crate::document::DocumentError;
 use crate::message::{Quoted, render_names};
+use crate::spec::UnknownTable;
 use crate::value::{ColumnType, ElementTextError};
 
 use super::refusal::PlanError;
@@ -261,12 +262,7 @@ pub enum WriteError {
     /// The spec's tables cannot make a valid file.
     Plan(PlanError),
     /// A table the spec does not define.
-    UnknownTable {
-        /// The table.
-        table: String,
-        /// The spec's tables, in name order.
-        tables: Vec<String>,
-    },
+    UnknownTable(UnknownTable),
     /// A column the spec's table does not have.
     UnknownColumn {
         /// The table.
@@ -316,11 +312,7 @@ impl fmt::Display for WriteError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             WriteError::Plan(error) => write!(f, "{error}"),
-            WriteError::UnknownTable { table, tables } => write!(
-                f,
-                "table {table:?} is not a table of the spec, whose tables are {}",
-                render_names(tables)
-            ),
+            WriteError::UnknownTable(error) => write!(f, "{error}"),
             WriteError::UnknownColumn {
                 table,
                 column,
@@ -377,7 +369,7 @@ impl std::error::Error for WriteError {
         // chain stops here instead of printing it a second time.
         match self {
             WriteError::Plan(_)
-            | WriteError::UnknownTable { .. }
+            | WriteError::UnknownTable(_)
             | WriteError::UnknownColumn { .. }
             | WriteError::ColumnType { .. }
             | WriteError::SameDelimiter { .. }
@@ -386,6 +378,12 @@ impl std::error::Error for WriteError {
             | WriteError::Unreadable(_)
             | WriteError::Findings(_) => None,
         }
+    }
+}
+
+impl From<UnknownTable> for WriteError {
+    fn from(error: UnknownTable) -> Self {
+        WriteError::UnknownTable(error)
     }
 }
 

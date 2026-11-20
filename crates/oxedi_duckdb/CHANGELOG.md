@@ -18,6 +18,8 @@ and the extension has its own version.
   `parent` (the table a reference column points at, else NULL) and `position`, without a file.
 
 ### Changed
+- `COPY ... (FORMAT edi835)` names a table the spec does not define as `table "x" is not a table of
+  the spec; its tables are ...` (it was `..., whose tables are ...`).
 - Without `table_name`, `read_835` returns the table the chosen spec declares as its
   `default_table` (`claims` for the built-in 835, as before).
 - `read_835` fills only the table it reads instead of every table of the spec and then keeping

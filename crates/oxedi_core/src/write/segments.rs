@@ -6,9 +6,10 @@ use std::collections::BTreeMap;
 use crate::spec::{OccurrenceDef, Pick};
 
 use super::build::{Builder, Codes, Entry};
-use super::plan::{ElementPlan, SegmentPlan, SegmentSource, ValueSource};
+use super::plan::{ElementPlan, Place, SegmentPlan, SegmentSource, ValueSource};
 use super::refusal::Refusal;
 use super::required::add_qualifier;
+use crate::message::place as place_name;
 
 impl Builder<'_> {
     /// Turns the grouped column values into segments: one per repeat the
@@ -55,7 +56,10 @@ impl Builder<'_> {
         plan: &mut SegmentPlan,
         entry: &Entry,
     ) {
-        let place = entry.place();
+        let place = Place {
+            element: entry.element,
+            component: entry.component,
+        };
         let written = plan.elements.iter().find_map(|element| {
             match (&element.value, element.place().overlaps(place)) {
                 (ValueSource::Column { column }, true) => Some(*column),
@@ -69,7 +73,7 @@ impl Builder<'_> {
                 other: self.column_name(entry.table, other),
                 loop_name: self.loop_name(id),
                 occurrence: occurrence.name.clone(),
-                place: place.to_string_in(&occurrence.segment),
+                place: place_name(&occurrence.segment, entry.element, entry.component),
             });
             return;
         }

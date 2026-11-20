@@ -4,8 +4,6 @@
 #[cfg(doc)]
 use crate::spec::{Spec, TableDef};
 
-use crate::message::place;
-
 /// Where the instances of a loop come from.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Instances {
@@ -111,11 +109,6 @@ impl Place {
             && (self.component.is_none()
                 || other.component.is_none()
                 || self.component == other.component)
-    }
-
-    /// The place as a reference into `segment`, e.g. `CLP01` or `IT02-1`.
-    pub(super) fn to_string_in(self, segment: &(impl AsRef<[u8]> + ?Sized)) -> String {
-        place(segment, self.element, self.component)
     }
 }
 

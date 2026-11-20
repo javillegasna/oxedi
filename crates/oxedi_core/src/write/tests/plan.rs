@@ -452,45 +452,47 @@ fn a_component_and_an_implied_loop_are_refused_with_what_is_missing() {
     );
 }
 
+/// The refusals of the `items` table with `columns` (JSON) on IT, whose
+/// first component is optional.
+fn item_refusals(columns: &str) -> Vec<String> {
+    refusals(&format!(
+        r#"{{"tables":{{"items":{{"columns":{columns}}}}},
+            "segments":{{"IT":{{"elements":{{"2":{{"composite":{{"1":{{"required":false}}}}}}}}}}}}}}"#
+    ))
+}
+
+/// A column of IT02 as whole, or of one of its components.
+fn pair(name: &str, component: Option<usize>) -> String {
+    let component = component.map_or(String::new(), |c| format!(r#","component":{c}"#));
+    format!(r#""{name}":{{"segment":"IT","element":2{component}}}"#)
+}
+
 #[test]
 fn a_component_column_after_a_whole_element_column_is_refused() {
+    let columns = format!("{{{},{}}}", pair("a_pair", None), pair("b_kind", Some(1)));
     assert_eq!(
-        refusals(
-            r#"{"tables":{"items":{"columns":{
-                "a_pair":{"segment":"IT","element":2},
-                "b_pair_kind":{"segment":"IT","element":2,"component":1}}}},
-            "segments":{"IT":{"elements":{"2":{"composite":{"1":{"required":false}}}}}}}"#
-        ),
+        item_refusals(&columns),
         vec![
-            "table \"items\" column \"b_pair_kind\" writes IT02-1 of occurrence \"it\" in loop \"item\", which column \"a_pair\" already writes"
+            "table \"items\" column \"b_kind\" writes IT02-1 of occurrence \"it\" in loop \"item\", which column \"a_pair\" already writes"
         ]
     );
 }
 
 #[test]
 fn a_whole_element_column_after_a_component_column_is_refused() {
+    let columns = format!("{{{},{}}}", pair("a_kind", Some(1)), pair("b_pair", None));
     assert_eq!(
-        refusals(
-            r#"{"tables":{"items":{"columns":{
-                "a_pair_kind":{"segment":"IT","element":2,"component":1},
-                "b_pair":{"segment":"IT","element":2}}}}}"#
-        ),
+        item_refusals(&columns),
         vec![
-            "table \"items\" column \"b_pair\" writes IT02 of occurrence \"it\" in loop \"item\", which column \"a_pair_kind\" already writes"
+            "table \"items\" column \"b_pair\" writes IT02 of occurrence \"it\" in loop \"item\", which column \"a_kind\" already writes"
         ]
     );
 }
 
 #[test]
 fn two_components_of_one_element_are_accepted() {
-    assert_eq!(
-        refusals(
-            r#"{"tables":{"items":{"columns":{
-                "pair_kind":{"segment":"IT","element":2,"component":1},
-                "pair_value":{"segment":"IT","element":2,"component":2}}}}}"#
-        ),
-        Vec::<String>::new()
-    );
+    let columns = format!("{{{},{}}}", pair("kind", Some(1)), pair("value", Some(2)));
+    assert!(item_refusals(&columns).is_empty());
 }
 
 /// The elements at IT02 of the segment of occurrence `it2` of loop `head`, an
@@ -505,23 +507,14 @@ fn qualified_item_elements(columns: &str) -> Vec<ElementPlan> {
     );
     let spec = spec(&patch);
     let plan = WritePlan::new(&spec).unwrap();
-    let head = spec.loop_id("head").unwrap();
-    let at = spec
-        .get(head)
-        .occurrences
+    let occurrences = &spec.get(spec.loop_id("head").unwrap()).occurrences;
+    let segments = &loop_plan(&spec, &plan, "head").segments;
+    let it2 = segments
         .iter()
-        .position(|o| o.name == "it2")
+        .find(|s| occurrences[s.occurrence].name == "it2")
         .unwrap();
-    let it2 = loop_plan(&spec, &plan, "head")
-        .segments
-        .iter()
-        .find(|s| s.occurrence == at)
-        .unwrap();
-    it2.elements
-        .iter()
-        .filter(|e| e.element == 2)
-        .cloned()
-        .collect()
+    let at_two = it2.elements.iter().filter(|e| e.element == 2);
+    at_two.cloned().collect()
 }
 
 #[test]

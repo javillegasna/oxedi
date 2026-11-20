@@ -245,8 +245,8 @@ def test_a_column_source_is_a_frozen_value():
             "claim",
             "claim_id",
             KeyError,
-            'Spec.column_source("claim", "claim_id"): the spec defines no table "claim"; '
-            'pass one of its tables: "adjustments", "claims", "payments", '
+            'Spec.column_source("claim", "claim_id"): table "claim" is not a table of the spec; '
+            'its tables are "adjustments", "claims", "payments", '
             '"provider_adjustments", "services"',
         ),
         (
@@ -254,8 +254,8 @@ def test_a_column_source_is_a_frozen_value():
             "services",
             "code",
             KeyError,
-            'Spec.column_source("services", "code"): table "services" declares no column "code"; '
-            'pass one of its columns: "allowed_amount", "charge_amount", '
+            'Spec.column_source("services", "code"): table "services" has no column "code" in the spec; '
+            'its columns are "allowed_amount", "charge_amount", '
             '"line_item_control_number", "original_units", "payment_amount", '
             '"procedure_code", "procedure_qualifier", "service_date", "units_paid"',
         ),

@@ -4,6 +4,7 @@ use std::fmt;
 
 #[cfg(doc)]
 use super::Spec;
+use super::UnknownColumn;
 use super::loops::LoopId;
 use crate::mask::Phi;
 
@@ -159,6 +160,21 @@ impl TableDef {
         self.columns
             .iter()
             .find_map(|(column, source)| (column == name).then_some(source))
+    }
+
+    /// The source of the declared column `name`; a name the table does not
+    /// declare is an [`UnknownColumn`] that lists the declared columns, in the
+    /// order [`Self::columns`] holds them.
+    pub fn require_column(&self, name: &str) -> Result<&ColumnSource, UnknownColumn> {
+        self.column(name).ok_or_else(|| UnknownColumn {
+            table: self.name.clone(),
+            column: name.to_owned(),
+            columns: self
+                .columns
+                .iter()
+                .map(|(column, _)| column.clone())
+                .collect(),
+        })
     }
 
     /// The kind of patient data column `column_index` of [`Self::columns`]

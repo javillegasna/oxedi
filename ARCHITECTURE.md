@@ -94,7 +94,9 @@ up by transaction and version.
 - **Write the tables.**
   1. `bind` (`write/data.rs`) matches the caller's tables and columns to the spec's; a table the
      spec does not define comes from `Spec::require_table` as `UnknownTable`, and a column it does
-     not have is an `UnknownColumn` (both in `spec/unknown.rs`, held by `WriteError`).
+     not have is an `UnknownColumn` from `spec::require_column` over `table_columns` (both errors in
+     `spec/unknown.rs`, held by `WriteError`). `TableDef::require_column` is the same lookup over
+     the declared columns only; the bindings call these instead of searching.
   2. `nest` (`write/nest.rs`) nests the rows under their parent rows by their reference columns.
   3. `Layout::new` (`write/layout.rs`) works out the order of segments and loops.
   4. `Emitter::run` (`write/emit.rs`) walks the loops and writes the bytes, recording which

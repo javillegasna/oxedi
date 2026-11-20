@@ -1,6 +1,6 @@
 //! `ElementSource`: where a table column reads its value, as Python attributes.
 
-use oxedi_core::{ColumnSource, Spec, TableDef};
+use oxedi_core::{ColumnSource, Spec};
 use pyo3::exceptions::{PyKeyError, PyValueError};
 use pyo3::prelude::*;
 use pyo3::types::PyBytes;
@@ -63,38 +63,25 @@ impl PyElementSource {
     }
 }
 
-/// The names, quoted and joined, a refusal offers.
-fn names<'n>(names: impl Iterator<Item = &'n str>) -> String {
-    names
-        .map(|name| format!("{name:?}"))
-        .collect::<Vec<_>>()
-        .join(", ")
-}
-
-fn table_of<'s>(spec: &'s Spec, table: &str, column: &str) -> PyResult<&'s TableDef> {
-    spec.table(table).ok_or_else(|| {
-        PyKeyError::new_err(format!(
-            "Spec.column_source({table:?}, {column:?}): the spec defines no table {table:?}; pass one of its tables: {}",
-            names(spec.tables().iter().map(|def| def.name.as_str()))
-        ))
-    })
-}
-
-fn source_of<'s>(def: &'s TableDef, table: &str, column: &str) -> PyResult<&'s ColumnSource> {
-    def.column(column).ok_or_else(|| {
-        PyKeyError::new_err(format!(
-            "Spec.column_source({table:?}, {column:?}): table {table:?} declares no column {column:?}; pass one of its columns: {}",
-            names(def.columns.iter().map(|(name, _)| name.as_str()))
-        ))
-    })
+/// The `KeyError` of a refused lookup: the core's error, after the call it
+/// came from.
+fn refusal(table: &str, column: &str, unknown: impl std::fmt::Display) -> PyErr {
+    PyKeyError::new_err(format!(
+        "Spec.column_source({table:?}, {column:?}): {unknown}"
+    ))
 }
 
 /// Where column `column` of table `table` reads its value: `KeyError` for a
 /// table or column the spec does not declare, `ValueError` for a column with
 /// no single element to name.
 pub fn resolve(spec: &Spec, table: &str, column: &str) -> PyResult<PyElementSource> {
-    let def = table_of(spec, table, column)?;
-    match source_of(def, table, column)? {
+    let def = spec
+        .require_table(table)
+        .map_err(|unknown| refusal(table, column, unknown))?;
+    let source = def
+        .require_column(column)
+        .map_err(|unknown| refusal(table, column, unknown))?;
+    match source {
         ColumnSource::Element {
             segment,
             element,

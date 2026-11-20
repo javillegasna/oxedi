@@ -428,6 +428,25 @@ SELECT (SELECT md5(content) FROM read_blob('__TEST_DIR__/copy_ref.835')) = (SELE
 ----
 true
 
+# With a release character, a value holding a delimiter is written with the release character
+# before it, and gives no finding.
+
+statement ok
+COPY (
+    SELECT {'payments': payments, 'claims': claims, 'services': services, 'adjustments': adjustments,
+            'provider_adjustments': provider_adjustments} FROM (
+        SELECT * REPLACE (list_transform(claims, lambda c: struct_update(c, claim_id := 'A*B')) AS claims)
+        FROM parts_5010
+    )
+) TO '__TEST_DIR__/copy_release.835'
+    (FORMAT edi835, sender_id 'SENDER', receiver_id 'RECEIVER', date '2024-01-02', time '10:30',
+     delimiters {'repetition': '^', 'release': '?'});
+
+query I
+SELECT contains(content, '~CLP*A?*B*') FROM read_text('__TEST_DIR__/copy_release.835');
+----
+true
+
 # A value that would change is refused with its table, column and row.
 
 statement error

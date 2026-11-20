@@ -262,6 +262,42 @@ def test_a_finding_raises_with_every_finding_and_allow_findings_returns_them():
     assert b"~BPR*I*1*C*" in data
 
 
+RELEASE = oxedi.Delimiters(repetition=b"^", release=b"?")
+
+
+def write_claim_id(claim_id, **options):
+    """``emedny_sample.txt`` written with the release character ``?`` and the
+    first claim's id set to ``claim_id``."""
+    tables = parse_named("emedny_sample.txt").tables
+    frames = {name: pyarrow.table(tables[name]) for name in tables.keys()}
+    claims = frames["claims"]
+    index = claims.schema.get_field_index("claim_id")
+    ids = claims.column(index).to_pylist()
+    ids[0] = claim_id
+    frames["claims"] = claims.set_column(
+        index, "claim_id", pyarrow.array(ids, type=claims.schema.field(index).type)
+    )
+    return oxedi.write(frames, envelope(delimiters=RELEASE), **options)
+
+
+def test_a_value_holding_a_delimiter_is_written_escaped_with_a_release_character():
+    data, findings = write_claim_id(b"A*B", allow_findings=True)
+    assert findings == []
+    assert b"~CLP*A?*B*" in data
+    again = oxedi.parse(data, delimiters=RELEASE)
+    assert again.diagnostics == []
+    assert pyarrow.table(again.tables["claims"]).column("claim_id")[0].as_py() == b"A*B"
+
+
+def test_a_value_holding_the_repetition_separator_is_still_a_finding():
+    with pytest.raises(oxedi.WriteError) as info:
+        write_claim_id(b"A^B")
+    [finding] = info.value.findings
+    assert finding.kind == "DelimiterInValue"
+    assert (finding.table, finding.column) == ("claims", "claim_id")
+    assert 'holds the repetition separator "^"' in str(finding)
+
+
 def test_an_envelope_finding_names_its_field():
     tables = parse_named("emedny_sample.txt").tables
     data, findings = oxedi.write(tables, envelope(sender_id="SEND~ER"), allow_findings=True)

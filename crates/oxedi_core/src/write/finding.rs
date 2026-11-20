@@ -5,12 +5,12 @@ use std::fmt;
 
 use crate::diagnostic::Diagnostic;
 use crate::document::DocumentError;
-use crate::message::{Quoted, render_names};
+use crate::message::{Counted, Quoted, render_names};
 use crate::spec::{UnknownColumn, UnknownTable};
 use crate::value::{ColumnType, ElementTextError};
 
 use super::refusal::PlanError;
-use super::wording::{Counted, Numbered, ReadBackOrigin, Reference};
+use super::wording::{Numbered, ReadBackOrigin, Reference};
 
 /// Where a written value comes from. Rows are 0-based positions in the
 /// table as given.

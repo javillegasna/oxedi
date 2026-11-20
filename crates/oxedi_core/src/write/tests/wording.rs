@@ -1,9 +1,8 @@
 //! The text of the writer's message pieces.
 
+use crate::message::Counted;
 use crate::write::ValueOrigin;
-use crate::write::wording::{
-    Counted, Matches, Numbered, ReadBackOrigin, Reference, Source, WrittenBy,
-};
+use crate::write::wording::{Matches, Numbered, ReadBackOrigin, Reference, Source, WrittenBy};
 
 #[test]
 fn every_piece_says_its_branches_in_full() {

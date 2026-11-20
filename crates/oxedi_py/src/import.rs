@@ -19,7 +19,7 @@ use arrow_array::types::{
 };
 use arrow_array::{Array, ArrowPrimitiveType, RecordBatch, RecordBatchReader};
 use arrow_schema::{DataType, TimeUnit};
-use oxedi_core::spec::table_columns;
+use oxedi_core::spec::{require_column, table_columns};
 use oxedi_core::value::{
     TimeUnit as Unit, date_from_midnight, date_from_millis, integer_from_f64, integer_from_u128,
     rescale, seconds_from,
@@ -39,16 +39,9 @@ pub fn tables(spec: &Spec, mapping: &Bound<'_, PyMapping>) -> PyResult<Result<Ta
     let mut out = Vec::new();
     for item in mapping.items()?.iter() {
         let (name, value): (String, Bound<'_, PyAny>) = item.extract()?;
-        let Some(def) = spec.table(&name) else {
-            let names: Vec<String> = spec
-                .tables()
-                .iter()
-                .map(|def| format!("{:?}", def.name))
-                .collect();
-            return Ok(Err(format!(
-                "table {name:?} is not a table of the spec, whose tables are {}",
-                names.join(", ")
-            )));
+        let def = match spec.require_table(&name) {
+            Ok(def) => def,
+            Err(unknown) => return Ok(Err(unknown.to_string())),
         };
         let schema = table_columns(spec, def);
         let reader = stream(&value)?;
@@ -90,18 +83,9 @@ fn table(
     let fields = reader.schema();
     let mut columns = Vec::with_capacity(fields.fields().len());
     for field in fields.fields() {
-        let Some((_, kind)) = schema.iter().find(|(column, _)| column == field.name()) else {
-            let names: Vec<String> = schema
-                .iter()
-                .map(|(column, _)| format!("{column:?}"))
-                .collect();
-            return Err(format!(
-                "table {name:?} has no column {:?} in the spec; its columns are {}",
-                field.name(),
-                names.join(", ")
-            ));
-        };
-        columns.push((field.name().clone(), *kind));
+        let (_, kind) =
+            require_column(name, schema, field.name()).map_err(|unknown| unknown.to_string())?;
+        columns.push((field.name().clone(), kind));
     }
     let mut table = Table::new(name, columns.clone());
     let mut offset = 0;

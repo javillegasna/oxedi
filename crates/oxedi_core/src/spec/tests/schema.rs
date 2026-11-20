@@ -1,7 +1,7 @@
 //! The schema of a spec's tables, known without a file.
 
 use crate::spec::test_support::spec;
-use crate::spec::{ColumnSchema, Spec, spec_schema, table_columns};
+use crate::spec::{ColumnSchema, Spec, require_column, spec_schema, table_columns};
 use crate::value::ColumnType;
 
 const INDEX: ColumnType = ColumnType::Int64 { scale: 0 };
@@ -68,4 +68,43 @@ fn a_patched_column_takes_its_element_type() {
         .find(|column| column.name == "check_date")
         .unwrap();
     assert_eq!(check_date, &column("check_date", ColumnType::Date32, None));
+}
+
+fn two_columns() -> Vec<(String, ColumnType)> {
+    vec![
+        ("row".to_owned(), INDEX),
+        ("claim_id".to_owned(), ColumnType::Binary),
+    ]
+}
+
+#[test]
+fn require_column_returns_the_position_and_type() {
+    assert_eq!(
+        require_column("claims", &two_columns(), "claim_id"),
+        Ok((1, ColumnType::Binary))
+    );
+}
+
+#[test]
+fn require_column_names_every_column_in_schema_order() {
+    let error = require_column("claims", &two_columns(), "nope").unwrap_err();
+    assert_eq!(error.table, "claims");
+    assert_eq!(error.column, "nope");
+    assert_eq!(error.columns, ["row", "claim_id"]);
+}
+
+#[test]
+fn table_def_require_column_lists_the_declared_columns() {
+    let spec = Spec::builtin_835();
+    let table = spec.table(spec.default_table().unwrap()).unwrap();
+    let declared: Vec<&str> = table
+        .columns
+        .iter()
+        .map(|(name, _)| name.as_str())
+        .collect();
+    let error = table.require_column("nope").unwrap_err();
+    assert_eq!(error.table, table.name);
+    assert_eq!(error.column, "nope");
+    assert_eq!(error.columns, declared);
+    assert!(table.require_column(declared[0]).is_ok());
 }

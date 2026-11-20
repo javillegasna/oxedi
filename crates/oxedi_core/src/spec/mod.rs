@@ -85,7 +85,9 @@ pub use occurrence_error::OccurrenceError;
 pub use occurrences::{OccurrenceDef, Qualifier, Usage};
 pub use patch::merge_patch;
 pub use phi::ColumnKind;
-pub use schema::{ColumnSchema, TableSchema, spec_schema, table_columns, table_schema};
+pub use schema::{
+    ColumnSchema, TableSchema, require_column, spec_schema, table_columns, table_schema,
+};
 pub use segments::{ElementDef, ElementDefError, ROW_COLUMN, SEGMENT_COLUMN, SegmentDef};
 pub use summaries::Summary;
 pub use summary_error::SummaryDefError;

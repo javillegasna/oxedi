@@ -2,7 +2,7 @@
 //! types and the tables their reference columns point at, known from the
 //! spec alone.
 
-use super::{ColumnKind, ColumnSource, ROW_COLUMN, SEGMENT_COLUMN, Spec, TableDef};
+use super::{ColumnKind, ColumnSource, ROW_COLUMN, SEGMENT_COLUMN, Spec, TableDef, UnknownColumn};
 use crate::value::ColumnType;
 
 /// One column of a projected table.
@@ -87,4 +87,23 @@ pub fn table_columns(spec: &Spec, table: &TableDef) -> Vec<(String, ColumnType)>
         .into_iter()
         .map(|column| (column.name, column.kind))
         .collect()
+}
+
+/// The 0-based position and the type of column `name` in a table's schema,
+/// as [`table_columns`] returns it; a name the schema does not hold is an
+/// [`UnknownColumn`] that lists every column of `columns`, in order.
+pub fn require_column(
+    table: &str,
+    columns: &[(String, ColumnType)],
+    name: &str,
+) -> Result<(usize, ColumnType), UnknownColumn> {
+    columns
+        .iter()
+        .enumerate()
+        .find_map(|(at, (column, kind))| (column == name).then_some((at, *kind)))
+        .ok_or_else(|| UnknownColumn {
+            table: table.to_owned(),
+            column: name.to_owned(),
+            columns: columns.iter().map(|(column, _)| column.clone()).collect(),
+        })
 }

@@ -95,6 +95,7 @@ mod by_module {
     use oxedi_core::spec::VersionError;
     use oxedi_core::spec::VersionModel;
     use oxedi_core::spec::merge_patch;
+    use oxedi_core::spec::require_column;
     use oxedi_core::spec::spec_schema;
     use oxedi_core::spec::table_columns;
     use oxedi_core::spec::table_schema;

@@ -91,6 +91,37 @@ pub struct ElementPlan {
     pub value: ValueSource,
 }
 
+/// Where a value lands in a segment: an element, or one component of it.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(super) struct Place {
+    /// 1-based element position.
+    pub(super) element: usize,
+    /// 1-based component position, for one component of a composite.
+    pub(super) component: Option<usize>,
+}
+
+impl Place {
+    /// Whether both places write the same bytes of a segment: the same
+    /// element, and either one is the whole element or both are the same
+    /// component.
+    pub(super) fn overlaps(self, other: Place) -> bool {
+        self.element == other.element
+            && (self.component.is_none()
+                || other.component.is_none()
+                || self.component == other.component)
+    }
+}
+
+impl ElementPlan {
+    /// The element or component this plan writes.
+    pub(super) fn place(&self) -> Place {
+        Place {
+            element: self.element,
+            component: self.component,
+        }
+    }
+}
+
 /// One segment a loop instance writes.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct SegmentPlan {

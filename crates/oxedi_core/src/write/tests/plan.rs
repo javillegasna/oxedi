@@ -452,6 +452,90 @@ fn a_component_and_an_implied_loop_are_refused_with_what_is_missing() {
     );
 }
 
+/// The refusals of the `items` table with `columns` (JSON) on IT, whose
+/// first component is optional.
+fn item_refusals(columns: &str) -> Vec<String> {
+    refusals(&format!(
+        r#"{{"tables":{{"items":{{"columns":{columns}}}}},
+            "segments":{{"IT":{{"elements":{{"2":{{"composite":{{"1":{{"required":false}}}}}}}}}}}}}}"#
+    ))
+}
+
+/// A column of IT02 as whole, or of one of its components.
+fn pair(name: &str, component: Option<usize>) -> String {
+    let component = component.map_or(String::new(), |c| format!(r#","component":{c}"#));
+    format!(r#""{name}":{{"segment":"IT","element":2{component}}}"#)
+}
+
+#[test]
+fn a_component_column_after_a_whole_element_column_is_refused() {
+    let columns = format!("{{{},{}}}", pair("a_pair", None), pair("b_kind", Some(1)));
+    assert_eq!(
+        item_refusals(&columns),
+        vec![
+            "table \"items\" column \"b_kind\" writes IT02-1 of occurrence \"it\" in loop \"item\", which column \"a_pair\" already writes"
+        ]
+    );
+}
+
+#[test]
+fn a_whole_element_column_after_a_component_column_is_refused() {
+    let columns = format!("{{{},{}}}", pair("a_kind", Some(1)), pair("b_pair", None));
+    assert_eq!(
+        item_refusals(&columns),
+        vec![
+            "table \"items\" column \"b_pair\" writes IT02 of occurrence \"it\" in loop \"item\", which column \"a_kind\" already writes"
+        ]
+    );
+}
+
+#[test]
+fn two_components_of_one_element_are_accepted() {
+    let columns = format!("{{{},{}}}", pair("kind", Some(1)), pair("value", Some(2)));
+    assert!(item_refusals(&columns).is_empty());
+}
+
+/// The elements at IT02 of the segment of occurrence `it2` of loop `head`, an
+/// IT occurrence whose qualifier is a code on component 1 of IT02, after
+/// patching the spec with `columns`; no refusal is expected.
+fn qualified_item_elements(columns: &str) -> Vec<ElementPlan> {
+    let patch = format!(
+        r#"{{"loops":{{"head":{{"occurrences":{{"it2":{{"segment":"IT","pos":35,
+            "qualifier":{{"element":2,"component":1,"codes":["K"]}}}}}}}}}},
+            "segments":{{"IT":{{"elements":{{"2":{{"composite":{{"1":{{"required":false}}}}}}}}}}}},
+            "tables":{{"heads":{{"columns":{columns}}}}}}}"#
+    );
+    let spec = spec(&patch);
+    let plan = WritePlan::new(&spec).unwrap();
+    let occurrences = &spec.get(spec.loop_id("head").unwrap()).occurrences;
+    let segments = &loop_plan(&spec, &plan, "head").segments;
+    let it2 = segments
+        .iter()
+        .find(|s| occurrences[s.occurrence].name == "it2")
+        .unwrap();
+    let at_two = it2.elements.iter().filter(|e| e.element == 2);
+    at_two.cloned().collect()
+}
+
+#[test]
+fn a_column_replaces_the_qualifier_code_on_a_place_it_overlaps() {
+    let at_two = qualified_item_elements(
+        r#"{"k_code":{"occurrence":"it2","element":1},"k_pair":{"occurrence":"it2","element":2}}"#,
+    );
+    assert_eq!(at_two.len(), 1, "{at_two:#?}");
+    assert_eq!(at_two[0].component, None);
+    assert!(matches!(at_two[0].value, ValueSource::Column { .. }));
+}
+
+#[test]
+fn a_qualifier_code_is_not_added_over_a_where_code_on_the_whole_element() {
+    let at_two =
+        qualified_item_elements(r#"{"k_code":{"segment":"IT","where":{"2":"X"},"element":1}}"#);
+    assert_eq!(at_two.len(), 1, "{at_two:#?}");
+    assert_eq!(at_two[0].component, None);
+    assert_eq!(at_two[0].value, ValueSource::Code(b"X".to_vec()));
+}
+
 #[test]
 fn an_ambiguous_anchor_segment_is_refused() {
     assert_eq!(

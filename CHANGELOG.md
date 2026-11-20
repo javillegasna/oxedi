@@ -82,6 +82,9 @@ This file covers the Python package; the DuckDB extension has its own changelog 
   version 00402 or later the writer writes the envelope's repetition separator in ISA11, and below
   it the element's code. A spec that lists codes for ISA11 at such a version is reported by the
   read-back (code not in list), so `write()` refuses it.
+- A spec whose table has a column for the whole element of a segment and another for a component of
+  the same element is refused with the column that already writes it, where the second column's
+  value used to be dropped without a finding.
 
 ## [0.6.0] - 2026-10-18
 

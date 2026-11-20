@@ -111,6 +111,14 @@ impl Builder<'_> {
             .unwrap_or_default()
     }
 
+    pub(super) fn loop_name(&self, id: usize) -> String {
+        self.spec
+            .loops()
+            .get(id)
+            .map(|def| def.name.clone())
+            .unwrap_or_default()
+    }
+
     pub(super) fn occurrence(&self, id: usize, occurrence: usize) -> Option<&OccurrenceDef> {
         self.spec.loops().get(id)?.occurrences.get(occurrence)
     }

@@ -27,7 +27,7 @@
 //! the spec alone; `test_support` (test builds only) the small spec
 //! shared by the spec and projector tests and the nested-loop spec shared by
 //! the engine and tree tests; `build` the construction of a
-//! [`Spec`] as a pipeline of steps, `build_loops` the compilation of one loop and
+//! [`Spec`] as a pipeline of steps and why a version declaration is rejected, `build_loops` the compilation of one loop and
 //! why its control is rejected, `build_occurrences` that of its occurrences,
 //! `compile` that of the tables, `columns` that of one table column and
 //! `column_occurrence` the reading of the occurrence a column names;
@@ -38,7 +38,7 @@
 //! column; `error` the load error and `error_text` its `source` and the parts
 //! of its text built from lists; `render` the text of triggers and occurrence selectors in messages, `table_chain`
 //! the table chains and declared occurrences a table error quotes; `patch`
-//! the merge patch; `version` the version declaration and the choice of a
+//! the merge patch; `version` the version a compiled spec declares and the choice of a
 //! spec by it; `builtin` the registry of shipped specs by transaction and
 //! version; `vocabulary` the spec's closed words and the codes key, one
 //! table each.
@@ -115,28 +115,30 @@ pub use vocabulary::ElementPosition;
 pub(crate) use balance_rule::render_terms;
 pub(crate) use elements::rejects_code;
 pub(crate) use id_map::IdMap;
+pub(crate) use occurrence_index::OccurrenceIndex;
+pub(crate) use occurrences::element_def;
 pub(crate) use render::{render_selector, render_trigger};
 pub(crate) use schema::column_type;
+pub(crate) use version::chosen;
 
 use std::cmp::Reverse;
 use std::collections::BTreeMap;
 
-use self::occurrence_index::OccurrenceIndex;
 use crate::segment::Segment;
 
 /// A loaded, validated loop structure.
 #[derive(Debug, Clone)]
 pub struct Spec {
-    name: String,
-    loops: Vec<LoopDef>,
-    occurrence_index: OccurrenceIndex,
-    roots: Vec<LoopId>,
-    segments: BTreeMap<Vec<u8>, SegmentDef>,
-    tables: Vec<TableDef>,
-    balancing: Vec<BalanceRule>,
-    summaries: Vec<(String, Summary)>,
-    default_table: Option<String>,
-    version: Option<DeclaredVersion>,
+    pub(crate) name: String,
+    pub(crate) loops: Vec<LoopDef>,
+    pub(crate) occurrence_index: OccurrenceIndex,
+    pub(crate) roots: Vec<LoopId>,
+    pub(crate) segments: BTreeMap<Vec<u8>, SegmentDef>,
+    pub(crate) tables: Vec<TableDef>,
+    pub(crate) balancing: Vec<BalanceRule>,
+    pub(crate) summaries: Vec<(String, Summary)>,
+    pub(crate) default_table: Option<String>,
+    pub(crate) version: Option<DeclaredVersion>,
 }
 
 impl Spec {

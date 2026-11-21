@@ -7,6 +7,7 @@
 use std::collections::BTreeMap;
 use std::fmt;
 
+use super::OccurrenceIndex;
 use super::Spec;
 use super::balance::compile_balancing;
 use super::build_loops::{check_cycles, compile_loop, held_segments};
@@ -16,7 +17,6 @@ use super::elements::SegmentDef;
 use super::error::SpecError;
 use super::loops::{LoopId, Trigger};
 use super::model::{SegmentModel, SpecModel, VersionModel};
-use super::occurrence_index::OccurrenceIndex;
 use super::render::render_trigger;
 use super::segments::compile_elements;
 use super::summaries::{compile_default_table, compile_summaries};

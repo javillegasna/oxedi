@@ -5,9 +5,9 @@ use std::sync::{Arc, OnceLock};
 
 use serde_json::Value;
 
+use super::chosen;
 use super::model::SpecModel;
 use super::patch::merge_patch;
-use super::version::chosen;
 use super::{LoadedSpec, Spec, SpecError};
 use crate::message::render_names;
 use crate::segment::Segment;

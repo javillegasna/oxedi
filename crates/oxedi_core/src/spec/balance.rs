@@ -14,11 +14,11 @@ use std::collections::BTreeMap;
 use super::Spec;
 use super::balance_error::BalanceError;
 use super::balance_rule::{BalanceRule, BalanceTerm, Sign};
+use super::element_def;
 use super::elements::ElementDef;
 use super::error::SpecError;
 use super::loops::LoopId;
 use super::model::{BalanceModel, TermModel};
-use super::occurrences::element_def;
 use crate::message::place;
 use crate::value::ElementType;
 

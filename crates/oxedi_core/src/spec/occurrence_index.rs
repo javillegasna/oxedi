@@ -35,7 +35,7 @@ struct Entry<K> {
 /// lookup binary-searches only that loop's ids in one contiguous array, with
 /// no allocation.
 #[derive(Debug, Clone, Default)]
-pub(super) struct OccurrenceIndex {
+pub(crate) struct OccurrenceIndex {
     /// Per loop (by [`LoopId::index`]), where its run of `short` begins; one
     /// more entry ends the last run.
     loop_starts: Vec<usize>,
@@ -68,7 +68,7 @@ fn grouped<K: Ord>(loops: &[LoopDef], key: impl Fn(&[u8]) -> Option<K>) -> Vec<E
 
 impl OccurrenceIndex {
     /// The index of `loops`, built once when a spec is assembled.
-    pub(super) fn build(loops: &[LoopDef]) -> Self {
+    pub(crate) fn build(loops: &[LoopDef]) -> Self {
         let short = grouped(loops, pack_id);
         let loop_starts = (0..=loops.len())
             .map(|loop_at| short.partition_point(|entry| entry.loop_at < loop_at))

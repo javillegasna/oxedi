@@ -93,10 +93,10 @@ pub struct TableDef {
     pub ancestors: Vec<usize>,
     /// The kind of patient data each column of `columns` holds, parallel to
     /// it; read through [`TableDef::phi`].
-    pub(super) phi: Vec<Option<Phi>>,
+    pub(crate) phi: Vec<Option<Phi>>,
     /// The index in `columns` of the column whose value seeds the row's date
     /// shift; read through [`TableDef::phi_seed`].
-    pub(super) phi_seed: Option<usize>,
+    pub(crate) phi_seed: Option<usize>,
 }
 
 impl TableDef {

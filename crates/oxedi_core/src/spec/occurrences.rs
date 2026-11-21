@@ -86,7 +86,7 @@ impl OccurrenceDef {
     /// `true` when the trigger opens the loop on this occurrence: same
     /// segment and, when the occurrence has a qualifier on an element, a
     /// trigger condition on that element with one of its codes.
-    pub(super) fn opens_on(&self, trigger: &Trigger) -> bool {
+    pub(crate) fn opens_on(&self, trigger: &Trigger) -> bool {
         if self.segment != trigger.segment {
             return false;
         }
@@ -103,7 +103,7 @@ impl OccurrenceDef {
 /// The definition of an element or component of `segment`, if any. It takes
 /// the `segments` section rather than a [`Spec`](super::Spec) because it also
 /// runs while the spec is being built; [`Spec::element_def`](super::Spec::element_def) calls it.
-pub(super) fn element_def<'d>(
+pub(crate) fn element_def<'d>(
     segments: &'d BTreeMap<Vec<u8>, SegmentDef>,
     segment: &[u8],
     element: usize,

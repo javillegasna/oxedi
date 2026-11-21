@@ -78,7 +78,7 @@ fn settled(readings: &[Reading]) -> Option<Option<usize>> {
 /// The position of the first of `candidates` whose declared version the
 /// `segments` carry; `None` when none does. Segments are read only until the
 /// choice is settled.
-pub(super) fn chosen<'s>(
+pub(crate) fn chosen<'s>(
     candidates: &[&Spec],
     segments: impl IntoIterator<Item = Segment<'s>>,
 ) -> Option<usize> {

@@ -5,7 +5,7 @@ use std::collections::BTreeMap;
 use serde::Deserializer;
 
 use super::declare::spec_object;
-use super::positions;
+use super::{positions, present};
 use crate::spec::sections::{COUNT, TEXT, TEXTS, nullable};
 use crate::spec::shape::{Field, Leaf};
 use crate::spec::{ControlCount, ElementPosition, Usage};
@@ -27,6 +27,7 @@ spec_object! {
     /// The segment, and the element values, that open an instance.
     trigger: TriggerModel, Field::Object(&TRIGGER), required;
     /// The counts the end segment checks, when it checks any.
+    #[serde(default, deserialize_with = "present")]
     control: Option<ControlModel>, Field::Object(&CONTROL), optional;
 }
 
@@ -59,6 +60,7 @@ spec_object! {
     /// The most times it repeats in one instance, when the spec bounds it.
     max: Option<usize>, nullable(Leaf::Count), optional;
     /// What tells it apart from the other occurrences of its segment.
+    #[serde(default, deserialize_with = "present")]
     qualifier: Option<QualifierModel>, Field::Object(&QUALIFIER), optional;
     /// The codes an element or component may hold here, by position.
     codes: BTreeMap<ElementPosition, Vec<String>>,

@@ -7,27 +7,46 @@ use crate::spec::*;
 
 #[test]
 fn a_missing_required_key_is_rejected_with_its_key_path() {
-    let loop_json = |loop_def: &str| format!(r#"{{"name":"t","loops":{{"env":{loop_def}}}}}"#);
+    let json = r#"{"loops":{"a":{"trigger":{"segment":"AA"}}}}"#;
+    let err = Spec::from_json(json).unwrap_err();
+    assert!(matches!(&err, SpecError::MissingKey { .. }), "{err:?}");
+    assert_eq!(
+        err.to_string(),
+        "spec: missing required key \"name\" at the top level"
+    );
+}
+
+#[test]
+fn a_loop_the_model_refuses_fails_at_its_path() {
     let cases = [
         (
-            r#"{"loops":{"a":{"trigger":{"segment":"AA"}}}}"#.to_string(),
-            "spec: missing required key \"name\" at the top level",
+            r#"{"name":"t","loops":{"env":{"occurrences":{}}}}"#,
+            "spec: at loops.env: missing field `trigger`",
         ),
         (
-            loop_json(r#"{"occurrences":{}}"#),
-            "spec: missing required key \"trigger\" at loops.env",
+            r#"{"name":"t","loops":{"env":{"trigger":{"where":{"1":"X"}}}}}"#,
+            "spec: at loops.env.trigger: missing field `segment`",
         ),
         (
-            loop_json(r#"{"trigger":{"where":{"1":"X"}}}"#),
-            "spec: missing required key \"segment\" at loops.env.trigger",
+            r#"{"name":"t","loops":{"a":"AA"}}"#,
+            "spec: at loops.a: invalid type: string \"AA\", expected a loop object",
+        ),
+        (
+            r#"{"name":"t","loops":{"a":{"trigger":["AA"]}}}"#,
+            "spec: at loops.a.trigger: invalid type: sequence, expected a trigger object",
+        ),
+        (
+            r#"{"name":"t","loops":{"a":{"trigger":{"segment":"AA","where":1}}}}"#,
+            "spec: at loops.a.trigger.where: invalid type: integer `1`, expected a map",
+        ),
+        (
+            r#"{"name":"t","loops":{"a":{"trigger":{"segment":"AA","where":null}}}}"#,
+            "spec: at loops.a.trigger.where: invalid type: null, expected a map",
         ),
     ];
     for (json, expected) in cases {
-        let err = Spec::from_json(&json).unwrap_err();
-        assert!(
-            matches!(&err, SpecError::MissingKey { .. }),
-            "{json}: {err:?}"
-        );
+        let err = Spec::from_json(json).unwrap_err();
+        assert!(matches!(&err, SpecError::Format { .. }), "{json}: {err:?}");
         assert_eq!(err.to_string(), expected, "{json}");
     }
 }
@@ -112,33 +131,12 @@ fn a_spec_that_is_not_an_object_says_so_in_plain_words() {
 }
 
 #[test]
-fn every_object_of_the_loop_schema_is_checked_with_its_path() {
-    let cases = [
-        (r#"{"name":"t","loops":[]}"#, "loops", "an array"),
-        (r#"{"name":"t","loops":{"a":"AA"}}"#, "loops.a", "a string"),
-        (
-            r#"{"name":"t","loops":{"a":{"trigger":["AA"]}}}"#,
-            "loops.a.trigger",
-            "an array",
-        ),
-        (
-            r#"{"name":"t","loops":{"a":{"trigger":{"segment":"AA","where":1}}}}"#,
-            "loops.a.trigger.where",
-            "a number",
-        ),
-        (
-            r#"{"name":"t","loops":{"a":{"trigger":{"segment":"AA","where":null}}}}"#,
-            "loops.a.trigger.where",
-            "null",
-        ),
-    ];
-    for (json, expected_path, expected_found) in cases {
-        let err = Spec::from_json(json).unwrap_err();
-        assert!(
-            matches!(&err, SpecError::NotAnObject { path, found } if path == expected_path && *found == expected_found),
-            "{json}: {err:?}"
-        );
-    }
+fn loops_that_are_not_an_object_are_refused_by_the_walk() {
+    let err = Spec::from_json(r#"{"name":"t","loops":[]}"#).unwrap_err();
+    assert!(
+        matches!(&err, SpecError::NotAnObject { path, found } if path == "loops" && *found == "an array"),
+        "{err:?}"
+    );
 }
 
 #[test]
@@ -148,7 +146,7 @@ fn a_patched_spec_goes_through_the_same_shape_check() {
         .unwrap_err();
     assert_eq!(
         err.to_string(),
-        "applying patch: spec: the value at loops.2100.trigger must be a JSON object; found an array"
+        "applying patch: spec: at loops.2100.trigger: invalid type: sequence, expected a trigger object"
     );
 }
 
@@ -166,12 +164,12 @@ fn keys_with_a_separator_or_whitespace_are_quoted_in_paths() {
 fn a_spec_error_path_quotes_a_loop_name_that_holds_a_dot() {
     let plain = Spec::from_json(r#"{"name":"t","loops":{"ab":{"trigger":[]}}}"#).unwrap_err();
     assert!(
-        matches!(&plain, SpecError::NotAnObject { path, .. } if path == "loops.ab.trigger"),
+        matches!(&plain, SpecError::Format { path, .. } if path == "loops.ab.trigger"),
         "{plain:?}"
     );
     let quoted = Spec::from_json(r#"{"name":"t","loops":{"a.b":{"trigger":[]}}}"#).unwrap_err();
     assert!(
-        matches!(&quoted, SpecError::NotAnObject { path, .. } if path == "loops.\"a.b\".trigger"),
+        matches!(&quoted, SpecError::Format { path, .. } if path == "loops.\"a.b\".trigger"),
         "{quoted:?}"
     );
     let wrong = Spec::from_json(
@@ -180,7 +178,7 @@ fn a_spec_error_path_quotes_a_loop_name_that_holds_a_dot() {
     .unwrap_err();
     assert_eq!(
         wrong.to_string(),
-        "spec: the value at loops.\"a b\".trigger.where.1 must be a string; found a number (2)"
+        "spec: at loops.\"a b\".trigger.where.1: invalid type: integer `2`, expected a string"
     );
 }
 

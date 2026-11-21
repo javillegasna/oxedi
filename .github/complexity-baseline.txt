@@ -45,10 +45,10 @@ crates/oxedi_core/src/spec/balance.rs	render_terms	8	2
 crates/oxedi_core/src/spec/balance_error.rs	fmt	10	0
 crates/oxedi_core/src/spec/build.rs	check_ambiguity	10	4
 crates/oxedi_core/src/spec/compile.rs	link_tables	17	4
-crates/oxedi_core/src/spec/error.rs	fmt	42	2	flat
+crates/oxedi_core/src/spec/error.rs	fmt	41	2	flat
 crates/oxedi_core/src/spec/occurrence_error.rs	fmt	10	0	flat
 crates/oxedi_core/src/spec/phi.rs	control_element	13	2
-crates/oxedi_core/src/spec/segments.rs	fmt	16	0	flat
+crates/oxedi_core/src/spec/segments.rs	fmt	13	0	flat
 crates/oxedi_core/src/spec/shape.rs	mismatch	8	3
 crates/oxedi_core/src/spec/table_error.rs	fmt	32	0	flat
 crates/oxedi_core/src/value/convert.rs	fmt	10	0	flat

@@ -2,7 +2,9 @@
 //! elements, the single codes that fill an element no column writes, and the
 //! refusals for the rest.
 
-use crate::spec::{OccurrenceDef, Spec, Usage, render_selector, render_trigger};
+use crate::spec::{
+    ElementDef, OccurrenceDef, SegmentDef, Spec, Usage, render_selector, render_trigger,
+};
 
 use super::build::Builder;
 use super::plan::{ElementPlan, Instances, Place, SegmentPlan, SegmentSource, ValueSource};
@@ -124,49 +126,68 @@ fn fill_required(
     let Some(def) = spec.segment(&occurrence.segment) else {
         return missing;
     };
-    let covered = |segment: &SegmentPlan, element: usize, component: Option<usize>| {
-        segment
-            .elements
-            .iter()
-            .any(|e| e.element == element && (component.is_none() || e.component == component))
-    };
-    let mut wanted = Vec::new();
-    for (&position, element) in &def.elements {
-        if element.composite.is_empty() {
-            if element.required {
-                wanted.push((position, None, element));
-            }
+    for (place, element) in required_places(def, segment) {
+        if is_written(segment, place) {
             continue;
         }
-        let written = covered(segment, position, None);
-        if element.required || written {
-            for (&component, part) in &element.composite {
-                if part.required {
-                    wanted.push((position, Some(component), part));
-                }
-            }
-        }
-    }
-    for (position, component, element) in wanted {
-        if covered(segment, position, component) {
-            continue;
-        }
-        let single = occurrence
-            .codes
-            .get(&(position, component))
-            .or((!element.codes.is_empty()).then_some(&element.codes))
-            .and_then(|codes| match codes.as_slice() {
-                [code] => Some(code.as_bytes().to_vec()),
-                _ => None,
-            });
-        match single {
+        match single_code(occurrence, place, element) {
             Some(code) => segment.elements.push(ElementPlan {
-                element: position,
-                component,
+                element: place.element,
+                component: place.component,
                 value: ValueSource::Code(code),
             }),
-            None => missing.push((position, component, element.name.clone())),
+            None => missing.push((place.element, place.component, element.name.clone())),
         }
     }
     missing
+}
+
+/// Whether some element or component the segment plan writes overlaps `place`.
+fn is_written(segment: &SegmentPlan, place: Place) -> bool {
+    segment.elements.iter().any(|e| e.place().overlaps(place))
+}
+
+/// The places the segment requires, in element then component order: a
+/// required simple element, and each required component of a composite that
+/// is required or that the plan already writes.
+fn required_places<'a>(def: &'a SegmentDef, segment: &SegmentPlan) -> Vec<(Place, &'a ElementDef)> {
+    let mut places = Vec::new();
+    for (&element, definition) in &def.elements {
+        let whole = Place {
+            element,
+            component: None,
+        };
+        if definition.composite.is_empty() {
+            if definition.required {
+                places.push((whole, definition));
+            }
+        } else if definition.required || is_written(segment, whole) {
+            places.extend(
+                definition
+                    .composite
+                    .iter()
+                    .filter_map(|(&component, part)| {
+                        let place = Place {
+                            element,
+                            component: Some(component),
+                        };
+                        part.required.then_some((place, part))
+                    }),
+            );
+        }
+    }
+    places
+}
+
+/// The one code a place allows: the occurrence's codes for that place, else
+/// the element's own; `None` when there are none or several.
+fn single_code(occurrence: &OccurrenceDef, place: Place, element: &ElementDef) -> Option<Vec<u8>> {
+    let codes = occurrence
+        .codes
+        .get(&(place.element, place.component))
+        .or((!element.codes.is_empty()).then_some(&element.codes))?;
+    match codes.as_slice() {
+        [code] => Some(code.as_bytes().to_vec()),
+        _ => None,
+    }
 }

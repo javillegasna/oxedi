@@ -452,12 +452,10 @@ fn a_component_and_an_implied_loop_are_refused_with_what_is_missing() {
     );
 }
 
-/// The refusals of the `items` table with `columns` (JSON) on IT, whose
-/// first component is optional.
+/// The refusals of the `items` table with `columns` (JSON) on IT.
 fn item_refusals(columns: &str) -> Vec<String> {
     refusals(&format!(
-        r#"{{"tables":{{"items":{{"columns":{columns}}}}},
-            "segments":{{"IT":{{"elements":{{"2":{{"composite":{{"1":{{"required":false}}}}}}}}}}}}}}"#
+        r#"{{"tables":{{"items":{{"columns":{columns}}}}}}}"#
     ))
 }
 
@@ -495,6 +493,52 @@ fn two_components_of_one_element_are_accepted() {
     assert!(item_refusals(&columns).is_empty());
 }
 
+/// The elements at IT02 of the only IT segment of loop `item`, after patching
+/// the spec with `columns` and `segments` (JSON).
+fn item_elements_at_two(columns: &str, segments: &str) -> Vec<ElementPlan> {
+    let spec = spec(&format!(
+        r#"{{"tables":{{"items":{{"columns":{columns}}}}},"segments":{segments}}}"#
+    ));
+    let plan = WritePlan::new(&spec).unwrap();
+    let it = &loop_plan(&spec, &plan, "item").segments[0];
+    it.elements
+        .iter()
+        .filter(|e| e.element == 2)
+        .cloned()
+        .collect()
+}
+
+/// IT02-2 is the required component, with the given codes.
+fn pair_value_required(codes: &str) -> String {
+    format!(
+        r#"{{"IT":{{"elements":{{"2":{{"composite":{{"2":{{"required":true,"codes":{codes}}}}}}}}}}}}}"#
+    )
+}
+
+#[test]
+fn a_whole_element_column_covers_a_required_component() {
+    let columns = format!("{{{}}}", pair("a_pair", None));
+    assert!(item_refusals(&columns).is_empty());
+}
+
+#[test]
+fn a_single_code_is_not_added_beside_a_whole_element_column() {
+    let columns = format!("{{{}}}", pair("a_pair", None));
+    let at_two = item_elements_at_two(&columns, &pair_value_required(r#"["V"]"#));
+    assert_eq!(at_two.len(), 1, "{at_two:#?}");
+    assert_eq!(at_two[0].component, None);
+    assert!(matches!(at_two[0].value, ValueSource::Column { .. }));
+}
+
+#[test]
+fn a_component_column_leaves_the_other_required_components_to_be_filled() {
+    let columns = format!("{{{}}}", pair("a_kind", Some(1)));
+    let at_two = item_elements_at_two(&columns, &pair_value_required(r#"["V"]"#));
+    let places: Vec<_> = at_two.iter().map(|e| e.component).collect();
+    assert_eq!(places, [Some(1), Some(2)], "{at_two:#?}");
+    assert_eq!(at_two[1].value, ValueSource::Code(b"V".to_vec()));
+}
+
 /// The elements at IT02 of the segment of occurrence `it2` of loop `head`, an
 /// IT occurrence whose qualifier is a code on component 1 of IT02, after
 /// patching the spec with `columns`; no refusal is expected.
@@ -502,7 +546,6 @@ fn qualified_item_elements(columns: &str) -> Vec<ElementPlan> {
     let patch = format!(
         r#"{{"loops":{{"head":{{"occurrences":{{"it2":{{"segment":"IT","pos":35,
             "qualifier":{{"element":2,"component":1,"codes":["K"]}}}}}}}}}},
-            "segments":{{"IT":{{"elements":{{"2":{{"composite":{{"1":{{"required":false}}}}}}}}}}}},
             "tables":{{"heads":{{"columns":{columns}}}}}}}"#
     );
     let spec = spec(&patch);

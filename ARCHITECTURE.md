@@ -137,7 +137,7 @@ Loading goes `SpecModel::from_json` (steps 1 and 2, `spec/model/`) → `SpecMode
 
 1. `shape.rs` checks the JSON shape against the schema as data: one table of
    keys per object, the root's rows being the sections. Each object's declaration in
-   `spec/model/` emits its table (`SUMMARY` sits in `sections.rs`; `ELEMENT` is emitted with `ElementModel`). Its errors
+   `spec/model/` emits its table (`sections.rs` holds only the helpers that build a `Field`; the summaries are `Field::Opaque`, read only through `SummaryModel`). Its errors
    name the key path as written and, for an unknown key, the keys allowed there.
 2. The whole spec is read once as its `SpecModel` through `serde_path_to_error` (the first value
    it refuses, in key order, is `SpecError::Format`, at its path from the root); `Pick`
@@ -171,7 +171,7 @@ Every key is listed in [the spec keys reference](docs/customize/spec.md#spec-key
 | I want to… | Start in | Then |
 |---|---|---|
 | Add a column to a built-in table | `tables.<table>.columns` in `crates/oxedi_core/specs/835.json` | `UPDATE_GOLDEN=1 cargo test -p oxedi_core --test project_golden`, review the diff; document it in `docs/reference/tables.md` |
-| Add a key to the spec format | a row in the object's `spec_object!` declaration in `spec/model/` (field, model type, `Field`, presence word); for an element, a field of `ElementModel` plus `ELEMENT_MODEL_KEYS` (both in `spec/model/segments.rs`, pinned in `spec/tests/model.rs`); for `SUMMARY`, the model, `spec/sections.rs` and `every_key_model` in `spec/tests/model_sync.rs`; `spec/shape.rs` only for a new kind of leaf | Compile it in `spec/build.rs` or `spec/compile.rs`; a new error in `spec/error.rs` (`SpecError`), or in `occurrence_error.rs`, `table_error.rs` or `balance_error.rs` when it is about one of those, with its `Display` test in `spec/tests/`; add the key to `docs/customize/spec.md`; a closed word implements `Vocabulary` (`vocabulary/`) in `spec/vocabulary.rs` |
+| Add a key to the spec format | a row in the object's `spec_object!` declaration in `spec/model/` (field, model type, `Field`, presence word); for an element, a field of `ElementModel` plus `ELEMENT_MODEL_KEYS` (both in `spec/model/segments.rs`, pinned in `spec/tests/model.rs`); for a summary operation, a field of `SummaryKeys` and its model in `spec/model/rules.rs`; `spec/shape.rs` only for a new kind of leaf | Compile it in `spec/build.rs` or `spec/compile.rs`; a new error in `spec/error.rs` (`SpecError`), or in `occurrence_error.rs`, `table_error.rs` or `balance_error.rs` when it is about one of those, with its `Display` test in `spec/tests/`; add the key to `docs/customize/spec.md`; a closed word implements `Vocabulary` (`vocabulary/`) in `spec/vocabulary.rs` |
 | Change how a message names an element, a set of conditions or a list of names, or quotes file bytes or a key | `message/mod.rs` | `message/tests.rs`; the `Display` tests of the messages that use it |
 | Add a diagnostic rule | `diagnostic/rule.rs` (`Rule` variant, `level`, `kind`, and `segment_id` when the rule is about one segment's elements, so its datum can be masked) and `diagnostic/display.rs` (message, written over the pieces of `diagnostic/text.rs` and `message/`) | Raise it in `check/` (structure) or `project/check.rs` (elements); a full-text `Display` test in `diagnostic/tests.rs` |
 | Change an element check | `project/check.rs` | `cargo test -p oxedi_core --lib project::`, then both golden suites |

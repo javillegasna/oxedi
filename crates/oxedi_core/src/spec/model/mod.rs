@@ -17,7 +17,7 @@ use std::collections::BTreeMap;
 use serde::de;
 use serde::{Deserialize, Deserializer};
 
-use super::sections::{SUMMARY, TEXT};
+use super::sections::TEXT;
 use super::segments::{POSITION_RULE, parse_position};
 use super::shape::{Field, check_shape};
 use super::strict::StrictValue;
@@ -34,7 +34,7 @@ pub use segments::{ElementModel, SegmentModel};
 pub use tables::{ColumnModel, RepeatModel, TableModel};
 
 pub(in crate::spec) use loops::LOOP;
-pub(in crate::spec) use rules::{BALANCE, SUMMARY_COLUMN, SUMMARY_ROW, SUMMARY_TABLE, VERSION};
+pub(in crate::spec) use rules::{BALANCE, VERSION};
 // Read only by the model test that holds the list to the keys the model writes.
 #[cfg(test)]
 pub(in crate::spec) use segments::ELEMENT_MODEL_KEYS;
@@ -80,7 +80,7 @@ spec_object! {
     /// The segments whose elements the spec names and types, by segment id.
     segments: BTreeMap<String, SegmentModel>, Field::Map(&Field::Object(&SEGMENT)), default;
     /// The summaries, by name.
-    summaries: BTreeMap<String, SummaryModel>, Field::Map(&Field::Object(&SUMMARY)), default;
+    summaries: BTreeMap<String, SummaryModel>, Field::Map(&Field::Opaque), default;
     /// The table a reader shows when none is named, when the spec names one.
     default_table: Option<String>, TEXT, optional;
 }

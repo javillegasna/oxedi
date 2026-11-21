@@ -54,10 +54,6 @@ impl std::error::Error for SpecError {
             | SpecError::NoLoops { .. }
             | SpecError::EmptySegmentId { .. }
             | SpecError::EndIsTrigger { .. }
-            | SpecError::NotAnObject { .. }
-            | SpecError::WrongType { .. }
-            | SpecError::UnknownKey { .. }
-            | SpecError::MissingKey { .. }
             | SpecError::Format { .. }
             | SpecError::BadElementDef { .. }
             | SpecError::BadTable { .. }

@@ -53,52 +53,11 @@ pub enum SpecError {
         /// The segment id both keys name.
         segment: String,
     },
-    /// A value the schema requires to be an object is something else.
-    NotAnObject {
-        /// Where the value sits, keys joined by `.` as written (e.g.
-        /// `loops.2100.trigger`); empty for the top level.
-        path: String,
-        /// What was found instead: `an array`, `a string`, `a number`,
-        /// `a boolean` or `null`.
-        found: &'static str,
-    },
-    /// A scalar the schema requires to be of one kind is of another.
-    WrongType {
-        /// Where the value sits, keys joined by `.` as written (e.g.
-        /// `loops.env.control.opener_element`).
-        path: String,
-        /// What the schema requires, e.g. `a non-negative integer`.
-        expected: &'static str,
-        /// What was found instead: `a string`, `a number`, `a negative
-        /// number`, `an array`, `null`, and so on.
-        found: &'static str,
-        /// The offending value: a scalar as compact JSON (`"2"`, `7`,
-        /// `true`), an array or object as its length (`3 items`,
-        /// `2 members`); empty for `null`.
-        value: String,
-    },
-    /// An object holds a key its schema does not define.
-    UnknownKey {
-        /// Where the object sits, keys joined by `.` as written (e.g.
-        /// `loops.2100.trigger`); empty for the top level.
-        path: String,
-        /// The key as written.
-        key: String,
-        /// The keys the object may hold there, in alphabetical order.
-        allowed: Vec<&'static str>,
-    },
-    /// An object lacks a key its schema requires.
-    MissingKey {
-        /// Where the object sits, keys joined by `.` as written (e.g.
-        /// `loops.env.control`); empty for the top level.
-        path: String,
-        /// The required key.
-        key: &'static str,
-    },
-    /// A value of the right JSON type that the spec's model does not read,
-    /// anywhere in the spec (the first in key order is reported): a word
-    /// outside its vocabulary (a usage, a sign), an element type, a key that
-    /// is not a position, a summary that holds no operation or more than one.
+    /// A value the spec's model does not read, anywhere in the spec (the first
+    /// in key order is reported): a key it does not take, a missing key, a value
+    /// of the wrong JSON type or `null` where a value belongs, a word outside its
+    /// vocabulary (a usage, a sign), an element type, a key that is not a
+    /// position, a summary that holds no operation or more than one.
     Format {
         /// Where the value sits, from the root: keys joined by `.`, a key holding
         /// `.`, `/`, `#` or whitespace quoted (e.g. `loops.2100.occurrences.clp.usage`);
@@ -245,47 +204,6 @@ impl fmt::Display for SpecError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             SpecError::Json(e) => write!(f, "invalid spec JSON: {e}"),
-            SpecError::NotAnObject { path, found } if path.is_empty() => {
-                write!(f, "the spec must be a JSON object; found {found}")
-            }
-            SpecError::NotAnObject { path, found } => write!(
-                f,
-                "spec: the value at {path} must be a JSON object; found {found}"
-            ),
-            SpecError::WrongType {
-                path,
-                expected,
-                found,
-                value,
-            } if value.is_empty() => write!(
-                f,
-                "spec: the value at {path} must be {expected}; found {found}"
-            ),
-            SpecError::WrongType {
-                path,
-                expected,
-                found,
-                value,
-            } => write!(
-                f,
-                "spec: the value at {path} must be {expected}; found {found} ({value})"
-            ),
-            SpecError::UnknownKey { path, key, allowed } if path.is_empty() => write!(
-                f,
-                "spec: unknown key {key:?} at the top level; the allowed keys are: {}",
-                allowed.join(", ")
-            ),
-            SpecError::UnknownKey { path, key, allowed } => write!(
-                f,
-                "spec: unknown key {key:?} at {path}; the allowed keys are: {}",
-                allowed.join(", ")
-            ),
-            SpecError::MissingKey { path, key } if path.is_empty() => {
-                write!(f, "spec: missing required key {key:?} at the top level")
-            }
-            SpecError::MissingKey { path, key } => {
-                write!(f, "spec: missing required key {key:?} at {path}")
-            }
             SpecError::Patch { source } => write!(f, "applying patch: {source}"),
             SpecError::UnknownParent { loop_name, parent } => {
                 write!(f, "loop {loop_name:?} names unknown parent {parent:?}")

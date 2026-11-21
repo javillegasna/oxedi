@@ -226,7 +226,7 @@ fn events_agree_with_a_replay_of_their_own_stack() {
 }
 
 #[test]
-fn the_occurrence_index_agrees_with_a_scan_of_the_loop() {
+fn the_index_agrees_with_a_scan() {
     let spec = Spec::builtin_835();
     for (name, bytes, delims) in common::all_files() {
         let events = common::events_of(&spec, &bytes, delims);

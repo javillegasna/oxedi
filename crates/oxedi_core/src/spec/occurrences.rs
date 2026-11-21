@@ -79,11 +79,15 @@ impl OccurrenceDef {
     /// `true` when the segment has this occurrence's id and, when it has a
     /// qualifier, one of its codes.
     pub fn matches(&self, segment: &Segment<'_>) -> bool {
-        segment.id == self.segment.as_slice()
-            && self
-                .qualifier
-                .as_ref()
-                .is_none_or(|qualifier| qualifier.matches(segment))
+        segment.id == self.segment.as_slice() && self.qualifier_holds(segment)
+    }
+
+    /// `true` when the occurrence has no qualifier, or the segment holds one
+    /// of its codes. The segment's id is not compared.
+    pub(super) fn qualifier_holds(&self, segment: &Segment<'_>) -> bool {
+        self.qualifier
+            .as_ref()
+            .is_none_or(|qualifier| qualifier.matches(segment))
     }
 
     /// `true` when the trigger opens the loop on this occurrence: same

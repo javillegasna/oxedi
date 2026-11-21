@@ -1,9 +1,7 @@
 //! The per-segment plans the projector builds once from the spec.
 
-use std::collections::BTreeMap;
-
 use super::carry::Carried;
-use crate::spec::{ColumnSource, ElementDef, Pick, Spec, TableDef, pack_id};
+use crate::spec::{ColumnSource, ElementDef, IdMap, Pick, Spec, TableDef};
 use crate::value::ColumnType;
 
 /// One defined element, with what checking it needs worked out once.
@@ -83,34 +81,23 @@ pub(super) struct Watcher {
     pub(super) carried: Option<usize>,
 }
 
-/// The plans of every segment id. Ids of up to seven bytes are keyed by their
-/// packed bytes, which compare faster than slices.
+/// The plans of every segment id.
 #[derive(Debug, Clone, Default)]
 pub(super) struct Plans<'s> {
-    short: BTreeMap<u64, SegmentPlan<'s>>,
-    long: BTreeMap<Vec<u8>, SegmentPlan<'s>>,
+    by_id: IdMap<SegmentPlan<'s>>,
 }
 
 impl<'s> Plans<'s> {
-    fn key(id: &[u8]) -> Option<u64> {
-        pack_id(id)
-    }
-
     pub(super) fn get(&self, id: &[u8]) -> Option<&SegmentPlan<'s>> {
-        match Self::key(id) {
-            Some(key) => self.short.get(&key),
-            None => self.long.get(id),
-        }
+        self.by_id.get(id)
     }
 
     /// Records that a column reads `element` (or its `component`) of the
     /// segments with `id`, when the spec defines that element.
     fn mark_read(&mut self, id: &[u8], element: usize, component: Option<usize>) {
-        let plan = match Self::key(id) {
-            Some(key) => self.short.get_mut(&key),
-            None => self.long.get_mut(id),
-        };
-        plan.into_iter()
+        self.by_id
+            .get_mut(id)
+            .into_iter()
             .flat_map(|plan| plan.elements.iter_mut())
             .filter(|plan| plan.position == element)
             .for_each(|plan| plan.mark_read(component));
@@ -252,9 +239,6 @@ impl<'s> Plans<'s> {
             elements: Vec::new(),
             watchers: vec![Vec::new(); loops],
         };
-        match Self::key(id) {
-            Some(key) => self.short.entry(key).or_insert_with(empty),
-            None => self.long.entry(id.to_vec()).or_insert_with(empty),
-        }
+        self.by_id.entry_or_insert_with(id, empty)
     }
 }

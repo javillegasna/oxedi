@@ -17,7 +17,7 @@
 //!
 //! The module is split by responsibility: `loops`, `occurrences`, `segments`,
 //! `tables`, `balance` and `summaries` hold the definitions, `occurrence_index`
-//! the occurrence a segment takes in a loop,
+//! the occurrence a segment takes in a loop, `id_map` the map keyed by segment id,
 //! `occurrence_error`, `table_error`, `balance_error` and `summary_error` why
 //! an occurrence, a table, a balancing rule or a summary is rejected; `unknown`
 //! the errors for a table or a column the spec does not define; `raw`
@@ -47,6 +47,7 @@ mod columns;
 mod compile;
 mod error;
 mod error_text;
+mod id_map;
 mod loops;
 mod model;
 mod occurrence_error;
@@ -101,7 +102,7 @@ pub use version::{DeclaredVersion, VersionError};
 pub use vocabulary::ElementPosition;
 
 pub(crate) use balance::render_terms;
-pub(crate) use occurrence_index::pack_id;
+pub(crate) use id_map::IdMap;
 pub(crate) use render::{render_selector, render_trigger};
 pub(crate) use schema::column_type;
 pub(crate) use segments::rejects_code;

@@ -63,7 +63,8 @@ flowchart LR
    the stream and its parent. `LoopEngine::path` lists the instances open now.
 4. `Processor` (`process/`) feeds each segment to the engine, then hands the events to the
    projector and the checker. `Processor::run` does this over a whole `Document`.
-   - `Projector` (`project/`) finds which occurrence of its loop the segment matched, checks
+   - `Projector` (`project/`) asks the spec which occurrence of its loop the segment takes
+     (`Spec::occurrence_of`, through the index of `spec/occurrence_index.rs`), checks
      every element the spec defines (`project/check.rs`: required, type, length, code list,
      components) and fills the spec's tables (`project/fill.rs`).
    - `StructureChecker` (`check/`) reports unknown segments, implicit and unterminated loops,
@@ -74,7 +75,7 @@ flowchart LR
    computes the summaries the spec declares (`Spec::summaries`) over those tables.
 
 **The order inside `Processor::feed` is a contract.** The projector runs first, because it
-works out which occurrence the segment matched, and the checker reuses that match
+asks the spec which occurrence the segment took, and the checker reuses that match
 (`Projector::matched` → `StructureChecker::on_matched`). The checker's diagnostics still come
 first in `Output`, then the projector's. When a `Mask` is set, the projector masks the datum of
 every diagnostic about a place a patient-data column reads, the checker's included, before they
@@ -138,7 +139,7 @@ Loading goes `Spec::from_json` → `Spec::from_value` (`spec/build.rs`):
    same declarations as the schema; `RawElement`, `RawSummary` and `RawPick` are in `raw.rs`.
 3. `build.rs` runs the compile steps in order, one per section or structural check:
    loops (`build_loops.rs`: keys, parent, trigger, control), segments, occurrences, the
-   version, trigger ambiguity, tables, balancing, summaries (`summaries.rs`) and the
+   occurrence index (`occurrence_index.rs`), the version, trigger ambiguity, tables, balancing, summaries (`summaries.rs`) and the
    default table; `spec/mod.rs` lists which file holds what.
 4. The result is index-based: `LoopDef` (by `LoopId`), `SegmentDef`, `ElementDef`, `TableDef`
    with a `ColumnSource` per column, `BalanceRule`, `Summary`. The engine compares indices,

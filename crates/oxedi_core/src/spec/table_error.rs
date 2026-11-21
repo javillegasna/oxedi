@@ -3,7 +3,7 @@
 use std::fmt;
 
 use super::ColumnKind;
-use super::render::{Declared, render_chain};
+use super::table_chain::{Declared, render_chain};
 use crate::message::ElementRef;
 use crate::vocabulary::Pick;
 

@@ -36,7 +36,8 @@
 //! compiled form;
 //! `phi` the check of the columns flagged as patient data and of the seed
 //! column; `error` the load error and `error_text` its `source` and the parts
-//! of its text built from lists; `render` the text used in messages; `patch`
+//! of its text built from lists; `render` the text of triggers and occurrence selectors in messages, `table_chain`
+//! the table chains and declared occurrences a table error quotes; `patch`
 //! the merge patch; `version` the version declaration and the choice of a
 //! spec by it; `builtin` the registry of shipped specs by transaction and
 //! version; `vocabulary` the spec's closed words and the codes key, one
@@ -70,6 +71,7 @@ mod segments;
 mod strict;
 mod summaries;
 mod summary_error;
+mod table_chain;
 mod table_error;
 mod tables;
 #[cfg(test)]

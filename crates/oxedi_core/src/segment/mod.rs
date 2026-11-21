@@ -7,13 +7,13 @@
 use std::fmt;
 use std::io;
 
-use crate::delimiters::Delimiters;
+use crate::delimiters::{Delimiters, Syntax};
 use crate::element::{Element, Pieces};
 use crate::frame::Frame;
 
 mod serializer;
 
-pub(crate) use serializer::{SegmentOutput, SegmentSerializer, Sink, Syntax, Trailing};
+pub(crate) use serializer::{SegmentOutput, SegmentSerializer, Sink, Trailing};
 
 /// One segment of the input. Everything borrows from the buffer except
 /// values that needed unescaping (see [`Element`]).

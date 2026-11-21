@@ -22,8 +22,8 @@ use super::plan::{Instances, SegmentPlan, SegmentSource, ValueSource, WritePlan}
 use super::render::Part;
 use super::trace::{Src, Traces};
 use super::walk::Context;
+use crate::delimiters::Syntax;
 use crate::message::place;
-use crate::segment::Syntax;
 
 /// The writer's state while it walks the loops.
 pub(super) struct Emitter<'a> {

@@ -1,4 +1,5 @@
 use super::*;
+use crate::frame::SegmentEnd;
 
 fn syntax(release: Option<u8>) -> Syntax {
     Syntax {

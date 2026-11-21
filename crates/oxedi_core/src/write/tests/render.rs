@@ -2,8 +2,8 @@ use crate::column::Cell;
 use crate::value::{ColumnType, ElementTextError};
 
 use super::super::render::{Part, cell_text, write_segment};
+use crate::delimiters::Syntax;
 use crate::frame::SegmentEnd;
-use crate::segment::Syntax;
 
 #[test]
 fn a_decimal_cell_takes_its_scale_from_a_decimal_column_only() {

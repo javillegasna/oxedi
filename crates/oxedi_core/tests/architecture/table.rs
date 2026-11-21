@@ -94,15 +94,8 @@ pub const TABLE: &[Row] = &[
     ),
 ];
 
-pub const EXCEPTIONS: &[Exception] = &[
-    Exception {
-        from: "delimiters",
-        to: "segment",
-        reason: "the delimiters build the syntax value the serializer writes with, and that value lives in the segment module",
-    },
-    Exception {
-        from: "spec",
-        to: "mask",
-        reason: "the type that marks a column as patient data is defined in the mask",
-    },
-];
+pub const EXCEPTIONS: &[Exception] = &[Exception {
+    from: "spec",
+    to: "mask",
+    reason: "the type that marks a column as patient data is defined in the mask",
+}];

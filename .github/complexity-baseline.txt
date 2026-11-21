@@ -25,8 +25,6 @@ crates/oxedi_core/scripts/pyx12_compare/occurrences.py	own_codes	18	3
 crates/oxedi_core/scripts/pyx12_compare/report.py	report	27	3
 crates/oxedi_core/scripts/pyx12_compare/spec.py	merge_diff	10	2
 crates/oxedi_core/src/check/balance.rs	balance_captured	12	4
-crates/oxedi_core/src/check/mod.rs	captured	10	2
-crates/oxedi_core/src/check/mod.rs	opened	8	2
 crates/oxedi_core/src/check/occurrences.rs	count_instance	11	2
 crates/oxedi_core/src/check/occurrences.rs	report_missing	8	2
 crates/oxedi_core/src/column/mod.rs	get	17	1

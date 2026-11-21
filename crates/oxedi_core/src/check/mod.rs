@@ -11,14 +11,15 @@
 //! (`occurrences.rs`): required occurrences and child loops, repeat limits,
 //! position order and segments that match no occurrence; and each instance
 //! against the spec's balancing rules (`balance.rs`): amounts that must add up.
+//! The envelope control checks, the control number and the count at an end
+//! segment, are in `control.rs`.
 
 use crate::delimiters::Delimiters;
 use crate::diagnostic::{Diagnostic, LoopRef, Rule};
 use crate::engine::Event;
 use crate::segment::Segment;
-use crate::spec::{ControlCount, LoopId, OccurrenceId, Spec, render_trigger};
+use crate::spec::{LoopId, OccurrenceId, Spec};
 use crate::trivia::BYTE_ORDER_MARK;
-use crate::value::parse_unsigned;
 
 /// One loop instance the checker is inside of.
 #[derive(Debug, Clone)]
@@ -166,8 +167,6 @@ impl<'s> StructureChecker<'s> {
     }
 
     fn opened(&mut self, id: LoopId, implicit: bool, trigger: usize, segment: &Segment<'_>) {
-        let spec = self.spec;
-        let def = spec.get(id);
         self.ordinals[id.index()] = self.ordinals[id.index()].saturating_add(1);
         let ordinal = self.ordinals[id.index()];
         if !implicit && let Some(parent) = self.open.last_mut() {
@@ -179,19 +178,10 @@ impl<'s> StructureChecker<'s> {
             layout.occurrences.saturating_add(layout.children)
         });
         self.counts.resize(counts.saturating_add(slots), 0);
-        let mut missing_opener = None;
-        let control_number = match def.control {
-            Some(control) if !implicit => {
-                let mut joined = Vec::new();
-                let value = text_at(segment, control.opener_element, self.separator, &mut joined)
-                    .map(<[u8]>::to_vec);
-                if value.is_none() {
-                    missing_opener = Some(control.opener_element);
-                }
-                value
-            }
-            _ => None,
-        };
+        let number = self.opener_number(id, implicit, segment);
+        let missing_opener = number
+            .as_ref()
+            .and_then(|number| number.as_ref().err().copied());
         self.open.push(Open {
             id,
             ordinal,
@@ -199,7 +189,7 @@ impl<'s> StructureChecker<'s> {
             opened_at: (!implicit).then_some(trigger),
             start: self.seen,
             children: 0,
-            control_number,
+            control_number: number.and_then(Result::ok),
             ended: false,
             counts,
             last: None,
@@ -208,108 +198,17 @@ impl<'s> StructureChecker<'s> {
         self.balance_opened(id);
         self.report_opening(id, opening, trigger, segment.id);
         if let Some(element) = missing_opener {
-            self.report(
-                Rule::ControlElementMissing {
-                    segment_id: segment.id.to_vec(),
-                    element,
-                },
-                Some(trigger),
-                Some(element),
-                Vec::new(),
-            );
+            self.report_missing_opener(element, trigger, segment);
         }
         if implicit {
-            self.report(
-                Rule::ImplicitLoop {
-                    loop_name: def.name.clone(),
-                    expected_trigger: render_trigger(&def.trigger),
-                    caused_by: segment.id.to_vec(),
-                },
-                Some(trigger),
-                None,
-                segment.id.to_vec(),
-            );
+            self.report_implicit(id, trigger, segment);
         }
     }
 
     fn captured(&mut self, id: LoopId, segment: &Segment<'_>, matched: Option<usize>) {
         self.occurrence_captured(id, segment, matched);
         self.balance_captured(id, segment, matched);
-        let spec = self.spec;
-        let def = spec.get(id);
-        if def.end.as_deref() != Some(segment.id) {
-            return;
-        }
-        let seen = self.seen;
-        let Some(top) = self.open.last_mut().filter(|top| top.id == id) else {
-            return;
-        };
-        top.ended = true;
-        let opened_at = top.opened_at;
-        let Some(control) = def.control else {
-            return;
-        };
-        let counted = match control.count {
-            ControlCount::Segments => seen.saturating_sub(top.start),
-            ControlCount::Children => top.children,
-        };
-        // The instance closes right after its end segment, so its control
-        // number is no longer needed.
-        let opener_value = top.control_number.take();
-
-        let mut joined = Vec::new();
-        match text_at(segment, control.count_element, self.separator, &mut joined) {
-            None => self.report(
-                Rule::ControlElementMissing {
-                    segment_id: segment.id.to_vec(),
-                    element: control.count_element,
-                },
-                Some(segment.index),
-                Some(control.count_element),
-                Vec::new(),
-            ),
-            Some(found) if parse_count(found) != Some(counted) => self.report(
-                Rule::ControlCountMismatch {
-                    segment_id: segment.id.to_vec(),
-                    element: control.count_element,
-                    expected: counted,
-                    found: found.to_vec(),
-                },
-                Some(segment.index),
-                Some(control.count_element),
-                found.to_vec(),
-            ),
-            Some(_) => {}
-        }
-        if let Some(opener_value) = opener_value {
-            let mut joined = Vec::new();
-            match text_at(segment, control.closer_element, self.separator, &mut joined) {
-                None => self.report(
-                    Rule::ControlElementMissing {
-                        segment_id: segment.id.to_vec(),
-                        element: control.closer_element,
-                    },
-                    Some(segment.index),
-                    Some(control.closer_element),
-                    Vec::new(),
-                ),
-                Some(closer_value) if closer_value != opener_value => self.report(
-                    Rule::ControlNumberMismatch {
-                        opener: def.trigger.segment.clone(),
-                        opener_element: control.opener_element,
-                        closer: segment.id.to_vec(),
-                        closer_element: control.closer_element,
-                        opener_value,
-                        closer_value: closer_value.to_vec(),
-                        opened_at,
-                    },
-                    Some(segment.index),
-                    Some(control.closer_element),
-                    closer_value.to_vec(),
-                ),
-                Some(_) => {}
-            }
-        }
+        self.end_captured(id, segment);
     }
 
     /// Closes the innermost open loop; `at` is the segment whose arrival
@@ -375,24 +274,8 @@ impl<'s> StructureChecker<'s> {
     }
 }
 
-/// The whole text of the element at a 1-based position, components re-joined
-/// with `separator`; `None` when the segment has no such element.
-fn text_at<'a>(
-    segment: &'a Segment<'_>,
-    position: usize,
-    separator: u8,
-    joined: &'a mut Vec<u8>,
-) -> Option<&'a [u8]> {
-    segment.text(position, separator, joined)
-}
-
-/// A count written as ASCII digits (leading zeros allowed); `None` for
-/// anything else, including the empty value and a count past `usize`.
-fn parse_count(value: &[u8]) -> Option<usize> {
-    parse_unsigned(value).and_then(|count| usize::try_from(count).ok())
-}
-
 mod balance;
+mod control;
 mod occurrences;
 use balance::Balances;
 use occurrences::Seen;

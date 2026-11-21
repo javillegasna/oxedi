@@ -384,6 +384,19 @@ fn finishing_resets_the_checker() {
     );
 }
 
+/// Feeds `input` to the engine and the checker; no segment raises anything.
+fn feed_without_findings(
+    engine: &mut LoopEngine<'_>,
+    checker: &mut StructureChecker<'_>,
+    input: &[u8],
+) {
+    let delims = Delimiters::new(b'*', b':', b'~');
+    for segment in Tokenizer::with_delimiters(input, delims) {
+        let events = engine.feed(&segment).to_vec();
+        assert_eq!(checker.on(&segment, &events, engine.path()), &[]);
+    }
+}
+
 #[test]
 fn finishing_without_the_engines_events_still_resets() {
     use crate::spec::test_support::nested;
@@ -391,10 +404,7 @@ fn finishing_without_the_engines_events_still_resets() {
     let delims = Delimiters::new(b'*', b':', b'~');
     let mut engine = LoopEngine::new(&spec);
     let mut checker = StructureChecker::new(&spec, &delims);
-    for segment in Tokenizer::with_delimiters(b"AA*1~BB~", delims) {
-        let events = engine.feed(&segment).to_vec();
-        checker.on(&segment, &events, engine.path());
-    }
+    feed_without_findings(&mut engine, &mut checker, b"AA*1~BB~");
     assert_eq!(checker.open.len(), 2);
     // The caller gives no closing events: the instances are still dropped.
     assert_eq!(checker.finish(&[]), &[]);
@@ -458,10 +468,7 @@ fn a_diagnostic_raised_at_the_end_of_the_stream_names_its_loop() {
     let delims = Delimiters::new(b'*', b':', b'~');
     let mut engine = LoopEngine::new(&spec);
     let mut checker = StructureChecker::new(&spec, &delims);
-    for segment in Tokenizer::with_delimiters(b"AA*1~BB~", delims) {
-        let events = engine.feed(&segment).to_vec();
-        assert_eq!(checker.on(&segment, &events, engine.path()), &[]);
-    }
+    feed_without_findings(&mut engine, &mut checker, b"AA*1~BB~");
     let found = checker.finish(engine.finish());
     assert_eq!(found.len(), 2);
     assert!(found.iter().all(|found| found.segment.is_none()));

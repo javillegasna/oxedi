@@ -3,6 +3,7 @@
 
 use super::control::parse_count;
 use super::*;
+use crate::diagnostic::LoopRef;
 
 mod balance;
 mod occurrences;
@@ -27,11 +28,10 @@ pub(super) fn check_all(spec: &Spec, input: &str) -> Vec<Diagnostic> {
     let mut checker = StructureChecker::new(spec, &delims);
     let mut out = Vec::new();
     for segment in Tokenizer::with_delimiters(input.as_bytes(), delims) {
-        let events = engine.feed(&segment);
-        out.extend_from_slice(checker.on(&segment, events));
+        let events = engine.feed(&segment).to_vec();
+        out.extend_from_slice(checker.on(&segment, &events, engine.path()));
     }
-    engine.finish();
-    out.extend_from_slice(checker.finish());
+    out.extend_from_slice(checker.finish(engine.finish()));
     out
 }
 
@@ -370,11 +370,10 @@ fn finishing_resets_the_checker() {
     let run = |engine: &mut LoopEngine<'_>, checker: &mut StructureChecker<'_>| {
         let mut out = Vec::new();
         for segment in Tokenizer::with_delimiters(input.as_bytes(), delims) {
-            let events = engine.feed(&segment);
-            out.extend_from_slice(checker.on(&segment, events));
+            let events = engine.feed(&segment).to_vec();
+            out.extend_from_slice(checker.on(&segment, &events, engine.path()));
         }
-        engine.finish();
-        out.extend_from_slice(checker.finish());
+        out.extend_from_slice(checker.finish(engine.finish()));
         out
     };
     assert_eq!(run(&mut engine, &mut checker), first);
@@ -392,4 +391,55 @@ fn counts_parse_digits_only() {
     assert_eq!(parse_count(b"4 "), None);
     assert_eq!(parse_count(b"-4"), None);
     assert_eq!(parse_count(b"99999999999999999999999"), None);
+}
+
+#[test]
+fn a_close_that_names_another_instance_changes_nothing() {
+    use crate::engine::{Instance, InstanceId};
+    use crate::spec::test_support::nested;
+    let spec = nested();
+    let head = spec.roots()[0];
+    let instance = |index: usize| Instance {
+        id: InstanceId::at(index),
+        loop_id: head,
+        ordinal_in_stream: index + 1,
+        parent: None,
+    };
+    let delims = Delimiters::new(b'*', b':', b'~');
+    let segments: Vec<_> = Tokenizer::with_delimiters(b"HD*1~", delims).collect();
+    let mut checker = StructureChecker::new(&spec, &delims);
+    let opened = Event::LoopOpened {
+        instance: instance(0),
+        implicit: false,
+        segment: 0,
+    };
+    assert_eq!(checker.on(&segments[0], &[opened], &[instance(0)]), &[]);
+    let stranger = Event::LoopClosed {
+        instance: instance(7),
+    };
+    assert_eq!(checker.on(&segments[0], &[stranger], &[instance(0)]), &[]);
+}
+
+#[test]
+fn a_diagnostic_raised_at_the_end_of_the_stream_names_its_loop() {
+    use crate::spec::test_support::nested;
+    let spec = nested();
+    let delims = Delimiters::new(b'*', b':', b'~');
+    let mut engine = LoopEngine::new(&spec);
+    let mut checker = StructureChecker::new(&spec, &delims);
+    for segment in Tokenizer::with_delimiters(b"AA*1~", delims) {
+        let events = engine.feed(&segment).to_vec();
+        assert_eq!(checker.on(&segment, &events, engine.path()), &[]);
+    }
+    let found = checker.finish(engine.finish());
+    assert_eq!(found.len(), 1);
+    assert!(matches!(found[0].rule, Rule::UnterminatedLoop { .. }));
+    assert_eq!(found[0].segment, None);
+    assert_eq!(
+        found[0].path,
+        vec![LoopRef {
+            name: "A".to_string(),
+            ordinal: 1
+        }]
+    );
 }

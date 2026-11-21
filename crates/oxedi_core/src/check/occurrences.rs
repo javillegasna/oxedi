@@ -17,6 +17,7 @@
 //! reports the segment as not found and the occurrence as missing.
 
 use crate::diagnostic::Rule;
+use crate::engine::Instance;
 use crate::segment::Segment;
 use crate::spec::{LoopId, Spec, Usage, render_selector, render_trigger};
 
@@ -192,10 +193,11 @@ impl<'s> StructureChecker<'s> {
     #[inline]
     pub(super) fn occurrence_captured(
         &mut self,
-        id: LoopId,
+        instance: Instance,
         segment: &Segment<'_>,
         matched: Option<usize>,
     ) {
+        let id = instance.loop_id;
         let Some(index) = matched else {
             self.unknown_occurrence(id, segment);
             return;
@@ -207,7 +209,11 @@ impl<'s> StructureChecker<'s> {
         else {
             return;
         };
-        let Some(top) = self.open.last_mut().filter(|top| top.id == id) else {
+        let Some(top) = self
+            .open
+            .last_mut()
+            .filter(|top| top.instance == instance.id)
+        else {
             return;
         };
         let Some(count) = top
@@ -295,11 +301,11 @@ impl<'s> StructureChecker<'s> {
     /// implicitly), it also writes the highest position the instance reached
     /// back into the parent, so the parent's later segments are ordered after
     /// everything inside it.
-    pub(super) fn occurrence_closed(&mut self, at: Option<&Segment<'_>>) {
+    pub(super) fn occurrence_closed(&mut self, id: LoopId, at: Option<&Segment<'_>>) {
         let Some(top) = self.open.last() else {
             return;
         };
-        let (id, start, implicit) = (top.id, top.counts, top.implicit);
+        let (start, implicit) = (top.counts, top.implicit);
         let reached = highest(top.last, top.inner);
         let shared = self
             .layouts
@@ -322,7 +328,7 @@ impl<'s> StructureChecker<'s> {
                 })
             });
         if missing {
-            self.report_missing(at);
+            self.report_missing(id, at);
         }
         self.counts.truncate(start);
     }
@@ -330,13 +336,13 @@ impl<'s> StructureChecker<'s> {
     /// Reports each required occurrence and child loop the instance on top
     /// of the stack never held, occurrences first.
     #[cold]
-    fn report_missing(&mut self, at: Option<&Segment<'_>>) {
+    fn report_missing(&mut self, id: LoopId, at: Option<&Segment<'_>>) {
         let spec = self.spec;
         let Some(top) = self.open.last() else {
             return;
         };
         let (start, opened_at) = (top.counts, top.opened_at);
-        let def = spec.get(top.id);
+        let def = spec.get(id);
         let counts = self.counts.get(start..).unwrap_or_default();
         let children = counts.get(def.occurrences.len()..).unwrap_or_default();
         let occurrences = def

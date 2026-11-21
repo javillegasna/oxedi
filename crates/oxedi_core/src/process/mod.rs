@@ -101,9 +101,11 @@ impl<'s> Processor<'s> {
         // first.
         let events = &self.output.events;
         self.projector.on(segment, events, self.engine.path());
-        self.output
-            .diagnostics
-            .extend_from_slice(self.checker.on(segment, events));
+        self.output.diagnostics.extend_from_slice(self.checker.on(
+            segment,
+            events,
+            self.engine.path(),
+        ));
         self.projector
             .mask_datums(&mut self.output.diagnostics, Some(segment));
         self.output
@@ -122,7 +124,7 @@ impl<'s> Processor<'s> {
         self.output.events.extend_from_slice(events);
         self.output
             .diagnostics
-            .extend_from_slice(self.checker.finish());
+            .extend_from_slice(self.checker.finish(events));
         self.projector
             .mask_datums(&mut self.output.diagnostics, None);
         self.output

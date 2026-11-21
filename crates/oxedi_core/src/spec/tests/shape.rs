@@ -131,12 +131,22 @@ fn a_spec_that_is_not_an_object_says_so_in_plain_words() {
 }
 
 #[test]
-fn loops_that_are_not_an_object_are_refused_by_the_walk() {
-    let err = Spec::from_json(r#"{"name":"t","loops":[]}"#).unwrap_err();
-    assert!(
-        matches!(&err, SpecError::NotAnObject { path, found } if path == "loops" && *found == "an array"),
-        "{err:?}"
-    );
+fn a_section_that_is_not_an_object_is_refused_by_the_walk() {
+    for section in ["loops", "tables", "balancing", "segments"] {
+        let json = match section {
+            "loops" => r#"{"name":"t","loops":[]}"#.to_string(),
+            _ => format!(r#"{{"name":"t","loops":{{}},"{section}":[]}}"#),
+        };
+        let err = Spec::from_json(&json).unwrap_err();
+        assert!(
+            matches!(&err, SpecError::NotAnObject { path, found } if path == section && *found == "an array"),
+            "{section}: {err:?}"
+        );
+        assert_eq!(
+            err.to_string(),
+            format!("spec: the value at {section} must be a JSON object; found an array")
+        );
+    }
 }
 
 #[test]

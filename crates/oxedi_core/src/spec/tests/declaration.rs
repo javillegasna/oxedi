@@ -171,9 +171,9 @@ fn a_spec_model_writes_no_default_and_no_null() {
     };
     let written = json!({"name": "n", "loops": {"A": {"trigger": {"segment": "ST"}}}});
     assert_eq!(serde_json::to_value(&model).unwrap(), written);
-    let nulls = json!({
+    let defaults = json!({
         "name": "n", "loops": {"A": {"trigger": {"segment": "ST"}}},
         "segments": {}, "tables": {}, "balancing": {}, "summaries": {}
     });
-    assert_eq!(from_value::<SpecModel>(nulls).unwrap(), model);
+    assert_eq!(from_value::<SpecModel>(defaults).unwrap(), model);
 }

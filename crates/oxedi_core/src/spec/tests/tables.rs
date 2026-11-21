@@ -565,15 +565,6 @@ fn a_table_the_model_refuses_fails_at_its_path() {
 }
 
 #[test]
-fn tables_that_are_not_an_object_are_refused_by_the_walk() {
-    let err = table_error("[]");
-    assert!(
-        matches!(&err, SpecError::NotAnObject { path, found } if path == "tables" && *found == "an array"),
-        "{err:?}"
-    );
-}
-
-#[test]
 fn to_json_round_trips_the_tables_section() {
     let spec = Spec::from_json(TABLED).unwrap();
     let again = Spec::from_json(&spec.to_json()).unwrap();

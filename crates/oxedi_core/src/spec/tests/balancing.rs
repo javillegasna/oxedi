@@ -182,10 +182,6 @@ fn an_empty_rule_name_is_rejected() {
 
 #[test]
 fn a_balancing_rule_the_model_refuses_fails_at_its_path() {
-    assert_eq!(
-        load("[]").unwrap_err().to_string(),
-        "spec: the value at balancing must be a JSON object; found an array"
-    );
     let cases = [
         (
             r#"{"r":{"per":"pay","target":[]}}"#,

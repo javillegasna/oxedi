@@ -137,7 +137,7 @@ Loading goes `SpecModel::from_json` (steps 1 and 2, `spec/model/`) → `SpecMode
 
 1. `shape.rs` checks the JSON shape against the schema as data: one table of
    keys per object, the root's rows being the sections. Each object's declaration in
-   `spec/model/` emits its table (`sections.rs` holds only the helpers that build a `Field`; the summaries are `Field::Opaque`, read only through `SummaryModel`). Its errors
+   `spec/model/` emits its table (`sections.rs` holds only the helpers that build a `Field`); the walk checks only the top level, the root keys and that each section is an object, and every section is read through its model. Its errors
    name the key path as written and, for an unknown key, the keys allowed there.
 2. The whole spec is read once as its `SpecModel` through `serde_path_to_error` (the first value
    it refuses, in key order, is `SpecError::Format`, at its path from the root); `Pick`

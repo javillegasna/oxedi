@@ -248,15 +248,6 @@ fn a_segment_the_model_refuses_fails_at_its_path() {
     assert_model_faults(&cases, segments_error);
 }
 
-#[test]
-fn segments_that_are_not_an_object_are_refused_by_the_walk() {
-    let err = segments_error("[]");
-    assert!(
-        matches!(&err, SpecError::NotAnObject { path, found } if path == "segments" && *found == "an array"),
-        "{err:?}"
-    );
-}
-
 fn segments_error(segments: &str) -> SpecError {
     let json = format!(
         r#"{{"name":"t","loops":{{"a":{{"trigger":{{"segment":"AA"}}}}}},"segments":{segments}}}"#

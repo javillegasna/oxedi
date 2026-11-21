@@ -2513,7 +2513,9 @@ raises <code>SpecError</code> when the result is not valid.</p>
 
     <div class="doc doc-contents ">
 
-        <p>The spec as JSON text.</p>
+        <p>The spec's model as canonical JSON text: no key equal to its default,
+no <code>null</code>, keys of maps in name order. Raises <code>SpecError</code> when the
+model cannot be read or written.</p>
 
 
     </div>

@@ -38,7 +38,7 @@ fn round_trip_specs() -> Vec<(&'static str, LoadedSpec)> {
         panic!("the registry ships two built-in specs");
     };
     let loaded = |b: &Builtin| LoadedSpec {
-        model: b.model.clone(),
+        model: ok("builtin", "model", b.model()),
         spec: std::sync::Arc::clone(&b.spec),
     };
     let load = |name, text| ok(name, "load", LoadedSpec::from_json(text));

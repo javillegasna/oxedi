@@ -1,8 +1,7 @@
 //! `parse`: one pass over a whole file, with the GIL released.
 
 use oxedi_core::trivia::LeadingTrivia;
-use oxedi_core::{Delimiters, Document, Mask, Processor, Spec, engine};
-use std::sync::Arc;
+use oxedi_core::{Delimiters, Document, Mask, Processor, engine};
 
 use pyo3::buffer::PyBuffer;
 use pyo3::exceptions::{PyTypeError, PyValueError};
@@ -14,7 +13,7 @@ use crate::diagnostic;
 use crate::document::{self, PyDelimiters, PyDocument};
 use crate::mask::PyMask;
 use crate::native;
-use crate::spec::{self, PySpec};
+use crate::spec::{self, HeldSpec, PySpec};
 use crate::tables::PyTables;
 
 /// Copies the input exactly once into memory Rust owns. Any object with the
@@ -84,9 +83,7 @@ impl PyParseResult {
     /// selected from the file's version.
     #[getter]
     fn spec(&self, py: Python<'_>) -> PySpec {
-        PySpec {
-            inner: Arc::clone(self.tables.bind(py).get().spec()),
-        }
+        PySpec::from(self.tables.bind(py).get().spec().clone())
     }
 
     /// Every diagnostic, in stream order.
@@ -185,7 +182,7 @@ pub fn parse(
 /// opened once, on the thread that holds the GIL, so the pass itself needs
 /// none.
 struct Pass {
-    given: Option<Arc<Spec>>,
+    given: Option<HeldSpec>,
     delimiters: Option<Delimiters>,
     mask: Option<Mask>,
 }
@@ -257,11 +254,7 @@ pub fn parse_document(
         let spec = spec::given_or_selected(given, document.segments());
         Ok((document, spec, leading))
     })?;
-    Ok((
-        PyDocument { inner: document },
-        PySpec { inner: spec },
-        leading,
-    ))
+    Ok((PyDocument { inner: document }, PySpec::from(spec), leading))
 }
 
 /// The open loops at each of `segments`, outermost first, as `(name,

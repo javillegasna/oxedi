@@ -1,6 +1,5 @@
 import inspect
 import json
-
 import pytest
 
 import oxedi
@@ -282,3 +281,38 @@ def test_column_source_refuses_with_the_call_what_and_what_to_do(make_spec, tabl
     with pytest.raises(error) as info:
         make_spec().column_source(table, column)
     assert info.value.args[0] == text
+
+
+def test_to_json_writes_the_model_not_the_text_as_written():
+    canonical = json.loads(Spec.builtin().to_json())
+    for loop in canonical["loops"].values():
+        for occurrence in loop.get("occurrences", {}).values():
+            occurrence.setdefault("usage", "situational")
+    written = json.dumps(canonical)
+    assert '"usage": "situational"' in written
+    loaded = Spec.from_json(written)
+    assert '"situational"' not in loaded.to_json()
+    assert loaded.to_json() == Spec.builtin().to_json()
+    assert '"situational"' not in Spec.builtin().to_json()
+
+
+def test_a_patched_spec_writes_its_patch():
+    patched = Spec.builtin().patch(PATCH)
+    assert json.loads(patched.to_json())["loops"]["ZZ"] == {
+        "parent": "2100",
+        "trigger": {"segment": "ZZ1"},
+    }
+    assert '"situational"' not in patched.to_json()
+    assert Spec.from_json(patched.to_json()).to_json() == patched.to_json()
+
+
+def test_a_patch_of_a_patch_keeps_both():
+    twice = Spec.builtin().patch(PATCH).patch({"name": "mine"})
+    assert "ZZ" in twice.loops()
+    assert json.loads(twice.to_json())["name"] == "mine"
+
+
+def test_a_patch_of_a_parsed_spec_keeps_the_given_patch():
+    given = Spec.builtin().patch(PATCH)
+    result = oxedi.parse(read(LARGEST), spec=given)
+    assert "ZZ" in result.spec.patch({"name": "mine"}).loops()

@@ -359,7 +359,11 @@ pub fn write_tables<'py>(
     #[gen_stub(override_type(type_repr = "builtins.bool", imports = ("builtins",)))]
     allow_findings: bool,
 ) -> PyResult<Bound<'py, PyTuple>> {
-    let (shared, spec) = resolve(py, tables, spec::given(spec))?;
+    let (shared, spec) = resolve(
+        py,
+        tables,
+        spec::given(spec).map(|held| Arc::clone(held.spec())),
+    )?;
     let envelope = envelope.get().inner.clone();
     let written = py.detach(|| write_with_findings(&spec, &shared, &envelope));
     finish(py, written, allow_findings)
@@ -375,7 +379,7 @@ fn resolve(
 ) -> PyResult<(Arc<Tables>, Arc<Spec>)> {
     if let Ok(parsed) = tables.cast::<PyTables>() {
         let parsed = parsed.get();
-        let spec = given.unwrap_or_else(|| Arc::clone(parsed.spec()));
+        let spec = given.unwrap_or_else(|| Arc::clone(parsed.spec().spec()));
         return Ok((Arc::clone(parsed.tables()), spec));
     }
     let mapping = tables.cast::<PyMapping>().map_err(|_| {

@@ -2,14 +2,14 @@
 
 use std::sync::Arc;
 
-use oxedi_core::{Spec, Table, Tables};
+use oxedi_core::{Table, Tables};
 use pyo3::exceptions::{PyImportError, PyKeyError, PyRuntimeError};
 use pyo3::prelude::*;
 use pyo3::types::{PyCapsule, PyDict, PyIterator, PyTuple};
 use pyo3_stub_gen::derive::{gen_methods_from_python, gen_stub_pyclass, gen_stub_pymethods};
 
 use crate::arrow;
-use crate::spec::PySpec;
+use crate::spec::{HeldSpec, PySpec};
 
 /// Imports `module`, or raises an `ImportError` that names the method, the
 /// module and the extra that provides it, with the original error as cause.
@@ -73,12 +73,12 @@ fn frames<'py>(
 pub struct PyTables {
     tables: Arc<Tables>,
     /// The spec that projected them, which writing them back uses by default.
-    spec: Arc<Spec>,
+    spec: HeldSpec,
 }
 
 impl PyTables {
     /// Tables projected with `spec`.
-    pub fn projected(tables: Tables, spec: Arc<Spec>) -> Self {
+    pub fn projected(tables: Tables, spec: HeldSpec) -> Self {
         Self {
             tables: Arc::new(tables),
             spec,
@@ -86,7 +86,7 @@ impl PyTables {
     }
 
     /// The spec that projected the tables.
-    pub fn spec(&self) -> &Arc<Spec> {
+    pub fn spec(&self) -> &HeldSpec {
         &self.spec
     }
 
@@ -121,9 +121,7 @@ impl PyTables {
     /// The spec that projected the tables, which `write` uses by default.
     #[getter(spec)]
     fn spec_of_parse(&self) -> PySpec {
-        PySpec {
-            inner: Arc::clone(&self.spec),
-        }
+        PySpec::from(self.spec.clone())
     }
 
     /// The table names, in spec order.

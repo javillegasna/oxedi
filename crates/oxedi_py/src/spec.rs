@@ -1,8 +1,10 @@
 //! `Spec`: the loop structure, element definitions and tables, as data.
 
+use std::borrow::Cow;
+use std::ops::Deref;
 use std::sync::Arc;
 
-use oxedi_core::{Builtin, Segment, Spec, Version};
+use oxedi_core::{Builtin, LoadedSpec, Segment, Spec, SpecError as CoreSpecError, Version};
 use pyo3::exceptions::{PyTypeError, PyValueError};
 use pyo3::prelude::*;
 use pyo3::types::{PyCapsule, PyDict, PyString};
@@ -36,8 +38,76 @@ impl SchemaExport {
     }
 }
 
+/// Where a spec's model is read from: kept beside a spec loaded or patched
+/// from JSON, or read from a built-in when asked for, so a built-in carries
+/// no model while only its compiled spec is used.
+#[derive(Clone)]
+enum ModelOf {
+    Kept(Arc<LoadedSpec>),
+    Builtin(&'static Builtin),
+}
+
+/// A spec as the binding holds it: the compiled spec the engine runs and
+/// where its model is read from. Cloning it copies two pointers.
+#[derive(Clone)]
+pub struct HeldSpec {
+    spec: Arc<Spec>,
+    model: ModelOf,
+}
+
+impl HeldSpec {
+    fn builtin(builtin: &'static Builtin) -> HeldSpec {
+        HeldSpec {
+            spec: Arc::clone(&builtin.spec),
+            model: ModelOf::Builtin(builtin),
+        }
+    }
+
+    fn kept(loaded: LoadedSpec) -> HeldSpec {
+        HeldSpec {
+            spec: Arc::clone(&loaded.spec),
+            model: ModelOf::Kept(Arc::new(loaded)),
+        }
+    }
+
+    /// The compiled spec, shared.
+    pub fn spec(&self) -> &Arc<Spec> {
+        &self.spec
+    }
+
+    /// The spec with its model, for `call` to patch or write: the kept one, or
+    /// the built-in's model read now. A read that fails is a `SpecError`
+    /// naming `call`.
+    fn loaded(&self, call: &str) -> PyResult<Cow<'_, LoadedSpec>> {
+        match &self.model {
+            ModelOf::Kept(loaded) => Ok(Cow::Borrowed(&**loaded)),
+            ModelOf::Builtin(builtin) => builtin
+                .model()
+                .map(|model| {
+                    Cow::Owned(LoadedSpec {
+                        model,
+                        spec: Arc::clone(&self.spec),
+                    })
+                })
+                .map_err(|err| SpecError::new_err(format!("{call}: {err}"))),
+        }
+    }
+}
+
+impl Deref for HeldSpec {
+    type Target = Spec;
+
+    fn deref(&self) -> &Spec {
+        &self.spec
+    }
+}
+
+fn spec_error(err: CoreSpecError) -> PyErr {
+    SpecError::new_err(err.to_string())
+}
+
 /// The spec given to a call, which it uses as is.
-pub fn given(spec: Option<&Bound<'_, PySpec>>) -> Option<Arc<Spec>> {
+pub fn given(spec: Option<&Bound<'_, PySpec>>) -> Option<HeldSpec> {
     spec.map(|spec| spec.get().inner.clone())
 }
 
@@ -45,13 +115,10 @@ pub fn given(spec: Option<&Bound<'_, PySpec>>) -> Option<Arc<Spec>> {
 /// the segments declare, and the default built-in when they declare none of
 /// theirs. Reading stops once the version is settled.
 pub fn given_or_selected<'s>(
-    given: Option<Arc<Spec>>,
+    given: Option<HeldSpec>,
     segments: impl IntoIterator<Item = Segment<'s>>,
-) -> Arc<Spec> {
-    if let Some(spec) = given {
-        return spec;
-    }
-    Arc::clone(&Builtin::select(segments).spec)
+) -> HeldSpec {
+    given.unwrap_or_else(|| HeldSpec::builtin(Builtin::select(segments)))
 }
 
 /// An X12 release a built-in spec covers.
@@ -185,11 +252,71 @@ impl PyStubType for VersionArg {
     }
 }
 
+/// A patch argument: JSON text, a dict written as JSON text, a dict that
+/// cannot be written (with the reason), or anything else (with its type
+/// name), so `Spec.patch` can refuse the last two with their own messages.
+enum PatchArg {
+    Json(String),
+    Unwritable { reason: String },
+    Other { kind: String },
+}
+
+impl PatchArg {
+    /// The JSON text of the patch, or the `TypeError` `Spec.patch` raises.
+    fn into_json(self) -> PyResult<String> {
+        match self {
+            PatchArg::Json(text) => Ok(text),
+            PatchArg::Unwritable { reason } => Err(PyTypeError::new_err(format!(
+                "Spec.patch: the dict cannot be written as JSON: {reason}"
+            ))),
+            PatchArg::Other { kind } => Err(PyTypeError::new_err(format!(
+                "Spec.patch takes a dict or a JSON string, not {kind}"
+            ))),
+        }
+    }
+
+    /// A dict written as JSON text by Python's `json.dumps`.
+    fn dumped(dict: &Borrowed<'_, '_, PyAny>) -> PatchArg {
+        let py = dict.py();
+        match py
+            .import("json")
+            .and_then(|json| json.call_method1("dumps", (dict,)))
+            .and_then(|text| text.extract::<String>())
+        {
+            Ok(text) => PatchArg::Json(text),
+            Err(err) => PatchArg::Unwritable {
+                reason: err.value(py).to_string(),
+            },
+        }
+    }
+}
+
+impl<'a, 'py> FromPyObject<'a, 'py> for PatchArg {
+    type Error = PyErr;
+
+    fn extract(object: Borrowed<'a, 'py, PyAny>) -> PyResult<PatchArg> {
+        if let Ok(text) = object.cast::<PyString>() {
+            return Ok(PatchArg::Json(text.to_cow()?.into_owned()));
+        }
+        if object.is_instance_of::<PyDict>() {
+            return Ok(PatchArg::dumped(&object));
+        }
+        let kind = object.get_type().name()?.to_string();
+        Ok(PatchArg::Other { kind })
+    }
+}
+
 /// The loop structure, element definitions and tables of a file format.
 #[gen_stub_pyclass(module = "oxedi._core")]
 #[pyclass(name = "Spec", module = "oxedi", frozen)]
 pub struct PySpec {
-    pub inner: Arc<Spec>,
+    pub inner: HeldSpec,
+}
+
+impl From<HeldSpec> for PySpec {
+    fn from(inner: HeldSpec) -> PySpec {
+        PySpec { inner }
+    }
 }
 
 #[gen_stub_pymethods]
@@ -208,60 +335,44 @@ impl PySpec {
     #[pyo3(signature = (version = VersionArg::DEFAULT))]
     fn builtin(version: VersionArg) -> PyResult<PySpec> {
         let found = version.resolve("Spec.builtin", Builtin::fallback().transaction)?;
-        Ok(PySpec {
-            inner: Arc::clone(&found.spec),
-        })
+        Ok(HeldSpec::builtin(found).into())
     }
 
     /// The spec described by `json`; raises `SpecError` with the core message
     /// when it is not valid.
     #[staticmethod]
     fn from_json(json: &str) -> PyResult<PySpec> {
-        let spec = Spec::from_json(json).map_err(|err| SpecError::new_err(err.to_string()))?;
-        Ok(PySpec {
-            inner: Arc::new(spec),
-        })
+        LoadedSpec::from_json(json)
+            .map(HeldSpec::kept)
+            .map(PySpec::from)
+            .map_err(spec_error)
     }
 
     /// A new spec with `patch` (a dict or JSON text) merged over this one;
     /// raises `SpecError` when the result is not valid.
     fn patch(
         &self,
-        py: Python<'_>,
         // A JSON merge patch: the dict's values are any JSON value.
         #[gen_stub(override_type(type_repr = "builtins.str | builtins.dict[builtins.str, typing.Any]", imports = ("builtins", "typing")))]
-        patch: &Bound<'_, PyAny>,
+        patch: PatchArg,
     ) -> PyResult<PySpec> {
-        let text = if let Ok(text) = patch.cast::<PyString>() {
-            text.to_cow()?.into_owned()
-        } else if patch.is_instance_of::<PyDict>() {
-            py.import("json")?
-                .call_method1("dumps", (patch,))
-                .and_then(|text| text.extract::<String>())
-                .map_err(|err| {
-                    PyTypeError::new_err(format!(
-                        "Spec.patch: the dict cannot be written as JSON: {}",
-                        err.value(py)
-                    ))
-                })?
-        } else {
-            return Err(PyTypeError::new_err(format!(
-                "Spec.patch takes a dict or a JSON string, not {}",
-                patch.get_type().name()?
-            )));
-        };
-        let spec = self
-            .inner
-            .merge_patch(&text)
-            .map_err(|err| SpecError::new_err(err.to_string()))?;
-        Ok(PySpec {
-            inner: Arc::new(spec),
-        })
+        let json = patch.into_json()?;
+        self.inner
+            .loaded("Spec.patch")?
+            .merge_patch(&json)
+            .map(|patched| HeldSpec::kept(patched).into())
+            .map_err(spec_error)
     }
 
-    /// The spec as JSON text.
-    fn to_json(&self) -> String {
-        self.inner.to_json()
+    /// The spec's model as canonical JSON text: no key equal to its default,
+    /// no `null`, keys of maps in name order. Raises `SpecError` when the
+    /// model cannot be read or written.
+    fn to_json(&self) -> PyResult<String> {
+        self.inner.loaded("Spec.to_json")?.to_json().map_err(|err| {
+            SpecError::new_err(format!(
+                "Spec.to_json: the model cannot be written as JSON: {err}"
+            ))
+        })
     }
 
     /// The schema of every table of the spec, by name, in table order: one

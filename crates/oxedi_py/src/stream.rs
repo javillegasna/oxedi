@@ -5,7 +5,7 @@
 //! it moves the rows appended so far out of the projector. What it holds at
 //! any time is the input, the open loops and the rows of one batch.
 
-use std::sync::{Arc, Mutex, TryLockError};
+use std::sync::{Mutex, TryLockError};
 
 use oxedi_core::{
     Builtin, Delimiters, Diagnostic, LoopId, Mask, Processor, Spec, Tables, Tokenizer,
@@ -20,12 +20,12 @@ use crate::diagnostic;
 use crate::document::{ParseError, PyDelimiters};
 use crate::mask::PyMask;
 use crate::parse::copy_input;
-use crate::spec::{self, PySpec};
+use crate::spec::{self, HeldSpec, PySpec};
 use crate::tables::PyTables;
 
 /// What the walk borrows from: the spec, the input and its delimiters.
 struct Source {
-    spec: Arc<Spec>,
+    spec: HeldSpec,
     bytes: Vec<u8>,
     delimiters: Delimiters,
     mask: Option<Mask>,
@@ -47,7 +47,7 @@ self_cell!(
 
 /// One batch: the tables and diagnostics produced since the previous one,
 /// and the spec that projected them.
-type Produced = (Tables, Vec<Diagnostic>, Arc<Spec>);
+type Produced = (Tables, Vec<Diagnostic>, HeldSpec);
 
 struct State {
     walk: Walk,
@@ -64,7 +64,7 @@ impl State {
         }
         let by = self.by;
         let (produced, done) = self.walk.with_dependent_mut(|source, pass| {
-            let spec = Arc::clone(&source.spec);
+            let spec = source.spec.clone();
             let mut diagnostics = Vec::new();
             for segment in pass.segments.by_ref() {
                 let output = pass.processor.feed(&segment);

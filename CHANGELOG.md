@@ -53,6 +53,8 @@ This file covers the Python package; the DuckDB extension has its own changelog 
 - Rust: `first_frame` and `next_frame` take a `SegmentEnd` (the segment terminator and the optional
   release byte) instead of `Delimiters`; `SegmentEnd` is a new public type, and
   `Delimiters::segment_end` builds one from the delimiters.
+- Rust: every `Event` variant carries `instance: Instance` in place of `id: LoopId`, and
+  `Event::Unmatched` gains `within: Option<Instance>`, the innermost open occurrence.
 - The spec shape check names a `pick` that is not `"first"`, `"last"` or a 1-based position with the
   same words as the pick error. A Rust read of a pick or of a spec model names the value found, and
   a spec that does not read into its typed model names the path to the key it rejected.

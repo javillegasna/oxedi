@@ -3,7 +3,7 @@
 //! finished segment with where it came from.
 
 use crate::column::Cell;
-use crate::segment::Syntax;
+use crate::delimiters::Syntax;
 
 use super::emit::Emitter;
 use super::finding::{Finding, ValueOrigin};

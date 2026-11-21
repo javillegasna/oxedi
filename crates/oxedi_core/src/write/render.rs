@@ -9,7 +9,8 @@ use std::io::Write as _;
 use std::ops::Range;
 
 use crate::column::{Cell, ColumnData};
-use crate::segment::{SegmentOutput, SegmentSerializer, Syntax, Trailing};
+use crate::delimiters::Syntax;
+use crate::segment::{SegmentOutput, SegmentSerializer, Trailing};
 use crate::value::{
     ColumnType, ElementTextError, date_element, decimal_element, time_element, time_of_day,
 };

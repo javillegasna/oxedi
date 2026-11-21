@@ -6,6 +6,7 @@
 //! after `ISA` is #1; ISA16 (the component separator) is the single byte after
 //! separator #16, and the segment terminator is the byte after that.
 //!
+//! `syntax` holds the `Syntax` value, the bytes a segment is written with.
 //! `test_support` (test builds only) holds the helpers the unit tests of the
 //! modules that read segments share: the plain `*`, `:`, `~` dialect and the
 //! concatenation of every segment's `raw` bytes.
@@ -14,8 +15,11 @@ use std::fmt;
 
 use crate::frame::SegmentEnd;
 use crate::message::Counted;
-use crate::segment::Syntax;
 use crate::trivia::LeadingTrivia;
+
+mod syntax;
+
+pub(crate) use syntax::Syntax;
 
 /// The five delimiters of an interchange. Only `release` is never read from the
 /// file: X12 defines no release character, so it is opt-in by the caller.

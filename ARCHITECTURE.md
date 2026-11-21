@@ -63,15 +63,17 @@ flowchart LR
    the stream and its parent. `Captured` also names the occurrence of the loop the segment matched
    (`Spec::occurrence_of`, through the index of `spec/occurrence_index.rs`). `LoopEngine::path`
    lists the instances open now. `lineage` (`engine/lineage.rs`) gives the
-   path of an instance from the open instances and the events of one step.
+   path of an instance from the open instances and the events of one step, and `named_lineage`
+   gives it as loop names and ordinals.
 4. `Processor` (`process/`) feeds each segment to the engine, then hands the events to the
    projector and the checker. `Processor::run` does this over a whole `Document`.
    - `Projector` (`project/`) reads the occurrence of the captured segment from the event and the
-     loop path of its diagnostics from `lineage` over the engine's open path, checks
+     loop path of its diagnostics from `named_lineage` over the engine's open path, checks
      every element the spec defines (`project/check.rs`: required, type, length, code list,
      components) and fills the spec's tables (`project/fill.rs`).
    - `StructureChecker` (`check/`) reports unknown segments, implicit and unterminated loops,
-     envelope counts and control numbers (`check/mod.rs`), occurrence counts and order
+     envelope counts and control numbers (`check/control.rs`), the loop path of its diagnostics
+     from `named_lineage` over the engine's open path, occurrence counts and order
      (`check/occurrences.rs`) and amounts that do not balance (`check/balance.rs`).
 5. The result is `Tables` (`column/`: Arrow-shaped columns, each row pointing at the row of the
    table that encloses it) and a `Vec<Diagnostic>` (`diagnostic/`). `summarize` (`summary/`)

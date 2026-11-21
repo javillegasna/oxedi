@@ -16,7 +16,7 @@
 
 use crate::delimiters::Delimiters;
 use crate::diagnostic::{Diagnostic, Rule, locate};
-use crate::engine::{Event, Instance, InstanceId, lineage};
+use crate::engine::{Event, Instance, InstanceId, named_lineage};
 use crate::segment::Segment;
 use crate::spec::{OccurrenceId, Spec};
 use crate::trivia::BYTE_ORDER_MARK;
@@ -125,7 +125,7 @@ impl<'s> StructureChecker<'s> {
             let before = self.diagnostics.len();
             self.step(event, segment);
             if self.diagnostics.len() > before {
-                self.locate(before, event.instance(), open, events);
+                self.locate(before, event, open, events);
             }
         }
     }
@@ -174,25 +174,14 @@ impl<'s> StructureChecker<'s> {
         }
     }
 
-    /// Writes the loop path of `instance` on the diagnostics from `first` on;
-    /// an event no loop owns leaves the root path.
+    /// Writes the loop path of the event's instance on the diagnostics from
+    /// `first` on; an event no loop owns leaves the root path.
     #[cold]
-    fn locate(
-        &mut self,
-        first: usize,
-        instance: Option<Instance>,
-        open: &[Instance],
-        events: &[Event],
-    ) {
-        let Some(instance) = instance else {
-            return;
-        };
-        let spec = self.spec;
-        let path = lineage(instance, open, events);
-        let names = path
-            .iter()
-            .map(|at| (spec.loop_name(at.loop_id), at.ordinal_in_stream));
-        locate(&mut self.diagnostics[first..], names);
+    fn locate(&mut self, first: usize, event: &Event, open: &[Instance], events: &[Event]) {
+        let path = named_lineage(self.spec, event, open, events);
+        if !path.is_empty() {
+            locate(&mut self.diagnostics[first..], path.into_iter());
+        }
     }
 
     /// Reports a UTF-8 byte order mark that starts the first segment.

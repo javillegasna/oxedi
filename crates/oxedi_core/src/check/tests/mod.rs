@@ -447,24 +447,29 @@ fn a_close_that_names_another_instance_changes_nothing() {
 
 #[test]
 fn a_diagnostic_raised_at_the_end_of_the_stream_names_its_loop() {
-    use crate::spec::test_support::nested;
-    let spec = nested();
+    // Both loops have an end segment, so both are unterminated at the end.
+    let spec = Spec::from_json(
+        r#"{"name":"t","loops":{
+        "A":{"trigger":{"segment":"AA"},"occurrences":{"aa":{"segment":"AA","pos":0}},"end":"AE"},
+        "B":{"parent":"A","trigger":{"segment":"BB"},"occurrences":{"bb":{"segment":"BB","pos":0}},"end":"BE"}
+    }}"#,
+    )
+    .unwrap();
     let delims = Delimiters::new(b'*', b':', b'~');
     let mut engine = LoopEngine::new(&spec);
     let mut checker = StructureChecker::new(&spec, &delims);
-    for segment in Tokenizer::with_delimiters(b"AA*1~", delims) {
+    for segment in Tokenizer::with_delimiters(b"AA*1~BB~", delims) {
         let events = engine.feed(&segment).to_vec();
         assert_eq!(checker.on(&segment, &events, engine.path()), &[]);
     }
     let found = checker.finish(engine.finish());
-    assert_eq!(found.len(), 1);
-    assert!(matches!(found[0].rule, Rule::UnterminatedLoop { .. }));
-    assert_eq!(found[0].segment, None);
-    assert_eq!(
-        found[0].path,
-        vec![LoopRef {
-            name: "A".to_string(),
-            ordinal: 1
-        }]
-    );
+    assert_eq!(found.len(), 2);
+    assert!(found.iter().all(|found| found.segment.is_none()));
+    // The parent is found among the closing events, the engine's path being empty.
+    let loop_ref = |name: &str| LoopRef {
+        name: name.to_string(),
+        ordinal: 1,
+    };
+    assert_eq!(found[0].path, vec![loop_ref("A"), loop_ref("B")]);
+    assert_eq!(found[1].path, vec![loop_ref("A")]);
 }

@@ -5,7 +5,7 @@ use std::sync::{Arc, OnceLock};
 
 use super::model::SpecModel;
 use super::version::chosen;
-use super::{Spec, SpecError};
+use super::{LoadedSpec, Spec, SpecError};
 use crate::message::render_names;
 use crate::segment::Segment;
 
@@ -63,6 +63,14 @@ impl Builtin {
     /// compile it again for a variant. The registry holds no model itself.
     pub fn model(&self) -> Result<SpecModel, SpecError> {
         SpecModel::from_value(&self.spec.source)
+    }
+
+    /// The built-in as a loader keeps it: its model, read now, beside its compiled spec.
+    pub fn loaded(&self) -> Result<LoadedSpec, SpecError> {
+        self.model().map(|model| LoadedSpec {
+            model,
+            spec: Arc::clone(&self.spec),
+        })
     }
 }
 

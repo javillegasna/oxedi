@@ -6,7 +6,7 @@ use serde_json::Value;
 use crate::spec::test_support;
 use crate::spec::{Builtin, LoadedSpec, Spec, spec_schema};
 
-use super::CLP_ONLY;
+use super::{CLP_ONLY, TABLED};
 
 // Every default and absence written out: none of it may come back in the text.
 const EXPLICIT_DEFAULTS: &str = r#"{"name":"explicit",
@@ -37,10 +37,7 @@ fn round_trip_specs() -> Vec<(&'static str, LoadedSpec)> {
     let [five, four] = Builtin::all() else {
         panic!("the registry ships two built-in specs");
     };
-    let loaded = |b: &Builtin| LoadedSpec {
-        model: ok("builtin", "model", b.model()),
-        spec: std::sync::Arc::clone(&b.spec),
-    };
+    let loaded = |b: &Builtin| ok("builtin", "model", b.loaded());
     let load = |name, text| ok(name, "load", LoadedSpec::from_json(text));
     let parser = ok(
         "edi_835_parser",
@@ -54,6 +51,7 @@ fn round_trip_specs() -> Vec<(&'static str, LoadedSpec)> {
         ("edi_835_parser", parser),
         ("test_support", load("test_support", test_support::SPEC)),
         ("clp_only", load("clp_only", CLP_ONLY)),
+        ("tabled", load("tabled", TABLED)),
         (
             "explicit_defaults",
             load("explicit_defaults", EXPLICIT_DEFAULTS),

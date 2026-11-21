@@ -3,6 +3,7 @@
 use super::{TABLED, table_error};
 use crate::spec::render::Declared;
 use crate::spec::*;
+use crate::vocabulary::Pick;
 
 #[test]
 fn tables_are_read_in_name_order_with_their_sources() {

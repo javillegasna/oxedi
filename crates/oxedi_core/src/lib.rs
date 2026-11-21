@@ -73,7 +73,7 @@ pub use segment::{Segment, SegmentWriteError};
 pub use spec::{
     AnchorChains, AnchorPositions, BalanceError, BalanceRule, BalanceTerm, Builtin, ColumnSchema,
     ColumnSource, Control, ControlCount, ControlError, DeclaredVersion, ElementDef,
-    ElementDefError, LoopDef, LoopId, LoopSegments, OccurrenceId, Pick, Repeat, SegmentDef, Spec,
+    ElementDefError, LoopDef, LoopId, LoopSegments, OccurrenceId, Repeat, SegmentDef, Spec,
     SpecError, Summary, SummaryDefError, TableDef, TableDefError, TableSchema, Trigger,
     UnknownColumn, UnknownTable, UnknownVersion, Version, VersionError, merge_patch, spec_schema,
 };
@@ -81,5 +81,5 @@ pub use summary::{SummaryError, SummaryValue, summarize};
 pub use tokenizer::Tokenizer;
 pub use tree::{LoopTree, Node, NodeId, TreeBuilder};
 pub use value::{ColumnType, ConvertError, ElementType, parse_dt, parse_n, parse_r, parse_tm};
-pub use vocabulary::{DateMode, Phi};
+pub use vocabulary::{DateMode, Phi, Pick};
 pub use write::{PlanError, Refusal, WritePlan};

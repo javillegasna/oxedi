@@ -1,8 +1,9 @@
 //! The per-segment plans the projector builds once from the spec.
 
 use super::carry::Carried;
-use crate::spec::{ColumnSource, ElementDef, IdMap, Pick, Spec, TableDef};
+use crate::spec::{ColumnSource, ElementDef, IdMap, Spec, TableDef};
 use crate::value::ColumnType;
+use crate::vocabulary::Pick;
 
 /// One defined element, with what checking it needs worked out once.
 #[derive(Debug, Clone)]

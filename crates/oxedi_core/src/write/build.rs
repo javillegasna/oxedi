@@ -4,7 +4,8 @@
 
 use std::collections::BTreeMap;
 
-use crate::spec::{ColumnSource, LoopId, OccurrenceDef, Pick, Spec, TableDef};
+use crate::spec::{ColumnSource, LoopId, OccurrenceDef, Spec, TableDef};
+use crate::vocabulary::Pick;
 
 use super::codes::Resolved;
 use super::plan::{

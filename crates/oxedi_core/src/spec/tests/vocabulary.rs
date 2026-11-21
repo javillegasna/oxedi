@@ -2,7 +2,7 @@ use serde_json::{from_str, from_value, json, to_string, to_value};
 
 use crate::spec::*;
 use crate::value::ElementType;
-use crate::vocabulary::{Phi, Vocabulary, words_text};
+use crate::vocabulary::{Phi, Pick, Vocabulary, words_text};
 
 fn words<V: Vocabulary>() -> Vec<&'static str> {
     V::ALL.iter().map(|value| value.word()).collect()

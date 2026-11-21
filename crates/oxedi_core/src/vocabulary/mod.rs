@@ -4,9 +4,15 @@
 //! [`Phi`] (what a patient-data column holds) and [`DateMode`] (what masking
 //! does to a date) are defined here, so the spec that flags columns and the
 //! mask that replaces them both use this module and neither uses the other.
+//! [`Pick`] (which matching segment a column reads) is a word or a position, so
+//! it reads through its own visitor instead of the trait, in `pick.rs`.
 //! The spec's own words (usage, control counts, signs) implement `Vocabulary`
 //! next to their types in the spec; reading a date mode, which fails with a
 //! mask error, is written in the mask.
+
+mod pick;
+
+pub use pick::Pick;
 
 use serde::de::{self, Deserialize, Deserializer};
 use serde::ser::Serializer;

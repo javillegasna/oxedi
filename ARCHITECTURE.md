@@ -142,7 +142,8 @@ Loading goes `Spec::from_json` → `Spec::from_value` (`spec/build.rs`):
 2. Each loop and each table is read as its `LoopModel` or `TableModel` through
    `serde_path_to_error` (a value it refuses is `SpecError::Format`, at its path); the other
    entries through their serde structs (`RawSpec`, `RawSegment`, …), from the same declarations as
-   the schema; `RawElement` and `RawSummary` are in `raw.rs`; `Pick` reads through its own visitor.
+   the schema; `RawElement` and `RawSummary` are in `raw.rs`; `Pick` (`vocabulary/pick.rs`) reads
+   through its own visitor.
 3. `build.rs` runs the compile steps in order, one per section or structural check:
    loops (`build_loops.rs`: keys, parent, trigger, control), segments, occurrences, the
    occurrence index (`occurrence_index.rs`), the version, trigger ambiguity, tables, balancing,
@@ -281,7 +282,7 @@ Internal words used in the code. X12 and payment terms for users are in
 | path | The open loops at the diagnostic, outermost first, each with its ordinal. | `Diagnostic::path` |
 | origin | Which validator produced a diagnostic (`oxedi`, or for example `pyx12`). | `Rule::External` |
 | balancing | Amounts that must add up inside a loop instance (charge − payment = adjustments). | `spec/balance.rs`, `check/balance.rs` |
-| vocabulary | The closed words a typed value is written as (`Vocabulary`), one table each; `Phi` and `DateMode` live with the trait. | `vocabulary/`, `spec/vocabulary.rs` |
+| vocabulary | The closed words a typed value is written as (`Vocabulary`), one table each; `Phi`, `DateMode` and `Pick` live with the trait. | `vocabulary/`, `spec/vocabulary.rs` |
 | summary | A named figure the spec declares over its tables (a count, a distinct count, a sum, the fields of one row); `summarize` computes it. | `spec/summaries.rs`, `summary/` |
 | PHI / mask / phi seed | Patient-data columns flagged in the spec (`Phi`); a keyed digest replaces them; the seed column keys the date shift. User docs say "patient data". | `vocabulary/` (`Phi`), `mask/`, `spec/phi.rs`, `project/mask.rs` |
 | write plan | Where each written loop instance and element value comes from; depends only on the spec, built at the start of each write. | `write/plan.rs`, `write/build.rs` |

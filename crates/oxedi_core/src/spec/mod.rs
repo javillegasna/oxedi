@@ -98,7 +98,7 @@ pub use segments::{ElementDef, ElementDefError, ROW_COLUMN, SEGMENT_COLUMN, Segm
 pub use summaries::Summary;
 pub use summary_error::SummaryDefError;
 pub use table_error::{AnchorChains, AnchorPositions, LoopSegments, TableDefError};
-pub use tables::{ColumnSource, Pick, Repeat, TableDef};
+pub use tables::{ColumnSource, Repeat, TableDef};
 pub use unknown::{UnknownColumn, UnknownTable};
 pub use version::{DeclaredVersion, VersionError};
 pub use vocabulary::ElementPosition;

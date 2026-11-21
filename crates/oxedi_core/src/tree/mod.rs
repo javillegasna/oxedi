@@ -3,8 +3,14 @@
 //! Nodes live in one vector and refer to each other by index. The root (node 0)
 //! is virtual: it has no loop and holds the top-level instances. Captured and
 //! unmatched segments are stored as indices into the stream they came from.
+//!
+//! The builder finds a node by the instance id an event carries: a table maps
+//! each opened instance's id to its node, and an id the builder never saw
+//! opened resolves to the root. A later instance with the same id replaces the
+//! entry, so a builder fed several streams in a row keeps every node and hangs
+//! each stream's top-level instances from the root.
 
-use crate::engine::{Event, LoopEngine};
+use crate::engine::{Event, InstanceId, LoopEngine};
 use crate::segment::Segment;
 use crate::spec::{LoopId, Spec};
 
@@ -36,11 +42,13 @@ pub struct Node {
     pub children: Vec<NodeId>,
     /// Indices of the segments captured here, in stream order.
     pub segments: Vec<usize>,
-    /// Indices of the segments no loop could hold while this node was current.
+    /// Indices of the segments no loop could hold, reported within this
+    /// instance (the innermost open one when they were read); the root holds
+    /// those reported at the top level or within an instance never opened.
     pub unmatched: Vec<usize>,
 }
 
-/// Loop instances of one stream.
+/// Loop instances of the streams folded into it.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct LoopTree {
     nodes: Vec<Node>,
@@ -53,7 +61,8 @@ pub struct LoopTree {
 #[derive(Debug, Clone)]
 pub struct TreeBuilder {
     tree: LoopTree,
-    open: Vec<NodeId>,
+    /// The node of each opened instance, indexed by [`InstanceId::index`].
+    by_instance: Vec<Option<NodeId>>,
 }
 
 impl TreeBuilder {
@@ -69,36 +78,54 @@ impl TreeBuilder {
         self.tree
     }
 
+    /// The node of an instance; the root for `None` or an id never opened.
+    fn node_of(&self, id: Option<InstanceId>) -> NodeId {
+        id.and_then(|id| self.by_instance.get(id.index()))
+            .copied()
+            .flatten()
+            .unwrap_or(NodeId(0))
+    }
+
+    /// Records `node` as the node of instance `id`, replacing an older entry.
+    fn bind(&mut self, id: InstanceId, node: NodeId) {
+        if self.by_instance.len() <= id.index() {
+            self.by_instance.resize(id.index() + 1, None);
+        }
+        self.by_instance[id.index()] = Some(node);
+    }
+
     fn apply(&mut self, event: Event) {
-        let current = *self.open.last().unwrap_or(&NodeId(0));
-        let tree = &mut self.tree;
         match event {
             Event::LoopOpened {
                 instance,
                 implicit,
                 segment,
             } => {
-                let node = NodeId(tree.nodes.len());
-                tree.nodes.push(Node {
+                let parent = self.node_of(instance.parent);
+                let node = NodeId(self.tree.nodes.len());
+                self.tree.nodes.push(Node {
                     loop_id: Some(instance.loop_id),
                     implicit,
                     opened_by: Some(segment),
-                    parent: Some(current),
+                    parent: Some(parent),
                     children: Vec::new(),
                     segments: Vec::new(),
                     unmatched: Vec::new(),
                 });
-                tree.nodes[current.0].children.push(node);
-                self.open.push(node);
+                self.tree.nodes[parent.0].children.push(node);
+                self.bind(instance.id, node);
             }
-            Event::LoopClosed { .. } => {
-                if self.open.len() > 1 {
-                    self.open.pop();
-                }
+            Event::Captured {
+                instance, segment, ..
+            } => {
+                let node = self.node_of(Some(instance.id));
+                self.tree.nodes[node.0].segments.push(segment);
             }
-            Event::Captured { segment, .. } => tree.nodes[current.0].segments.push(segment),
-            Event::Unmatched { segment, .. } => tree.nodes[current.0].unmatched.push(segment),
-            Event::Empty { .. } => {}
+            Event::Unmatched { segment, within } => {
+                let node = self.node_of(within.map(|instance| instance.id));
+                self.tree.nodes[node.0].unmatched.push(segment);
+            }
+            Event::LoopClosed { .. } | Event::Empty { .. } => {}
         }
     }
 }
@@ -110,7 +137,7 @@ impl LoopTree {
             tree: LoopTree {
                 nodes: vec![Node::root()],
             },
-            open: vec![NodeId(0)],
+            by_instance: Vec::new(),
         }
     }
 

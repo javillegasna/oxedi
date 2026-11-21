@@ -15,7 +15,7 @@ mod instance;
 pub use instance::{Instance, InstanceId};
 
 use crate::segment::Segment;
-use crate::spec::{LoopId, Spec};
+use crate::spec::{LoopId, OccurrenceId, Spec};
 
 /// What the engine observed while consuming one segment.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -43,6 +43,9 @@ pub enum Event {
         instance: Instance,
         /// Index of the segment in the stream.
         segment: usize,
+        /// The occurrence of the loop the segment matched; `None` when no
+        /// occurrence of the loop matches the segment.
+        occurrence: Option<OccurrenceId>,
     },
     /// No loop could hold the segment; the path is unchanged. The segment
     /// itself is found by index through [`Document::segment`] or
@@ -149,7 +152,7 @@ impl<'s> LoopEngine<'s> {
             if let Some(child) = self.spec.matching_child(parent, segment) {
                 self.close_to(depth);
                 let instance = self.open(child, false, segment.index);
-                self.capture(instance, segment.index);
+                self.capture(instance, segment);
                 return true;
             }
         }
@@ -165,7 +168,7 @@ impl<'s> LoopEngine<'s> {
             if def.accepts(segment.id) {
                 let closes = def.end.as_deref() == Some(segment.id);
                 self.close_to(depth);
-                self.capture(instance, segment.index);
+                self.capture(instance, segment);
                 if closes {
                     self.close_to(depth - 1);
                 }
@@ -203,7 +206,7 @@ impl<'s> LoopEngine<'s> {
         }
         self.chain = chain;
         let instance = self.open(target, false, index);
-        self.capture(instance, index);
+        self.capture(instance, segment);
         true
     }
 
@@ -229,8 +232,14 @@ impl<'s> LoopEngine<'s> {
         instance
     }
 
-    fn capture(&mut self, instance: Instance, segment: usize) {
-        self.events.push(Event::Captured { instance, segment });
+    /// Reports `segment` as held by `instance`, with the occurrence the spec
+    /// matches it to in that loop.
+    fn capture(&mut self, instance: Instance, segment: &Segment<'_>) {
+        self.events.push(Event::Captured {
+            instance,
+            segment: segment.index,
+            occurrence: self.spec.occurrence_of(instance.loop_id, segment),
+        });
     }
 
     fn close_to(&mut self, depth: usize) {

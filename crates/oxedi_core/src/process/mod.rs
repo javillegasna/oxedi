@@ -95,14 +95,13 @@ impl<'s> Processor<'s> {
         self.output.diagnostics.clear();
         let events = self.engine.feed(segment);
         self.output.events.extend_from_slice(events);
-        // The projector matches the captured segment to its occurrence and
-        // the checker reuses the match; the checker's findings still come
+        // The events carry the occurrence each captured segment matched, so
+        // the two consumers are independent; the checker's findings come
         // first.
         self.projector.on(segment, events);
-        let matched = self.projector.matched();
         self.output
             .diagnostics
-            .extend_from_slice(self.checker.on_matched(segment, events, matched));
+            .extend_from_slice(self.checker.on(segment, events));
         self.projector
             .mask_datums(&mut self.output.diagnostics, Some(segment));
         self.output

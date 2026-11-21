@@ -1,7 +1,6 @@
 //! The occurrence a segment takes in a loop, asked of the spec.
 
 use super::segs;
-use crate::spec::IdMap;
 use crate::spec::test_support::nested;
 use crate::spec::*;
 
@@ -65,14 +64,39 @@ fn the_index_follows_a_merge_patch() {
     );
 }
 
+/// Two loops: `one` lists a seven-byte id and an eight-byte id sharing its
+/// first seven bytes, `two` lists a longer id, and both list `SHAREDLONG`.
+const LONG_IDS: &str = r#"{"name":"t","loops":{
+    "one":{"trigger":{"segment":"ABCDEFG"},"occurrences":{
+        "seven":{"segment":"ABCDEFG","pos":0},
+        "eight":{"segment":"ABCDEFGH","pos":1},
+        "shared_one":{"segment":"SHAREDLONG","pos":2}}},
+    "two":{"trigger":{"segment":"TWOLONGID"},"occurrences":{
+        "own":{"segment":"TWOLONGID","pos":0},
+        "shared_two":{"segment":"SHAREDLONG","pos":1}}}
+}}"#;
+
 #[test]
-fn a_seven_byte_id_and_an_eight_byte_id_sharing_its_bytes_are_two_entries() {
-    let mut map = IdMap::default();
-    *map.entry_or_insert_with(b"ABCDEFG", || 1) += 10;
-    *map.entry_or_insert_with(b"ABCDEFGH", || 2) += 20;
-    assert_eq!(map.get(b"ABCDEFG"), Some(&11));
-    assert_eq!(map.get(b"ABCDEFGH"), Some(&22));
-    assert_eq!(map.get_mut(b"ABCDEFGH").map(|value| *value), Some(22));
-    assert_eq!(map.get(b"ABCDEF"), None);
-    assert_eq!(map.get(b"ABCDEFGHI"), None);
+fn an_id_longer_than_seven_bytes_resolves_in_the_loop_that_lists_it() {
+    let spec = Spec::from_json(LONG_IDS).unwrap();
+    assert_eq!(taken(&spec, "one", b"ABCDEFGH~"), Some("eight"));
+    assert_eq!(taken(&spec, "two", b"TWOLONGID~"), Some("own"));
+    assert_eq!(taken(&spec, "one", b"TWOLONGID~"), None);
+    assert_eq!(taken(&spec, "two", b"ABCDEFGH~"), None);
+    assert_eq!(taken(&spec, "one", b"ABCDEFGHI~"), None);
+}
+
+#[test]
+fn a_seven_byte_id_and_an_eight_byte_id_sharing_their_bytes_have_their_own_occurrences() {
+    let spec = Spec::from_json(LONG_IDS).unwrap();
+    assert_eq!(taken(&spec, "one", b"ABCDEFG~"), Some("seven"));
+    assert_eq!(taken(&spec, "one", b"ABCDEFGH~"), Some("eight"));
+    assert_eq!(taken(&spec, "two", b"ABCDEFG~"), None);
+}
+
+#[test]
+fn two_loops_listing_the_same_long_id_each_give_their_own_occurrence() {
+    let spec = Spec::from_json(LONG_IDS).unwrap();
+    assert_eq!(taken(&spec, "one", b"SHAREDLONG~"), Some("shared_one"));
+    assert_eq!(taken(&spec, "two", b"SHAREDLONG~"), Some("shared_two"));
 }

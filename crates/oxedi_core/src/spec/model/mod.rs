@@ -32,7 +32,7 @@ pub use rules::{
 pub use segments::{ElementModel, SegmentModel};
 pub use tables::{ColumnModel, RepeatModel, TableModel};
 
-pub(in crate::spec) use loops::{LOOP, RawControl, RawLoop, RawOccurrence, RawQualifier};
+pub(in crate::spec) use loops::LOOP;
 pub(in crate::spec) use rules::{
     BALANCE, RawBalance, RawSummaryColumn, RawSummaryRow, RawSummaryTable, RawTerm, RawVersion,
     SUMMARY_COLUMN, SUMMARY_ROW, SUMMARY_TABLE, VERSION,
@@ -73,7 +73,7 @@ spec_object! {
     version: Option<VersionModel>, Field::Object(&VERSION), optional;
     /// The loops, by name.
     // The loader checks the loops' outer shape and deserializes them one by
-    // one, so a schema error can name the loop.
+    // one, so an error names the path from the root.
     loops: BTreeMap<String, LoopModel> | BTreeMap<String, IgnoredAny>,
         Field::Map(&Field::Object(&LOOP)), required;
     /// The tables, by name.
@@ -114,6 +114,19 @@ pub(in crate::spec) fn read_model(
             },
             source: err.into_inner(),
         }
+    })
+}
+
+/// Reads one entry of a spec section into its model; a value the model
+/// refuses fails with [`SpecError::Format`], at its path from the spec's root.
+pub(in crate::spec) fn read_entry<'v, T: Deserialize<'v>>(
+    section: &str,
+    name: &str,
+    value: &'v serde_json::Value,
+) -> Result<T, SpecError> {
+    serde_path_to_error::deserialize(value).map_err(|err| SpecError::Format {
+        path: render_path(&format!("{section}.{}", render_key(name)), err.path()),
+        source: err.into_inner(),
     })
 }
 

@@ -7,14 +7,13 @@ use std::collections::btree_map::Entry;
 
 use super::error::SpecError;
 use super::loops::Trigger;
+use super::model::{OccurrenceModel, QualifierModel};
 use super::occurrence_error::OccurrenceError;
-use super::raw::{RawOccurrence, RawQualifier};
 use super::render::render_trigger;
 use super::segments::{ElementDef, SegmentDef, compile_codes, holds_code};
 use super::vocabulary::ElementPosition;
 use crate::message::{place, render_key};
 use crate::segment::Segment;
-use crate::vocabulary::Vocabulary;
 
 /// Whether an occurrence must appear in every instance of its loop.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
@@ -123,19 +122,6 @@ pub(super) fn element_def<'d>(
         None => Some(def),
         Some(component) => def.composite.get(&component),
     }
-}
-
-/// Reads a `codes` key: `<element>` or `<element>-<component>`.
-fn parse_codes_key(key: &str) -> Option<(usize, Option<usize>)> {
-    ElementPosition::parse(key).map(|at| (at.element, at.component))
-}
-
-/// Reads a `usage`: `required`, or `situational` (also when absent); the
-/// value as written when it is neither.
-pub(super) fn parse_usage(usage: Option<&str>) -> Result<Usage, String> {
-    usage.map_or(Ok(Usage::default()), |word| {
-        Usage::from_word(word).ok_or_else(|| word.to_string())
-    })
 }
 
 /// Checks the occurrence a loop's trigger opens on, when the loop declares
@@ -276,7 +262,7 @@ fn check_distinct(loop_name: &str, occurrences: &[OccurrenceDef]) -> Result<(), 
 /// every two occurrences of one segment can be told apart.
 pub(super) fn compile_occurrences(
     loop_name: &str,
-    raw: &BTreeMap<String, RawOccurrence>,
+    raw: &BTreeMap<String, OccurrenceModel>,
     segments: &BTreeMap<Vec<u8>, SegmentDef>,
 ) -> Result<Vec<OccurrenceDef>, SpecError> {
     let mut occurrences = raw
@@ -289,25 +275,25 @@ pub(super) fn compile_occurrences(
 }
 
 /// A check of an occurrence's own keys: the error when the occurrence breaks it.
-type OccurrenceRule = fn(&str, &str, &RawOccurrence) -> Option<SpecError>;
+type OccurrenceRule = fn(&str, &str, &OccurrenceModel) -> Option<SpecError>;
 
 /// The checks of an occurrence's keys that need nothing but the occurrence, in
 /// the order they run.
 const OCCURRENCE_RULES: [OccurrenceRule; 3] = [empty_name, empty_segment, zero_max];
 
-fn empty_name(loop_name: &str, name: &str, _def: &RawOccurrence) -> Option<SpecError> {
+fn empty_name(loop_name: &str, name: &str, _def: &OccurrenceModel) -> Option<SpecError> {
     name.is_empty()
         .then(|| bad_occurrence(loop_name, name, OccurrenceError::EmptyName))
 }
 
-fn empty_segment(loop_name: &str, name: &str, def: &RawOccurrence) -> Option<SpecError> {
+fn empty_segment(loop_name: &str, name: &str, def: &OccurrenceModel) -> Option<SpecError> {
     def.segment.is_empty().then(|| SpecError::EmptySegmentId {
         loop_name: Some(loop_name.to_string()),
         key: format!("occurrences.{}.segment", render_key(name)),
     })
 }
 
-fn zero_max(loop_name: &str, name: &str, def: &RawOccurrence) -> Option<SpecError> {
+fn zero_max(loop_name: &str, name: &str, def: &OccurrenceModel) -> Option<SpecError> {
     (def.max == Some(0)).then(|| bad_occurrence(loop_name, name, OccurrenceError::ZeroMax))
 }
 
@@ -360,7 +346,7 @@ fn compile_list<'d>(
 fn compile_qualifier(
     segments: &BTreeMap<Vec<u8>, SegmentDef>,
     segment: &str,
-    raw: &RawQualifier,
+    raw: &QualifierModel,
 ) -> Result<Qualifier, OccurrenceError> {
     let list = CodeList {
         reference: "qualifier".into(),
@@ -395,20 +381,21 @@ type OwnCodes = BTreeMap<(usize, Option<usize>), Vec<String>>;
 fn compile_own_codes(
     segments: &BTreeMap<Vec<u8>, SegmentDef>,
     segment: &str,
-    raw: &BTreeMap<String, Vec<String>>,
+    raw: &BTreeMap<ElementPosition, Vec<String>>,
     qualifier: Option<&Qualifier>,
 ) -> Result<OwnCodes, OccurrenceError> {
     let mut codes = BTreeMap::new();
-    for (key, list) in raw {
-        let (element, component) = parse_codes_key(key)
-            .ok_or_else(|| OccurrenceError::BadCodesKey { key: key.clone() })?;
+    for (&at, list) in raw {
+        let ElementPosition { element, component } = at;
         if qualifier.is_some_and(|q| (q.element, q.component) == (element, component)) {
-            return Err(OccurrenceError::QualifierInCodes { key: key.clone() });
+            return Err(OccurrenceError::QualifierInCodes {
+                key: at.to_string(),
+            });
         }
-        let at = format!("codes.{key}");
+        let key = format!("codes.{at}");
         let list = CodeList {
-            reference: at.clone(),
-            list: at,
+            reference: key.clone(),
+            list: key,
             element,
             component,
             codes: list,
@@ -424,7 +411,7 @@ fn compile_own_codes(
 fn compile_occurrence(
     loop_name: &str,
     name: &str,
-    def: &RawOccurrence,
+    def: &OccurrenceModel,
     segments: &BTreeMap<Vec<u8>, SegmentDef>,
 ) -> Result<OccurrenceDef, SpecError> {
     if let Some(error) = OCCURRENCE_RULES
@@ -434,8 +421,6 @@ fn compile_occurrence(
         return Err(error);
     }
     let fail = |reason| bad_occurrence(loop_name, name, reason);
-    let usage = parse_usage(def.usage.as_deref())
-        .map_err(|found| fail(OccurrenceError::UnknownUsage { found }))?;
     let qualifier = def
         .qualifier
         .as_ref()
@@ -448,7 +433,7 @@ fn compile_occurrence(
         name: name.to_string(),
         segment: def.segment.as_bytes().to_vec(),
         pos: def.pos,
-        usage,
+        usage: def.usage,
         max: def.max,
         qualifier,
         codes,

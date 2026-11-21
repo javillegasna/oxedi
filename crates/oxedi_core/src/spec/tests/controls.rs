@@ -58,12 +58,6 @@ fn bad_controls_are_rejected_with_the_loop_and_the_reason() {
                 key: "count_element",
             },
         ),
-        (
-            r#"{"opener_element":2,"closer_element":2,"count_element":1,"count":"segs"}"#,
-            ControlError::UnknownCount {
-                found: "segs".into(),
-            },
-        ),
     ];
     for (control, expected) in cases {
         let err = control_error(control);
@@ -72,6 +66,13 @@ fn bad_controls_are_rejected_with_the_loop_and_the_reason() {
             "{control}: {err:?}"
         );
     }
+    assert_eq!(
+        control_error(
+            r#"{"opener_element":2,"closer_element":2,"count_element":1,"count":"segs"}"#
+        )
+        .to_string(),
+        "spec: at loops.env.control.count: \"count\" must be \"segments\" or \"children\"; found \"segs\""
+    );
     let err = Spec::from_json(
         r#"{"name":"t","loops":{"env":{"trigger":{"segment":"HD"},"control":{"opener_element":2,"closer_element":2,"count_element":1,"count":"segments"}}}}"#,
     )
@@ -114,12 +115,6 @@ fn bad_control_displays_the_loop_and_every_reason() {
                 key: "opener_element",
             },
             "loop \"transaction\" has an invalid \"control\": \"opener_element\" must be a 1-based element position; found 0",
-        ),
-        (
-            ControlError::UnknownCount {
-                found: "segs".into(),
-            },
-            "loop \"transaction\" has an invalid \"control\": \"count\" must be \"segments\" or \"children\"; found \"segs\"",
         ),
         (
             ControlError::NoEnd,

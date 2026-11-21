@@ -253,7 +253,7 @@ fn invalid_occurrences_are_rejected_naming_loop_occurrence_rule_and_datum() {
         ),
         (
             r#"{"loops":{"head":{"occurrences":{"note":{"usage":"R"}}}}}"#,
-            "loop \"head\" occurrence \"note\": \"usage\" must be \"required\" or \"situational\"; found \"R\"",
+            "spec: at loops.head.occurrences.note.usage: \"usage\" must be \"required\" or \"situational\"; found \"R\"",
         ),
         (
             r#"{"loops":{"head":{"occurrences":{"note":{"max":0}}}}}"#,
@@ -293,11 +293,11 @@ fn invalid_occurrences_are_rejected_naming_loop_occurrence_rule_and_datum() {
         ),
         (
             r#"{"loops":{"head":{"occurrences":{"patient":{"codes":{"02":["1"]}}}}}}"#,
-            "loop \"head\" occurrence \"patient\": codes key \"02\" must be \"<element>\" or \"<element>-<component>\", 1-based integers in canonical form",
+            "spec: at loops.head.occurrences.patient.codes.02: codes key \"02\" must be \"<element>\" or \"<element>-<component>\", 1-based integers in canonical form",
         ),
         (
             r#"{"loops":{"head":{"occurrences":{"id":{"codes":{"1-x":["A"]}}}}}}"#,
-            "loop \"head\" occurrence \"id\": codes key \"1-x\" must be \"<element>\" or \"<element>-<component>\", 1-based integers in canonical form",
+            "spec: at loops.head.occurrences.id.codes.1-x: codes key \"1-x\" must be \"<element>\" or \"<element>-<component>\", 1-based integers in canonical form",
         ),
         (
             r#"{"loops":{"head":{"occurrences":{"patient":{"codes":{"9":["1"]}}}}}}"#,
@@ -353,7 +353,7 @@ fn invalid_occurrences_are_rejected_naming_loop_occurrence_rule_and_datum() {
         ),
         (
             r#"{"loops":{"head":{"usage":"R"}}}"#,
-            "loop \"head\" has \"usage\" \"R\"; it must be \"required\" or \"situational\"",
+            "spec: at loops.head.usage: \"usage\" must be \"required\" or \"situational\"; found \"R\"",
         ),
         (
             r#"{"loops":{"head":{"usage":7}}}"#,

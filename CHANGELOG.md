@@ -43,7 +43,14 @@ This file covers the Python package; the DuckDB extension has its own changelog 
 
 ### Changed
 - A key holding `.`, `/`, `#` or whitespace is quoted in the path of `SpecError::ModelMismatch`.
-- Rust: `SpecError::Format { path, source }`: a spec value the model refuses, at its path from the root.
+- Rust: `SpecError::Format { path, source }`, the fault of a value the model refuses, at its path from the root.
+- A spec whose loop or occurrence `usage` is not `required` or `situational`, whose control `count`
+  is not `segments` or `children`, or whose `where` or `codes` key is not a 1-based position fails
+  at the value's path from the spec's root, in Rust and Python alike, and a word outside that
+  vocabulary is now refused before the loop's header rules: `spec: at loops.2100.occurrences.clp.usage: "usage" must be "required" or "situational"; found "x"`.
+- Rust: `SpecError::BadPosition`, `SpecError::UnknownLoopUsage`, `OccurrenceError::UnknownUsage`,
+  `OccurrenceError::BadCodesKey` and `ControlError::UnknownCount` are removed; `SpecError::Schema`
+  loses `loop_name`, being the top level's only.
 - The error for an interchange whose version carries a repetition separator while the envelope has
   none names the version: `the interchange version "00501" (ISA12) carries a repetition separator
   in ISA11, but the envelope field "delimiters.repetition" is not set; set it to the separator to

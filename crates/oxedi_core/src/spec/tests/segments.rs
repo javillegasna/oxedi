@@ -24,9 +24,11 @@ fn non_numeric_zero_or_non_canonical_positions_are_rejected() {
             r#"{{"name":"t","loops":{{"a":{{"trigger":{{"segment":"AA","where":{{"{position}":"1"}}}}}}}}}}"#
         );
         let err = Spec::from_json(&json).unwrap_err();
-        assert!(
-            matches!(&err, SpecError::BadPosition { loop_name, position: p } if loop_name == "a" && p == position),
-            "{err}"
+        assert_eq!(
+            err.to_string(),
+            format!(
+                "spec: at loops.a.trigger.where: trigger \"where\" key {position:?} is not a position: positions are 1-based integers written in canonical form"
+            )
         );
     }
 }
@@ -37,9 +39,9 @@ fn a_position_spelled_twice_is_rejected_by_its_non_canonical_spelling() {
         r#"{"name":"t","loops":{"a":{"trigger":{"segment":"AA","where":{"1":"X","01":"Y"}}}}}"#,
     )
     .unwrap_err();
-    assert!(
-        matches!(&err, SpecError::BadPosition { loop_name, position } if loop_name == "a" && position == "01"),
-        "{err:?}"
+    assert_eq!(
+        err.to_string(),
+        "spec: at loops.a.trigger.where: trigger \"where\" key \"01\" is not a position: positions are 1-based integers written in canonical form"
     );
 }
 

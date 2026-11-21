@@ -1,30 +1,27 @@
 //! The compilation of one loop: the checks of its own keys, its parent, its
-//! trigger conditions and its control, the parent cycle check over every
+//! trigger and its control, the parent cycle check over every
 //! loop, and the segments its occurrences hold.
 
 use std::collections::{BTreeMap, BTreeSet};
 
 use super::error::SpecError;
-use super::loops::{Control, ControlCount, ControlError, LoopDef, LoopId, Trigger};
-use super::occurrences::parse_usage;
-use super::raw::{RawControl, RawLoop};
-use super::segments::parse_position;
-use crate::vocabulary::Vocabulary;
+use super::loops::{Control, ControlError, LoopDef, LoopId, Trigger};
+use super::model::{ControlModel, LoopModel};
 
 /// A check of a loop's own keys: the error when the loop breaks it.
-type HeaderRule = fn(&str, &RawLoop) -> Option<SpecError>;
+type HeaderRule = fn(&str, &LoopModel) -> Option<SpecError>;
 
 /// The checks of a loop's keys that need nothing but the loop, in the order they run.
 const HEADER_RULES: [HeaderRule; 4] = [empty_trigger, empty_end, zero_max, end_is_trigger];
 
-fn empty_trigger(name: &str, def: &RawLoop) -> Option<SpecError> {
+fn empty_trigger(name: &str, def: &LoopModel) -> Option<SpecError> {
     def.trigger
         .segment
         .is_empty()
         .then(|| empty_segment_id(name, "trigger.segment"))
 }
 
-fn empty_end(name: &str, def: &RawLoop) -> Option<SpecError> {
+fn empty_end(name: &str, def: &LoopModel) -> Option<SpecError> {
     (def.end.as_deref() == Some("")).then(|| empty_segment_id(name, "end"))
 }
 
@@ -35,13 +32,13 @@ fn empty_segment_id(name: &str, key: &str) -> SpecError {
     }
 }
 
-fn zero_max(name: &str, def: &RawLoop) -> Option<SpecError> {
+fn zero_max(name: &str, def: &LoopModel) -> Option<SpecError> {
     (def.max == Some(0)).then(|| SpecError::ZeroLoopMax {
         loop_name: name.to_string(),
     })
 }
 
-fn end_is_trigger(name: &str, def: &RawLoop) -> Option<SpecError> {
+fn end_is_trigger(name: &str, def: &LoopModel) -> Option<SpecError> {
     (def.end.as_deref() == Some(def.trigger.segment.as_str())).then(|| SpecError::EndIsTrigger {
         loop_name: name.to_string(),
         segment: def.trigger.segment.clone(),
@@ -51,25 +48,26 @@ fn end_is_trigger(name: &str, def: &RawLoop) -> Option<SpecError> {
 /// A loop as written, without its occurrences and children, which later steps add.
 pub(super) fn compile_loop(
     name: &str,
-    def: &RawLoop,
+    def: &LoopModel,
     ids: &BTreeMap<&str, LoopId>,
 ) -> Result<LoopDef, SpecError> {
     if let Some(error) = HEADER_RULES.iter().find_map(|rule| rule(name, def)) {
         return Err(error);
     }
-    let usage = parse_usage(def.usage.as_deref()).map_err(|found| SpecError::UnknownLoopUsage {
-        loop_name: name.to_string(),
-        found,
-    })?;
     Ok(LoopDef {
         name: name.to_string(),
         parent: parent_id(name, def, ids)?,
         trigger: Trigger {
             segment: def.trigger.segment.as_bytes().to_vec(),
-            conditions: compile_conditions(name, &def.trigger.conditions)?,
+            conditions: def
+                .trigger
+                .conditions
+                .iter()
+                .map(|(&position, value)| (position, value.as_bytes().to_vec()))
+                .collect(),
         },
         occurrences: Vec::new(),
-        usage,
+        usage: def.usage,
         max: def.max,
         segments: Vec::new(),
         end: def.end.as_ref().map(|s| s.as_bytes().to_vec()),
@@ -80,7 +78,7 @@ pub(super) fn compile_loop(
 
 fn parent_id(
     name: &str,
-    def: &RawLoop,
+    def: &LoopModel,
     ids: &BTreeMap<&str, LoopId>,
 ) -> Result<Option<LoopId>, SpecError> {
     let Some(parent) = &def.parent else {
@@ -95,27 +93,7 @@ fn parent_id(
     }
 }
 
-/// The trigger's `where` conditions as 1-based positions, sorted.
-fn compile_conditions(
-    name: &str,
-    raw: &BTreeMap<String, String>,
-) -> Result<Vec<(usize, Vec<u8>)>, SpecError> {
-    let mut conditions = raw
-        .iter()
-        .map(|(position, value)| {
-            parse_position(position)
-                .map(|parsed| (parsed, value.as_bytes().to_vec()))
-                .ok_or_else(|| SpecError::BadPosition {
-                    loop_name: name.to_string(),
-                    position: position.clone(),
-                })
-        })
-        .collect::<Result<Vec<_>, _>>()?;
-    conditions.sort();
-    Ok(conditions)
-}
-
-fn loop_control(name: &str, def: &RawLoop) -> Result<Option<Control>, SpecError> {
+fn loop_control(name: &str, def: &LoopModel) -> Result<Option<Control>, SpecError> {
     def.control
         .as_ref()
         .map(|raw| {
@@ -140,7 +118,7 @@ pub(super) fn held_segments(def: &LoopDef) -> Vec<Vec<u8>> {
 }
 
 /// Validates a loop's `control`; `has_end` says whether the loop declares an end segment.
-fn compile_control(raw: &RawControl, has_end: bool) -> Result<Control, ControlError> {
+fn compile_control(raw: &ControlModel, has_end: bool) -> Result<Control, ControlError> {
     if !has_end {
         return Err(ControlError::NoEnd);
     }
@@ -152,14 +130,11 @@ fn compile_control(raw: &RawControl, has_end: bool) -> Result<Control, ControlEr
     if let Some((key, _)) = positions.iter().find(|(_, position)| *position == 0) {
         return Err(ControlError::ZeroPosition { key });
     }
-    let count = ControlCount::from_word(&raw.count).ok_or_else(|| ControlError::UnknownCount {
-        found: raw.count.clone(),
-    })?;
     Ok(Control {
         opener_element: raw.opener_element,
         closer_element: raw.closer_element,
         count_element: raw.count_element,
-        count,
+        count: raw.count,
     })
 }
 

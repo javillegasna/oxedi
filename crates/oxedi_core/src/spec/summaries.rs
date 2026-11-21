@@ -5,44 +5,13 @@
 
 use std::collections::BTreeMap;
 
+use super::ColumnKind;
 use super::Spec;
 use super::error::SpecError;
 use super::model::{SummaryColumnModel, SummaryModel, SummaryRowModel};
-use super::phi::ColumnKind;
 use super::summary_error::SummaryDefError;
-use super::tables::{ColumnSource, TableDef};
+use super::tables::{ColumnSource, Summary, TableDef};
 use crate::value::ElementType;
-
-/// What a summary computes over the tables of a parse.
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub enum Summary {
-    /// The number of rows of the table.
-    Count {
-        /// The table.
-        table: String,
-    },
-    /// The number of distinct non-null values of the column, compared as text.
-    Distinct {
-        /// The table.
-        table: String,
-        /// The column.
-        column: String,
-    },
-    /// The sum of a decimal column; null cells are skipped.
-    Sum {
-        /// The table.
-        table: String,
-        /// The column, which reads a decimal (`R`) element.
-        column: String,
-    },
-    /// Named fields of the one row of the table.
-    Row {
-        /// The table.
-        table: String,
-        /// `(name, column)` pairs, in the order written.
-        fields: Vec<(String, String)>,
-    },
-}
 
 /// Compiles the `summaries` section against the tables of `spec`, in name order.
 pub(super) fn compile_summaries(

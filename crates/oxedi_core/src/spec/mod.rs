@@ -95,15 +95,13 @@ pub use occurrence_error::OccurrenceError;
 pub use occurrence_index::OccurrenceId;
 pub use occurrences::{OccurrenceDef, Qualifier, Usage};
 pub use patch::merge_patch;
-pub use phi::ColumnKind;
 pub use schema::{
-    ColumnSchema, TableSchema, require_column, spec_schema, table_columns, table_schema,
+    ColumnKind, ColumnSchema, TableSchema, require_column, spec_schema, table_columns, table_schema,
 };
 pub use segments::{ElementDef, ElementDefError, ROW_COLUMN, SEGMENT_COLUMN, SegmentDef};
-pub use summaries::Summary;
 pub use summary_error::SummaryDefError;
 pub use table_error::{AnchorChains, AnchorPositions, LoopSegments, TableDefError};
-pub use tables::{ColumnSource, Repeat, TableDef};
+pub use tables::{ColumnSource, Repeat, Summary, TableDef};
 pub use unknown::{UnknownColumn, UnknownTable};
 pub use version::{DeclaredVersion, VersionError};
 pub use vocabulary::ElementPosition;

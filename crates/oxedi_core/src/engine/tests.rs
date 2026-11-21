@@ -404,14 +404,17 @@ fn finish_restarts_ids_and_ordinals() {
     for segment in &segs(b"AA~") {
         engine.feed(segment);
     }
-    let open = engine.path();
-    assert_eq!(open.len(), 1);
-    assert_eq!(
-        (
-            open[0].id.index(),
-            open[0].ordinal_in_stream,
-            open[0].parent
-        ),
-        (0, 1, None)
-    );
+    let open: Vec<_> = engine
+        .path()
+        .iter()
+        .map(|open| {
+            (
+                spec.loop_name(open.loop_id),
+                open.id.index(),
+                open.ordinal_in_stream,
+                open.parent.map(InstanceId::index),
+            )
+        })
+        .collect();
+    assert_eq!(open, vec![("A", 0, 1, None)]);
 }

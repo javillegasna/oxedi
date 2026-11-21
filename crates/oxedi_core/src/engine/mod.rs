@@ -6,6 +6,9 @@
 //! segment also closes it); a trigger whose ancestors are not open, which
 //! opens them implicitly; and otherwise the segment is unmatched. Events refer
 //! to segments by index and are returned as a slice of a reused buffer.
+//!
+//! `instance.rs` holds [`Instance`] and [`InstanceId`], one numbered
+//! occurrence of a loop; `mod.rs` holds the engine and its events.
 
 mod instance;
 
@@ -192,20 +195,17 @@ impl<'s> LoopEngine<'s> {
     }
 
     fn open(&mut self, id: LoopId, implicit: bool, segment: usize) {
-        let ordinal = match self.counters.get_mut(id.index()) {
-            Some(count) => {
-                *count += 1;
-                *count
-            }
-            None => 1,
-        };
+        // The counters are sized from the spec that made every `LoopId`.
+        let count = &mut self.counters[id.index()];
+        *count = count.saturating_add(1);
+        let ordinal = *count;
         self.stack.push(Instance {
             id: InstanceId::new(self.next_id),
             loop_id: id,
             ordinal_in_stream: ordinal,
             parent: self.stack.last().map(|top| top.id),
         });
-        self.next_id += 1;
+        self.next_id = self.next_id.saturating_add(1);
         self.events.push(Event::LoopOpened {
             id,
             implicit,

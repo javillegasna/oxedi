@@ -6,7 +6,6 @@ use serde::{Deserialize, Deserializer, Serialize};
 
 use super::declare::spec_object;
 use super::{is_default, positions, present};
-use crate::spec::shape::Field;
 use crate::value::ElementType;
 
 fn segment_elements<'de, D: Deserializer<'de>>(
@@ -23,11 +22,10 @@ fn element_composite<'de, D: Deserializer<'de>>(
 
 spec_object! {
     /// The elements of a segment the spec defines.
-    SegmentModel, SEGMENT, "a segment object";
+    SegmentModel, "a segment object";
     /// The elements, by 1-based element position.
     #[serde(deserialize_with = "segment_elements")]
-    elements: BTreeMap<usize, ElementModel>,
-        Field::Opaque, default;
+    elements: BTreeMap<usize, ElementModel>, default;
 }
 
 /// The keys an element object takes, as an unknown-key error lists them.

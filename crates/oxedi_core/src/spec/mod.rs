@@ -18,7 +18,8 @@
 //!
 //! The module is split by responsibility: `loops`, `occurrences`, `elements`
 //! (an element, a segment, the automatic column names), `tables`, `balance_rule`
-//! (a balancing rule and its text) and `summaries` hold the definitions, `segments` and `balance` compile the segments and balancing rules, `occurrence_index`
+//! (a balancing rule and its text) and `summaries` hold the definitions, `segments` and `balance` compile the
+//! segments and the balancing rules, `occurrence_index`
 //! the occurrence a segment takes in a loop, `id_map` the map keyed by segment id,
 //! `occurrence_error`, `table_error`, `balance_error` and `summary_error` why
 //! an occurrence, a table, a balancing rule or a summary is rejected; `unknown`

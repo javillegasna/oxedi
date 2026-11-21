@@ -79,8 +79,8 @@ fn an_enum_variant_reads_its_payload_strictly() {
 #[test]
 fn every_builtin_reads_as_serde_json_reads_it() {
     for builtin in Builtin::all() {
-        let source = &builtin.spec.source;
-        let strict = SpecModel::from_value(source).unwrap();
+        let source = builtin.json().unwrap();
+        let strict = SpecModel::from_value(&source).unwrap();
         let plain = from_value::<SpecModel>(source.clone()).unwrap();
         assert_eq!(
             strict, plain,

@@ -29,10 +29,10 @@ impl LoadedSpec {
 
     /// Applies a JSON Merge Patch (RFC 7386) to the model's canonical JSON and
     /// compiles the result: objects merge recursively, arrays and scalars are
-    /// replaced, `null` deletes, and a loop's occurrences, keyed by name, are
-    /// added, changed or removed one by one, as on [`Spec::merge_patch`]. Every
-    /// failure (the patch text, the model read, the compile) is a
-    /// [`SpecError::Patch`].
+    /// replaced, `null` deletes, a loop's occurrences, keyed by name, are
+    /// added, changed or removed one by one, and an array (an element's or a
+    /// qualifier's `codes`) is replaced whole. Every failure (the patch text,
+    /// the model read, the compile) is a [`SpecError::Patch`].
     ///
     /// ```
     /// # use oxedi_core::spec::{LoadedSpec, Spec};

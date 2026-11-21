@@ -3,7 +3,10 @@
 use std::fmt;
 use std::sync::{Arc, OnceLock};
 
+use serde_json::Value;
+
 use super::model::SpecModel;
+use super::patch::merge_patch;
 use super::version::chosen;
 use super::{LoadedSpec, Spec, SpecError};
 use crate::message::render_names;
@@ -39,6 +42,31 @@ impl Version {
     }
 }
 
+/// The JSON a built-in ships as: a whole spec, or a JSON Merge Patch over another.
+#[derive(Debug, Clone, Copy)]
+enum Shipped {
+    Spec(&'static str),
+    Patched {
+        base: &'static str,
+        patch: &'static str,
+    },
+}
+
+impl Shipped {
+    /// The shipped JSON as a value, a patch merged over its base as values.
+    fn value(self) -> Result<Value, SpecError> {
+        let parse = |text: &str| serde_json::from_str::<Value>(text).map_err(SpecError::Json);
+        match self {
+            Shipped::Spec(text) => parse(text),
+            Shipped::Patched { base, patch } => {
+                let mut value = parse(base)?;
+                merge_patch(&mut value, &parse(patch)?);
+                Ok(value)
+            }
+        }
+    }
+}
+
 /// One spec the core ships, with the transaction set and version it covers.
 #[derive(Debug)]
 pub struct Builtin {
@@ -48,21 +76,19 @@ pub struct Builtin {
     pub version: Version,
     /// The spec.
     pub spec: Arc<Spec>,
+    shipped: Shipped,
 }
 
 impl Builtin {
-    fn new(transaction: &'static str, version: Version, spec: Spec) -> Builtin {
-        Builtin {
-            transaction,
-            version,
-            spec: Arc::new(spec),
-        }
+    /// The built-in's JSON as it ships, its patch merged over its base.
+    pub(in crate::spec) fn json(&self) -> Result<Value, SpecError> {
+        self.shipped.value()
     }
 
-    /// The spec's model, read from the JSON the spec keeps; patch it and
-    /// compile it again for a variant. The registry holds no model itself.
+    /// The spec's model, read now from the JSON the built-in ships; the
+    /// registry holds no model itself.
     pub fn model(&self) -> Result<SpecModel, SpecError> {
-        SpecModel::from_value(&self.spec.source)
+        self.json().and_then(|value| SpecModel::from_value(&value))
     }
 
     /// The built-in as a loader keeps it: its model, read now, beside its compiled spec.
@@ -74,21 +100,44 @@ impl Builtin {
     }
 }
 
-// Each built-in is read from its JSON as written, the 4010 one with its
-// patch merged over the 5010 JSON; no model is written back to JSON here.
+const SHIPPED: [(&str, Version, Shipped); 2] = [
+    (
+        "835",
+        Builtin::DEFAULT_VERSION,
+        Shipped::Spec(Spec::BUILTIN_835_JSON),
+    ),
+    (
+        "835",
+        Version::V4010,
+        Shipped::Patched {
+            base: Spec::BUILTIN_835_JSON,
+            patch: Spec::BUILTIN_835_4010_PATCH,
+        },
+    ),
+];
+
+// Each built-in compiles from the JSON it ships, the 4010 one with its patch merged over the
+// 5010 JSON as values; no model is written back to JSON here.
 fn load() -> Vec<Builtin> {
-    let five = Spec::from_json(Spec::BUILTIN_835_JSON).expect(
-        "the built-in 835 spec is valid; \
-         spec::tests::builtin::each_builtin_spec_is_compiled_from_its_model checks it",
-    );
-    let four = five.merge_patch(Spec::BUILTIN_835_4010_PATCH).expect(
-        "the built-in 4010 patch merges into the built-in 835 as a valid spec; \
-         spec::tests::builtin::each_builtin_spec_is_compiled_from_its_model checks it",
-    );
-    vec![
-        Builtin::new("835", Builtin::DEFAULT_VERSION, five),
-        Builtin::new("835", Version::V4010, four),
-    ]
+    SHIPPED
+        .into_iter()
+        .map(|(transaction, version, shipped)| {
+            let spec = shipped
+                .value()
+                .and_then(|value| SpecModel::from_value(&value))
+                .and_then(|model| model.compile())
+                .expect(
+                    "a built-in spec is valid; \
+                     spec::tests::builtin::each_builtin_spec_is_compiled_from_its_model checks it",
+                );
+            Builtin {
+                transaction,
+                version,
+                spec: Arc::new(spec),
+                shipped,
+            }
+        })
+        .collect()
 }
 
 static ALL: OnceLock<Vec<Builtin>> = OnceLock::new();

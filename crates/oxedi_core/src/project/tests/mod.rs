@@ -266,9 +266,8 @@ fn row_numbers_keep_counting_across_drains() {
     for segment in Tokenizer::with_delimiters(input.as_bytes(), delimiters()) {
         let events = engine.feed(&segment).to_vec();
         projector.on(&segment, &events);
-        if events.contains(&Event::LoopClosed {
-            id: spec.loop_id("claim").unwrap(),
-        }) {
+        let claim = spec.loop_id("claim").unwrap();
+        if events.iter().any(|event| event.closes(claim)) {
             drains.push(projector.take_tables());
         }
     }

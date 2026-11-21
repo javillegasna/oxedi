@@ -5,8 +5,8 @@ mod common;
 use std::collections::BTreeMap;
 
 use oxedi_core::{
-    Cell, Column, Document, Element, Event, LoopId, LoopTree, Processor, Segment, SnipLevel, Spec,
-    Table, Tokenizer,
+    Cell, Column, Document, Element, LoopId, LoopTree, Processor, Segment, SnipLevel, Spec, Table,
+    Tokenizer,
 };
 
 /// Fed segment by segment from a tokenizer and drained after each
@@ -27,7 +27,8 @@ fn draining_after_each_transaction_adds_up_to_one_run_over_the_document() {
             incremental.extend_from_slice(output.diagnostics());
             if output
                 .events()
-                .contains(&Event::LoopClosed { id: transaction })
+                .iter()
+                .any(|event| event.closes(transaction))
             {
                 drained.push(processor.take_tables());
             }

@@ -64,6 +64,13 @@ pub enum Event {
     },
 }
 
+impl Event {
+    /// Whether this event closes the loop `loop_id`.
+    pub fn closes(&self, loop_id: LoopId) -> bool {
+        matches!(self, Self::LoopClosed { id } if *id == loop_id)
+    }
+}
+
 /// Interprets a segment stream against a spec.
 #[derive(Debug, Clone)]
 pub struct LoopEngine<'s> {

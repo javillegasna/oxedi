@@ -6,13 +6,37 @@ fn segs(input: &[u8]) -> Vec<Segment<'_>> {
     Tokenizer::with_delimiters(input, Delimiters::new(b'*', b':', b'~')).collect()
 }
 
+/// An event as the tests compare it: the loop by name, no instance numbers.
+#[derive(Debug, PartialEq)]
+enum Seen<'s> {
+    Opened(&'s str, bool, usize),
+    Closed(&'s str),
+    Captured(&'s str, usize),
+    Unmatched(usize),
+    Empty(usize),
+}
+
+fn seen<'s>(spec: &'s Spec, event: &Event) -> Seen<'s> {
+    match *event {
+        Event::LoopOpened {
+            id,
+            implicit,
+            segment,
+        } => Seen::Opened(spec.loop_name(id), implicit, segment),
+        Event::LoopClosed { id } => Seen::Closed(spec.loop_name(id)),
+        Event::Captured { id, segment } => Seen::Captured(spec.loop_name(id), segment),
+        Event::Unmatched { segment } => Seen::Unmatched(segment),
+        Event::Empty { segment } => Seen::Empty(segment),
+    }
+}
+
 /// Feeds every segment and returns the events of the *last* one, plus the path after it.
-fn run<'s>(spec: &'s Spec, input: &[u8]) -> (Vec<Event>, Vec<&'s str>) {
+fn run<'s>(spec: &'s Spec, input: &[u8]) -> (Vec<Seen<'s>>, Vec<&'s str>) {
     let mut engine = LoopEngine::new(spec);
     let segments = segs(input);
     let mut last = Vec::new();
     for segment in &segments {
-        last = engine.feed(segment).to_vec();
+        last = engine.feed(segment).iter().map(|e| seen(spec, e)).collect();
     }
     let path = engine
         .path()
@@ -23,7 +47,7 @@ fn run<'s>(spec: &'s Spec, input: &[u8]) -> (Vec<Event>, Vec<&'s str>) {
 }
 
 /// Runs the input and asserts the events of its last segment and the loop path after it.
-fn assert_run(spec: &Spec, input: &[u8], events: Vec<Event>, path: Vec<&str>) {
+fn assert_run(spec: &Spec, input: &[u8], events: Vec<Seen<'_>>, path: Vec<&str>) {
     let (got_events, got_path) = run(spec, input);
     assert_eq!(got_events, events);
     assert_eq!(got_path, path);
@@ -33,21 +57,24 @@ fn id(spec: &Spec, name: &str) -> LoopId {
     spec.loop_id(name).unwrap()
 }
 
+/// The loop `name` of `spec`, named by the spec so it outlives the lookup.
+fn name_of<'s>(spec: &'s Spec, name: &str) -> &'s str {
+    spec.loop_name(id(spec, name))
+}
+
 /// The event that opens the loop `name` at `segment`.
-fn opened(spec: &Spec, name: &str, implicit: bool, segment: usize) -> Event {
-    Event::LoopOpened {
-        id: id(spec, name),
-        implicit,
-        segment,
-    }
+fn opened<'s>(spec: &'s Spec, name: &str, implicit: bool, segment: usize) -> Seen<'s> {
+    Seen::Opened(name_of(spec, name), implicit, segment)
 }
 
 /// The event that captures `segment` into the loop `name`.
-fn captured(spec: &Spec, name: &str, segment: usize) -> Event {
-    Event::Captured {
-        id: id(spec, name),
-        segment,
-    }
+fn captured<'s>(spec: &'s Spec, name: &str, segment: usize) -> Seen<'s> {
+    Seen::Captured(name_of(spec, name), segment)
+}
+
+/// The event that closes the loop `name`.
+fn closed<'s>(spec: &'s Spec, name: &str) -> Seen<'s> {
+    Seen::Closed(name_of(spec, name))
 }
 
 #[test]
@@ -79,7 +106,7 @@ fn sibling_trigger_closes_and_reopens() {
         &spec,
         b"AA~BB~B1~BB~",
         vec![
-            Event::LoopClosed { id: id(&spec, "B") },
+            closed(&spec, "B"),
             opened(&spec, "B", false, 3),
             captured(&spec, "B", 3),
         ],
@@ -94,8 +121,8 @@ fn segment_of_an_outer_loop_pops_the_inner() {
         &spec,
         b"AA~BB~CC*X~A1~",
         vec![
-            Event::LoopClosed { id: id(&spec, "C") },
-            Event::LoopClosed { id: id(&spec, "B") },
+            closed(&spec, "C"),
+            closed(&spec, "B"),
             captured(&spec, "A", 3),
         ],
         vec!["A"],
@@ -109,9 +136,9 @@ fn end_segment_captures_then_closes() {
         &spec,
         b"AA~BB~AE~",
         vec![
-            Event::LoopClosed { id: id(&spec, "B") },
+            closed(&spec, "B"),
             captured(&spec, "A", 2),
-            Event::LoopClosed { id: id(&spec, "A") },
+            closed(&spec, "A"),
         ],
         vec![],
     );
@@ -123,10 +150,10 @@ fn unknown_segment_is_unmatched_and_keeps_the_path() {
     assert_run(
         &spec,
         b"AA~BB~ZZ*1~",
-        vec![Event::Unmatched { segment: 2 }],
+        vec![Seen::Unmatched(2)],
         vec!["A", "B"],
     );
-    assert_run(&spec, b"ZZ~", vec![Event::Unmatched { segment: 0 }], vec![]);
+    assert_run(&spec, b"ZZ~", vec![Seen::Unmatched(0)], vec![]);
 }
 
 #[test]
@@ -135,7 +162,7 @@ fn trigger_condition_must_match() {
     let (events, path) = run(&spec, b"AA~BB~CC*Y~");
     assert_eq!(
         events,
-        vec![Event::Unmatched { segment: 2 }],
+        vec![Seen::Unmatched(2)],
         "CC*Y triggers nothing and B does not hold CC"
     );
     assert_eq!(path, vec!["A", "B"]);
@@ -173,13 +200,10 @@ fn finish_closes_everything_innermost_first() {
     for segment in &segs(b"AA~BB~CC*X~") {
         engine.feed(segment);
     }
+    let closes: Vec<Seen<'_>> = engine.finish().iter().map(|e| seen(&spec, e)).collect();
     assert_eq!(
-        engine.finish(),
-        &[
-            Event::LoopClosed { id: id(&spec, "C") },
-            Event::LoopClosed { id: id(&spec, "B") },
-            Event::LoopClosed { id: id(&spec, "A") },
-        ]
+        closes,
+        vec![closed(&spec, "C"), closed(&spec, "B"), closed(&spec, "A")]
     );
     assert!(engine.path().is_empty());
     assert!(engine.finish().is_empty(), "finishing twice emits nothing");
@@ -188,12 +212,7 @@ fn finish_closes_everything_innermost_first() {
 #[test]
 fn empty_segment_is_reported_as_empty() {
     let spec = nested();
-    assert_run(
-        &spec,
-        b"AA~\n",
-        vec![Event::Empty { segment: 1 }],
-        vec!["A"],
-    );
+    assert_run(&spec, b"AA~\n", vec![Seen::Empty(1)], vec!["A"]);
 }
 
 #[test]
@@ -211,8 +230,8 @@ fn a_reachable_trigger_wins_over_capture_in_the_current_loop() {
         &spec,
         b"AA~BB~CC~N1~",
         vec![
-            Event::LoopClosed { id: id(&spec, "C") },
-            Event::LoopClosed { id: id(&spec, "B") },
+            closed(&spec, "C"),
+            closed(&spec, "B"),
             opened(&spec, "D", false, 3),
             captured(&spec, "D", 3),
         ],
@@ -235,7 +254,7 @@ fn implicit_open_keeps_the_nearest_open_ancestor_below_the_top() {
         &spec,
         b"AA~BB~TT~",
         vec![
-            Event::LoopClosed { id: id(&spec, "B") },
+            closed(&spec, "B"),
             opened(&spec, "P", true, 2),
             opened(&spec, "T", false, 2),
             captured(&spec, "T", 2),
@@ -410,4 +429,14 @@ fn finish_restarts_ids_and_ordinals() {
     feed_all(&mut engine, b"AA~");
     let open = describe(&spec, engine.path());
     assert_eq!(open, vec![("A", 0, 1, None)]);
+}
+
+#[test]
+fn closes_is_true_only_for_a_close_of_that_loop() {
+    let spec = nested();
+    let a = id(&spec, "A");
+    let closing = Event::LoopClosed { id: a };
+    assert!(closing.closes(a));
+    assert!(!closing.closes(id(&spec, "B")));
+    assert!(!Event::Captured { id: a, segment: 0 }.closes(a));
 }

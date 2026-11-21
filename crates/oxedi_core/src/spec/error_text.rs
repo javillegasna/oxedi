@@ -72,8 +72,7 @@ impl std::error::Error for SpecError {
             | SpecError::AmbiguousTrigger { .. }
             | SpecError::OverlappingTriggers { .. }
             | SpecError::BadSummary { .. }
-            | SpecError::UnknownDefaultTable { .. }
-            | SpecError::ModelMismatch { .. } => None,
+            | SpecError::UnknownDefaultTable { .. } => None,
         }
     }
 }

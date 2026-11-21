@@ -43,7 +43,7 @@ This file covers the Python package; the DuckDB extension has its own changelog 
   wanted segment, outermost first, in one pass that stops at the highest index.
 
 ### Changed
-- A key holding `.`, `/`, `#` or whitespace is quoted in the path of `SpecError::ModelMismatch`.
+- A key holding `.`, `/`, `#` or whitespace is quoted in the path of `SpecError::Format`.
 - Rust: `SpecError::Format { path, source }`, the fault of a value the model refuses, at its path from the root.
 - A spec whose loop or occurrence `usage` is not `required` or `situational`, whose control `count`
   is not `segments` or `children`, or whose `where` or `codes` key is not a 1-based position fails
@@ -136,6 +136,9 @@ This file covers the Python package; the DuckDB extension has its own changelog 
 - A spec is read whole into its model before any section compiles, in Rust and Python alike: a value the model refuses (a word outside its vocabulary, an element type, a key that is not a position, a summary's operations) is reported before every fault but a shape fault, and of several the first in the spec's key order (balancing, default_table, loops, name, segments, summaries, tables, version; entries by name) is reported. An empty loops map, segment id, balancing rule name or summary name is reported only when no value is refused.
 - A top-level fault the shape check does not catch reads as any other refused value, `spec: at <path>: ...`, no longer `spec does not match the schema: ...`.
 - Rust: `SpecError::Schema` is removed; such a fault is `SpecError::Format`.
+
+### Removed
+- Rust: `Spec::model`, `Spec::from_model` and `SpecError::ModelMismatch`. Read a spec's model with `SpecModel::from_json` or keep it in a `LoadedSpec`, and compile one with `SpecModel::compile` or `LoadedSpec::from_model`.
 
 ### Fixed
 - The writer and the reader agree on the repetition separator of a custom spec: at interchange

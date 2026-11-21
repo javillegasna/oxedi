@@ -239,17 +239,6 @@ pub enum SpecError {
         /// The tables the spec defines, in name order.
         known: Vec<String>,
     },
-    /// A loaded spec's JSON does not read into its typed model: the loader
-    /// and the model disagree on what a spec may hold.
-    ModelMismatch {
-        /// The spec's `name`.
-        spec_name: String,
-        /// Where in the spec the model rejected the value: map keys joined by
-        /// `.`, a list item as `[i]` with a 0-based `i`; `.` for the root.
-        path: String,
-        /// What serde rejected.
-        source: serde_json::Error,
-    },
 }
 
 impl fmt::Display for SpecError {
@@ -418,15 +407,6 @@ impl fmt::Display for SpecError {
                 "default_table names the table {table:?}, which the spec does not define; \
                  its tables are: {}",
                 known.join(", ")
-            ),
-            SpecError::ModelMismatch {
-                spec_name,
-                path,
-                source,
-            } => write!(
-                f,
-                "the loaded spec {spec_name:?} and its typed model disagree at {path}: {source}; \
-                 this is a bug in oxedi, please report it"
             ),
         }
     }

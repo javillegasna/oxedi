@@ -232,7 +232,12 @@ fn the_index_agrees_with_a_scan() {
         let events = common::events_of(&spec, &bytes, delims);
         let segments: Vec<_> = Tokenizer::with_delimiters(&bytes, delims).collect();
         for event in events {
-            let Event::Captured { instance, segment } = event else {
+            let Event::Captured {
+                instance,
+                segment,
+                occurrence,
+            } = event
+            else {
                 continue;
             };
             let segment = &segments[segment];
@@ -241,10 +246,8 @@ fn the_index_agrees_with_a_scan() {
                 .occurrences
                 .iter()
                 .position(|occurrence| occurrence.matches(segment));
-            let asked = spec
-                .occurrence_of(instance.loop_id, segment)
-                .map(OccurrenceId::index);
-            assert_eq!(asked, scanned, "{name}: segment {segment:?}");
+            let carried = occurrence.map(OccurrenceId::index);
+            assert_eq!(carried, scanned, "{name}: segment {segment:?}");
         }
     }
 }

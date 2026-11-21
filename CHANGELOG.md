@@ -30,6 +30,8 @@ This file covers the Python package; the DuckDB extension has its own changelog 
 - Rust: `Event::closes(loop_id)` tells whether an event closes the loop.
 - Rust: `Spec::occurrence_of(loop_id, segment)` returns the `OccurrenceId` a segment takes in a loop,
   found through an index built when the spec loads; `LoopDef::occurrence_of` is removed.
+- Rust: `Event::Captured` carries `occurrence: Option<OccurrenceId>`, the occurrence of the loop the
+  segment matched; `StructureChecker::on` and `Projector::on` read it from the event.
 
 ### Changed
 - The error for an interchange whose version carries a repetition separator while the envelope has

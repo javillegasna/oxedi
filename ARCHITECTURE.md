@@ -60,11 +60,12 @@ flowchart LR
 3. `LoopEngine` (`engine/`) is a state machine driven by the spec. For each segment it emits
    `Event`s: `LoopOpened`, `LoopClosed`, `Captured`, `Unmatched`, `Empty`. Each names the
    `Instance` it concerns: one numbered occurrence of a loop, with its `InstanceId`, its ordinal in
-   the stream and its parent. `LoopEngine::path` lists the instances open now.
+   the stream and its parent. `Captured` also names the occurrence of the loop the segment matched
+   (`Spec::occurrence_of`, through the index of `spec/occurrence_index.rs`). `LoopEngine::path`
+   lists the instances open now.
 4. `Processor` (`process/`) feeds each segment to the engine, then hands the events to the
    projector and the checker. `Processor::run` does this over a whole `Document`.
-   - `Projector` (`project/`) asks the spec which occurrence of its loop the segment takes
-     (`Spec::occurrence_of`, through the index of `spec/occurrence_index.rs`), checks
+   - `Projector` (`project/`) reads the occurrence of the captured segment from the event, checks
      every element the spec defines (`project/check.rs`: required, type, length, code list,
      components) and fills the spec's tables (`project/fill.rs`).
    - `StructureChecker` (`check/`) reports unknown segments, implicit and unterminated loops,
@@ -74,10 +75,9 @@ flowchart LR
    table that encloses it) and a `Vec<Diagnostic>` (`diagnostic/`). `summarize` (`summary/`)
    computes the summaries the spec declares (`Spec::summaries`) over those tables.
 
-**The order inside `Processor::feed` is a contract.** The projector runs first, because it
-asks the spec which occurrence the segment took, and the checker reuses that match
-(`Projector::matched` → `StructureChecker::on_matched`). The checker's diagnostics still come
-first in `Output`, then the projector's. When a `Mask` is set, the projector masks the datum of
+**The order inside `Processor::feed` is a contract.** Both consumers read the events alone, so the
+projector and the checker do not depend on each other. The checker's diagnostics come first in
+`Output`, then the projector's. When a `Mask` is set, the projector masks the datum of
 every diagnostic about a place a patient-data column reads, the checker's included, before they
 leave the processor. Change this order and the goldens change.
 

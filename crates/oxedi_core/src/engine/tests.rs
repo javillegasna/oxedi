@@ -24,9 +24,9 @@ fn seen<'s>(spec: &'s Spec, event: &Event) -> Seen<'s> {
             segment,
         } => Seen::Opened(spec.loop_name(instance.loop_id), implicit, segment),
         Event::LoopClosed { instance } => Seen::Closed(spec.loop_name(instance.loop_id)),
-        Event::Captured { instance, segment } => {
-            Seen::Captured(spec.loop_name(instance.loop_id), segment)
-        }
+        Event::Captured {
+            instance, segment, ..
+        } => Seen::Captured(spec.loop_name(instance.loop_id), segment),
         Event::Unmatched { segment, .. } => Seen::Unmatched(segment),
         Event::Empty { segment } => Seen::Empty(segment),
     }
@@ -329,10 +329,10 @@ fn feeding_after_finish_behaves_like_a_fresh_engine() {
 }
 
 #[test]
-fn an_event_stays_seven_words() {
+fn an_event_stays_eight_words() {
     assert_eq!(
         std::mem::size_of::<Event>(),
-        7 * std::mem::size_of::<usize>()
+        8 * std::mem::size_of::<usize>()
     );
 }
 
@@ -466,7 +466,8 @@ fn every_event_names_its_instance() {
             Event::LoopClosed { instance: b },
             Event::Captured {
                 instance: a,
-                segment: 2
+                segment: 2,
+                occurrence: None
             },
             Event::LoopClosed { instance: a },
         ]
@@ -503,6 +504,44 @@ fn closes_is_true_only_for_a_close_of_that_loop() {
     let capturing = Event::Captured {
         instance: a,
         segment: 0,
+        occurrence: None,
     };
     assert!(!capturing.closes(id(&spec, "A")));
+}
+
+/// The name of the occurrence the capture event of the last segment of
+/// `input` carries, inside loop `loop_name`; `None` when it carries none.
+fn captured_occurrence<'s>(spec: &'s Spec, loop_name: &str, input: &[u8]) -> Option<&'s str> {
+    let loop_id = id(spec, loop_name);
+    let (events, _) = last_events(spec, input);
+    let occurrence = events.iter().find_map(|event| match *event {
+        Event::Captured {
+            instance,
+            occurrence,
+            ..
+        } if instance.loop_id == loop_id => Some(occurrence),
+        _ => None,
+    });
+    assert!(occurrence.is_some(), "no capture in {loop_name}");
+    occurrence
+        .flatten()
+        .map(|found| spec.get(loop_id).occurrences[found.index()].name.as_str())
+}
+
+#[test]
+fn a_captured_segment_names_its_occurrence() {
+    let spec = nested();
+    assert_eq!(captured_occurrence(&spec, "A", b"AA~A1~"), Some("a1"));
+    assert_eq!(captured_occurrence(&spec, "A", b"AA~"), Some("aa"));
+    // The loop declares no occurrence for its end segment.
+    assert_eq!(captured_occurrence(&spec, "A", b"AA~AE~"), None);
+}
+
+#[test]
+fn a_held_segment_with_no_matching_occurrence_is_captured_with_none() {
+    let spec = Spec::builtin_835();
+    assert_eq!(
+        captured_occurrence(&spec, "2100", b"CLP*1*1*1*1~NM1*ZZ~"),
+        None
+    );
 }

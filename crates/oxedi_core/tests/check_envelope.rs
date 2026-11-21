@@ -120,8 +120,8 @@ fn points_at_its_datum(name: &str, document: &Document<'_>, diagnostic: &oxedi_c
     );
 }
 
-/// The processor shares its occurrence match with the checker; the checker
-/// alone matches by itself. Both paths raise the same findings.
+/// The checker driven by a bare engine and the checker inside the processor
+/// raise the same findings.
 #[test]
 fn the_checker_alone_and_inside_the_processor_raise_the_same_findings() {
     let (five, four) = common::builtins();

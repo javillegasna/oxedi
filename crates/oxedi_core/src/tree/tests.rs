@@ -113,6 +113,7 @@ fn a_builder_folds_hand_built_events_in_slices() {
         Event::Captured {
             instance: a,
             segment: 0,
+            occurrence: None,
         },
     ]);
     builder.on(&[]);
@@ -125,6 +126,7 @@ fn a_builder_folds_hand_built_events_in_slices() {
         Event::Captured {
             instance: b,
             segment: 1,
+            occurrence: None,
         },
         Event::Unmatched {
             segment: 2,

@@ -30,7 +30,9 @@ fn line(spec: &Spec, event: Event, segment_id: &[u8]) -> String {
             spec.loop_name(instance.loop_id)
         ),
         Event::LoopClosed { instance } => format!("close {}", spec.loop_name(instance.loop_id)),
-        Event::Captured { instance, segment } => {
+        Event::Captured {
+            instance, segment, ..
+        } => {
             format!("cap {} {id} #{segment}", spec.loop_name(instance.loop_id))
         }
         Event::Unmatched { segment, .. } => format!("unmatched {id} #{segment}"),

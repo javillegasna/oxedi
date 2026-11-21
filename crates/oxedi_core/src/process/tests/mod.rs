@@ -51,7 +51,9 @@ fn one_feed_returns_the_events_and_every_diagnostic_of_its_segment() {
                     spec.loop_name(instance.loop_id)
                 )
             }
-            Event::Captured { instance, segment } => {
+            Event::Captured {
+                instance, segment, ..
+            } => {
                 format!("cap {} #{segment}", spec.loop_name(instance.loop_id))
             }
             other => format!("{other:?}"),

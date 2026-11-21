@@ -273,7 +273,6 @@ impl<'s> Projector<'s> {
     /// diagnostics its elements raise. The slice is valid until the next call.
     pub fn on(&mut self, segment: &Segment<'_>, events: &[Event]) -> &[Diagnostic] {
         self.diagnostics.clear();
-        self.matched = None;
         for &event in events {
             match event {
                 Event::LoopOpened {
@@ -281,7 +280,11 @@ impl<'s> Projector<'s> {
                     segment: trigger,
                     ..
                 } => self.opened(instance.loop_id, trigger),
-                Event::Captured { instance, .. } => self.captured(instance.loop_id, segment),
+                Event::Captured {
+                    instance,
+                    occurrence,
+                    ..
+                } => self.captured(instance.loop_id, segment, occurrence),
                 Event::LoopClosed { .. } => self.closed(),
                 Event::Unmatched { .. } | Event::Empty { .. } => {}
             }
@@ -388,12 +391,11 @@ impl<'s> Projector<'s> {
         self.open.pop();
     }
 
-    fn captured(&mut self, id: LoopId, segment: &Segment<'_>) {
+    fn captured(&mut self, id: LoopId, segment: &Segment<'_>, found: Option<OccurrenceId>) {
         let mut joined = std::mem::take(&mut self.joined);
         let plans = std::mem::take(&mut self.plans);
         let plan = plans.get(segment.id);
         let spec = self.spec;
-        let found = spec.occurrence_of(id, segment);
         self.matched = found.map(OccurrenceId::index);
         self.occurrence = found
             .map(|found| &spec.get(id).occurrences[found.index()])
@@ -409,13 +411,6 @@ impl<'s> Projector<'s> {
         self.plans = plans;
         self.segment_rows(id, segment, &mut joined);
         self.joined = joined;
-    }
-
-    /// Index of the occurrence the segment of the latest `on` matched in the
-    /// loop that captured it; `None` when nothing was captured or nothing
-    /// matched.
-    pub(crate) fn matched(&self) -> Option<usize> {
-        self.matched
     }
 
     /// The diagnostics of the latest `on` or `finish`.

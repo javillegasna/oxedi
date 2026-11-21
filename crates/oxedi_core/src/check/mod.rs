@@ -105,24 +105,6 @@ impl<'s> StructureChecker<'s> {
     /// first segment of a stream whose `raw` starts with a UTF-8 byte order
     /// mark also raises [`Rule::ByteOrderMark`], before anything else.
     pub fn on(&mut self, segment: &Segment<'_>, events: &[Event]) -> &[Diagnostic] {
-        let spec = self.spec;
-        let matched = events.iter().find_map(|event| match *event {
-            Event::Captured { instance, .. } => spec
-                .occurrence_of(instance.loop_id, segment)
-                .map(OccurrenceId::index),
-            _ => None,
-        });
-        self.on_matched(segment, events, matched)
-    }
-
-    /// [`on`](Self::on) with the occurrence the captured segment matched in
-    /// its loop already resolved, as the index in the loop's occurrences.
-    pub(crate) fn on_matched(
-        &mut self,
-        segment: &Segment<'_>,
-        events: &[Event],
-        matched: Option<usize>,
-    ) -> &[Diagnostic] {
         self.diagnostics.clear();
         self.check_byte_order_mark(segment);
         for &event in events {
@@ -132,9 +114,17 @@ impl<'s> StructureChecker<'s> {
                     implicit,
                     segment: trigger,
                 } => self.opened(instance.loop_id, implicit, trigger, segment),
-                Event::Captured { instance, .. } => {
+                Event::Captured {
+                    instance,
+                    occurrence,
+                    ..
+                } => {
                     self.seen = self.seen.saturating_add(1);
-                    self.captured(instance.loop_id, segment, matched);
+                    self.captured(
+                        instance.loop_id,
+                        segment,
+                        occurrence.map(OccurrenceId::index),
+                    );
                 }
                 Event::Unmatched { segment: index, .. } => {
                     self.seen = self.seen.saturating_add(1);

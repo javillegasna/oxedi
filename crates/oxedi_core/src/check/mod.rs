@@ -208,6 +208,9 @@ impl<'s> StructureChecker<'s> {
     pub fn finish(&mut self, events: &[Event]) -> &[Diagnostic] {
         self.diagnostics.clear();
         self.handle(None, events, &[]);
+        self.open.clear();
+        self.counts.clear();
+        self.balances.clear_pending();
         self.seen = 0;
         self.root_counts.iter_mut().for_each(|count| *count = 0);
         &self.diagnostics

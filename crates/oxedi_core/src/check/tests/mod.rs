@@ -385,6 +385,24 @@ fn finishing_resets_the_checker() {
 }
 
 #[test]
+fn finishing_without_the_engines_events_still_resets() {
+    use crate::spec::test_support::nested;
+    let spec = nested();
+    let delims = Delimiters::new(b'*', b':', b'~');
+    let mut engine = LoopEngine::new(&spec);
+    let mut checker = StructureChecker::new(&spec, &delims);
+    for segment in Tokenizer::with_delimiters(b"AA*1~BB~", delims) {
+        let events = engine.feed(&segment).to_vec();
+        checker.on(&segment, &events, engine.path());
+    }
+    assert_eq!(checker.open.len(), 2);
+    // The caller gives no closing events: the instances are still dropped.
+    assert_eq!(checker.finish(&[]), &[]);
+    assert!(checker.open.is_empty());
+    assert!(checker.counts.is_empty());
+}
+
+#[test]
 fn counts_parse_digits_only() {
     assert_eq!(parse_count(b"0042"), Some(42));
     assert_eq!(parse_count(b""), None);
@@ -418,6 +436,13 @@ fn a_close_that_names_another_instance_changes_nothing() {
         instance: instance(7),
     };
     assert_eq!(checker.on(&segments[0], &[stranger], &[instance(0)]), &[]);
+    // The instance on top survived: closing it still reports its missing end.
+    let closed = Event::LoopClosed {
+        instance: instance(0),
+    };
+    let found = checker.on(&segments[0], &[closed], &[]);
+    assert_eq!(found.len(), 1);
+    assert!(matches!(found[0].rule, Rule::UnterminatedLoop { .. }));
 }
 
 #[test]

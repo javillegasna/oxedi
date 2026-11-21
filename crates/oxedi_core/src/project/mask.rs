@@ -32,11 +32,12 @@
 use crate::diagnostic::{Diagnostic, Rule};
 use crate::document::Document;
 use crate::element::Element;
-use crate::mask::{DateMode, Mask, Phi};
+use crate::mask::Mask;
 use crate::segment::Segment;
 use crate::spec::Spec;
 use crate::value::parse_dt;
 use crate::value::{civil_from_days, year_start};
+use crate::vocabulary::{DateMode, Phi};
 
 use super::Projector;
 use super::plan::Plans;

@@ -7,11 +7,11 @@ use serde::de::IgnoredAny;
 
 use super::declare::spec_object;
 use super::positions;
-use crate::mask::Phi;
 use crate::spec::Pick;
 use crate::spec::raw::RawPick;
 use crate::spec::sections::{COUNT, TEXT, TEXTS, leaf, nullable};
 use crate::spec::shape::{Field, Leaf};
+use crate::vocabulary::Phi;
 
 spec_object! {
     /// A table: the loops its rows come from and the columns each row holds.

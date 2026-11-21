@@ -11,9 +11,10 @@ use super::occurrence_error::OccurrenceError;
 use super::raw::{RawOccurrence, RawQualifier};
 use super::render::render_trigger;
 use super::segments::{ElementDef, SegmentDef, compile_codes, holds_code};
-use super::vocabulary::{ElementPosition, Vocabulary};
+use super::vocabulary::ElementPosition;
 use crate::message::{place, render_key};
 use crate::segment::Segment;
+use crate::vocabulary::Vocabulary;
 
 /// Whether an occurrence must appear in every instance of its loop.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]

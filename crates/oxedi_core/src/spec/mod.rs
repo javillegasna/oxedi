@@ -35,7 +35,7 @@
 //! of its text built from lists; `render` the text used in messages; `patch`
 //! the merge patch; `version` the version declaration and the choice of a
 //! spec by it; `builtin` the registry of shipped specs by transaction and
-//! version; `vocabulary` the closed words and the codes key a spec writes, one
+//! version; `vocabulary` the spec's closed words and the codes key, one
 //! table each.
 
 mod balance;

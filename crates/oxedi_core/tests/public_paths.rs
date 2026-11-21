@@ -41,6 +41,8 @@ mod by_module {
     use oxedi_core::frame::find_unescaped;
     use oxedi_core::frame::first_frame;
     use oxedi_core::frame::next_frame;
+    use oxedi_core::mask::Mask;
+    use oxedi_core::mask::MaskError;
     use oxedi_core::process::Output;
     use oxedi_core::process::Processor;
     use oxedi_core::project::Projector;
@@ -146,6 +148,8 @@ mod by_module {
     use oxedi_core::value::time_display;
     use oxedi_core::value::time_element;
     use oxedi_core::value::time_of_day;
+    use oxedi_core::vocabulary::DateMode;
+    use oxedi_core::vocabulary::Phi;
 }
 
 // Root re-exports from lib.rs
@@ -163,6 +167,7 @@ use oxedi_core::{
     Bitmap, Cell, CellError, Column, ColumnData, ColumnType, RowError, Table, Tables,
 };
 use oxedi_core::{ColumnSchema, TableSchema, spec_schema};
+use oxedi_core::{DateMode, Mask, MaskError, Phi};
 use oxedi_core::{Delimiters, IsaError};
 use oxedi_core::{Diagnostic, FlatDiagnostic, LoopRef, PARSER_ORIGIN, Rule, SnipLevel};
 use oxedi_core::{Document, DocumentError, Segments, SizeError, Span, Spans};

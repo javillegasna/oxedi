@@ -21,9 +21,9 @@ use super::loops::LoopId;
 use super::occurrences::element_def;
 use super::raw::{RawBalance, RawTerm};
 use super::segments::ElementDef;
-use super::vocabulary::Vocabulary;
 use crate::message::{place, render_key};
 use crate::value::ElementType;
+use crate::vocabulary::Vocabulary;
 
 /// A balancing term's `sign`, written `"+"` or `"-"`.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]

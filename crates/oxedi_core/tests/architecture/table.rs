@@ -39,7 +39,7 @@ pub const TABLE: &[Row] = &[
     row("element", &["frame"]),
     row("engine", &["segment", "spec"]),
     row("frame", &["trivia"]),
-    row("mask", &[]),
+    row("mask", &["vocabulary"]),
     row("message", &[]),
     row(
         "process",
@@ -69,15 +69,20 @@ pub const TABLE: &[Row] = &[
             "segment",
             "spec",
             "value",
+            "vocabulary",
         ],
     ),
     row("segment", &["delimiters", "element", "frame"]),
-    row("spec", &["element", "message", "segment", "value"]),
+    row(
+        "spec",
+        &["element", "message", "segment", "value", "vocabulary"],
+    ),
     row("summary", &["column", "spec", "value"]),
     row("tokenizer", &["delimiters", "frame", "segment"]),
     row("tree", &["engine", "segment", "spec"]),
     row("trivia", &[]),
     row("value", &[]),
+    row("vocabulary", &[]),
     row(
         "write",
         &[
@@ -94,8 +99,4 @@ pub const TABLE: &[Row] = &[
     ),
 ];
 
-pub const EXCEPTIONS: &[Exception] = &[Exception {
-    from: "spec",
-    to: "mask",
-    reason: "the type that marks a column as patient data is defined in the mask",
-}];
+pub const EXCEPTIONS: &[Exception] = &[];

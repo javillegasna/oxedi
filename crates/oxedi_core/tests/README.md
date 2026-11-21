@@ -91,3 +91,4 @@ the ISA-less fragment and every sample.
 | `file_lists` | The lists in `common/mod.rs` hold every file of `fixtures/` and `samples/`. |
 | `public_paths` | Public items stay reachable by their module path; the build fails if one disappears. |
 | `fixtures_harness` | Fixtures load as bytes, never as `String`. |
+| `architecture` | The dependencies between the core's modules equal the table in `architecture/table.rs`; a new one fails until the table changes. |

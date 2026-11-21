@@ -23,6 +23,7 @@ fn at(file: &str, line: usize, target: Target, path: &str) -> Use {
 
 const A_USES_B: &[Row] = &[row("a", &["b"]), row("b", &[])];
 const APART: &[Row] = &[row("a", &[]), row("b", &[])];
+const A_B_A: &[Row] = &[row("a", &["b"]), row("b", &["a"])];
 const NONE: &[Exception] = &[];
 const A_TO_B: &[Exception] = &[Exception {
     from: "a",
@@ -41,6 +42,7 @@ type Case = (
 /// The core has the modules `a` and `b`, the names of the rows of every case's table.
 fn cases() -> Vec<Case> {
     let a_b = || at("a/mod.rs", 1, to("b"), "crate::b::X");
+    let b_a = || at("b/mod.rs", 1, to("a"), "crate::a::Y");
     let root = || at("a/mod.rs", 4, Target::Root("X".into()), "crate::X");
     let outside = || at("a/mod.rs", 9, Target::Outside, "super::b::X");
     let (a, b): (String, String) = ("a".into(), "b".into());
@@ -80,6 +82,15 @@ fn cases() -> Vec<Case> {
             A_USES_B,
             A_TO_B,
             vec![Violation::RedundantException { from: a, to: b }],
+        ),
+        (
+            "a cycle in the rows",
+            vec![a_b(), b_a()],
+            A_B_A,
+            NONE,
+            vec![Violation::Cycle {
+                path: vec!["a".into(), "b".into(), "a".into()],
+            }],
         ),
         (
             "a path through the crate root",
@@ -171,6 +182,12 @@ fn each_violation_explains_itself() {
                 to: "trivia".into(),
             },
             "the exception check -> trivia is no longer needed: the row of check already lists trivia · remove it from EXCEPTIONS in tests/architecture/table.rs",
+        ),
+        (
+            Violation::Cycle {
+                path: vec!["a".into(), "b".into(), "a".into()],
+            },
+            "the table allows a cycle: a -> b -> a · remove one of these dependencies from the rows of tests/architecture/table.rs",
         ),
         (
             Violation::NoRow {

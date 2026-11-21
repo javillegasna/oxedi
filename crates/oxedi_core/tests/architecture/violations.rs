@@ -2,7 +2,7 @@
 
 use super::scan::{Target, Use};
 use super::table::{Exception, Row};
-use std::collections::BTreeSet;
+use std::collections::{BTreeMap, BTreeSet};
 use std::fmt;
 
 #[derive(Debug, PartialEq, Eq)]
@@ -15,6 +15,7 @@ pub enum Violation {
     RedundantException { from: String, to: String },
     NoRow { module: String },
     NoModule { module: String },
+    Cycle { path: Vec<String> },
 }
 
 const TABLE_FILE: &str = "tests/architecture/table.rs";
@@ -72,6 +73,11 @@ impl fmt::Display for Violation {
                 f,
                 "the table has a row for {module}, and src has no such module · remove the row from {TABLE_FILE}"
             ),
+            Self::Cycle { path } => write!(
+                f,
+                "the table allows a cycle: {} · remove one of these dependencies from the rows of {TABLE_FILE}",
+                path.join(" -> ")
+            ),
         }
     }
 }
@@ -122,6 +128,7 @@ pub fn violations(
             .map(|&e| violation_of(redundant, e)),
     );
     found.extend(missing_modules(modules, table));
+    found.extend(find_cycle(table).map(|path| Violation::Cycle { path }));
     found
 }
 
@@ -146,4 +153,50 @@ fn missing_modules(modules: &BTreeSet<String>, table: &[Row]) -> Vec<Violation> 
             module: (*m).to_owned(),
         }))
         .collect()
+}
+
+#[derive(Clone, Copy)]
+enum Colour {
+    /// On the walk's current path.
+    Grey,
+    /// Fully explored, no cycle through it.
+    Black,
+}
+
+/// One cycle of the rows, as module names in order with the first repeated at the end.
+fn find_cycle(table: &[Row]) -> Option<Vec<String>> {
+    let graph: BTreeMap<&str, &[&str]> = table.iter().map(|r| (r.module, r.uses)).collect();
+    let mut colour = BTreeMap::new();
+    let mut stack = Vec::new();
+    graph
+        .keys()
+        .find_map(|&node| walk(node, &graph, &mut colour, &mut stack))
+}
+
+/// Depth-first walk with the three colours: white (absent from `colour`), grey and black.
+fn walk<'a>(
+    node: &'a str,
+    graph: &BTreeMap<&'a str, &'a [&'a str]>,
+    colour: &mut BTreeMap<&'a str, Colour>,
+    stack: &mut Vec<&'a str>,
+) -> Option<Vec<String>> {
+    match colour.get(node) {
+        Some(Colour::Black) => return None,
+        Some(Colour::Grey) => return Some(cycle_from(node, stack)),
+        None => {}
+    }
+    colour.insert(node, Colour::Grey);
+    stack.push(node);
+    let next = graph.get(node).copied().unwrap_or_default();
+    let found = next.iter().find_map(|&n| walk(n, graph, colour, stack));
+    stack.pop();
+    colour.insert(node, Colour::Black);
+    found
+}
+
+/// The part of the walk's path from `node` on, closed with `node`.
+fn cycle_from(node: &str, stack: &[&str]) -> Vec<String> {
+    let start = stack.iter().position(|&s| s == node).unwrap_or_default();
+    let closed = stack[start..].iter().chain(std::iter::once(&node));
+    closed.map(|s| (*s).to_owned()).collect()
 }

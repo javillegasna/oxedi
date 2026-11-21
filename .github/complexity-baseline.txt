@@ -42,7 +42,6 @@ crates/oxedi_core/src/project/fill.rs	fill	14	3
 crates/oxedi_core/src/project/mask.rs	masked_datum	11	1
 crates/oxedi_core/src/project/mask.rs	seed	8	1
 crates/oxedi_core/src/project/mask.rs	values	9	3
-crates/oxedi_core/src/project/mod.rs	new	9	3
 crates/oxedi_core/src/project/plan.rs	watch_columns	9	3
 crates/oxedi_core/src/project/quote.rs	unquoted	11	4
 crates/oxedi_core/src/spec/balance.rs	compile_rule	8	2

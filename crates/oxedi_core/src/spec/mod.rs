@@ -101,6 +101,7 @@ pub use version::{DeclaredVersion, VersionError};
 pub use vocabulary::ElementPosition;
 
 pub(crate) use balance::render_terms;
+pub(crate) use occurrence_index::pack_id;
 pub(crate) use render::{render_selector, render_trigger};
 pub(crate) use schema::column_type;
 pub(crate) use segments::rejects_code;

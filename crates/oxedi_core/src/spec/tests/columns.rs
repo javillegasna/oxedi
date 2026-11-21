@@ -288,3 +288,37 @@ fn a_table_finds_a_declared_column_by_name() {
     assert!(table.column("claim").is_none());
     assert!(table.column("nope").is_none());
 }
+
+#[test]
+fn an_occurrence_column_reports_the_first_reading_loops_fault_first() {
+    let spec = r#"{"name":"t","loops":{
+        "A":{"trigger":{"segment":"AA"},"occurrences":{"aa":{"segment":"AA","pos":0}}},
+        "B":{"parent":"A","trigger":{"segment":"BB"},"occurrences":{"bb":{"segment":"BB","pos":1},"x":{"segment":"XX","pos":2,"max":1}}},
+        "C":{"parent":"A","trigger":{"segment":"CC"},"occurrences":{"cc":{"segment":"CC","pos":1}}}},
+        "tables":{"t":{"loops":LOOPS,"columns":{"c":{"occurrence":"x","pick":2,"element":1}}}}}"#;
+    for (loops, expected) in [
+        (
+            r#"["B","C"]"#,
+            TableDefError::PickOnSingle {
+                loop_name: "B".into(),
+                occurrence: "x".into(),
+                pick: Pick::Nth(2),
+            },
+        ),
+        (
+            r#"["C","B"]"#,
+            TableDefError::UnknownOccurrence {
+                loop_name: "C".into(),
+                occurrence: "x".into(),
+                known: Box::new(["cc".to_string()]),
+            },
+        ),
+    ] {
+        match Spec::from_json(&spec.replace("LOOPS", loops)) {
+            Err(SpecError::BadTable { column, reason, .. }) => {
+                assert_eq!((column, reason), (Some("c".into()), expected), "{loops}");
+            }
+            other => panic!("{loops}: {other:?}"),
+        }
+    }
+}

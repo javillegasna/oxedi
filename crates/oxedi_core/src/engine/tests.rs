@@ -642,3 +642,37 @@ fn lineage_stops_at_a_parent_it_cannot_find() {
     };
     assert_eq!(lineage(orphan, &[], &[]), vec![orphan]);
 }
+
+/// The instance ids of the paths `loop_paths` returns for `wanted`.
+fn path_ids(spec: &Spec, input: &[u8], wanted: &[usize]) -> Vec<Vec<usize>> {
+    loop_paths(spec, segs(input), wanted)
+        .iter()
+        .map(|path| ids(path))
+        .collect()
+}
+
+#[test]
+fn loop_paths_come_in_the_order_asked() {
+    assert_eq!(
+        path_ids(&nested(), b"AA~BB~AE~", &[1, 0]),
+        vec![vec![0, 1], vec![0]]
+    );
+}
+
+#[test]
+fn a_segment_that_closes_its_loop_keeps_that_loop_in_its_path() {
+    assert_eq!(path_ids(&nested(), b"AA~BB~AE~", &[2]), vec![vec![0]]);
+}
+
+#[test]
+fn an_unmatched_segment_has_the_path_of_the_loops_open_around_it() {
+    assert_eq!(path_ids(&nested(), b"AA~ZZ~", &[1]), vec![vec![0]]);
+}
+
+#[test]
+fn an_index_past_the_last_segment_has_an_empty_path_and_a_repeated_one_repeats() {
+    assert_eq!(
+        path_ids(&nested(), b"AA~BB~", &[1, 9, 1]),
+        vec![vec![0, 1], vec![], vec![0, 1]]
+    );
+}

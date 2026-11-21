@@ -1,8 +1,7 @@
 //! `parse`: one pass over a whole file, with the GIL released.
 
 use oxedi_core::trivia::LeadingTrivia;
-use oxedi_core::{Delimiters, Document, Event, Instance, LoopEngine, Mask, Processor, Spec};
-use std::collections::{HashMap, HashSet};
+use oxedi_core::{Delimiters, Document, Mask, Processor, Spec, engine};
 use std::sync::Arc;
 
 use pyo3::buffer::PyBuffer;
@@ -291,52 +290,21 @@ pub fn loop_paths(
             "_loop_paths: segment {past} is past the document's last segment ({count} segments)"
         )));
     }
-    let at = paths_at(&spec.get().inner, document, &segments);
-    Ok(segments
+    let spec = &spec.get().inner;
+    let paths = engine::loop_paths(spec, document.segments(), &segments);
+    Ok(paths
         .into_iter()
-        .map(|index| at.get(&index).cloned().unwrap_or_default())
-        .collect())
-}
-
-/// The open loops at each of `wanted`, read while the loop engine consumes
-/// `document` up to the last of them: the engine's open path after the
-/// segment, followed by the instances the segment closed after capturing
-/// it (outermost first), so an end segment still lists the loop it closes.
-fn paths_at(
-    spec: &Spec,
-    document: &Document<'_>,
-    wanted: &[usize],
-) -> HashMap<usize, Vec<(String, usize)>> {
-    let wanted: HashSet<usize> = wanted.iter().copied().collect();
-    let last = wanted.iter().copied().max().unwrap_or(0);
-    let mut engine = LoopEngine::new(spec);
-    let mut paths = HashMap::with_capacity(wanted.len());
-    for segment in document.segments().take(last.saturating_add(1)) {
-        let closed_after_capture: Vec<Instance> = engine
-            .feed(&segment)
-            .iter()
-            .skip_while(|event| !matches!(event, Event::Captured { .. }))
-            .filter_map(|event| match *event {
-                Event::LoopClosed { instance } => Some(instance),
-                _ => None,
-            })
-            .collect();
-        if wanted.contains(&segment.index) {
-            let path = engine
-                .path()
-                .iter()
-                .chain(closed_after_capture.iter().rev())
+        .map(|path| {
+            path.into_iter()
                 .map(|open| {
                     (
                         spec.loop_name(open.loop_id).to_string(),
                         open.ordinal_in_stream,
                     )
                 })
-                .collect();
-            paths.insert(segment.index, path);
-        }
-    }
-    paths
+                .collect()
+        })
+        .collect())
 }
 
 pyo3_stub_gen::export_verbatim!("oxedi._core", "_loop_paths");

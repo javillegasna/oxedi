@@ -45,6 +45,10 @@ pub struct BalanceRule {
     pub scale: u8,
 }
 
+/// What precedes a term, by position (first, later) and sign (added,
+/// subtracted): the first term is bare unless negative.
+const SEPARATORS: [[&str; 2]; 2] = [["", "- "], [" + ", " - "]];
+
 /// The signed values of one side of a rule, e.g. `sum of CLP04 of 2100
 /// "claim_payment_information" - sum of PLB04, PLB06 of transaction
 /// "provider_adjustment"`. A term reads as a sum when it adds several
@@ -53,12 +57,7 @@ pub struct BalanceRule {
 pub(crate) fn render_terms(spec: &Spec, per: LoopId, terms: &[BalanceTerm]) -> String {
     let mut out = String::new();
     for (i, term) in terms.iter().enumerate() {
-        match (i, term.negative) {
-            (0, true) => out.push_str("- "),
-            (0, false) => {}
-            (_, true) => out.push_str(" - "),
-            (_, false) => out.push_str(" + "),
-        }
+        out.push_str(SEPARATORS[usize::from(i > 0)][usize::from(term.negative)]);
         let def = spec.get(term.loop_id);
         let (segment, occurrence) = def
             .occurrences

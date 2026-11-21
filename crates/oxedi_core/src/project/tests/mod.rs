@@ -307,6 +307,38 @@ fn row_numbers_keep_counting_across_drains() {
 }
 
 #[test]
+fn a_second_stream_starts_its_row_numbers_and_parents_over() {
+    let spec = spec();
+    let mut engine = LoopEngine::new(&spec);
+    let mut projector = Projector::new(&spec, &delimiters());
+    // One stream through the shared engine and projector; the input leaves
+    // its loops open, so `finish` is what closes them.
+    let mut stream = |input: &str| {
+        for segment in Tokenizer::with_delimiters(input.as_bytes(), delimiters()) {
+            let events = engine.feed(&segment).to_vec();
+            projector.on(&segment, &events, engine.path());
+        }
+        projector.finish(engine.finish());
+        projector.take_tables()
+    };
+    let first = stream("HD*B1~CL*C1*1~LN*L1~CL*C2*2~LN*L2~");
+    assert_eq!(first.get("claims").unwrap().len(), 2);
+    let second = stream("HD*B9~CL*C9*9~LN*L9~");
+    assert_eq!(
+        rows(&second, "claims").split_off(1).len(),
+        1,
+        "no claim of the first stream is left over"
+    );
+    assert_eq!(
+        rows(&second, "lines"),
+        vec![
+            "row | segment | head | claim | code | date | time",
+            "0 | 2 | 0 | 0 | L9 | ∅ | ∅",
+        ]
+    );
+}
+
+#[test]
 fn finishing_appends_the_rows_still_open() {
     let spec = spec();
     let (tables, _) = project(&spec, "HD*B1~CL*C1*1~LN*L1~");

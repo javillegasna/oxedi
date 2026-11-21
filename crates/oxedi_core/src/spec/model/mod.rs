@@ -19,7 +19,7 @@ use serde::{Deserialize, Deserializer};
 
 use super::sections::{SUMMARY, TEXT};
 use super::segments::{POSITION_RULE, parse_position};
-use super::shape::Field;
+use super::shape::{Field, check_shape};
 use super::{Spec, SpecError};
 use crate::message::render_key;
 use declare::spec_object;
@@ -43,24 +43,25 @@ pub(in crate::spec) use tables::TABLE;
 spec_object! {
     /// A whole spec, as the spec writes it.
     ///
-    /// Read it with `Spec::from_json(..)?.model()`, which checks every loader
-    /// rule. Reading a model, or any `*Model`, with serde directly
+    /// Read it with [`SpecModel::from_json`], which checks the shape and the
+    /// model, and check the rest with [`SpecModel::compile`]. Reading a model,
+    /// or any `*Model`, with serde directly
     /// (`serde_json::from_value::<SummaryModel>(..)`) checks only its shape, its
     /// position keys and a summary's one operation: it accepts a table or a column
-    /// that does not exist and an empty `fields` list. Load such a model with
-    /// [`Spec::from_model`] before using it.
+    /// that does not exist and an empty `fields` list. Compile such a model
+    /// before using it.
     ///
     /// A model writes no default and no `null`: a key equal to its default and
     /// an absent value are left out.
     ///
     /// ```
-    /// # use oxedi_core::spec::{Spec, SummaryModel};
+    /// # use oxedi_core::spec::{Spec, SpecModel, SummaryModel};
     /// # use serde_json::json;
-    /// let mut model = Spec::builtin_835().model()?;
-    /// assert_eq!(Spec::from_model(&model)?.name(), "835");
+    /// let mut model = SpecModel::from_json(Spec::BUILTIN_835_JSON)?;
+    /// assert_eq!(model.compile()?.name(), "835");
     /// let summary = serde_json::from_value::<SummaryModel>(json!({"count":{"table":"nope"}}))?;
     /// model.summaries.insert("ghost".into(), summary);
-    /// assert!(Spec::from_model(&model).is_err());
+    /// assert!(model.compile().is_err());
     /// # Ok::<(), Box<dyn std::error::Error>>(())
     /// ```
     SpecModel, ROOT, "a spec object with \"name\" and \"loops\"";
@@ -84,6 +85,28 @@ spec_object! {
 }
 
 impl SpecModel {
+    /// Reads a spec's JSON text into its model: the shape check, then the
+    /// model read; it does not check the rules that compile checks. Unparsable
+    /// text is [`SpecError::Json`], a value the model refuses
+    /// [`SpecError::Format`] at its path.
+    pub fn from_json(json: &str) -> Result<SpecModel, SpecError> {
+        let source: serde_json::Value = serde_json::from_str(json).map_err(SpecError::Json)?;
+        SpecModel::from_value(&source)
+    }
+
+    /// The shape check, then the model read, of a parsed spec.
+    pub(in crate::spec) fn from_value(source: &serde_json::Value) -> Result<SpecModel, SpecError> {
+        check_shape(source)?;
+        SpecModel::read(source)
+    }
+
+    /// Compiles the model into the spec the engine runs; it fails with the
+    /// errors [`Spec::from_json`] reports for the same spec.
+    pub fn compile(&self) -> Result<Spec, SpecError> {
+        let source = serde_json::to_value(self).map_err(SpecError::Json)?;
+        Spec::build(self, source)
+    }
+
     /// Reads a spec's JSON into its model in one pass; the first value the
     /// model refuses, in key order, fails with [`SpecError::Format`] at its
     /// path from the spec's root.

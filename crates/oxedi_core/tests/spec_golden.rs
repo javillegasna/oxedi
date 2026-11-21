@@ -3,7 +3,7 @@
 //! version, default table, roots, loops, segments, tables, balancing rules
 //! and summaries, one `Debug` line each. The source JSON is deliberately not
 //! printed, so the files pin what the spec compiles to, whatever loader built
-//! it. Regenerate with `UPDATE_GOLDEN=1 cargo test -p oxedi_core --test
+//! it; the specs are compiled from their models. Regenerate with `UPDATE_GOLDEN=1 cargo test -p oxedi_core --test
 //! spec_golden`, inspect the diff, commit.
 
 mod common;
@@ -11,7 +11,8 @@ mod common;
 use std::fmt::Write as _;
 use std::path::PathBuf;
 
-use oxedi_core::Spec;
+use oxedi_core::spec::LoadedSpec;
+use oxedi_core::{Builtin, Spec, Version};
 
 fn golden_dir() -> PathBuf {
     PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("tests/golden/spec")
@@ -44,13 +45,16 @@ fn compiled(spec: &Spec) -> String {
 
 #[test]
 fn compiled_specs_match_the_golden_files() {
-    let (five, four) = common::builtins();
-    let parser = Spec::builtin_835()
+    let built = |version| &Builtin::find("835", version).unwrap().spec;
+    let (five, four) = (built(Version::V5010), built(Version::V4010));
+    let parser = LoadedSpec::from_json(Spec::BUILTIN_835_JSON)
+        .unwrap()
         .merge_patch(include_str!("../specs/edi_835_parser.json"))
-        .unwrap();
+        .unwrap()
+        .spec;
     let outputs: Vec<(PathBuf, String)> = [
-        ("5010.txt", &five),
-        ("4010.txt", &four),
+        ("5010.txt", five),
+        ("4010.txt", four),
         ("edi_835_parser.txt", &parser),
     ]
     .into_iter()

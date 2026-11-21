@@ -19,18 +19,17 @@ use super::occurrence_index::OccurrenceIndex;
 use super::occurrences::{check_trigger, compile_occurrences};
 use super::render::render_trigger;
 use super::segments::{SegmentDef, compile_elements};
-use super::shape::check_shape;
 use super::summaries::{compile_default_table, compile_summaries};
 use super::version::compile_version;
 
 /// A spec while it compiles, and the model every step reads.
-struct Build {
+struct Build<'m> {
     spec: Spec,
     /// The spec as its model reads it, keys in name order.
-    model: SpecModel,
+    model: &'m SpecModel,
 }
 
-type Step = fn(&mut Build) -> Result<(), SpecError>;
+type Step = fn(&mut Build<'_>) -> Result<(), SpecError>;
 
 /// The compile steps, in the order they run.
 const STEPS: [Step; 11] = [
@@ -49,8 +48,13 @@ const STEPS: [Step; 11] = [
 
 impl Spec {
     pub(crate) fn from_value(source: Value) -> Result<Spec, SpecError> {
-        check_shape(&source)?;
-        let model = SpecModel::read(&source)?;
+        let model = SpecModel::from_value(&source)?;
+        Spec::build(&model, source)
+    }
+
+    /// Compiles `model`; `source` is kept as the spec's JSON for `merge_patch`
+    /// and `to_json`.
+    pub(in crate::spec) fn build(model: &SpecModel, source: Value) -> Result<Spec, SpecError> {
         let mut build = Build::new(model, source)?;
         STEPS.iter().try_for_each(|step| step(&mut build))?;
         Ok(build.spec)
@@ -117,9 +121,9 @@ impl Spec {
     }
 }
 
-impl Build {
+impl<'m> Build<'m> {
     /// The spec's name and an empty structure, or why the spec declares no loops.
-    fn new(model: SpecModel, source: Value) -> Result<Build, SpecError> {
+    fn new(model: &'m SpecModel, source: Value) -> Result<Build<'m>, SpecError> {
         if model.loops.is_empty() {
             return Err(SpecError::NoLoops {
                 spec_name: model.name.clone(),
@@ -144,7 +148,7 @@ impl Build {
     }
 }
 
-fn compile_loop_headers(build: &mut Build) -> Result<(), SpecError> {
+fn compile_loop_headers(build: &mut Build<'_>) -> Result<(), SpecError> {
     let ids: BTreeMap<&str, LoopId> = build
         .model
         .loops
@@ -164,7 +168,7 @@ fn compile_loop_headers(build: &mut Build) -> Result<(), SpecError> {
 }
 
 /// Gives each loop its children and the spec its top-level loops.
-fn link_loops(build: &mut Build) -> Result<(), SpecError> {
+fn link_loops(build: &mut Build<'_>) -> Result<(), SpecError> {
     let spec = &mut build.spec;
     let parents: Vec<Option<LoopId>> = spec.loops.iter().map(|def| def.parent).collect();
     for (index, parent) in parents.into_iter().enumerate() {
@@ -176,7 +180,7 @@ fn link_loops(build: &mut Build) -> Result<(), SpecError> {
     Ok(())
 }
 
-fn compile_segment_section(build: &mut Build) -> Result<(), SpecError> {
+fn compile_segment_section(build: &mut Build<'_>) -> Result<(), SpecError> {
     build.spec.segments = build
         .model
         .segments
@@ -197,7 +201,7 @@ fn compile_segment(id: &str, def: &SegmentModel) -> Result<(Vec<u8>, SegmentDef)
     Ok((id.as_bytes().to_vec(), SegmentDef { elements }))
 }
 
-fn compile_loop_occurrences(build: &mut Build) -> Result<(), SpecError> {
+fn compile_loop_occurrences(build: &mut Build<'_>) -> Result<(), SpecError> {
     let spec = &mut build.spec;
     for ((name, def), compiled) in build.model.loops.iter().zip(spec.loops.iter_mut()) {
         compiled.occurrences = compile_occurrences(name, &def.occurrences, &spec.segments)?;
@@ -207,12 +211,12 @@ fn compile_loop_occurrences(build: &mut Build) -> Result<(), SpecError> {
     Ok(())
 }
 
-fn index_occurrences(build: &mut Build) -> Result<(), SpecError> {
+fn index_occurrences(build: &mut Build<'_>) -> Result<(), SpecError> {
     build.spec.occurrence_index = OccurrenceIndex::build(&build.spec.loops);
     Ok(())
 }
 
-fn compile_version_section(build: &mut Build) -> Result<(), SpecError> {
+fn compile_version_section(build: &mut Build<'_>) -> Result<(), SpecError> {
     build.spec.version = build
         .model
         .version
@@ -222,29 +226,29 @@ fn compile_version_section(build: &mut Build) -> Result<(), SpecError> {
     Ok(())
 }
 
-fn check_trigger_ambiguity(build: &mut Build) -> Result<(), SpecError> {
+fn check_trigger_ambiguity(build: &mut Build<'_>) -> Result<(), SpecError> {
     build.spec.check_ambiguity()
 }
 
-fn compile_table_section(build: &mut Build) -> Result<(), SpecError> {
+fn compile_table_section(build: &mut Build<'_>) -> Result<(), SpecError> {
     let spec = &build.spec;
     build.spec.tables = compile_tables(spec, &build.model.tables)?;
     Ok(())
 }
 
-fn compile_balancing_section(build: &mut Build) -> Result<(), SpecError> {
+fn compile_balancing_section(build: &mut Build<'_>) -> Result<(), SpecError> {
     let spec = &build.spec;
     build.spec.balancing = compile_balancing(spec, &build.model.balancing)?;
     Ok(())
 }
 
-fn compile_summary_section(build: &mut Build) -> Result<(), SpecError> {
+fn compile_summary_section(build: &mut Build<'_>) -> Result<(), SpecError> {
     let spec = &build.spec;
     build.spec.summaries = compile_summaries(spec, &build.model.summaries)?;
     Ok(())
 }
 
-fn compile_default_table_section(build: &mut Build) -> Result<(), SpecError> {
+fn compile_default_table_section(build: &mut Build<'_>) -> Result<(), SpecError> {
     build.spec.default_table =
         compile_default_table(&build.spec, build.model.default_table.clone())?;
     Ok(())

@@ -1,5 +1,7 @@
 //! Merge patches over a loaded spec.
 
+use serde_json::{Value, from_str};
+
 use super::{CLP_ONLY, TABLED};
 use crate::spec::*;
 use crate::value::LengthRange;
@@ -192,4 +194,38 @@ fn merge_patch_follows_rfc_7386() {
         merge_patch(&mut result, &patch);
         assert_eq!(result, expected, "target {target} patch {patch}");
     }
+}
+
+#[test]
+fn a_patch_over_the_model_reads_as_the_patch_over_the_json_as_written() {
+    for patch in [
+        Spec::BUILTIN_835_4010_PATCH,
+        include_str!("../../../specs/edi_835_parser.json"),
+    ] {
+        let over_model = LoadedSpec::from_json(Spec::BUILTIN_835_JSON)
+            .unwrap()
+            .merge_patch(patch)
+            .unwrap();
+        let mut written: Value = from_str(Spec::BUILTIN_835_JSON).unwrap();
+        merge_patch(&mut written, &from_str(patch).unwrap());
+        assert_eq!(
+            over_model.model,
+            SpecModel::from_json(&written.to_string()).unwrap()
+        );
+    }
+}
+
+#[test]
+fn a_model_patch_wraps_a_compile_failure() {
+    let loaded = LoadedSpec::from_json(Spec::BUILTIN_835_JSON).unwrap();
+    let err = loaded
+        .merge_patch(r#"{"loops":{"2000":null}}"#)
+        .unwrap_err();
+    assert!(
+        matches!(&err, SpecError::Patch { source } if matches!(**source, SpecError::UnknownParent { .. }))
+    );
+    assert_eq!(
+        err.to_string(),
+        "applying patch: loop \"2100\" names unknown parent \"2000\""
+    );
 }

@@ -57,8 +57,8 @@ assert_eq!(concat_raw(&segments), input);    // every raw, joined, is the input
 **No panics on input.** No `unwrap`, `expect`, `panic!` or indexing that can fail on input
 data in `src/`. Return an error, report a diagnostic, or skip with a reason. Indexing with ids
 the code itself created (`LoopId`, `NodeId`) is fine. The only exception is the built-in specs
-(`Spec::builtin_835`, `Spec::builtin_835_4010`), which `expect` because a test proves they
-load. From `crates/oxedi_core/src/write/writer.rs`:
+(`Spec::builtin_835`, `Spec::builtin_835_4010`) and the registry that loads them
+(`Builtin::all`), which `expect` because a test proves they load. From `crates/oxedi_core/src/write/writer.rs`:
 
 ```rust
 let Some(table) = data.get(reason.table) else { continue; };

@@ -10,6 +10,7 @@ This file covers the Python package; the DuckDB extension has its own changelog 
 ## [Unreleased]
 
 ### Added
+- Rust: `LoadedSpec` (`model`, `spec`) keeps a spec's typed model beside the spec compiled from it; `LoadedSpec::merge_patch` merges a patch over the model and compiles again, every failure a `SpecError::Patch`. `SpecModel::from_json` reads a spec's text into its model, `SpecModel::compile` compiles it, and `Builtin::model` reads a built-in's model from the JSON its spec keeps.
 - `oxedi.Version` (`V5010`, `V4010`, with `text` and `str()`): the X12 release of a built-in spec.
 - `Spec.DEFAULT_VERSION`: the `Version` of the default built-in spec, the default of `Spec.builtin`.
 - `Envelope.DEFAULT_QUALIFIER`, `Envelope.DEFAULT_USAGE_INDICATOR` and `Envelope.DEFAULT_CONTROL_NUMBER`:
@@ -42,6 +43,7 @@ This file covers the Python package; the DuckDB extension has its own changelog 
   wanted segment, outermost first, in one pass that stops at the highest index.
 
 ### Changed
+- The built-in specs are compiled from their models; the 4010 built-in is the 5010 model with the 4010 patch merged over it. `Spec.builtin(...).to_json()` returns the canonical JSON: no key equal to its default, no `null`, keys in name order.
 - A key holding `.`, `/`, `#` or whitespace is quoted in the path of `SpecError::ModelMismatch`.
 - Rust: `SpecError::Format { path, source }`, the fault of a value the model refuses, at its path from the root.
 - A spec whose loop or occurrence `usage` is not `required` or `situational`, whose control `count`

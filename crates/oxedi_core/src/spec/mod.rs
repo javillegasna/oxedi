@@ -20,8 +20,7 @@
 //! the occurrence a segment takes in a loop, `id_map` the map keyed by segment id,
 //! `occurrence_error`, `table_error`, `balance_error` and `summary_error` why
 //! an occurrence, a table, a balancing rule or a summary is rejected; `unknown`
-//! the errors for a table or a column the spec does not define; `raw`
-//! the deserialization shapes of the element and the summary; `schema` the columns of each table, known from
+//! the errors for a table or a column the spec does not define; `schema` the columns of each table, known from
 //! the spec alone; `sections` the helpers of the JSON shape as data (each object's table is emitted by `model`) and `shape` the walk that
 //! checks a value against it; `test_support` (test builds only) the small spec
 //! shared by the spec and projector tests and the nested-loop spec shared by
@@ -29,8 +28,9 @@
 //! [`Spec`] as a pipeline of steps, `build_loops` the compilation of one loop,
 //! `compile` that of the tables, `columns` that of one table column and
 //! `column_occurrence` the reading of the occurrence a column names;
-//! `model` the spec as typed data, read checked through `Spec::model` and
-//! loaded through `Spec::from_model`;
+//! `model` the spec as typed data, which the loader reads whole before
+//! compiling it, read checked through `Spec::model` and loaded through
+//! `Spec::from_model`;
 //! `phi` the check of the columns flagged as patient data and of the seed
 //! column; `error` the load error and `error_text` its `source` and the parts
 //! of its text built from lists; `render` the text used in messages; `patch`
@@ -57,7 +57,6 @@ mod occurrence_index;
 mod occurrences;
 mod patch;
 mod phi;
-mod raw;
 mod render;
 mod schema;
 mod sections;

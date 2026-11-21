@@ -6,23 +6,12 @@
 //! table too, one row per section of the spec, so a section is checked by
 //! looking up its key.
 
-use std::collections::BTreeMap;
-
 use serde_json::Value;
 
 use super::error::SpecError;
 use super::model::ROOT;
 use super::render::{child, render_value};
 use crate::vocabulary::Pick;
-
-/// The members of the object at `key`, in key order; empty when there is none.
-pub(super) fn section<'v>(value: &'v Value, key: &str) -> BTreeMap<&'v str, &'v Value> {
-    value
-        .get(key)
-        .and_then(Value::as_object)
-        .map(|members| members.iter().map(|(k, v)| (k.as_str(), v)).collect())
-        .unwrap_or_default()
-}
 
 /// How a JSON value is described when it is not the object a spec expects.
 pub(super) fn kind_of(value: &Value) -> &'static str {
@@ -47,7 +36,7 @@ pub(super) fn object_at<'v>(
     })
 }
 
-/// The scalar kinds the raw structs expect.
+/// The scalar kinds the model expects.
 #[derive(Clone, Copy)]
 pub(super) enum Leaf {
     Text,

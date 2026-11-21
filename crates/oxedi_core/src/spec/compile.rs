@@ -2,12 +2,9 @@
 
 use std::collections::{BTreeMap, BTreeSet};
 
-use serde_json::Value;
-
 use super::columns::{check_held, compile_column};
 use super::error::SpecError;
 use super::loops::LoopId;
-use super::model::read_entry;
 use super::phi::compile_phi;
 use super::segments::{ROW_COLUMN, SEGMENT_COLUMN};
 use super::table_error::{AnchorChains, TableDefError};
@@ -19,13 +16,12 @@ use crate::message::render_key;
 /// every table to the tables above it.
 pub(super) fn compile_tables(
     spec: &Spec,
-    raw: BTreeMap<&str, &Value>,
+    defs: &BTreeMap<String, TableModel>,
 ) -> Result<Vec<TableDef>, SpecError> {
-    let mut tables = Vec::with_capacity(raw.len());
-    for (name, value) in raw {
-        let def: TableModel = read_entry("tables", name, value)?;
-        tables.push(compile_table(spec, name, &def)?);
-    }
+    let mut tables = defs
+        .iter()
+        .map(|(name, def)| compile_table(spec, name, def))
+        .collect::<Result<Vec<_>, _>>()?;
     link_tables(spec, &mut tables)?;
     Ok(tables)
 }

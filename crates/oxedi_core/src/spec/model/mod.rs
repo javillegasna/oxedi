@@ -4,7 +4,7 @@
 //! `tables` the tables and their columns, and `rules` the version
 //! declaration, the balancing rules and the operations of a summary; which
 //! read checks what is on [`SpecModel`]. `declare` holds the macro that
-//! emits each object's model, its raw struct and its schema table.
+//! emits each object's model and its schema table.
 
 mod declare;
 mod loops;
@@ -14,7 +14,7 @@ mod tables;
 
 use std::collections::BTreeMap;
 
-use serde::de::{self, IgnoredAny};
+use serde::de;
 use serde::{Deserialize, Deserializer};
 
 use super::sections::{SUMMARY, TEXT};
@@ -63,34 +63,37 @@ spec_object! {
     /// assert!(Spec::from_model(&model).is_err());
     /// # Ok::<(), Box<dyn std::error::Error>>(())
     /// ```
-    SpecModel / RawSpec, ROOT, "a spec object with \"name\" and \"loops\"";
+    SpecModel, ROOT, "a spec object with \"name\" and \"loops\"";
     /// The spec's name.
     name: String, TEXT, required;
     /// The element that declares the version a file is written in, when the
     /// spec declares one.
     version: Option<VersionModel>, Field::Object(&VERSION), optional;
     /// The loops, by name.
-    // The loader checks the loops' outer shape and deserializes them one by
-    // one, so an error names the path from the root.
-    loops: BTreeMap<String, LoopModel> | BTreeMap<String, IgnoredAny>,
-        Field::Map(&Field::Object(&LOOP)), required;
+    loops: BTreeMap<String, LoopModel>, Field::Map(&Field::Object(&LOOP)), required;
     /// The tables, by name.
-    tables: BTreeMap<String, TableModel> | #[allow(dead_code, reason = "each section is read from the source, entry by entry")] BTreeMap<String, IgnoredAny>,
-        Field::Map(&Field::Object(&TABLE)), default;
+    tables: BTreeMap<String, TableModel>, Field::Map(&Field::Object(&TABLE)), default;
     /// The balancing rules, by name.
-    balancing: BTreeMap<String, BalanceModel> | #[allow(dead_code, reason = "each section is read from the source, entry by entry")] BTreeMap<String, IgnoredAny>,
-        Field::Map(&Field::Object(&BALANCE)), default;
+    balancing: BTreeMap<String, BalanceModel>, Field::Map(&Field::Object(&BALANCE)), default;
     /// The segments whose elements the spec names and types, by segment id.
-    segments: BTreeMap<String, SegmentModel> | #[allow(dead_code, reason = "each section is read from the source, entry by entry")] BTreeMap<String, IgnoredAny>,
-        Field::Map(&Field::Object(&SEGMENT)), default;
+    segments: BTreeMap<String, SegmentModel>, Field::Map(&Field::Object(&SEGMENT)), default;
     /// The summaries, by name.
-    summaries: BTreeMap<String, SummaryModel> | #[allow(dead_code, reason = "each section is read from the source, entry by entry")] BTreeMap<String, IgnoredAny>,
-        Field::Map(&Field::Object(&SUMMARY)), default;
+    summaries: BTreeMap<String, SummaryModel>, Field::Map(&Field::Object(&SUMMARY)), default;
     /// The table a reader shows when none is named, when the spec names one.
     default_table: Option<String>, TEXT, optional;
 }
 
 impl SpecModel {
+    /// Reads a spec's JSON into its model in one pass; the first value the
+    /// model refuses, in key order, fails with [`SpecError::Format`] at its
+    /// path from the spec's root.
+    pub(in crate::spec) fn read(source: &serde_json::Value) -> Result<SpecModel, SpecError> {
+        serde_path_to_error::deserialize(source).map_err(|err| SpecError::Format {
+            path: root_path(err.path()),
+            source: err.into_inner(),
+        })
+    }
+
     /// The model as pretty-printed JSON text, as [`Spec::to_json`] prints a
     /// spec.
     pub fn to_json(&self) -> Result<String, serde_json::Error> {
@@ -106,33 +109,17 @@ pub(in crate::spec) fn read_model(
     serde_path_to_error::deserialize::<_, SpecModel>(source).map_err(|err| {
         SpecError::ModelMismatch {
             spec_name: spec_name.to_owned(),
-            path: match render_path("", err.path()) {
-                path if path.is_empty() => ".".to_owned(),
-                path => path,
-            },
+            path: root_path(err.path()),
             source: err.into_inner(),
         }
     })
 }
 
-/// Reads one entry of a spec section into its model; a value the model
-/// refuses fails with [`SpecError::Format`], at its path from the spec's root.
-pub(in crate::spec) fn read_entry<'v, T: Deserialize<'v>>(
-    section: &str,
-    name: &str,
-    value: &'v serde_json::Value,
-) -> Result<T, SpecError> {
-    serde_path_to_error::deserialize(value).map_err(|err| SpecError::Format {
-        path: render_path(&format!("{section}.{}", render_key(name)), err.path()),
-        source: err.into_inner(),
-    })
-}
-
 // A path as an error writes it: keys joined by `.`, each through `render_key`
 // so a key holding `.` stays one key; a list item as `[i]`.
-fn render_path(prefix: &str, path: &serde_path_to_error::Path) -> String {
+fn render_path(path: &serde_path_to_error::Path) -> String {
     use serde_path_to_error::Segment;
-    let mut text = prefix.to_owned();
+    let mut text = String::new();
     for segment in path {
         match segment {
             Segment::Map { key } | Segment::Enum { variant: key } => {
@@ -146,6 +133,14 @@ fn render_path(prefix: &str, path: &serde_path_to_error::Path) -> String {
         }
     }
     text
+}
+
+// The path of a refused value from the spec's root; `.` for the root itself.
+fn root_path(path: &serde_path_to_error::Path) -> String {
+    match render_path(path) {
+        path if path.is_empty() => ".".to_owned(),
+        path => path,
+    }
 }
 
 impl Spec {

@@ -130,8 +130,11 @@ This file covers the Python package; the DuckDB extension has its own changelog 
 - Rust: `SpecError::SegmentSchema`, `ElementDefError::NonCanonicalPosition`, `ElementDefError::UnknownType` and `ElementDefError::ScaleWithoutR` are removed, and so is `From<TypeCodeError> for ElementDefError`.
 - A summary that holds no operation, or more than one, fails at its path, in Rust and Python alike: `spec: at summaries.s: holds 2 operations (count, sum); a summary holds exactly one of count, distinct, sum, row`. Reading a `SummaryModel` with serde refuses it with the same text.
 - Rust: `SpecError::SummarySchema` is removed; `SummaryDefError::Operations` is reported inside `SpecError::Format`.
-- A balancing value whose `"sign"` is not `"+"` or `"-"` fails at its path from the spec's root, in Rust and Python alike: `spec: at balancing.claim_balance.sum[1].sign: "sign" must be "+" or "-"; found "plus"`. A rule is read whole first, so such a fault is reported before any other fault of the rule except an empty rule name.
+- A balancing value whose `"sign"` is not `"+"` or `"-"` fails at its path from the spec's root, in Rust and Python alike: `spec: at balancing.claim_balance.sum[1].sign: "sign" must be "+" or "-"; found "plus"`. A rule is read whole first, so such a fault is reported before every other fault of the rule, an empty rule name included.
 - Rust: `SpecError::BalanceSchema` and `BalanceError::UnknownSign` are removed.
+- A spec is read whole into its model before any section compiles, in Rust and Python alike: a value the model refuses (a word outside its vocabulary, an element type, a key that is not a position, a summary's operations) is reported before every fault but a shape fault, and of several the first in the spec's key order (balancing, default_table, loops, name, segments, summaries, tables, version; entries by name) is reported. An empty loops map, segment id, balancing rule name or summary name is reported only when no value is refused.
+- A top-level fault the shape check does not catch reads as any other refused value, `spec: at <path>: ...`, no longer `spec does not match the schema: ...`.
+- Rust: `SpecError::Schema` is removed; such a fault is `SpecError::Format`.
 
 ### Fixed
 - The writer and the reader agree on the repetition separator of a custom spec: at interchange

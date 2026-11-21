@@ -37,7 +37,7 @@ flowchart LR
   B[bytes] --> D[Document<br/>delimiters from ISA,<br/>one span per segment]
   D -->|one Segment at a time| E[LoopEngine]
   E -->|Events| P[Projector]
-  P -->|matched occurrence| C[StructureChecker]
+  E -->|Events| C[StructureChecker]
   P --> T[Tables]
   C --> G[Diagnostics]
   P --> G

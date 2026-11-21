@@ -29,11 +29,11 @@ struct Entry<K> {
 }
 
 /// The occurrences of every `(loop, segment id)` pair, in two flat sorted
-/// vectors: ids of up to seven bytes by their packed key, which compares in
-/// one word, and the rare longer ids by their bytes. The short entries of a
-/// loop are contiguous and sorted by key, and `loop_starts` says where each
-/// loop's run begins, so a lookup binary-searches only that loop's ids in one
-/// contiguous array, with no allocation.
+/// vectors: ids that [`pack_id`] packs by their packed key, and the rare
+/// longer ids by their bytes. The short entries of a loop are contiguous and
+/// sorted by key, and `loop_starts` says where each loop's run begins, so a
+/// lookup binary-searches only that loop's ids in one contiguous array, with
+/// no allocation.
 #[derive(Debug, Clone, Default)]
 pub(super) struct OccurrenceIndex {
     /// Per loop (by [`LoopId::index`]), where its run of `short` begins; one

@@ -2,8 +2,8 @@
 
 use std::collections::BTreeMap;
 
-/// A map from segment id to `V`. Ids of up to seven bytes are keyed by their
-/// packed bytes, which compare faster than slices.
+/// A map from segment id to `V`. Ids that [`pack_id`] can pack are keyed by
+/// their packed bytes.
 #[derive(Debug, Clone)]
 pub(crate) struct IdMap<V> {
     short: BTreeMap<u64, V>,
@@ -19,8 +19,9 @@ impl<V> Default for IdMap<V> {
     }
 }
 
-/// The packed key of an id, or `None` when it is too long to pack. A leading
-/// 1 bit keeps ids of different lengths apart.
+/// The packed key of an id, or `None` when it is longer than seven bytes. A
+/// packed key compares in one word, faster than a slice, and a leading 1 bit
+/// keeps ids of different lengths apart.
 pub(crate) fn pack_id(id: &[u8]) -> Option<u64> {
     (id.len() <= 7).then(|| {
         id.iter()

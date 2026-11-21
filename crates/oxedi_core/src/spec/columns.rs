@@ -453,23 +453,28 @@ fn pick_beyond_max(pick: Pick, found: &LoopOccurrence<'_>) -> Option<TableDefErr
     }
 }
 
-/// One reading loop's occurrence, checked against the first loop's and the
-/// written pick.
+/// The first rule of `PICK_RULES` that the written pick breaks on `found`.
+fn check_pick(found: &LoopOccurrence<'_>, written: Option<Pick>) -> Result<(), TableDefError> {
+    written.map_or(Ok(()), |pick| {
+        PICK_RULES
+            .iter()
+            .find_map(|rule| rule(pick, found))
+            .map_or(Ok(()), Err)
+    })
+}
+
+/// A later reading loop's occurrence, checked against the first loop's and
+/// the written pick.
 fn check_reader(
     spec: &Spec,
     reader: LoopId,
     name: &str,
-    first: Option<&LoopOccurrence<'_>>,
+    first: &LoopOccurrence<'_>,
     written: Option<Pick>,
 ) -> Result<(), TableDefError> {
     let found = LoopOccurrence::find(spec, reader, name)?;
-    first.map_or(Ok(()), |first| same_segment(first, &found))?;
-    written.map_or(Ok(()), |pick| {
-        PICK_RULES
-            .iter()
-            .find_map(|rule| rule(pick, &found))
-            .map_or(Ok(()), Err)
-    })
+    same_segment(first, &found)?;
+    check_pick(&found, written)
 }
 
 /// A source that names the occurrence `name` of the reading loops: `loop_id`,
@@ -489,9 +494,13 @@ fn by_occurrence(
         .first()
         .map(|&reader| LoopOccurrence::find(spec, reader, name))
         .transpose()?;
-    readers
-        .iter()
-        .try_for_each(|&reader| check_reader(spec, reader, name, first.as_ref(), written))?;
+    if let Some(first) = &first {
+        check_pick(first, written)?;
+        readers
+            .iter()
+            .skip(1)
+            .try_for_each(|&reader| check_reader(spec, reader, name, first, written))?;
+    }
     Ok(Read {
         loop_id,
         segment: first.map_or_else(Vec::new, |first| first.occurrence.segment.clone()),

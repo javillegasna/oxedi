@@ -1,10 +1,10 @@
 //! Compilation of one table column into its value source.
 
 use super::column_occurrence::by_occurrence;
+use super::elements::{ROW_COLUMN, SEGMENT_COLUMN};
 use super::error::SpecError;
 use super::loops::LoopId;
 use super::occurrences::OccurrenceDef;
-use super::segments::{ROW_COLUMN, SEGMENT_COLUMN};
 use super::table_error::{AnchorPositions, TableDefError};
 use super::tables::{ColumnSource, Repeat};
 use super::{ColumnModel, Spec};

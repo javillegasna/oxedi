@@ -282,7 +282,7 @@ Internal words used in the code. X12 and payment terms for users are in
 | datum | The offending value exactly as written in the file. | `Diagnostic::datum` |
 | path | The open loops at the diagnostic, outermost first, each with its ordinal. | `Diagnostic::path` |
 | origin | Which validator produced a diagnostic (`oxedi`, or for example `pyx12`). | `Rule::External` |
-| balancing | Amounts that must add up inside a loop instance (charge − payment = adjustments). | `spec/balance.rs`, `check/balance.rs` |
+| balancing | Amounts that must add up inside a loop instance (charge − payment = adjustments). | `spec/balance_rule.rs`, `spec/balance.rs`, `check/balance.rs` |
 | vocabulary | The closed words a typed value is written as (`Vocabulary`), one table each; `Phi`, `DateMode` and `Pick` live with the trait. | `vocabulary/`, `spec/vocabulary.rs` |
 | summary | A named figure the spec declares over its tables (a count, a distinct count, a sum, the fields of one row); `summarize` computes it. | `spec/summaries.rs`, `summary/` |
 | PHI / mask / phi seed | Patient-data columns flagged in the spec (`Phi`); a keyed digest replaces them; the seed column keys the date shift. User docs say "patient data". | `vocabulary/` (`Phi`), `mask/`, `spec/phi.rs`, `project/mask.rs` |

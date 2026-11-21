@@ -16,8 +16,10 @@
 //! scalars replace wholesale; see [`Spec::merge_patch`] for what that means
 //! for a loop's occurrences.
 //!
-//! The module is split by responsibility: `loops`, `occurrences`, `segments`,
-//! `tables`, `balance` and `summaries` hold the definitions, `occurrence_index`
+//! The module is split by responsibility: `loops`, `occurrences`, `elements`
+//! (an element, a segment, the automatic column names), `tables`, `balance_rule`
+//! (a balancing rule and its text) and `summaries` hold the definitions, `segments` and `balance` compile the
+//! segments and the balancing rules, `occurrence_index`
 //! the occurrence a segment takes in a loop, `id_map` the map keyed by segment id,
 //! `occurrence_error`, `table_error`, `balance_error` and `summary_error` why
 //! an occurrence, a table, a balancing rule or a summary is rejected; `unknown`
@@ -43,6 +45,7 @@
 
 mod balance;
 mod balance_error;
+mod balance_rule;
 mod build;
 mod build_loops;
 mod build_occurrences;
@@ -50,6 +53,7 @@ mod builtin;
 mod column_occurrence;
 mod columns;
 mod compile;
+mod elements;
 mod error;
 mod error_text;
 mod id_map;
@@ -78,10 +82,11 @@ mod unknown;
 mod version;
 mod vocabulary;
 
-pub use balance::{BalanceRule, BalanceTerm, Sign};
 pub use balance_error::BalanceError;
+pub use balance_rule::{BalanceRule, BalanceTerm, Sign};
 pub use build_loops::ControlError;
 pub use builtin::{Builtin, UnknownVersion, Version};
+pub use elements::{ElementDef, ROW_COLUMN, SEGMENT_COLUMN, SegmentDef};
 pub use error::SpecError;
 pub use loaded::LoadedSpec;
 pub use loops::{Control, ControlCount, LoopDef, LoopId, Trigger};
@@ -98,7 +103,7 @@ pub use patch::merge_patch;
 pub use schema::{
     ColumnKind, ColumnSchema, TableSchema, require_column, spec_schema, table_columns, table_schema,
 };
-pub use segments::{ElementDef, ElementDefError, ROW_COLUMN, SEGMENT_COLUMN, SegmentDef};
+pub use segments::ElementDefError;
 pub use summary_error::SummaryDefError;
 pub use table_error::{AnchorChains, AnchorPositions, LoopSegments, TableDefError};
 pub use tables::{ColumnSource, Repeat, Summary, TableDef};
@@ -106,11 +111,11 @@ pub use unknown::{UnknownColumn, UnknownTable};
 pub use version::{DeclaredVersion, VersionError};
 pub use vocabulary::ElementPosition;
 
-pub(crate) use balance::render_terms;
+pub(crate) use balance_rule::render_terms;
+pub(crate) use elements::rejects_code;
 pub(crate) use id_map::IdMap;
 pub(crate) use render::{render_selector, render_trigger};
 pub(crate) use schema::column_type;
-pub(crate) use segments::rejects_code;
 
 use std::cmp::Reverse;
 use std::collections::BTreeMap;

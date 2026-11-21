@@ -3,10 +3,10 @@
 use std::collections::{BTreeMap, BTreeSet};
 
 use super::columns::{check_held, compile_column};
+use super::elements::{ROW_COLUMN, SEGMENT_COLUMN};
 use super::error::SpecError;
 use super::loops::LoopId;
 use super::phi::compile_phi;
-use super::segments::{ROW_COLUMN, SEGMENT_COLUMN};
 use super::table_error::{AnchorChains, TableDefError};
 use super::tables::{Repeat, TableDef};
 use super::{RepeatModel, Spec, TableModel};

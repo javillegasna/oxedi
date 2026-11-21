@@ -3,8 +3,8 @@
 
 use std::collections::BTreeMap;
 
+use super::elements::{ElementDef, SegmentDef, holds_code};
 use super::loops::Trigger;
-use super::segments::{ElementDef, SegmentDef, holds_code};
 use crate::segment::Segment;
 
 /// Whether an occurrence must appear in every instance of its loop.

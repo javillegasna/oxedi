@@ -1,7 +1,5 @@
 //! Loop identifiers, triggers, loop definitions and control declarations.
 
-use std::fmt;
-
 #[cfg(doc)]
 use super::Spec;
 use super::occurrences::{OccurrenceDef, Usage};
@@ -90,29 +88,6 @@ pub struct Control {
     pub count_element: usize,
     /// What the count counts.
     pub count: ControlCount,
-}
-
-/// Why a loop's `control` was rejected.
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub enum ControlError {
-    /// A position key holds 0.
-    ZeroPosition {
-        /// The key, e.g. `opener_element`.
-        key: &'static str,
-    },
-    /// The loop has no `end` segment to carry the count and control number.
-    NoEnd,
-}
-
-impl fmt::Display for ControlError {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match self {
-            ControlError::ZeroPosition { key } => {
-                write!(f, "{key:?} must be a 1-based element position; found 0")
-            }
-            ControlError::NoEnd => write!(f, "the loop has no \"end\" segment to check"),
-        }
-    }
 }
 
 impl LoopDef {

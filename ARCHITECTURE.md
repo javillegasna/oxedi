@@ -143,7 +143,7 @@ Loading goes `SpecModel::from_json` (steps 1 and 2, `spec/model/`) → `SpecMode
    it refuses, in key order, is `SpecError::Format`, at its path from the root); `Pick`
    (`vocabulary/pick.rs`) reads through its own visitor.
 3. `build.rs` runs the compile steps in order over that model, one per section or structural check:
-   loops (`build_loops.rs`: keys, parent, trigger, control), segments, occurrences, the
+   loops (`build_loops.rs`: keys, parent, trigger, control), segments, occurrences (`build_occurrences.rs`), the
    occurrence index (`occurrence_index.rs`), the version, trigger ambiguity, tables, balancing,
    summaries (`summaries.rs`) and the default table; `spec/mod.rs` lists which file holds what.
 4. The result is index-based: `LoopDef` (by `LoopId`), `SegmentDef`, `ElementDef`, `TableDef`

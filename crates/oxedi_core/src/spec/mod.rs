@@ -26,7 +26,8 @@
 //! checks a value against it; `test_support` (test builds only) the small spec
 //! shared by the spec and projector tests and the nested-loop spec shared by
 //! the engine and tree tests; `build` the construction of a
-//! [`Spec`] as a pipeline of steps, `build_loops` the compilation of one loop,
+//! [`Spec`] as a pipeline of steps, `build_loops` the compilation of one loop and
+//! why its control is rejected, `build_occurrences` that of its occurrences,
 //! `compile` that of the tables, `columns` that of one table column and
 //! `column_occurrence` the reading of the occurrence a column names;
 //! `model` the spec as typed data, which the loader reads whole before
@@ -44,6 +45,7 @@ mod balance;
 mod balance_error;
 mod build;
 mod build_loops;
+mod build_occurrences;
 mod builtin;
 mod column_occurrence;
 mod columns;
@@ -78,10 +80,11 @@ mod vocabulary;
 
 pub use balance::{BalanceRule, BalanceTerm, Sign};
 pub use balance_error::BalanceError;
+pub use build_loops::ControlError;
 pub use builtin::{Builtin, UnknownVersion, Version};
 pub use error::SpecError;
 pub use loaded::LoadedSpec;
-pub use loops::{Control, ControlCount, ControlError, LoopDef, LoopId, Trigger};
+pub use loops::{Control, ControlCount, LoopDef, LoopId, Trigger};
 pub use model::{
     BalanceModel, ColumnModel, ControlModel, ElementModel, LoopModel, OccurrenceModel,
     QualifierModel, RepeatModel, SegmentModel, SpecModel, SummaryColumnModel, SummaryFieldModel,

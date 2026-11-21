@@ -15,7 +15,10 @@ use super::{Event, Instance};
 pub fn lineage(instance: Instance, open: &[Instance], events: &[Event]) -> Vec<Instance> {
     let closed = events.iter().filter_map(|event| match *event {
         Event::LoopClosed { instance } => Some(instance),
-        _ => None,
+        Event::LoopOpened { .. }
+        | Event::Captured { .. }
+        | Event::Unmatched { .. }
+        | Event::Empty { .. } => None,
     });
     let mut candidates = closed.chain(open.iter().rev().copied());
     let mut path = vec![instance];

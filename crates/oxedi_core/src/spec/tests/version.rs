@@ -229,6 +229,13 @@ fn the_builtins_declare_5010_and_4010_on_gs08() {
         )
     );
     // The 4010 spec is the 5010 one with the patch over it.
-    let patched = five.merge_patch(Spec::BUILTIN_835_4010_PATCH).unwrap();
-    assert_eq!(patched.to_json(), four.to_json());
+    let patched = LoadedSpec::from_json(Spec::BUILTIN_835_JSON)
+        .unwrap()
+        .merge_patch(Spec::BUILTIN_835_4010_PATCH)
+        .unwrap();
+    let registry = Builtin::find("835", Version::V4010).unwrap();
+    assert_eq!(
+        patched.to_json().unwrap(),
+        registry.model().unwrap().to_json().unwrap()
+    );
 }

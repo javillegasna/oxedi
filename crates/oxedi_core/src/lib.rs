@@ -73,8 +73,8 @@ pub use segment::{Segment, SegmentWriteError};
 pub use spec::{
     AnchorChains, AnchorPositions, BalanceError, BalanceRule, BalanceTerm, Builtin, ColumnSchema,
     ColumnSource, Control, ControlCount, ControlError, DeclaredVersion, ElementDef,
-    ElementDefError, LoopDef, LoopId, LoopSegments, OccurrenceId, Repeat, SegmentDef, Spec,
-    SpecError, Summary, SummaryDefError, TableDef, TableDefError, TableSchema, Trigger,
+    ElementDefError, LoadedSpec, LoopDef, LoopId, LoopSegments, OccurrenceId, Repeat, SegmentDef,
+    Spec, SpecError, Summary, SummaryDefError, TableDef, TableDefError, TableSchema, Trigger,
     UnknownColumn, UnknownTable, UnknownVersion, Version, VersionError, merge_patch, spec_schema,
 };
 pub use summary::{SummaryError, SummaryValue, summarize};

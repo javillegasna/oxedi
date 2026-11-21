@@ -3,8 +3,9 @@
 use std::fmt;
 use std::sync::{Arc, OnceLock};
 
-use super::Spec;
+use super::model::SpecModel;
 use super::version::chosen;
+use super::{Spec, SpecError};
 use crate::message::render_names;
 use crate::segment::Segment;
 
@@ -49,6 +50,39 @@ pub struct Builtin {
     pub spec: Arc<Spec>,
 }
 
+impl Builtin {
+    fn new(transaction: &'static str, version: Version, spec: Spec) -> Builtin {
+        Builtin {
+            transaction,
+            version,
+            spec: Arc::new(spec),
+        }
+    }
+
+    /// The spec's model, read from the JSON the spec keeps; patch it and
+    /// compile it again for a variant. The registry holds no model itself.
+    pub fn model(&self) -> Result<SpecModel, SpecError> {
+        SpecModel::from_value(&self.spec.source)
+    }
+}
+
+// Each built-in is read from its JSON as written, the 4010 one with its
+// patch merged over the 5010 JSON; no model is written back to JSON here.
+fn load() -> Vec<Builtin> {
+    let five = Spec::from_json(Spec::BUILTIN_835_JSON).expect(
+        "the built-in 835 spec is valid; \
+         spec::tests::builtin::each_builtin_spec_is_compiled_from_its_model checks it",
+    );
+    let four = five.merge_patch(Spec::BUILTIN_835_4010_PATCH).expect(
+        "the built-in 4010 patch merges into the built-in 835 as a valid spec; \
+         spec::tests::builtin::each_builtin_spec_is_compiled_from_its_model checks it",
+    );
+    vec![
+        Builtin::new("835", Builtin::DEFAULT_VERSION, five),
+        Builtin::new("835", Version::V4010, four),
+    ]
+}
+
 static ALL: OnceLock<Vec<Builtin>> = OnceLock::new();
 
 impl Builtin {
@@ -57,20 +91,7 @@ impl Builtin {
 
     /// Every built-in, loaded once per process; the first is the fallback.
     pub fn all() -> &'static [Builtin] {
-        ALL.get_or_init(|| {
-            vec![
-                Builtin {
-                    transaction: "835",
-                    version: Builtin::DEFAULT_VERSION,
-                    spec: Arc::new(Spec::builtin_835()),
-                },
-                Builtin {
-                    transaction: "835",
-                    version: Version::V4010,
-                    spec: Arc::new(Spec::builtin_835_4010()),
-                },
-            ]
-        })
+        ALL.get_or_init(load)
     }
 
     /// The built-in used when a file declares no version a built-in covers.

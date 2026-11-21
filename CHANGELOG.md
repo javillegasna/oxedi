@@ -10,6 +10,7 @@ This file covers the Python package; the DuckDB extension has its own changelog 
 ## [Unreleased]
 
 ### Added
+- Rust: `LoadedSpec` (`model`, `spec`) keeps a spec's typed model beside the spec compiled from it; `LoadedSpec::merge_patch` merges a patch over the model and compiles again, every failure a `SpecError::Patch`. `SpecModel::from_json` reads a spec's text into its model, `SpecModel::compile` compiles it, and `Builtin::model` reads a built-in's model from the JSON its spec keeps.
 - `oxedi.Version` (`V5010`, `V4010`, with `text` and `str()`): the X12 release of a built-in spec.
 - `Spec.DEFAULT_VERSION`: the `Version` of the default built-in spec, the default of `Spec.builtin`.
 - `Envelope.DEFAULT_QUALIFIER`, `Envelope.DEFAULT_USAGE_INDICATOR` and `Envelope.DEFAULT_CONTROL_NUMBER`:

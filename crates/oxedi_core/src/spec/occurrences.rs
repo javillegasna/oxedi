@@ -3,6 +3,7 @@
 //! their compilation against the `segments` section.
 
 use std::collections::BTreeMap;
+use std::collections::btree_map::Entry;
 
 use super::error::SpecError;
 use super::loops::Trigger;
@@ -194,6 +195,87 @@ pub(super) fn check_trigger(
     Ok(())
 }
 
+/// The occurrences of one segment seen so far in a loop, in position order:
+/// the first, whose qualifier place every later one must share, and the
+/// occurrence that owns each qualifier code already taken.
+struct SegmentSeen<'o> {
+    first: &'o OccurrenceDef,
+    /// Qualifier code -> name of the occurrence whose qualifier accepts it.
+    owners: BTreeMap<&'o str, &'o str>,
+}
+
+impl<'o> SegmentSeen<'o> {
+    /// Seeds `owners` with `first`'s qualifier codes (none when it has no
+    /// qualifier). One code list holds no duplicate, so no code collides here.
+    fn new(first: &'o OccurrenceDef) -> Self {
+        let owners = first
+            .qualifier
+            .iter()
+            .flat_map(|qualifier| &qualifier.codes)
+            .map(|code| (code.as_str(), first.name.as_str()))
+            .collect();
+        Self { first, owners }
+    }
+
+    /// Checks a later occurrence of the same segment and takes its codes. An
+    /// admitted occurrence reads its qualifier where `first` does, so the same
+    /// place is transitive through `first`, and codes disjoint pairwise is no
+    /// code owned twice.
+    fn admit(&mut self, occurrence: &'o OccurrenceDef) -> Result<(), OccurrenceError> {
+        let segment = String::from_utf8_lossy(&occurrence.segment).into_owned();
+        let (Some(a), Some(b)) = (&self.first.qualifier, &occurrence.qualifier) else {
+            return Err(OccurrenceError::Indistinct {
+                other: self.first.name.clone(),
+                segment,
+            });
+        };
+        if (a.element, a.component) != (b.element, b.component) {
+            return Err(OccurrenceError::QualifierPlaces {
+                other: self.first.name.clone(),
+                place: place(&segment, b.element, b.component),
+                other_place: place(&segment, a.element, a.component),
+            });
+        }
+        for code in &b.codes {
+            if let Some(owner) = self.owners.insert(code, &occurrence.name) {
+                return Err(OccurrenceError::SharedCode {
+                    other: owner.to_string(),
+                    segment,
+                    code: code.clone(),
+                });
+            }
+        }
+        Ok(())
+    }
+}
+
+/// The error of an occurrence of `loop_name`, wrapping its reason.
+fn bad_occurrence(loop_name: &str, occurrence: &str, reason: OccurrenceError) -> SpecError {
+    SpecError::BadOccurrence {
+        loop_name: loop_name.to_string(),
+        occurrence: occurrence.to_string(),
+        reason: Box::new(reason),
+    }
+}
+
+/// Checks that every two occurrences of one segment can be told apart, in one
+/// pass over `occurrences` (sorted by position).
+fn check_distinct(loop_name: &str, occurrences: &[OccurrenceDef]) -> Result<(), SpecError> {
+    let mut seen: BTreeMap<&[u8], SegmentSeen<'_>> = BTreeMap::new();
+    for occurrence in occurrences {
+        match seen.entry(occurrence.segment.as_slice()) {
+            Entry::Vacant(slot) => {
+                slot.insert(SegmentSeen::new(occurrence));
+            }
+            Entry::Occupied(mut slot) => slot
+                .get_mut()
+                .admit(occurrence)
+                .map_err(|reason| bad_occurrence(loop_name, &occurrence.name, reason))?,
+        }
+    }
+    Ok(())
+}
+
 /// Compiles the occurrences of the loop `loop_name` against the segment
 /// definitions, sorted by position (ties keep name order), and checks that
 /// every two occurrences of one segment can be told apart.
@@ -202,44 +284,12 @@ pub(super) fn compile_occurrences(
     raw: &BTreeMap<String, RawOccurrence>,
     segments: &BTreeMap<Vec<u8>, SegmentDef>,
 ) -> Result<Vec<OccurrenceDef>, SpecError> {
-    let mut occurrences = Vec::with_capacity(raw.len());
-    for (name, def) in raw {
-        occurrences.push(compile_occurrence(loop_name, name, def, segments)?);
-    }
+    let mut occurrences = raw
+        .iter()
+        .map(|(name, def)| compile_occurrence(loop_name, name, def, segments))
+        .collect::<Result<Vec<_>, _>>()?;
     occurrences.sort_by_key(|occurrence| occurrence.pos);
-    for (i, first) in occurrences.iter().enumerate() {
-        for second in occurrences.iter().skip(i + 1) {
-            if first.segment != second.segment {
-                continue;
-            }
-            let fail = |reason| SpecError::BadOccurrence {
-                loop_name: loop_name.to_string(),
-                occurrence: second.name.clone(),
-                reason: Box::new(reason),
-            };
-            let segment = String::from_utf8_lossy(&second.segment).into_owned();
-            let (Some(a), Some(b)) = (&first.qualifier, &second.qualifier) else {
-                return Err(fail(OccurrenceError::Indistinct {
-                    other: first.name.clone(),
-                    segment,
-                }));
-            };
-            if (a.element, a.component) != (b.element, b.component) {
-                return Err(fail(OccurrenceError::QualifierPlaces {
-                    other: first.name.clone(),
-                    place: place(&segment, b.element, b.component),
-                    other_place: place(&segment, a.element, a.component),
-                }));
-            }
-            if let Some(code) = a.codes.iter().find(|code| b.codes.contains(code)) {
-                return Err(fail(OccurrenceError::SharedCode {
-                    other: first.name.clone(),
-                    segment,
-                    code: code.clone(),
-                }));
-            }
-        }
-    }
+    check_distinct(loop_name, &occurrences)?;
     Ok(occurrences)
 }
 

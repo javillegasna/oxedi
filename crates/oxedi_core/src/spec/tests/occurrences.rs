@@ -328,6 +328,10 @@ fn invalid_occurrences_are_rejected_naming_loop_occurrence_rule_and_datum() {
             "loop \"head\" occurrence \"patient\": holds segment \"NM\" like occurrence \"insured\", and both qualifiers accept code \"QC\"",
         ),
         (
+            r#"{"loops":{"head":{"occurrences":{"insured":{"qualifier":{"codes":["IL","QD"]}},"subscriber":{"segment":"NM","pos":30,"qualifier":{"element":1,"codes":["QC","QD"]}}}}}}"#,
+            "loop \"head\" occurrence \"subscriber\": holds segment \"NM\" like occurrence \"patient\", and both qualifiers accept code \"QC\"",
+        ),
+        (
             r#"{"loops":{"party":{"occurrences":{"payer":{"qualifier":{"codes":["PE"]}}}}}}"#,
             "loop \"party\" opens on \"N1\" where {1: \"PR\"}, but none of its occurrences holds that segment with a qualifier the trigger's conditions select",
         ),

@@ -11,7 +11,8 @@ const OPERATIONS: &str = "count, distinct, sum, row";
 pub enum SummaryDefError {
     /// The summary's name is the empty string.
     EmptyName,
-    /// The summary holds no operation, or more than one.
+    /// The summary holds no operation, or more than one. It is reported inside
+    /// `SpecError::Format`, at the summary's path.
     Operations {
         /// The operations it holds, in alphabetical order.
         found: Vec<String>,

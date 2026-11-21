@@ -101,7 +101,8 @@ pub enum SpecError {
         key: &'static str,
     },
     /// A value of the right JSON type that the spec's model does not read: a
-    /// word outside its vocabulary, an element type, a key that is not a position.
+    /// word outside its vocabulary, an element type, a key that is not a position,
+    /// a summary that holds no operation or more than one.
     Format {
         /// Where the value sits, from the root: keys joined by `.`, a key holding
         /// `.`, `/`, `#` or whitespace quoted (e.g. `loops.2100.occurrences.clp.usage`).
@@ -233,13 +234,6 @@ pub enum SpecError {
         conditions_a: String,
         /// The second loop's trigger, written the same way.
         conditions_b: String,
-    },
-    /// A summary does not match the schema.
-    SummarySchema {
-        /// The summary name as written.
-        summary: String,
-        /// What serde rejected.
-        source: serde_json::Error,
     },
     /// A summary is invalid.
     BadSummary {
@@ -433,9 +427,6 @@ impl fmt::Display for SpecError {
                  different values, and neither trigger is more specific than the other",
                 Under(parent.as_deref())
             ),
-            SpecError::SummarySchema { summary, source } => {
-                write!(f, "summary {summary:?} does not match the schema: {source}")
-            }
             SpecError::BadSummary { summary, reason } => write!(f, "summary {summary:?}: {reason}"),
             SpecError::UnknownDefaultTable { table, known } => write!(
                 f,

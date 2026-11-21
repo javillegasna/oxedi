@@ -73,7 +73,6 @@ impl std::error::Error for SpecError {
             | SpecError::ZeroLoopMax { .. }
             | SpecError::AmbiguousTrigger { .. }
             | SpecError::OverlappingTriggers { .. }
-            | SpecError::SummarySchema { .. }
             | SpecError::BadSummary { .. }
             | SpecError::UnknownDefaultTable { .. }
             | SpecError::ModelMismatch { .. } => None,

@@ -4,14 +4,14 @@
 use serde::{Deserialize, Serialize};
 
 use super::declare::spec_object;
-use crate::spec::Sign;
 use crate::spec::sections::{COUNT, COUNTS, TEXT, TEXTS, nullable, objects};
 use crate::spec::shape::{Field, Leaf};
+use crate::spec::{Sign, SummaryDefError};
 
 spec_object! {
     /// The element of a segment that declares the version a file is written in,
     /// and the values the spec accepts there.
-    VersionModel = RawVersion, VERSION, "a version object";
+    VersionModel, VERSION, "a version object";
     /// The segment that holds the declaration.
     segment: String, TEXT, required;
     /// 1-based element position of the declaration.
@@ -22,14 +22,14 @@ spec_object! {
 
 spec_object! {
     /// A summary over the rows of a table, written `{"count": {"table": ...}}`.
-    SummaryTableModel = RawSummaryTable, SUMMARY_TABLE, "a summary operation object";
+    SummaryTableModel, SUMMARY_TABLE, "a summary operation object";
     /// The table.
     table: String, TEXT, required;
 }
 
 spec_object! {
     /// A summary over one column of a table.
-    SummaryColumnModel = RawSummaryColumn, SUMMARY_COLUMN, "a summary operation object";
+    SummaryColumnModel, SUMMARY_COLUMN, "a summary operation object";
     /// The table.
     table: String, TEXT, required;
     /// The column.
@@ -38,7 +38,7 @@ spec_object! {
 
 spec_object! {
     /// A summary of named fields of the one row of a table.
-    SummaryRowModel = RawSummaryRow, SUMMARY_ROW, "a summary operation object";
+    SummaryRowModel, SUMMARY_ROW, "a summary operation object";
     /// The table.
     table: String, TEXT, required;
     /// The fields, in the order written.
@@ -56,7 +56,7 @@ spec_object! {
 
 /// The one operation a summary holds, the only key of its object.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(rename_all = "lowercase")]
+#[serde(rename_all = "lowercase", try_from = "SummaryKeys")]
 pub enum SummaryModel {
     /// The number of rows of a table.
     Count(SummaryTableModel),
@@ -66,6 +66,42 @@ pub enum SummaryModel {
     Sum(SummaryColumnModel),
     /// Named fields of the one row of a table.
     Row(SummaryRowModel),
+}
+
+// The keys a summary object may hold; exactly one must be present, which
+// the conversion checks so the error lists the ones held.
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields, expecting = "a summary object")]
+struct SummaryKeys {
+    count: Option<SummaryTableModel>,
+    distinct: Option<SummaryColumnModel>,
+    row: Option<SummaryRowModel>,
+    sum: Option<SummaryColumnModel>,
+}
+
+impl TryFrom<SummaryKeys> for SummaryModel {
+    type Error = SummaryDefError;
+
+    fn try_from(keys: SummaryKeys) -> Result<SummaryModel, SummaryDefError> {
+        let mut held: Vec<(&str, SummaryModel)> = [
+            ("count", keys.count.map(SummaryModel::Count)),
+            ("distinct", keys.distinct.map(SummaryModel::Distinct)),
+            ("row", keys.row.map(SummaryModel::Row)),
+            ("sum", keys.sum.map(SummaryModel::Sum)),
+        ]
+        .into_iter()
+        .filter_map(|(key, operation)| operation.map(|operation| (key, operation)))
+        .collect();
+        match held.pop() {
+            Some((_, operation)) if held.is_empty() => Ok(operation),
+            last => {
+                held.extend(last);
+                Err(SummaryDefError::Operations {
+                    found: held.iter().map(|(key, _)| key.to_string()).collect(),
+                })
+            }
+        }
+    }
 }
 
 spec_object! {

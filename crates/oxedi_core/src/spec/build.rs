@@ -15,10 +15,10 @@ use super::build_loops::{check_cycles, compile_loop, held_segments};
 use super::compile::compile_tables;
 use super::error::SpecError;
 use super::loops::{LoopId, Trigger};
-use super::model::{LoopModel, SegmentModel, read_entry};
+use super::model::{LoopModel, SegmentModel, VersionModel, read_entry};
 use super::occurrence_index::OccurrenceIndex;
 use super::occurrences::{check_trigger, compile_occurrences};
-use super::raw::{RawSpec, RawVersion};
+use super::raw::RawSpec;
 use super::render::render_trigger;
 use super::segments::{SegmentDef, compile_elements};
 use super::shape::{check_shape, section};
@@ -30,7 +30,7 @@ struct Build {
     spec: Spec,
     /// The loops as their model reads them, in name order.
     defs: Vec<(String, LoopModel)>,
-    version: Option<RawVersion>,
+    version: Option<VersionModel>,
     default_table: Option<String>,
 }
 

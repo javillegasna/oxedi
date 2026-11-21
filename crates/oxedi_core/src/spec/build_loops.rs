@@ -1,11 +1,12 @@
 //! The compilation of one loop: the checks of its own keys, its parent, its
-//! trigger and its control, the parent cycle check over every
-//! loop, and the segments its occurrences hold.
+//! trigger and its control, why a control is rejected, the parent cycle check
+//! over every loop, and the segments its occurrences hold.
 
 use std::collections::{BTreeMap, BTreeSet};
+use std::fmt;
 
 use super::error::SpecError;
-use super::loops::{Control, ControlError, LoopDef, LoopId, Trigger};
+use super::loops::{Control, LoopDef, LoopId, Trigger};
 use super::model::{ControlModel, LoopModel};
 
 /// A check of a loop's own keys: the error when the loop breaks it.
@@ -115,6 +116,29 @@ pub(super) fn held_segments(def: &LoopDef) -> Vec<Vec<u8>> {
         .filter(|occurrence| seen.insert(occurrence.segment.as_slice()))
         .map(|occurrence| occurrence.segment.clone())
         .collect()
+}
+
+/// Why a loop's `control` was rejected.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum ControlError {
+    /// A position key holds 0.
+    ZeroPosition {
+        /// The key, e.g. `opener_element`.
+        key: &'static str,
+    },
+    /// The loop has no `end` segment to carry the count and control number.
+    NoEnd,
+}
+
+impl fmt::Display for ControlError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            ControlError::ZeroPosition { key } => {
+                write!(f, "{key:?} must be a 1-based element position; found 0")
+            }
+            ControlError::NoEnd => write!(f, "the loop has no \"end\" segment to check"),
+        }
+    }
 }
 
 /// Validates a loop's `control`; `has_end` says whether the loop declares an end segment.

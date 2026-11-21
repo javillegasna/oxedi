@@ -3,8 +3,8 @@
 use std::fmt;
 
 use super::balance_error::BalanceError;
+use super::build_loops::ControlError;
 use super::error_text::{Under, write_ambiguous, write_cycle};
-use super::loops::ControlError;
 use super::occurrence_error::OccurrenceError;
 use super::segments::ElementDefError;
 use super::summary_error::SummaryDefError;

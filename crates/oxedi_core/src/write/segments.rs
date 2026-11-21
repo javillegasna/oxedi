@@ -3,7 +3,8 @@
 
 use std::collections::BTreeMap;
 
-use crate::spec::{OccurrenceDef, Pick};
+use crate::spec::OccurrenceDef;
+use crate::vocabulary::Pick;
 
 use super::build::{Builder, Codes, Entry};
 use super::plan::{ElementPlan, Place, SegmentPlan, SegmentSource, ValueSource};

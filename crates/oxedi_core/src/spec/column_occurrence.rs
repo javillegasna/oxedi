@@ -5,8 +5,8 @@ use super::columns::{Read, first_written, location_keys};
 use super::loops::LoopId;
 use super::occurrences::OccurrenceDef;
 use super::table_error::{LoopSegments, TableDefError};
-use super::tables::Pick;
 use super::{ColumnModel, Spec};
+use crate::vocabulary::Pick;
 
 /// The keys an occurrence already names, which a column naming one must not
 /// write.

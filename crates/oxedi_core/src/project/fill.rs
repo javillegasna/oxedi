@@ -5,8 +5,9 @@ use crate::column::{Cell, CellError, RowError, Table};
 use crate::diagnostic::{Diagnostic, Rule};
 use crate::element::Element;
 use crate::segment::Segment;
-use crate::spec::{ColumnSource, LoopId, Pick};
+use crate::spec::{ColumnSource, LoopId};
 use crate::value::{ColumnType, Parsed};
+use crate::vocabulary::Pick;
 
 use super::Projector;
 use super::check::Checked;

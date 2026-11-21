@@ -6,10 +6,9 @@ use serde::Deserializer;
 
 use super::declare::spec_object;
 use super::positions;
-use crate::spec::Pick;
 use crate::spec::sections::{COUNT, TEXT, TEXTS, leaf, nullable};
 use crate::spec::shape::{Field, Leaf};
-use crate::vocabulary::Phi;
+use crate::vocabulary::{Phi, Pick};
 
 spec_object! {
     /// A table: the loops its rows come from and the columns each row holds.

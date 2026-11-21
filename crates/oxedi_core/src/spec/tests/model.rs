@@ -6,11 +6,12 @@ use serde_json::{Value, from_value, json, to_value};
 use crate::spec::SpecError;
 use crate::spec::model::read_model;
 use crate::spec::{
-    Builtin, ColumnModel, ElementModel, ElementPosition, LoopModel, OccurrenceModel, Pick,
+    Builtin, ColumnModel, ElementModel, ElementPosition, LoopModel, OccurrenceModel,
     QualifierModel, SegmentModel, Sign, Spec, SpecModel, SummaryModel, SummaryTableModel,
     TermModel, TriggerModel, Usage, test_support,
 };
 use crate::value::{ElementType, TypeCodeError};
+use crate::vocabulary::Pick;
 
 fn minimal_loop() -> LoopModel {
     LoopModel {

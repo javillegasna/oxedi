@@ -84,6 +84,8 @@ This file covers the Python package; the DuckDB extension has its own changelog 
   loop ordinals of its own.
 - Rust: `Phi` and `DateMode` moved from `oxedi_core::mask` to the new module
   `oxedi_core::vocabulary`; the root paths `oxedi_core::Phi` and `oxedi_core::DateMode` are unchanged.
+- Rust: `Pick` moved from `oxedi_core::spec` to `oxedi_core::vocabulary`; the root path `oxedi_core::Pick` is
+  unchanged.
 - The spec shape check names a `pick` that is not `"first"`, `"last"` or a 1-based position with the
   same words as a Rust read of a pick, which names the value found; a spec that does not read into
   its typed model names the path to the key it rejected.

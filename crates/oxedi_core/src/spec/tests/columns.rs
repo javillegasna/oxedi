@@ -2,6 +2,7 @@
 //! pick a matching segment other than the first.
 
 use crate::spec::*;
+use crate::vocabulary::Pick;
 
 const SPEC: &str = r#"{"name":"t",
     "loops":{

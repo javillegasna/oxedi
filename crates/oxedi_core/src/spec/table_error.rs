@@ -4,8 +4,8 @@ use std::fmt;
 
 use super::phi::ColumnKind;
 use super::render::{Declared, render_chain};
-use super::tables::Pick;
 use crate::message::ElementRef;
+use crate::vocabulary::Pick;
 
 /// The tables above two anchor loops, outermost first.
 #[derive(Debug, Clone, PartialEq, Eq)]

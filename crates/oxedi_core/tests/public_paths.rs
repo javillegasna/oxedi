@@ -70,7 +70,6 @@ mod by_module {
     use oxedi_core::spec::LoopSegments;
     use oxedi_core::spec::OccurrenceId;
     use oxedi_core::spec::OccurrenceModel;
-    use oxedi_core::spec::Pick;
     use oxedi_core::spec::QualifierModel;
     use oxedi_core::spec::ROW_COLUMN;
     use oxedi_core::spec::Repeat;
@@ -150,6 +149,7 @@ mod by_module {
     use oxedi_core::value::time_of_day;
     use oxedi_core::vocabulary::DateMode;
     use oxedi_core::vocabulary::Phi;
+    use oxedi_core::vocabulary::Pick;
 }
 
 // Root re-exports from lib.rs

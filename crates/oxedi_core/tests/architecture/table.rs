@@ -95,6 +95,7 @@ pub const TABLE: &[Row] = &[
             "segment",
             "spec",
             "value",
+            "vocabulary",
         ],
     ),
 ];

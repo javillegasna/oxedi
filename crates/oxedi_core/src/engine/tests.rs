@@ -721,3 +721,20 @@ fn an_event_names_its_instance() {
         assert_eq!(event.instance(), expected, "{event:?}");
     }
 }
+
+#[test]
+fn a_named_lineage_gives_loop_names_and_ordinals() {
+    let spec = nested();
+    let mut engine = LoopEngine::new(&spec);
+    let (events, open) = last_step(&mut engine, b"AA~BB~");
+    let captured = events
+        .iter()
+        .find(|event| captured_instance(event).is_some())
+        .expect("the step captures");
+    assert_eq!(
+        named_lineage(&spec, captured, &open, &events),
+        vec![("A", 1), ("B", 1)]
+    );
+    let empty = Event::Empty { segment: 0 };
+    assert!(named_lineage(&spec, &empty, &open, &events).is_empty());
+}

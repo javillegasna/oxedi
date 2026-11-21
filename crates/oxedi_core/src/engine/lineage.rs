@@ -1,6 +1,7 @@
 //! The path of an instance: the occurrence and the ones that enclose it.
 
 use super::{Event, Instance};
+use crate::spec::Spec;
 
 /// `instance` and the instances that enclose it, outermost first. `open` is
 /// `LoopEngine::path()` after the step and `events` are the events of that step.
@@ -32,4 +33,21 @@ pub fn lineage(instance: Instance, open: &[Instance], events: &[Event]) -> Vec<I
     }
     path.reverse();
     path
+}
+
+/// The loop name and 1-based ordinal of each instance from the outermost down
+/// to the one `event` names, empty when the event names none. `open` and
+/// `events` are as in [`lineage`].
+pub fn named_lineage<'s>(
+    spec: &'s Spec,
+    event: &Event,
+    open: &[Instance],
+    events: &[Event],
+) -> Vec<(&'s str, usize)> {
+    event.instance().map_or_else(Vec::new, |instance| {
+        lineage(instance, open, events)
+            .iter()
+            .map(|at| (spec.loop_name(at.loop_id), at.ordinal_in_stream))
+            .collect()
+    })
 }

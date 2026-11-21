@@ -30,6 +30,8 @@ This file covers the Python package; the DuckDB extension has its own changelog 
 - Rust: `Event::closes(loop_id)` tells whether an event closes the loop.
 - Rust: `Event::instance()` returns the instance an event is about, `None` for an empty segment or an
   unmatched one at the top level.
+- Rust: `engine::named_lineage(spec, event, open, events)` gives the loop name and ordinal of each
+  instance around an event, outermost first.
 - Rust: `Spec::occurrence_of(loop_id, segment)` returns the `OccurrenceId` a segment takes in a loop,
   found through an index built when the spec loads; `LoopDef::occurrence_of` is removed.
 - Rust: `Event::Captured` carries `occurrence: Option<OccurrenceId>`, the occurrence of the loop the

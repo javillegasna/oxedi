@@ -75,7 +75,7 @@ mod tests;
 use crate::column::{Cell, Table, Tables};
 use crate::delimiters::Delimiters;
 use crate::diagnostic::{Diagnostic, locate};
-use crate::engine::{Event, Instance, lineage};
+use crate::engine::{Event, Instance, named_lineage};
 use crate::mask::Mask;
 use crate::segment::Segment;
 use crate::spec::{
@@ -269,7 +269,7 @@ impl<'s> Projector<'s> {
             let before = self.diagnostics.len();
             self.step(event, segment);
             if self.diagnostics.len() > before {
-                self.locate(before, event.instance(), open, events);
+                self.locate(before, event, open, events);
             }
         }
     }
@@ -296,23 +296,13 @@ impl<'s> Projector<'s> {
         }
     }
 
-    /// Writes the loop path of `instance` on the diagnostics from `first` on.
-    fn locate(
-        &mut self,
-        first: usize,
-        instance: Option<Instance>,
-        open: &[Instance],
-        events: &[Event],
-    ) {
-        let Some(instance) = instance else {
-            return;
-        };
-        let spec = self.spec;
-        let path = lineage(instance, open, events);
-        let names = path
-            .iter()
-            .map(|at| (spec.loop_name(at.loop_id), at.ordinal_in_stream));
-        locate(&mut self.diagnostics[first..], names);
+    /// Writes the loop path of the event's instance on the diagnostics from
+    /// `first` on.
+    fn locate(&mut self, first: usize, event: &Event, open: &[Instance], events: &[Event]) {
+        let path = named_lineage(self.spec, event, open, events);
+        if !path.is_empty() {
+            locate(&mut self.diagnostics[first..], path.into_iter());
+        }
     }
 
     fn captured(&mut self, id: LoopId, segment: &Segment<'_>, found: Option<OccurrenceId>) {

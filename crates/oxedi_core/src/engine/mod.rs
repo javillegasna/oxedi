@@ -17,7 +17,7 @@ mod lineage;
 mod paths;
 
 pub use instance::{Instance, InstanceId};
-pub use lineage::lineage;
+pub use lineage::{lineage, named_lineage};
 pub use paths::loop_paths;
 
 use crate::segment::Segment;

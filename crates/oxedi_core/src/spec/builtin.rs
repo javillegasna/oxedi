@@ -100,6 +100,33 @@ impl Builtin {
     }
 }
 
+impl Spec {
+    /// The built-in 835 structure as shipped, in the same JSON a user would write.
+    pub const BUILTIN_835_JSON: &'static str = include_str!("../../specs/835.json");
+
+    /// The built-in 835 structure.
+    pub fn builtin_835() -> Spec {
+        Builtin::find("835", Builtin::DEFAULT_VERSION)
+            .map(|builtin| Spec::clone(&builtin.spec))
+            .expect(
+                "the registry holds the 835 at its default version; spec::tests::loading::builtin_835_loads checks it",
+            )
+    }
+
+    /// The merge patch that turns the built-in 835 into its 4010 version.
+    pub const BUILTIN_835_4010_PATCH: &'static str = include_str!("../../specs/835.4010.json");
+
+    /// The built-in 835 for version 4010: [`Spec::builtin_835`] with
+    /// [`Spec::BUILTIN_835_4010_PATCH`] merged over it.
+    pub fn builtin_835_4010() -> Spec {
+        Builtin::find("835", Version::V4010)
+            .map(|builtin| Spec::clone(&builtin.spec))
+            .expect(
+                "the registry holds the 835 at 4010; spec::tests::builtin::find_835_4010_gives_the_4010_patch checks it",
+            )
+    }
+}
+
 const SHIPPED: [(&str, Version, Shipped); 2] = [
     (
         "835",

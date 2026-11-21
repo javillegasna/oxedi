@@ -47,6 +47,11 @@ const STEPS: [Step; 11] = [
 ];
 
 impl Spec {
+    /// Loads and validates a spec from JSON text.
+    pub fn from_json(json: &str) -> Result<Spec, SpecError> {
+        SpecModel::from_json(json).and_then(|model| model.compile())
+    }
+
     /// Compiles `model`.
     pub(in crate::spec) fn build(model: &SpecModel) -> Result<Spec, SpecError> {
         let mut build = Build::new(model)?;

@@ -122,6 +122,6 @@ pub(super) struct RawSummary {
 }
 
 pub(super) use super::model::{
-    RawBalance, RawColumn, RawSegment, RawSpec, RawSummaryColumn, RawSummaryRow, RawSummaryTable,
-    RawTable, RawTerm, RawVersion,
+    RawBalance, RawSegment, RawSpec, RawSummaryColumn, RawSummaryRow, RawSummaryTable, RawTerm,
+    RawVersion,
 };

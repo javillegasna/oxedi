@@ -1,27 +1,19 @@
 //! Reading of the occurrence a table column names: the occurrence in each
 //! reading loop, its segment and the pick written for it.
 
-use super::Spec;
 use super::columns::{Read, first_written, location_keys};
 use super::loops::LoopId;
 use super::occurrences::OccurrenceDef;
-use super::raw::{RawColumn, RawPick};
 use super::table_error::{LoopSegments, TableDefError};
 use super::tables::Pick;
-
-/// The pick as compiled: `first`, `last` or a position from 1.
-fn compile_pick(raw: Option<&RawPick>) -> Result<Pick, TableDefError> {
-    raw.map_or(Ok(Pick::default()), |raw| {
-        Pick::read(raw).map_err(|written| TableDefError::BadPick { written })
-    })
-}
+use super::{ColumnModel, Spec};
 
 /// The keys an occurrence already names, which a column naming one must not
 /// write.
 const NAMED_BY_OCCURRENCE: [&str; 2] = ["segment", "where"];
 
 /// Refuses `segment` or `where` next to `occurrence`.
-fn occurrence_alone(raw: &RawColumn) -> Result<(), TableDefError> {
+fn occurrence_alone(raw: &ColumnModel) -> Result<(), TableDefError> {
     let named = location_keys(raw)
         .into_iter()
         .filter(|(key, _)| NAMED_BY_OCCURRENCE.contains(key));
@@ -135,14 +127,14 @@ fn check_reader(
 /// or every anchor loop.
 pub(super) fn by_occurrence(
     spec: &Spec,
-    raw: &RawColumn,
+    raw: &ColumnModel,
     name: &str,
     loop_id: Option<LoopId>,
     anchors: &[LoopId],
 ) -> Result<Read, TableDefError> {
     occurrence_alone(raw)?;
-    let pick = compile_pick(raw.pick.as_ref())?;
-    let written = raw.pick.is_some().then_some(pick);
+    let pick = raw.pick.unwrap_or_default();
+    let written = raw.pick;
     let readers = loop_id.as_ref().map_or(anchors, std::slice::from_ref);
     let first = readers
         .first()

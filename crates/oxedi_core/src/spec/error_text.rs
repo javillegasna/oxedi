@@ -62,7 +62,6 @@ impl std::error::Error for SpecError {
             | SpecError::Format { .. }
             | SpecError::SegmentSchema { .. }
             | SpecError::BadElementDef { .. }
-            | SpecError::TableSchema { .. }
             | SpecError::BadTable { .. }
             | SpecError::BadVersion { .. }
             | SpecError::BadControl { .. }

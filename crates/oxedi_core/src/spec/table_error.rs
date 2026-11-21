@@ -84,11 +84,6 @@ pub enum TableDefError {
         /// The key: `repeat.from`, `element` or `component`.
         key: &'static str,
     },
-    /// A `where` key is not a 1-based element position in canonical form.
-    BadPosition {
-        /// The key as written.
-        key: String,
-    },
     /// `group_element` does not fit inside a group.
     OffsetBeyondStep {
         /// The offset as written.
@@ -217,11 +212,6 @@ pub enum TableDefError {
     },
     /// `component` is given with `segment_index`.
     ComponentOnIndex,
-    /// A column's `phi` is not `name`, `id` or `date`.
-    UnknownPhi {
-        /// The text given.
-        given: String,
-    },
     /// `phi` is `name` or `id` on a column that is not text.
     PhiNeedsText {
         /// The kind given: `name` or `id`.
@@ -285,10 +275,6 @@ impl fmt::Display for TableDefError {
             TableDefError::ZeroPosition { key } => {
                 write!(f, "{key:?} must be a 1-based position; found 0")
             }
-            TableDefError::BadPosition { key } => write!(
-                f,
-                "\"where\" position {key:?} is not a 1-based integer in canonical form"
-            ),
             TableDefError::OffsetBeyondStep { offset, step } => write!(
                 f,
                 "\"group_element\" {offset} is outside a group of {step} elements (offsets start at 0)"
@@ -394,12 +380,6 @@ impl fmt::Display for TableDefError {
             ),
             TableDefError::ComponentOnIndex => {
                 write!(f, "\"component\" does not apply to \"segment_index\"")
-            }
-            TableDefError::UnknownPhi { given } => {
-                write!(
-                    f,
-                    "\"phi\" must be \"name\", \"id\" or \"date\"; got {given:?}"
-                )
             }
             TableDefError::PhiNeedsText { kind, found } => {
                 write!(

@@ -1,19 +1,18 @@
 //! Compilation of one table column into its value source.
 
-use super::Spec;
 use super::column_occurrence::by_occurrence;
 use super::error::SpecError;
 use super::loops::LoopId;
 use super::occurrences::OccurrenceDef;
-use super::raw::{RawColumn, RawPick};
-use super::segments::{ROW_COLUMN, SEGMENT_COLUMN, parse_position};
+use super::segments::{ROW_COLUMN, SEGMENT_COLUMN};
 use super::table_error::{AnchorPositions, TableDefError};
 use super::tables::{ColumnSource, Pick, Repeat};
+use super::{ColumnModel, Spec};
 use crate::message::render_key;
 
 /// One refusal of a column's keys: the error when `raw`, written for column
 /// `column`, breaks it.
-type ColumnRule = fn(&str, &RawColumn) -> Option<TableDefError>;
+type ColumnRule = fn(&str, &ColumnModel) -> Option<TableDefError>;
 
 /// The refusals of the column's name, checked before its source keys are read.
 const NAME_RULES: [ColumnRule; 2] = [empty_name, reserved_name];
@@ -22,13 +21,13 @@ const NAME_RULES: [ColumnRule; 2] = [empty_name, reserved_name];
 /// one source key.
 const KEY_RULES: [ColumnRule; 3] = [component_on_index, zero_element, zero_component];
 
-fn empty_name(column: &str, _: &RawColumn) -> Option<TableDefError> {
+fn empty_name(column: &str, _: &ColumnModel) -> Option<TableDefError> {
     column.is_empty().then_some(TableDefError::EmptyName {
         what: "column name",
     })
 }
 
-fn reserved_name(column: &str, _: &RawColumn) -> Option<TableDefError> {
+fn reserved_name(column: &str, _: &ColumnModel) -> Option<TableDefError> {
     [ROW_COLUMN, SEGMENT_COLUMN]
         .contains(&column)
         .then(|| TableDefError::ReservedName {
@@ -36,20 +35,20 @@ fn reserved_name(column: &str, _: &RawColumn) -> Option<TableDefError> {
         })
 }
 
-fn component_on_index(_: &str, raw: &RawColumn) -> Option<TableDefError> {
+fn component_on_index(_: &str, raw: &ColumnModel) -> Option<TableDefError> {
     (raw.segment_index && raw.component.is_some()).then_some(TableDefError::ComponentOnIndex)
 }
 
-fn zero_element(_: &str, raw: &RawColumn) -> Option<TableDefError> {
+fn zero_element(_: &str, raw: &ColumnModel) -> Option<TableDefError> {
     (raw.element == Some(0)).then_some(TableDefError::ZeroPosition { key: "element" })
 }
 
-fn zero_component(_: &str, raw: &RawColumn) -> Option<TableDefError> {
+fn zero_component(_: &str, raw: &ColumnModel) -> Option<TableDefError> {
     (raw.component == Some(0)).then_some(TableDefError::ZeroPosition { key: "component" })
 }
 
 /// The first rule of `rules` that `raw` breaks, as an error.
-fn refuse(rules: &[ColumnRule], column: &str, raw: &RawColumn) -> Result<(), TableDefError> {
+fn refuse(rules: &[ColumnRule], column: &str, raw: &ColumnModel) -> Result<(), TableDefError> {
     rules
         .iter()
         .find_map(|rule| rule(column, raw))
@@ -69,7 +68,7 @@ enum ColumnRead {
 
 impl ColumnRead {
     /// The source key `raw` writes; `SourceCount` unless it writes exactly one.
-    fn read(raw: &RawColumn) -> Result<Self, TableDefError> {
+    fn read(raw: &ColumnModel) -> Result<Self, TableDefError> {
         match (raw.element, raw.group_element, raw.segment_index) {
             (Some(element), None, false) => Ok(Self::Element(element)),
             (None, Some(offset), false) => Ok(Self::Group(offset)),
@@ -87,7 +86,7 @@ impl ColumnRead {
 /// order a spec reports them, and the source key it writes.
 fn check_keys(
     column: &str,
-    raw: &RawColumn,
+    raw: &ColumnModel,
     anchor_segment: Option<&[u8]>,
 ) -> Result<ColumnRead, TableDefError> {
     refuse(&NAME_RULES, column, raw)?;
@@ -99,7 +98,7 @@ fn check_keys(
 
 /// The keys that place a column's segment, in the order refusals name them,
 /// each with its value as the spec writes it (`None` when not written).
-pub(super) fn location_keys(raw: &RawColumn) -> [(&'static str, Option<String>); 5] {
+pub(super) fn location_keys(raw: &ColumnModel) -> [(&'static str, Option<String>); 5] {
     [
         ("segment", raw.segment.as_ref().map(json)),
         ("loop", raw.loop_name.as_ref().map(json)),
@@ -108,7 +107,7 @@ pub(super) fn location_keys(raw: &RawColumn) -> [(&'static str, Option<String>);
             (!raw.conditions.is_empty()).then(|| json(&raw.conditions)),
         ),
         ("occurrence", raw.occurrence.as_ref().map(json)),
-        ("pick", raw.pick.as_ref().map(RawPick::written)),
+        ("pick", raw.pick.map(|pick| pick.to_string())),
     ]
 }
 
@@ -122,7 +121,7 @@ pub(super) fn first_written(
 
 /// Refuses a location key in a table anchored on a segment: its columns read
 /// that segment.
-fn anchor_only(raw: &RawColumn, anchor_segment: Option<&[u8]>) -> Result<(), TableDefError> {
+fn anchor_only(raw: &ColumnModel, anchor_segment: Option<&[u8]>) -> Result<(), TableDefError> {
     let Some(anchor) = anchor_segment else {
         return Ok(());
     };
@@ -168,7 +167,7 @@ pub(super) fn compile_column(
     spec: &Spec,
     table: &str,
     column: &str,
-    raw: &RawColumn,
+    raw: &ColumnModel,
     anchors: &[LoopId],
     anchor_segment: Option<&[u8]>,
     repeat: Option<Repeat>,
@@ -191,7 +190,7 @@ fn locate(
     spec: &Spec,
     table: &str,
     column: &str,
-    raw: &RawColumn,
+    raw: &ColumnModel,
     anchors: &[LoopId],
     anchor_segment: Option<&[u8]>,
 ) -> Result<Read, SpecError> {
@@ -267,7 +266,7 @@ fn json<T: serde::Serialize + ?Sized>(value: &T) -> String {
 /// (`UnrelatedLoop`).
 fn reading_loop(
     spec: &Spec,
-    raw: &RawColumn,
+    raw: &ColumnModel,
     anchors: &[LoopId],
 ) -> Result<Option<LoopId>, TableDefError> {
     let Some(name) = &raw.loop_name else {
@@ -361,18 +360,14 @@ fn by_segment(
     spec: &Spec,
     table: &str,
     column: &str,
-    raw: &RawColumn,
+    raw: &ColumnModel,
     loop_id: Option<LoopId>,
     anchors: &[LoopId],
 ) -> Result<Read, SpecError> {
-    let fail = |reason| SpecError::BadTable {
-        table: table.to_string(),
-        column: Some(column.to_string()),
-        reason,
-    };
-    if let Some(pick) = &raw.pick {
+    let fail = |reason| bad_column(table, column, reason);
+    if let Some(pick) = raw.pick {
         return Err(fail(TableDefError::PickNeedsOccurrence {
-            written: pick.written(),
+            written: pick.to_string(),
         }));
     }
     let segment = match raw.segment.as_deref() {
@@ -389,15 +384,13 @@ fn by_segment(
         }
         Some(id) => id.as_bytes().to_vec(),
     };
-    let mut conditions = Vec::with_capacity(raw.conditions.len());
-    for (key, value) in &raw.conditions {
-        let position = parse_position(key)
-            .ok_or_else(|| fail(TableDefError::BadPosition { key: key.clone() }))?;
-        conditions.push((position, value.as_bytes().to_vec()));
-    }
-    conditions.sort();
-    let readers = loop_id.map_or_else(|| anchors.to_vec(), |id| vec![id]);
-    check_held(spec, &readers, &segment).map_err(fail)?;
+    let conditions = raw
+        .conditions
+        .iter()
+        .map(|(&position, value)| (position, value.as_bytes().to_vec()))
+        .collect();
+    let readers = loop_id.as_ref().map_or(anchors, std::slice::from_ref);
+    check_held(spec, readers, &segment).map_err(fail)?;
     Ok(Read {
         loop_id,
         segment,

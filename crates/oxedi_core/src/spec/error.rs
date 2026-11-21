@@ -125,15 +125,6 @@ pub enum SpecError {
         /// What is wrong with it.
         reason: ElementDefError,
     },
-    /// A table or column definition does not match the schema.
-    TableSchema {
-        /// The table name as written.
-        table: String,
-        /// The column name as written, when the fault is inside a column.
-        column: Option<String>,
-        /// What serde rejected.
-        source: serde_json::Error,
-    },
     /// A table definition is invalid.
     BadTable {
         /// The table name as written.
@@ -360,19 +351,6 @@ impl fmt::Display for SpecError {
                 position,
                 reason,
             } => write!(f, "segment {segment:?} element {position:?}: {reason}"),
-            SpecError::TableSchema {
-                table,
-                column: None,
-                source,
-            } => write!(f, "table {table:?} does not match the schema: {source}"),
-            SpecError::TableSchema {
-                table,
-                column: Some(column),
-                source,
-            } => write!(
-                f,
-                "table {table:?} column {column:?} does not match the schema: {source}"
-            ),
             SpecError::BadTable {
                 table,
                 column: None,

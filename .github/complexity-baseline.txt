@@ -51,8 +51,6 @@ crates/oxedi_core/src/spec/compile.rs	compile_table	30	4
 crates/oxedi_core/src/spec/compile.rs	link_tables	17	4
 crates/oxedi_core/src/spec/error.rs	fmt	46	2	flat
 crates/oxedi_core/src/spec/occurrence_error.rs	fmt	12	0
-crates/oxedi_core/src/spec/occurrences.rs	compile_occurrence	19	2
-crates/oxedi_core/src/spec/occurrences.rs	compile_occurrences	8	3
 crates/oxedi_core/src/spec/phi.rs	control_element	13	2
 crates/oxedi_core/src/spec/segments.rs	fmt	16	0	flat
 crates/oxedi_core/src/spec/shape.rs	mismatch	8	3

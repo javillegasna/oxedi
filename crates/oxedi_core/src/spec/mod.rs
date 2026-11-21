@@ -24,8 +24,8 @@
 //! `occurrence_error`, `table_error`, `balance_error` and `summary_error` why
 //! an occurrence, a table, a balancing rule or a summary is rejected; `unknown`
 //! the errors for a table or a column the spec does not define; `schema` the columns of each table, known from
-//! the spec alone; `sections` the helpers of the JSON shape as data (each object's table is emitted by `model`) and `shape` the walk that
-//! checks a value against it; `test_support` (test builds only) the small spec
+//! the spec alone; `shape` the schema tables `model` emits beside each model and `sections` the helpers that
+//! build them, read only by the declaration test; `test_support` (test builds only) the small spec
 //! shared by the spec and projector tests and the nested-loop spec shared by
 //! the engine and tree tests; `build` the construction of a
 //! [`Spec`] as a pipeline of steps, `build_loops` the compilation of one loop and

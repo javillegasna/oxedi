@@ -46,10 +46,9 @@ This file covers the Python package; the DuckDB extension has its own changelog 
 - `Spec.to_json()` returns the spec's model as canonical JSON for every spec, loaded, patched or built in: no key equal to its default, no `null`, keys in name order; `Spec.patch` merges over that model.
 - A key holding `.`, `/`, `#` or whitespace is quoted in the path of `SpecError::Format`.
 - Rust: `SpecError::Format { path, source }`, the fault of a value the model refuses, at its path from the root.
-- A fault inside a loop, a table, a balancing rule, a segment, a segment element, a summary or the version, or in `name` or `default_table` (a key it does not take, a missing key, a value of the wrong JSON type, `null` where a value belongs) is reported by the model read at its path, in Rust and Python alike: ``spec: at segments.CLP.elements.3: unknown field `lenght`, expected one of `name`, `type`, `scale`, `required`, `min`, `max`, `codes`, `composite` ``, ``spec: at segments.CLP.elements.3.min: invalid type: string "1", expected usize``, ``spec: at summaries.s.distinct: missing field `column` ``, ``spec: at loops.a.trigger: invalid type: integer `1`, expected a trigger object``, ``spec: at tables.t.repeat: missing field `step` ``.
+- A fault anywhere in a spec, its top level included (a key it does not take, a missing key, a value of the wrong JSON type, `null` where a value belongs, a spec or a section that is not an object) is reported by the model read at its path from the root, `.` for the root itself, the first in key order, in Rust and Python alike: ``spec: at segments.CLP.elements.3: unknown field `lenght`, expected one of `name`, `type`, `scale`, `required`, `min`, `max`, `codes`, `composite` ``, ``spec: at segments.CLP.elements.3.min: invalid type: string "1", expected usize``, ``spec: at summaries.s.distinct: missing field `column` ``, ``spec: at loops.a.trigger: invalid type: integer `1`, expected a trigger object``, ``spec: at tables.t.repeat: missing field `step` ``, ``spec: at .: missing field `name` ``, ``spec: at tables: invalid type: sequence, expected a map``.
 - A scale the element's type refuses is reported at the element's path, as `scale` is written beside `type`.
-- Rust: that fault is a `SpecError::Format`, no longer `UnknownKey`, `MissingKey`, `NotAnObject` or `WrongType`.
-- That fault is reported after a fault of the top level: a key it does not take, a missing `name` or `loops`, or a section that is not an object.
+- Rust: every such fault is a `SpecError::Format`; no spec load returns `UnknownKey`, `MissingKey`, `NotAnObject` or `WrongType`.
 - A spec whose loop or occurrence `usage` is not `required` or `situational`, whose control `count`
   is not `segments` or `children`, or whose `where` or `codes` key is not a 1-based position fails
   at the value's path from the spec's root, in Rust and Python alike, and a word outside that
@@ -110,7 +109,7 @@ This file covers the Python package; the DuckDB extension has its own changelog 
   transaction and for a sum that overflows. Each reads `Result.<method>: <reason>`, for example
   `Result.payer: summary "payer" reads the one row of the table "payments", which has 2 rows`.
 - An unknown key in a spec now also lists the keys allowed there, for example
-  `spec: unknown key "tabels" at the top level; the allowed keys are: balancing, default_table, loops, name, segments, summaries, tables, version`.
+  ``spec: at tabels: unknown field `tabels`, expected one of `name`, `version`, `loops`, `tables`, `balancing`, `segments`, `summaries`, `default_table` ``.
 - The `test` extra is gone (`pip install "oxedi[test]"` no longer resolves): it was a contributor
   list, not a feature. Contributors install the test tools from the package's dependency group:
   `uv pip install --group crates/oxedi_py/pyproject.toml:test`, or `make venv`.

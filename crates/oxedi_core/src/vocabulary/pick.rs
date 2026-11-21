@@ -37,7 +37,7 @@ enum Written {
 impl Pick {
     /// The named picks, in the order the refusal lists their words.
     pub(crate) const NAMED: [Pick; 2] = [Pick::First, Pick::Last];
-    /// What a spec may write for a pick; the shape check and the refusal both
+    /// What a spec may write for a pick; the visitor's expectation and the refusal both
     /// say it.
     pub(crate) const EXPECTED: &'static str = "\"first\", \"last\" or a 1-based position";
 

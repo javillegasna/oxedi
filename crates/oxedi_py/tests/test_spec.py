@@ -24,6 +24,20 @@ def test_a_bad_spec_raises_spec_error_with_the_core_message():
     )
 
 
+@pytest.mark.parametrize(
+    ("text", "message"),
+    [
+        ("[]", 'spec: at .: invalid type: sequence, expected a spec object with "name" and "loops"'),
+        ('{"loops": {}}', "spec: at .: missing field `name`"),
+        ('{"name": "x", "loops": []}', "spec: at loops: invalid type: sequence, expected a map"),
+    ],
+)
+def test_a_top_level_fault_names_its_path(text, message):
+    with pytest.raises(SpecError) as info:
+        Spec.from_json(text)
+    assert str(info.value) == message
+
+
 def test_invalid_json_names_the_parser_message():
     with pytest.raises(SpecError) as info:
         Spec.from_json("{")

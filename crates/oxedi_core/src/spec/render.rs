@@ -3,8 +3,6 @@
 use std::borrow::Cow;
 use std::fmt;
 
-use serde_json::Value;
-
 use super::loops::Trigger;
 use super::occurrences::OccurrenceDef;
 use crate::message::{Conditions, ElementRef, MAX_LISTED_CODES, render_key, render_names};
@@ -54,25 +52,4 @@ pub(crate) fn render_selector(occurrence: &OccurrenceDef) -> String {
         codes => format!("is one of {} codes", codes.len()),
     };
     format!("{segment:?} where {at} {codes}")
-}
-
-/// The value as the datum of a [`SpecError::WrongType`]: a scalar as compact
-/// JSON, a container as its length, `null` as nothing.
-pub(super) fn render_value(value: &Value) -> String {
-    match value {
-        Value::Null => String::new(),
-        Value::Array(items) => format!("{} items", items.len()),
-        Value::Object(members) => format!("{} members", members.len()),
-        scalar => scalar.to_string(),
-    }
-}
-
-/// Joins a key to the path it sits under.
-pub(super) fn child(at: &str, key: &str) -> String {
-    let key = render_key(key);
-    if at.is_empty() {
-        key.into_owned()
-    } else {
-        format!("{at}.{key}")
-    }
 }

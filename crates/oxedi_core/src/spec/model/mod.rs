@@ -18,7 +18,7 @@ use serde::de;
 use serde::{Deserialize, Deserializer};
 
 use super::segments::{POSITION_RULE, parse_position};
-use super::shape::{Field, check_shape};
+use super::shape::Field;
 use super::strict::StrictValue;
 use super::{Spec, SpecError};
 use crate::message::render_key;
@@ -39,8 +39,8 @@ pub(in crate::spec) use segments::ELEMENT_MODEL_KEYS;
 spec_object! {
     /// A whole spec, as the spec writes it.
     ///
-    /// Read it with [`SpecModel::from_json`], which checks the shape and the
-    /// model, and check the rest with [`SpecModel::compile`]. Reading a model,
+    /// Read it with [`SpecModel::from_json`], which reads the whole spec strictly,
+    /// and check the rest with [`SpecModel::compile`]. Reading a model,
     /// or any `*Model`, with serde directly
     /// (`serde_json::from_value::<SummaryModel>(..)`) checks only its shape, its
     /// position keys and a summary's one operation: it accepts a table or a column
@@ -83,19 +83,13 @@ spec_object! {
 }
 
 impl SpecModel {
-    /// Reads a spec's JSON text into its model: the shape check, then the
-    /// model read; it does not check the rules that compile checks. Unparsable
+    /// Reads a spec's JSON text into its model, one strict read of the whole
+    /// spec; it does not check the rules that compile checks. Unparsable
     /// text is [`SpecError::Json`], a value the model refuses
     /// [`SpecError::Format`] at its path.
     pub fn from_json(json: &str) -> Result<SpecModel, SpecError> {
         let source: serde_json::Value = serde_json::from_str(json).map_err(SpecError::Json)?;
         SpecModel::from_value(&source)
-    }
-
-    /// The shape check, then the model read, of a parsed spec.
-    pub(in crate::spec) fn from_value(source: &serde_json::Value) -> Result<SpecModel, SpecError> {
-        check_shape(source)?;
-        SpecModel::read(source)
     }
 
     /// Compiles the model into the spec the engine runs; it fails with the
@@ -105,10 +99,11 @@ impl SpecModel {
         Spec::build(self, source)
     }
 
-    /// Reads a spec's JSON into its model in one pass; the first value the
+    /// Reads a parsed spec into its model in one pass; the first value the
     /// model refuses, in key order, fails with [`SpecError::Format`] at its
-    /// path from the spec's root. An array where it has an object is refused.
-    pub(in crate::spec) fn read(source: &serde_json::Value) -> Result<SpecModel, SpecError> {
+    /// path from the spec's root (`.` for the root itself). An array where it
+    /// has an object is refused.
+    pub(in crate::spec) fn from_value(source: &serde_json::Value) -> Result<SpecModel, SpecError> {
         serde_path_to_error::deserialize(StrictValue(source)).map_err(|err| SpecError::Format {
             path: root_path(err.path()),
             source: err.into_inner(),

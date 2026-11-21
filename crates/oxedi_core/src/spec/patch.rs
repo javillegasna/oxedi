@@ -28,7 +28,7 @@ pub fn merge_patch(target: &mut Value, patch: &Value) {
 
 impl SpecModel {
     /// The model with the JSON Merge Patch `patch_json` applied to its
-    /// canonical JSON, read back through the shape check and the model; it is
+    /// canonical JSON, read back through the model; it is
     /// not compiled.
     pub(in crate::spec) fn patched(&self, patch_json: &str) -> Result<SpecModel, SpecError> {
         let patch: Value = serde_json::from_str(patch_json).map_err(SpecError::Json)?;

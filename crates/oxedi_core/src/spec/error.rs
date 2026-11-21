@@ -101,7 +101,7 @@ pub enum SpecError {
         key: &'static str,
     },
     /// A value of the right JSON type that the spec's model does not read: a
-    /// word outside its vocabulary, an element type, a key that is not a position,
+    /// word outside its vocabulary (a usage, a sign), an element type, a key that is not a position,
     /// a summary that holds no operation or more than one.
     Format {
         /// Where the value sits, from the root: keys joined by `.`, a key holding
@@ -148,13 +148,6 @@ pub enum SpecError {
         occurrence: String,
         /// What is wrong with it.
         reason: Box<OccurrenceError>,
-    },
-    /// A balancing rule does not match the schema.
-    BalanceSchema {
-        /// The rule name as written.
-        rule: String,
-        /// What serde rejected.
-        source: serde_json::Error,
     },
     /// A balancing rule is invalid.
     BadBalance {
@@ -356,10 +349,6 @@ impl fmt::Display for SpecError {
                 occurrence,
                 reason,
             } => write!(f, "loop {loop_name:?} occurrence {occurrence:?}: {reason}"),
-            SpecError::BalanceSchema { rule, source } => write!(
-                f,
-                "balancing rule {rule:?} does not match the schema: {source}"
-            ),
             SpecError::BadBalance { rule, reason } => {
                 write!(f, "balancing rule {rule:?}: {reason}")
             }

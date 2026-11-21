@@ -1,5 +1,4 @@
-//! The deserialization shapes the loader reads that differ from their model,
-//! the top level and the balancing rules, emitted in `model` and re-exported
-//! here.
+//! The deserialization shape the loader reads that differs from its model,
+//! the top level, emitted in `model` and re-exported here.
 
-pub(super) use super::model::{RawBalance, RawSpec, RawTerm};
+pub(super) use super::model::RawSpec;

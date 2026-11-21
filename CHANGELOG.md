@@ -130,6 +130,8 @@ This file covers the Python package; the DuckDB extension has its own changelog 
 - Rust: `SpecError::SegmentSchema`, `ElementDefError::NonCanonicalPosition`, `ElementDefError::UnknownType` and `ElementDefError::ScaleWithoutR` are removed, and so is `From<TypeCodeError> for ElementDefError`.
 - A summary that holds no operation, or more than one, fails at its path, in Rust and Python alike: `spec: at summaries.s: holds 2 operations (count, sum); a summary holds exactly one of count, distinct, sum, row`. Reading a `SummaryModel` with serde refuses it with the same text.
 - Rust: `SpecError::SummarySchema` is removed; `SummaryDefError::Operations` is reported inside `SpecError::Format`.
+- A balancing value whose `"sign"` is not `"+"` or `"-"` fails at its path from the spec's root, in Rust and Python alike: `spec: at balancing.claim_balance.sum[1].sign: "sign" must be "+" or "-"; found "plus"`. A rule is read whole first, so such a fault is reported before any other fault of the rule except an empty rule name.
+- Rust: `SpecError::BalanceSchema` and `BalanceError::UnknownSign` are removed.
 
 ### Fixed
 - The writer and the reader agree on the repetition separator of a custom spec: at interchange

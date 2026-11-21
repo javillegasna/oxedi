@@ -93,12 +93,14 @@ impl<'s> Processor<'s> {
     pub fn feed(&mut self, segment: &Segment<'_>) -> &Output {
         self.output.events.clear();
         self.output.diagnostics.clear();
-        let events = self.engine.feed(segment);
-        self.output.events.extend_from_slice(events);
+        self.output
+            .events
+            .extend_from_slice(self.engine.feed(segment));
         // The events carry the occurrence each captured segment matched, so
         // the two consumers are independent; the checker's findings come
         // first.
-        self.projector.on(segment, events);
+        let events = &self.output.events;
+        self.projector.on(segment, events, self.engine.path());
         self.output
             .diagnostics
             .extend_from_slice(self.checker.on(segment, events));
@@ -116,7 +118,8 @@ impl<'s> Processor<'s> {
     pub fn finish(&mut self) -> &Output {
         self.output.events.clear();
         self.output.diagnostics.clear();
-        self.output.events.extend_from_slice(self.engine.finish());
+        let events = self.engine.finish();
+        self.output.events.extend_from_slice(events);
         self.output
             .diagnostics
             .extend_from_slice(self.checker.finish());
@@ -124,7 +127,7 @@ impl<'s> Processor<'s> {
             .mask_datums(&mut self.output.diagnostics, None);
         self.output
             .diagnostics
-            .extend_from_slice(self.projector.finish());
+            .extend_from_slice(self.projector.finish(events));
         &self.output
     }
 

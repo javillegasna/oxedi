@@ -3,6 +3,7 @@
 //! reads (`unread.rs`).
 
 use super::*;
+use crate::engine::InstanceId;
 use crate::{LoopEngine, Tokenizer};
 use proptest::prelude::*;
 
@@ -21,11 +22,10 @@ pub(super) fn project(spec: &Spec, input: &str) -> (Tables, Vec<Diagnostic>) {
     let mut projector = Projector::new(spec, &delimiters());
     let mut diagnostics = Vec::new();
     for segment in Tokenizer::with_delimiters(input.as_bytes(), delimiters()) {
-        let events = engine.feed(&segment);
-        diagnostics.extend_from_slice(projector.on(&segment, events));
+        let events = engine.feed(&segment).to_vec();
+        diagnostics.extend_from_slice(projector.on(&segment, &events, engine.path()));
     }
-    engine.finish();
-    diagnostics.extend_from_slice(projector.finish());
+    diagnostics.extend_from_slice(projector.finish(engine.finish()));
     (projector.take_tables(), diagnostics)
 }
 
@@ -265,14 +265,13 @@ fn row_numbers_keep_counting_across_drains() {
     let input = "HD*B1~CL*C1*1~LN*L1~CL*C2*2~LN*L2~TR~";
     for segment in Tokenizer::with_delimiters(input.as_bytes(), delimiters()) {
         let events = engine.feed(&segment).to_vec();
-        projector.on(&segment, &events);
+        projector.on(&segment, &events, engine.path());
         let claim = spec.loop_id("claim").unwrap();
         if events.iter().any(|event| event.closes(claim)) {
             drains.push(projector.take_tables());
         }
     }
-    engine.finish();
-    projector.finish();
+    projector.finish(engine.finish());
     drains.push(projector.take_tables());
     let lines: Vec<Vec<String>> = drains
         .iter()
@@ -556,4 +555,59 @@ proptest! {
             }
         }
     }
+}
+
+#[test]
+fn a_close_appends_the_row_of_the_loop_its_event_names() {
+    let spec = spec();
+    let claim = Instance {
+        id: InstanceId::at(0),
+        loop_id: spec.loop_id("claim").unwrap(),
+        ordinal_in_stream: 1,
+        parent: None,
+    };
+    let line = Instance {
+        id: InstanceId::at(1),
+        loop_id: spec.loop_id("line").unwrap(),
+        ordinal_in_stream: 1,
+        parent: Some(claim.id),
+    };
+    let events = [
+        Event::LoopOpened {
+            instance: claim,
+            implicit: false,
+            segment: 0,
+        },
+        Event::LoopOpened {
+            instance: line,
+            implicit: false,
+            segment: 0,
+        },
+        Event::LoopClosed { instance: claim },
+    ];
+    let segment = Tokenizer::with_delimiters(b"LN*L1~", delimiters())
+        .next()
+        .unwrap();
+    let mut projector = Projector::new(&spec, &delimiters());
+    projector.on(&segment, &events, &[]);
+    let tables = projector.take_tables();
+    assert_eq!(rows(&tables, "claims").len() - 1, 1);
+    assert_eq!(rows(&tables, "lines").len() - 1, 0);
+}
+
+#[test]
+fn a_diagnostic_of_an_end_segment_keeps_the_loops_it_closes() {
+    let with_end = SPEC.replacen(
+        r#""segments":{"#,
+        r#""segments":{"TR":{"elements":{"1":{"name":"count","type":"N0","max":2}}},"#,
+        1,
+    );
+    let spec = Spec::from_json(&with_end).unwrap();
+    let (_, diagnostics) = project(&spec, "HD*B1~CL*C1*1~TR*123~");
+    assert_eq!(
+        rendered(&diagnostics),
+        vec![
+            "SNIP 2 · element TR01 (count) has length 3; the spec allows at most 2 · segment #2, element 1 · at head#1 · datum \"123\""
+        ]
+    );
 }

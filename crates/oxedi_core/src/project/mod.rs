@@ -73,8 +73,8 @@ mod tests;
 
 use crate::column::{Cell, Table, Tables};
 use crate::delimiters::Delimiters;
-use crate::diagnostic::Diagnostic;
-use crate::engine::Event;
+use crate::diagnostic::{Diagnostic, LoopRef};
+use crate::engine::{Event, Instance, lineage};
 use crate::mask::Mask;
 use crate::segment::Segment;
 use crate::spec::{
@@ -156,10 +156,6 @@ pub struct Projector<'s> {
     /// Per loop: `(table, carried value)` for the values read from that
     /// loop, which start over when an instance of it opens.
     resets: Vec<Vec<(usize, usize)>>,
-    /// Open loop instances with their ordinals, outermost first.
-    open: Vec<(LoopId, usize)>,
-    /// Instances opened so far, per loop index.
-    ordinals: Vec<usize>,
     checked: Vec<Checked>,
     /// The occurrence the segment being checked takes in its loop, when it
     /// has code lists of its own, which replace its elements' lists.
@@ -233,8 +229,6 @@ impl<'s> Projector<'s> {
             plans,
             segment_tables,
             resets,
-            open: Vec::new(),
-            ordinals: vec![0; loops],
             checked: Vec::new(),
             occurrence: None,
             matched: None,
@@ -270,41 +264,30 @@ impl<'s> Projector<'s> {
     }
 
     /// Consumes the events the engine returned for `segment` and returns the
-    /// diagnostics its elements raise. The slice is valid until the next call.
-    pub fn on(&mut self, segment: &Segment<'_>, events: &[Event]) -> &[Diagnostic] {
+    /// diagnostics its elements raise. `open` is `LoopEngine::path()` after the
+    /// step; with the events it gives the loop path of each diagnostic. The
+    /// slice is valid until the next call.
+    pub fn on(
+        &mut self,
+        segment: &Segment<'_>,
+        events: &[Event],
+        open: &[Instance],
+    ) -> &[Diagnostic] {
         self.diagnostics.clear();
-        for &event in events {
-            match event {
-                Event::LoopOpened {
-                    instance,
-                    segment: trigger,
-                    ..
-                } => self.opened(instance.loop_id, trigger),
-                Event::Captured {
-                    instance,
-                    occurrence,
-                    ..
-                } => self.captured(instance.loop_id, segment, occurrence),
-                Event::LoopClosed { .. } => self.closed(),
-                Event::Unmatched { .. } | Event::Empty { .. } => {}
-            }
-        }
+        self.handle(Some(segment), events, open);
         if let Some(datums) = &self.datums {
             datums.apply(&mut self.diagnostics, Some(segment));
         }
         &self.diagnostics
     }
 
-    /// Closes every loop still open, as the engine's `finish` does, appending
-    /// the rows they were collecting. The projector is then back at the
-    /// root and its row numbers restart at 0, so the tables should be taken
-    /// before it is fed a new stream.
-    pub fn finish(&mut self) -> &[Diagnostic] {
+    /// Consumes the events `LoopEngine::finish` returned, which close every
+    /// loop still open, appending the rows they were collecting. The projector
+    /// is then back at the root and its row numbers restart at 0, so the
+    /// tables should be taken before it is fed a new stream.
+    pub fn finish(&mut self, events: &[Event]) -> &[Diagnostic] {
         self.diagnostics.clear();
-        while !self.open.is_empty() {
-            self.closed();
-        }
-        self.ordinals.iter_mut().for_each(|count| *count = 0);
+        self.handle(None, events, &[]);
         for state in &mut self.tables {
             state.next = 0;
             state.carried.iter_mut().for_each(Carried::clear);
@@ -330,10 +313,66 @@ impl<'s> Projector<'s> {
         )
     }
 
+    /// Handles each event, then gives the diagnostics it raised the loop path
+    /// of its instance. `segment` is the one the events were returned for,
+    /// `None` at the end of the stream.
+    fn handle(&mut self, segment: Option<&Segment<'_>>, events: &[Event], open: &[Instance]) {
+        for event in events {
+            let before = self.diagnostics.len();
+            self.step(event, segment);
+            if self.diagnostics.len() > before {
+                self.locate(before, event_instance(event), open, events);
+            }
+        }
+    }
+
+    fn step(&mut self, event: &Event, segment: Option<&Segment<'_>>) {
+        match *event {
+            Event::LoopOpened {
+                instance,
+                segment: trigger,
+                ..
+            } => self.opened(instance.loop_id, trigger),
+            Event::Captured {
+                instance,
+                occurrence,
+                ..
+            } => {
+                // The engine's `finish` captures nothing, so only `on` has a segment.
+                if let Some(segment) = segment {
+                    self.captured(instance.loop_id, segment, occurrence);
+                }
+            }
+            Event::LoopClosed { instance } => self.closed(instance.loop_id),
+            Event::Unmatched { .. } | Event::Empty { .. } => {}
+        }
+    }
+
+    /// Writes the loop path of `instance` on the diagnostics from `first` on.
+    fn locate(
+        &mut self,
+        first: usize,
+        instance: Option<Instance>,
+        open: &[Instance],
+        events: &[Event],
+    ) {
+        let Some(instance) = instance else {
+            return;
+        };
+        let spec = self.spec;
+        let path: Vec<LoopRef> = lineage(instance, open, events)
+            .iter()
+            .map(|at| LoopRef {
+                name: spec.loop_name(at.loop_id).to_string(),
+                ordinal: at.ordinal_in_stream,
+            })
+            .collect();
+        for diagnostic in &mut self.diagnostics[first..] {
+            diagnostic.path.clone_from(&path);
+        }
+    }
+
     fn opened(&mut self, id: LoopId, trigger: usize) {
-        let ordinal = self.ordinals[id.index()].saturating_add(1);
-        self.ordinals[id.index()] = ordinal;
-        self.open.push((id, ordinal));
         self.reset_carried(id);
         let Some(index) = self.anchored[id.index()] else {
             return;
@@ -368,10 +407,7 @@ impl<'s> Projector<'s> {
         state.open = true;
     }
 
-    fn closed(&mut self) {
-        let Some(&(id, _)) = self.open.last() else {
-            return;
-        };
+    fn closed(&mut self, id: LoopId) {
         if let Some(index) = self.anchored[id.index()] {
             let state = &mut self.tables[index];
             let append_row = state.open && state.kept;
@@ -388,7 +424,6 @@ impl<'s> Projector<'s> {
                 self.report_dropped(dropped, index, segment);
             }
         }
-        self.open.pop();
     }
 
     fn captured(&mut self, id: LoopId, segment: &Segment<'_>, found: Option<OccurrenceId>) {
@@ -422,5 +457,15 @@ impl<'s> Projector<'s> {
     fn open_row(&self, table: usize) -> Option<usize> {
         let state = &self.tables[table];
         state.open.then_some(state.row.ordinal)
+    }
+}
+
+/// The instance an event is about; `None` for an event no loop owns.
+fn event_instance(event: &Event) -> Option<Instance> {
+    match *event {
+        Event::LoopOpened { instance, .. }
+        | Event::LoopClosed { instance }
+        | Event::Captured { instance, .. } => Some(instance),
+        Event::Unmatched { .. } | Event::Empty { .. } => None,
     }
 }

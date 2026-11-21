@@ -101,16 +101,14 @@ fn values_read_above_the_anchor_do_not_outlive_finish() {
     let mut projector = Projector::new(&spec, &delimiters());
     let feed = |engine: &mut crate::LoopEngine<'_>, projector: &mut Projector<'_>, input: &str| {
         for segment in crate::Tokenizer::with_delimiters(input.as_bytes(), delimiters()) {
-            let events = engine.feed(&segment);
-            projector.on(&segment, events);
+            let events = engine.feed(&segment).to_vec();
+            projector.on(&segment, &events, engine.path());
         }
     };
     feed(&mut engine, &mut projector, "HD*B1~NM*P*ACME~CL*C1~");
-    engine.finish();
-    projector.finish();
+    projector.finish(engine.finish());
     feed(&mut engine, &mut projector, "CL*C2~");
-    engine.finish();
-    projector.finish();
+    projector.finish(engine.finish());
     let tables = projector.take_tables();
     let claims = rows(&tables, "claims");
     assert!(claims[1].contains("| C1 | ∅ | ACME |"), "{claims:?}");

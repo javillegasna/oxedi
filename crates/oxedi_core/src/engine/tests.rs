@@ -558,7 +558,10 @@ fn last_step(engine: &mut LoopEngine<'_>, input: &[u8]) -> (Vec<Event>, Vec<Inst
 
 /// The instance of the first event `pick` accepts.
 fn instance_of(events: &[Event], pick: fn(&Event) -> Option<Instance>) -> Instance {
-    events.iter().find_map(pick).expect("the step has the event")
+    events
+        .iter()
+        .find_map(pick)
+        .expect("the step has the event")
 }
 
 fn captured_instance(event: &Event) -> Option<Instance> {

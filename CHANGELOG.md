@@ -85,8 +85,8 @@ This file covers the Python package; the DuckDB extension has its own changelog 
 - Rust: `Phi` and `DateMode` moved from `oxedi_core::mask` to the new module
   `oxedi_core::vocabulary`; the root paths `oxedi_core::Phi` and `oxedi_core::DateMode` are unchanged.
 - The spec shape check names a `pick` that is not `"first"`, `"last"` or a 1-based position with the
-  same words as the pick error. A Rust read of a pick or of a spec model names the value found, and
-  a spec that does not read into its typed model names the path to the key it rejected.
+  same words as a Rust read of a pick, which names the value found; a spec that does not read into
+  its typed model names the path to the key it rejected.
 - `oxedi[pyx12]` requires pyx12 4.1 or later. A pyx12 finding keeps the X12 code in `code`, and its
   `rule` now ends with pyx12's own name for the error before the `(reported by pyx12, code N)`
   suffix.
@@ -122,6 +122,8 @@ This file covers the Python package; the DuckDB extension has its own changelog 
   `spec: at tables.claims.columns.patient_id.phi: "phi" must be "name", "id" or "date"; found "ssn"`.
 - Rust: those faults are `SpecError::Format`; `SpecError::TableSchema`, `TableDefError::BadPosition` and
   `TableDefError::UnknownPhi` are removed.
+- Rust: `TableDefError::BadPick` is removed: a pick other than `"first"`, `"last"` or a position from 1
+  is a `SpecError::Format` at the pick's path, with the same text.
 
 ### Fixed
 - The writer and the reader agree on the repetition separator of a custom spec: at interchange

@@ -5,15 +5,12 @@
 use std::fmt;
 
 use serde::de::{self, Deserialize, Deserializer};
-use serde::ser::{self, Serialize, Serializer};
+use serde::ser::{Serialize, Serializer};
 
 use super::balance::Sign;
 use super::loops::ControlCount;
 use super::occurrences::Usage;
-use super::raw::RawPick;
 use super::segments::parse_position;
-use super::table_error::TableDefError;
-use super::tables::Pick;
 use crate::vocabulary::{Vocabulary, serde_by_word};
 
 impl Vocabulary for Usage {
@@ -53,41 +50,6 @@ impl Vocabulary for Sign {
 }
 
 serde_by_word!(Usage, ControlCount, Sign);
-
-impl Pick {
-    /// The pick a written value names, or the value as JSON when it names
-    /// none: a word that is not named, or the position 0.
-    pub(super) fn read(raw: &RawPick) -> Result<Pick, String> {
-        match raw {
-            RawPick::Nth(nth) if *nth > 0 => Ok(Pick::Nth(*nth)),
-            RawPick::Named(word) => Pick::from_word(word).ok_or_else(|| raw.written()),
-            RawPick::Nth(_) => Err(raw.written()),
-        }
-    }
-}
-
-impl Serialize for Pick {
-    fn serialize<S: Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
-        match self {
-            Pick::Nth(nth) => serializer.serialize_u64(u64::try_from(*nth).map_err(|_| {
-                ser::Error::custom(format!("pick position {nth} does not fit in 64 bits"))
-            })?),
-            pick @ (Pick::First | Pick::Last) => {
-                match Pick::NAMED.iter().find(|(_, named)| named == pick) {
-                    Some((word, _)) => serializer.serialize_str(word),
-                    None => Err(ser::Error::custom(format!("pick {pick:?} has no word"))),
-                }
-            }
-        }
-    }
-}
-
-impl<'de> Deserialize<'de> for Pick {
-    fn deserialize<D: Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
-        let raw = RawPick::deserialize(deserializer)?;
-        Pick::read(&raw).map_err(|written| de::Error::custom(TableDefError::BadPick { written }))
-    }
-}
 
 /// The position a `codes` key names: an element and maybe one of its
 /// components, written `<element>` or `<element>-<component>`.

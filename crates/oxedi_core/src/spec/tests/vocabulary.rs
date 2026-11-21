@@ -1,6 +1,5 @@
 use serde_json::{from_str, from_value, json, to_string, to_value};
 
-use crate::spec::raw::RawPick;
 use crate::spec::*;
 use crate::value::ElementType;
 use crate::vocabulary::{Phi, Vocabulary, words_text};
@@ -157,11 +156,6 @@ fn a_pick_of_any_other_json_value_names_it() {
     ];
     for (json, found) in rows {
         assert_eq!(refused_text::<Pick>(json), bad_pick_text(found), "{json}");
-        assert_eq!(
-            refused_text::<RawPick>(json),
-            bad_pick_text(found),
-            "{json}"
-        );
     }
 }
 
@@ -174,7 +168,7 @@ fn a_null_column_pick_reads_as_absent() {
 
 #[test]
 fn every_named_pick_prints_its_own_word() {
-    for (word, pick) in Pick::NAMED {
+    for (pick, word) in Pick::NAMED.into_iter().zip(["first", "last"]) {
         assert_eq!(Pick::from_word(word), Some(pick));
         assert_eq!(pick.to_string(), format!("\"{word}\""));
     }
@@ -216,8 +210,9 @@ fn the_loader_texts_name_every_word() {
         words_text::<Sign>(),
     );
     has(refused::<Phi>(json!("x")), words_text::<Phi>());
-    let bad_pick = TableDefError::BadPick { written: s() }.to_string();
-    for (word, _) in Pick::NAMED {
-        assert!(bad_pick.contains(&format!("\"{word}\"")), "{bad_pick}");
+    let pick = refused::<Pick>(json!("x"));
+    for word in ["first", "last"] {
+        assert!(pick.contains(&format!("\"{word}\"")), "{pick}");
     }
+    assert!(pick.contains(Pick::EXPECTED), "{pick}");
 }

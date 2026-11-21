@@ -721,12 +721,6 @@ fn table_errors_display_the_table_the_column_and_every_reason() {
             "\"pick\" (\"last\") requires \"occurrence\": only a named occurrence has a known repeat",
         ),
         (
-            TableDefError::BadPick {
-                written: r#""middle""#.into(),
-            },
-            "\"pick\" must be \"first\", \"last\" or a 1-based position; found \"middle\"",
-        ),
-        (
             TableDefError::PickOnSingle {
                 loop_name: "2100".into(),
                 occurrence: "patient_name".into(),

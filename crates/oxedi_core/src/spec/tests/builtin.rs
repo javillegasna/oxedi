@@ -118,3 +118,17 @@ fn every_version_is_listed_in_all_at_its_index() {
         assert_eq!(index(version), at);
     }
 }
+
+#[test]
+fn each_builtin_spec_is_compiled_from_its_model() {
+    for builtin in Builtin::all() {
+        let compiled = builtin.model().unwrap().compile().unwrap();
+        assert_eq!(compiled.loops(), builtin.spec.loops());
+        assert_eq!(compiled.tables(), builtin.spec.tables());
+    }
+    let four = Builtin::find("835", Version::V4010).unwrap();
+    assert_eq!(
+        four.model().unwrap().version.as_ref().unwrap().values[0],
+        "004010X091A1"
+    );
+}

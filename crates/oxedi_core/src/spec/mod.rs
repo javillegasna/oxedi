@@ -10,8 +10,9 @@
 //! `summaries` section names figures computed over the tables, and an
 //! optional `default_table` names the table a reader shows when none is
 //! named. Loading compiles that into index-based definitions so the engine
-//! never compares strings, and keeps the JSON value so patches can be applied
-//! on top. Patches follow RFC 7386: objects merge key by key, while arrays and
+//! never compares strings. The loader keeps the typed model ([`LoadedSpec`]),
+//! patches it and compiles it again; [`Spec::merge_patch`] still patches the
+//! JSON value a spec keeps. Patches follow RFC 7386: objects merge key by key, while arrays and
 //! scalars replace wholesale; see [`Spec::merge_patch`] for what that means
 //! for a loop's occurrences.
 //!
@@ -29,8 +30,8 @@
 //! `compile` that of the tables, `columns` that of one table column and
 //! `column_occurrence` the reading of the occurrence a column names;
 //! `model` the spec as typed data, which the loader reads whole before
-//! compiling it, read checked through `Spec::model` and loaded through
-//! `Spec::from_model`;
+//! compiling it; `loaded` the spec as a loader keeps it, its model beside its
+//! compiled form;
 //! `phi` the check of the columns flagged as patient data and of the seed
 //! column; `error` the load error and `error_text` its `source` and the parts
 //! of its text built from lists; `render` the text used in messages; `patch`
@@ -50,6 +51,7 @@ mod compile;
 mod error;
 mod error_text;
 mod id_map;
+mod loaded;
 mod loops;
 mod model;
 mod occurrence_error;
@@ -78,6 +80,7 @@ pub use balance::{BalanceRule, BalanceTerm, Sign};
 pub use balance_error::BalanceError;
 pub use builtin::{Builtin, UnknownVersion, Version};
 pub use error::SpecError;
+pub use loaded::LoadedSpec;
 pub use loops::{Control, ControlCount, ControlError, LoopDef, LoopId, Trigger};
 pub use model::{
     BalanceModel, ColumnModel, ControlModel, ElementModel, LoopModel, OccurrenceModel,
@@ -138,9 +141,11 @@ impl Spec {
 
     /// The built-in 835 structure.
     pub fn builtin_835() -> Spec {
-        Spec::from_json(Self::BUILTIN_835_JSON).expect(
-            "the built-in 835 spec is valid; spec::tests::loading::builtin_835_loads checks it",
-        )
+        Builtin::find("835", Builtin::DEFAULT_VERSION)
+            .map(|builtin| Spec::clone(&builtin.spec))
+            .expect(
+                "the registry holds the 835 at its default version; spec::tests::loading::builtin_835_loads checks it",
+            )
     }
 
     /// The merge patch that turns the built-in 835 into its 4010 version.
@@ -149,10 +154,10 @@ impl Spec {
     /// The built-in 835 for version 4010: [`Spec::builtin_835`] with
     /// [`Spec::BUILTIN_835_4010_PATCH`] merged over it.
     pub fn builtin_835_4010() -> Spec {
-        Spec::builtin_835()
-            .merge_patch(Self::BUILTIN_835_4010_PATCH)
+        Builtin::find("835", Version::V4010)
+            .map(|builtin| Spec::clone(&builtin.spec))
             .expect(
-                "the built-in 4010 patch is valid and merges into the built-in 835 as a valid spec",
+                "the registry holds the 835 at 4010; spec::tests::builtin::find_835_4010_gives_the_4010_patch checks it",
             )
     }
 

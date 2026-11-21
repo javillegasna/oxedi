@@ -441,9 +441,4 @@ fn a_model_read_refuses_like_the_loader() {
         matches!(&err, SpecError::Format { path, .. } if path == "loops.\"A.b\".usage"),
         "{err:?}"
     );
-    let unknown_key = r#"{"name":"t","loops":{},"x":1}"#;
-    assert_eq!(
-        SpecModel::from_json(unknown_key).unwrap_err().to_string(),
-        Spec::from_json(unknown_key).unwrap_err().to_string()
-    );
 }

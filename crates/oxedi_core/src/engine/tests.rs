@@ -345,15 +345,16 @@ fn feed_returns_the_events_of_that_call_only() {
     assert_eq!(engine.feed(&segments[1]).len(), 1);
 }
 
-/// The open path as `(loop name, id, ordinal, parent id)`.
-fn instances<'s>(spec: &'s Spec, input: &[u8]) -> Vec<(&'s str, usize, usize, Option<usize>)> {
-    let mut engine = LoopEngine::new(spec);
+/// Feeds every segment of `input` to `engine`.
+fn feed_all(engine: &mut LoopEngine<'_>, input: &[u8]) {
     for segment in &segs(input) {
         engine.feed(segment);
     }
-    engine
-        .path()
-        .iter()
+}
+
+/// The open path as `(loop name, id, ordinal, parent id)`.
+fn describe<'s>(spec: &'s Spec, path: &[Instance]) -> Vec<(&'s str, usize, usize, Option<usize>)> {
+    path.iter()
         .map(|open| {
             (
                 spec.loop_name(open.loop_id),
@@ -363,6 +364,13 @@ fn instances<'s>(spec: &'s Spec, input: &[u8]) -> Vec<(&'s str, usize, usize, Op
             )
         })
         .collect()
+}
+
+/// The open path after feeding `input`.
+fn instances<'s>(spec: &'s Spec, input: &[u8]) -> Vec<(&'s str, usize, usize, Option<usize>)> {
+    let mut engine = LoopEngine::new(spec);
+    feed_all(&mut engine, input);
+    describe(spec, engine.path())
 }
 
 #[test]
@@ -397,24 +405,9 @@ fn implicit_ancestors_get_their_own_instances() {
 fn finish_restarts_ids_and_ordinals() {
     let spec = nested();
     let mut engine = LoopEngine::new(&spec);
-    for segment in &segs(b"AA~BB~") {
-        engine.feed(segment);
-    }
+    feed_all(&mut engine, b"AA~BB~");
     engine.finish();
-    for segment in &segs(b"AA~") {
-        engine.feed(segment);
-    }
-    let open: Vec<_> = engine
-        .path()
-        .iter()
-        .map(|open| {
-            (
-                spec.loop_name(open.loop_id),
-                open.id.index(),
-                open.ordinal_in_stream,
-                open.parent.map(InstanceId::index),
-            )
-        })
-        .collect();
+    feed_all(&mut engine, b"AA~");
+    let open = describe(&spec, engine.path());
     assert_eq!(open, vec![("A", 0, 1, None)]);
 }

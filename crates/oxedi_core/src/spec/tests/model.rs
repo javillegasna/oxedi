@@ -4,7 +4,6 @@ use serde::Serialize;
 use serde_json::{Value, from_value, json, to_value};
 
 use crate::spec::SpecError;
-use crate::spec::model::read_model;
 use crate::spec::{
     Builtin, ColumnModel, ElementModel, ElementPosition, LoopModel, OccurrenceModel,
     QualifierModel, SegmentModel, Sign, Spec, SpecModel, SummaryModel, SummaryTableModel,
@@ -253,25 +252,23 @@ fn a_term_sign_is_written_only_when_minus() {
 
 #[test]
 fn every_shipped_spec_reads_into_its_model() {
-    let specs: Vec<Spec> = Builtin::all()
+    let models: Vec<SpecModel> = Builtin::all()
         .iter()
-        .map(|builtin| (*builtin.spec).clone())
-        .chain([test_support::spec()])
+        .map(|builtin| builtin.model.clone())
+        .chain([SpecModel::from_json(test_support::SPEC).unwrap()])
         .collect();
-    assert_eq!(specs.len(), 3);
-    for (spec, name) in specs.iter().zip(["835", "835", "t"]) {
-        let model = spec.model().unwrap();
-        assert_eq!(model.name, spec.name());
+    assert_eq!(models.len(), 3);
+    for (model, name) in models.iter().zip(["835", "835", "t"]) {
         assert_eq!(model.name, name);
     }
 }
 
 #[test]
 fn a_model_the_loader_refuses_fails_with_its_text() {
-    let mut model = test_support::spec().model().unwrap();
+    let mut model = SpecModel::from_json(test_support::SPEC).unwrap();
     model.loops.get_mut("head").unwrap().max = Some(0);
     assert_eq!(
-        Spec::from_model(&model).unwrap_err().to_string(),
+        model.compile().unwrap_err().to_string(),
         "loop \"head\" has \"max\" 0; a loop that may appear appears at least once"
     );
 }
@@ -300,7 +297,7 @@ fn a_built_model_loads() {
         summaries: BTreeMap::new(),
         default_table: None,
     };
-    let spec = Spec::from_model(&model).unwrap();
+    let spec = model.compile().unwrap();
     assert!(spec.loop_id("st").is_some());
     let written = json!({"name":"built","loops":{"st":{"trigger":{"segment":"ST"},
         "occurrences":{"st":{"segment":"ST","pos":0}}}}});
@@ -405,17 +402,14 @@ fn an_unknown_element_key_is_refused_with_the_keys_it_takes() {
 }
 
 #[test]
-fn a_model_mismatch_names_the_path_to_the_rejected_key() {
-    let source = json!({
-        "name": "t",
-        "loops": {},
-        "tables": {"t": {"loops": ["A"], "columns": {"c": {"pick": true}}}}
-    });
-    let err = read_model("t", &source).unwrap_err();
-    let SpecError::ModelMismatch { path, .. } = &err else {
-        panic!("expected a model mismatch, found {err:?}");
+fn a_model_read_names_the_path_to_the_refused_value() {
+    let source = r#"{"name":"t","loops":{"A":{"trigger":{"segment":"AA"},
+        "occurrences":{"o":{"segment":"AA","pos":0,"usage":"often"}}}}}"#;
+    let err = SpecModel::from_json(source).unwrap_err();
+    let SpecError::Format { path, .. } = &err else {
+        panic!("expected a format error, found {err:?}");
     };
-    assert_eq!(path, "tables.t.columns.c.pick");
+    assert_eq!(path, "loops.A.occurrences.o.usage");
 }
 
 #[test]

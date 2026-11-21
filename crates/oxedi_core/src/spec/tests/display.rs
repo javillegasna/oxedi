@@ -1,7 +1,6 @@
 //! The full text of every error and diagnostic.
 
 use super::element_error;
-use crate::spec::model::read_model;
 use crate::spec::*;
 use crate::value::ElementType;
 use serde_json::Value;
@@ -34,25 +33,6 @@ fn format_error_displays_the_path_and_the_refused_value() {
     assert_displays_without_source(
         &err,
         "spec: at loops.\"2100.a\".usage: EOF while parsing an object at line 1 column 1",
-    );
-}
-
-#[test]
-fn model_mismatch_quotes_a_key_that_holds_a_dot() {
-    let err = read_model("t", &serde_json::json!({"name": "t", "loops": {"A.b": 1}})).unwrap_err();
-    assert!(
-        matches!(&err, SpecError::ModelMismatch { path, .. } if path == "loops.\"A.b\""),
-        "{err:?}"
-    );
-}
-
-#[test]
-fn model_mismatch_displays_the_spec_the_path_the_serde_message_and_that_it_is_a_bug() {
-    let err = read_model("t", &serde_json::json!({"name": "t", "loops": {"A": 1}})).unwrap_err();
-    assert_displays_without_source(
-        &err,
-        "the loaded spec \"t\" and its typed model disagree at loops.A: invalid type: integer \
-         `1`, expected a loop object; this is a bug in oxedi, please report it",
     );
 }
 
@@ -303,18 +283,12 @@ fn no_spec_error_chains_its_source() {
         table: "t".into(),
         known: Vec::new(),
     };
-    let mismatch = SpecError::ModelMismatch {
-        spec_name: "t".into(),
-        path: ".".into(),
-        source: json_error("{"),
-    };
     for err in [
         SpecError::Json(json_error("{")),
         patch,
         key,
         bad_summary,
         default_table,
-        mismatch,
     ] {
         assert!(err.source().is_none(), "{err}");
     }

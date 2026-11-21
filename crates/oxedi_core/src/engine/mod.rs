@@ -6,6 +6,13 @@
 //! segment also closes it); a trigger whose ancestors are not open, which
 //! opens them implicitly; and otherwise the segment is unmatched. Events refer
 //! to segments by index and are returned as a slice of a reused buffer.
+//!
+//! `instance.rs` holds [`Instance`] and [`InstanceId`], one numbered
+//! occurrence of a loop; `mod.rs` holds the engine and its events.
+
+mod instance;
+
+pub use instance::{Instance, InstanceId};
 
 use crate::segment::Segment;
 use crate::spec::{LoopId, Spec};
@@ -61,7 +68,11 @@ pub enum Event {
 #[derive(Debug, Clone)]
 pub struct LoopEngine<'s> {
     spec: &'s Spec,
-    stack: Vec<LoopId>,
+    stack: Vec<Instance>,
+    /// Occurrences opened so far per loop, indexed by [`LoopId::index`].
+    counters: Vec<usize>,
+    /// Instances opened so far: the next [`InstanceId`].
+    next_id: usize,
     events: Vec<Event>,
     /// Scratch for the ancestor chain of an implicit open.
     chain: Vec<LoopId>,
@@ -73,6 +84,8 @@ impl<'s> LoopEngine<'s> {
         Self {
             spec,
             stack: Vec::new(),
+            counters: vec![0; spec.loops().len()],
+            next_id: 0,
             events: Vec::new(),
             chain: Vec::new(),
         }
@@ -84,7 +97,7 @@ impl<'s> LoopEngine<'s> {
     }
 
     /// Open loops, outermost first.
-    pub fn path(&self) -> &[LoopId] {
+    pub fn path(&self) -> &[Instance] {
         &self.stack
     }
 
@@ -98,57 +111,9 @@ impl<'s> LoopEngine<'s> {
             return &self.events;
         }
 
-        for depth in (0..=self.stack.len()).rev() {
-            let parent = depth.checked_sub(1).map(|i| self.stack[i]);
-            if let Some(child) = self.spec.matching_child(parent, segment) {
-                self.close_to(depth);
-                self.open(child, false, index);
-                self.capture(child, index);
-                return &self.events;
-            }
+        if !(self.open_child(segment) || self.hold(segment) || self.open_with_ancestors(segment)) {
+            self.events.push(Event::Unmatched { segment: index });
         }
-
-        for depth in (1..=self.stack.len()).rev() {
-            let id = self.stack[depth - 1];
-            let def = self.spec.get(id);
-            if def.accepts(segment.id) {
-                let closes = def.end.as_deref() == Some(segment.id);
-                self.close_to(depth);
-                self.capture(id, index);
-                if closes {
-                    self.close_to(depth - 1);
-                }
-                return &self.events;
-            }
-        }
-
-        if let Some(target) = self.spec.matching_any(segment) {
-            let mut chain = std::mem::take(&mut self.chain);
-            self.spec.ancestors_into(target, &mut chain);
-            // Keep the stack down to the nearest open ancestor; everything in
-            // the chain after it is missing and opens implicitly.
-            let (depth, first_missing) = chain
-                .iter()
-                .enumerate()
-                .rev()
-                .find_map(|(i, ancestor)| {
-                    self.stack
-                        .iter()
-                        .position(|open| open == ancestor)
-                        .map(|pos| (pos + 1, i + 1))
-                })
-                .unwrap_or((0, 0));
-            self.close_to(depth);
-            for &ancestor in &chain[first_missing..] {
-                self.open(ancestor, true, index);
-            }
-            self.chain = chain;
-            self.open(target, false, index);
-            self.capture(target, index);
-            return &self.events;
-        }
-
-        self.events.push(Event::Unmatched { segment: index });
         &self.events
     }
 
@@ -158,11 +123,89 @@ impl<'s> LoopEngine<'s> {
     pub fn finish(&mut self) -> &[Event] {
         self.events.clear();
         self.close_to(0);
+        self.counters.fill(0);
+        self.next_id = 0;
         &self.events
     }
 
+    /// A trigger of a child of any open loop, innermost first, or of the root:
+    /// closes down to that parent, opens the child and captures the segment.
+    fn open_child(&mut self, segment: &Segment<'_>) -> bool {
+        for depth in (0..=self.stack.len()).rev() {
+            let parent = depth.checked_sub(1).map(|i| self.stack[i].loop_id);
+            if let Some(child) = self.spec.matching_child(parent, segment) {
+                self.close_to(depth);
+                self.open(child, false, segment.index);
+                self.capture(child, segment.index);
+                return true;
+            }
+        }
+        false
+    }
+
+    /// A segment some open loop holds, innermost first; the loop's end
+    /// segment also closes it.
+    fn hold(&mut self, segment: &Segment<'_>) -> bool {
+        for depth in (1..=self.stack.len()).rev() {
+            let id = self.stack[depth - 1].loop_id;
+            let def = self.spec.get(id);
+            if def.accepts(segment.id) {
+                let closes = def.end.as_deref() == Some(segment.id);
+                self.close_to(depth);
+                self.capture(id, segment.index);
+                if closes {
+                    self.close_to(depth - 1);
+                }
+                return true;
+            }
+        }
+        false
+    }
+
+    /// A trigger whose ancestors are not all open: keeps the nearest open
+    /// ancestor, opens the missing ones implicitly, then the target.
+    fn open_with_ancestors(&mut self, segment: &Segment<'_>) -> bool {
+        let Some(target) = self.spec.matching_any(segment) else {
+            return false;
+        };
+        let index = segment.index;
+        let mut chain = std::mem::take(&mut self.chain);
+        self.spec.ancestors_into(target, &mut chain);
+        // Keep the stack down to the nearest open ancestor; everything in
+        // the chain after it is missing and opens implicitly.
+        let (depth, first_missing) = chain
+            .iter()
+            .enumerate()
+            .rev()
+            .find_map(|(i, ancestor)| {
+                self.stack
+                    .iter()
+                    .position(|open| open.loop_id == *ancestor)
+                    .map(|pos| (pos + 1, i + 1))
+            })
+            .unwrap_or((0, 0));
+        self.close_to(depth);
+        for &ancestor in &chain[first_missing..] {
+            self.open(ancestor, true, index);
+        }
+        self.chain = chain;
+        self.open(target, false, index);
+        self.capture(target, index);
+        true
+    }
+
     fn open(&mut self, id: LoopId, implicit: bool, segment: usize) {
-        self.stack.push(id);
+        // The counters are sized from the spec that made every `LoopId`.
+        let count = &mut self.counters[id.index()];
+        *count = count.saturating_add(1);
+        let ordinal = *count;
+        self.stack.push(Instance {
+            id: InstanceId::new(self.next_id),
+            loop_id: id,
+            ordinal_in_stream: ordinal,
+            parent: self.stack.last().map(|top| top.id),
+        });
+        self.next_id = self.next_id.saturating_add(1);
         self.events.push(Event::LoopOpened {
             id,
             implicit,
@@ -176,8 +219,8 @@ impl<'s> LoopEngine<'s> {
 
     fn close_to(&mut self, depth: usize) {
         while self.stack.len() > depth {
-            if let Some(id) = self.stack.pop() {
-                self.events.push(Event::LoopClosed { id });
+            if let Some(open) = self.stack.pop() {
+                self.events.push(Event::LoopClosed { id: open.loop_id });
             }
         }
     }

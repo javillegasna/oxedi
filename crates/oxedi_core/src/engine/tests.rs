@@ -14,7 +14,11 @@ fn run<'s>(spec: &'s Spec, input: &[u8]) -> (Vec<Event>, Vec<&'s str>) {
     for segment in &segments {
         last = engine.feed(segment).to_vec();
     }
-    let path = engine.path().iter().map(|&id| spec.loop_name(id)).collect();
+    let path = engine
+        .path()
+        .iter()
+        .map(|open| spec.loop_name(open.loop_id))
+        .collect();
     (last, path)
 }
 
@@ -339,4 +343,71 @@ fn feed_returns_the_events_of_that_call_only() {
     let segments = segs(b"AA~A1~");
     assert_eq!(engine.feed(&segments[0]).len(), 2);
     assert_eq!(engine.feed(&segments[1]).len(), 1);
+}
+
+/// Feeds every segment of `input` to `engine`.
+fn feed_all(engine: &mut LoopEngine<'_>, input: &[u8]) {
+    for segment in &segs(input) {
+        engine.feed(segment);
+    }
+}
+
+/// The open path as `(loop name, id, ordinal, parent id)`.
+fn describe<'s>(spec: &'s Spec, path: &[Instance]) -> Vec<(&'s str, usize, usize, Option<usize>)> {
+    path.iter()
+        .map(|open| {
+            (
+                spec.loop_name(open.loop_id),
+                open.id.index(),
+                open.ordinal_in_stream,
+                open.parent.map(InstanceId::index),
+            )
+        })
+        .collect()
+}
+
+/// The open path after feeding `input`.
+fn instances<'s>(spec: &'s Spec, input: &[u8]) -> Vec<(&'s str, usize, usize, Option<usize>)> {
+    let mut engine = LoopEngine::new(spec);
+    feed_all(&mut engine, input);
+    describe(spec, engine.path())
+}
+
+#[test]
+fn instances_are_numbered_in_opening_order() {
+    assert_eq!(
+        instances(&nested(), b"AA~BB~BB~"),
+        vec![("A", 0, 1, None), ("B", 2, 2, Some(0))]
+    );
+}
+
+#[test]
+fn the_ordinal_counts_the_loop_across_parents() {
+    assert_eq!(
+        instances(&nested(), b"AA~BB~AA~BB~"),
+        vec![("A", 2, 2, None), ("B", 3, 2, Some(2))]
+    );
+}
+
+#[test]
+fn implicit_ancestors_get_their_own_instances() {
+    assert_eq!(
+        instances(&nested(), b"CC*X~"),
+        vec![
+            ("A", 0, 1, None),
+            ("B", 1, 1, Some(0)),
+            ("C", 2, 1, Some(1))
+        ]
+    );
+}
+
+#[test]
+fn finish_restarts_ids_and_ordinals() {
+    let spec = nested();
+    let mut engine = LoopEngine::new(&spec);
+    feed_all(&mut engine, b"AA~BB~");
+    engine.finish();
+    feed_all(&mut engine, b"AA~");
+    let open = describe(&spec, engine.path());
+    assert_eq!(open, vec![("A", 0, 1, None)]);
 }

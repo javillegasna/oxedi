@@ -15,9 +15,10 @@ use super::build_loops::{check_cycles, compile_loop, held_segments};
 use super::compile::compile_tables;
 use super::error::SpecError;
 use super::loops::{LoopId, Trigger};
+use super::model::{LoopModel, read_entry};
 use super::occurrence_index::OccurrenceIndex;
 use super::occurrences::{check_trigger, compile_occurrences};
-use super::raw::{RawLoop, RawSegment, RawSpec, RawVersion};
+use super::raw::{RawSegment, RawSpec, RawVersion};
 use super::render::render_trigger;
 use super::segments::{SegmentDef, compile_elements};
 use super::shape::{check_shape, section};
@@ -27,8 +28,8 @@ use super::version::compile_version;
 /// A spec while it compiles, with the parts of the JSON the later steps read.
 struct Build {
     spec: Spec,
-    /// The loops as written, in spec order.
-    defs: Vec<(String, RawLoop)>,
+    /// The loops as their model reads them, in name order.
+    defs: Vec<(String, LoopModel)>,
     version: Option<RawVersion>,
     default_table: Option<String>,
 }
@@ -123,10 +124,7 @@ impl Spec {
 impl Build {
     /// The spec's name and an empty structure, or why the top level is invalid.
     fn new(source: Value) -> Result<Build, SpecError> {
-        let raw = RawSpec::deserialize(&source).map_err(|e| SpecError::Schema {
-            loop_name: None,
-            source: e,
-        })?;
+        let raw = RawSpec::deserialize(&source).map_err(|e| SpecError::Schema { source: e })?;
         if raw.loops.is_empty() {
             return Err(SpecError::NoLoops {
                 spec_name: raw.name,
@@ -156,15 +154,8 @@ impl Build {
 fn read_loops(build: &mut Build) -> Result<(), SpecError> {
     build.defs = section(&build.spec.source, "loops")
         .into_iter()
-        .map(|(name, value)| {
-            RawLoop::deserialize(value)
-                .map(|def| (name.to_string(), def))
-                .map_err(|e| SpecError::Schema {
-                    loop_name: Some(name.to_string()),
-                    source: e,
-                })
-        })
-        .collect::<Result<_, _>>()?;
+        .map(|(name, value)| Ok((name.to_string(), read_entry("loops", name, value)?)))
+        .collect::<Result<_, SpecError>>()?;
     Ok(())
 }
 

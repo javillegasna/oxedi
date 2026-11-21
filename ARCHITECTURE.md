@@ -139,8 +139,10 @@ Loading goes `Spec::from_json` → `Spec::from_value` (`spec/build.rs`):
    keys per object, the root's rows being the sections. Each object's declaration in
    `spec/model/` emits its table (`ELEMENT` and `SUMMARY` sit in `sections.rs`). Its errors
    name the key path as written and, for an unknown key, the keys allowed there.
-2. The serde structs deserialize each entry (`RawSpec`, `RawLoop`, …). They come from the
-   same declarations as the schema; `RawElement`, `RawSummary` and `RawPick` are in `raw.rs`.
+2. Each loop is read as its `LoopModel` through `serde_path_to_error` (a value it refuses is
+   `SpecError::Format`, at its path); the other entries through their serde structs (`RawSpec`,
+   `RawSegment`, …), from the same declarations as the schema; `RawElement`, `RawSummary` and
+   `RawPick` are in `raw.rs`.
 3. `build.rs` runs the compile steps in order, one per section or structural check:
    loops (`build_loops.rs`: keys, parent, trigger, control), segments, occurrences, the
    occurrence index (`occurrence_index.rs`), the version, trigger ambiguity, tables, balancing,

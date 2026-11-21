@@ -2,7 +2,7 @@
 
 use super::element_error;
 use crate::spec::model::read_model;
-use crate::spec::raw::{RawColumn, RawLoop, RawSpec, RawSummary, RawTable};
+use crate::spec::raw::{RawColumn, RawSpec, RawSummary, RawTable};
 use crate::spec::*;
 use crate::value::ElementType;
 use serde_json::Value;
@@ -23,18 +23,6 @@ fn json_error_displays_the_parser_message() {
     assert_displays_without_source(
         &err,
         "invalid spec JSON: EOF while parsing an object at line 1 column 1",
-    );
-}
-
-#[test]
-fn schema_error_displays_the_loop_and_the_serde_message() {
-    let err = SpecError::Schema {
-        loop_name: Some("2100".into()),
-        source: serde_json::from_value::<RawLoop>(serde_json::json!(1)).unwrap_err(),
-    };
-    assert_displays_without_source(
-        &err,
-        "loop \"2100\" does not match the schema: invalid type: integer `1`, expected a loop object",
     );
 }
 
@@ -70,9 +58,8 @@ fn model_mismatch_displays_the_spec_the_path_the_serde_message_and_that_it_is_a_
 }
 
 #[test]
-fn schema_error_without_a_loop_displays_the_spec() {
+fn schema_error_displays_the_serde_message() {
     let err = SpecError::Schema {
-        loop_name: None,
         source: serde_json::from_value::<RawSpec>(serde_json::json!(1)).unwrap_err(),
     };
     assert_eq!(
@@ -189,18 +176,6 @@ fn end_is_trigger_displays_the_loop_the_segment_and_why() {
     assert_eq!(
         err.to_string(),
         "loop \"a\" has \"end\" \"AA\", the same segment as its \"trigger\": the loop would close on the segment that opens it"
-    );
-}
-
-#[test]
-fn bad_position_displays_the_key_and_the_rule() {
-    let err = SpecError::BadPosition {
-        loop_name: "a".into(),
-        position: "01".into(),
-    };
-    assert_eq!(
-        err.to_string(),
-        "loop \"a\" has an invalid \"where\" position \"01\": positions are 1-based integers written in canonical form"
     );
 }
 
@@ -365,7 +340,6 @@ fn no_spec_error_chains_its_source() {
         source: Box::new(SpecError::Json(json_error("{"))),
     };
     let schema = SpecError::Schema {
-        loop_name: None,
         source: json_error("{"),
     };
     let key = SpecError::MissingKey {

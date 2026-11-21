@@ -100,11 +100,6 @@ pub enum ControlError {
         /// The key, e.g. `opener_element`.
         key: &'static str,
     },
-    /// `count` is not `segments` or `children`.
-    UnknownCount {
-        /// The value as written.
-        found: String,
-    },
     /// The loop has no `end` segment to carry the count and control number.
     NoEnd,
 }
@@ -114,12 +109,6 @@ impl fmt::Display for ControlError {
         match self {
             ControlError::ZeroPosition { key } => {
                 write!(f, "{key:?} must be a 1-based element position; found 0")
-            }
-            ControlError::UnknownCount { found } => {
-                write!(
-                    f,
-                    "\"count\" must be \"segments\" or \"children\"; found {found:?}"
-                )
             }
             ControlError::NoEnd => write!(f, "the loop has no \"end\" segment to check"),
         }

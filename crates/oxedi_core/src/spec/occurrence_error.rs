@@ -10,11 +10,6 @@ use crate::message::place;
 pub enum OccurrenceError {
     /// The occurrence name is the empty string.
     EmptyName,
-    /// `usage` is not `required` or `situational`.
-    UnknownUsage {
-        /// The value as written.
-        found: String,
-    },
     /// `max` is 0.
     ZeroMax,
     /// The qualifier or a `codes` key names an element or component the
@@ -28,12 +23,6 @@ pub enum OccurrenceError {
         element: usize,
         /// The component position, if any.
         component: Option<usize>,
-    },
-    /// A `codes` key is not `<element>` or `<element>-<component>`, 1-based
-    /// in canonical form.
-    BadCodesKey {
-        /// The key as written.
-        key: String,
     },
     /// A code list (the qualifier's or one under `codes`) is empty.
     EmptyCodes {
@@ -95,10 +84,6 @@ impl fmt::Display for OccurrenceError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             OccurrenceError::EmptyName => write!(f, "the occurrence name is empty"),
-            OccurrenceError::UnknownUsage { found } => write!(
-                f,
-                "\"usage\" must be \"required\" or \"situational\"; found {found:?}"
-            ),
             OccurrenceError::ZeroMax => write!(
                 f,
                 "\"max\" is 0; an occurrence that may appear appears at least once"
@@ -112,11 +97,6 @@ impl fmt::Display for OccurrenceError {
                 f,
                 "{key} names {}, which the \"segments\" section does not define for {segment:?}",
                 place(segment, *element, *component)
-            ),
-            OccurrenceError::BadCodesKey { key } => write!(
-                f,
-                "codes key {key:?} must be \"<element>\" or \"<element>-<component>\", \
-                 1-based integers in canonical form"
             ),
             OccurrenceError::EmptyCodes { key } => {
                 write!(f, "{key} is empty; list at least one code")

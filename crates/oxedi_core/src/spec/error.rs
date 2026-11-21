@@ -6,7 +6,7 @@ use super::balance_error::BalanceError;
 use super::error_text::{Under, write_ambiguous, write_cycle};
 use super::loops::ControlError;
 use super::occurrence_error::OccurrenceError;
-use super::segments::{ElementDefError, POSITION_RULE};
+use super::segments::ElementDefError;
 use super::summary_error::SummaryDefError;
 use super::table_error::TableDefError;
 use super::version::VersionError;
@@ -16,10 +16,8 @@ use super::version::VersionError;
 pub enum SpecError {
     /// The text is not valid JSON.
     Json(serde_json::Error),
-    /// The JSON is valid but does not match the spec schema.
+    /// The top level of the JSON does not match the spec schema.
     Schema {
-        /// The loop whose definition is malformed; `None` when the top level is.
-        loop_name: Option<String>,
         /// What serde rejected.
         source: serde_json::Error,
     },
@@ -59,13 +57,6 @@ pub enum SpecError {
         loop_name: String,
         /// The segment id both keys name.
         segment: String,
-    },
-    /// A `where` key is not a 1-based element position in canonical form.
-    BadPosition {
-        /// The loop with the bad key.
-        loop_name: String,
-        /// The key as written.
-        position: String,
     },
     /// A value the schema requires to be an object is something else.
     NotAnObject {
@@ -225,13 +216,6 @@ pub enum SpecError {
         /// That occurrence's position.
         other_pos: usize,
     },
-    /// A loop's `usage` is not `required` or `situational`.
-    UnknownLoopUsage {
-        /// The loop.
-        loop_name: String,
-        /// The value as written.
-        found: String,
-    },
     /// A loop's `max` is 0.
     ZeroLoopMax {
         /// The loop.
@@ -304,14 +288,7 @@ impl fmt::Display for SpecError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             SpecError::Json(e) => write!(f, "invalid spec JSON: {e}"),
-            SpecError::Schema {
-                loop_name: Some(loop_name),
-                source,
-            } => write!(f, "loop {loop_name:?} does not match the schema: {source}"),
-            SpecError::Schema {
-                loop_name: None,
-                source,
-            } => write!(f, "spec does not match the schema: {source}"),
+            SpecError::Schema { source } => write!(f, "spec does not match the schema: {source}"),
             SpecError::NotAnObject { path, found } if path.is_empty() => {
                 write!(f, "the spec must be a JSON object; found {found}")
             }
@@ -373,14 +350,6 @@ impl fmt::Display for SpecError {
                 f,
                 "loop {loop_name:?} has \"end\" {segment:?}, the same segment as its \
                  \"trigger\": the loop would close on the segment that opens it"
-            ),
-            SpecError::BadPosition {
-                loop_name,
-                position,
-            } => write!(
-                f,
-                "loop {loop_name:?} has an invalid \"where\" position {position:?}: \
-                 {POSITION_RULE}"
             ),
             SpecError::Format { path, source } => write!(f, "spec: at {path}: {source}"),
             SpecError::SegmentSchema { segment, source } => {
@@ -471,11 +440,6 @@ impl fmt::Display for SpecError {
                 f,
                 "loop {loop_name:?}: occurrence {other:?} has \"pos\" {other_pos}, at or before \
                  {pos} of {occurrence:?}, the occurrence the loop opens on, which must come first"
-            ),
-            SpecError::UnknownLoopUsage { loop_name, found } => write!(
-                f,
-                "loop {loop_name:?} has \"usage\" {found:?}; it must be \"required\" or \
-                 \"situational\""
             ),
             SpecError::ZeroLoopMax { loop_name } => write!(
                 f,

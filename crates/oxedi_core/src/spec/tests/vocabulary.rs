@@ -66,27 +66,19 @@ fn default_words() {
 }
 
 #[test]
-fn a_control_without_end_fails_before_its_count() {
-    let json = r#"{"name":"t","loops":{"env":{"trigger":{"segment":"ST"},"control":{"opener_element":2,"closer_element":2,"count_element":1,"count":"rows"}}}}"#;
-    assert!(matches!(
-        Spec::from_json(json).unwrap_err(),
-        SpecError::BadControl {
-            reason: ControlError::NoEnd,
-            ..
-        }
-    ));
-}
-
-#[test]
-fn an_unnamed_occurrence_fails_before_its_usage() {
-    let json = r#"{"name":"t","loops":{"a":{"trigger":{"segment":"AA"},"occurrences":{"":{"segment":"AA","pos":0,"usage":"often"}}}}}"#;
-    assert!(matches!(
-        Spec::from_json(json).unwrap_err(),
-        SpecError::BadOccurrence {
-            reason,
-            ..
-        } if *reason == OccurrenceError::EmptyName
-    ));
+fn a_word_outside_its_vocabulary_is_refused_before_the_rules_that_follow() {
+    let control = r#"{"name":"t","loops":{"env":{"trigger":{"segment":"ST"},"control":{"opener_element":2,"closer_element":2,"count_element":1,"count":"rows"}}}}"#;
+    let occurrence = r#"{"name":"t","loops":{"a":{"trigger":{"segment":"AA"},"occurrences":{"":{"segment":"AA","pos":0,"usage":"often"}}}}}"#;
+    for (json, path) in [
+        (control, "loops.env.control.count"),
+        (occurrence, "loops.a.occurrences.\"\".usage"),
+    ] {
+        let err = Spec::from_json(json).unwrap_err();
+        assert!(
+            matches!(&err, SpecError::Format { path: found, .. } if found == path),
+            "{err:?}"
+        );
+    }
 }
 
 #[test]
@@ -210,21 +202,9 @@ fn a_codes_key_is_a_map_key() {
 fn the_loader_texts_name_every_word() {
     let s = String::new;
     let has = |text: String, words: String| assert!(text.contains(&words), "{text}");
-    let usage = words_text::<Usage>();
+    has(refused::<Usage>(json!("x")), words_text::<Usage>());
     has(
-        OccurrenceError::UnknownUsage { found: s() }.to_string(),
-        usage.clone(),
-    );
-    has(
-        SpecError::UnknownLoopUsage {
-            loop_name: s(),
-            found: s(),
-        }
-        .to_string(),
-        usage,
-    );
-    has(
-        ControlError::UnknownCount { found: s() }.to_string(),
+        refused::<ControlCount>(json!("x")),
         words_text::<ControlCount>(),
     );
     has(

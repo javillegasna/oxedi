@@ -55,7 +55,6 @@ impl std::error::Error for SpecError {
             | SpecError::NoLoops { .. }
             | SpecError::EmptySegmentId { .. }
             | SpecError::EndIsTrigger { .. }
-            | SpecError::BadPosition { .. }
             | SpecError::NotAnObject { .. }
             | SpecError::WrongType { .. }
             | SpecError::UnknownKey { .. }
@@ -73,7 +72,6 @@ impl std::error::Error for SpecError {
             | SpecError::UnmatchedTrigger { .. }
             | SpecError::TriggerQualifierWider { .. }
             | SpecError::TriggerNotFirst { .. }
-            | SpecError::UnknownLoopUsage { .. }
             | SpecError::ZeroLoopMax { .. }
             | SpecError::AmbiguousTrigger { .. }
             | SpecError::OverlappingTriggers { .. }

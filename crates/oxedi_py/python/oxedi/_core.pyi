@@ -453,7 +453,8 @@ class Spec:
         """
     def to_json(self) -> builtins.str:
         r"""
-        The spec as JSON text.
+        The spec's model as canonical JSON text: no key equal to its default,
+        no `null`, keys of maps in name order.
         """
     def schema(self) -> builtins.dict[builtins.str, pyarrow.Schema]:
         r"""

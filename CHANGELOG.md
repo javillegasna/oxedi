@@ -43,6 +43,7 @@ This file covers the Python package; the DuckDB extension has its own changelog 
   wanted segment, outermost first, in one pass that stops at the highest index.
 
 ### Changed
+- `Spec.to_json()` returns the spec's model as canonical JSON for every spec, loaded, patched or built in: no key equal to its default, no `null`, keys in name order; `Spec.patch` merges over that model.
 - A key holding `.`, `/`, `#` or whitespace is quoted in the path of `SpecError::Format`.
 - Rust: `SpecError::Format { path, source }`, the fault of a value the model refuses, at its path from the root.
 - A spec whose loop or occurrence `usage` is not `required` or `situational`, whose control `count`

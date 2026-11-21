@@ -9,13 +9,16 @@
 //!
 //! `instance.rs` holds [`Instance`] and [`InstanceId`], one numbered
 //! occurrence of a loop; `lineage.rs` the path of an instance from a step's
-//! events; `mod.rs` holds the engine and its events.
+//! events; `paths.rs` the paths of chosen segments of a stream; `mod.rs`
+//! holds the engine and its events.
 
 mod instance;
 mod lineage;
+mod paths;
 
 pub use instance::{Instance, InstanceId};
 pub use lineage::lineage;
+pub use paths::loop_paths;
 
 use crate::segment::Segment;
 use crate::spec::{LoopId, OccurrenceId, Spec};

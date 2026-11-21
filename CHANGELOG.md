@@ -34,6 +34,8 @@ This file covers the Python package; the DuckDB extension has its own changelog 
   segment matched; `StructureChecker::on` and `Projector::on` read it from the event.
 - Rust: `engine::lineage(instance, open, events)` returns an instance and the ones that enclose it,
   outermost first, from the open path and the events of one step.
+- Rust: `engine::loop_paths(spec, segments, wanted)` returns the loop instances that enclose each
+  wanted segment, outermost first, in one pass that stops at the highest index.
 
 ### Changed
 - The error for an interchange whose version carries a repetition separator while the envelope has

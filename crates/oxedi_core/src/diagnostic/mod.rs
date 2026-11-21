@@ -53,6 +53,23 @@ impl fmt::Display for LoopRef {
     }
 }
 
+/// Writes `path` (loop name and 1-based ordinal, outermost first) on every
+/// diagnostic of the slice.
+pub(crate) fn locate<'a>(
+    diagnostics: &mut [Diagnostic],
+    path: impl Iterator<Item = (&'a str, usize)>,
+) {
+    let path: Vec<LoopRef> = path
+        .map(|(name, ordinal)| LoopRef {
+            name: name.to_string(),
+            ordinal,
+        })
+        .collect();
+    for diagnostic in diagnostics {
+        diagnostic.path.clone_from(&path);
+    }
+}
+
 /// One finding about the data of a file.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Diagnostic {

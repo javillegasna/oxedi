@@ -676,3 +676,48 @@ fn an_index_past_the_last_segment_has_an_empty_path_and_a_repeated_one_repeats()
         vec![vec![0, 1], vec![], vec![0, 1]]
     );
 }
+
+#[test]
+fn an_event_names_its_instance() {
+    let spec = nested();
+    let at = |index: usize| Instance {
+        id: InstanceId::at(index),
+        loop_id: spec.roots()[0],
+        ordinal_in_stream: index + 1,
+        parent: None,
+    };
+    let (a, b) = (at(0), at(1));
+    let opened = Event::LoopOpened {
+        instance: a,
+        implicit: false,
+        segment: 0,
+    };
+    let captured = Event::Captured {
+        instance: b,
+        segment: 1,
+        occurrence: None,
+    };
+    let events = [
+        (opened, Some(a)),
+        (Event::LoopClosed { instance: a }, Some(a)),
+        (captured, Some(b)),
+        (
+            Event::Unmatched {
+                segment: 2,
+                within: Some(b),
+            },
+            Some(b),
+        ),
+        (
+            Event::Unmatched {
+                segment: 3,
+                within: None,
+            },
+            None,
+        ),
+        (Event::Empty { segment: 4 }, None),
+    ];
+    for (event, expected) in events {
+        assert_eq!(event.instance(), expected, "{event:?}");
+    }
+}

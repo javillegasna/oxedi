@@ -1097,3 +1097,24 @@ fn a_balance_whose_difference_overflows_leaves_it_out() {
         )
     );
 }
+
+#[test]
+fn locate_writes_the_path_on_every_diagnostic() {
+    let mut found: Vec<Diagnostic> = [0, 1]
+        .into_iter()
+        .map(|segment| {
+            Diagnostic::new(
+                Rule::ByteOrderMark,
+                Some(segment),
+                None,
+                None,
+                Vec::new(),
+                Vec::new(),
+            )
+        })
+        .collect();
+    locate(&mut found, [("A", 1), ("B", 2)].into_iter());
+    for diagnostic in &found {
+        assert_eq!(diagnostic.path, path(&[("A", 1), ("B", 2)]));
+    }
+}

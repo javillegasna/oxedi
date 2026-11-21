@@ -74,7 +74,7 @@ mod tests;
 
 use crate::column::{Cell, Table, Tables};
 use crate::delimiters::Delimiters;
-use crate::diagnostic::{Diagnostic, LoopRef};
+use crate::diagnostic::{Diagnostic, locate};
 use crate::engine::{Event, Instance, lineage};
 use crate::mask::Mask;
 use crate::segment::Segment;
@@ -269,7 +269,7 @@ impl<'s> Projector<'s> {
             let before = self.diagnostics.len();
             self.step(event, segment);
             if self.diagnostics.len() > before {
-                self.locate(before, event_instance(event), open, events);
+                self.locate(before, event.instance(), open, events);
             }
         }
     }
@@ -308,16 +308,11 @@ impl<'s> Projector<'s> {
             return;
         };
         let spec = self.spec;
-        let path: Vec<LoopRef> = lineage(instance, open, events)
+        let path = lineage(instance, open, events);
+        let names = path
             .iter()
-            .map(|at| LoopRef {
-                name: spec.loop_name(at.loop_id).to_string(),
-                ordinal: at.ordinal_in_stream,
-            })
-            .collect();
-        for diagnostic in &mut self.diagnostics[first..] {
-            diagnostic.path.clone_from(&path);
-        }
+            .map(|at| (spec.loop_name(at.loop_id), at.ordinal_in_stream));
+        locate(&mut self.diagnostics[first..], names);
     }
 
     fn captured(&mut self, id: LoopId, segment: &Segment<'_>, found: Option<OccurrenceId>) {
@@ -345,15 +340,5 @@ impl<'s> Projector<'s> {
     /// The diagnostics of the latest `on` or `finish`.
     pub(crate) fn diagnostics(&self) -> &[Diagnostic] {
         &self.diagnostics
-    }
-}
-
-/// The instance an event is about; `None` for an event no loop owns.
-fn event_instance(event: &Event) -> Option<Instance> {
-    match *event {
-        Event::LoopOpened { instance, .. }
-        | Event::LoopClosed { instance }
-        | Event::Captured { instance, .. } => Some(instance),
-        Event::Unmatched { .. } | Event::Empty { .. } => None,
     }
 }

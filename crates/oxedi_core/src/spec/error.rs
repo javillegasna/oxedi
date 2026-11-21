@@ -101,7 +101,8 @@ pub enum SpecError {
         key: &'static str,
     },
     /// A value of the right JSON type that the spec's model does not read: a
-    /// word outside its vocabulary, an element type, a key that is not a position.
+    /// word outside its vocabulary, an element type, a key that is not a position,
+    /// a summary that holds no operation or more than one.
     Format {
         /// Where the value sits, from the root: keys joined by `.`, a key holding
         /// `.`, `/`, `#` or whitespace quoted (e.g. `loops.2100.occurrences.clp.usage`).

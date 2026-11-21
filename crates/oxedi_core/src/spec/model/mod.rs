@@ -47,8 +47,10 @@ spec_object! {
     ///
     /// Read it with `Spec::from_json(..)?.model()`, which checks every loader
     /// rule. Reading a model, or any `*Model`, with serde directly
-    /// (`serde_json::from_value::<SummaryModel>(..)`) checks only its shape, its position keys and a summary's one operation: it accepts a table or a column that does not exist and
-    /// an empty `fields` list. Load such a model with [`Spec::from_model`] before using it.
+    /// (`serde_json::from_value::<SummaryModel>(..)`) checks only its shape, its
+    /// position keys and a summary's one operation: it accepts a table or a column
+    /// that does not exist and an empty `fields` list. Load such a model with
+    /// [`Spec::from_model`] before using it.
     ///
     /// A model writes no default and no `null`: a key equal to its default and
     /// an absent value are left out.

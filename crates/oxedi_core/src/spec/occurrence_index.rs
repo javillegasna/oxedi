@@ -96,9 +96,11 @@ impl OccurrenceIndex {
             }),
             None => self
                 .long
-                .iter()
-                .find(|entry| entry.loop_at == loop_at && entry.id == segment_id)
-                .map(|entry| &entry.occurrences),
+                .binary_search_by(|entry| {
+                    (entry.loop_at, entry.id.as_slice()).cmp(&(loop_at, segment_id))
+                })
+                .ok()
+                .map(|at| &self.long[at].occurrences),
         };
         found.map_or(&[], Vec::as_slice)
     }

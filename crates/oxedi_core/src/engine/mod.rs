@@ -43,8 +43,8 @@ pub enum Event {
         instance: Instance,
         /// Index of the segment in the stream.
         segment: usize,
-        /// The occurrence of the loop the segment matched; `None` when the
-        /// loop holds the segment without declaring an occurrence for it.
+        /// The occurrence of the loop the segment matched; `None` when no
+        /// occurrence of the loop matches the segment.
         occurrence: Option<OccurrenceId>,
     },
     /// No loop could hold the segment; the path is unchanged. The segment

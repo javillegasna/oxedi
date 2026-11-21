@@ -20,7 +20,7 @@ pub(crate) trait Vocabulary: Copy + Eq + 'static {
     /// Every value, in the order its words are listed.
     const ALL: &'static [Self];
 
-    /// The word a spec writes for the value.
+    /// The word that names the value.
     fn word(self) -> &'static str;
 
     /// The value a spec's word names, or `None` when the word is not in

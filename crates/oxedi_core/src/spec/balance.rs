@@ -13,54 +13,14 @@ use std::collections::BTreeMap;
 
 use super::Spec;
 use super::balance_error::BalanceError;
+use super::balance_rule::{BalanceRule, BalanceTerm, Sign};
+use super::elements::ElementDef;
 use super::error::SpecError;
 use super::loops::LoopId;
 use super::model::{BalanceModel, TermModel};
 use super::occurrences::element_def;
-use super::segments::ElementDef;
-use crate::message::{place, render_key};
+use crate::message::place;
 use crate::value::ElementType;
-
-/// A balancing term's `sign`, written `"+"` or `"-"`.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
-pub enum Sign {
-    /// Written `"+"`: the value is added.
-    #[default]
-    Plus,
-    /// Written `"-"`: the value is subtracted.
-    Minus,
-}
-
-/// One signed value of a balancing rule: elements of an occurrence.
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub struct BalanceTerm {
-    /// The loop of the occurrence: the rule's `per` loop or one below it.
-    pub loop_id: LoopId,
-    /// Index of the occurrence in its loop's occurrences.
-    pub occurrence: usize,
-    /// 1-based positions of the elements read, in the order written.
-    pub elements: Vec<usize>,
-    /// 1-based component read in each element, when the amounts are components.
-    pub component: Option<usize>,
-    /// `true` when the value is subtracted (`"sign": "-"`).
-    pub negative: bool,
-}
-
-/// A balancing rule: in every instance of `per`, the values of `target` add
-/// up to the values of `sum`.
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub struct BalanceRule {
-    /// Name used in the JSON, e.g. `claim_balance`.
-    pub name: String,
-    /// The loop whose every instance the rule checks.
-    pub per: LoopId,
-    /// The amounts the rule expects.
-    pub target: Vec<BalanceTerm>,
-    /// The amounts that must add up to the target.
-    pub sum: Vec<BalanceTerm>,
-    /// Decimal places the rule adds at: the largest scale of its elements.
-    pub scale: u8,
-}
 
 /// Compiles the `balancing` section against the loops and segments of `spec`.
 pub(super) fn compile_balancing(
@@ -247,48 +207,4 @@ fn decimal_scale(def: Option<&ElementDef>, key: &str, place: &str) -> Result<u8,
             found: def.kind.code(),
         }),
     }
-}
-
-/// The signed values of one side of a rule, e.g. `sum of CLP04 of 2100
-/// "claim_payment_information" - sum of PLB04, PLB06 of transaction
-/// "provider_adjustment"`. A term reads as a sum when it adds several
-/// elements, reads a loop below `per`, or reads an occurrence that may
-/// appear more than once.
-pub(crate) fn render_terms(spec: &Spec, per: LoopId, terms: &[BalanceTerm]) -> String {
-    let mut out = String::new();
-    for (i, term) in terms.iter().enumerate() {
-        match (i, term.negative) {
-            (0, true) => out.push_str("- "),
-            (0, false) => {}
-            (_, true) => out.push_str(" - "),
-            (_, false) => out.push_str(" + "),
-        }
-        let def = spec.get(term.loop_id);
-        let (segment, occurrence) = def
-            .occurrences
-            .get(term.occurrence)
-            .map(|occurrence| {
-                (
-                    String::from_utf8_lossy(&occurrence.segment).into_owned(),
-                    occurrence.name.as_str(),
-                )
-            })
-            .unwrap_or_default();
-        let places: Vec<String> = term
-            .elements
-            .iter()
-            .map(|&element| place(&segment, element, term.component))
-            .collect();
-        let repeats = term.loop_id != per
-            || def
-                .occurrences
-                .get(term.occurrence)
-                .is_none_or(|occurrence| occurrence.max != Some(1));
-        if places.len() > 1 || repeats {
-            out.push_str("sum of ");
-        }
-        out.push_str(&places.join(", "));
-        out.push_str(&format!(" of {} {occurrence:?}", render_key(&def.name)));
-    }
-    out
 }

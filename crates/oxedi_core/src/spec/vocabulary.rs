@@ -7,7 +7,7 @@ use std::fmt;
 use serde::de::{self, Deserialize, Deserializer};
 use serde::ser::{Serialize, Serializer};
 
-use super::balance::Sign;
+use super::balance_rule::Sign;
 use super::loops::ControlCount;
 use super::occurrences::Usage;
 use super::segments::parse_position;

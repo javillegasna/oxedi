@@ -13,12 +13,13 @@ use super::balance::compile_balancing;
 use super::build_loops::{check_cycles, compile_loop, held_segments};
 use super::build_occurrences::{check_trigger, compile_occurrences};
 use super::compile::compile_tables;
+use super::elements::SegmentDef;
 use super::error::SpecError;
 use super::loops::{LoopId, Trigger};
 use super::model::{SegmentModel, SpecModel};
 use super::occurrence_index::OccurrenceIndex;
 use super::render::render_trigger;
-use super::segments::{SegmentDef, compile_elements};
+use super::segments::compile_elements;
 use super::summaries::{compile_default_table, compile_summaries};
 use super::version::compile_version;
 

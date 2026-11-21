@@ -200,7 +200,7 @@ fn codes_survive_a_round_trip_and_a_patch() {
 
 #[test]
 fn holds_code_on_a_sorted_list() {
-    use crate::spec::segments::holds_code;
+    use crate::spec::elements::holds_code;
     let codes: Vec<String> = vec!["A".into(), "C".into()];
     assert!(holds_code(&codes, b"C"));
     assert!(!holds_code(&codes, b"B"));

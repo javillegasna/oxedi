@@ -6,7 +6,7 @@ use std::fmt;
 use super::Spec;
 use super::UnknownColumn;
 use super::loops::LoopId;
-use crate::mask::Phi;
+use crate::vocabulary::Phi;
 
 /// How a table's segment repeats a group of elements: one row per group.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]

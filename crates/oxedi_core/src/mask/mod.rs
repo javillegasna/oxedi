@@ -6,6 +6,8 @@
 //! kept.
 //!
 //! - `error.rs`: [`MaskError`].
+//! - `Phi` and `DateMode` are defined in `vocabulary`; this module adds
+//!   `DateMode::parse`.
 //! - `tests.rs`: known answers for the digest and the date arithmetic.
 
 mod error;
@@ -19,64 +21,14 @@ use sha2::Sha256;
 
 pub use error::MaskError;
 
-/// What a flagged column holds, which decides how it is masked.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum Phi {
-    /// A person's name.
-    Name,
-    /// An identifier of a person or of a claim.
-    Id,
-    /// A date.
-    Date,
-}
-
-impl Phi {
-    /// Every kind, in the order a spec lists them.
-    pub const ALL: [Phi; 3] = [Phi::Name, Phi::Id, Phi::Date];
-
-    /// The word a spec writes for the kind, also mixed into the digest so the
-    /// same value masks differently per kind.
-    pub fn word(self) -> &'static str {
-        match self {
-            Phi::Name => "name",
-            Phi::Id => "id",
-            Phi::Date => "date",
-        }
-    }
-}
-
-/// What happens to a date.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum DateMode {
-    /// January 1 of the same year.
-    Year,
-    /// The whole row moves by the same number of days.
-    Shift,
-    /// Unchanged.
-    Keep,
-}
+use crate::vocabulary::{DateMode, Phi, Vocabulary};
 
 impl DateMode {
-    /// Every mode.
-    const ALL: [DateMode; 3] = [DateMode::Year, DateMode::Shift, DateMode::Keep];
-
     /// Reads `year`, `shift` or `keep`.
     pub fn parse(text: &str) -> Result<DateMode, MaskError> {
-        DateMode::ALL
-            .into_iter()
-            .find(|mode| mode.word() == text)
-            .ok_or_else(|| MaskError::UnknownDateMode {
-                given: text.to_string(),
-            })
-    }
-
-    /// The word that names the mode: `year`, `shift` or `keep`.
-    pub fn word(self) -> &'static str {
-        match self {
-            DateMode::Year => "year",
-            DateMode::Shift => "shift",
-            DateMode::Keep => "keep",
-        }
+        DateMode::from_word(text).ok_or_else(|| MaskError::UnknownDateMode {
+            given: text.to_string(),
+        })
     }
 }
 

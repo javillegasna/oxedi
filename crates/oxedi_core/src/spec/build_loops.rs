@@ -9,7 +9,7 @@ use super::loops::{Control, ControlCount, ControlError, LoopDef, LoopId, Trigger
 use super::occurrences::parse_usage;
 use super::raw::{RawControl, RawLoop};
 use super::segments::parse_position;
-use super::vocabulary::Vocabulary;
+use crate::vocabulary::Vocabulary;
 
 /// A check of a loop's own keys: the error when the loop breaks it.
 type HeaderRule = fn(&str, &RawLoop) -> Option<SpecError>;

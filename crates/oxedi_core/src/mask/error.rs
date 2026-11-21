@@ -2,6 +2,8 @@
 
 use std::fmt;
 
+use crate::vocabulary::{DateMode, words_text};
+
 /// Why a mask or a date mode could not be built.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum MaskError {
@@ -27,7 +29,8 @@ impl fmt::Display for MaskError {
             ),
             MaskError::UnknownDateMode { given } => write!(
                 f,
-                "the mask date mode must be \"year\", \"shift\" or \"keep\"; got {given:?}"
+                "the mask date mode must be {}; got {given:?}",
+                words_text::<DateMode>()
             ),
         }
     }

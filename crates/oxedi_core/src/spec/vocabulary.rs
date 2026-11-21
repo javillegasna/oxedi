@@ -1,6 +1,6 @@
-//! The closed words and the codes key a spec writes, one table each: the list
-//! of words of a vocabulary, the word of each value and the value of each
-//! word, so the loader reads every word through one place.
+//! The words of the spec's own closed vocabularies and the codes key, one table
+//! each: the word of each value and the value of each word, so the loader reads
+//! every word through one place.
 
 use std::fmt;
 
@@ -14,26 +14,7 @@ use super::raw::RawPick;
 use super::segments::parse_position;
 use super::table_error::TableDefError;
 use super::tables::Pick;
-use crate::mask::Phi;
-
-/// A closed set of words a spec writes for a typed value.
-pub(crate) trait Vocabulary: Copy + Eq + 'static {
-    /// The key a spec writes the word under, quoted in the error of an
-    /// unknown word.
-    const KEY: &'static str;
-
-    /// Every value, in the order a spec lists them.
-    const ALL: &'static [Self];
-
-    /// The word a spec writes for the value.
-    fn word(self) -> &'static str;
-
-    /// The value a spec's word names, or `None` when the word is not in
-    /// the vocabulary; matching is exact.
-    fn from_word(word: &str) -> Option<Self> {
-        Self::ALL.iter().copied().find(|value| value.word() == word)
-    }
-}
+use crate::vocabulary::{Vocabulary, serde_by_word};
 
 impl Vocabulary for Usage {
     const KEY: &'static str = "usage";
@@ -71,61 +52,7 @@ impl Vocabulary for Sign {
     }
 }
 
-impl Vocabulary for Phi {
-    const KEY: &'static str = "phi";
-    const ALL: &'static [Phi] = &Phi::ALL;
-
-    fn word(self) -> &'static str {
-        Phi::word(self)
-    }
-}
-
-/// Every word of the vocabulary, quoted: `"a" or "b"`, or `"a", "b" or "c"`.
-pub(crate) fn words_text<T: Vocabulary>() -> String {
-    let quoted: Vec<String> = T::ALL
-        .iter()
-        .map(|value| format!("{:?}", value.word()))
-        .collect();
-    match quoted.split_last() {
-        Some((last, [])) => last.clone(),
-        Some((last, rest)) => format!("{} or {last}", rest.join(", ")),
-        None => String::new(),
-    }
-}
-
-fn write_word<T: Vocabulary, S: Serializer>(value: &T, serializer: S) -> Result<S::Ok, S::Error> {
-    serializer.serialize_str(value.word())
-}
-
-fn read_word<'de, T: Vocabulary, D: Deserializer<'de>>(deserializer: D) -> Result<T, D::Error> {
-    let found = String::deserialize(deserializer)?;
-    T::from_word(&found).ok_or_else(|| {
-        de::Error::custom(format!(
-            "{:?} must be {}; found {found:?}",
-            T::KEY,
-            words_text::<T>()
-        ))
-    })
-}
-
-// A vocabulary is a JSON string, its word.
-macro_rules! serde_by_word {
-    ($($vocabulary:ty),+) => {$(
-        impl Serialize for $vocabulary {
-            fn serialize<S: Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
-                write_word(self, serializer)
-            }
-        }
-
-        impl<'de> Deserialize<'de> for $vocabulary {
-            fn deserialize<D: Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
-                read_word(deserializer)
-            }
-        }
-    )+};
-}
-
-serde_by_word!(Usage, ControlCount, Sign, Phi);
+serde_by_word!(Usage, ControlCount, Sign);
 
 impl Pick {
     /// The pick a written value names, or the value as JSON when it names

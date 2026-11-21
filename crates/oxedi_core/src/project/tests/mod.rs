@@ -132,6 +132,19 @@ fn a_text_value_past_the_column_limit_is_reported_and_its_cell_is_null() {
 }
 
 #[test]
+fn a_value_dropped_at_the_end_of_the_stream_names_its_loop() {
+    let spec = spec();
+    let _limit = OffsetLimit::set(6);
+    let (_, diagnostics) = project(&spec, "HD*ABCD~HD*EFGH~");
+    assert_eq!(
+        rendered(&diagnostics),
+        vec![
+            "SNIP 2 · text for column \"batch\" of table \"heads\" was not stored: it would bring the column to 8 bytes and a column holds at most 2147483647 · segment #1 · at head#2 · datum \"EFGH\""
+        ]
+    );
+}
+
+#[test]
 fn a_text_value_past_the_limit_in_a_segment_row_is_reported() {
     let spec = spec();
     let _limit = OffsetLimit::set(3);

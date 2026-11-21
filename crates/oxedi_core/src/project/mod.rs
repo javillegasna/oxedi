@@ -59,8 +59,8 @@
 //! the text read of an element; `carry` the values read from loops above a
 //! table's anchor; `mask` the masking of rows and datums; `quote` the
 //! rewrite of another validator's message so it no longer quotes flagged
-//! values. This file holds the projector, its event handlers and the row and
-//! slot state.
+//! values; `row` the row and slot state and the opening and closing of a row.
+//! This file holds the projector and its event dispatch.
 
 mod carry;
 mod check;
@@ -68,6 +68,7 @@ mod fill;
 mod mask;
 mod plan;
 mod quote;
+mod row;
 #[cfg(test)]
 mod tests;
 
@@ -84,61 +85,8 @@ use crate::value::ColumnType;
 
 use carry::Carried;
 use check::Checked;
-use fill::append;
 use plan::{ElementPlan, Plans};
-
-/// A column value of a row being collected.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-enum Slot {
-    /// No segment has matched the column's source yet.
-    Unset,
-    Null,
-    /// A range of the row's byte buffer.
-    Bytes(usize, usize),
-    Int(i64),
-    Decimal(i128),
-    Date(i32),
-    Time(i32),
-}
-
-/// A row being collected.
-#[derive(Debug, Clone, Default)]
-struct Row {
-    ordinal: usize,
-    segment: usize,
-    parents: Vec<Option<usize>>,
-    cells: Vec<Slot>,
-    /// Per column: how many segments have matched its source, for a column
-    /// that picks the n-th.
-    seen: Vec<usize>,
-    bytes: Vec<u8>,
-}
-
-/// What the projector keeps for one table.
-#[derive(Debug, Clone)]
-struct TableState {
-    /// Column types of the declared columns, in order.
-    kinds: Vec<ColumnType>,
-    /// Number of the next row.
-    next: usize,
-    /// `true` while an instance of an anchor loop is open (tables without
-    /// `segment` only).
-    open: bool,
-    row: Row,
-    /// The values of the columns that read a loop above the anchor, kept
-    /// from the enclosing instance of that loop until a row opens.
-    carried: Vec<Carried>,
-    /// `false` for a table left out of the projection: its rows are still
-    /// numbered, so the tables below it keep their parent references, but
-    /// no column is read and no row is stored.
-    kept: bool,
-    /// Whether the open row's columns are read: a kept table, or one left
-    /// out whose seed column the rows below it shift their dates by.
-    collect: bool,
-    /// Whether the table has columns to mask before a row is appended.
-    masked: bool,
-    table: Table,
-}
+use row::{Row, TableState};
 
 /// Turns the engine's events and the segments they name into table rows and
 /// element diagnostics, one segment at a time.
@@ -372,60 +320,6 @@ impl<'s> Projector<'s> {
         }
     }
 
-    fn opened(&mut self, id: LoopId, trigger: usize) {
-        self.reset_carried(id);
-        let Some(index) = self.anchored[id.index()] else {
-            return;
-        };
-        let state = &mut self.tables[index];
-        if !state.collect {
-            // Only the number is needed, for the rows below that refer to it.
-            state.row.ordinal = state.next;
-            state.next = state.next.saturating_add(1);
-            state.open = true;
-            return;
-        }
-        let spec = self.spec;
-        let def = &spec.tables()[index];
-        let mut row = std::mem::take(&mut self.tables[index].row);
-        row.parents.clear();
-        row.parents
-            .extend(def.ancestors.iter().map(|&above| self.open_row(above)));
-        row.cells.clear();
-        row.cells.resize(def.columns.len(), Slot::Unset);
-        row.seen.clear();
-        row.seen.resize(def.columns.len(), 0);
-        row.bytes.clear();
-        row.segment = trigger;
-        let state = &mut self.tables[index];
-        for carried in &state.carried {
-            carried.copy_into(&mut row);
-        }
-        row.ordinal = state.next;
-        state.next = state.next.saturating_add(1);
-        state.row = row;
-        state.open = true;
-    }
-
-    fn closed(&mut self, id: LoopId) {
-        if let Some(index) = self.anchored[id.index()] {
-            let state = &mut self.tables[index];
-            let append_row = state.open && state.kept;
-            state.open = false;
-            if append_row {
-                if state.masked {
-                    let mut row = std::mem::take(&mut state.row);
-                    self.mask_row(index, &mut row);
-                    self.tables[index].row = row;
-                }
-                let state = &mut self.tables[index];
-                let dropped = append(&mut state.table, &state.row, &mut self.cells);
-                let segment = state.row.segment;
-                self.report_dropped(dropped, index, segment);
-            }
-        }
-    }
-
     fn captured(&mut self, id: LoopId, segment: &Segment<'_>, found: Option<OccurrenceId>) {
         let mut joined = std::mem::take(&mut self.joined);
         let plans = std::mem::take(&mut self.plans);
@@ -451,12 +345,6 @@ impl<'s> Projector<'s> {
     /// The diagnostics of the latest `on` or `finish`.
     pub(crate) fn diagnostics(&self) -> &[Diagnostic] {
         &self.diagnostics
-    }
-
-    /// The number of the row `table` is collecting, if an instance is open.
-    fn open_row(&self, table: usize) -> Option<usize> {
-        let state = &self.tables[table];
-        state.open.then_some(state.row.ordinal)
     }
 }
 

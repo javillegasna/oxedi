@@ -2,7 +2,8 @@
 //! of that loop captures segments, and copied into each row that opens
 //! inside it.
 
-use super::{Projector, Row, Slot};
+use super::Projector;
+use super::row::{Row, Slot};
 use crate::spec::LoopId;
 
 /// The value a column that reads a loop above its table's anchor holds,

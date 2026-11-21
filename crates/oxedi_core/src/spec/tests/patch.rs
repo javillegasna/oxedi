@@ -229,3 +229,24 @@ fn a_model_patch_wraps_a_compile_failure() {
         "applying patch: loop \"2100\" names unknown parent \"2000\""
     );
 }
+
+#[test]
+fn a_model_patch_wraps_unparsable_text() {
+    let loaded = LoadedSpec::from_json(Spec::BUILTIN_835_JSON).unwrap();
+    let text = loaded.merge_patch("not json").unwrap_err().to_string();
+    assert!(text.starts_with("applying patch: invalid spec JSON: "));
+}
+
+#[test]
+fn a_model_patch_leaves_the_original() {
+    let original = LoadedSpec::from_json(Spec::BUILTIN_835_JSON).unwrap();
+    let patched = original
+        .merge_patch(r#"{"loops":{"a":{"trigger":{"segment":"AA"}}}}"#)
+        .unwrap();
+    assert_eq!(patched.spec.loops().len(), original.spec.loops().len() + 1);
+    assert!(!original.model.loops.contains_key("a"));
+    assert_eq!(
+        SpecModel::from_json(&patched.to_json().unwrap()).unwrap(),
+        patched.model
+    );
+}

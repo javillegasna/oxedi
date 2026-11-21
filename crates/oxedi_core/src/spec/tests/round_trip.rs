@@ -4,7 +4,7 @@
 use serde_json::Value;
 
 use crate::spec::test_support;
-use crate::spec::{Builtin, Spec, spec_schema};
+use crate::spec::{Builtin, LoadedSpec, Spec, spec_schema};
 
 use super::CLP_ONLY;
 
@@ -33,31 +33,30 @@ const EXPLICIT_DEFAULTS: &str = r#"{"name":"explicit",
     "summaries":{}
 }"#;
 
-fn round_trip_specs() -> Vec<(&'static str, Spec)> {
+fn round_trip_specs() -> Vec<(&'static str, LoadedSpec)> {
     let [five, four] = Builtin::all() else {
         panic!("the registry ships two built-in specs");
     };
+    let loaded = |b: &Builtin| LoadedSpec {
+        model: b.model.clone(),
+        spec: std::sync::Arc::clone(&b.spec),
+    };
+    let load = |name, text| ok(name, "load", LoadedSpec::from_json(text));
     let parser = ok(
         "edi_835_parser",
         "merge the patch",
-        Spec::builtin_835().merge_patch(include_str!("../../../specs/edi_835_parser.json")),
+        load("edi_835_parser", Spec::BUILTIN_835_JSON)
+            .merge_patch(include_str!("../../../specs/edi_835_parser.json")),
     );
     vec![
-        ("5010", five.spec.as_ref().clone()),
-        ("4010", four.spec.as_ref().clone()),
+        ("5010", loaded(five)),
+        ("4010", loaded(four)),
         ("edi_835_parser", parser),
-        ("test_support", test_support::spec()),
-        (
-            "clp_only",
-            ok("clp_only", "load", Spec::from_json(CLP_ONLY)),
-        ),
+        ("test_support", load("test_support", test_support::SPEC)),
+        ("clp_only", load("clp_only", CLP_ONLY)),
         (
             "explicit_defaults",
-            ok(
-                "explicit_defaults",
-                "load",
-                Spec::from_json(EXPLICIT_DEFAULTS),
-            ),
+            load("explicit_defaults", EXPLICIT_DEFAULTS),
         ),
     ]
 }
@@ -67,20 +66,16 @@ fn ok<T, E: std::fmt::Display>(name: &str, step: &str, result: Result<T, E>) -> 
     result.unwrap_or_else(|e| panic!("{name}: {step}: {e}"))
 }
 
-fn written(name: &str, spec: &Spec) -> String {
-    ok(name, "write", ok(name, "model", spec.model()).to_json())
+fn written(name: &str, loaded: &LoadedSpec) -> String {
+    ok(name, "write", loaded.to_json())
 }
 
 #[test]
 fn every_spec_round_trips() {
-    for (name, spec) in round_trip_specs() {
-        let m1 = ok(name, "model", spec.model());
+    for (name, loaded) in round_trip_specs() {
+        let m1 = loaded.model.clone();
         let text = ok(name, "write", m1.to_json());
-        let m2 = ok(
-            name,
-            "model of the text",
-            ok(name, "load", Spec::from_json(&text)).model(),
-        );
+        let m2 = ok(name, "load", LoadedSpec::from_json(&text)).model;
         assert_eq!(m1, m2, "{name}: the model changed");
         let as_value: Value = ok(name, "parse the text", serde_json::from_str(&text));
         assert_eq!(
@@ -98,8 +93,9 @@ fn every_spec_round_trips() {
 
 #[test]
 fn a_round_trip_compiles_to_the_same_spec() {
-    for (name, spec) in round_trip_specs() {
-        let back = ok(name, "load", Spec::from_json(&written(name, &spec)));
+    for (name, loaded) in round_trip_specs() {
+        let spec = &loaded.spec;
+        let back = ok(name, "load", LoadedSpec::from_json(&written(name, &loaded))).spec;
         assert_eq!(back.name(), spec.name(), "{name}: name");
         assert_eq!(back.loops(), spec.loops(), "{name}: loops");
         assert_eq!(
@@ -116,7 +112,7 @@ fn a_round_trip_compiles_to_the_same_spec() {
             "{name}: default table"
         );
         assert_eq!(back.version(), spec.version(), "{name}: version");
-        assert_eq!(spec_schema(&back), spec_schema(&spec), "{name}: schema");
+        assert_eq!(spec_schema(&back), spec_schema(spec), "{name}: schema");
     }
 }
 
@@ -131,11 +127,11 @@ fn holds_null(value: &Value) -> bool {
 
 #[test]
 fn a_written_spec_holds_no_null() {
-    for (name, spec) in round_trip_specs() {
+    for (name, loaded) in round_trip_specs() {
         let value: Value = ok(
             name,
             "parse the text",
-            serde_json::from_str(&written(name, &spec)),
+            serde_json::from_str(&written(name, &loaded)),
         );
         assert!(!holds_null(&value), "{name}: the written spec holds a null");
     }
@@ -151,7 +147,10 @@ fn lacks(value: &Value, keys: &[&str]) {
 #[test]
 fn explicit_defaults_are_not_written() {
     let name = "explicit_defaults";
-    let text = written(name, &ok(name, "load", Spec::from_json(EXPLICIT_DEFAULTS)));
+    let text = written(
+        name,
+        &ok(name, "load", LoadedSpec::from_json(EXPLICIT_DEFAULTS)),
+    );
     let root: Value = serde_json::from_str(&text).unwrap();
     lacks(&root, &["summaries"]);
     let a = &root["loops"]["A"];

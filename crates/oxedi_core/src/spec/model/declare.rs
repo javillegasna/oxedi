@@ -129,7 +129,7 @@ macro_rules! spec_object {
 
         #[allow(
             dead_code,
-            reason = "the schema tables are data only the declaration test reads"
+            reason = "the schema tables are emitted with each model and nothing reads them"
         )]
         pub(in crate::spec) static $schema: $crate::spec::shape::ObjectSchema =
             $crate::spec::shape::ObjectSchema {

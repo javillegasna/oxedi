@@ -46,7 +46,7 @@ This file covers the Python package; the DuckDB extension has its own changelog 
 - `Spec.to_json()` returns the spec's model as canonical JSON for every spec, loaded, patched or built in: no key equal to its default, no `null`, keys in name order; `Spec.patch` merges over that model.
 - A key holding `.`, `/`, `#` or whitespace is quoted in the path of `SpecError::Format`.
 - Rust: `SpecError::Format { path, source }`, the fault of a value the model refuses, at its path from the root.
-- A fault anywhere in a spec, its top level included (a key it does not take, a missing key, a value of the wrong JSON type, `null` where a value belongs, a spec or a section that is not an object) is reported by the model read at its path from the root, `.` for the root itself, the first in key order, in Rust and Python alike: ``spec: at segments.CLP.elements.3: unknown field `lenght`, expected one of `name`, `type`, `scale`, `required`, `min`, `max`, `codes`, `composite` ``, ``spec: at segments.CLP.elements.3.min: invalid type: string "1", expected usize``, ``spec: at summaries.s.distinct: missing field `column` ``, ``spec: at loops.a.trigger: invalid type: integer `1`, expected a trigger object``, ``spec: at tables.t.repeat: missing field `step` ``, ``spec: at .: missing field `name` ``, ``spec: at tables: invalid type: sequence, expected a map``.
+- A fault anywhere in a spec, its top level included (a key it does not take, a missing key, a value of the wrong JSON type, `null` where a value belongs, a spec or a section that is not an object) is reported by the model read at its path from the root, `.` for the root itself, the first in key order, in Rust and Python alike: ``spec: at segments.CLP.elements.3: unknown field `lenght`, expected one of `name`, `type`, `scale`, `required`, `min`, `max`, `codes`, `composite` ``, ``spec: at segments.CLP.elements.3.min: invalid type: string "1", expected usize``, ``spec: at summaries.s.distinct: missing field `column` ``, ``spec: at loops.a.trigger: invalid type: integer `1`, expected a trigger object``, ``spec: at tables.t.repeat: missing field `step` ``, ``spec: at .: missing field `name` ``, ``spec: at tabels: unknown field `tabels`, expected one of `name`, `version`, `loops`, `tables`, `balancing`, `segments`, `summaries`, `default_table` ``, ``spec: at tables: invalid type: sequence, expected a map``.
 - A scale the element's type refuses is reported at the element's path, as `scale` is written beside `type`.
 - Rust: every such fault is a `SpecError::Format`; no spec load returns `UnknownKey`, `MissingKey`, `NotAnObject` or `WrongType`.
 - A spec whose loop or occurrence `usage` is not `required` or `situational`, whose control `count`
@@ -91,9 +91,8 @@ This file covers the Python package; the DuckDB extension has its own changelog 
   `oxedi_core::vocabulary`; the root paths `oxedi_core::Phi` and `oxedi_core::DateMode` are unchanged.
 - Rust: `Pick` moved from `oxedi_core::spec` to `oxedi_core::vocabulary`; the root path `oxedi_core::Pick` is
   unchanged.
-- The spec shape check names a `pick` that is not `"first"`, `"last"` or a 1-based position with the
-  same words as a Rust read of a pick, which names the value found; a spec that does not read into
-  its typed model names the path to the key it rejected.
+- A spec's `pick` that is not `"first"`, `"last"` or a 1-based position is refused with the same
+  words as a Rust read of a pick, which names the value found.
 - `oxedi[pyx12]` requires pyx12 4.1 or later. A pyx12 finding keeps the X12 code in `code`, and its
   `rule` now ends with pyx12's own name for the error before the `(reported by pyx12, code N)`
   suffix.
@@ -108,8 +107,6 @@ This file covers the Python package; the DuckDB extension has its own changelog 
   summary under the method's name, `ValueError` for `payer` and `payee` over other than one
   transaction and for a sum that overflows. Each reads `Result.<method>: <reason>`, for example
   `Result.payer: summary "payer" reads the one row of the table "payments", which has 2 rows`.
-- An unknown key in a spec now also lists the keys allowed there, for example
-  ``spec: at tabels: unknown field `tabels`, expected one of `name`, `version`, `loops`, `tables`, `balancing`, `segments`, `summaries`, `default_table` ``.
 - The `test` extra is gone (`pip install "oxedi[test]"` no longer resolves): it was a contributor
   list, not a feature. Contributors install the test tools from the package's dependency group:
   `uv pip install --group crates/oxedi_py/pyproject.toml:test`, or `make venv`.
@@ -137,8 +134,7 @@ This file covers the Python package; the DuckDB extension has its own changelog 
 - Rust: `SpecError::SummarySchema` is removed; `SummaryDefError::Operations` is reported inside `SpecError::Format`.
 - A balancing value whose `"sign"` is not `"+"` or `"-"` fails at its path from the spec's root, in Rust and Python alike: `spec: at balancing.claim_balance.sum[1].sign: "sign" must be "+" or "-"; found "plus"`. A rule is read whole first, so such a fault is reported before every other fault of the rule, an empty rule name included.
 - Rust: `SpecError::BalanceSchema` and `BalanceError::UnknownSign` are removed.
-- A spec is read whole into its model before any section compiles, in Rust and Python alike: a value the model refuses (a word outside its vocabulary, an element type, a key that is not a position, a summary's operations) is reported before every fault but a shape fault, and of several the first in the spec's key order (balancing, default_table, loops, name, segments, summaries, tables, version; entries by name) is reported. An empty loops map, segment id, balancing rule name or summary name is reported only when no value is refused.
-- A top-level fault the shape check does not catch reads as any other refused value, `spec: at <path>: ...`, no longer `spec does not match the schema: ...`.
+- A spec is read whole into its model before any section compiles, in Rust and Python alike: a value the model refuses (a word outside its vocabulary, an element type, a key that is not a position, a summary's operations) is reported before every compile fault, and of several the first in the spec's key order (balancing, default_table, loops, name, segments, summaries, tables, version; entries by name) is reported. An empty loops map, segment id, balancing rule name or summary name is reported only when no value is refused.
 - Rust: `SpecError::Schema` is removed; such a fault is `SpecError::Format`.
 
 ### Removed

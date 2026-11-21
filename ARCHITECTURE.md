@@ -133,24 +133,22 @@ The spec files live in `crates/oxedi_core/specs/`:
 | `835.4010.json` | A JSON Merge Patch (RFC 7386) over `835.json` that gives the 4010 version. | `Builtin` (`spec/builtin.rs`): the 5010 JSON with this patch merged over it |
 | `edi_835_parser.json` | A patch with the tables of the `edi-835-parser` compatibility layer. | `crates/oxedi_py/src/lib.rs`, pinned by `tests/project_golden.rs` |
 
-Loading goes `SpecModel::from_json` (steps 1 and 2, `spec/model/`) → `SpecModel::compile` (`Spec::build`, steps 3 and 4, `spec/build.rs`); `Spec::from_json` does both:
+Loading goes `SpecModel::from_json` (step 1, `spec/model/`) → `SpecModel::compile` (`Spec::build`, steps 2 and 3, `spec/build.rs`); `Spec::from_json` does both:
 
-1. `shape.rs` checks the JSON shape against the schema as data: one table of
-   keys per object, the root's rows being the sections. Each object's declaration in
-   `spec/model/` emits its table (`sections.rs` holds only the helpers that build a `Field`); the walk checks only the top level, the root keys and that each section is an object, and every section is read through its model. Its errors
-   name the key path as written and, for an unknown key, the keys allowed there.
-2. The whole spec is read once as its `SpecModel` through `serde_path_to_error` (the first value
-   it refuses, in key order, is `SpecError::Format`, at its path from the root); `Pick`
+1. The whole spec is read once as its `SpecModel` through `serde_path_to_error`, the top level
+   included: each object's `spec_object!` declaration in `spec/model/` emits a model that refuses
+   an unknown key and a missing required one. The first value it refuses, in key order, is
+   `SpecError::Format`, at its path from the root (`.` for the root itself); `Pick`
    (`vocabulary/pick.rs`) reads through its own visitor.
-3. `build.rs` runs the compile steps in order over that model, one per section or structural check:
+2. `build.rs` runs the compile steps in order over that model, one per section or structural check:
    loops (`build_loops.rs`: keys, parent, trigger, control), segments, occurrences (`build_occurrences.rs`), the
    occurrence index (`occurrence_index.rs`), the version, trigger ambiguity, tables, balancing,
    summaries (`summaries.rs`) and the default table; `spec/mod.rs` lists which file holds what.
-4. The result is index-based: `LoopDef` (by `LoopId`), `SegmentDef`, `ElementDef`, `TableDef`
+3. The result is index-based: `LoopDef` (by `LoopId`), `SegmentDef`, `ElementDef`, `TableDef`
    with a `ColumnSource` per column, `BalanceRule`, `Summary`. The engine compares indices,
    never strings.
 
-`SpecModel::from_json` reads a spec as typed data (the shape check, then the model; a serde read of
+`SpecModel::from_json` reads a spec as typed data (one strict read of the whole spec; a serde read of
 a model checks only its shape and its position keys) and `SpecModel::compile` checks the rest. A
 model writes no default and no `null`.
 

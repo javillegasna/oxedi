@@ -1,110 +1,11 @@
-//! The registry reads as pinned here, so a key, its order, its field or its
-//! required flag does not change unseen, and a model writes no default and no
-//! `null`.
+//! What a model's presence words write and read: a model writes no default and no `null`,
+//! and reads a written default or `null` back as the same model.
 
 use std::collections::BTreeMap;
 
 use serde_json::{from_value, json};
 
-use crate::spec::model::ROOT;
-use crate::spec::shape::{Field, Leaf, ObjectSchema};
 use crate::spec::{ColumnModel, LoopModel, SpecModel, TableModel, TriggerModel};
-
-/// The registry objects in the order a depth-first walk from the root first
-/// visits them, each with its path, and the path of each by its address.
-#[derive(Default)]
-struct Names {
-    order: Vec<(String, &'static ObjectSchema)>,
-    by_address: BTreeMap<usize, String>,
-}
-
-fn address(schema: &'static ObjectSchema) -> usize {
-    std::ptr::from_ref(schema) as usize
-}
-
-impl Names {
-    // `base` is the path the field sits at; a map member adds `.*` and a list
-    // item `[]`, and an object's keys hang under its path (the root's under none).
-    fn visit(&mut self, field: &'static Field, base: String) {
-        match field {
-            Field::Object(schema) => {
-                if self.by_address.contains_key(&address(schema)) {
-                    return;
-                }
-                let prefix = if self.order.is_empty() {
-                    String::new()
-                } else {
-                    format!("{base}.")
-                };
-                self.by_address.insert(address(schema), base.clone());
-                self.order.push((base, schema));
-                for (key, inner) in schema.keys {
-                    self.visit(inner, format!("{prefix}{key}"));
-                }
-            }
-            Field::Map(item) => self.visit(item, format!("{base}.*")),
-            Field::List { item, .. } => self.visit(item, format!("{base}[]")),
-            Field::Leaf { .. } | Field::Opaque => {}
-        }
-    }
-
-    fn render(&self, field: &Field) -> String {
-        match field {
-            Field::Leaf { kind, nullable } => {
-                let word = match kind {
-                    Leaf::Text => "text",
-                    Leaf::Flag => "flag",
-                    Leaf::Count => "count",
-                    Leaf::Pick => "pick",
-                };
-                format!("{word}{}", if *nullable { "?" } else { "" })
-            }
-            Field::List { item, .. } => format!("[{}]", self.render(item)),
-            Field::Map(item) => format!("{{{}}}", self.render(item)),
-            Field::Object(schema) => format!("@{}", self.by_address[&address(schema)]),
-            Field::Opaque => "opaque".to_string(),
-        }
-    }
-
-    fn line(&self, path: &str, schema: &ObjectSchema) -> String {
-        let keys = schema
-            .keys
-            .iter()
-            .map(|(key, field)| {
-                let mark = if schema.required.contains(key) {
-                    "!"
-                } else {
-                    ""
-                };
-                format!("{key}{mark}={}", self.render(field))
-            })
-            .collect::<Vec<_>>();
-        format!("{path}: {}", keys.join(", "))
-    }
-}
-
-static TOP: Field = Field::Object(&ROOT);
-
-/// One line per registry object: its keys in order, each with its field and a
-/// `!` when required.
-fn registry_text() -> String {
-    let mut names = Names::default();
-    names.visit(&TOP, "spec".to_string());
-    names
-        .order
-        .iter()
-        .map(|(path, schema)| names.line(path, schema))
-        .collect::<Vec<_>>()
-        .join("\n")
-}
-
-const REGISTRY: &str = "\
-spec: name!=opaque, version=opaque, loops!={opaque}, tables={opaque}, balancing={opaque}, segments={opaque}, summaries={opaque}, default_table=opaque";
-
-#[test]
-fn the_registry_reads_as_pinned() {
-    assert_eq!(registry_text(), REGISTRY);
-}
 
 #[test]
 fn a_table_and_its_columns_write_no_default_and_no_null() {

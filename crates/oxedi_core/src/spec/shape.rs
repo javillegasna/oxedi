@@ -1,10 +1,10 @@
 //! The schema tables as data: every object of a spec is an [`ObjectSchema`], a table of its
 //! keys and the [`Field`] each holds, emitted with its model in `model` (the helpers that build
-//! a `Field` are in `sections`). The model read checks a spec; only the declaration test reads
+//! a `Field` are in `sections`). The model read checks a spec and nothing reads
 //! these tables.
 #![allow(
     dead_code,
-    reason = "the schema tables are data only the declaration test reads"
+    reason = "the schema tables are emitted with each model and nothing reads them"
 )]
 
 /// The scalar kinds the model expects.

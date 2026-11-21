@@ -545,3 +545,100 @@ fn a_held_segment_with_no_matching_occurrence_is_captured_with_none() {
         None
     );
 }
+
+/// Feeds every segment and returns the events of the last step and the open
+/// path after it, as `lineage` takes them.
+fn last_step(engine: &mut LoopEngine<'_>, input: &[u8]) -> (Vec<Event>, Vec<Instance>) {
+    let mut last = Vec::new();
+    for segment in &segs(input) {
+        last = engine.feed(segment).to_vec();
+    }
+    (last, engine.path().to_vec())
+}
+
+/// The instance of the first event `pick` accepts.
+fn instance_of(events: &[Event], pick: fn(&Event) -> Option<Instance>) -> Instance {
+    events
+        .iter()
+        .find_map(pick)
+        .expect("the step has the event")
+}
+
+fn captured_instance(event: &Event) -> Option<Instance> {
+    match *event {
+        Event::Captured { instance, .. } => Some(instance),
+        _ => None,
+    }
+}
+
+fn closed_instance(event: &Event) -> Option<Instance> {
+    match *event {
+        Event::LoopClosed { instance } => Some(instance),
+        _ => None,
+    }
+}
+
+/// The instance ids of a lineage, outermost first.
+fn ids(path: &[Instance]) -> Vec<usize> {
+    path.iter().map(|instance| instance.id.index()).collect()
+}
+
+#[test]
+fn lineage_of_a_captured_segment_lists_its_open_ancestors() {
+    let spec = nested();
+    let mut engine = LoopEngine::new(&spec);
+    let (events, open) = last_step(&mut engine, b"AA~BB~");
+    let instance = instance_of(&events, captured_instance);
+    assert_eq!(ids(&open), vec![0, 1]);
+    assert_eq!(ids(&lineage(instance, &open, &events)), vec![0, 1]);
+}
+
+#[test]
+fn lineage_keeps_the_loops_closed_after_the_capture() {
+    let spec = nested();
+    let mut engine = LoopEngine::new(&spec);
+    let (events, open) = last_step(&mut engine, b"AA~BB~AE~");
+    assert!(open.is_empty());
+    let captured = instance_of(&events, captured_instance);
+    assert_eq!(ids(&lineage(captured, &open, &events)), vec![0]);
+    let closed = instance_of(&events, closed_instance);
+    assert_eq!(closed.loop_id, id(&spec, "B"));
+    assert_eq!(ids(&lineage(closed, &open, &events)), vec![0, 1]);
+}
+
+#[test]
+fn lineage_of_a_close_before_an_open_skips_the_new_instances() {
+    let spec = nested();
+    let mut engine = LoopEngine::new(&spec);
+    let (events, open) = last_step(&mut engine, b"AA~BB~AA~");
+    let closed = instance_of(&events, closed_instance);
+    assert_eq!(closed.loop_id, id(&spec, "B"));
+    assert_eq!(ids(&open), vec![2]);
+    assert_eq!(ids(&lineage(closed, &open, &events)), vec![0, 1]);
+}
+
+#[test]
+fn lineage_at_finish_reads_the_closing_events() {
+    let spec = nested();
+    let mut engine = LoopEngine::new(&spec);
+    last_step(&mut engine, b"AA~BB~");
+    let events = engine.finish().to_vec();
+    let closed = events
+        .iter()
+        .filter_map(closed_instance)
+        .find(|instance| instance.loop_id == id(&spec, "B"))
+        .expect("finish closes B");
+    assert_eq!(ids(&lineage(closed, &[], &events)), vec![0, 1]);
+}
+
+#[test]
+fn lineage_stops_at_a_parent_it_cannot_find() {
+    let spec = nested();
+    let orphan = Instance {
+        id: InstanceId::at(10),
+        loop_id: id(&spec, "B"),
+        ordinal_in_stream: 1,
+        parent: Some(InstanceId::at(9)),
+    };
+    assert_eq!(lineage(orphan, &[], &[]), vec![orphan]);
+}

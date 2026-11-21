@@ -2,7 +2,7 @@
 //! tables, the diagnostic helpers and the text read of an element.
 
 use crate::column::{Cell, CellError, RowError, Table};
-use crate::diagnostic::{Diagnostic, LoopRef, Rule};
+use crate::diagnostic::{Diagnostic, Rule};
 use crate::element::Element;
 use crate::segment::Segment;
 use crate::spec::{ColumnSource, LoopId, Pick};
@@ -218,21 +218,12 @@ impl<'s> Projector<'s> {
         component: Option<usize>,
         datum: &[u8],
     ) {
-        let spec = self.spec;
-        let path = self
-            .open
-            .iter()
-            .map(|&(id, ordinal)| LoopRef {
-                name: spec.loop_name(id).to_string(),
-                ordinal,
-            })
-            .collect();
         self.diagnostics.push(Diagnostic::new(
             rule,
             Some(segment),
             element,
             component,
-            path,
+            Vec::new(),
             datum.to_vec(),
         ));
     }

@@ -62,10 +62,12 @@ flowchart LR
    `Instance` it concerns: one numbered occurrence of a loop, with its `InstanceId`, its ordinal in
    the stream and its parent. `Captured` also names the occurrence of the loop the segment matched
    (`Spec::occurrence_of`, through the index of `spec/occurrence_index.rs`). `LoopEngine::path`
-   lists the instances open now.
+   lists the instances open now. `lineage` (`engine/lineage.rs`) gives the
+   path of an instance from the open instances and the events of one step.
 4. `Processor` (`process/`) feeds each segment to the engine, then hands the events to the
    projector and the checker. `Processor::run` does this over a whole `Document`.
-   - `Projector` (`project/`) reads the occurrence of the captured segment from the event, checks
+   - `Projector` (`project/`) reads the occurrence of the captured segment from the event and the
+     loop path of its diagnostics from `lineage` over the engine's open path, checks
      every element the spec defines (`project/check.rs`: required, type, length, code list,
      components) and fills the spec's tables (`project/fill.rs`).
    - `StructureChecker` (`check/`) reports unknown segments, implicit and unterminated loops,

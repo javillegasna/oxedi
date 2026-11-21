@@ -120,6 +120,15 @@ lists what each file holds (see `crates/oxedi_core/src/write/mod.rs`). The Pytho
 `crates/oxedi_py/src/` is the exception: its modules are leaves tested from pytest, so each is
 one file.
 
+**Dependencies between modules are written down.** `crates/oxedi_core/tests/architecture/table.rs`
+lists the modules each core module may use, and the architecture test fails on a use the list does
+not allow, on an entry no file uses and on a cycle. A new dependency changes the list in the same
+commit. From the test's output:
+
+```text
+check uses project, which the table does not allow · check/envelope.rs:12 · crate::project::Projector · remove the use, or add "project" to the row of check in tests/architecture/table.rs when the design allows it
+```
+
 **Files stay small.** About 400 lines of code per file, tests excluded. A longer file needs a
 reason it is one coherent piece.
 

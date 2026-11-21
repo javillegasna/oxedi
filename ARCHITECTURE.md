@@ -25,7 +25,8 @@ beyond loading that file, and the Rust bindings and the viewer name no 835 segme
 
 Start reading at the `//!` header of `crates/oxedi_core/src/lib.rs` (one paragraph per layer),
 then `crates/oxedi_core/src/process/mod.rs` (where the layers meet). Every core folder's
-`mod.rs` lists what each of its files holds.
+`mod.rs` lists what each of its files holds, and `crates/oxedi_core/tests/architecture/table.rs`
+lists which module may use which.
 
 ## Pipelines
 

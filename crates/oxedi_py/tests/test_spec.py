@@ -1,14 +1,11 @@
 import inspect
 import json
-from pathlib import Path
-
 import pytest
 
 import oxedi
 from conftest import LARGEST, read
 from oxedi import Spec, SpecError, Version
 
-CORE_SPEC = Path(__file__).parents[2] / "oxedi_core" / "specs" / "835.json"
 PATCH = {"loops": {"ZZ": {"parent": "2100", "trigger": {"segment": "ZZ1"}}}}
 
 
@@ -287,7 +284,11 @@ def test_column_source_refuses_with_the_call_what_and_what_to_do(make_spec, tabl
 
 
 def test_to_json_writes_the_model_not_the_text_as_written():
-    written = CORE_SPEC.read_text()
+    canonical = json.loads(Spec.builtin().to_json())
+    for loop in canonical["loops"].values():
+        for occurrence in loop.get("occurrences", {}).values():
+            occurrence.setdefault("usage", "situational")
+    written = json.dumps(canonical)
     assert '"usage": "situational"' in written
     loaded = Spec.from_json(written)
     assert '"situational"' not in loaded.to_json()

@@ -180,11 +180,10 @@ pub fn diagnostics_of(
     let mut checker = oxedi_core::StructureChecker::new(spec, &delims);
     let mut diagnostics = Vec::new();
     for segment in oxedi_core::Tokenizer::with_delimiters(bytes, delims) {
-        let events = engine.feed(&segment);
-        diagnostics.extend_from_slice(checker.on(&segment, events));
+        let events = engine.feed(&segment).to_vec();
+        diagnostics.extend_from_slice(checker.on(&segment, &events, engine.path()));
     }
-    engine.finish();
-    diagnostics.extend_from_slice(checker.finish());
+    diagnostics.extend_from_slice(checker.finish(engine.finish()));
     diagnostics
 }
 

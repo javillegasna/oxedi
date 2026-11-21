@@ -121,6 +121,11 @@ impl Balances {
             pending: Vec::new(),
         }
     }
+
+    /// Forgets the totals of the instances still open.
+    pub(super) fn clear_pending(&mut self) {
+        self.pending.clear();
+    }
 }
 
 /// Adds `value` to `total` with its sign; `None` on overflow.

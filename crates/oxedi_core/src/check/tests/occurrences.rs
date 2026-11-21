@@ -206,11 +206,10 @@ fn finishing_restarts_the_root_counts() {
     for _ in 0..2 {
         let mut out = Vec::new();
         for segment in crate::Tokenizer::with_delimiters(&b"EV~HD~RF*A~IT~QT~TR~EE~"[..], delims) {
-            let events = engine.feed(&segment);
-            out.extend_from_slice(checker.on(&segment, events));
+            let events = engine.feed(&segment).to_vec();
+            out.extend_from_slice(checker.on(&segment, &events, engine.path()));
         }
-        engine.finish();
-        out.extend_from_slice(checker.finish());
+        out.extend_from_slice(checker.finish(engine.finish()));
         assert_eq!(out, Vec::new());
     }
 }

@@ -70,6 +70,9 @@ This file covers the Python package; the DuckDB extension has its own changelog 
 - Rust: `Projector::on` takes the open path (`LoopEngine::path()`) after the events, and
   `Projector::finish` takes the events `LoopEngine::finish` returned; the projector keeps no loop
   stack of its own.
+- Rust: `StructureChecker::on` takes the open path (`LoopEngine::path()`) after the events, and
+  `StructureChecker::finish` takes the events `LoopEngine::finish` returned; the checker keeps no
+  loop ordinals of its own.
 - The spec shape check names a `pick` that is not `"first"`, `"last"` or a 1-based position with the
   same words as the pick error. A Rust read of a pick or of a spec model names the value found, and
   a spec that does not read into its typed model names the path to the key it rejected.

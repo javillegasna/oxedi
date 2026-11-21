@@ -15,17 +15,16 @@
 //! segment, are in `control.rs`.
 
 use crate::delimiters::Delimiters;
-use crate::diagnostic::{Diagnostic, LoopRef, Rule};
-use crate::engine::Event;
+use crate::diagnostic::{Diagnostic, Rule, locate};
+use crate::engine::{Event, Instance, InstanceId, named_lineage};
 use crate::segment::Segment;
-use crate::spec::{LoopId, OccurrenceId, Spec};
+use crate::spec::{OccurrenceId, Spec};
 use crate::trivia::BYTE_ORDER_MARK;
 
 /// One loop instance the checker is inside of.
 #[derive(Debug, Clone)]
 struct Open {
-    id: LoopId,
-    ordinal: usize,
+    instance: InstanceId,
     implicit: bool,
     /// Index of the trigger that opened the instance; `None` when implicit.
     opened_at: Option<usize>,
@@ -58,8 +57,6 @@ pub struct StructureChecker<'s> {
     /// Joins the components of a control value the file split.
     separator: u8,
     open: Vec<Open>,
-    /// Instances opened so far, per loop index.
-    ordinals: Vec<usize>,
     /// Non-empty segments consumed so far.
     seen: usize,
     /// The occurrence and child loop counts of every open instance.
@@ -90,7 +87,6 @@ impl<'s> StructureChecker<'s> {
             spec,
             separator: delimiters.component,
             open: Vec::new(),
-            ordinals: vec![0; spec.loops().len()],
             seen: 0,
             counts: Vec::new(),
             root_counts: vec![0; spec.roots().len()],
@@ -104,47 +100,88 @@ impl<'s> StructureChecker<'s> {
     }
 
     /// Consumes the events the engine returned for `segment` and returns the
-    /// diagnostics they raise. The slice is valid until the next call. The
-    /// first segment of a stream whose `raw` starts with a UTF-8 byte order
-    /// mark also raises [`Rule::ByteOrderMark`], before anything else.
-    pub fn on(&mut self, segment: &Segment<'_>, events: &[Event]) -> &[Diagnostic] {
+    /// diagnostics they raise. `open` is `LoopEngine::path()` after the step;
+    /// with the events it gives the loop path of each diagnostic. The slice is
+    /// valid until the next call. The first segment of a stream whose `raw`
+    /// starts with a UTF-8 byte order mark also raises [`Rule::ByteOrderMark`],
+    /// before anything else, at the root.
+    pub fn on(
+        &mut self,
+        segment: &Segment<'_>,
+        events: &[Event],
+        open: &[Instance],
+    ) -> &[Diagnostic] {
         self.diagnostics.clear();
         self.check_byte_order_mark(segment);
-        for &event in events {
-            match event {
-                Event::LoopOpened {
-                    instance,
-                    implicit,
-                    segment: trigger,
-                } => self.opened(instance.loop_id, implicit, trigger, segment),
-                Event::Captured {
-                    instance,
-                    occurrence,
-                    ..
-                } => {
-                    self.seen = self.seen.saturating_add(1);
-                    self.captured(
-                        instance.loop_id,
-                        segment,
-                        occurrence.map(OccurrenceId::index),
-                    );
-                }
-                Event::Unmatched { segment: index, .. } => {
-                    self.seen = self.seen.saturating_add(1);
-                    self.report(
-                        Rule::UnknownSegment {
-                            segment_id: segment.id.to_vec(),
-                        },
-                        Some(index),
-                        None,
-                        segment.id.to_vec(),
-                    );
-                }
-                Event::LoopClosed { .. } => self.closed(Some(segment)),
-                Event::Empty { .. } => {}
+        self.handle(Some(segment), events, open);
+        &self.diagnostics
+    }
+
+    /// Handles each event, then gives the diagnostics it raised the loop path
+    /// of its instance. `segment` is the one the events were returned for,
+    /// `None` at the end of the stream.
+    fn handle(&mut self, segment: Option<&Segment<'_>>, events: &[Event], open: &[Instance]) {
+        for event in events {
+            let before = self.diagnostics.len();
+            self.step(event, segment);
+            if self.diagnostics.len() > before {
+                self.locate(before, event, open, events);
             }
         }
-        &self.diagnostics
+    }
+
+    fn step(&mut self, event: &Event, segment: Option<&Segment<'_>>) {
+        match *event {
+            Event::LoopClosed { instance } => self.closed(instance, segment),
+            Event::LoopOpened { .. } | Event::Captured { .. } | Event::Unmatched { .. } => {
+                // The engine's `finish` only closes loops, so only `on` has a segment.
+                if let Some(segment) = segment {
+                    self.arrived(event, segment);
+                }
+            }
+            Event::Empty { .. } => {}
+        }
+    }
+
+    /// Handles an event that comes with the segment that caused it.
+    fn arrived(&mut self, event: &Event, segment: &Segment<'_>) {
+        match *event {
+            Event::LoopOpened {
+                instance,
+                implicit,
+                segment: trigger,
+            } => self.opened(instance, implicit, trigger, segment),
+            Event::Captured {
+                instance,
+                occurrence,
+                ..
+            } => {
+                self.seen = self.seen.saturating_add(1);
+                self.captured(instance, segment, occurrence.map(OccurrenceId::index));
+            }
+            Event::Unmatched { segment: index, .. } => {
+                self.seen = self.seen.saturating_add(1);
+                self.report(
+                    Rule::UnknownSegment {
+                        segment_id: segment.id.to_vec(),
+                    },
+                    Some(index),
+                    None,
+                    segment.id.to_vec(),
+                );
+            }
+            Event::LoopClosed { .. } | Event::Empty { .. } => {}
+        }
+    }
+
+    /// Writes the loop path of the event's instance on the diagnostics from
+    /// `first` on; an event no loop owns leaves the root path.
+    #[cold]
+    fn locate(&mut self, first: usize, event: &Event, open: &[Instance], events: &[Event]) {
+        let path = named_lineage(self.spec, event, open, events);
+        if !path.is_empty() {
+            locate(&mut self.diagnostics[first..], path.into_iter());
+        }
     }
 
     /// Reports a UTF-8 byte order mark that starts the first segment.
@@ -154,23 +191,28 @@ impl<'s> StructureChecker<'s> {
         }
     }
 
-    /// Closes every loop still open, as the engine's `finish` does, and
-    /// returns the diagnostics that raises. The checker is then back at the
-    /// root: feeding it again behaves like a fresh checker.
-    pub fn finish(&mut self) -> &[Diagnostic] {
+    /// Consumes the events `LoopEngine::finish` returned, which close every
+    /// loop still open, and returns the diagnostics that raises. The checker
+    /// is then back at the root: feeding it again behaves like a fresh checker.
+    pub fn finish(&mut self, events: &[Event]) -> &[Diagnostic] {
         self.diagnostics.clear();
-        while !self.open.is_empty() {
-            self.closed(None);
-        }
+        self.handle(None, events, &[]);
+        self.open.clear();
+        self.counts.clear();
+        self.balances.clear_pending();
         self.seen = 0;
-        self.ordinals.iter_mut().for_each(|count| *count = 0);
         self.root_counts.iter_mut().for_each(|count| *count = 0);
         &self.diagnostics
     }
 
-    fn opened(&mut self, id: LoopId, implicit: bool, trigger: usize, segment: &Segment<'_>) {
-        self.ordinals[id.index()] = self.ordinals[id.index()].saturating_add(1);
-        let ordinal = self.ordinals[id.index()];
+    fn opened(
+        &mut self,
+        instance: Instance,
+        implicit: bool,
+        trigger: usize,
+        segment: &Segment<'_>,
+    ) {
+        let id = instance.loop_id;
         if !implicit && let Some(parent) = self.open.last_mut() {
             parent.children = parent.children.saturating_add(1);
         }
@@ -181,8 +223,7 @@ impl<'s> StructureChecker<'s> {
             .as_ref()
             .and_then(|number| number.as_ref().err().copied());
         self.open.push(Open {
-            id,
-            ordinal,
+            instance: instance.id,
             implicit,
             opened_at: (!implicit).then_some(trigger),
             start: self.seen,
@@ -204,20 +245,20 @@ impl<'s> StructureChecker<'s> {
         }
     }
 
-    fn captured(&mut self, id: LoopId, segment: &Segment<'_>, matched: Option<usize>) {
-        self.occurrence_captured(id, segment, matched);
-        self.balance_captured(id, segment, matched);
-        self.end_captured(id, segment);
+    fn captured(&mut self, instance: Instance, segment: &Segment<'_>, matched: Option<usize>) {
+        self.occurrence_captured(instance, segment, matched);
+        self.balance_captured(instance.loop_id, segment, matched);
+        self.end_captured(instance, segment);
     }
 
-    /// Closes the innermost open loop; `at` is the segment whose arrival
-    /// closed it, or `None` at the end of the stream.
-    fn closed(&mut self, at: Option<&Segment<'_>>) {
+    /// Closes the innermost open loop when it is `instance`; `at` is the
+    /// segment whose arrival closed it, or `None` at the end of the stream.
+    fn closed(&mut self, instance: Instance, at: Option<&Segment<'_>>) {
         let spec = self.spec;
-        let Some(top) = self.open.last() else {
+        let Some(top) = self.open.last().filter(|top| top.instance == instance.id) else {
             return;
         };
-        let def = spec.get(top.id);
+        let def = spec.get(instance.loop_id);
         // An implicit loop never saw its trigger; its missing end is part of
         // the same gap and is already reported by its opening.
         if let Some(end) = &def.end
@@ -235,7 +276,7 @@ impl<'s> StructureChecker<'s> {
                 at.map(|segment| segment.id.to_vec()).unwrap_or_default(),
             );
         }
-        self.occurrence_closed(at);
+        self.occurrence_closed(instance.loop_id, at);
         self.balance_closed();
         self.open.pop();
     }
@@ -258,17 +299,14 @@ impl<'s> StructureChecker<'s> {
         component: Option<usize>,
         datum: Vec<u8>,
     ) {
-        let spec = self.spec;
-        let path = self
-            .open
-            .iter()
-            .map(|open| LoopRef {
-                name: spec.loop_name(open.id).to_string(),
-                ordinal: open.ordinal,
-            })
-            .collect();
+        // `handle` writes the path once the event is done.
         self.diagnostics.push(Diagnostic::new(
-            rule, segment, element, component, path, datum,
+            rule,
+            segment,
+            element,
+            component,
+            Vec::new(),
+            datum,
         ));
     }
 }

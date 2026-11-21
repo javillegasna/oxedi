@@ -15,12 +15,14 @@ fn run_check(spec: &Spec, bytes: &[u8]) -> usize {
     let delimiters = Delimiters::from_isa(bytes).expect("sample has an ISA");
     let mut checker = StructureChecker::new(spec, &delimiters);
     let mut diagnostics = 0usize;
+    // One buffer for the whole pass, as `Processor` keeps its events.
+    let mut events = Vec::new();
     for segment in Tokenizer::new(bytes).expect("sample has an ISA") {
-        let events = engine.feed(&segment);
-        diagnostics += checker.on(&segment, events).len();
+        events.clear();
+        events.extend_from_slice(engine.feed(&segment));
+        diagnostics += checker.on(&segment, &events, engine.path()).len();
     }
-    engine.finish();
-    diagnostics + checker.finish().len()
+    diagnostics + checker.finish(engine.finish()).len()
 }
 
 fn check_samples(c: &mut Criterion) {

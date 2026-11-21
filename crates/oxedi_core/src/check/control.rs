@@ -5,6 +5,7 @@
 //! reports them in order.
 
 use crate::diagnostic::Rule;
+use crate::engine::Instance;
 use crate::segment::Segment;
 use crate::spec::{Control, ControlCount, LoopDef, LoopId, render_trigger};
 use crate::value::parse_unsigned;
@@ -146,15 +147,19 @@ impl StructureChecker<'_> {
     /// its loop, and checks the count and the control number it carries. A
     /// segment that is not the loop's end, or an entry of another loop on top,
     /// changes nothing.
-    pub(super) fn end_captured(&mut self, id: LoopId, segment: &Segment<'_>) {
+    pub(super) fn end_captured(&mut self, instance: Instance, segment: &Segment<'_>) {
         let spec = self.spec;
-        let def = spec.get(id);
+        let def = spec.get(instance.loop_id);
         if def.end.as_deref() != Some(segment.id) {
             return;
         }
         let seen = self.seen;
         let separator = self.separator;
-        let Some(top) = self.open.last_mut().filter(|top| top.id == id) else {
+        let Some(top) = self
+            .open
+            .last_mut()
+            .filter(|top| top.instance == instance.id)
+        else {
             return;
         };
         top.ended = true;

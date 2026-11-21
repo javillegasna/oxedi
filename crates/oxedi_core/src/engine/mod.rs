@@ -8,11 +8,14 @@
 //! to segments by index and are returned as a slice of a reused buffer.
 //!
 //! `instance.rs` holds [`Instance`] and [`InstanceId`], one numbered
-//! occurrence of a loop; `mod.rs` holds the engine and its events.
+//! occurrence of a loop; `lineage.rs` the path of an instance from a step's
+//! events; `mod.rs` holds the engine and its events.
 
 mod instance;
+mod lineage;
 
 pub use instance::{Instance, InstanceId};
+pub use lineage::lineage;
 
 use crate::segment::Segment;
 use crate::spec::{LoopId, OccurrenceId, Spec};

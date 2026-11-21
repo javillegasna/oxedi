@@ -417,3 +417,33 @@ fn a_model_mismatch_names_the_path_to_the_rejected_key() {
     };
     assert_eq!(path, "tables.t.columns.c.pick");
 }
+
+#[test]
+fn a_model_compiles_like_its_json() {
+    let compiled = SpecModel::from_json(test_support::SPEC)
+        .unwrap()
+        .compile()
+        .unwrap();
+    let loaded = Spec::from_json(test_support::SPEC).unwrap();
+    assert_eq!(compiled.loops(), loaded.loops());
+    assert_eq!(compiled.tables(), loaded.tables());
+}
+
+#[test]
+fn a_model_read_refuses_like_the_loader() {
+    let bad_usage = r#"{"name":"t","loops":{"A.b":{"trigger":{"segment":"AA"},"usage":"often"}}}"#;
+    let err = SpecModel::from_json(bad_usage).unwrap_err();
+    assert_eq!(
+        err.to_string(),
+        Spec::from_json(bad_usage).unwrap_err().to_string()
+    );
+    assert!(
+        matches!(&err, SpecError::Format { path, .. } if path == "loops.\"A.b\".usage"),
+        "{err:?}"
+    );
+    let unknown_key = r#"{"name":"t","loops":{},"x":1}"#;
+    assert_eq!(
+        SpecModel::from_json(unknown_key).unwrap_err().to_string(),
+        Spec::from_json(unknown_key).unwrap_err().to_string()
+    );
+}

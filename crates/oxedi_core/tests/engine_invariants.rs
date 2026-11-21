@@ -205,7 +205,7 @@ fn events_agree_with_a_replay_of_their_own_stack() {
                             instance.ordinal_in_stream,
                             instance.parent
                         ),
-                        (expected.0, expected.1, expected.2),
+                        expected,
                         "{name}: opened instance {instance:?} disagrees with the replay"
                     );
                     stack.push(instance);

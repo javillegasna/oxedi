@@ -89,17 +89,17 @@ fn every_node_but_the_root_knows_the_segment_that_opened_it() {
 #[test]
 fn a_builder_folds_hand_built_events_in_slices() {
     let spec = nested();
-    let a = spec.loop_id("A").unwrap();
-    let b = spec.loop_id("B").unwrap();
+    let a_id = spec.loop_id("A").unwrap();
+    let b_id = spec.loop_id("B").unwrap();
     let a = Instance {
         id: InstanceId::at(0),
-        loop_id: a,
+        loop_id: a_id,
         ordinal_in_stream: 1,
         parent: None,
     };
     let b = Instance {
         id: InstanceId::at(1),
-        loop_id: b,
+        loop_id: b_id,
         ordinal_in_stream: 1,
         parent: Some(a.id),
     };

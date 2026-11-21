@@ -42,7 +42,7 @@ fn ranges_are_contiguous_and_cover_the_file() {
 
 /// The open loops at each segment, outermost first, as `(name, ordinal)`:
 /// the engine's stack when the segment is captured, left unmatched or found
-/// empty, the way the Python binding's `_loop_paths` reads it.
+/// empty, rebuilt from the events the engine returns.
 fn engine_paths(spec: &Spec, document: &Document<'_>) -> Vec<Vec<(String, usize)>> {
     let mut engine = oxedi_core::LoopEngine::new(spec);
     let mut open: Vec<(String, usize)> = Vec::new();

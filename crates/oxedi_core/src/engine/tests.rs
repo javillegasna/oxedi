@@ -34,11 +34,17 @@ fn seen<'s>(spec: &'s Spec, event: &Event) -> Seen<'s> {
 
 /// Feeds every segment and returns the events of the *last* one, plus the path after it.
 fn run<'s>(spec: &'s Spec, input: &[u8]) -> (Vec<Seen<'s>>, Vec<&'s str>) {
+    let (events, path) = last_events(spec, input);
+    (events.iter().map(|event| seen(spec, event)).collect(), path)
+}
+
+/// Feeds every segment and returns the raw events of the last one, plus the
+/// loop path after it.
+fn last_events<'s>(spec: &'s Spec, input: &[u8]) -> (Vec<Event>, Vec<&'s str>) {
     let mut engine = LoopEngine::new(spec);
-    let segments = segs(input);
     let mut last = Vec::new();
-    for segment in &segments {
-        last = engine.feed(segment).iter().map(|e| seen(spec, e)).collect();
+    for segment in &segs(input) {
+        last = engine.feed(segment).to_vec();
     }
     let path = engine
         .path()
@@ -449,22 +455,13 @@ fn instance(
     }
 }
 
-fn last_events(spec: &Spec, input: &[u8]) -> Vec<Event> {
-    let mut engine = LoopEngine::new(spec);
-    let mut last = Vec::new();
-    for segment in &segs(input) {
-        last = engine.feed(segment).to_vec();
-    }
-    last
-}
-
 #[test]
 fn every_event_names_its_instance() {
     let spec = nested();
     let a = instance(&spec, "A", 0, 1, None);
     let b = instance(&spec, "B", 1, 1, Some(0));
     assert_eq!(
-        last_events(&spec, b"AA~BB~AE~"),
+        last_events(&spec, b"AA~BB~AE~").0,
         vec![
             Event::LoopClosed { instance: b },
             Event::Captured {
@@ -481,14 +478,14 @@ fn an_unmatched_segment_names_the_instance_it_fell_in() {
     let spec = nested();
     let b = instance(&spec, "B", 1, 1, Some(0));
     assert_eq!(
-        last_events(&spec, b"AA~BB~ZZ~"),
+        last_events(&spec, b"AA~BB~ZZ~").0,
         vec![Event::Unmatched {
             segment: 2,
             within: Some(b)
         }]
     );
     assert_eq!(
-        last_events(&spec, b"ZZ~"),
+        last_events(&spec, b"ZZ~").0,
         vec![Event::Unmatched {
             segment: 0,
             within: None

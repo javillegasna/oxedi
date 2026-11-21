@@ -24,6 +24,9 @@ This file covers the Python package; the DuckDB extension has its own changelog 
 - `Spec.column_source(table, column)` → `ElementSource` (`segment`, `element`, `component`): where a
   table column reads its value, as the spec resolved it; `KeyError` for an unknown table or column,
   `ValueError` for a column that reads a segment index or a repeated group.
+- Rust: `engine::Instance` and `engine::InstanceId`: one open occurrence of a loop, numbered by the
+  engine in opening order, with its loop, its 1-based ordinal in the stream and its parent.
+  `LoopEngine::path` returns the open instances (`&[Instance]`) instead of their loop ids.
 
 ### Changed
 - The error for an interchange whose version carries a repetition separator while the envelope has

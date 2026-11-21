@@ -3,7 +3,7 @@
 use crate::spec::LoopId;
 
 /// Identifies an [`Instance`] by its opening order in the stream.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub struct InstanceId(usize);
 
 impl InstanceId {

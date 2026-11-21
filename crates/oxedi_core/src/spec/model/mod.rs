@@ -117,25 +117,11 @@ impl SpecModel {
         })
     }
 
-    /// The model as pretty-printed JSON text, as [`Spec::to_json`] prints a
+    /// The model as pretty-printed JSON text, as [`crate::spec::LoadedSpec::to_json`] prints a
     /// spec.
     pub fn to_json(&self) -> Result<String, serde_json::Error> {
         serde_json::to_string_pretty(self)
     }
-}
-
-/// Reads a spec's JSON into its model, naming the path to the rejected key.
-pub(in crate::spec) fn read_model(
-    spec_name: &str,
-    source: &serde_json::Value,
-) -> Result<SpecModel, SpecError> {
-    serde_path_to_error::deserialize::<_, SpecModel>(source).map_err(|err| {
-        SpecError::ModelMismatch {
-            spec_name: spec_name.to_owned(),
-            path: root_path(err.path()),
-            source: err.into_inner(),
-        }
-    })
 }
 
 // A path as an error writes it: keys joined by `.`, each through `render_key`
@@ -163,26 +149,6 @@ fn root_path(path: &serde_path_to_error::Path) -> String {
     match render_path(path) {
         path if path.is_empty() => ".".to_owned(),
         path => path,
-    }
-}
-
-impl Spec {
-    /// The spec as typed data, read from the JSON the loader accepted, so
-    /// every loader rule holds for it.
-    ///
-    /// A failure means the loader and the model disagree on what a spec may
-    /// hold, a bug in oxedi: [`SpecError::ModelMismatch`], whose error names
-    /// the path to the key the model rejected.
-    pub fn model(&self) -> Result<SpecModel, SpecError> {
-        read_model(&self.name, &self.source)
-    }
-
-    /// Loads a spec from its model: the model is written to JSON and loaded
-    /// through the same steps as [`Spec::from_json`], so it fails with the
-    /// same errors.
-    pub fn from_model(model: &SpecModel) -> Result<Spec, SpecError> {
-        let source = serde_json::to_value(model).map_err(SpecError::Json)?;
-        Spec::from_value(source)
     }
 }
 

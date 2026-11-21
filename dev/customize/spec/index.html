@@ -2400,7 +2400,7 @@ occurrences sit at their own positions inside that space.</p>
 <h2 id="spec-keys-reference">Spec keys reference<a class="headerlink" href="#spec-keys-reference" title="Permanent link">&para;</a></h2>
 <p>Every key a spec can hold, with what it means and the Rust code that reads it. The JSON is
 deserialized into the <code>Raw*</code> structs and checked by <code>spec/shape.rs</code> against the schema, both emitted by
-the object declarations in <code>crates/oxedi_core/src/spec/model/</code> (<code>RawElement</code> and <code>RawSummary</code> in
+the object declarations in <code>crates/oxedi_core/src/spec/model/</code> (<code>RawSummary</code> in
 <code>spec/raw.rs</code>, their schemas in <code>spec/sections.rs</code>), then compiled into the definitions of <code>oxedi_core::spec</code>. For the internal names, see the <a href="https://github.com/javillegasna/oxedi/blob/master/ARCHITECTURE.md#glossary">glossary</a>. An unknown key is an
 error that names its path and the keys allowed there, and so is a missing required key. Positions of elements and
 components are 1-based. The code names differ from the JSON in three places: a table's

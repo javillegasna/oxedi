@@ -4,7 +4,6 @@ use std::borrow::Cow;
 use std::ops::Deref;
 use std::sync::Arc;
 
-use oxedi_core::spec::SpecModel;
 use oxedi_core::{Builtin, LoadedSpec, Segment, Spec, SpecError as CoreSpecError, Version};
 use pyo3::exceptions::{PyTypeError, PyValueError};
 use pyo3::prelude::*;
@@ -44,7 +43,7 @@ impl SchemaExport {
 /// no model while only its compiled spec is used.
 #[derive(Clone)]
 enum ModelOf {
-    Kept(Arc<SpecModel>),
+    Kept(Arc<LoadedSpec>),
     Builtin(&'static Builtin),
 }
 
@@ -64,10 +63,10 @@ impl HeldSpec {
         }
     }
 
-    fn loaded(loaded: LoadedSpec) -> HeldSpec {
+    fn kept(loaded: LoadedSpec) -> HeldSpec {
         HeldSpec {
-            spec: loaded.spec,
-            model: ModelOf::Kept(Arc::new(loaded.model)),
+            spec: Arc::clone(&loaded.spec),
+            model: ModelOf::Kept(Arc::new(loaded)),
         }
     }
 
@@ -76,11 +75,21 @@ impl HeldSpec {
         &self.spec
     }
 
-    /// The model the spec compiles from: the kept one, or the built-in's read now.
-    fn model(&self) -> PyResult<Cow<'_, SpecModel>> {
+    /// The spec with its model, for `call` to patch or write: the kept one, or
+    /// the built-in's model read now. A read that fails is a `SpecError`
+    /// naming `call`.
+    fn loaded(&self, call: &str) -> PyResult<Cow<'_, LoadedSpec>> {
         match &self.model {
-            ModelOf::Kept(model) => Ok(Cow::Borrowed(&**model)),
-            ModelOf::Builtin(builtin) => builtin.model().map(Cow::Owned).map_err(spec_error),
+            ModelOf::Kept(loaded) => Ok(Cow::Borrowed(&**loaded)),
+            ModelOf::Builtin(builtin) => builtin
+                .model()
+                .map(|model| {
+                    Cow::Owned(LoadedSpec {
+                        model,
+                        spec: Arc::clone(&self.spec),
+                    })
+                })
+                .map_err(|err| SpecError::new_err(format!("{call}: {err}"))),
         }
     }
 }
@@ -246,7 +255,7 @@ impl PyStubType for VersionArg {
 /// A patch argument: JSON text, a dict written as JSON text, a dict that
 /// cannot be written (with the reason), or anything else (with its type
 /// name), so `Spec.patch` can refuse the last two with their own messages.
-pub enum PatchArg {
+enum PatchArg {
     Json(String),
     Unwritable { reason: String },
     Other { kind: String },
@@ -292,10 +301,7 @@ impl<'a, 'py> FromPyObject<'a, 'py> for PatchArg {
         if object.is_instance_of::<PyDict>() {
             return Ok(PatchArg::dumped(&object));
         }
-        let kind = object
-            .get_type()
-            .name()
-            .map_or_else(|_| "an unknown type".to_owned(), |name| name.to_string());
+        let kind = object.get_type().name()?.to_string();
         Ok(PatchArg::Other { kind })
     }
 }
@@ -337,7 +343,7 @@ impl PySpec {
     #[staticmethod]
     fn from_json(json: &str) -> PyResult<PySpec> {
         LoadedSpec::from_json(json)
-            .map(HeldSpec::loaded)
+            .map(HeldSpec::kept)
             .map(PySpec::from)
             .map_err(spec_error)
     }
@@ -351,21 +357,18 @@ impl PySpec {
         patch: PatchArg,
     ) -> PyResult<PySpec> {
         let json = patch.into_json()?;
-        let model = self.inner.model()?.into_owned();
-        let loaded = LoadedSpec {
-            model,
-            spec: Arc::clone(self.inner.spec()),
-        };
-        loaded
+        self.inner
+            .loaded("Spec.patch")?
             .merge_patch(&json)
-            .map(|patched| HeldSpec::loaded(patched).into())
+            .map(|patched| HeldSpec::kept(patched).into())
             .map_err(spec_error)
     }
 
     /// The spec's model as canonical JSON text: no key equal to its default,
-    /// no `null`, keys of maps in name order.
+    /// no `null`, keys of maps in name order. Raises `SpecError` when the
+    /// model cannot be read or written.
     fn to_json(&self) -> PyResult<String> {
-        self.inner.model()?.to_json().map_err(|err| {
+        self.inner.loaded("Spec.to_json")?.to_json().map_err(|err| {
             SpecError::new_err(format!(
                 "Spec.to_json: the model cannot be written as JSON: {err}"
             ))

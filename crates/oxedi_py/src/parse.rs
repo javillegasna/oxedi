@@ -83,7 +83,7 @@ impl PyParseResult {
     /// selected from the file's version.
     #[getter]
     fn spec(&self, py: Python<'_>) -> PySpec {
-        PySpec::from(self.tables.bind(py).get().held().clone())
+        PySpec::from(self.tables.bind(py).get().spec().clone())
     }
 
     /// Every diagnostic, in stream order.

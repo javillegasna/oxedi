@@ -379,7 +379,7 @@ fn resolve(
 ) -> PyResult<(Arc<Tables>, Arc<Spec>)> {
     if let Ok(parsed) = tables.cast::<PyTables>() {
         let parsed = parsed.get();
-        let spec = given.unwrap_or_else(|| Arc::clone(parsed.spec()));
+        let spec = given.unwrap_or_else(|| Arc::clone(parsed.spec().spec()));
         return Ok((Arc::clone(parsed.tables()), spec));
     }
     let mapping = tables.cast::<PyMapping>().map_err(|_| {

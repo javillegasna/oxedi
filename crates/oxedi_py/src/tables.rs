@@ -2,7 +2,7 @@
 
 use std::sync::Arc;
 
-use oxedi_core::{Spec, Table, Tables};
+use oxedi_core::{Table, Tables};
 use pyo3::exceptions::{PyImportError, PyKeyError, PyRuntimeError};
 use pyo3::prelude::*;
 use pyo3::types::{PyCapsule, PyDict, PyIterator, PyTuple};
@@ -86,12 +86,7 @@ impl PyTables {
     }
 
     /// The spec that projected the tables.
-    pub fn spec(&self) -> &Arc<Spec> {
-        self.spec.spec()
-    }
-
-    /// The spec as the binding holds it, with where its model is read from.
-    pub fn held(&self) -> &HeldSpec {
+    pub fn spec(&self) -> &HeldSpec {
         &self.spec
     }
 

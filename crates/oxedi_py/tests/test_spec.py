@@ -301,6 +301,7 @@ def test_a_patched_spec_writes_its_patch():
         "parent": "2100",
         "trigger": {"segment": "ZZ1"},
     }
+    assert '"situational"' not in patched.to_json()
     assert Spec.from_json(patched.to_json()).to_json() == patched.to_json()
 
 

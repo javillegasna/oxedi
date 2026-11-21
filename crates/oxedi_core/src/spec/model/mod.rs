@@ -21,6 +21,7 @@ use super::sections::{SUMMARY, TEXT};
 use super::segments::{POSITION_RULE, parse_position};
 use super::shape::Field;
 use super::{Spec, SpecError};
+use crate::message::render_key;
 use declare::spec_object;
 
 pub use loops::{ControlModel, LoopModel, OccurrenceModel, QualifierModel, TriggerModel};
@@ -107,10 +108,33 @@ pub(in crate::spec) fn read_model(
     serde_path_to_error::deserialize::<_, SpecModel>(source).map_err(|err| {
         SpecError::ModelMismatch {
             spec_name: spec_name.to_owned(),
-            path: err.path().to_string(),
+            path: match render_path("", err.path()) {
+                path if path.is_empty() => ".".to_owned(),
+                path => path,
+            },
             source: err.into_inner(),
         }
     })
+}
+
+// A path as an error writes it: keys joined by `.`, each through `render_key`
+// so a key holding `.` stays one key; a list item as `[i]`.
+fn render_path(prefix: &str, path: &serde_path_to_error::Path) -> String {
+    use serde_path_to_error::Segment;
+    let mut text = prefix.to_owned();
+    for segment in path {
+        match segment {
+            Segment::Map { key } | Segment::Enum { variant: key } => {
+                if !text.is_empty() {
+                    text.push('.');
+                }
+                text.push_str(&render_key(key));
+            }
+            Segment::Seq { index } => text.push_str(&format!("[{index}]")),
+            Segment::Unknown => text.push_str(".?"),
+        }
+    }
+    text
 }
 
 impl Spec {

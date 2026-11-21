@@ -42,6 +42,8 @@ This file covers the Python package; the DuckDB extension has its own changelog 
   wanted segment, outermost first, in one pass that stops at the highest index.
 
 ### Changed
+- A key holding `.`, `/`, `#` or whitespace is quoted in the path of `SpecError::ModelMismatch`.
+- Rust: `SpecError::Format { path, source }`: a spec value the model refuses, at its path from the root.
 - The error for an interchange whose version carries a repetition separator while the envelope has
   none names the version: `the interchange version "00501" (ISA12) carries a repetition separator
   in ISA11, but the envelope field "delimiters.repetition" is not set; set it to the separator to

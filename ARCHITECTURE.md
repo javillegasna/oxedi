@@ -139,8 +139,8 @@ Loading goes `Spec::from_json` → `Spec::from_value` (`spec/build.rs`):
    same declarations as the schema; `RawElement`, `RawSummary` and `RawPick` are in `raw.rs`.
 3. `build.rs` runs the compile steps in order, one per section or structural check:
    loops (`build_loops.rs`: keys, parent, trigger, control), segments, occurrences, the
-   occurrence index (`occurrence_index.rs`), the version, trigger ambiguity, tables, balancing, summaries (`summaries.rs`) and the
-   default table; `spec/mod.rs` lists which file holds what.
+   occurrence index (`occurrence_index.rs`), the version, trigger ambiguity, tables, balancing,
+   summaries (`summaries.rs`) and the default table; `spec/mod.rs` lists which file holds what.
 4. The result is index-based: `LoopDef` (by `LoopId`), `SegmentDef`, `ElementDef`, `TableDef`
    with a `ColumnSource` per column, `BalanceRule`, `Summary`. The engine compares indices,
    never strings.

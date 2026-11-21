@@ -1,6 +1,7 @@
 //! Envelope and structure checks; the occurrence checks are in
 //! `occurrences.rs`.
 
+use super::control::parse_count;
 use super::*;
 
 mod balance;

@@ -23,8 +23,8 @@ pub enum Event {
     /// A loop started; `implicit` when it was opened to host a descendant
     /// whose ancestors were absent from the input.
     LoopOpened {
-        /// The loop.
-        id: LoopId,
+        /// The occurrence that opened.
+        instance: Instance,
         /// `true` when no segment of its own opened it.
         implicit: bool,
         /// Index of the trigger segment that caused the opening: the loop's
@@ -34,21 +34,21 @@ pub enum Event {
     },
     /// A loop ended.
     LoopClosed {
-        /// The loop.
-        id: LoopId,
+        /// The occurrence that closed.
+        instance: Instance,
     },
-    /// A segment belongs to the given loop.
+    /// A segment belongs to the given occurrence of a loop.
     Captured {
-        /// The loop.
-        id: LoopId,
+        /// The occurrence holding the segment.
+        instance: Instance,
         /// Index of the segment in the stream.
         segment: usize,
     },
     /// No loop could hold the segment; the path is unchanged. The segment
     /// itself is found by index through [`Document::segment`] or
-    /// [`Document::spans`]; its loop location is [`LoopEngine::path`] at the
-    /// moment this event is returned (in a [`LoopTree`], the node whose
-    /// `unmatched` list holds the index).
+    /// [`Document::spans`]; `within` is the innermost open occurrence at
+    /// that moment (in a [`LoopTree`], the node whose `unmatched` list holds
+    /// the index).
     ///
     /// [`Document::segment`]: crate::Document::segment
     /// [`Document::spans`]: crate::Document::spans
@@ -56,6 +56,8 @@ pub enum Event {
     Unmatched {
         /// Index of the segment in the stream.
         segment: usize,
+        /// The innermost open occurrence; `None` at the top level.
+        within: Option<Instance>,
     },
     /// The segment has no content (`~~` or trailing trivia).
     Empty {
@@ -65,9 +67,9 @@ pub enum Event {
 }
 
 impl Event {
-    /// Whether this event closes the loop `loop_id`.
+    /// Whether this event closes an occurrence of `loop_id`.
     pub fn closes(&self, loop_id: LoopId) -> bool {
-        matches!(self, Self::LoopClosed { id } if *id == loop_id)
+        matches!(self, Self::LoopClosed { instance } if instance.loop_id == loop_id)
     }
 }
 
@@ -119,7 +121,11 @@ impl<'s> LoopEngine<'s> {
         }
 
         if !(self.open_child(segment) || self.hold(segment) || self.open_with_ancestors(segment)) {
-            self.events.push(Event::Unmatched { segment: index });
+            let within = self.stack.last().copied();
+            self.events.push(Event::Unmatched {
+                segment: index,
+                within,
+            });
         }
         &self.events
     }
@@ -142,8 +148,8 @@ impl<'s> LoopEngine<'s> {
             let parent = depth.checked_sub(1).map(|i| self.stack[i].loop_id);
             if let Some(child) = self.spec.matching_child(parent, segment) {
                 self.close_to(depth);
-                self.open(child, false, segment.index);
-                self.capture(child, segment.index);
+                let instance = self.open(child, false, segment.index);
+                self.capture(instance, segment.index);
                 return true;
             }
         }
@@ -154,12 +160,12 @@ impl<'s> LoopEngine<'s> {
     /// segment also closes it.
     fn hold(&mut self, segment: &Segment<'_>) -> bool {
         for depth in (1..=self.stack.len()).rev() {
-            let id = self.stack[depth - 1].loop_id;
-            let def = self.spec.get(id);
+            let instance = self.stack[depth - 1];
+            let def = self.spec.get(instance.loop_id);
             if def.accepts(segment.id) {
                 let closes = def.end.as_deref() == Some(segment.id);
                 self.close_to(depth);
-                self.capture(id, segment.index);
+                self.capture(instance, segment.index);
                 if closes {
                     self.close_to(depth - 1);
                 }
@@ -196,38 +202,41 @@ impl<'s> LoopEngine<'s> {
             self.open(ancestor, true, index);
         }
         self.chain = chain;
-        self.open(target, false, index);
-        self.capture(target, index);
+        let instance = self.open(target, false, index);
+        self.capture(instance, index);
         true
     }
 
-    fn open(&mut self, id: LoopId, implicit: bool, segment: usize) {
+    /// Pushes a new occurrence of `id` and reports it.
+    fn open(&mut self, id: LoopId, implicit: bool, segment: usize) -> Instance {
         // The counters are sized from the spec that made every `LoopId`.
         let count = &mut self.counters[id.index()];
         *count = count.saturating_add(1);
         let ordinal = *count;
-        self.stack.push(Instance {
+        let instance = Instance {
             id: InstanceId::new(self.next_id),
             loop_id: id,
             ordinal_in_stream: ordinal,
             parent: self.stack.last().map(|top| top.id),
-        });
+        };
+        self.stack.push(instance);
         self.next_id = self.next_id.saturating_add(1);
         self.events.push(Event::LoopOpened {
-            id,
+            instance,
             implicit,
             segment,
         });
+        instance
     }
 
-    fn capture(&mut self, id: LoopId, segment: usize) {
-        self.events.push(Event::Captured { id, segment });
+    fn capture(&mut self, instance: Instance, segment: usize) {
+        self.events.push(Event::Captured { instance, segment });
     }
 
     fn close_to(&mut self, depth: usize) {
         while self.stack.len() > depth {
             if let Some(open) = self.stack.pop() {
-                self.events.push(Event::LoopClosed { id: open.loop_id });
+                self.events.push(Event::LoopClosed { instance: open });
             }
         }
     }

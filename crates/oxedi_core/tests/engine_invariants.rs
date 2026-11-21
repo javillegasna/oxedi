@@ -4,7 +4,7 @@ mod common;
 
 use std::collections::BTreeMap;
 
-use oxedi_core::{Event, LoopEngine, LoopTree, Spec, Tokenizer};
+use oxedi_core::{Event, Instance, LoopEngine, LoopTree, Spec, Tokenizer};
 
 #[test]
 fn every_segment_is_accounted_for_exactly_once_and_loops_balance() {
@@ -28,7 +28,7 @@ fn every_segment_is_accounted_for_exactly_once_and_loops_balance() {
                     closes += 1;
                 }
                 Event::Captured { segment, .. }
-                | Event::Unmatched { segment }
+                | Event::Unmatched { segment, .. }
                 | Event::Empty { segment } => match seen.get_mut(segment) {
                     Some(n) => *n += 1,
                     None => panic!(
@@ -182,5 +182,45 @@ fn a_tree_folded_from_caller_driven_events_equals_the_built_tree() {
         }
         builder.on(engine.finish());
         assert_eq!(builder.finish(), built, "{name}");
+    }
+}
+
+#[test]
+fn events_agree_with_a_replay_of_their_own_stack() {
+    let spec = Spec::builtin_835();
+    for (name, bytes, delims) in common::all_files() {
+        let mut stack: Vec<Instance> = Vec::new();
+        let mut counters: BTreeMap<usize, usize> = BTreeMap::new();
+        let mut next_id = 0usize;
+        for event in common::events_of(&spec, &bytes, delims) {
+            match event {
+                Event::LoopOpened { instance, .. } => {
+                    let counter = counters.entry(instance.loop_id.index()).or_default();
+                    *counter += 1;
+                    let expected = (next_id, *counter, stack.last().map(|top| top.id));
+                    next_id += 1;
+                    assert_eq!(
+                        (
+                            instance.id.index(),
+                            instance.ordinal_in_stream,
+                            instance.parent
+                        ),
+                        expected,
+                        "{name}: opened instance {instance:?} disagrees with the replay"
+                    );
+                    stack.push(instance);
+                }
+                Event::LoopClosed { instance } => {
+                    assert_eq!(stack.pop(), Some(instance), "{name}: closed {instance:?}");
+                }
+                Event::Captured { instance, .. } => {
+                    assert_eq!(stack.last(), Some(&instance), "{name}: captured in");
+                }
+                Event::Unmatched { within, .. } => {
+                    assert_eq!(stack.last().copied(), within, "{name}: unmatched within");
+                }
+                Event::Empty { .. } => {}
+            }
+        }
     }
 }

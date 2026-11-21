@@ -58,7 +58,9 @@ flowchart LR
    escape and whether trailing separators are kept or trimmed; the table writer's segments go
    through it too (`write_segment` in `write/render.rs`).
 3. `LoopEngine` (`engine/`) is a state machine driven by the spec. For each segment it emits
-   `Event`s: `LoopOpened`, `LoopClosed`, `Captured`, `Unmatched`, `Empty`.
+   `Event`s: `LoopOpened`, `LoopClosed`, `Captured`, `Unmatched`, `Empty`. Each names the
+   `Instance` it concerns: one numbered occurrence of a loop, with its `InstanceId`, its ordinal in
+   the stream and its parent. `LoopEngine::path` lists the instances open now.
 4. `Processor` (`process/`) feeds each segment to the engine, then hands the events to the
    projector and the checker. `Processor::run` does this over a whole `Document`.
    - `Projector` (`project/`) finds which occurrence of its loop the segment matched, checks
@@ -255,12 +257,12 @@ Internal words used in the code. X12 and payment terms for users are in
 | trigger | The segment (and element conditions) that opens a loop. | `spec/loops.rs` |
 | occurrence | A named segment slot of a loop: position, usage, maximum repeat, qualifier, code lists. The JSON key is `occurrences`. | `spec/occurrences.rs` |
 | end / closer, opener | A loop's end segment (JSON `end`). For control checks, the trigger (opener) and end (closer) segments whose control numbers must match. | `spec/loops.rs` (`Control`) |
-| event | What the engine emits per segment: loop opened or closed, segment captured, unmatched or empty. | `engine/` (`Event`) |
+| event | What the engine emits per segment: loop opened or closed, segment captured, unmatched or empty; each names its instance. | `engine/` (`Event`) |
 | held / captured | A segment an open loop's occurrences allow / the event saying an open loop took it. | `engine/` |
 | unmatched | A segment no open loop holds and no trigger opens; kept, and reported as `UnknownSegment`. | `engine/`, `diagnostic/rule.rs` |
 | implicit loop | A loop opened without its trigger, to hold a descendant. | `Rule::ImplicitLoop` |
 | loop tree | The tree of loop instances built from events; node 0 is the root. | `tree/` |
-| instance / ordinal | One occurrence of a loop in the file / its 1-based number (`2100#2`). | `LoopRef` |
+| instance / ordinal | One occurrence of a loop in the file, numbered by the engine in opening order (`InstanceId`) / its 1-based number among the occurrences of that loop (`ordinal_in_stream`, the `2` of `2100#2`). | `engine/` (`Instance`), `LoopRef` |
 | projection / projector | Filling the spec's tables from the event stream, with element checks. | `project/` |
 | anchor | The loop or loops (JSON `tables.*.loops`) or the segment (JSON `segment`) a table takes one row per. | `project/`, `spec/tables.rs` |
 | ref / reference column | The column a child row uses to point at its parent table's row. | `spec/tables.rs` |

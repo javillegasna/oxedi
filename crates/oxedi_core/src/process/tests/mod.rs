@@ -42,14 +42,18 @@ fn one_feed_returns_the_events_and_every_diagnostic_of_its_segment() {
         .events()
         .iter()
         .map(|event| match *event {
-            Event::LoopOpened { id, implicit, .. } => {
+            Event::LoopOpened {
+                instance, implicit, ..
+            } => {
                 format!(
                     "open{} {}",
                     if implicit { "!" } else { "" },
-                    spec.loop_name(id)
+                    spec.loop_name(instance.loop_id)
                 )
             }
-            Event::Captured { id, segment } => format!("cap {} #{segment}", spec.loop_name(id)),
+            Event::Captured { instance, segment } => {
+                format!("cap {} #{segment}", spec.loop_name(instance.loop_id))
+            }
             other => format!("{other:?}"),
         })
         .collect();

@@ -1,7 +1,7 @@
 //! `parse`: one pass over a whole file, with the GIL released.
 
 use oxedi_core::trivia::LeadingTrivia;
-use oxedi_core::{Delimiters, Document, Event, LoopEngine, LoopId, Mask, Processor, Spec};
+use oxedi_core::{Delimiters, Document, Event, Instance, LoopEngine, Mask, Processor, Spec};
 use std::collections::{HashMap, HashSet};
 use std::sync::Arc;
 
@@ -299,9 +299,9 @@ pub fn loop_paths(
 }
 
 /// The open loops at each of `wanted`, read while the loop engine consumes
-/// `document` up to the last of them: the stack when the segment is
-/// captured, left unmatched or found empty, before an end segment closes
-/// its loop.
+/// `document` up to the last of them: the engine's open path after the
+/// segment, followed by the instances the segment closed after capturing
+/// it (outermost first), so an end segment still lists the loop it closes.
 fn paths_at(
     spec: &Spec,
     document: &Document<'_>,
@@ -310,39 +310,30 @@ fn paths_at(
     let wanted: HashSet<usize> = wanted.iter().copied().collect();
     let last = wanted.iter().copied().max().unwrap_or(0);
     let mut engine = LoopEngine::new(spec);
-    let mut ordinals = vec![0usize; spec.loops().len()];
-    let mut open: Vec<(LoopId, usize)> = Vec::new();
     let mut paths = HashMap::with_capacity(wanted.len());
-    let snapshot = |open: &[(LoopId, usize)]| {
-        open.iter()
-            .map(|&(id, ordinal)| (spec.loop_name(id).to_string(), ordinal))
-            .collect::<Vec<_>>()
-    };
     for segment in document.segments().take(last.saturating_add(1)) {
-        let index = segment.index;
-        let wants = wanted.contains(&index);
-        let mut path = None;
-        for event in engine.feed(&segment) {
-            match *event {
-                Event::LoopOpened { id, .. } => {
-                    let ordinal = ordinals.get_mut(id.index()).map_or(0, |count| {
-                        *count = count.saturating_add(1);
-                        *count
-                    });
-                    open.push((id, ordinal));
-                }
-                Event::LoopClosed { .. } => {
-                    open.pop();
-                }
-                Event::Captured { .. } | Event::Unmatched { .. } | Event::Empty { .. } => {
-                    if wants && path.is_none() {
-                        path = Some(snapshot(&open));
-                    }
-                }
-            }
-        }
-        if wants {
-            paths.insert(index, path.unwrap_or_else(|| snapshot(&open)));
+        let closed_after_capture: Vec<Instance> = engine
+            .feed(&segment)
+            .iter()
+            .skip_while(|event| !matches!(event, Event::Captured { .. }))
+            .filter_map(|event| match *event {
+                Event::LoopClosed { instance } => Some(instance),
+                _ => None,
+            })
+            .collect();
+        if wanted.contains(&segment.index) {
+            let path = engine
+                .path()
+                .iter()
+                .chain(closed_after_capture.iter().rev())
+                .map(|open| {
+                    (
+                        spec.loop_name(open.loop_id).to_string(),
+                        open.ordinal_in_stream,
+                    )
+                })
+                .collect();
+            paths.insert(segment.index, path);
         }
     }
     paths

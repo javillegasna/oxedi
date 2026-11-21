@@ -287,11 +287,11 @@ impl<'s> Projector<'s> {
         for &event in events {
             match event {
                 Event::LoopOpened {
-                    id,
+                    instance,
                     segment: trigger,
                     ..
-                } => self.opened(id, trigger),
-                Event::Captured { id, .. } => self.captured(id, segment),
+                } => self.opened(instance.loop_id, trigger),
+                Event::Captured { instance, .. } => self.captured(instance.loop_id, segment),
                 Event::LoopClosed { .. } => self.closed(),
                 Event::Unmatched { .. } | Event::Empty { .. } => {}
             }

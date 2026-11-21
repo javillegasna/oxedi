@@ -107,7 +107,7 @@ impl<'s> StructureChecker<'s> {
     pub fn on(&mut self, segment: &Segment<'_>, events: &[Event]) -> &[Diagnostic] {
         let spec = self.spec;
         let matched = events.iter().find_map(|event| match *event {
-            Event::Captured { id, .. } => spec.get(id).occurrence_of(segment),
+            Event::Captured { instance, .. } => spec.get(instance.loop_id).occurrence_of(segment),
             _ => None,
         });
         self.on_matched(segment, events, matched)
@@ -126,15 +126,15 @@ impl<'s> StructureChecker<'s> {
         for &event in events {
             match event {
                 Event::LoopOpened {
-                    id,
+                    instance,
                     implicit,
                     segment: trigger,
-                } => self.opened(id, implicit, trigger, segment),
-                Event::Captured { id, .. } => {
+                } => self.opened(instance.loop_id, implicit, trigger, segment),
+                Event::Captured { instance, .. } => {
                     self.seen = self.seen.saturating_add(1);
-                    self.captured(id, segment, matched);
+                    self.captured(instance.loop_id, segment, matched);
                 }
-                Event::Unmatched { segment: index } => {
+                Event::Unmatched { segment: index, .. } => {
                     self.seen = self.seen.saturating_add(1);
                     self.report(
                         Rule::UnknownSegment {

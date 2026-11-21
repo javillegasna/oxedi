@@ -254,7 +254,7 @@ fn a_term_sign_is_written_only_when_minus() {
 fn every_shipped_spec_reads_into_its_model() {
     let models: Vec<SpecModel> = Builtin::all()
         .iter()
-        .map(|builtin| builtin.model.clone())
+        .map(|builtin| builtin.model().unwrap())
         .chain([SpecModel::from_json(test_support::SPEC).unwrap()])
         .collect();
     assert_eq!(models.len(), 3);
@@ -434,5 +434,10 @@ fn a_model_read_refuses_like_the_loader() {
     assert!(
         matches!(&err, SpecError::Format { path, .. } if path == "loops.\"A.b\".usage"),
         "{err:?}"
+    );
+    let unknown_key = r#"{"name":"t","loops":{},"x":1}"#;
+    assert_eq!(
+        SpecModel::from_json(unknown_key).unwrap_err().to_string(),
+        Spec::from_json(unknown_key).unwrap_err().to_string()
     );
 }

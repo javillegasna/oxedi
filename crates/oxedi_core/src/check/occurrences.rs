@@ -86,45 +86,67 @@ pub(super) struct Opening {
 }
 
 impl<'s> StructureChecker<'s> {
+    /// Reserves the counts of a new instance of `id` at the end of the
+    /// buffer; returns where they start and where those of its child loops
+    /// start.
+    pub(super) fn reserve_counts(&mut self, id: LoopId) -> (usize, usize) {
+        let start = self.counts.len();
+        let (occurrences, children) = self
+            .layouts
+            .get(id.index())
+            .map_or((0, 0), |layout| (layout.occurrences, layout.children));
+        self.counts.resize(
+            start.saturating_add(occurrences).saturating_add(children),
+            0,
+        );
+        (start, start.saturating_add(occurrences))
+    }
+
     /// Counts a new instance of `id` under the innermost open instance (or
     /// the root) and, when its own trigger opened it, places it among the
     /// parent's occurrences.
     #[inline]
     pub(super) fn count_instance(&mut self, id: LoopId, implicit: bool) -> Opening {
-        let Some(&layout) = self.layouts.get(id.index()) else {
-            return Opening::default();
+        Opening {
+            over_max: self.count_child(id),
+            out_of_order: self.place_trigger(id, implicit),
+        }
+    }
+
+    /// Adds the instance of `id` to its parent's count of that loop; the
+    /// count when it is past the loop's maximum.
+    fn count_child(&mut self, id: LoopId) -> Option<usize> {
+        let layout = self.layouts.get(id.index())?;
+        let slot = layout.slot?;
+        let max = layout.max;
+        let count = match self.open.last() {
+            Some(parent) => {
+                let at = parent.child_counts.checked_add(slot)?;
+                self.counts.get_mut(at)?
+            }
+            None => self.root_counts.get_mut(slot)?,
         };
-        let counter = match (self.open.last(), layout.slot) {
-            (Some(parent), Some(slot)) => self
-                .layouts
-                .get(parent.id.index())
-                .and_then(|above| {
-                    parent
-                        .counts
-                        .checked_add(above.occurrences)?
-                        .checked_add(slot)
-                })
-                .and_then(|at| self.counts.get_mut(at)),
-            (None, Some(slot)) => self.root_counts.get_mut(slot),
-            (_, None) => None,
-        };
-        let mut opening = Opening::default();
-        if let Some(count) = counter {
-            *count = count.saturating_add(1);
-            if layout.max.is_some_and(|max| *count > max) {
-                opening.over_max = Some(*count);
+        *count = count.saturating_add(1);
+        max.filter(|&max| *count > max).map(|_| *count)
+    }
+
+    /// Places the instance of `id`, opened by its own trigger, among the
+    /// parent's occurrences; the occurrence of the parent it comes after
+    /// when it is out of order.
+    fn place_trigger(&mut self, id: LoopId, implicit: bool) -> Option<Seen> {
+        let pos = self
+            .layouts
+            .get(id.index())?
+            .shared_pos
+            .filter(|_| !implicit)?;
+        let parent = self.open.last_mut()?;
+        match parent.last {
+            Some(after) if after.2 > pos => Some(after),
+            _ => {
+                parent.last = Some((id, 0, pos));
+                None
             }
         }
-        if !implicit
-            && let Some(pos) = layout.shared_pos
-            && let Some(parent) = self.open.last_mut()
-        {
-            match parent.last {
-                Some(after) if after.2 > pos => opening.out_of_order = Some(after),
-                _ => parent.last = Some((id, 0, pos)),
-            }
-        }
-        opening
     }
 
     /// Reports what opening the instance of `id` now on top of the stack

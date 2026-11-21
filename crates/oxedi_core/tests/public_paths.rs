@@ -167,9 +167,7 @@ use oxedi_core::{Delimiters, IsaError};
 use oxedi_core::{Diagnostic, FlatDiagnostic, LoopRef, PARSER_ORIGIN, Rule, SnipLevel};
 use oxedi_core::{Document, DocumentError, Segments, SizeError, Span, Spans};
 use oxedi_core::{Element, Value};
-use oxedi_core::{
-    Event, Instance, InstanceId, LoopEngine, lineage, loop_paths, named_lineage,
-};
+use oxedi_core::{Event, Instance, InstanceId, LoopEngine, lineage, loop_paths, named_lineage};
 use oxedi_core::{Frame, SegmentEnd, next_frame};
 use oxedi_core::{LoopTree, Node, NodeId, TreeBuilder};
 use oxedi_core::{Output, Processor};

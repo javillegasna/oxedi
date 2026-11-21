@@ -109,6 +109,15 @@ pub enum SpecError {
         /// The required key.
         key: &'static str,
     },
+    /// A value of the right JSON type that the spec's model does not read: a
+    /// word outside its vocabulary, a key that is not a position.
+    Format {
+        /// Where the value sits, from the root: keys joined by `.`, a key holding
+        /// `.`, `/`, `#` or whitespace quoted (e.g. `loops.2100.occurrences.clp.usage`).
+        path: String,
+        /// What the model refused, with the offending value.
+        source: serde_json::Error,
+    },
     /// A segment definition does not match the schema.
     SegmentSchema {
         /// The segment id as written.
@@ -373,6 +382,7 @@ impl fmt::Display for SpecError {
                 "loop {loop_name:?} has an invalid \"where\" position {position:?}: \
                  {POSITION_RULE}"
             ),
+            SpecError::Format { path, source } => write!(f, "spec: at {path}: {source}"),
             SpecError::SegmentSchema { segment, source } => {
                 write!(f, "segment {segment:?} does not match the schema: {source}")
             }

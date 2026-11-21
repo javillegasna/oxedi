@@ -39,6 +39,27 @@ fn schema_error_displays_the_loop_and_the_serde_message() {
 }
 
 #[test]
+fn format_error_displays_the_path_and_the_refused_value() {
+    let err = SpecError::Format {
+        path: "loops.\"2100.a\".usage".into(),
+        source: json_error("{"),
+    };
+    assert_displays_without_source(
+        &err,
+        "spec: at loops.\"2100.a\".usage: EOF while parsing an object at line 1 column 1",
+    );
+}
+
+#[test]
+fn model_mismatch_quotes_a_key_that_holds_a_dot() {
+    let err = read_model("t", &serde_json::json!({"name": "t", "loops": {"A.b": 1}})).unwrap_err();
+    assert!(
+        matches!(&err, SpecError::ModelMismatch { path, .. } if path == "loops.\"A.b\""),
+        "{err:?}"
+    );
+}
+
+#[test]
 fn model_mismatch_displays_the_spec_the_path_the_serde_message_and_that_it_is_a_bug() {
     let err = read_model("t", &serde_json::json!({"name": "t", "loops": {"A": 1}})).unwrap_err();
     assert_displays_without_source(

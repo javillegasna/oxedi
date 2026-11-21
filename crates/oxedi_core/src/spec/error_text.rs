@@ -60,6 +60,7 @@ impl std::error::Error for SpecError {
             | SpecError::WrongType { .. }
             | SpecError::UnknownKey { .. }
             | SpecError::MissingKey { .. }
+            | SpecError::Format { .. }
             | SpecError::SegmentSchema { .. }
             | SpecError::BadElementDef { .. }
             | SpecError::TableSchema { .. }

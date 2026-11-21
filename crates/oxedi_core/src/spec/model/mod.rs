@@ -110,11 +110,9 @@ impl SpecModel {
 
     /// Reads a spec's JSON into its model in one pass; the first value the
     /// model refuses, in key order, fails with [`SpecError::Format`] at its
-    /// path from the spec's root. An array where the model has an object is
-    /// refused.
+    /// path from the spec's root. An array where it has an object is refused.
     pub(in crate::spec) fn read(source: &serde_json::Value) -> Result<SpecModel, SpecError> {
-        let strict = StrictValue::new(source);
-        serde_path_to_error::deserialize(strict).map_err(|err| SpecError::Format {
+        serde_path_to_error::deserialize(StrictValue(source)).map_err(|err| SpecError::Format {
             path: root_path(err.path()),
             source: err.into_inner(),
         })

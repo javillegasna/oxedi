@@ -4,6 +4,8 @@
 //! array, an object or an enum is read through it too, so the rule holds at
 //! every depth.
 //!
+//! Map keys are read as strings only (every model key is a `String`); another key type is refused.
+//!
 //! The methods that hold no nested value forward to the value itself, which
 //! keeps serde_json's reading and its error text for them.
 
@@ -20,13 +22,7 @@ mod tests;
 
 /// A JSON value read strictly.
 #[derive(Clone, Copy)]
-pub(in crate::spec) struct StrictValue<'de>(&'de Value);
-
-impl<'de> StrictValue<'de> {
-    pub(in crate::spec) fn new(value: &'de Value) -> StrictValue<'de> {
-        StrictValue(value)
-    }
-}
+pub(in crate::spec) struct StrictValue<'de>(pub(in crate::spec) &'de Value);
 
 macro_rules! forward_to_value {
     ($($method:ident)*) => {$(
@@ -157,12 +153,12 @@ impl<'de> Deserializer<'de> for StrictValue<'de> {
                 variant,
                 value: None,
             }),
-            Value::Object(map) if map.len() == 1 => match map.iter().next() {
-                Some((variant, value)) => visitor.visit_enum(StrictEnum {
+            Value::Object(map) => match (map.len(), map.iter().next()) {
+                (1, Some((variant, value))) => visitor.visit_enum(StrictEnum {
                     variant,
                     value: Some(value),
                 }),
-                None => self.0.deserialize_enum(name, variants, visitor),
+                _ => map.deserialize_enum(name, variants, visitor),
             },
             other => other.deserialize_enum(name, variants, visitor),
         }

@@ -5,9 +5,7 @@ use super::StrictValue;
 use crate::spec::{Builtin, SpecModel, SummaryModel, TriggerModel};
 
 fn refusal(source: &Value) -> String {
-    SpecModel::read(source)
-        .err()
-        .map_or_else(String::new, |e| e.to_string())
+    SpecModel::read(source).unwrap_err().to_string()
 }
 
 #[test]
@@ -51,13 +49,21 @@ fn a_component_written_as_an_array_is_refused_inside_a_flattened_element() {
 }
 
 #[test]
+fn a_struct_inside_an_array_is_refused_at_its_index() {
+    let source = json!({"name":"x","loops":{},"balancing":{"r":{"per":"a","target":[[2]]}}});
+    assert_eq!(
+        refusal(&source),
+        "spec: at balancing.r.target[0]: invalid type: sequence, expected a balancing value object"
+    );
+}
+
+#[test]
 fn an_enum_variant_reads_its_payload_strictly() {
     #[derive(Debug, Deserialize)]
     enum Wrapped {
         Trigger(TriggerModel),
     }
-    let read =
-        |value: &Value| serde_path_to_error::deserialize::<_, Wrapped>(StrictValue::new(value));
+    let read = |value: &Value| serde_path_to_error::deserialize::<_, Wrapped>(StrictValue(value));
     let Ok(Wrapped::Trigger(trigger)) = read(&json!({"Trigger":{"segment":"ST"}})) else {
         panic!("a trigger object is read");
     };
@@ -103,6 +109,5 @@ fn scalars_and_maps_read_as_serde_json_reads_them() {
     });
     let strict = SpecModel::read(&source);
     let plain = from_value::<SpecModel>(source.clone());
-    assert_eq!(strict.is_ok(), plain.is_ok(), "{strict:?}");
     assert_eq!(strict.unwrap(), plain.unwrap());
 }

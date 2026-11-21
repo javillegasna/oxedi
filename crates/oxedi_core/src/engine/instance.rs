@@ -12,6 +12,12 @@ impl InstanceId {
         Self(index)
     }
 
+    /// The id of the `index`th instance, for events built by hand in tests.
+    #[cfg(test)]
+    pub(crate) fn at(index: usize) -> Self {
+        Self::new(index)
+    }
+
     /// 0-based opening order of the instance in the stream.
     pub fn index(self) -> usize {
         self.0

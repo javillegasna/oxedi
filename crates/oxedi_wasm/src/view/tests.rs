@@ -45,16 +45,17 @@ fn ranges_are_contiguous_and_cover_the_file() {
 /// empty, the way the Python binding's `_loop_paths` reads it.
 fn engine_paths(spec: &Spec, document: &Document<'_>) -> Vec<Vec<(String, usize)>> {
     let mut engine = oxedi_core::LoopEngine::new(spec);
-    let mut ordinals = vec![0usize; spec.loops().len()];
     let mut open: Vec<(String, usize)> = Vec::new();
     let mut paths = Vec::new();
     for segment in document.segments() {
         let mut path = None;
         for event in engine.feed(&segment) {
             match *event {
-                Event::LoopOpened { id, .. } => {
-                    ordinals[id.index()] += 1;
-                    open.push((spec.loop_name(id).to_string(), ordinals[id.index()]));
+                Event::LoopOpened { instance, .. } => {
+                    open.push((
+                        spec.loop_name(instance.loop_id).to_string(),
+                        instance.ordinal_in_stream,
+                    ));
                 }
                 Event::LoopClosed { .. } => {
                     open.pop();

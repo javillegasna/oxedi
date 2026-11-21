@@ -19,13 +19,15 @@ enum Seen<'s> {
 fn seen<'s>(spec: &'s Spec, event: &Event) -> Seen<'s> {
     match *event {
         Event::LoopOpened {
-            id,
+            instance,
             implicit,
             segment,
-        } => Seen::Opened(spec.loop_name(id), implicit, segment),
-        Event::LoopClosed { id } => Seen::Closed(spec.loop_name(id)),
-        Event::Captured { id, segment } => Seen::Captured(spec.loop_name(id), segment),
-        Event::Unmatched { segment } => Seen::Unmatched(segment),
+        } => Seen::Opened(spec.loop_name(instance.loop_id), implicit, segment),
+        Event::LoopClosed { instance } => Seen::Closed(spec.loop_name(instance.loop_id)),
+        Event::Captured { instance, segment } => {
+            Seen::Captured(spec.loop_name(instance.loop_id), segment)
+        }
+        Event::Unmatched { segment, .. } => Seen::Unmatched(segment),
         Event::Empty { segment } => Seen::Empty(segment),
     }
 }
@@ -321,10 +323,10 @@ fn feeding_after_finish_behaves_like_a_fresh_engine() {
 }
 
 #[test]
-fn an_event_stays_three_words() {
+fn an_event_stays_seven_words() {
     assert_eq!(
         std::mem::size_of::<Event>(),
-        3 * std::mem::size_of::<usize>()
+        7 * std::mem::size_of::<usize>()
     );
 }
 
@@ -337,10 +339,10 @@ fn every_explicit_opening_names_its_own_trigger() {
         .flat_map(|segment| engine.feed(segment).to_vec())
         .filter_map(|event| match event {
             Event::LoopOpened {
-                id,
+                instance,
                 implicit,
                 segment,
-            } => Some((spec.loop_name(id), implicit, segment)),
+            } => Some((spec.loop_name(instance.loop_id), implicit, segment)),
             _ => None,
         })
         .collect();
@@ -431,12 +433,79 @@ fn finish_restarts_ids_and_ordinals() {
     assert_eq!(open, vec![("A", 0, 1, None)]);
 }
 
+/// An instance of `name` as the engine numbers it.
+fn instance(
+    spec: &Spec,
+    name: &str,
+    index: usize,
+    ordinal: usize,
+    parent: Option<usize>,
+) -> Instance {
+    Instance {
+        id: InstanceId::at(index),
+        loop_id: id(spec, name),
+        ordinal_in_stream: ordinal,
+        parent: parent.map(InstanceId::at),
+    }
+}
+
+fn last_events(spec: &Spec, input: &[u8]) -> Vec<Event> {
+    let mut engine = LoopEngine::new(spec);
+    let mut last = Vec::new();
+    for segment in &segs(input) {
+        last = engine.feed(segment).to_vec();
+    }
+    last
+}
+
+#[test]
+fn every_event_names_its_instance() {
+    let spec = nested();
+    let a = instance(&spec, "A", 0, 1, None);
+    let b = instance(&spec, "B", 1, 1, Some(0));
+    assert_eq!(
+        last_events(&spec, b"AA~BB~AE~"),
+        vec![
+            Event::LoopClosed { instance: b },
+            Event::Captured {
+                instance: a,
+                segment: 2
+            },
+            Event::LoopClosed { instance: a },
+        ]
+    );
+}
+
+#[test]
+fn an_unmatched_segment_names_the_instance_it_fell_in() {
+    let spec = nested();
+    let b = instance(&spec, "B", 1, 1, Some(0));
+    assert_eq!(
+        last_events(&spec, b"AA~BB~ZZ~"),
+        vec![Event::Unmatched {
+            segment: 2,
+            within: Some(b)
+        }]
+    );
+    assert_eq!(
+        last_events(&spec, b"ZZ~"),
+        vec![Event::Unmatched {
+            segment: 0,
+            within: None
+        }]
+    );
+}
+
 #[test]
 fn closes_is_true_only_for_a_close_of_that_loop() {
     let spec = nested();
-    let a = id(&spec, "A");
-    let closing = Event::LoopClosed { id: a };
-    assert!(closing.closes(a));
+    let a = instance(&spec, "A", 0, 1, None);
+    let closing = Event::LoopClosed { instance: a };
+    assert!(closing.closes(id(&spec, "A")));
     assert!(!closing.closes(id(&spec, "B")));
-    assert!(!Event::Captured { id: a, segment: 0 }.closes(a));
+    let capturing = Event::Captured {
+        instance: a,
+        segment: 0,
+    };
+    assert!(!capturing.closes(id(&spec, "A")));
 }

@@ -58,7 +58,9 @@ flowchart LR
    escape and whether trailing separators are kept or trimmed; the table writer's segments go
    through it too (`write_segment` in `write/render.rs`).
 3. `LoopEngine` (`engine/`) is a state machine driven by the spec. For each segment it emits
-   `Event`s: `LoopOpened`, `LoopClosed`, `Captured`, `Unmatched`, `Empty`.
+   `Event`s: `LoopOpened`, `LoopClosed`, `Captured`, `Unmatched`, `Empty`. Each names the
+   `Instance` it concerns: one numbered occurrence of a loop, with its `InstanceId`, its ordinal in
+   the stream and its parent. `LoopEngine::path` lists the instances open now.
 4. `Processor` (`process/`) feeds each segment to the engine, then hands the events to the
    projector and the checker. `Processor::run` does this over a whole `Document`.
    - `Projector` (`project/`) finds which occurrence of its loop the segment matched, checks

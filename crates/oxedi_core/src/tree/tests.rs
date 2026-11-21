@@ -1,6 +1,6 @@
 use super::*;
 use crate::spec::test_support::nested;
-use crate::{Delimiters, Spec, Tokenizer};
+use crate::{Delimiters, Instance, InstanceId, Spec, Tokenizer};
 
 fn tree(input: &[u8]) -> (Spec, LoopTree) {
     let spec = nested();
@@ -91,29 +91,53 @@ fn a_builder_folds_hand_built_events_in_slices() {
     let spec = nested();
     let a = spec.loop_id("A").unwrap();
     let b = spec.loop_id("B").unwrap();
+    let a = Instance {
+        id: InstanceId::at(0),
+        loop_id: a,
+        ordinal_in_stream: 1,
+        parent: None,
+    };
+    let b = Instance {
+        id: InstanceId::at(1),
+        loop_id: b,
+        ordinal_in_stream: 1,
+        parent: Some(a.id),
+    };
     let mut builder = LoopTree::builder();
     builder.on(&[
         Event::LoopOpened {
-            id: a,
+            instance: a,
             implicit: false,
             segment: 0,
         },
-        Event::Captured { id: a, segment: 0 },
+        Event::Captured {
+            instance: a,
+            segment: 0,
+        },
     ]);
     builder.on(&[]);
     builder.on(&[
         Event::LoopOpened {
-            id: b,
+            instance: b,
             implicit: true,
             segment: 1,
         },
-        Event::Captured { id: b, segment: 1 },
-        Event::Unmatched { segment: 2 },
+        Event::Captured {
+            instance: b,
+            segment: 1,
+        },
+        Event::Unmatched {
+            segment: 2,
+            within: Some(b),
+        },
         Event::Empty { segment: 3 },
-        Event::LoopClosed { id: b },
-        Event::LoopClosed { id: a },
-        Event::LoopClosed { id: a },
-        Event::Unmatched { segment: 4 },
+        Event::LoopClosed { instance: b },
+        Event::LoopClosed { instance: a },
+        Event::LoopClosed { instance: a },
+        Event::Unmatched {
+            segment: 4,
+            within: None,
+        },
     ]);
     let tree = builder.finish();
     assert_eq!(tree.node_count(), 3);

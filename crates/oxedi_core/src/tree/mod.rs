@@ -74,13 +74,13 @@ impl TreeBuilder {
         let tree = &mut self.tree;
         match event {
             Event::LoopOpened {
-                id,
+                instance,
                 implicit,
                 segment,
             } => {
                 let node = NodeId(tree.nodes.len());
                 tree.nodes.push(Node {
-                    loop_id: Some(id),
+                    loop_id: Some(instance.loop_id),
                     implicit,
                     opened_by: Some(segment),
                     parent: Some(current),
@@ -97,7 +97,7 @@ impl TreeBuilder {
                 }
             }
             Event::Captured { segment, .. } => tree.nodes[current.0].segments.push(segment),
-            Event::Unmatched { segment } => tree.nodes[current.0].unmatched.push(segment),
+            Event::Unmatched { segment, .. } => tree.nodes[current.0].unmatched.push(segment),
             Event::Empty { .. } => {}
         }
     }

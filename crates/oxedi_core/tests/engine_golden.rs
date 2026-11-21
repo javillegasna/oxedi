@@ -21,17 +21,19 @@ fn line(spec: &Spec, event: Event, segment_id: &[u8]) -> String {
     let id = String::from_utf8_lossy(segment_id);
     match event {
         Event::LoopOpened {
-            id: l,
+            instance,
             implicit,
             segment,
         } => format!(
             "open{} {} #{segment}",
             if implicit { "!" } else { "" },
-            spec.loop_name(l)
+            spec.loop_name(instance.loop_id)
         ),
-        Event::LoopClosed { id: l } => format!("close {}", spec.loop_name(l)),
-        Event::Captured { id: l, segment } => format!("cap {} {id} #{segment}", spec.loop_name(l)),
-        Event::Unmatched { segment } => format!("unmatched {id} #{segment}"),
+        Event::LoopClosed { instance } => format!("close {}", spec.loop_name(instance.loop_id)),
+        Event::Captured { instance, segment } => {
+            format!("cap {} {id} #{segment}", spec.loop_name(instance.loop_id))
+        }
+        Event::Unmatched { segment, .. } => format!("unmatched {id} #{segment}"),
         Event::Empty { segment } => format!("empty #{segment}"),
     }
 }
@@ -45,7 +47,7 @@ fn lines(spec: &Spec, bytes: &[u8], delims: oxedi_core::Delimiters) -> Vec<Strin
         .map(|event| {
             let segment_id = match event {
                 oxedi_core::Event::Captured { segment, .. }
-                | oxedi_core::Event::Unmatched { segment }
+                | oxedi_core::Event::Unmatched { segment, .. }
                 | oxedi_core::Event::Empty { segment } => {
                     segments.get(segment).map(|s| s.id).unwrap_or(b"")
                 }

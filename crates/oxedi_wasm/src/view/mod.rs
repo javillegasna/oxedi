@@ -234,7 +234,7 @@ impl Owners {
                     }
                 }
                 Event::Captured { segment, .. }
-                | Event::Unmatched { segment }
+                | Event::Unmatched { segment, .. }
                 | Event::Empty { segment } => {
                     if let Some(slot @ None) = self.owner.get_mut(segment) {
                         *slot = self.open.last().copied();

@@ -27,7 +27,8 @@
 //! shared by the spec and projector tests and the nested-loop spec shared by
 //! the engine and tree tests; `build` the construction of a
 //! [`Spec`] as a pipeline of steps, `build_loops` the compilation of one loop,
-//! `compile` that of the tables and `columns` that of one table column;
+//! `compile` that of the tables, `columns` that of one table column and
+//! `column_occurrence` the reading of the occurrence a column names;
 //! `model` the spec as typed data, read checked through `Spec::model` and
 //! loaded through `Spec::from_model`;
 //! `phi` the check of the columns flagged as patient data and of the seed
@@ -43,6 +44,7 @@ mod balance_error;
 mod build;
 mod build_loops;
 mod builtin;
+mod column_occurrence;
 mod columns;
 mod compile;
 mod error;

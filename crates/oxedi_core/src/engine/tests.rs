@@ -14,7 +14,11 @@ fn run<'s>(spec: &'s Spec, input: &[u8]) -> (Vec<Event>, Vec<&'s str>) {
     for segment in &segments {
         last = engine.feed(segment).to_vec();
     }
-    let path = engine.path().iter().map(|&id| spec.loop_name(id)).collect();
+    let path = engine
+        .path()
+        .iter()
+        .map(|open| spec.loop_name(open.loop_id))
+        .collect();
     (last, path)
 }
 
@@ -339,4 +343,75 @@ fn feed_returns_the_events_of_that_call_only() {
     let segments = segs(b"AA~A1~");
     assert_eq!(engine.feed(&segments[0]).len(), 2);
     assert_eq!(engine.feed(&segments[1]).len(), 1);
+}
+
+/// The open path as `(loop name, id, ordinal, parent id)`.
+fn instances<'s>(spec: &'s Spec, input: &[u8]) -> Vec<(&'s str, usize, usize, Option<usize>)> {
+    let mut engine = LoopEngine::new(spec);
+    for segment in &segs(input) {
+        engine.feed(segment);
+    }
+    engine
+        .path()
+        .iter()
+        .map(|open| {
+            (
+                spec.loop_name(open.loop_id),
+                open.id.index(),
+                open.ordinal_in_stream,
+                open.parent.map(InstanceId::index),
+            )
+        })
+        .collect()
+}
+
+#[test]
+fn instances_are_numbered_in_opening_order() {
+    assert_eq!(
+        instances(&nested(), b"AA~BB~BB~"),
+        vec![("A", 0, 1, None), ("B", 2, 2, Some(0))]
+    );
+}
+
+#[test]
+fn the_ordinal_counts_the_loop_across_parents() {
+    assert_eq!(
+        instances(&nested(), b"AA~BB~AA~BB~"),
+        vec![("A", 2, 2, None), ("B", 3, 2, Some(2))]
+    );
+}
+
+#[test]
+fn implicit_ancestors_get_their_own_instances() {
+    assert_eq!(
+        instances(&nested(), b"CC*X~"),
+        vec![
+            ("A", 0, 1, None),
+            ("B", 1, 1, Some(0)),
+            ("C", 2, 1, Some(1))
+        ]
+    );
+}
+
+#[test]
+fn finish_restarts_ids_and_ordinals() {
+    let spec = nested();
+    let mut engine = LoopEngine::new(&spec);
+    for segment in &segs(b"AA~BB~") {
+        engine.feed(segment);
+    }
+    engine.finish();
+    for segment in &segs(b"AA~") {
+        engine.feed(segment);
+    }
+    let open = engine.path();
+    assert_eq!(open.len(), 1);
+    assert_eq!(
+        (
+            open[0].id.index(),
+            open[0].ordinal_in_stream,
+            open[0].parent
+        ),
+        (0, 1, None)
+    );
 }

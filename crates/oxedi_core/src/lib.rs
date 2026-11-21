@@ -63,7 +63,7 @@ pub use delimiters::{Delimiters, IsaError};
 pub use diagnostic::{Diagnostic, FlatDiagnostic, LoopRef, PARSER_ORIGIN, Rule, SnipLevel};
 pub use document::{Document, DocumentError, Segments, SizeError, Span, Spans};
 pub use element::{Element, Value};
-pub use engine::{Event, LoopEngine};
+pub use engine::{Event, Instance, InstanceId, LoopEngine};
 pub use frame::{Frame, SegmentEnd, next_frame};
 pub use mask::{DateMode, Mask, MaskError, Phi};
 pub use process::{Output, Processor};

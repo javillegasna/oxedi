@@ -7,6 +7,10 @@
 //! opens them implicitly; and otherwise the segment is unmatched. Events refer
 //! to segments by index and are returned as a slice of a reused buffer.
 
+mod instance;
+
+pub use instance::{Instance, InstanceId};
+
 use crate::segment::Segment;
 use crate::spec::{LoopId, Spec};
 
@@ -61,7 +65,11 @@ pub enum Event {
 #[derive(Debug, Clone)]
 pub struct LoopEngine<'s> {
     spec: &'s Spec,
-    stack: Vec<LoopId>,
+    stack: Vec<Instance>,
+    /// Occurrences opened so far per loop, indexed by [`LoopId::index`].
+    counters: Vec<usize>,
+    /// Instances opened so far: the next [`InstanceId`].
+    next_id: usize,
     events: Vec<Event>,
     /// Scratch for the ancestor chain of an implicit open.
     chain: Vec<LoopId>,
@@ -73,6 +81,8 @@ impl<'s> LoopEngine<'s> {
         Self {
             spec,
             stack: Vec::new(),
+            counters: vec![0; spec.loops().len()],
+            next_id: 0,
             events: Vec::new(),
             chain: Vec::new(),
         }
@@ -84,7 +94,7 @@ impl<'s> LoopEngine<'s> {
     }
 
     /// Open loops, outermost first.
-    pub fn path(&self) -> &[LoopId] {
+    pub fn path(&self) -> &[Instance] {
         &self.stack
     }
 
@@ -99,7 +109,7 @@ impl<'s> LoopEngine<'s> {
         }
 
         for depth in (0..=self.stack.len()).rev() {
-            let parent = depth.checked_sub(1).map(|i| self.stack[i]);
+            let parent = depth.checked_sub(1).map(|i| self.stack[i].loop_id);
             if let Some(child) = self.spec.matching_child(parent, segment) {
                 self.close_to(depth);
                 self.open(child, false, index);
@@ -109,7 +119,7 @@ impl<'s> LoopEngine<'s> {
         }
 
         for depth in (1..=self.stack.len()).rev() {
-            let id = self.stack[depth - 1];
+            let id = self.stack[depth - 1].loop_id;
             let def = self.spec.get(id);
             if def.accepts(segment.id) {
                 let closes = def.end.as_deref() == Some(segment.id);
@@ -134,7 +144,7 @@ impl<'s> LoopEngine<'s> {
                 .find_map(|(i, ancestor)| {
                     self.stack
                         .iter()
-                        .position(|open| open == ancestor)
+                        .position(|open| open.loop_id == *ancestor)
                         .map(|pos| (pos + 1, i + 1))
                 })
                 .unwrap_or((0, 0));
@@ -158,11 +168,26 @@ impl<'s> LoopEngine<'s> {
     pub fn finish(&mut self) -> &[Event] {
         self.events.clear();
         self.close_to(0);
+        self.counters.fill(0);
+        self.next_id = 0;
         &self.events
     }
 
     fn open(&mut self, id: LoopId, implicit: bool, segment: usize) {
-        self.stack.push(id);
+        let ordinal = match self.counters.get_mut(id.index()) {
+            Some(count) => {
+                *count += 1;
+                *count
+            }
+            None => 1,
+        };
+        self.stack.push(Instance {
+            id: InstanceId::new(self.next_id),
+            loop_id: id,
+            ordinal_in_stream: ordinal,
+            parent: self.stack.last().map(|top| top.id),
+        });
+        self.next_id += 1;
         self.events.push(Event::LoopOpened {
             id,
             implicit,
@@ -176,8 +201,8 @@ impl<'s> LoopEngine<'s> {
 
     fn close_to(&mut self, depth: usize) {
         while self.stack.len() > depth {
-            if let Some(id) = self.stack.pop() {
-                self.events.push(Event::LoopClosed { id });
+            if let Some(open) = self.stack.pop() {
+                self.events.push(Event::LoopClosed { id: open.loop_id });
             }
         }
     }

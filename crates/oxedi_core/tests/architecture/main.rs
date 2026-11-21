@@ -4,3 +4,5 @@
 
 mod blank;
 mod blank_cases;
+mod scan;
+mod scan_cases;

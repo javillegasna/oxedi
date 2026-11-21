@@ -160,11 +160,6 @@ pub enum TableDefError {
         /// The pick as the spec writes it, in JSON.
         written: String,
     },
-    /// `pick` is neither `"first"`, `"last"` nor a position from 1.
-    BadPick {
-        /// The pick as the spec writes it, in JSON.
-        written: String,
-    },
     /// `pick` is given for an occurrence that appears at most once.
     PickOnSingle {
         /// The reading loop.
@@ -333,10 +328,6 @@ impl fmt::Display for TableDefError {
             TableDefError::PickNeedsOccurrence { written } => write!(
                 f,
                 "\"pick\" ({written}) requires \"occurrence\": only a named occurrence has a known repeat"
-            ),
-            TableDefError::BadPick { written } => write!(
-                f,
-                "\"pick\" must be \"first\", \"last\" or a 1-based position; found {written}"
             ),
             TableDefError::PickOnSingle {
                 loop_name,

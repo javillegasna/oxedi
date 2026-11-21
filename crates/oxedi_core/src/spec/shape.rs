@@ -13,6 +13,7 @@ use serde_json::Value;
 use super::error::SpecError;
 use super::model::ROOT;
 use super::render::{child, render_value};
+use super::tables::Pick;
 
 /// The members of the object at `key`, in key order; empty when there is none.
 pub(super) fn section<'v>(value: &'v Value, key: &str) -> BTreeMap<&'v str, &'v Value> {
@@ -63,7 +64,7 @@ impl Leaf {
             Leaf::Flag => "a boolean",
             Leaf::Count => "a non-negative integer",
             Leaf::Byte => "an integer from 0 to 255",
-            Leaf::Pick => "\"first\", \"last\" or a 1-based position",
+            Leaf::Pick => Pick::EXPECTED,
         }
     }
 

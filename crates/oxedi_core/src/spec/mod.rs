@@ -82,6 +82,7 @@ mod vocabulary;
 
 pub use balance_error::BalanceError;
 pub use balance_rule::{BalanceRule, BalanceTerm, Sign};
+pub use build::VersionError;
 pub use build_loops::ControlError;
 pub use builtin::{Builtin, UnknownVersion, Version};
 pub use elements::{ElementDef, ROW_COLUMN, SEGMENT_COLUMN, SegmentDef};
@@ -106,7 +107,7 @@ pub use summary_error::SummaryDefError;
 pub use table_error::{AnchorChains, AnchorPositions, LoopSegments, TableDefError};
 pub use tables::{ColumnSource, Repeat, Summary, TableDef};
 pub use unknown::{UnknownColumn, UnknownTable};
-pub use version::{DeclaredVersion, VersionError};
+pub use version::DeclaredVersion;
 pub use vocabulary::ElementPosition;
 
 pub(crate) use balance_rule::render_terms;

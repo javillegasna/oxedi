@@ -1,10 +1,6 @@
 //! The version a spec declares it covers, and the choice of a spec by it.
 
-use std::fmt;
-
 use super::Spec;
-use super::error::SpecError;
-use super::model::VersionModel;
 use crate::element::Element;
 use crate::segment::Segment;
 
@@ -33,86 +29,6 @@ impl DeclaredVersion {
             _ => false,
         })
     }
-}
-
-/// Why a spec's `version` was rejected.
-#[derive(Debug, Clone, PartialEq, Eq)]
-#[non_exhaustive]
-pub enum VersionError {
-    /// `element` is 0.
-    ZeroElement,
-    /// `values` is an empty list.
-    NoValues,
-    /// A value is the empty string.
-    EmptyValue {
-        /// The value's 0-based index in `values` as written.
-        index: usize,
-    },
-    /// A value is listed more than once.
-    DuplicateValue {
-        /// The value as written.
-        value: String,
-        /// 0-based index of its first listing.
-        first: usize,
-        /// 0-based index of its repeat.
-        second: usize,
-    },
-}
-
-impl fmt::Display for VersionError {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match self {
-            VersionError::ZeroElement => write!(f, "\"element\" is 0; positions are 1-based"),
-            VersionError::NoValues => write!(
-                f,
-                "\"values\" is empty; list at least one value the element may hold"
-            ),
-            VersionError::EmptyValue { index } => write!(f, "\"values[{index}]\" is empty"),
-            VersionError::DuplicateValue {
-                value,
-                first,
-                second,
-            } => write!(
-                f,
-                "value {value:?} is listed twice, at values[{first}] and values[{second}]"
-            ),
-        }
-    }
-}
-
-/// Validates a spec's `version`.
-pub(super) fn compile_version(raw: &VersionModel) -> Result<DeclaredVersion, SpecError> {
-    if raw.segment.is_empty() {
-        return Err(SpecError::EmptySegmentId {
-            loop_name: None,
-            key: "version.segment".into(),
-        });
-    }
-    let bad = |reason| SpecError::BadVersion { reason };
-    if raw.element == 0 {
-        return Err(bad(VersionError::ZeroElement));
-    }
-    if raw.values.is_empty() {
-        return Err(bad(VersionError::NoValues));
-    }
-    if let Some(index) = raw.values.iter().position(String::is_empty) {
-        return Err(bad(VersionError::EmptyValue { index }));
-    }
-    let mut seen = std::collections::HashMap::with_capacity(raw.values.len());
-    for (second, value) in raw.values.iter().enumerate() {
-        if let Some(first) = seen.insert(value.as_str(), second) {
-            return Err(bad(VersionError::DuplicateValue {
-                value: value.clone(),
-                first,
-                second,
-            }));
-        }
-    }
-    Ok(DeclaredVersion {
-        segment: raw.segment.as_bytes().to_vec(),
-        element: raw.element,
-        values: raw.values.iter().map(|v| v.as_bytes().to_vec()).collect(),
-    })
 }
 
 /// How far a candidate's declaration has been read.

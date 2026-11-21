@@ -3,13 +3,13 @@
 use std::fmt;
 
 use super::balance_error::BalanceError;
+use super::build::VersionError;
 use super::build_loops::ControlError;
 use super::error_text::{Under, write_ambiguous, write_cycle};
 use super::occurrence_error::OccurrenceError;
 use super::segments::ElementDefError;
 use super::summary_error::SummaryDefError;
 use super::table_error::TableDefError;
-use super::version::VersionError;
 
 /// Why a spec could not be loaded. Each variant names where in the spec the fault is.
 #[derive(Debug)]

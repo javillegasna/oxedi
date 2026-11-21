@@ -17,7 +17,6 @@ use std::collections::BTreeMap;
 use serde::de;
 use serde::{Deserialize, Deserializer};
 
-use super::sections::TEXT;
 use super::segments::{POSITION_RULE, parse_position};
 use super::shape::{Field, check_shape};
 use super::strict::StrictValue;
@@ -33,12 +32,9 @@ pub use rules::{
 pub use segments::{ElementModel, SegmentModel};
 pub use tables::{ColumnModel, RepeatModel, TableModel};
 
-pub(in crate::spec) use rules::{BALANCE, VERSION};
 // Read only by the model test that holds the list to the keys the model writes.
 #[cfg(test)]
 pub(in crate::spec) use segments::ELEMENT_MODEL_KEYS;
-pub(in crate::spec) use segments::SEGMENT;
-pub(in crate::spec) use tables::TABLE;
 
 spec_object! {
     /// A whole spec, as the spec writes it.
@@ -66,22 +62,24 @@ spec_object! {
     /// ```
     SpecModel, ROOT, "a spec object with \"name\" and \"loops\"";
     /// The spec's name.
-    name: String, TEXT, required;
+    name: String, Field::Opaque, required;
     /// The element that declares the version a file is written in, when the
     /// spec declares one.
-    version: Option<VersionModel>, Field::Object(&VERSION), optional;
+    #[serde(default, deserialize_with = "present")]
+    version: Option<VersionModel>, Field::Opaque, optional;
     /// The loops, by name.
     loops: BTreeMap<String, LoopModel>, Field::Map(&Field::Opaque), required;
     /// The tables, by name.
-    tables: BTreeMap<String, TableModel>, Field::Map(&Field::Object(&TABLE)), default;
+    tables: BTreeMap<String, TableModel>, Field::Map(&Field::Opaque), default;
     /// The balancing rules, by name.
-    balancing: BTreeMap<String, BalanceModel>, Field::Map(&Field::Object(&BALANCE)), default;
+    balancing: BTreeMap<String, BalanceModel>, Field::Map(&Field::Opaque), default;
     /// The segments whose elements the spec names and types, by segment id.
-    segments: BTreeMap<String, SegmentModel>, Field::Map(&Field::Object(&SEGMENT)), default;
+    segments: BTreeMap<String, SegmentModel>, Field::Map(&Field::Opaque), default;
     /// The summaries, by name.
     summaries: BTreeMap<String, SummaryModel>, Field::Map(&Field::Opaque), default;
     /// The table a reader shows when none is named, when the spec names one.
-    default_table: Option<String>, TEXT, optional;
+    #[serde(default, deserialize_with = "present")]
+    default_table: Option<String>, Field::Opaque, optional;
 }
 
 impl SpecModel {

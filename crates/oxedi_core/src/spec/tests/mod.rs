@@ -47,6 +47,15 @@ pub(super) const CLP_ONLY: &str = r#"{"name":"t",
         }}}
     }"#;
 
+/// Each input fails with a `SpecError::Format` whose full text is the expected one.
+pub(super) fn assert_model_faults(cases: &[(&str, &str)], load: impl Fn(&str) -> SpecError) {
+    for (input, expected) in cases {
+        let err = load(input);
+        assert!(matches!(&err, SpecError::Format { .. }), "{input}: {err:?}");
+        assert_eq!(err.to_string(), *expected, "{input}");
+    }
+}
+
 pub(super) fn element_error(elements: &str) -> SpecError {
     let json = format!(
         r#"{{"name":"t","loops":{{"a":{{"trigger":{{"segment":"AA"}}}}}},"segments":{{"AA":{{"elements":{elements}}}}}}}"#

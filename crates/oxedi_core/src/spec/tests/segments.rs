@@ -1,6 +1,6 @@
 //! Segment and element definitions.
 
-use super::{CLP_ONLY, element_error};
+use super::{CLP_ONLY, assert_model_faults, element_error};
 use crate::spec::*;
 use crate::value::{ElementType, LengthRange, TypeCodeError};
 
@@ -230,32 +230,38 @@ fn names_only_need_to_be_unique_among_siblings() {
 }
 
 #[test]
-fn a_segment_key_the_schema_does_not_define_is_named_with_its_path() {
-    let json = r#"{"name":"t","loops":{"a":{"trigger":{"segment":"AA"}}},"segments":{"AA":{"elemnts":{}}}}"#;
-    let err = Spec::from_json(json).unwrap_err();
-    assert!(matches!(&err, SpecError::UnknownKey { .. }), "{err:?}");
-    assert_eq!(
-        err.to_string(),
-        "spec: unknown key \"elemnts\" at segments.AA; the allowed keys are: elements"
-    );
+fn a_segment_the_model_refuses_fails_at_its_path() {
+    let cases = [
+        (
+            r#"{"AA":{"elemnts":{}}}"#,
+            "spec: at segments.AA.elemnts: unknown field `elemnts`, expected `elements`",
+        ),
+        (
+            r#"{"CLP":[]}"#,
+            "spec: at segments.CLP: invalid type: sequence, expected a segment object",
+        ),
+        (
+            r#"{"AA":null}"#,
+            "spec: at segments.AA: invalid type: null, expected a segment object",
+        ),
+    ];
+    assert_model_faults(&cases, segments_error);
 }
 
 #[test]
-fn every_object_of_the_segment_schema_is_checked_with_its_path() {
-    let cases = [
-        (r#"[]"#, "segments", "an array"),
-        (r#"{"CLP":[]}"#, "segments.CLP", "an array"),
-    ];
-    for (segments, expected_path, expected_found) in cases {
-        let json = format!(
-            r#"{{"name":"t","loops":{{"a":{{"trigger":{{"segment":"AA"}}}}}},"segments":{segments}}}"#
-        );
-        let err = Spec::from_json(&json).unwrap_err();
-        assert!(
-            matches!(&err, SpecError::NotAnObject { path, found } if path == expected_path && *found == expected_found),
-            "{segments}: {err:?}"
-        );
-    }
+fn segments_that_are_not_an_object_are_refused_by_the_walk() {
+    let err = segments_error("[]");
+    assert!(
+        matches!(&err, SpecError::NotAnObject { path, found } if path == "segments" && *found == "an array"),
+        "{err:?}"
+    );
+}
+
+fn segments_error(segments: &str) -> SpecError {
+    let json = format!(
+        r#"{{"name":"t","loops":{{"a":{{"trigger":{{"segment":"AA"}}}}}},"segments":{segments}}}"#
+    );
+    Spec::from_json(&json).unwrap_err()
 }
 
 #[test]

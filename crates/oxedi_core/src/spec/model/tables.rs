@@ -5,7 +5,7 @@ use std::collections::BTreeMap;
 use serde::Deserializer;
 
 use super::declare::spec_object;
-use super::positions;
+use super::{positions, present};
 use crate::spec::sections::{COUNT, TEXT, TEXTS, leaf, nullable};
 use crate::spec::shape::{Field, Leaf};
 use crate::vocabulary::{Phi, Pick};
@@ -24,6 +24,7 @@ spec_object! {
     /// The column whose value seeds the date shift of the row, when one does.
     phi_seed: Option<String>, nullable(Leaf::Text), optional;
     /// The repeated elements of the anchor segment, when each is a row.
+    #[serde(default, deserialize_with = "present")]
     repeat: Option<RepeatModel>, Field::Object(&REPEAT), optional;
     /// The columns, by name.
     columns: BTreeMap<String, ColumnModel>, Field::Map(&Field::Object(&COLUMN)), default;

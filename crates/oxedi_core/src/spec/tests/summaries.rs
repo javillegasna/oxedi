@@ -258,7 +258,7 @@ fn the_shape_of_the_sections_is_checked_with_its_key_path() {
         ),
         (
             r#"{"default_table":3}"#,
-            "applying patch: spec: the value at default_table must be a string; found a number (3)",
+            "applying patch: spec: at default_table: invalid type: integer `3`, expected a string",
         ),
         (
             r#"{"summaries":{"s":{"avg":{}}}}"#,

@@ -15,7 +15,7 @@ mod common;
 use std::fmt::Write as _;
 use std::path::PathBuf;
 
-use oxedi_core::{DateMode, Diagnostic, Document, Mask, Processor, Spec, Tables};
+use oxedi_core::{DateMode, Diagnostic, Document, Mask, Processor, Tables, Version};
 
 fn golden_dir() -> PathBuf {
     PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("tests/golden/project")
@@ -69,9 +69,7 @@ fn tables_and_diagnostics_match_the_golden_files() {
 /// so every file is projected with it whatever version it declares.
 #[test]
 fn edi_835_parser_tables_match_the_golden_files() {
-    let spec = Spec::builtin_835()
-        .merge_patch(include_str!("../specs/edi_835_parser.json"))
-        .unwrap();
+    let spec = common::patched(Version::V5010, include_str!("../specs/edi_835_parser.json"));
     let dir = golden_dir().join("edi_835_parser");
     let mut outputs = Vec::new();
     for (name, bytes, delims) in common::all_files() {

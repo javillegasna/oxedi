@@ -336,3 +336,14 @@ pub fn assert_same_names(what: &str, named: &[&str], listed: &[&str]) {
          listed twice {twice_listed:?}"
     );
 }
+
+/// The built-in 835 at `version` with the merge patch `patch` over its model.
+pub fn patched(version: oxedi_core::Version, patch: &str) -> std::sync::Arc<oxedi_core::Spec> {
+    oxedi_core::Builtin::find("835", version)
+        .expect("the registry ships the 835 at every version")
+        .loaded()
+        .expect("a built-in's model reads")
+        .merge_patch(patch)
+        .expect("the patch merges into a valid spec")
+        .spec
+}

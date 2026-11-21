@@ -6,7 +6,7 @@ use std::collections::BTreeMap;
 
 use oxedi_core::{
     Cell, Column, Document, Element, LoopId, LoopTree, Processor, Segment, SnipLevel, Spec, Table,
-    Tokenizer,
+    Tokenizer, Version,
 };
 
 /// Fed segment by segment from a tokenizer and drained after each
@@ -294,13 +294,12 @@ fn only_the_synthetic_fixtures_raise_element_findings() {
 fn a_three_line_patch_adds_a_column_the_table_then_shows() {
     let bytes = common::load_sample("edi835_test_not_available_claim_id.RMT");
     let builtin = Spec::builtin_835();
-    let patched = builtin
-        .merge_patch(
-            r#"{"tables":{"claims":{"columns":{
-                "contract_class":{"segment":"REF","where":{"1":"CE"},"element":2}
-            }}}}"#,
-        )
-        .unwrap();
+    let patched = common::patched(
+        Version::V5010,
+        r#"{"tables":{"claims":{"columns":{
+            "contract_class":{"segment":"REF","where":{"1":"CE"},"element":2}
+        }}}}"#,
+    );
     let document = Document::parse(&bytes[..]).unwrap();
     let (before, _) = Processor::run(&builtin, &document, None);
     let (after, _) = Processor::run(&patched, &document, None);
@@ -350,10 +349,9 @@ fn filling_some_tables_of_a_patched_spec_gives_each_the_rows_of_a_full_run() {
             "qualifier":{"element":1},"date":{"element":2}}},
         "claims":{"columns":{"first_amount":{"segment":"AMT","element":2}}}
     }}"#;
-    let (five, four) = common::builtins();
     let (five, four) = (
-        five.merge_patch(patch).unwrap(),
-        four.merge_patch(patch).unwrap(),
+        common::patched(Version::V5010, patch),
+        common::patched(Version::V4010, patch),
     );
     each_table_alone_equals_the_full_run(&five, &four);
     let (mut any_dates, mut any_amount) = (false, false);

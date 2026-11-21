@@ -126,7 +126,8 @@ fn tables_drained_after_each_transaction_add_up_to_one_run() {
         let closes = processor
             .feed(&segment)
             .events()
-            .contains(&Event::LoopClosed { id: transaction });
+            .iter()
+            .any(|event| event.closes(transaction));
         if closes {
             drained.push(processor.take_tables());
         }

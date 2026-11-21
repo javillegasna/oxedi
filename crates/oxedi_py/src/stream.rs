@@ -8,7 +8,7 @@
 use std::sync::{Arc, Mutex, TryLockError};
 
 use oxedi_core::{
-    Builtin, Delimiters, Diagnostic, Event, LoopId, Mask, Processor, Spec, Tables, Tokenizer,
+    Builtin, Delimiters, Diagnostic, LoopId, Mask, Processor, Spec, Tables, Tokenizer,
 };
 use pyo3::exceptions::{PyRuntimeError, PyValueError};
 use pyo3::prelude::*;
@@ -69,7 +69,7 @@ impl State {
             for segment in pass.segments.by_ref() {
                 let output = pass.processor.feed(&segment);
                 diagnostics.extend_from_slice(output.diagnostics());
-                if output.events().contains(&Event::LoopClosed { id: by }) {
+                if output.events().iter().any(|event| event.closes(by)) {
                     return ((pass.processor.take_tables(), diagnostics, spec), false);
                 }
             }

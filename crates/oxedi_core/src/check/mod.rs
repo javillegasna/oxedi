@@ -122,9 +122,7 @@ impl<'s> StructureChecker<'s> {
         matched: Option<usize>,
     ) -> &[Diagnostic] {
         self.diagnostics.clear();
-        if segment.index == 0 && segment.raw.starts_with(BYTE_ORDER_MARK) {
-            self.report(Rule::ByteOrderMark, Some(0), None, BYTE_ORDER_MARK.to_vec());
-        }
+        self.check_byte_order_mark(segment);
         for &event in events {
             match event {
                 Event::LoopOpened {
@@ -152,6 +150,13 @@ impl<'s> StructureChecker<'s> {
             }
         }
         &self.diagnostics
+    }
+
+    /// Reports a UTF-8 byte order mark that starts the first segment.
+    fn check_byte_order_mark(&mut self, segment: &Segment<'_>) {
+        if segment.index == 0 && segment.raw.starts_with(BYTE_ORDER_MARK) {
+            self.report(Rule::ByteOrderMark, Some(0), None, BYTE_ORDER_MARK.to_vec());
+        }
     }
 
     /// Closes every loop still open, as the engine's `finish` does, and

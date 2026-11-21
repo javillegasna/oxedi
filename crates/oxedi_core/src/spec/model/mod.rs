@@ -33,9 +33,7 @@ pub use segments::{ElementModel, SegmentModel};
 pub use tables::{ColumnModel, RepeatModel, TableModel};
 
 pub(in crate::spec) use loops::LOOP;
-pub(in crate::spec) use rules::{
-    BALANCE, RawBalance, RawTerm, SUMMARY_COLUMN, SUMMARY_ROW, SUMMARY_TABLE, VERSION,
-};
+pub(in crate::spec) use rules::{BALANCE, SUMMARY_COLUMN, SUMMARY_ROW, SUMMARY_TABLE, VERSION};
 // Read only by the sync test, which holds the list to the keys the model writes.
 #[cfg(test)]
 pub(in crate::spec) use segments::ELEMENT_MODEL_KEYS;

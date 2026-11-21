@@ -65,7 +65,6 @@ impl std::error::Error for SpecError {
             | SpecError::BadVersion { .. }
             | SpecError::BadControl { .. }
             | SpecError::BadOccurrence { .. }
-            | SpecError::BalanceSchema { .. }
             | SpecError::BadBalance { .. }
             | SpecError::UnmatchedTrigger { .. }
             | SpecError::TriggerQualifierWider { .. }

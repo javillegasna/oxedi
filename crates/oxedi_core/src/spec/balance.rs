@@ -11,19 +11,17 @@
 
 use std::collections::BTreeMap;
 
-use serde::Deserialize;
 use serde_json::Value;
 
 use super::Spec;
 use super::balance_error::BalanceError;
 use super::error::SpecError;
 use super::loops::LoopId;
+use super::model::{BalanceModel, TermModel, read_entry};
 use super::occurrences::element_def;
-use super::raw::{RawBalance, RawTerm};
 use super::segments::ElementDef;
 use crate::message::{place, render_key};
 use crate::value::ElementType;
-use crate::vocabulary::Vocabulary;
 
 /// A balancing term's `sign`, written `"+"` or `"-"`.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
@@ -71,135 +69,137 @@ pub(super) fn compile_balancing(
     spec: &Spec,
     raw: BTreeMap<&str, &Value>,
 ) -> Result<Vec<BalanceRule>, SpecError> {
-    let mut rules = Vec::with_capacity(raw.len());
-    for (name, value) in raw {
-        let def = RawBalance::deserialize(value).map_err(|e| SpecError::BalanceSchema {
-            rule: name.to_string(),
-            source: e,
-        })?;
-        rules.push(
-            compile_rule(spec, name, &def).map_err(|reason| SpecError::BadBalance {
+    raw.into_iter()
+        .map(|(name, value)| {
+            let bad = |reason| SpecError::BadBalance {
                 rule: name.to_string(),
                 reason: Box::new(reason),
-            })?,
-        );
-    }
-    Ok(rules)
+            };
+            if name.is_empty() {
+                return Err(bad(BalanceError::EmptyName));
+            }
+            let def: BalanceModel = read_entry("balancing", name, value)?;
+            compile_rule(spec, name, &def).map_err(bad)
+        })
+        .collect()
 }
 
 /// The elements a rule has counted so far, with where each was named.
 type Counted = Vec<((LoopId, usize, usize, Option<usize>), String)>;
 
-fn compile_rule(spec: &Spec, name: &str, def: &RawBalance) -> Result<BalanceRule, BalanceError> {
-    if name.is_empty() {
-        return Err(BalanceError::EmptyName);
+/// The terms of one rule while they compile: the elements counted so far,
+/// each with the key it was named at, and the largest scale among them.
+struct RuleTerms<'s> {
+    spec: &'s Spec,
+    per: LoopId,
+    counted: Counted,
+    scale: u8,
+}
+
+impl<'s> RuleTerms<'s> {
+    fn new(spec: &'s Spec, per: LoopId) -> RuleTerms<'s> {
+        RuleTerms {
+            spec,
+            per,
+            counted: Counted::new(),
+            scale: 0,
+        }
     }
+
+    /// Compiles one side of the rule, written at `key` (`target` or `sum`):
+    /// it lists at least one value, and each compiles in the order written.
+    fn side(
+        &mut self,
+        key: &'static str,
+        terms: &[TermModel],
+    ) -> Result<Vec<BalanceTerm>, BalanceError> {
+        if terms.is_empty() {
+            return Err(BalanceError::NoTerms { key });
+        }
+        terms
+            .iter()
+            .enumerate()
+            .map(|(i, term)| self.compile_term(&format!("{key}[{i}]"), term))
+            .collect()
+    }
+
+    fn compile_term(&mut self, at: &str, term: &TermModel) -> Result<BalanceTerm, BalanceError> {
+        let spec = self.spec;
+        let loop_id = term_loop(spec, self.per, at, term.loop_name.as_deref())?;
+        let def = spec.get(loop_id);
+        let (occurrence, segment) = def
+            .occurrences
+            .iter()
+            .enumerate()
+            .find(|(_, occurrence)| occurrence.name == term.occurrence)
+            .map(|(index, occurrence)| (index, occurrence.segment.as_slice()))
+            .ok_or_else(|| BalanceError::UnknownOccurrence {
+                key: format!("{at}.occurrence"),
+                loop_name: def.name.clone(),
+                occurrence: term.occurrence.clone(),
+            })?;
+        let read = BalanceTerm {
+            loop_id,
+            occurrence,
+            elements: term.elements.clone(),
+            component: term.component,
+            negative: term.sign == Sign::Minus,
+        };
+        self.read_elements(at, &read, segment)?;
+        Ok(read)
+    }
+
+    /// Checks the elements `term` reads, written at `{at}.elements`, from its
+    /// occurrence of `segment`: there is at least one, each is a decimal and
+    /// none is read by the rule already. Records each as counted and raises
+    /// the scale to the largest among them.
+    fn read_elements(
+        &mut self,
+        at: &str,
+        term: &BalanceTerm,
+        segment: &[u8],
+    ) -> Result<(), BalanceError> {
+        if term.elements.is_empty() {
+            return Err(BalanceError::NoElements {
+                key: format!("{at}.elements"),
+            });
+        }
+        for (j, &element) in term.elements.iter().enumerate() {
+            let key = format!("{at}.elements[{j}]");
+            let place = place(segment, element, term.component);
+            let found = element_def(&self.spec.segments, segment, element, term.component);
+            self.scale = self.scale.max(decimal_scale(found, &key, &place)?);
+            let address = (term.loop_id, term.occurrence, element, term.component);
+            if let Some((_, first)) = self.counted.iter().find(|(seen, _)| *seen == address) {
+                return Err(BalanceError::RepeatedValue {
+                    key,
+                    first: first.clone(),
+                    place,
+                });
+            }
+            self.counted.push((address, key));
+        }
+        Ok(())
+    }
+}
+
+fn compile_rule(spec: &Spec, name: &str, def: &BalanceModel) -> Result<BalanceRule, BalanceError> {
     let per = spec
         .loop_id(&def.per)
         .ok_or_else(|| BalanceError::UnknownLoop {
             key: "per".into(),
             name: def.per.clone(),
         })?;
-    let mut counted = Counted::new();
-    let mut scale = 0;
-    let mut sides = [Vec::new(), Vec::new()];
-    for ((key, raw), side) in [("target", &def.target), ("sum", &def.sum)]
-        .into_iter()
-        .zip(sides.iter_mut())
-    {
-        if raw.is_empty() {
-            return Err(BalanceError::NoTerms { key });
-        }
-        for (i, term) in raw.iter().enumerate() {
-            let at = format!("{key}[{i}]");
-            side.push(compile_term(
-                spec,
-                per,
-                &at,
-                term,
-                &mut counted,
-                &mut scale,
-            )?);
-        }
-    }
-    let [target, sum] = sides;
+    let mut terms = RuleTerms::new(spec, per);
+    let target = terms.side("target", &def.target)?;
+    let sum = terms.side("sum", &def.sum)?;
     Ok(BalanceRule {
         name: name.to_string(),
         per,
         target,
         sum,
-        scale,
+        scale: terms.scale,
     })
-}
-
-fn compile_term(
-    spec: &Spec,
-    per: LoopId,
-    at: &str,
-    term: &RawTerm,
-    counted: &mut Counted,
-    scale: &mut u8,
-) -> Result<BalanceTerm, BalanceError> {
-    let loop_id = term_loop(spec, per, at, term.loop_name.as_deref())?;
-    let def = spec.get(loop_id);
-    let (occurrence, segment) = def
-        .occurrences
-        .iter()
-        .enumerate()
-        .find(|(_, occurrence)| occurrence.name == term.occurrence)
-        .map(|(index, occurrence)| (index, occurrence.segment.as_slice()))
-        .ok_or_else(|| BalanceError::UnknownOccurrence {
-            key: format!("{at}.occurrence"),
-            loop_name: def.name.clone(),
-            occurrence: term.occurrence.clone(),
-        })?;
-    let read = BalanceTerm {
-        loop_id,
-        occurrence,
-        elements: term.elements.clone(),
-        component: term.component,
-        negative: false,
-    };
-    read_elements(spec, at, &read, segment, counted, scale)?;
-    Ok(BalanceTerm {
-        negative: is_negative(at, term.sign.as_deref())?,
-        ..read
-    })
-}
-
-/// Checks the elements `term` reads, written at `{at}.elements`, from its
-/// occurrence of `segment`: there is at least one, each is a decimal and
-/// none is read by the rule already. Records each in `counted` and raises
-/// `scale` to the largest scale among them.
-fn read_elements(
-    spec: &Spec,
-    at: &str,
-    term: &BalanceTerm,
-    segment: &[u8],
-    counted: &mut Counted,
-    scale: &mut u8,
-) -> Result<(), BalanceError> {
-    if term.elements.is_empty() {
-        return Err(BalanceError::NoElements {
-            key: format!("{at}.elements"),
-        });
-    }
-    for (j, &element) in term.elements.iter().enumerate() {
-        let key = format!("{at}.elements[{j}]");
-        let place = place(segment, element, term.component);
-        let found = element_def(&spec.segments, segment, element, term.component);
-        *scale = (*scale).max(decimal_scale(found, &key, &place)?);
-        let address = (term.loop_id, term.occurrence, element, term.component);
-        if let Some((_, first)) = counted.iter().find(|(seen, _)| *seen == address) {
-            return Err(BalanceError::RepeatedValue {
-                key,
-                first: first.clone(),
-                place,
-            });
-        }
-        counted.push((address, key));
-    }
-    Ok(())
 }
 
 /// The loop a term reads, written at `{at}.loop`: `per` when the term names
@@ -249,20 +249,6 @@ fn decimal_scale(def: Option<&ElementDef>, key: &str, place: &str) -> Result<u8,
             found: def.kind.code(),
         }),
     }
-}
-
-/// Reads a term's `sign`, written at `{at}.sign`: `true` for `-`, `false` for
-/// `+` or no sign.
-fn is_negative(at: &str, sign: Option<&str>) -> Result<bool, BalanceError> {
-    let Some(word) = sign else {
-        return Ok(Sign::default() == Sign::Minus);
-    };
-    Sign::from_word(word)
-        .map(|sign| sign == Sign::Minus)
-        .ok_or_else(|| BalanceError::UnknownSign {
-            key: format!("{at}.sign"),
-            found: word.to_string(),
-        })
 }
 
 /// The signed values of one side of a rule, e.g. `sum of CLP04 of 2100

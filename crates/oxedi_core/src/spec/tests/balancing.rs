@@ -1,7 +1,6 @@
 //! Balancing rules: the built-in ones, their validation at load and the
 //! text of every error.
 
-use crate::spec::raw::RawBalance;
 use crate::spec::*;
 
 const LOOPS: &str = r#""loops":{
@@ -140,10 +139,6 @@ fn every_rejected_rule_names_the_rule_the_key_and_the_value() {
             "balancing rule \"r\": target[0].elements[0] names CA05, of type AN; a balancing value must be of type R",
         ),
         (
-            r#"{"per":"pay","target":[{"occurrence":"py","elements":[2],"sign":"*"}],"sum":[]}"#,
-            "balancing rule \"r\": target[0].sign must be \"+\" or \"-\"; found \"*\"",
-        ),
-        (
             r#"{"per":"pay","target":[{"occurrence":"py","elements":[2]}],"sum":[{"occurrence":"py","elements":[2],"sign":"-"}]}"#,
             "balancing rule \"r\": sum[0].elements[0] counts PY02 of the same occurrence that target[0].elements[0] already counts",
         ),
@@ -151,6 +146,34 @@ fn every_rejected_rule_names_the_rule_the_key_and_the_value() {
     for (rule, expected) in cases {
         assert_eq!(rule_error(rule), expected, "{rule}");
     }
+}
+
+#[test]
+fn a_sign_the_model_refuses_fails_at_its_path() {
+    let cases = [
+        (
+            r#"{"r":{"per":"pay","target":[{"occurrence":"py","elements":[2],"sign":"*"}],"sum":[]}}"#,
+            "spec: at balancing.r.target[0].sign: \"sign\" must be \"+\" or \"-\"; found \"*\"",
+        ),
+        (
+            r#"{"r":{"per":"nope","target":[],"sum":[{"occurrence":"py","elements":[2],"sign":"plus"}]}}"#,
+            "spec: at balancing.r.sum[0].sign: \"sign\" must be \"+\" or \"-\"; found \"plus\"",
+        ),
+    ];
+    for (rule, expected) in cases {
+        let err = load(rule).unwrap_err();
+        assert!(matches!(err, SpecError::Format { .. }), "{err}");
+        assert_eq!(err.to_string(), expected);
+    }
+    let err = load(
+        r#"{"":{"per":"pay","target":[],"sum":[{"occurrence":"py","elements":[2],"sign":"x"}]}}"#,
+    )
+    .unwrap_err();
+    assert!(matches!(err, SpecError::BadBalance { .. }), "{err}");
+    assert_eq!(
+        err.to_string(),
+        "balancing rule \"\": the rule name is empty"
+    );
 }
 
 #[test]
@@ -259,13 +282,6 @@ fn balance_errors_display_their_full_text() {
             "sum[0].elements[0] names CLP01, of type AN; a balancing value must be of type R",
         ),
         (
-            BalanceError::UnknownSign {
-                key: "sum[0].sign".into(),
-                found: "x".into(),
-            },
-            "sum[0].sign must be \"+\" or \"-\"; found \"x\"",
-        ),
-        (
             BalanceError::RepeatedValue {
                 key: "sum[1].elements[0]".into(),
                 first: "sum[0].elements[0]".into(),
@@ -280,7 +296,7 @@ fn balance_errors_display_their_full_text() {
 }
 
 #[test]
-fn spec_errors_of_a_rule_display_the_rule_and_do_not_chain_their_source() {
+fn a_bad_rule_displays_the_rule_and_does_not_chain_its_source() {
     let bad = SpecError::BadBalance {
         rule: "r".into(),
         reason: Box::new(BalanceError::EmptyName),
@@ -290,13 +306,4 @@ fn spec_errors_of_a_rule_display_the_rule_and_do_not_chain_their_source() {
         "balancing rule \"r\": the rule name is empty"
     );
     assert!(std::error::Error::source(&bad).is_none());
-    let schema = SpecError::BalanceSchema {
-        rule: "r".into(),
-        source: serde_json::from_value::<RawBalance>(serde_json::json!(1)).unwrap_err(),
-    };
-    assert_eq!(
-        schema.to_string(),
-        "balancing rule \"r\" does not match the schema: invalid type: integer `1`, expected a balancing rule object"
-    );
-    assert!(std::error::Error::source(&schema).is_none());
 }

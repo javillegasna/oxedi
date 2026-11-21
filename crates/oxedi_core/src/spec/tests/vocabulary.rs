@@ -194,21 +194,13 @@ fn a_codes_key_is_a_map_key() {
 
 #[test]
 fn the_loader_texts_name_every_word() {
-    let s = String::new;
     let has = |text: String, words: String| assert!(text.contains(&words), "{text}");
     has(refused::<Usage>(json!("x")), words_text::<Usage>());
     has(
         refused::<ControlCount>(json!("x")),
         words_text::<ControlCount>(),
     );
-    has(
-        BalanceError::UnknownSign {
-            key: s(),
-            found: s(),
-        }
-        .to_string(),
-        words_text::<Sign>(),
-    );
+    has(refused::<Sign>(json!("x")), words_text::<Sign>());
     has(refused::<Phi>(json!("x")), words_text::<Phi>());
     let pick = refused::<Pick>(json!("x"));
     for word in ["first", "last"] {

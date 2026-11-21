@@ -106,18 +106,18 @@ impl TryFrom<SummaryKeys> for SummaryModel {
 
 spec_object! {
     /// Amounts that must add up inside each instance of a loop.
-    BalanceModel / RawBalance, BALANCE, "a balancing rule object";
+    BalanceModel, BALANCE, "a balancing rule object";
     /// The loop whose instances are checked.
     per: String, TEXT, required;
     /// The values the sum must equal, added together.
-    target: Vec<TermModel> | Vec<RawTerm>, objects!(&TERM), required;
+    target: Vec<TermModel>, objects!(&TERM), required;
     /// The values added together.
-    sum: Vec<TermModel> | Vec<RawTerm>, objects!(&TERM), required;
+    sum: Vec<TermModel>, objects!(&TERM), required;
 }
 
 spec_object! {
     /// One value of a balancing rule: elements of an occurrence, added with a sign.
-    TermModel / RawTerm, TERM, "a balancing value object";
+    TermModel, TERM, "a balancing value object";
     /// The loop that holds the occurrence, when not the rule's `per` loop.
     loop_name as "loop": Option<String>, nullable(Leaf::Text), optional;
     /// The occurrence.
@@ -125,7 +125,7 @@ spec_object! {
     /// 1-based component position inside each element, when the value is one.
     component: Option<usize>, nullable(Leaf::Count), optional;
     /// Whether the value is added or subtracted.
-    sign: Sign | Option<String>, nullable(Leaf::Text), default_or_null;
+    sign: Sign, nullable(Leaf::Text), default_or_null;
     /// 1-based element positions whose values are added.
     elements: Vec<usize>, COUNTS, required;
 }

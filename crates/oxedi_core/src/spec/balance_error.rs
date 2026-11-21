@@ -63,13 +63,6 @@ pub enum BalanceError {
         /// Its declared type code, e.g. `AN`.
         found: String,
     },
-    /// `sign` is not `+` or `-`.
-    UnknownSign {
-        /// Where the sign sits.
-        key: String,
-        /// The value as written.
-        found: String,
-    },
     /// The same element of the same occurrence is counted twice in the rule.
     RepeatedValue {
         /// Where the second mention sits.
@@ -122,9 +115,6 @@ impl fmt::Display for BalanceError {
                 f,
                 "{key} names {place}, of type {found}; a balancing value must be of type R"
             ),
-            BalanceError::UnknownSign { key, found } => {
-                write!(f, "{key} must be \"+\" or \"-\"; found {found:?}")
-            }
             BalanceError::RepeatedValue { key, first, place } => write!(
                 f,
                 "{key} counts {place} of the same occurrence that {first} already counts"

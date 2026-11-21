@@ -27,6 +27,7 @@ This file covers the Python package; the DuckDB extension has its own changelog 
 - Rust: `engine::Instance` and `engine::InstanceId`: one open occurrence of a loop, numbered by the
   engine in opening order, with its loop, its 1-based ordinal in the stream and its parent.
   `LoopEngine::path` returns the open instances (`&[Instance]`) instead of their loop ids.
+- Rust: `Event::closes(loop_id)` tells whether an event closes the loop.
 
 ### Changed
 - The error for an interchange whose version carries a repetition separator while the envelope has

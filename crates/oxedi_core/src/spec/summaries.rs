@@ -5,11 +5,9 @@
 
 use std::collections::BTreeMap;
 
-use serde_json::Value;
-
 use super::Spec;
 use super::error::SpecError;
-use super::model::{SummaryColumnModel, SummaryModel, SummaryRowModel, read_entry};
+use super::model::{SummaryColumnModel, SummaryModel, SummaryRowModel};
 use super::phi::ColumnKind;
 use super::summary_error::SummaryDefError;
 use super::tables::{ColumnSource, TableDef};
@@ -49,10 +47,11 @@ pub enum Summary {
 /// Compiles the `summaries` section against the tables of `spec`, in name order.
 pub(super) fn compile_summaries(
     spec: &Spec,
-    raw: BTreeMap<&str, &Value>,
+    summaries: &BTreeMap<String, SummaryModel>,
 ) -> Result<Vec<(String, Summary)>, SpecError> {
-    raw.into_iter()
-        .map(|(name, value)| {
+    summaries
+        .iter()
+        .map(|(name, def)| {
             let bad = |reason| SpecError::BadSummary {
                 summary: name.to_string(),
                 reason: Box::new(reason),
@@ -60,8 +59,7 @@ pub(super) fn compile_summaries(
             if name.is_empty() {
                 return Err(bad(SummaryDefError::EmptyName));
             }
-            let def: SummaryModel = read_entry("summaries", name, value)?;
-            Ok((name.to_string(), def.compile(spec).map_err(bad)?))
+            Ok((name.clone(), def.compile(spec).map_err(bad)?))
         })
         .collect()
 }
@@ -81,17 +79,19 @@ pub(super) fn compile_default_table(
 }
 
 impl SummaryModel {
-    fn compile(self, spec: &Spec) -> Result<Summary, SummaryDefError> {
+    fn compile(&self, spec: &Spec) -> Result<Summary, SummaryDefError> {
         match self {
             SummaryModel::Count(raw) => {
                 table_at(spec, "count.table", &raw.table)?;
-                Ok(Summary::Count { table: raw.table })
+                Ok(Summary::Count {
+                    table: raw.table.clone(),
+                })
             }
             SummaryModel::Distinct(raw) => {
-                column_at(spec, "distinct", &raw)?;
+                column_at(spec, "distinct", raw)?;
                 Ok(Summary::Distinct {
-                    table: raw.table,
-                    column: raw.column,
+                    table: raw.table.clone(),
+                    column: raw.column.clone(),
                 })
             }
             SummaryModel::Sum(raw) => compile_sum(spec, raw),
@@ -100,23 +100,23 @@ impl SummaryModel {
     }
 }
 
-fn compile_sum(spec: &Spec, raw: SummaryColumnModel) -> Result<Summary, SummaryDefError> {
-    let (table, source) = column_at(spec, "sum", &raw)?;
+fn compile_sum(spec: &Spec, raw: &SummaryColumnModel) -> Result<Summary, SummaryDefError> {
+    let (table, source) = column_at(spec, "sum", raw)?;
     match spec.column_kind(table, source) {
         ColumnKind::Element(Some(ElementType::R { .. })) => Ok(Summary::Sum {
-            table: raw.table,
-            column: raw.column,
+            table: raw.table.clone(),
+            column: raw.column.clone(),
         }),
         found => Err(SummaryDefError::NotDecimal {
             key: "sum.column".into(),
-            table: raw.table,
-            column: raw.column,
+            table: raw.table.clone(),
+            column: raw.column.clone(),
             found: found.to_string(),
         }),
     }
 }
 
-fn compile_row(spec: &Spec, raw: SummaryRowModel) -> Result<Summary, SummaryDefError> {
+fn compile_row(spec: &Spec, raw: &SummaryRowModel) -> Result<Summary, SummaryDefError> {
     let table = table_at(spec, "row.table", &raw.table)?;
     if raw.fields.is_empty() {
         return Err(SummaryDefError::NoFields {
@@ -139,10 +139,10 @@ fn compile_row(spec: &Spec, raw: SummaryRowModel) -> Result<Summary, SummaryDefE
     Ok(Summary::Row {
         fields: raw
             .fields
-            .into_iter()
-            .map(|field| (field.name, field.column))
+            .iter()
+            .map(|field| (field.name.clone(), field.column.clone()))
             .collect(),
-        table: raw.table,
+        table: raw.table.clone(),
     })
 }
 

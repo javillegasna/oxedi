@@ -11,13 +11,11 @@
 
 use std::collections::BTreeMap;
 
-use serde_json::Value;
-
 use super::Spec;
 use super::balance_error::BalanceError;
 use super::error::SpecError;
 use super::loops::LoopId;
-use super::model::{BalanceModel, TermModel, read_entry};
+use super::model::{BalanceModel, TermModel};
 use super::occurrences::element_def;
 use super::segments::ElementDef;
 use crate::message::{place, render_key};
@@ -67,10 +65,11 @@ pub struct BalanceRule {
 /// Compiles the `balancing` section against the loops and segments of `spec`.
 pub(super) fn compile_balancing(
     spec: &Spec,
-    raw: BTreeMap<&str, &Value>,
+    rules: &BTreeMap<String, BalanceModel>,
 ) -> Result<Vec<BalanceRule>, SpecError> {
-    raw.into_iter()
-        .map(|(name, value)| {
+    rules
+        .iter()
+        .map(|(name, def)| {
             let bad = |reason| SpecError::BadBalance {
                 rule: name.to_string(),
                 reason: Box::new(reason),
@@ -78,8 +77,7 @@ pub(super) fn compile_balancing(
             if name.is_empty() {
                 return Err(bad(BalanceError::EmptyName));
             }
-            let def: BalanceModel = read_entry("balancing", name, value)?;
-            compile_rule(spec, name, &def).map_err(bad)
+            compile_rule(spec, name, def).map_err(bad)
         })
         .collect()
 }

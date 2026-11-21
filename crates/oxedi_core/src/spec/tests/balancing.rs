@@ -159,21 +159,16 @@ fn a_sign_the_model_refuses_fails_at_its_path() {
             r#"{"r":{"per":"nope","target":[],"sum":[{"occurrence":"py","elements":[2],"sign":"plus"}]}}"#,
             "spec: at balancing.r.sum[0].sign: \"sign\" must be \"+\" or \"-\"; found \"plus\"",
         ),
+        (
+            r#"{"":{"per":"pay","target":[],"sum":[{"occurrence":"py","elements":[2],"sign":"x"}]}}"#,
+            "spec: at balancing.\"\".sum[0].sign: \"sign\" must be \"+\" or \"-\"; found \"x\"",
+        ),
     ];
     for (rule, expected) in cases {
         let err = load(rule).unwrap_err();
         assert!(matches!(err, SpecError::Format { .. }), "{err}");
         assert_eq!(err.to_string(), expected);
     }
-    let err = load(
-        r#"{"":{"per":"pay","target":[],"sum":[{"occurrence":"py","elements":[2],"sign":"x"}]}}"#,
-    )
-    .unwrap_err();
-    assert!(matches!(err, SpecError::BadBalance { .. }), "{err}");
-    assert_eq!(
-        err.to_string(),
-        "balancing rule \"\": the rule name is empty"
-    );
 }
 
 #[test]

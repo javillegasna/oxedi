@@ -16,11 +16,6 @@ use super::version::VersionError;
 pub enum SpecError {
     /// The text is not valid JSON.
     Json(serde_json::Error),
-    /// The top level of the JSON does not match the spec schema.
-    Schema {
-        /// What serde rejected.
-        source: serde_json::Error,
-    },
     /// Applying a patch produced an error.
     Patch {
         /// The error the patched spec (or the patch text) produced.
@@ -100,13 +95,14 @@ pub enum SpecError {
         /// The required key.
         key: &'static str,
     },
-    /// A value of the right JSON type that the spec's model does not read: a
-    /// word outside its vocabulary (a usage, a sign), an element type, a key
-    /// that is not a position, a summary that holds no operation or more than
-    /// one.
+    /// A value of the right JSON type that the spec's model does not read,
+    /// anywhere in the spec (the first in key order is reported): a word
+    /// outside its vocabulary (a usage, a sign), an element type, a key that
+    /// is not a position, a summary that holds no operation or more than one.
     Format {
         /// Where the value sits, from the root: keys joined by `.`, a key holding
-        /// `.`, `/`, `#` or whitespace quoted (e.g. `loops.2100.occurrences.clp.usage`).
+        /// `.`, `/`, `#` or whitespace quoted (e.g. `loops.2100.occurrences.clp.usage`);
+        /// `.` for the root.
         path: String,
         /// What the model refused, with the offending value.
         source: serde_json::Error,
@@ -260,7 +256,6 @@ impl fmt::Display for SpecError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             SpecError::Json(e) => write!(f, "invalid spec JSON: {e}"),
-            SpecError::Schema { source } => write!(f, "spec does not match the schema: {source}"),
             SpecError::NotAnObject { path, found } if path.is_empty() => {
                 write!(f, "the spec must be a JSON object; found {found}")
             }

@@ -331,3 +331,32 @@ fn the_builtin_specs_define_the_same_loop_names() {
     assert!(!five.is_empty());
     assert_eq!(five, four);
 }
+
+#[test]
+fn a_value_the_model_refuses_is_reported_before_compiling_in_key_order() {
+    let spec = |usage: &str, sign: &str, loops: &str| {
+        format!(
+            r#"{{"name":"t","loops":{loops},"balancing":{{"r":{{"per":"a","target":[{{"occurrence":"aa","elements":[1],"sign":{sign}}}],"sum":[]}}}}}}"#
+        )
+        .replace("USAGE", usage)
+    };
+    let loop_a = r#"{"a":{"trigger":{"segment":"AA"},"parent":"nope","usage":USAGE}}"#;
+    let balancing_fault =
+        "spec: at balancing.r.target[0].sign: \"sign\" must be \"+\" or \"-\"; found \"*\"";
+
+    let err = Spec::from_json(&spec(r#""often""#, r#""*""#, loop_a)).unwrap_err();
+    assert!(matches!(err, SpecError::Format { .. }), "{err}");
+    assert_eq!(err.to_string(), balancing_fault);
+
+    let err = Spec::from_json(&spec(r#""often""#, r#""+""#, loop_a)).unwrap_err();
+    assert!(
+        matches!(&err, SpecError::Format { path, .. } if path == "loops.a.usage"),
+        "{err}"
+    );
+
+    let err = Spec::from_json(&spec("null", r#""+""#, loop_a)).unwrap_err();
+    assert_eq!(err.to_string(), "loop \"a\" names unknown parent \"nope\"");
+
+    let err = Spec::from_json(&spec("null", r#""*""#, "{}")).unwrap_err();
+    assert_eq!(err.to_string(), balancing_fault);
+}

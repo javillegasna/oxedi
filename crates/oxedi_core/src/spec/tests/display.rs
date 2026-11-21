@@ -2,7 +2,6 @@
 
 use super::element_error;
 use crate::spec::model::read_model;
-use crate::spec::raw::RawSpec;
 use crate::spec::*;
 use crate::value::ElementType;
 use serde_json::Value;
@@ -54,17 +53,6 @@ fn model_mismatch_displays_the_spec_the_path_the_serde_message_and_that_it_is_a_
         &err,
         "the loaded spec \"t\" and its typed model disagree at loops.A: invalid type: integer \
          `1`, expected a loop object; this is a bug in oxedi, please report it",
-    );
-}
-
-#[test]
-fn schema_error_displays_the_serde_message() {
-    let err = SpecError::Schema {
-        source: serde_json::from_value::<RawSpec>(serde_json::json!(1)).unwrap_err(),
-    };
-    assert_eq!(
-        err.to_string(),
-        "spec does not match the schema: invalid type: integer `1`, expected a spec object with \"name\" and \"loops\""
     );
 }
 
@@ -303,9 +291,6 @@ fn no_spec_error_chains_its_source() {
     let patch = SpecError::Patch {
         source: Box::new(SpecError::Json(json_error("{"))),
     };
-    let schema = SpecError::Schema {
-        source: json_error("{"),
-    };
     let key = SpecError::MissingKey {
         path: String::new(),
         key: "name",
@@ -325,7 +310,6 @@ fn no_spec_error_chains_its_source() {
     };
     for err in [
         SpecError::Json(json_error("{")),
-        schema,
         patch,
         key,
         bad_summary,

@@ -6,7 +6,6 @@
 
 use std::collections::BTreeMap;
 
-use serde::Deserialize;
 use serde_json::Value;
 
 use super::Spec;
@@ -15,30 +14,26 @@ use super::build_loops::{check_cycles, compile_loop, held_segments};
 use super::compile::compile_tables;
 use super::error::SpecError;
 use super::loops::{LoopId, Trigger};
-use super::model::{LoopModel, SegmentModel, VersionModel, read_entry};
+use super::model::{SegmentModel, SpecModel};
 use super::occurrence_index::OccurrenceIndex;
 use super::occurrences::{check_trigger, compile_occurrences};
-use super::raw::RawSpec;
 use super::render::render_trigger;
 use super::segments::{SegmentDef, compile_elements};
-use super::shape::{check_shape, section};
+use super::shape::check_shape;
 use super::summaries::{compile_default_table, compile_summaries};
 use super::version::compile_version;
 
-/// A spec while it compiles, with the parts of the JSON the later steps read.
+/// A spec while it compiles, and the model every step reads.
 struct Build {
     spec: Spec,
-    /// The loops as their model reads them, in name order.
-    defs: Vec<(String, LoopModel)>,
-    version: Option<VersionModel>,
-    default_table: Option<String>,
+    /// The spec as its model reads it, keys in name order.
+    model: SpecModel,
 }
 
 type Step = fn(&mut Build) -> Result<(), SpecError>;
 
 /// The compile steps, in the order they run.
-const STEPS: [Step; 12] = [
-    read_loops,
+const STEPS: [Step; 11] = [
     compile_loop_headers,
     link_loops,
     compile_segment_section,
@@ -55,7 +50,8 @@ const STEPS: [Step; 12] = [
 impl Spec {
     pub(crate) fn from_value(source: Value) -> Result<Spec, SpecError> {
         check_shape(&source)?;
-        let mut build = Build::new(source)?;
+        let model = SpecModel::read(&source)?;
+        let mut build = Build::new(model, source)?;
         STEPS.iter().try_for_each(|step| step(&mut build))?;
         Ok(build.spec)
     }
@@ -122,17 +118,16 @@ impl Spec {
 }
 
 impl Build {
-    /// The spec's name and an empty structure, or why the top level is invalid.
-    fn new(source: Value) -> Result<Build, SpecError> {
-        let raw = RawSpec::deserialize(&source).map_err(|e| SpecError::Schema { source: e })?;
-        if raw.loops.is_empty() {
+    /// The spec's name and an empty structure, or why the spec declares no loops.
+    fn new(model: SpecModel, source: Value) -> Result<Build, SpecError> {
+        if model.loops.is_empty() {
             return Err(SpecError::NoLoops {
-                spec_name: raw.name,
+                spec_name: model.name.clone(),
             });
         }
         Ok(Build {
             spec: Spec {
-                name: raw.name,
+                name: model.name.clone(),
                 loops: Vec::new(),
                 occurrence_index: OccurrenceIndex::default(),
                 roots: Vec::new(),
@@ -144,30 +139,22 @@ impl Build {
                 version: None,
                 source,
             },
-            defs: Vec::new(),
-            version: raw.version,
-            default_table: raw.default_table,
+            model,
         })
     }
 }
 
-fn read_loops(build: &mut Build) -> Result<(), SpecError> {
-    build.defs = section(&build.spec.source, "loops")
-        .into_iter()
-        .map(|(name, value)| Ok((name.to_string(), read_entry("loops", name, value)?)))
-        .collect::<Result<_, SpecError>>()?;
-    Ok(())
-}
-
 fn compile_loop_headers(build: &mut Build) -> Result<(), SpecError> {
     let ids: BTreeMap<&str, LoopId> = build
-        .defs
-        .iter()
+        .model
+        .loops
+        .keys()
         .enumerate()
-        .map(|(index, (name, _))| (name.as_str(), LoopId(index)))
+        .map(|(index, name)| (name.as_str(), LoopId(index)))
         .collect();
     let loops = build
-        .defs
+        .model
+        .loops
         .iter()
         .map(|(name, def)| compile_loop(name, def, &ids))
         .collect::<Result<Vec<_>, _>>()?;
@@ -190,28 +177,29 @@ fn link_loops(build: &mut Build) -> Result<(), SpecError> {
 }
 
 fn compile_segment_section(build: &mut Build) -> Result<(), SpecError> {
-    build.spec.segments = section(&build.spec.source, "segments")
-        .into_iter()
-        .map(|(id, value)| compile_segment(id, value))
+    build.spec.segments = build
+        .model
+        .segments
+        .iter()
+        .map(|(id, def)| compile_segment(id, def))
         .collect::<Result<_, _>>()?;
     Ok(())
 }
 
-fn compile_segment(id: &str, value: &Value) -> Result<(Vec<u8>, SegmentDef), SpecError> {
+fn compile_segment(id: &str, def: &SegmentModel) -> Result<(Vec<u8>, SegmentDef), SpecError> {
     if id.is_empty() {
         return Err(SpecError::EmptySegmentId {
             loop_name: None,
             key: "segments.\"\"".into(),
         });
     }
-    let def: SegmentModel = read_entry("segments", id, value)?;
     let elements = compile_elements(id, &def.elements, None)?;
     Ok((id.as_bytes().to_vec(), SegmentDef { elements }))
 }
 
 fn compile_loop_occurrences(build: &mut Build) -> Result<(), SpecError> {
     let spec = &mut build.spec;
-    for ((name, def), compiled) in build.defs.iter().zip(spec.loops.iter_mut()) {
+    for ((name, def), compiled) in build.model.loops.iter().zip(spec.loops.iter_mut()) {
         compiled.occurrences = compile_occurrences(name, &def.occurrences, &spec.segments)?;
         check_trigger(name, &compiled.occurrences, &compiled.trigger)?;
         compiled.segments = held_segments(compiled);
@@ -225,7 +213,12 @@ fn index_occurrences(build: &mut Build) -> Result<(), SpecError> {
 }
 
 fn compile_version_section(build: &mut Build) -> Result<(), SpecError> {
-    build.spec.version = build.version.as_ref().map(compile_version).transpose()?;
+    build.spec.version = build
+        .model
+        .version
+        .as_ref()
+        .map(compile_version)
+        .transpose()?;
     Ok(())
 }
 
@@ -235,23 +228,24 @@ fn check_trigger_ambiguity(build: &mut Build) -> Result<(), SpecError> {
 
 fn compile_table_section(build: &mut Build) -> Result<(), SpecError> {
     let spec = &build.spec;
-    build.spec.tables = compile_tables(spec, section(&spec.source, "tables"))?;
+    build.spec.tables = compile_tables(spec, &build.model.tables)?;
     Ok(())
 }
 
 fn compile_balancing_section(build: &mut Build) -> Result<(), SpecError> {
     let spec = &build.spec;
-    build.spec.balancing = compile_balancing(spec, section(&spec.source, "balancing"))?;
+    build.spec.balancing = compile_balancing(spec, &build.model.balancing)?;
     Ok(())
 }
 
 fn compile_summary_section(build: &mut Build) -> Result<(), SpecError> {
     let spec = &build.spec;
-    build.spec.summaries = compile_summaries(spec, section(&spec.source, "summaries"))?;
+    build.spec.summaries = compile_summaries(spec, &build.model.summaries)?;
     Ok(())
 }
 
 fn compile_default_table_section(build: &mut Build) -> Result<(), SpecError> {
-    build.spec.default_table = compile_default_table(&build.spec, build.default_table.take())?;
+    build.spec.default_table =
+        compile_default_table(&build.spec, build.model.default_table.clone())?;
     Ok(())
 }

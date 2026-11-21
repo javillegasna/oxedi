@@ -48,7 +48,6 @@ impl std::error::Error for SpecError {
         // chain stops here instead of printing it a second time.
         match self {
             SpecError::Json(_)
-            | SpecError::Schema { .. }
             | SpecError::Patch { .. }
             | SpecError::UnknownParent { .. }
             | SpecError::Cycle { .. }

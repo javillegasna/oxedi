@@ -4,7 +4,7 @@ mod common;
 
 use std::collections::BTreeMap;
 
-use oxedi_core::{Event, Instance, LoopEngine, LoopTree, Spec, Tokenizer};
+use oxedi_core::{Event, Instance, LoopEngine, LoopTree, OccurrenceId, Spec, Tokenizer};
 
 #[test]
 fn every_segment_is_accounted_for_exactly_once_and_loops_balance() {
@@ -221,6 +221,30 @@ fn events_agree_with_a_replay_of_their_own_stack() {
                 }
                 Event::Empty { .. } => {}
             }
+        }
+    }
+}
+
+#[test]
+fn the_occurrence_index_agrees_with_a_scan_of_the_loop() {
+    let spec = Spec::builtin_835();
+    for (name, bytes, delims) in common::all_files() {
+        let events = common::events_of(&spec, &bytes, delims);
+        let segments: Vec<_> = Tokenizer::with_delimiters(&bytes, delims).collect();
+        for event in events {
+            let Event::Captured { instance, segment } = event else {
+                continue;
+            };
+            let segment = &segments[segment];
+            let scanned = spec
+                .get(instance.loop_id)
+                .occurrences
+                .iter()
+                .position(|occurrence| occurrence.matches(segment));
+            let asked = spec
+                .occurrence_of(instance.loop_id, segment)
+                .map(OccurrenceId::index);
+            assert_eq!(asked, scanned, "{name}: segment {segment:?}");
         }
     }
 }

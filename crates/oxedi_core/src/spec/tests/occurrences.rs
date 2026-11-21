@@ -432,11 +432,11 @@ fn a_selector_names_the_segment_and_its_qualifier_codes() {
 #[test]
 fn a_segment_takes_the_occurrence_its_qualifier_selects() {
     let spec = base();
-    let head = spec.get(spec.loop_id("head").unwrap());
+    let head_id = spec.loop_id("head").unwrap();
     let input = segs(b"NM*IL~NM*QC*1~NM*XX~NT*anything~ZZ~");
     let name = |at: usize| {
-        head.occurrence_of(&input[at])
-            .map(|index| head.occurrences[index].name.as_str())
+        spec.occurrence_of(head_id, &input[at])
+            .map(|found| spec.get(head_id).occurrences[found.index()].name.as_str())
     };
     assert_eq!(name(0), Some("insured"));
     assert_eq!(name(1), Some("patient"));

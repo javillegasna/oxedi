@@ -16,7 +16,7 @@ use crate::delimiters::Delimiters;
 use crate::diagnostic::{Diagnostic, LoopRef, Rule};
 use crate::engine::Event;
 use crate::segment::Segment;
-use crate::spec::{ControlCount, LoopId, Spec, render_trigger};
+use crate::spec::{ControlCount, LoopId, OccurrenceId, Spec, render_trigger};
 use crate::trivia::BYTE_ORDER_MARK;
 use crate::value::parse_unsigned;
 
@@ -107,7 +107,9 @@ impl<'s> StructureChecker<'s> {
     pub fn on(&mut self, segment: &Segment<'_>, events: &[Event]) -> &[Diagnostic] {
         let spec = self.spec;
         let matched = events.iter().find_map(|event| match *event {
-            Event::Captured { instance, .. } => spec.get(instance.loop_id).occurrence_of(segment),
+            Event::Captured { instance, .. } => spec
+                .occurrence_of(instance.loop_id, segment)
+                .map(OccurrenceId::index),
             _ => None,
         });
         self.on_matched(segment, events, matched)

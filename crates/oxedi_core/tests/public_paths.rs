@@ -64,6 +64,7 @@ mod by_module {
     use oxedi_core::spec::ElementDefError;
     use oxedi_core::spec::ElementModel;
     use oxedi_core::spec::ElementPosition;
+    use oxedi_core::spec::LoadedSpec;
     use oxedi_core::spec::LoopDef;
     use oxedi_core::spec::LoopId;
     use oxedi_core::spec::LoopModel;
@@ -152,6 +153,7 @@ mod by_module {
     use oxedi_core::vocabulary::Pick;
 }
 
+use oxedi_core::spec::SpecModel;
 // Root re-exports from lib.rs
 use oxedi_core::ConvertError;
 use oxedi_core::Projector;
@@ -159,9 +161,9 @@ use oxedi_core::StructureChecker;
 use oxedi_core::Tokenizer;
 use oxedi_core::{
     AnchorChains, AnchorPositions, Builtin, ColumnSource, Control, ControlCount, ControlError,
-    DeclaredVersion, ElementDef, ElementDefError, ElementType, LoopDef, LoopId, LoopSegments,
-    OccurrenceId, Pick, Repeat, SegmentDef, Spec, SpecError, TableDef, TableDefError, Trigger,
-    UnknownColumn, UnknownTable, UnknownVersion, Version, VersionError, merge_patch,
+    DeclaredVersion, ElementDef, ElementDefError, ElementType, LoadedSpec, LoopDef, LoopId,
+    LoopSegments, OccurrenceId, Pick, Repeat, SegmentDef, Spec, SpecError, TableDef, TableDefError,
+    Trigger, UnknownColumn, UnknownTable, UnknownVersion, Version, VersionError, merge_patch,
 };
 use oxedi_core::{
     Bitmap, Cell, CellError, Column, ColumnData, ColumnType, RowError, Table, Tables,
@@ -208,6 +210,18 @@ fn builtin_items() {
     let _: fn(Version) -> &'static str = Version::text;
     let _: fn(&str) -> Option<Version> = Version::parse;
     let _: &Builtin = Builtin::select(Vec::<Segment<'static>>::new());
+}
+
+// Associated items of `LoadedSpec` and the model's loader.
+#[allow(dead_code)]
+fn loaded_items() {
+    let _: fn(&str) -> Result<LoadedSpec, SpecError> = LoadedSpec::from_json;
+    let _: fn(SpecModel) -> Result<LoadedSpec, SpecError> = LoadedSpec::from_model;
+    let _: fn(&LoadedSpec, &str) -> Result<LoadedSpec, SpecError> = LoadedSpec::merge_patch;
+    let _: fn(&LoadedSpec) -> Result<String, serde_json::Error> = LoadedSpec::to_json;
+    let _: fn(&str) -> Result<SpecModel, SpecError> = SpecModel::from_json;
+    let _: fn(&SpecModel) -> Result<Spec, SpecError> = SpecModel::compile;
+    let _: fn(&Builtin) -> &SpecModel = |b| &b.model;
 }
 
 // Associated items the bindings read their defaults, names and units from,

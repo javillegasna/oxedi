@@ -289,6 +289,38 @@ fn bad_tables_are_rejected_with_the_table_the_column_and_the_reason() {
             TableDefError::ZeroPosition { key: "component" },
         ),
         (
+            r#"{"t":{"loops":["A"],"columns":{"":{"segment":"AA"}}}}"#,
+            "t",
+            Some(""),
+            TableDefError::EmptyName {
+                what: "column name",
+            },
+        ),
+        (
+            r#"{"t":{"loops":["A"],"columns":{"c":{"segment":"AA","component":0}}}}"#,
+            "t",
+            Some("c"),
+            TableDefError::SourceCount { found: 0 },
+        ),
+        (
+            r#"{"t":{"loops":["A"],"columns":{"c":{"segment":"AA","segment_index":true,"component":0}}}}"#,
+            "t",
+            Some("c"),
+            TableDefError::ComponentOnIndex,
+        ),
+        (
+            r#"{"t":{"loops":["A"],"columns":{"c":{"segment":"AA","element":0,"component":0}}}}"#,
+            "t",
+            Some("c"),
+            TableDefError::ZeroPosition { key: "element" },
+        ),
+        (
+            r#"{"t":{"loops":["A"],"segment":"AA","columns":{"c":{"loop":"B","element":0}}}}"#,
+            "t",
+            Some("c"),
+            TableDefError::ZeroPosition { key: "element" },
+        ),
+        (
             r#"{"t":{"loops":["A"],"columns":{"c":{"group_element":0}}}}"#,
             "t",
             Some("c"),

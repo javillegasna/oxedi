@@ -126,6 +126,8 @@ This file covers the Python package; the DuckDB extension has its own changelog 
   `TableDefError::UnknownPhi` are removed.
 - Rust: `TableDefError::BadPick` is removed: a pick other than `"first"`, `"last"` or a position from 1
   is a `SpecError::Format` at the pick's path, with the same text.
+- A segment element whose "type" is unknown or holds a "scale" without type R, or whose position key is not canonical, fails at its path from the spec's root, in Rust and Python alike: `spec: at segments.CLP.elements.3: type "XX" is not one of AN, ID, N0 to N9, R, DT, TM`, or `spec: at segments.CLP.elements: segment "elements" key "01" is not a position: positions are 1-based integers written in canonical form`. A segment is read whole first, so such a fault anywhere in it is reported before a name, length, code or composite fault, and elements are checked in position order (2 before 10).
+- Rust: `SpecError::SegmentSchema`, `ElementDefError::NonCanonicalPosition`, `ElementDefError::UnknownType` and `ElementDefError::ScaleWithoutR` are removed, and so is `From<TypeCodeError> for ElementDefError`.
 
 ### Fixed
 - The writer and the reader agree on the repetition separator of a custom spec: at interchange

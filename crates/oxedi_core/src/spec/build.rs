@@ -15,10 +15,10 @@ use super::build_loops::{check_cycles, compile_loop, held_segments};
 use super::compile::compile_tables;
 use super::error::SpecError;
 use super::loops::{LoopId, Trigger};
-use super::model::{LoopModel, read_entry};
+use super::model::{LoopModel, SegmentModel, read_entry};
 use super::occurrence_index::OccurrenceIndex;
 use super::occurrences::{check_trigger, compile_occurrences};
-use super::raw::{RawSegment, RawSpec, RawVersion};
+use super::raw::{RawSpec, RawVersion};
 use super::render::render_trigger;
 use super::segments::{SegmentDef, compile_elements};
 use super::shape::{check_shape, section};
@@ -204,10 +204,7 @@ fn compile_segment(id: &str, value: &Value) -> Result<(Vec<u8>, SegmentDef), Spe
             key: "segments.\"\"".into(),
         });
     }
-    let def = RawSegment::deserialize(value).map_err(|e| SpecError::SegmentSchema {
-        segment: id.to_string(),
-        source: e,
-    })?;
+    let def: SegmentModel = read_entry("segments", id, value)?;
     let elements = compile_elements(id, &def.elements, None)?;
     Ok((id.as_bytes().to_vec(), SegmentDef { elements }))
 }

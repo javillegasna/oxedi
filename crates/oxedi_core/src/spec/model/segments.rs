@@ -6,7 +6,6 @@ use serde::{Deserialize, Deserializer, Serialize};
 
 use super::declare::spec_object;
 use super::{is_default, positions};
-use crate::spec::raw::RawElement;
 use crate::spec::sections::ELEMENT;
 use crate::spec::shape::Field;
 use crate::value::ElementType;
@@ -25,10 +24,10 @@ fn element_composite<'de, D: Deserializer<'de>>(
 
 spec_object! {
     /// The elements of a segment the spec defines.
-    SegmentModel / RawSegment, SEGMENT, "a segment object";
+    SegmentModel, SEGMENT, "a segment object";
     /// The elements, by 1-based element position.
     #[serde(deserialize_with = "segment_elements")]
-    elements: BTreeMap<usize, ElementModel> | BTreeMap<String, RawElement>,
+    elements: BTreeMap<usize, ElementModel>,
         Field::Map(&Field::Object(&ELEMENT)), default;
 }
 

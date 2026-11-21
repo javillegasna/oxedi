@@ -101,19 +101,12 @@ pub enum SpecError {
         key: &'static str,
     },
     /// A value of the right JSON type that the spec's model does not read: a
-    /// word outside its vocabulary, a key that is not a position.
+    /// word outside its vocabulary, an element type, a key that is not a position.
     Format {
         /// Where the value sits, from the root: keys joined by `.`, a key holding
         /// `.`, `/`, `#` or whitespace quoted (e.g. `loops.2100.occurrences.clp.usage`).
         path: String,
         /// What the model refused, with the offending value.
-        source: serde_json::Error,
-    },
-    /// A segment definition does not match the schema.
-    SegmentSchema {
-        /// The segment id as written.
-        segment: String,
-        /// What serde rejected.
         source: serde_json::Error,
     },
     /// An element definition is invalid.
@@ -343,9 +336,6 @@ impl fmt::Display for SpecError {
                  \"trigger\": the loop would close on the segment that opens it"
             ),
             SpecError::Format { path, source } => write!(f, "spec: at {path}: {source}"),
-            SpecError::SegmentSchema { segment, source } => {
-                write!(f, "segment {segment:?} does not match the schema: {source}")
-            }
             SpecError::BadElementDef {
                 segment,
                 position,

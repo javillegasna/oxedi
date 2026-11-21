@@ -209,10 +209,6 @@ fn ambiguous_trigger_displays_parent_segment_and_conditions() {
 fn bad_element_def_displays_segment_position_and_every_reason() {
     let cases = [
         (
-            ElementDefError::NonCanonicalPosition,
-            "segment \"CLP\" element \"01\": positions are 1-based integers written in canonical form",
-        ),
-        (
             ElementDefError::EmptyName,
             "segment \"CLP\" element \"01\": \"name\" is empty",
         ),
@@ -222,14 +218,6 @@ fn bad_element_def_displays_segment_position_and_every_reason() {
                 first: "1".into(),
             },
             "segment \"CLP\" element \"01\": name \"claim_id\" is already used by position \"1\"",
-        ),
-        (
-            ElementDefError::UnknownType { found: "XX".into() },
-            "segment \"CLP\" element \"01\": type \"XX\" is not one of AN, ID, N0 to N9, R, DT, TM",
-        ),
-        (
-            ElementDefError::ScaleWithoutR { kind: "N2".into() },
-            "segment \"CLP\" element \"01\": \"scale\" applies only to type R; found type \"N2\"",
         ),
         (
             ElementDefError::MinAboveMax { min: 5, max: 2 },

@@ -234,13 +234,6 @@ pub enum SpecError {
         /// The second loop's trigger, written the same way.
         conditions_b: String,
     },
-    /// A summary does not match the schema.
-    SummarySchema {
-        /// The summary name as written.
-        summary: String,
-        /// What serde rejected.
-        source: serde_json::Error,
-    },
     /// A summary is invalid.
     BadSummary {
         /// The summary name as written.
@@ -433,9 +426,6 @@ impl fmt::Display for SpecError {
                  different values, and neither trigger is more specific than the other",
                 Under(parent.as_deref())
             ),
-            SpecError::SummarySchema { summary, source } => {
-                write!(f, "summary {summary:?} does not match the schema: {source}")
-            }
             SpecError::BadSummary { summary, reason } => write!(f, "summary {summary:?}: {reason}"),
             SpecError::UnknownDefaultTable { table, known } => write!(
                 f,

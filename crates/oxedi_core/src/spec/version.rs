@@ -4,7 +4,7 @@ use std::fmt;
 
 use super::Spec;
 use super::error::SpecError;
-use super::raw::RawVersion;
+use super::model::VersionModel;
 use crate::element::Element;
 use crate::segment::Segment;
 
@@ -81,7 +81,7 @@ impl fmt::Display for VersionError {
 }
 
 /// Validates a spec's `version`.
-pub(super) fn compile_version(raw: &RawVersion) -> Result<DeclaredVersion, SpecError> {
+pub(super) fn compile_version(raw: &VersionModel) -> Result<DeclaredVersion, SpecError> {
     if raw.segment.is_empty() {
         return Err(SpecError::EmptySegmentId {
             loop_name: None,

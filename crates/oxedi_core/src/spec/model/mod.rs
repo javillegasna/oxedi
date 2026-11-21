@@ -34,8 +34,7 @@ pub use tables::{ColumnModel, RepeatModel, TableModel};
 
 pub(in crate::spec) use loops::LOOP;
 pub(in crate::spec) use rules::{
-    BALANCE, RawBalance, RawSummaryColumn, RawSummaryRow, RawSummaryTable, RawTerm, RawVersion,
-    SUMMARY_COLUMN, SUMMARY_ROW, SUMMARY_TABLE, VERSION,
+    BALANCE, RawBalance, RawTerm, SUMMARY_COLUMN, SUMMARY_ROW, SUMMARY_TABLE, VERSION,
 };
 // Read only by the sync test, which holds the list to the keys the model writes.
 #[cfg(test)]
@@ -48,8 +47,7 @@ spec_object! {
     ///
     /// Read it with `Spec::from_json(..)?.model()`, which checks every loader
     /// rule. Reading a model, or any `*Model`, with serde directly
-    /// (`serde_json::from_value::<SummaryModel>(..)`) checks only its shape and
-    /// its position keys: it accepts a table or a column that does not exist and
+    /// (`serde_json::from_value::<SummaryModel>(..)`) checks only its shape, its position keys and a summary's one operation: it accepts a table or a column that does not exist and
     /// an empty `fields` list. Load such a model with [`Spec::from_model`] before using it.
     ///
     /// A model writes no default and no `null`: a key equal to its default and

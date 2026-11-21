@@ -142,16 +142,6 @@ fn every_reason_a_summary_is_rejected_is_displayed_in_full() {
             "summary \"\": the name is empty",
         ),
         (
-            r#"{"s":{}}"#,
-            "summary \"s\": holds no operation; a summary holds exactly one of count, distinct, \
-             sum, row",
-        ),
-        (
-            r#"{"s":{"sum":{"table":"heads","column":"amount"},"count":{"table":"heads"}}}"#,
-            "summary \"s\": holds 2 operations (count, sum); a summary holds exactly one of \
-             count, distinct, sum, row",
-        ),
-        (
             r#"{"s":{"count":{"table":"head"}}}"#,
             "summary \"s\": count.table names the table \"head\", which the spec does not \
              define; its tables are: heads",
@@ -190,6 +180,27 @@ fn every_reason_a_summary_is_rejected_is_displayed_in_full() {
             std::error::Error::source(reason.as_ref()).is_none(),
             "{reason}"
         );
+        assert_eq!(err.to_string(), expected, "{summaries}");
+    }
+}
+
+#[test]
+fn a_summary_without_exactly_one_operation_fails_at_its_path() {
+    let cases = [
+        (
+            r#"{"s":{}}"#,
+            "spec: at summaries.s: holds no operation; a summary holds exactly one of count, \
+             distinct, sum, row",
+        ),
+        (
+            r#"{"s":{"sum":{"table":"heads","column":"amount"},"count":{"table":"heads"}}}"#,
+            "spec: at summaries.s: holds 2 operations (count, sum); a summary holds exactly \
+             one of count, distinct, sum, row",
+        ),
+    ];
+    for (summaries, expected) in cases {
+        let err = spec_with(summaries).unwrap_err();
+        assert!(matches!(err, SpecError::Format { .. }), "{err:?}");
         assert_eq!(err.to_string(), expected, "{summaries}");
     }
 }

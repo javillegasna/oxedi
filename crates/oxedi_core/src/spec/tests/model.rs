@@ -53,6 +53,13 @@ fn a_summary_holds_one_operation() {
     };
     assert_eq!(model, SummaryModel::Count(table));
     assert_eq!(json_of(&model), written);
+    let two =
+        from_value::<SummaryModel>(json!({"count":{"table":"a"},"sum":{"table":"a","column":"b"}}))
+            .unwrap_err();
+    assert_eq!(
+        two.to_string(),
+        "holds 2 operations (count, sum); a summary holds exactly one of count, distinct, sum, row"
+    );
     for refused in [
         json!({"count":{"table":"a"},"sum":{"table":"a","column":"b"}}),
         json!({}),

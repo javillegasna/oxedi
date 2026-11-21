@@ -2,7 +2,7 @@
 
 use super::element_error;
 use crate::spec::model::read_model;
-use crate::spec::raw::{RawSpec, RawSummary};
+use crate::spec::raw::RawSpec;
 use crate::spec::*;
 use crate::value::ElementType;
 use serde_json::Value;
@@ -310,10 +310,6 @@ fn no_spec_error_chains_its_source() {
         path: String::new(),
         key: "name",
     };
-    let summary = SpecError::SummarySchema {
-        summary: "s".into(),
-        source: json_error("{"),
-    };
     let bad_summary = SpecError::BadSummary {
         summary: "s".into(),
         reason: Box::new(SummaryDefError::EmptyName),
@@ -332,7 +328,6 @@ fn no_spec_error_chains_its_source() {
         schema,
         patch,
         key,
-        summary,
         bad_summary,
         default_table,
         mismatch,
@@ -343,15 +338,6 @@ fn no_spec_error_chains_its_source() {
 
 #[test]
 fn summary_errors_display_the_summary_and_the_reason() {
-    let schema = SpecError::SummarySchema {
-        summary: "sum_payments".into(),
-        source: serde_json::from_value::<RawSummary>(serde_json::json!(1)).unwrap_err(),
-    };
-    assert_eq!(
-        schema.to_string(),
-        "summary \"sum_payments\" does not match the schema: invalid type: integer `1`, \
-         expected a summary object"
-    );
     let bad = SpecError::BadSummary {
         summary: "payer".into(),
         reason: Box::new(SummaryDefError::NoFields {

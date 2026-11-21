@@ -5,14 +5,12 @@
 
 use std::collections::BTreeMap;
 
-use serde::Deserialize;
 use serde_json::Value;
 
 use super::Spec;
 use super::error::SpecError;
-use super::model::SummaryModel;
+use super::model::{SummaryColumnModel, SummaryModel, SummaryRowModel, read_entry};
 use super::phi::ColumnKind;
-use super::raw::{RawSummary, RawSummaryColumn, RawSummaryRow};
 use super::summary_error::SummaryDefError;
 use super::tables::{ColumnSource, TableDef};
 use crate::value::ElementType;
@@ -55,16 +53,15 @@ pub(super) fn compile_summaries(
 ) -> Result<Vec<(String, Summary)>, SpecError> {
     raw.into_iter()
         .map(|(name, value)| {
-            let def = RawSummary::deserialize(value).map_err(|e| SpecError::SummarySchema {
+            let bad = |reason| SpecError::BadSummary {
                 summary: name.to_string(),
-                source: e,
-            })?;
-            let summary =
-                compile_summary(spec, name, def).map_err(|reason| SpecError::BadSummary {
-                    summary: name.to_string(),
-                    reason: Box::new(reason),
-                })?;
-            Ok((name.to_string(), summary))
+                reason: Box::new(reason),
+            };
+            if name.is_empty() {
+                return Err(bad(SummaryDefError::EmptyName));
+            }
+            let def: SummaryModel = read_entry("summaries", name, value)?;
+            Ok((name.to_string(), def.compile(spec).map_err(bad)?))
         })
         .collect()
 }
@@ -80,30 +77,6 @@ pub(super) fn compile_default_table(
             known: spec.table_names(),
         }),
         raw => Ok(raw),
-    }
-}
-
-fn compile_summary(spec: &Spec, name: &str, def: RawSummary) -> Result<Summary, SummaryDefError> {
-    if name.is_empty() {
-        return Err(SummaryDefError::EmptyName);
-    }
-    let mut held: Vec<(&str, SummaryModel)> = [
-        ("count", def.count.map(SummaryModel::Count)),
-        ("distinct", def.distinct.map(SummaryModel::Distinct)),
-        ("row", def.row.map(SummaryModel::Row)),
-        ("sum", def.sum.map(SummaryModel::Sum)),
-    ]
-    .into_iter()
-    .filter_map(|(key, operation)| operation.map(|operation| (key, operation)))
-    .collect();
-    match held.pop() {
-        Some((_, operation)) if held.is_empty() => operation.compile(spec),
-        last => {
-            held.extend(last);
-            Err(SummaryDefError::Operations {
-                found: held.iter().map(|(key, _)| key.to_string()).collect(),
-            })
-        }
     }
 }
 
@@ -127,7 +100,7 @@ impl SummaryModel {
     }
 }
 
-fn compile_sum(spec: &Spec, raw: RawSummaryColumn) -> Result<Summary, SummaryDefError> {
+fn compile_sum(spec: &Spec, raw: SummaryColumnModel) -> Result<Summary, SummaryDefError> {
     let (table, source) = column_at(spec, "sum", &raw)?;
     match spec.column_kind(table, source) {
         ColumnKind::Element(Some(ElementType::R { .. })) => Ok(Summary::Sum {
@@ -143,7 +116,7 @@ fn compile_sum(spec: &Spec, raw: RawSummaryColumn) -> Result<Summary, SummaryDef
     }
 }
 
-fn compile_row(spec: &Spec, raw: RawSummaryRow) -> Result<Summary, SummaryDefError> {
+fn compile_row(spec: &Spec, raw: SummaryRowModel) -> Result<Summary, SummaryDefError> {
     let table = table_at(spec, "row.table", &raw.table)?;
     if raw.fields.is_empty() {
         return Err(SummaryDefError::NoFields {
@@ -188,7 +161,7 @@ fn table_at<'s>(spec: &'s Spec, key: &str, name: &str) -> Result<&'s TableDef, S
 fn column_at<'s>(
     spec: &'s Spec,
     operation: &str,
-    raw: &RawSummaryColumn,
+    raw: &SummaryColumnModel,
 ) -> Result<(&'s TableDef, &'s ColumnSource), SummaryDefError> {
     let table = table_at(spec, &format!("{operation}.table"), &raw.table)?;
     let source = column_of(table, &format!("{operation}.column"), &raw.column)?;

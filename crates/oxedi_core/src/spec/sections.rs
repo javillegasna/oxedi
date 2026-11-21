@@ -1,6 +1,6 @@
-//! The helpers that build a schema `Field`, and the two objects no
-//! declaration emits: `ELEMENT` and `SUMMARY`. Every other object's schema is
-//! emitted with its model in `model`; `shape` walks a value against them.
+//! The helpers that build a schema `Field`, and the one object no declaration
+//! emits: `SUMMARY`. Every other object's schema is emitted with its model in
+//! `model`; `shape` walks a value against them.
 
 use super::model::{SUMMARY_COLUMN, SUMMARY_ROW, SUMMARY_TABLE};
 use super::shape::{Field, Leaf, ObjectSchema};
@@ -43,20 +43,6 @@ macro_rules! objects {
 }
 
 pub(super) use objects;
-
-pub(super) static ELEMENT: ObjectSchema = ObjectSchema {
-    keys: &[
-        ("codes", TEXTS),
-        ("name", TEXT),
-        ("type", TEXT),
-        ("required", leaf(Leaf::Flag)),
-        ("min", nullable(Leaf::Count)),
-        ("max", nullable(Leaf::Count)),
-        ("scale", nullable(Leaf::Byte)),
-        ("composite", Field::Map(&Field::Object(&ELEMENT))),
-    ],
-    required: &["name", "type"],
-};
 
 pub(super) static SUMMARY: ObjectSchema = ObjectSchema {
     keys: &[

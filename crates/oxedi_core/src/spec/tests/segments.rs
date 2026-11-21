@@ -231,42 +231,13 @@ fn names_only_need_to_be_unique_among_siblings() {
 
 #[test]
 fn a_segment_key_the_schema_does_not_define_is_named_with_its_path() {
-    let cases = [
-        (
-            r#"{"AA":{"elements":{"3":{"name":"a","type":"AN","lenght":3}}}}"#,
-            "spec: unknown key \"lenght\" at segments.AA.elements.3; the allowed keys are: codes, composite, max, min, name, required, scale, type",
-        ),
-        (
-            r#"{"AA":{"elemnts":{}}}"#,
-            "spec: unknown key \"elemnts\" at segments.AA; the allowed keys are: elements",
-        ),
-        (
-            r#"{"AA":{"elements":{"1":{"name":"c","type":"AN","composite":{"2":{"name":"x","typ":"AN"}}}}}}"#,
-            "spec: unknown key \"typ\" at segments.AA.elements.1.composite.2; the allowed keys are: codes, composite, max, min, name, required, scale, type",
-        ),
-        (
-            r#"{"AA":{"elements":{"3":{"name":"a"}}}}"#,
-            "spec: missing required key \"type\" at segments.AA.elements.3",
-        ),
-        (
-            r#"{"AA":{"elements":{"1":{"name":"c","type":"AN","composite":{"2":{"type":"AN"}}}}}}"#,
-            "spec: missing required key \"name\" at segments.AA.elements.1.composite.2",
-        ),
-    ];
-    for (segments, expected) in cases {
-        let json = format!(
-            r#"{{"name":"t","loops":{{"a":{{"trigger":{{"segment":"AA"}}}}}},"segments":{segments}}}"#
-        );
-        let err = Spec::from_json(&json).unwrap_err();
-        assert!(
-            matches!(
-                &err,
-                SpecError::UnknownKey { .. } | SpecError::MissingKey { .. }
-            ),
-            "{segments}: {err:?}"
-        );
-        assert_eq!(err.to_string(), expected, "{segments}");
-    }
+    let json = r#"{"name":"t","loops":{"a":{"trigger":{"segment":"AA"}}},"segments":{"AA":{"elemnts":{}}}}"#;
+    let err = Spec::from_json(json).unwrap_err();
+    assert!(matches!(&err, SpecError::UnknownKey { .. }), "{err:?}");
+    assert_eq!(
+        err.to_string(),
+        "spec: unknown key \"elemnts\" at segments.AA; the allowed keys are: elements"
+    );
 }
 
 #[test]
@@ -274,21 +245,6 @@ fn every_object_of_the_segment_schema_is_checked_with_its_path() {
     let cases = [
         (r#"[]"#, "segments", "an array"),
         (r#"{"CLP":[]}"#, "segments.CLP", "an array"),
-        (
-            r#"{"CLP":{"elements":[]}}"#,
-            "segments.CLP.elements",
-            "an array",
-        ),
-        (
-            r#"{"CLP":{"elements":{"1":"claim_id"}}}"#,
-            "segments.CLP.elements.1",
-            "a string",
-        ),
-        (
-            r#"{"SVC":{"elements":{"1":{"name":"p","type":"AN","composite":{"2":7}}}}}"#,
-            "segments.SVC.elements.1.composite.2",
-            "a number",
-        ),
     ];
     for (segments, expected_path, expected_found) in cases {
         let json = format!(
@@ -311,10 +267,68 @@ fn to_json_round_trips_the_segments_section() {
 }
 
 #[test]
-fn a_type_or_a_position_the_model_refuses_fails_at_its_path() {
+fn an_element_the_model_refuses_fails_at_its_path() {
     let unknown = "type \"XX\" is not one of AN, ID, N0 to N9, R, DT, TM";
     let rule = "is not a position: positions are 1-based integers written in canonical form";
+    let keys =
+        "expected one of `name`, `type`, `scale`, `required`, `min`, `max`, `codes`, `composite`";
     let cases = [
+        (
+            r#"{"3":{"name":"p","type":"AN","min":"1"}}"#,
+            "spec: at segments.AA.elements.3.min: invalid type: string \"1\", expected usize".to_string(),
+        ),
+        (
+            r#"{"3":{"name":"p","type":"R","scale":300}}"#,
+            "spec: at segments.AA.elements.3: invalid value: integer `300`, expected u8".to_string(),
+        ),
+        (
+            r#"{"3":{"name":"p","type":"AN","required":"yes"}}"#,
+            "spec: at segments.AA.elements.3.required: invalid type: string \"yes\", expected a boolean".to_string(),
+        ),
+        (
+            r#"{"3":{"name":5,"type":"AN"}}"#,
+            "spec: at segments.AA.elements.3.name: invalid type: integer `5`, expected a string".to_string(),
+        ),
+        (
+            r#"{"1":{"name":"c","type":"AN","composite":{"2":{"name":"x","type":"AN","max":1.5}}}}"#,
+            "spec: at segments.AA.elements.1.composite.2.max: invalid type: floating point `1.5`, expected usize".to_string(),
+        ),
+        (
+            r#"{"3":{"name":"p","type":"AN","codes":null}}"#,
+            "spec: at segments.AA.elements.3.codes: invalid type: null, expected a sequence".to_string(),
+        ),
+        (
+            r#"{"3":{"name":"p","type":"AN","max":2.0}}"#,
+            "spec: at segments.AA.elements.3.max: invalid type: floating point `2.0`, expected usize".to_string(),
+        ),
+        (
+            r#"{"3":{"name":"a","type":"AN","lenght":3}}"#,
+            format!("spec: at segments.AA.elements.3: unknown field `lenght`, {keys}"),
+        ),
+        (
+            r#"{"1":{"name":"c","type":"AN","composite":{"2":{"name":"x","typ":"AN"}}}}"#,
+            format!("spec: at segments.AA.elements.1.composite.2: unknown field `typ`, {keys}"),
+        ),
+        (
+            r#"{"3":{"name":"a"}}"#,
+            "spec: at segments.AA.elements.3: missing field `type`".to_string(),
+        ),
+        (
+            r#"{"1":{"name":"c","type":"AN","composite":{"2":{"type":"AN"}}}}"#,
+            "spec: at segments.AA.elements.1.composite.2: missing field `name`".to_string(),
+        ),
+        (
+            r#"[]"#,
+            "spec: at segments.AA.elements: invalid type: sequence, expected a map".to_string(),
+        ),
+        (
+            r#"{"1":"claim_id"}"#,
+            "spec: at segments.AA.elements.1: invalid type: string \"claim_id\", expected an element object".to_string(),
+        ),
+        (
+            r#"{"1":{"name":"p","type":"AN","composite":{"2":7}}}"#,
+            "spec: at segments.AA.elements.1.composite.2: invalid type: integer `7`, expected an element object".to_string(),
+        ),
         (
             r#"{"1":{"name":"a","type":"XX"}}"#,
             format!("spec: at segments.AA.elements.1: {unknown}"),

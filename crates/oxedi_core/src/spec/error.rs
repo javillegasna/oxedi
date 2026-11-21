@@ -80,7 +80,7 @@ pub enum SpecError {
     /// An object holds a key its schema does not define.
     UnknownKey {
         /// Where the object sits, keys joined by `.` as written (e.g.
-        /// `segments.CLP.elements.3`); empty for the top level.
+        /// `loops.2100.trigger`); empty for the top level.
         path: String,
         /// The key as written.
         key: String,

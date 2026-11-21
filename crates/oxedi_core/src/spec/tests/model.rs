@@ -1,9 +1,10 @@
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, BTreeSet};
 
 use serde::Serialize;
 use serde_json::{Value, from_value, json, to_value};
 
 use crate::spec::SpecError;
+use crate::spec::model::ELEMENT_MODEL_KEYS;
 use crate::spec::{
     Builtin, ColumnModel, ElementModel, ElementPosition, LoopModel, OccurrenceModel,
     QualifierModel, SegmentModel, Sign, Spec, SpecModel, SummaryModel, SummaryTableModel,
@@ -440,4 +441,27 @@ fn a_model_read_refuses_like_the_loader() {
         SpecModel::from_json(unknown_key).unwrap_err().to_string(),
         Spec::from_json(unknown_key).unwrap_err().to_string()
     );
+}
+
+#[test]
+fn the_element_model_lists_every_key_it_writes() {
+    let element = ElementModel {
+        name: "amount".into(),
+        kind: ElementType::R { scale: 4 },
+        required: true,
+        min: Some(1),
+        max: Some(9),
+        codes: Some(vec!["A".into()]),
+        composite: BTreeMap::from([(1, paid(ElementType::An))]),
+    };
+    let value = json_of(&element);
+    let written: BTreeSet<&str> = value
+        .as_object()
+        .unwrap()
+        .keys()
+        .map(String::as_str)
+        .collect();
+    let listed: BTreeSet<&str> = ELEMENT_MODEL_KEYS.iter().copied().collect();
+    assert_eq!(listed, written);
+    assert_eq!(ELEMENT_MODEL_KEYS.len(), written.len());
 }

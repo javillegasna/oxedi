@@ -35,7 +35,7 @@ pub use tables::{ColumnModel, RepeatModel, TableModel};
 
 pub(in crate::spec) use loops::LOOP;
 pub(in crate::spec) use rules::{BALANCE, SUMMARY_COLUMN, SUMMARY_ROW, SUMMARY_TABLE, VERSION};
-// Read only by the sync test, which holds the list to the keys the model writes.
+// Read only by the model test that holds the list to the keys the model writes.
 #[cfg(test)]
 pub(in crate::spec) use segments::ELEMENT_MODEL_KEYS;
 pub(in crate::spec) use segments::SEGMENT;
@@ -181,4 +181,13 @@ fn null_is_default<'de, D: Deserializer<'de>, T: Deserialize<'de> + Default>(
     deserializer: D,
 ) -> Result<T, D::Error> {
     Option::<T>::deserialize(deserializer).map(Option::unwrap_or_default)
+}
+
+// A key that holds a value when written: `null` is refused as any other
+// value of the wrong type, with the text of `T`'s own read, instead of
+// reading as an absent key.
+fn present<'de, D: Deserializer<'de>, T: Deserialize<'de>>(
+    deserializer: D,
+) -> Result<Option<T>, D::Error> {
+    T::deserialize(deserializer).map(Some)
 }

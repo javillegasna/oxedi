@@ -1,13 +1,7 @@
 //! A deserializer over a parsed JSON value that reads it as `serde_json`
-//! does, except that a struct is read only from an object: serde_json's own
-//! deserializer also reads a struct from an array. Every value under an
-//! array, an object or an enum is read through it too, so the rule holds at
-//! every depth.
-//!
-//! Map keys are read as strings only (every model key is a `String`); another key type is refused.
-//!
-//! The methods that hold no nested value forward to the value itself, which
-//! keeps serde_json's reading and its error text for them.
+//! does, except that a struct is read only from an object (serde_json also
+//! reads one from an array). Every nested value is read through it. The methods that hold no nested value read as
+//! `deserialize_any`, whose scalars are serde_json's own.
 
 use serde::Deserialize;
 use serde::de::value::BorrowedStrDeserializer;
@@ -20,19 +14,18 @@ use serde_json::{Error, Map, Value};
 #[cfg(test)]
 mod tests;
 
-/// A JSON value read strictly.
 #[derive(Clone, Copy)]
 pub(in crate::spec) struct StrictValue<'de>(pub(in crate::spec) &'de Value);
 
-macro_rules! forward_to_value {
+// One instantiation per visitor, and the visitor's expectation words a refusal.
+macro_rules! forward_to_any {
     ($($method:ident)*) => {$(
         fn $method<V: Visitor<'de>>(self, visitor: V) -> Result<V::Value, Error> {
-            self.0.$method(visitor)
+            self.deserialize_any(visitor)
         }
     )*};
 }
 
-// Methods that read as another one of the same deserializer.
 macro_rules! read_as {
     ($($method:ident($($arg:ident: $ty:ty),*) => $target:ident)*) => {$(
         fn $method<V: Visitor<'de>>(self, $($arg: $ty,)* visitor: V) -> Result<V::Value, Error> {
@@ -41,7 +34,20 @@ macro_rules! read_as {
     )*};
 }
 
-// Visits the items, then refuses when the visitor left some, as serde_json does.
+fn unexpected(value: &Value) -> Unexpected<'_> {
+    match value {
+        Value::Null => Unexpected::Unit,
+        Value::Bool(flag) => Unexpected::Bool(*flag),
+        Value::Number(n) => (n.as_u64().map(Unexpected::Unsigned))
+            .or_else(|| n.as_i64().map(Unexpected::Signed))
+            .unwrap_or(Unexpected::Float(n.as_f64().unwrap_or_default())),
+        Value::String(text) => Unexpected::Str(text),
+        Value::Array(_) => Unexpected::Seq,
+        Value::Object(_) => Unexpected::Map,
+    }
+}
+
+// Visit, then refuse when the visitor left items or entries, as serde_json does.
 fn visit_array<'de, V: Visitor<'de>>(items: &'de [Value], visitor: V) -> Result<V::Value, Error> {
     let mut seq = StrictSeq {
         items: items.iter(),
@@ -56,7 +62,6 @@ fn visit_array<'de, V: Visitor<'de>>(items: &'de [Value], visitor: V) -> Result<
     Ok(read)
 }
 
-// Visits the entries, then refuses when the visitor left some.
 fn visit_object<'de, V: Visitor<'de>>(
     map: &'de Map<String, Value>,
     visitor: V,
@@ -78,16 +83,21 @@ fn visit_object<'de, V: Visitor<'de>>(
 impl<'de> Deserializer<'de> for StrictValue<'de> {
     type Error = Error;
 
-    forward_to_value! {
+    forward_to_any! {
         deserialize_bool deserialize_i8 deserialize_i16 deserialize_i32 deserialize_i64
         deserialize_i128 deserialize_u8 deserialize_u16 deserialize_u32 deserialize_u64
         deserialize_u128 deserialize_f32 deserialize_f64 deserialize_char deserialize_str
         deserialize_string deserialize_bytes deserialize_byte_buf deserialize_unit
-        deserialize_identifier deserialize_ignored_any
+        deserialize_identifier
+    }
+
+    fn deserialize_ignored_any<V: Visitor<'de>>(self, visitor: V) -> Result<V::Value, Error> {
+        visitor.visit_unit()
     }
 
     read_as! {
         deserialize_unit_struct(_name: &'static str) => deserialize_unit
+        deserialize_struct(_name: &'static str, _fields: &'static [&'static str]) => deserialize_map
         deserialize_tuple(_len: usize) => deserialize_seq
         deserialize_tuple_struct(_name: &'static str, _len: usize) => deserialize_seq
     }
@@ -107,6 +117,20 @@ impl<'de> Deserializer<'de> for StrictValue<'de> {
         }
     }
 
+    fn deserialize_seq<V: Visitor<'de>>(self, visitor: V) -> Result<V::Value, Error> {
+        match self.0 {
+            Value::Array(items) => visit_array(items, visitor),
+            other => Err(de::Error::invalid_type(unexpected(other), &visitor)),
+        }
+    }
+
+    fn deserialize_map<V: Visitor<'de>>(self, visitor: V) -> Result<V::Value, Error> {
+        match self.0 {
+            Value::Object(map) => visit_object(map, visitor),
+            other => Err(de::Error::invalid_type(unexpected(other), &visitor)),
+        }
+    }
+
     fn deserialize_newtype_struct<V: Visitor<'de>>(
         self,
         _name: &'static str,
@@ -115,37 +139,10 @@ impl<'de> Deserializer<'de> for StrictValue<'de> {
         visitor.visit_newtype_struct(self)
     }
 
-    fn deserialize_seq<V: Visitor<'de>>(self, visitor: V) -> Result<V::Value, Error> {
-        match self.0 {
-            Value::Array(items) => visit_array(items, visitor),
-            other => other.deserialize_seq(visitor),
-        }
-    }
-
-    fn deserialize_map<V: Visitor<'de>>(self, visitor: V) -> Result<V::Value, Error> {
-        match self.0 {
-            Value::Object(map) => visit_object(map, visitor),
-            other => other.deserialize_map(visitor),
-        }
-    }
-
-    fn deserialize_struct<V: Visitor<'de>>(
-        self,
-        name: &'static str,
-        fields: &'static [&'static str],
-        visitor: V,
-    ) -> Result<V::Value, Error> {
-        match self.0 {
-            Value::Object(map) => visit_object(map, visitor),
-            Value::Array(_) => Err(de::Error::invalid_type(Unexpected::Seq, &visitor)),
-            other => other.deserialize_struct(name, fields, visitor),
-        }
-    }
-
     fn deserialize_enum<V: Visitor<'de>>(
         self,
-        name: &'static str,
-        variants: &'static [&'static str],
+        _name: &'static str,
+        _variants: &'static [&'static str],
         visitor: V,
     ) -> Result<V::Value, Error> {
         match self.0 {
@@ -158,9 +155,12 @@ impl<'de> Deserializer<'de> for StrictValue<'de> {
                     variant,
                     value: Some(value),
                 }),
-                _ => map.deserialize_enum(name, variants, visitor),
+                _ => Err(de::Error::invalid_value(
+                    Unexpected::Map,
+                    &"map with a single key",
+                )),
             },
-            other => other.deserialize_enum(name, variants, visitor),
+            other => Err(de::Error::invalid_type(unexpected(other), &"string or map")),
         }
     }
 }

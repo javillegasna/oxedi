@@ -1,6 +1,7 @@
 //! Code lists on element and component definitions.
 
 use super::element_error;
+use crate::spec::test_support::{loaded, patched};
 use crate::spec::*;
 use crate::value::LengthRange;
 
@@ -181,25 +182,23 @@ fn a_code_list_of_the_wrong_shape_is_named_with_its_path() {
 }
 
 #[test]
-fn codes_survive_a_round_trip_and_a_patch() {
-    let spec = Spec::from_json(
+fn codes_survive_a_patch() {
+    let base = loaded(
         r#"{"name":"t","loops":{"a":{"trigger":{"segment":"AA"}}},"segments":{"AA":{"elements":{
             "1":{"name":"qualifier","type":"ID","codes":["B","A"]}
         }}}}"#,
+    );
+    let spec = patched(
+        &base,
+        r#"{"segments":{"AA":{"elements":{"1":{"codes":["C"]}}}}}"#,
     )
     .unwrap();
-    let again = Spec::from_json(&spec.to_json()).unwrap();
-    assert!(spec.segments().eq(again.segments()));
-    let patched = spec
-        .merge_patch(r#"{"segments":{"AA":{"elements":{"1":{"codes":["C"]}}}}}"#)
-        .unwrap();
-    assert_eq!(
-        patched.element_def(b"AA", 1, None).unwrap().codes,
-        vec!["C"]
-    );
-    let opened = spec
-        .merge_patch(r#"{"segments":{"AA":{"elements":{"1":{"codes":null}}}}}"#)
-        .unwrap();
+    assert_eq!(spec.element_def(b"AA", 1, None).unwrap().codes, vec!["C"]);
+    let opened = patched(
+        &base,
+        r#"{"segments":{"AA":{"elements":{"1":{"codes":null}}}}}"#,
+    )
+    .unwrap();
     assert!(opened.element_def(b"AA", 1, None).unwrap().codes.is_empty());
 }
 

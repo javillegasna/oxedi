@@ -3,18 +3,20 @@
 use std::cell::Cell;
 
 use super::{assert_model_faults, segs};
+use crate::spec::test_support::{loaded, patched};
 use crate::spec::*;
 
-fn declaring(name: &str, version: &str) -> Spec {
+fn declared(name: &str, version: &str) -> String {
     let version = if version.is_empty() {
         String::new()
     } else {
         format!(r#","version":{version}"#)
     };
-    Spec::from_json(&format!(
-        r#"{{"name":"{name}","loops":{{"a":{{"trigger":{{"segment":"GS"}}}}}}{version}}}"#
-    ))
-    .unwrap()
+    format!(r#"{{"name":"{name}","loops":{{"a":{{"trigger":{{"segment":"GS"}}}}}}{version}}}"#)
+}
+
+fn declaring(name: &str, version: &str) -> Spec {
+    Spec::from_json(&declared(name, version)).unwrap()
 }
 
 fn version_error(version: &str) -> SpecError {
@@ -26,18 +28,16 @@ fn version_error(version: &str) -> SpecError {
 
 #[test]
 fn a_declared_version_loads_and_survives_a_patch() {
-    let spec = declaring(
+    let base = loaded(&declared(
         "t",
         r#"{"segment":"GS","element":8,"values":["005010X221A1"]}"#,
-    );
-    let version = spec.version().unwrap();
+    ));
+    let version = base.spec.version().unwrap();
     assert_eq!(version.segment, b"GS");
     assert_eq!(version.element, 8);
     assert_eq!(version.values, vec![b"005010X221A1".to_vec()]);
-    let patched = spec
-        .merge_patch(r#"{"version":{"values":["004010X091A1","004010"]}}"#)
-        .unwrap();
-    let version = patched.version().unwrap();
+    let spec = patched(&base, r#"{"version":{"values":["004010X091A1","004010"]}}"#).unwrap();
+    let version = spec.version().unwrap();
     assert_eq!(version.segment, b"GS");
     assert_eq!(
         version.values,
@@ -45,7 +45,7 @@ fn a_declared_version_loads_and_survives_a_patch() {
     );
     assert!(declaring("t", "").version().is_none());
     assert!(
-        spec.merge_patch(r#"{"version":null}"#)
+        patched(&base, r#"{"version":null}"#)
             .unwrap()
             .version()
             .is_none()

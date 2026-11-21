@@ -2,6 +2,7 @@
 
 use super::{assert_model_faults, table_error};
 use crate::message::render_key;
+use crate::spec::test_support::{builtin, patched};
 use crate::spec::*;
 use serde_json::json;
 
@@ -54,9 +55,11 @@ fn unknown_parent_is_rejected_with_both_names() {
 
 #[test]
 fn a_patched_spec_goes_through_the_same_model_read() {
-    let err = Spec::builtin_835()
-        .merge_patch(r#"{"loops":{"2100":{"trigger":["CLP"]}}}"#)
-        .unwrap_err();
+    let err = patched(
+        &builtin(Version::V5010),
+        r#"{"loops":{"2100":{"trigger":["CLP"]}}}"#,
+    )
+    .unwrap_err();
     assert_eq!(
         err.to_string(),
         "applying patch: spec: at loops.2100.trigger: invalid type: sequence, expected a trigger object"
@@ -216,7 +219,7 @@ fn a_spec_or_a_section_that_is_not_an_object_fails_at_its_key() {
 
 #[test]
 fn patch_adds_a_loop() {
-    let spec = Spec::builtin_835().merge_patch(
+    let spec = patched(&builtin(Version::V5010),
         r#"{"loops":{"2100-ZZ":{"parent":"2100","trigger":{"segment":"ZZ1"},"occurrences":{"zz1":{"segment":"ZZ1","pos":0},"zz2":{"segment":"ZZ2","pos":1}}}}}"#,
     )
     .unwrap();

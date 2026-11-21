@@ -199,10 +199,3 @@ fn triggers_render_with_their_conditions_in_position_order() {
         "\"N1\" where {1: \"PR\", 3: \"X\"}"
     );
 }
-
-#[test]
-fn to_json_round_trips_through_from_json() {
-    let spec = Spec::builtin_835();
-    let again = Spec::from_json(&spec.to_json()).unwrap();
-    assert_eq!(again.loops(), spec.loops());
-}

@@ -3,15 +3,17 @@
 use serde_json::{Value, from_str};
 
 use super::{CLP_ONLY, TABLED};
+use crate::spec::test_support::{builtin, loaded, patched};
 use crate::spec::*;
 use crate::value::LengthRange;
 
 #[test]
 fn a_patch_retouches_one_element_and_keeps_the_rest() {
-    let spec = Spec::from_json(CLP_ONLY)
-        .unwrap()
-        .merge_patch(r#"{"segments":{"CLP":{"elements":{"1":{"max":30}}}}}"#)
-        .unwrap();
+    let spec = patched(
+        &loaded(CLP_ONLY),
+        r#"{"segments":{"CLP":{"elements":{"1":{"max":30}}}}}"#,
+    )
+    .unwrap();
     let clp = spec.segment(b"CLP").unwrap();
     assert_eq!(
         clp.elements[&1].length,
@@ -26,10 +28,11 @@ fn a_patch_retouches_one_element_and_keeps_the_rest() {
 
 #[test]
 fn a_patch_adds_a_segment_definition() {
-    let spec = Spec::from_json(CLP_ONLY)
-        .unwrap()
-        .merge_patch(r#"{"segments":{"ZZ1":{"elements":{"1":{"name":"payer_note","type":"AN"}}}}}"#)
-        .unwrap();
+    let spec = patched(
+        &loaded(CLP_ONLY),
+        r#"{"segments":{"ZZ1":{"elements":{"1":{"name":"payer_note","type":"AN"}}}}}"#,
+    )
+    .unwrap();
     assert_eq!(
         spec.segment(b"ZZ1").unwrap().elements[&1].name,
         "payer_note"
@@ -38,15 +41,14 @@ fn a_patch_adds_a_segment_definition() {
 
 #[test]
 fn a_patch_adds_a_column_with_three_lines() {
-    let spec = Spec::from_json(TABLED).unwrap();
-    let patched = spec
-        .merge_patch(
-            r#"{"tables":{"bodies":{"columns":{
-                    "amount":{"segment":"BB","element":2}
-                }}}}"#,
-        )
-        .unwrap();
-    let names: Vec<&str> = patched
+    let spec = patched(
+        &loaded(TABLED),
+        r#"{"tables":{"bodies":{"columns":{
+                "amount":{"segment":"BB","element":2}
+            }}}}"#,
+    )
+    .unwrap();
+    let names: Vec<&str> = spec
         .table("bodies")
         .unwrap()
         .columns
@@ -58,9 +60,11 @@ fn a_patch_adds_a_column_with_three_lines() {
 
 #[test]
 fn patch_merges_nested_objects_and_keeps_siblings() {
-    let spec = Spec::builtin_835()
-        .merge_patch(r#"{"loops":{"1000A":{"trigger":{"where":{"2":"ACME"}}}}}"#)
-        .unwrap();
+    let spec = patched(
+        &builtin(Version::V5010),
+        r#"{"loops":{"1000A":{"trigger":{"where":{"2":"ACME"}}}}}"#,
+    )
+    .unwrap();
     let trigger = &spec.get(spec.loop_id("1000A").unwrap()).trigger;
     assert_eq!(trigger.segment, b"N1");
     assert_eq!(
@@ -72,8 +76,7 @@ fn patch_merges_nested_objects_and_keeps_siblings() {
 
 #[test]
 fn patch_null_deletes() {
-    let spec = Spec::builtin_835()
-        .merge_patch(
+    let spec = patched(&builtin(Version::V5010),
             r#"{"loops":{"2110":null},"tables":{"services":null,"adjustments":{"loops":["2100"]}},"balancing":{"service_balance":null,"claim_balance":null}}"#,
         )
         .unwrap();
@@ -84,9 +87,7 @@ fn patch_null_deletes() {
 
 #[test]
 fn deleting_a_loop_a_table_anchors_in_names_the_table() {
-    let err = Spec::builtin_835()
-        .merge_patch(r#"{"loops":{"2110":null}}"#)
-        .unwrap_err();
+    let err = patched(&builtin(Version::V5010), r#"{"loops":{"2110":null}}"#).unwrap_err();
     assert_eq!(
         err.to_string(),
         "applying patch: table \"adjustments\": loop \"2110\" does not exist"
@@ -94,30 +95,20 @@ fn deleting_a_loop_a_table_anchors_in_names_the_table() {
 }
 
 #[test]
-fn patches_chain_and_to_json_shows_them() {
-    let spec = Spec::builtin_835()
+fn patches_chain_and_the_written_model_shows_them() {
+    let loaded = builtin(Version::V5010)
         .merge_patch(r#"{"loops":{"a":{"trigger":{"segment":"AA"}}}}"#)
         .unwrap()
         .merge_patch(r#"{"loops":{"b":{"trigger":{"segment":"BB"}}}}"#)
         .unwrap();
-    assert_eq!(spec.loops().len(), 10);
-    assert!(spec.to_json().contains("\"AA\"") && spec.to_json().contains("\"BB\""));
-}
-
-#[test]
-fn invalid_patch_result_is_rejected_like_any_spec() {
-    let err = Spec::builtin_835()
-        .merge_patch(r#"{"loops":{"2100":{"parent":"nope"}}}"#)
-        .unwrap_err();
-    assert!(
-        matches!(&err, SpecError::Patch { source } if matches!(**source, SpecError::UnknownParent { .. })),
-        "{err:?}"
-    );
+    assert_eq!(loaded.spec.loops().len(), 10);
+    let json = loaded.to_json().unwrap();
+    assert!(json.contains("\"AA\"") && json.contains("\"BB\""));
 }
 
 #[test]
 fn an_unparsable_patch_is_reported_as_a_patch_error() {
-    let err = Spec::builtin_835().merge_patch("not json").unwrap_err();
+    let err = patched(&builtin(Version::V5010), "not json").unwrap_err();
     assert!(
         matches!(&err, SpecError::Patch { source } if matches!(**source, SpecError::Json(_))),
         "{err:?}"
@@ -127,18 +118,6 @@ fn an_unparsable_patch_is_reported_as_a_patch_error() {
             .starts_with("applying patch: invalid spec JSON: "),
         "{err}"
     );
-}
-
-#[test]
-fn a_patch_that_breaks_a_reference_says_it_came_from_the_patch() {
-    let err = Spec::builtin_835()
-        .merge_patch(r#"{"loops":{"2000":null}}"#)
-        .unwrap_err();
-    assert_eq!(
-        err.to_string(),
-        "applying patch: loop \"2100\" names unknown parent \"2000\""
-    );
-    assert!(std::error::Error::source(&err).is_none());
 }
 
 #[test]
@@ -228,13 +207,7 @@ fn a_model_patch_wraps_a_compile_failure() {
         err.to_string(),
         "applying patch: loop \"2100\" names unknown parent \"2000\""
     );
-}
-
-#[test]
-fn a_model_patch_wraps_unparsable_text() {
-    let loaded = LoadedSpec::from_json(Spec::BUILTIN_835_JSON).unwrap();
-    let text = loaded.merge_patch("not json").unwrap_err().to_string();
-    assert!(text.starts_with("applying patch: invalid spec JSON: "));
+    assert!(std::error::Error::source(&err).is_none());
 }
 
 #[test]

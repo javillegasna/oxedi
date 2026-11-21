@@ -2,6 +2,7 @@
 //! text of every error.
 
 use super::assert_model_faults;
+use crate::spec::test_support::{builtin, patched};
 use crate::spec::*;
 
 const LOOPS: &str = r#""loops":{
@@ -75,17 +76,21 @@ fn a_component_amount_is_read_in_each_element() {
 
 #[test]
 fn a_patch_removes_a_rule_by_name() {
-    let spec = Spec::builtin_835()
-        .merge_patch(r#"{"balancing":{"service_balance":null}}"#)
-        .unwrap();
+    let spec = patched(
+        &builtin(Version::V5010),
+        r#"{"balancing":{"service_balance":null}}"#,
+    )
+    .unwrap();
     assert_eq!(spec.balancing().len(), 2);
 }
 
 #[test]
 fn deleting_a_loop_a_rule_reads_names_the_rule() {
-    let err = Spec::builtin_835()
-        .merge_patch(r#"{"loops":{"2110":null},"tables":{"services":null,"adjustments":{"loops":["2100"]}}}"#)
-        .unwrap_err();
+    let err = patched(
+        &builtin(Version::V5010),
+        r#"{"loops":{"2110":null},"tables":{"services":null,"adjustments":{"loops":["2100"]}}}"#,
+    )
+    .unwrap_err();
     assert_eq!(
         err.to_string(),
         "applying patch: balancing rule \"claim_balance\": sum[1].loop names loop \"2110\", which the spec does not declare"

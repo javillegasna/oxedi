@@ -256,14 +256,6 @@ fn segments_error(segments: &str) -> SpecError {
 }
 
 #[test]
-fn to_json_round_trips_the_segments_section() {
-    let spec = Spec::from_json(CLP_ONLY).unwrap();
-    let again = Spec::from_json(&spec.to_json()).unwrap();
-    assert!(spec.segments().eq(again.segments()));
-    assert_eq!(again.segments().count(), 2);
-}
-
-#[test]
 fn an_element_the_model_refuses_fails_at_its_path() {
     let unknown = "type \"XX\" is not one of AN, ID, N0 to N9, R, DT, TM";
     let rule = "is not a position: positions are 1-based integers written in canonical form";

@@ -565,14 +565,6 @@ fn a_table_the_model_refuses_fails_at_its_path() {
 }
 
 #[test]
-fn to_json_round_trips_the_tables_section() {
-    let spec = Spec::from_json(TABLED).unwrap();
-    let again = Spec::from_json(&spec.to_json()).unwrap();
-    assert_eq!(again.tables(), spec.tables());
-    assert_eq!(again.tables().len(), 4);
-}
-
-#[test]
 fn table_errors_display_the_table_the_column_and_every_reason() {
     let cases = [
         (TableDefError::EmptyName { what: "ref" }, "the ref is empty"),

@@ -41,7 +41,7 @@ pub(in crate::spec) use rules::{
 #[cfg(test)]
 pub(in crate::spec) use segments::ELEMENT_MODEL_KEYS;
 pub(in crate::spec) use segments::{RawSegment, SEGMENT};
-pub(in crate::spec) use tables::{RawColumn, RawTable, TABLE};
+pub(in crate::spec) use tables::TABLE;
 
 spec_object! {
     /// A whole spec, as the spec writes it.

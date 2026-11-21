@@ -115,6 +115,13 @@ This file covers the Python package; the DuckDB extension has its own changelog 
 - `oxedi.pyx12.validate` reads pyx12's JSON error output instead of its internal error tree. Until
   pyx12's JSON output carries them, errors inside the envelope segments (ISA, GS, ST, SE, GE, IEA)
   are not reported: neither their element errors nor their segment errors.
+- A spec whose table column has a `where` key that is not a 1-based position, a `pick` other than
+  `"first"`, `"last"` or a position from 1, or a `phi` other than `name`, `id` or `date` fails at the
+  value's path from the spec's root, in Rust and Python alike, and a column's `phi`, `pick` and
+  `where` faults are now reported before the table-level rules:
+  `spec: at tables.claims.columns.patient_id.phi: "phi" must be "name", "id" or "date"; found "ssn"`.
+- Rust: those faults are `SpecError::Format`; `SpecError::TableSchema`, `TableDefError::BadPosition` and
+  `TableDefError::UnknownPhi` are removed.
 
 ### Fixed
 - The writer and the reader agree on the repetition separator of a custom spec: at interchange

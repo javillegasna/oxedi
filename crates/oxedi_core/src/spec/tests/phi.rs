@@ -57,13 +57,6 @@ fn a_spec_without_flags_masks_nothing() {
 fn bad_phi_declarations_are_refused() {
     let cases = [
         (
-            r#"{"t":{"loops":["A"],"columns":{"c":{"segment":"AA","element":1,"phi":"ssn"}}}}"#,
-            Some("c"),
-            TableDefError::UnknownPhi {
-                given: "ssn".into(),
-            },
-        ),
-        (
             r#"{"t":{"loops":["A"],"columns":{"c":{"segment":"AA","element":3,"phi":"name"}}}}"#,
             Some("c"),
             TableDefError::PhiNeedsText {
@@ -109,14 +102,20 @@ fn bad_phi_declarations_are_refused() {
 }
 
 #[test]
+fn a_phi_outside_its_words_fails_at_its_path() {
+    let err = spec_with(
+        r#"{"t":{"loops":["A"],"columns":{"c":{"segment":"AA","element":1,"phi":"ssn"}}}}"#,
+    )
+    .unwrap_err();
+    assert_eq!(
+        err.to_string(),
+        "spec: at tables.t.columns.c.phi: \"phi\" must be \"name\", \"id\" or \"date\"; found \"ssn\""
+    );
+}
+
+#[test]
 fn phi_errors_display_the_rule_and_the_datum() {
     let cases = [
-        (
-            TableDefError::UnknownPhi {
-                given: "ssn".into(),
-            },
-            "\"phi\" must be \"name\", \"id\" or \"date\"; got \"ssn\"",
-        ),
         (
             TableDefError::PhiNeedsText {
                 kind: "name",

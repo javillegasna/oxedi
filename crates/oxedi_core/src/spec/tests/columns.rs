@@ -142,18 +142,6 @@ fn a_column_source_by_occurrence_that_cannot_be_read_is_rejected() {
             },
         ),
         (
-            r#"{"occurrence":"names","pick":"middle","element":1}"#,
-            TableDefError::BadPick {
-                written: r#""middle""#.into(),
-            },
-        ),
-        (
-            r#"{"occurrence":"names","pick":0,"element":1}"#,
-            TableDefError::BadPick {
-                written: "0".into(),
-            },
-        ),
-        (
             r#"{"loop":"A","occurrence":"other","pick":"first","element":1}"#,
             TableDefError::PickOnSingle {
                 loop_name: "A".into(),
@@ -176,6 +164,22 @@ fn a_column_source_by_occurrence_that_cannot_be_read_is_rejected() {
             column_error(column),
             (Some("c".into()), expected),
             "{column}"
+        );
+    }
+}
+
+#[test]
+fn a_pick_outside_its_words_fails_at_its_path() {
+    for pick in [r#""middle""#, "0"] {
+        let err = load(&format!(
+            r#"{{"t":{{"loops":["B"],"columns":{{"c":{{"occurrence":"names","pick":{pick},"element":1}}}}}}}}"#
+        ))
+        .unwrap_err();
+        assert_eq!(
+            err.to_string(),
+            format!(
+                "spec: at tables.t.columns.c.pick: \"pick\" must be \"first\", \"last\" or a 1-based position; found {pick}"
+            )
         );
     }
 }

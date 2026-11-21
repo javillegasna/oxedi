@@ -215,10 +215,7 @@ fn the_loader_texts_name_every_word() {
         .to_string(),
         words_text::<Sign>(),
     );
-    has(
-        TableDefError::UnknownPhi { given: s() }.to_string(),
-        words_text::<Phi>(),
-    );
+    has(refused::<Phi>(json!("x")), words_text::<Phi>());
     let bad_pick = TableDefError::BadPick { written: s() }.to_string();
     for (word, _) in Pick::NAMED {
         assert!(bad_pick.contains(&format!("\"{word}\"")), "{bad_pick}");

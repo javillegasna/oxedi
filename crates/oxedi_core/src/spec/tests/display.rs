@@ -2,7 +2,7 @@
 
 use super::element_error;
 use crate::spec::model::read_model;
-use crate::spec::raw::{RawColumn, RawSpec, RawSummary, RawTable};
+use crate::spec::raw::{RawSpec, RawSummary};
 use crate::spec::*;
 use crate::value::ElementType;
 use serde_json::Value;
@@ -306,30 +306,6 @@ fn scale_and_max_reasons_display_segment_position_and_value() {
     assert_eq!(
         at(ElementDefError::ZeroMax).to_string(),
         "segment \"CLP\" element \"12\": \"max\" is 0; an element holds at least one character"
-    );
-}
-
-#[test]
-fn table_schema_errors_display_the_table_the_column_and_the_serde_message() {
-    let source = || serde_json::from_value::<RawColumn>(serde_json::json!(1)).unwrap_err();
-    let in_column = SpecError::TableSchema {
-        table: "claims".into(),
-        column: Some("charge".into()),
-        source: source(),
-    };
-    assert_eq!(
-        in_column.to_string(),
-        "table \"claims\" column \"charge\" does not match the schema: invalid type: integer `1`, expected a column object"
-    );
-    assert!(std::error::Error::source(&in_column).is_none());
-    let in_table = SpecError::TableSchema {
-        table: "claims".into(),
-        column: None,
-        source: serde_json::from_value::<RawTable>(serde_json::json!(1)).unwrap_err(),
-    };
-    assert_eq!(
-        in_table.to_string(),
-        "table \"claims\" does not match the schema: invalid type: integer `1`, expected a table object"
     );
 }
 

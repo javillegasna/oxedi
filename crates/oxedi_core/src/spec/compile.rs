@@ -2,19 +2,17 @@
 
 use std::collections::{BTreeMap, BTreeSet};
 
-use serde::Deserialize;
 use serde_json::Value;
 
 use super::columns::{check_held, compile_column};
 use super::error::SpecError;
 use super::loops::LoopId;
+use super::model::read_entry;
 use super::phi::compile_phi;
-use super::raw::{RawColumn, RawTable};
 use super::segments::{ROW_COLUMN, SEGMENT_COLUMN};
-use super::shape::section;
 use super::table_error::{AnchorChains, TableDefError};
 use super::tables::{Repeat, TableDef};
-use super::{RepeatModel, Spec};
+use super::{RepeatModel, Spec, TableModel};
 use crate::message::render_key;
 
 /// Compiles the `tables` section against the loops of `spec`, then links
@@ -25,24 +23,15 @@ pub(super) fn compile_tables(
 ) -> Result<Vec<TableDef>, SpecError> {
     let mut tables = Vec::with_capacity(raw.len());
     for (name, value) in raw {
-        let def = RawTable::deserialize(value).map_err(|e| SpecError::TableSchema {
-            table: name.to_string(),
-            column: None,
-            source: e,
-        })?;
-        tables.push(compile_table(spec, name, &def, value)?);
+        let def: TableModel = read_entry("tables", name, value)?;
+        tables.push(compile_table(spec, name, &def)?);
     }
     link_tables(spec, &mut tables)?;
     Ok(tables)
 }
 
-fn compile_table(
-    spec: &Spec,
-    name: &str,
-    def: &RawTable,
-    value: &Value,
-) -> Result<TableDef, SpecError> {
-    let mut build = TableBuild::new(spec, name, def, value);
+fn compile_table(spec: &Spec, name: &str, def: &TableModel) -> Result<TableDef, SpecError> {
+    let mut build = TableBuild::new(spec, name, def);
     TABLE_STEPS.iter().try_for_each(|step| step(&mut build))?;
     Ok(build.table)
 }
@@ -52,12 +41,9 @@ fn compile_table(
 struct TableBuild<'a> {
     spec: &'a Spec,
     name: &'a str,
-    def: &'a RawTable,
-    value: &'a Value,
+    def: &'a TableModel,
     /// The table so far; each step sets the fields it owns.
     table: TableDef,
-    /// The `phi` each column writes, parallel to `table.columns`.
-    written: Vec<Option<String>>,
 }
 
 type TableStep = fn(&mut TableBuild<'_>) -> Result<(), SpecError>;
@@ -75,7 +61,7 @@ const TABLE_STEPS: [TableStep; 8] = [
 ];
 
 impl<'a> TableBuild<'a> {
-    fn new(spec: &'a Spec, name: &'a str, def: &'a RawTable, value: &'a Value) -> Self {
+    fn new(spec: &'a Spec, name: &'a str, def: &'a TableModel) -> Self {
         let table = TableDef {
             name: name.to_string(),
             reference: name.to_string(),
@@ -92,9 +78,7 @@ impl<'a> TableBuild<'a> {
             spec,
             name,
             def,
-            value,
             table,
-            written: Vec::with_capacity(def.columns.len()),
         }
     }
 
@@ -237,28 +221,20 @@ fn compile_columns(build: &mut TableBuild<'_>) -> Result<(), SpecError> {
     let TableBuild {
         spec,
         name,
-        value,
+        def,
         table,
-        written,
-        ..
     } = build;
-    for (column, value) in section(value, "columns") {
-        let raw = RawColumn::deserialize(value).map_err(|e| SpecError::TableSchema {
-            table: name.to_string(),
-            column: Some(column.to_string()),
-            source: e,
-        })?;
+    for (column, raw) in &def.columns {
         let source = compile_column(
             spec,
             name,
             column,
-            &raw,
+            raw,
             &table.loops,
             table.segment.as_deref(),
             table.repeat,
         )?;
-        table.columns.push((column.to_string(), source));
-        written.push(raw.phi);
+        table.columns.push((column.clone(), source));
     }
     Ok(())
 }
@@ -267,7 +243,7 @@ fn compile_table_phi(build: &mut TableBuild<'_>) -> Result<(), SpecError> {
     compile_phi(
         build.spec,
         &mut build.table,
-        &build.written,
+        build.def.columns.values().map(|column| column.phi),
         build.def.phi_seed.as_deref(),
     )
 }

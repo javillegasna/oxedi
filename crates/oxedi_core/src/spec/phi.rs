@@ -8,7 +8,7 @@ use super::table_error::TableDefError;
 use super::tables::ColumnSource;
 use super::tables::TableDef;
 use crate::value::ElementType;
-use crate::vocabulary::{Phi, Vocabulary};
+use crate::vocabulary::Phi;
 
 /// What a column reads, in the spec's own terms.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -127,12 +127,12 @@ fn control_element(
     Some((String::from_utf8_lossy(segment).into_owned(), element))
 }
 
-/// Fills `table.phi` from the `phi` word each column wrote (parallel to
+/// Fills `table.phi` from the `phi` each column wrote (in the order of
 /// `table.columns`) and `table.phi_seed` from the `phi_seed` column name.
 pub(super) fn compile_phi(
     spec: &Spec,
     table: &mut TableDef,
-    written: &[Option<String>],
+    flags_written: impl IntoIterator<Item = Option<Phi>>,
     seed: Option<&str>,
 ) -> Result<(), SpecError> {
     let fail = |column: Option<&str>, reason| SpecError::BadTable {
@@ -141,18 +141,10 @@ pub(super) fn compile_phi(
         reason,
     };
     let mut flags = Vec::with_capacity(table.columns.len());
-    for ((name, source), word) in table.columns.iter().zip(written) {
-        let Some(word) = word else {
+    for ((name, source), flag) in table.columns.iter().zip(flags_written) {
+        let Some(kind) = flag else {
             flags.push(None);
             continue;
-        };
-        let Some(kind) = Phi::from_word(word) else {
-            return Err(fail(
-                Some(name),
-                TableDefError::UnknownPhi {
-                    given: word.clone(),
-                },
-            ));
         };
         if let Some((segment, element)) = control_element(spec, table, source) {
             return Err(fail(

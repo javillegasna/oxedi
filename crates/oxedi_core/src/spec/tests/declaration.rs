@@ -6,7 +6,7 @@ use std::collections::BTreeMap;
 
 use serde_json::{from_value, json};
 
-use crate::spec::model::{ROOT, RawColumn};
+use crate::spec::model::ROOT;
 use crate::spec::shape::{Field, Leaf, ObjectSchema};
 use crate::spec::{ColumnModel, LoopModel, SpecModel, TableModel, TriggerModel};
 
@@ -159,17 +159,6 @@ fn a_table_and_its_columns_write_no_default_and_no_null() {
         }}
     });
     assert_eq!(from_value::<TableModel>(nulls.clone()).unwrap(), model);
-    let raw = from_value::<RawColumn>(nulls["columns"]["c"].clone()).unwrap();
-    assert!(raw.loop_name.is_none(), "RawColumn.loop_name");
-    assert!(raw.segment.is_none(), "RawColumn.segment");
-    assert!(raw.conditions.is_empty(), "RawColumn.conditions");
-    assert!(raw.occurrence.is_none(), "RawColumn.occurrence");
-    assert!(raw.pick.is_none(), "RawColumn.pick");
-    assert!(raw.element.is_none(), "RawColumn.element");
-    assert!(raw.component.is_none(), "RawColumn.component");
-    assert!(raw.group_element.is_none(), "RawColumn.group_element");
-    assert!(!raw.segment_index, "RawColumn.segment_index");
-    assert!(raw.phi.is_none(), "RawColumn.phi");
 }
 
 #[test]

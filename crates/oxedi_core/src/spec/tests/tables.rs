@@ -372,12 +372,6 @@ fn bad_tables_are_rejected_with_the_table_the_column_and_the_reason() {
                 anchor: "C".into(),
             },
         ),
-        (
-            r#"{"t":{"loops":["A"],"columns":{"c":{"segment":"AA","where":{"01":"X"},"element":1}}}}"#,
-            "t",
-            Some("c"),
-            TableDefError::BadPosition { key: "01".into() },
-        ),
     ];
     for (tables, expected_table, expected_column, expected_reason) in cases {
         let err = table_error(tables);
@@ -386,6 +380,13 @@ fn bad_tables_are_rejected_with_the_table_the_column_and_the_reason() {
             "{tables}: {err:?}"
         );
     }
+    assert_eq!(
+        table_error(
+            r#"{"t":{"loops":["A"],"columns":{"c":{"segment":"AA","where":{"01":"X"},"element":1}}}}"#
+        )
+        .to_string(),
+        "spec: at tables.t.columns.c.where: column \"where\" key \"01\" is not a position: positions are 1-based integers written in canonical form"
+    );
 }
 
 #[test]
@@ -618,10 +619,6 @@ fn table_errors_display_the_table_the_column_and_every_reason() {
         (
             TableDefError::ZeroPosition { key: "element" },
             "\"element\" must be a 1-based position; found 0",
-        ),
-        (
-            TableDefError::BadPosition { key: "01".into() },
-            "\"where\" position \"01\" is not a 1-based integer in canonical form",
         ),
         (
             TableDefError::OffsetBeyondStep { offset: 3, step: 3 },

@@ -63,6 +63,7 @@ mod by_module {
     use oxedi_core::spec::LoopId;
     use oxedi_core::spec::LoopModel;
     use oxedi_core::spec::LoopSegments;
+    use oxedi_core::spec::OccurrenceId;
     use oxedi_core::spec::OccurrenceModel;
     use oxedi_core::spec::Pick;
     use oxedi_core::spec::QualifierModel;
@@ -151,9 +152,9 @@ use oxedi_core::StructureChecker;
 use oxedi_core::Tokenizer;
 use oxedi_core::{
     AnchorChains, AnchorPositions, Builtin, ColumnSource, Control, ControlCount, ControlError,
-    DeclaredVersion, ElementDef, ElementDefError, ElementType, LoopDef, LoopId, LoopSegments, Pick,
-    Repeat, SegmentDef, Spec, SpecError, TableDef, TableDefError, Trigger, UnknownColumn,
-    UnknownTable, UnknownVersion, Version, VersionError, merge_patch,
+    DeclaredVersion, ElementDef, ElementDefError, ElementType, LoopDef, LoopId, LoopSegments,
+    OccurrenceId, Pick, Repeat, SegmentDef, Spec, SpecError, TableDef, TableDefError, Trigger,
+    UnknownColumn, UnknownTable, UnknownVersion, Version, VersionError, merge_patch,
 };
 use oxedi_core::{
     Bitmap, Cell, CellError, Column, ColumnData, ColumnType, RowError, Table, Tables,

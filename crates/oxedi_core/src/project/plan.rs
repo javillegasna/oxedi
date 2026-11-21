@@ -1,9 +1,7 @@
 //! The per-segment plans the projector builds once from the spec.
 
-use std::collections::BTreeMap;
-
 use super::carry::Carried;
-use crate::spec::{ColumnSource, ElementDef, OccurrenceDef, Pick, Qualifier, Spec, TableDef};
+use crate::spec::{ColumnSource, ElementDef, IdMap, Pick, Spec, TableDef};
 use crate::value::ColumnType;
 
 /// One defined element, with what checking it needs worked out once.
@@ -62,9 +60,6 @@ pub(super) struct SegmentPlan<'s> {
     /// Per loop: the columns that read this segment when it is captured in
     /// that loop.
     pub(super) watchers: Vec<Vec<Watcher>>,
-    /// Per loop: the loop's occurrences of this segment id, the only ones a
-    /// captured segment can match.
-    pub(super) occurrences: Vec<Vec<Candidate<'s>>>,
 }
 
 /// A column that reads the segments of one id a loop captures.
@@ -86,52 +81,23 @@ pub(super) struct Watcher {
     pub(super) carried: Option<usize>,
 }
 
-/// An occurrence a segment id can match in a loop, with what matching it
-/// and checking its elements read.
-#[derive(Debug, Clone, Copy)]
-pub(super) struct Candidate<'s> {
-    /// Index in the loop's occurrences.
-    pub(super) index: usize,
-    /// The qualifier the segment must hold; `None` matches any segment of
-    /// the id.
-    pub(super) qualifier: Option<&'s Qualifier>,
-    /// The occurrence, when it has code lists of its own.
-    pub(super) own_codes: Option<&'s OccurrenceDef>,
-}
-
-/// The plans of every segment id. Ids of up to seven bytes are keyed by their
-/// packed bytes, which compare faster than slices.
+/// The plans of every segment id.
 #[derive(Debug, Clone, Default)]
 pub(super) struct Plans<'s> {
-    short: BTreeMap<u64, SegmentPlan<'s>>,
-    long: BTreeMap<Vec<u8>, SegmentPlan<'s>>,
+    by_id: IdMap<SegmentPlan<'s>>,
 }
 
 impl<'s> Plans<'s> {
-    /// The packed key of an id, or `None` when it is too long to pack. A
-    /// leading 1 bit keeps ids of different lengths apart.
-    fn key(id: &[u8]) -> Option<u64> {
-        (id.len() <= 7).then(|| {
-            id.iter()
-                .fold(1u64, |key, &byte| key << 8 | u64::from(byte))
-        })
-    }
-
     pub(super) fn get(&self, id: &[u8]) -> Option<&SegmentPlan<'s>> {
-        match Self::key(id) {
-            Some(key) => self.short.get(&key),
-            None => self.long.get(id),
-        }
+        self.by_id.get(id)
     }
 
     /// Records that a column reads `element` (or its `component`) of the
     /// segments with `id`, when the spec defines that element.
     fn mark_read(&mut self, id: &[u8], element: usize, component: Option<usize>) {
-        let plan = match Self::key(id) {
-            Some(key) => self.short.get_mut(&key),
-            None => self.long.get_mut(id),
-        };
-        plan.into_iter()
+        self.by_id
+            .get_mut(id)
+            .into_iter()
             .flat_map(|plan| plan.elements.iter_mut())
             .filter(|plan| plan.position == element)
             .for_each(|plan| plan.mark_read(component));
@@ -272,11 +238,7 @@ impl<'s> Plans<'s> {
         let empty = || SegmentPlan {
             elements: Vec::new(),
             watchers: vec![Vec::new(); loops],
-            occurrences: vec![Vec::new(); loops],
         };
-        match Self::key(id) {
-            Some(key) => self.short.entry(key).or_insert_with(empty),
-            None => self.long.entry(id.to_vec()).or_insert_with(empty),
-        }
+        self.by_id.entry_or_insert_with(id, empty)
     }
 }

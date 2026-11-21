@@ -16,7 +16,8 @@
 //! for a loop's occurrences.
 //!
 //! The module is split by responsibility: `loops`, `occurrences`, `segments`,
-//! `tables`, `balance` and `summaries` hold the definitions,
+//! `tables`, `balance` and `summaries` hold the definitions, `occurrence_index`
+//! the occurrence a segment takes in a loop, `id_map` the map keyed by segment id,
 //! `occurrence_error`, `table_error`, `balance_error` and `summary_error` why
 //! an occurrence, a table, a balancing rule or a summary is rejected; `unknown`
 //! the errors for a table or a column the spec does not define; `raw`
@@ -46,9 +47,11 @@ mod columns;
 mod compile;
 mod error;
 mod error_text;
+mod id_map;
 mod loops;
 mod model;
 mod occurrence_error;
+mod occurrence_index;
 mod occurrences;
 mod patch;
 mod phi;
@@ -82,6 +85,7 @@ pub use model::{
     VersionModel,
 };
 pub use occurrence_error::OccurrenceError;
+pub use occurrence_index::OccurrenceId;
 pub use occurrences::{OccurrenceDef, Qualifier, Usage};
 pub use patch::merge_patch;
 pub use phi::ColumnKind;
@@ -98,6 +102,7 @@ pub use version::{DeclaredVersion, VersionError};
 pub use vocabulary::ElementPosition;
 
 pub(crate) use balance::render_terms;
+pub(crate) use id_map::IdMap;
 pub(crate) use render::{render_selector, render_trigger};
 pub(crate) use schema::column_type;
 pub(crate) use segments::rejects_code;
@@ -107,6 +112,7 @@ use std::collections::BTreeMap;
 
 use serde_json::Value;
 
+use self::occurrence_index::OccurrenceIndex;
 use crate::segment::Segment;
 
 /// A loaded, validated loop structure.
@@ -114,6 +120,7 @@ use crate::segment::Segment;
 pub struct Spec {
     name: String,
     loops: Vec<LoopDef>,
+    occurrence_index: OccurrenceIndex,
     roots: Vec<LoopId>,
     segments: BTreeMap<Vec<u8>, SegmentDef>,
     tables: Vec<TableDef>,

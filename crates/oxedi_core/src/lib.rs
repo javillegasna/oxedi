@@ -72,9 +72,9 @@ pub use segment::{Segment, SegmentWriteError};
 pub use spec::{
     AnchorChains, AnchorPositions, BalanceError, BalanceRule, BalanceTerm, Builtin, ColumnSchema,
     ColumnSource, Control, ControlCount, ControlError, DeclaredVersion, ElementDef,
-    ElementDefError, LoopDef, LoopId, LoopSegments, Pick, Repeat, SegmentDef, Spec, SpecError,
-    Summary, SummaryDefError, TableDef, TableDefError, TableSchema, Trigger, UnknownColumn,
-    UnknownTable, UnknownVersion, Version, VersionError, merge_patch, spec_schema,
+    ElementDefError, LoopDef, LoopId, LoopSegments, OccurrenceId, Pick, Repeat, SegmentDef, Spec,
+    SpecError, Summary, SummaryDefError, TableDef, TableDefError, TableSchema, Trigger,
+    UnknownColumn, UnknownTable, UnknownVersion, Version, VersionError, merge_patch, spec_schema,
 };
 pub use summary::{SummaryError, SummaryValue, summarize};
 pub use tokenizer::Tokenizer;

@@ -15,6 +15,7 @@ use super::build_loops::{check_cycles, compile_loop, held_segments};
 use super::compile::compile_tables;
 use super::error::SpecError;
 use super::loops::{LoopId, Trigger};
+use super::occurrence_index::OccurrenceIndex;
 use super::occurrences::{check_trigger, compile_occurrences};
 use super::raw::{RawLoop, RawSegment, RawSpec, RawVersion};
 use super::render::render_trigger;
@@ -35,12 +36,13 @@ struct Build {
 type Step = fn(&mut Build) -> Result<(), SpecError>;
 
 /// The compile steps, in the order they run.
-const STEPS: [Step; 11] = [
+const STEPS: [Step; 12] = [
     read_loops,
     compile_loop_headers,
     link_loops,
     compile_segment_section,
     compile_loop_occurrences,
+    index_occurrences,
     compile_version_section,
     check_trigger_ambiguity,
     compile_table_section,
@@ -134,6 +136,7 @@ impl Build {
             spec: Spec {
                 name: raw.name,
                 loops: Vec::new(),
+                occurrence_index: OccurrenceIndex::default(),
                 roots: Vec::new(),
                 segments: BTreeMap::new(),
                 tables: Vec::new(),
@@ -225,6 +228,11 @@ fn compile_loop_occurrences(build: &mut Build) -> Result<(), SpecError> {
         check_trigger(name, &compiled.occurrences, &compiled.trigger)?;
         compiled.segments = held_segments(compiled);
     }
+    Ok(())
+}
+
+fn index_occurrences(build: &mut Build) -> Result<(), SpecError> {
+    build.spec.occurrence_index = OccurrenceIndex::build(&build.spec.loops);
     Ok(())
 }
 

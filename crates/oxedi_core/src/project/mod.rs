@@ -77,13 +77,15 @@ use crate::diagnostic::Diagnostic;
 use crate::engine::Event;
 use crate::mask::Mask;
 use crate::segment::Segment;
-use crate::spec::{LoopId, OccurrenceDef, Spec, UnknownTable, column_type, table_columns};
+use crate::spec::{
+    LoopId, OccurrenceDef, OccurrenceId, Spec, UnknownTable, column_type, table_columns,
+};
 use crate::value::ColumnType;
 
 use carry::Carried;
 use check::Checked;
 use fill::append;
-use plan::{Candidate, ElementPlan, Plans};
+use plan::{ElementPlan, Plans};
 
 /// A column value of a row being collected.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -188,18 +190,6 @@ impl<'s> Projector<'s> {
                 .iter()
                 .map(|(&position, element)| ElementPlan::new(position, element))
                 .collect();
-        }
-        for (at, def) in spec.loops().iter().enumerate() {
-            for (index, occurrence) in def.occurrences.iter().enumerate() {
-                let plan = plans.entry(&occurrence.segment, loops);
-                if let Some(list) = plan.occurrences.get_mut(at) {
-                    list.push(Candidate {
-                        index,
-                        qualifier: occurrence.qualifier.as_ref(),
-                        own_codes: (!occurrence.codes.is_empty()).then_some(occurrence),
-                    });
-                }
-            }
         }
         let mut segment_tables = vec![Vec::new(); loops];
         let mut resets = vec![Vec::new(); loops];
@@ -402,19 +392,12 @@ impl<'s> Projector<'s> {
         let mut joined = std::mem::take(&mut self.joined);
         let plans = std::mem::take(&mut self.plans);
         let plan = plans.get(segment.id);
-        // Every candidate has the segment's id: only its qualifier is left
-        // to check.
-        let found = plan
-            .and_then(|plan| plan.occurrences.get(id.index()))
-            .and_then(|candidates| {
-                candidates.iter().find(|candidate| {
-                    candidate
-                        .qualifier
-                        .is_none_or(|qualifier| qualifier.matches(segment))
-                })
-            });
-        self.matched = found.map(|candidate| candidate.index);
-        self.occurrence = found.and_then(|candidate| candidate.own_codes);
+        let spec = self.spec;
+        let found = spec.occurrence_of(id, segment);
+        self.matched = found.map(OccurrenceId::index);
+        self.occurrence = found
+            .map(|found| &spec.get(id).occurrences[found.index()])
+            .filter(|occurrence| !occurrence.codes.is_empty());
         self.check(
             plan.map_or(&[], |plan| &plan.elements),
             segment,

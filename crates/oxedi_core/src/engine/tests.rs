@@ -548,7 +548,13 @@ fn a_held_segment_with_no_matching_occurrence_is_captured_with_none() {
 
 /// Feeds every segment and returns the events of the last step and the open
 /// path after it, as `lineage` takes them.
-fn last_step(engine: &mut LoopEngine<'_>, input: &[u8]) -> (Vec<Event>, Vec<Instance>) {
+fn last_step(spec: &Spec, input: &[u8]) -> (Vec<Event>, Vec<Instance>) {
+    let mut engine = LoopEngine::new(spec);
+    last_step_of(&mut engine, input)
+}
+
+/// `last_step` on an engine the caller keeps.
+fn last_step_of(engine: &mut LoopEngine<'_>, input: &[u8]) -> (Vec<Event>, Vec<Instance>) {
     let mut last = Vec::new();
     for segment in &segs(input) {
         last = engine.feed(segment).to_vec();
@@ -586,8 +592,7 @@ fn ids(path: &[Instance]) -> Vec<usize> {
 #[test]
 fn lineage_of_a_captured_segment_lists_its_open_ancestors() {
     let spec = nested();
-    let mut engine = LoopEngine::new(&spec);
-    let (events, open) = last_step(&mut engine, b"AA~BB~");
+    let (events, open) = last_step(&spec, b"AA~BB~");
     let instance = instance_of(&events, captured_instance);
     assert_eq!(ids(&open), vec![0, 1]);
     assert_eq!(ids(&lineage(instance, &open, &events)), vec![0, 1]);
@@ -596,8 +601,7 @@ fn lineage_of_a_captured_segment_lists_its_open_ancestors() {
 #[test]
 fn lineage_keeps_the_loops_closed_after_the_capture() {
     let spec = nested();
-    let mut engine = LoopEngine::new(&spec);
-    let (events, open) = last_step(&mut engine, b"AA~BB~AE~");
+    let (events, open) = last_step(&spec, b"AA~BB~AE~");
     assert!(open.is_empty());
     let captured = instance_of(&events, captured_instance);
     assert_eq!(ids(&lineage(captured, &open, &events)), vec![0]);
@@ -609,8 +613,7 @@ fn lineage_keeps_the_loops_closed_after_the_capture() {
 #[test]
 fn lineage_of_a_close_before_an_open_skips_the_new_instances() {
     let spec = nested();
-    let mut engine = LoopEngine::new(&spec);
-    let (events, open) = last_step(&mut engine, b"AA~BB~AA~");
+    let (events, open) = last_step(&spec, b"AA~BB~AA~");
     let closed = instance_of(&events, closed_instance);
     assert_eq!(closed.loop_id, id(&spec, "B"));
     assert_eq!(ids(&open), vec![2]);
@@ -621,7 +624,7 @@ fn lineage_of_a_close_before_an_open_skips_the_new_instances() {
 fn lineage_at_finish_reads_the_closing_events() {
     let spec = nested();
     let mut engine = LoopEngine::new(&spec);
-    last_step(&mut engine, b"AA~BB~");
+    last_step_of(&mut engine, b"AA~BB~");
     let events = engine.finish().to_vec();
     let closed = events
         .iter()
@@ -725,8 +728,7 @@ fn an_event_names_its_instance() {
 #[test]
 fn a_named_lineage_gives_loop_names_and_ordinals() {
     let spec = nested();
-    let mut engine = LoopEngine::new(&spec);
-    let (events, open) = last_step(&mut engine, b"AA~BB~");
+    let (events, open) = last_step(&spec, b"AA~BB~");
     let captured = events
         .iter()
         .find(|event| captured_instance(event).is_some())

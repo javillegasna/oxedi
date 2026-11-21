@@ -1,40 +1,35 @@
 //! `spec_object!`: one declaration per spec object, which emits its public
-//! model, the struct the loader deserializes and its schema table, so the
-//! three cannot name different keys.
+//! model and its schema table, so the two cannot name different keys.
 
-/// Declares one object of a spec: the header names the model, the raw struct
-/// (`Model / Raw` emits both; `Model = Raw` makes the raw name an alias of the
-/// model; `Model` alone has no raw struct, for an object only its parent reads),
-/// the schema static and the `expecting` text both structs share.
+/// Declares one object of a spec: the header names the model, the schema
+/// static and the `expecting` text of the model.
 /// Each row is one key: its field, the key when it differs (`as "where"`),
-/// the model type, the raw type and its attributes when they differ
-/// (`| #[serde(...)] RawType`), the schema `Field`, and a presence word.
+/// the model type, the schema `Field`, and a presence word.
 /// Attributes before a row, its docs and a model-side `#[serde(...)]`, go on the
-/// model field only; the raw struct takes its attributes after the "|".
+/// model field.
 ///
 /// ```text
 /// spec_object! {
 ///     /// The object's docs.
-///     ExampleModel / RawExample, EXAMPLE, "an example object";
+///     ExampleModel, EXAMPLE, "an example object";
 ///     /// Docs of the key.
 ///     segment: String, TEXT, required;
 ///     max: Option<usize>, nullable(Leaf::Count), optional;
 ///     codes: BTreeMap<String, Vec<String>>, Field::Map(&TEXTS), default;
-///     usage: Usage | Option<String>, nullable(Leaf::Text), default_or_null;
+///     usage: Usage, nullable(Leaf::Text), default_or_null;
 /// }
 /// ```
 ///
 /// `required` puts the key in the schema's `required` list. `optional` (an
 /// `Option`) leaves `None` unwritten. `default` reads an absent key as its
 /// default and leaves the default unwritten. `default_or_null` also reads
-/// `null` as the default in the model; its raw type is an `Option`. Any other
-/// word fails to compile, naming the key, and so does a row not in that form or
-/// a `| RawType` in a `Model = Raw` or a `Model` declaration, which have no raw struct.
+/// `null` as the default. Any other word fails to compile, naming the key, and
+/// so does a row not in that form.
 ///
 /// The rows are munched one at a time: `@rows` reads a row into a fixed form,
 /// `@word` turns its presence word into serde attributes, `@field` appends the
-/// field to both structs and the key to the schema, and the last `@rows`
-/// emits the items.
+/// field to the model and the key to the schema, and the last `@rows` emits
+/// the items.
 macro_rules! spec_object {
     (
         $(#[$doc:meta])*
@@ -42,90 +37,47 @@ macro_rules! spec_object {
         $($rows:tt)*
     ) => {
         $crate::spec::model::declare::spec_object! {
-            @rows [$(#[$doc])* $model, $schema, $expecting] {} {} [] [] $($rows)*
+            @rows [$(#[$doc])* $model, $schema, $expecting] {} [] [] $($rows)*
         }
     };
     (
-        $(#[$doc:meta])*
-        $model:ident $sep:tt $raw:ident, $schema:ident, $expecting:literal;
-        $($rows:tt)*
-    ) => {
-        $crate::spec::model::declare::spec_object! {
-            @rows [$(#[$doc])* $model $sep $raw, $schema, $expecting] {} {} [] [] $($rows)*
-        }
-    };
-    (
-        @rows [$(#[$doc:meta])* $model:ident, $schema:ident, $expecting:literal]
-        $mf:tt $rf:tt $keys:tt $req:tt
-        $(#[$fdoc:meta])* $field:ident $(as $key:literal)? : $mty:ty | $($rest:tt)*
-    ) => {
-        compile_error!(concat!(
-            "spec_object!: `", stringify!($model), "` has no raw struct, so the row of `",
-            stringify!($field), "` cannot name a raw type after `|`; declare the object with `",
-            stringify!($model), " / Raw` instead"
-        ));
-    };
-    (
-        @rows [$(#[$doc:meta])* $model:ident = $raw:ident, $schema:ident, $expecting:literal]
-        $mf:tt $rf:tt $keys:tt $req:tt
-        $(#[$fdoc:meta])* $field:ident $(as $key:literal)? : $mty:ty | $($rest:tt)*
-    ) => {
-        compile_error!(concat!(
-            "spec_object!: `", stringify!($model), " = ", stringify!($raw), "` makes the raw ",
-            "struct the model, so the row of `", stringify!($field), "` cannot name another ",
-            "raw type after `|`; declare the object with `", stringify!($model), " / ",
-            stringify!($raw), "` instead"
-        ));
-    };
-    (
-        @rows $head:tt $mf:tt $rf:tt $keys:tt $req:tt
-        $(#[$fdoc:meta])* $field:ident $(as $key:literal)?
-            : $mty:ty | $(#[$rattr:meta])* $rty:ty, $kind:expr, $word:ident;
-        $($rest:tt)*
-    ) => {
-        $crate::spec::model::declare::spec_object! {
-            @word $word $head $mf $rf $keys $req [$(#[$fdoc])*] $field [$($key)?]
-            ($mty) [$(#[$rattr])*] ($rty) ($kind) $($rest)*
-        }
-    };
-    (
-        @rows $head:tt $mf:tt $rf:tt $keys:tt $req:tt
+        @rows $head:tt $mf:tt $keys:tt $req:tt
         $(#[$fdoc:meta])* $field:ident $(as $key:literal)? : $mty:ty, $kind:expr, $word:ident;
         $($rest:tt)*
     ) => {
         $crate::spec::model::declare::spec_object! {
-            @word $word $head $mf $rf $keys $req [$(#[$fdoc])*] $field [$($key)?]
-            ($mty) [] ($mty) ($kind) $($rest)*
+            @word $word $head $mf $keys $req [$(#[$fdoc])*] $field [$($key)?]
+            ($mty) ($kind) $($rest)*
         }
     };
     (
-        @rows $head:tt $mf:tt $rf:tt $keys:tt $req:tt
+        @rows $head:tt $mf:tt $keys:tt $req:tt
         $(#[$fdoc:meta])* $field:ident $($row:tt)+
     ) => {
         compile_error!(concat!(
             "spec_object!: the row of `", stringify!($field), "` is not `field $(as \"key\")? : ",
-            "Model $(| Raw)?, Field, presence;`"
+            "Model, Field, presence;`"
         ));
     };
     (
-        @word required $head:tt $mf:tt $rf:tt $keys:tt [$($req:tt)*]
+        @word required $head:tt $mf:tt $keys:tt [$($req:tt)*]
         $fdoc:tt $field:ident [$($key:literal)?] $($row:tt)*
     ) => {
         $crate::spec::model::declare::spec_object! {
-            @field [] [] $head $mf $rf $keys
+            @field [] $head $mf $keys
             [$($req)* $crate::spec::model::declare::spec_object!(@key $field $($key)?),]
             $fdoc $field [$($key)?] $($row)*
         }
     };
     (@word optional $($row:tt)*) => {
         $crate::spec::model::declare::spec_object! {
-            @field [#[serde(skip_serializing_if = "Option::is_none")]] [] $($row)*
+            @field [#[serde(skip_serializing_if = "Option::is_none")]] $($row)*
         }
     };
     (@word default $($row:tt)*) => {
         $crate::spec::model::declare::spec_object! {
             @field [#[serde(default, skip_serializing_if = "crate::spec::model::is_default")]]
-            [#[serde(default)]] $($row)*
+            $($row)*
         }
     };
     (@word default_or_null $($row:tt)*) => {
@@ -134,11 +86,11 @@ macro_rules! spec_object {
                 default,
                 deserialize_with = "crate::spec::model::null_is_default",
                 skip_serializing_if = "crate::spec::model::is_default"
-            )]] [] $($row)*
+            )]] $($row)*
         }
     };
     (
-        @word $other:ident $head:tt $mf:tt $rf:tt $keys:tt $req:tt
+        @word $other:ident $head:tt $mf:tt $keys:tt $req:tt
         $fdoc:tt $field:ident $($row:tt)*
     ) => {
         compile_error!(concat!(
@@ -147,17 +99,13 @@ macro_rules! spec_object {
         ));
     };
     (
-        @field [$($mattr:tt)*] [$($rword:tt)*] $head:tt {$($mf:tt)*} {$($rf:tt)*} [$($keys:tt)*]
+        @field [$($mattr:tt)*] $head:tt {$($mf:tt)*} [$($keys:tt)*]
         $req:tt [$($fdoc:tt)*] $field:ident [$($key:literal)?]
-        ($mty:ty) [$($rattr:tt)*] ($rty:ty) ($kind:expr) $($rest:tt)*
+        ($mty:ty) ($kind:expr) $($rest:tt)*
     ) => {
         $crate::spec::model::declare::spec_object! {
             @rows $head
             {$($mf)* $($fdoc)* $($mattr)* $(#[serde(rename = $key)])? pub $field: $mty,}
-            {
-                $($rf)* $($rword)* $($rattr)* $(#[serde(rename = $key)])?
-                pub(in crate::spec) $field: $rty,
-            }
             [$($keys)* ($crate::spec::model::declare::spec_object!(@key $field $($key)?), $kind),]
             $req $($rest)*
         }
@@ -169,39 +117,7 @@ macro_rules! spec_object {
         $key
     };
     (
-        @rows [$(#[$doc:meta])* $model:ident / $raw:ident, $schema:ident, $expecting:literal]
-        $mf:tt {$($rf:tt)*} $keys:tt $req:tt
-    ) => {
-        $crate::spec::model::declare::spec_object! {
-            @emit [$(#[$doc])* $model, $schema, $expecting] $mf $keys $req
-        }
-
-        #[derive(Debug, ::serde::Deserialize)]
-        #[serde(deny_unknown_fields, expecting = $expecting)]
-        pub(in crate::spec) struct $raw {
-            $($rf)*
-        }
-    };
-    (
-        @rows [$(#[$doc:meta])* $model:ident = $raw:ident, $schema:ident, $expecting:literal]
-        $mf:tt $rf:tt $keys:tt $req:tt
-    ) => {
-        $crate::spec::model::declare::spec_object! {
-            @emit [$(#[$doc])* $model, $schema, $expecting] $mf $keys $req
-        }
-
-        pub(in crate::spec) type $raw = $model;
-    };
-    (
         @rows [$(#[$doc:meta])* $model:ident, $schema:ident, $expecting:literal]
-        $mf:tt $rf:tt $keys:tt $req:tt
-    ) => {
-        $crate::spec::model::declare::spec_object! {
-            @emit [$(#[$doc])* $model, $schema, $expecting] $mf $keys $req
-        }
-    };
-    (
-        @emit [$(#[$doc:meta])* $model:ident, $schema:ident, $expecting:literal]
         {$($mf:tt)*} [$($keys:tt)*] [$($req:tt)*]
     ) => {
         $(#[$doc])*

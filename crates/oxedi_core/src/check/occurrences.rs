@@ -328,7 +328,7 @@ impl<'s> StructureChecker<'s> {
     }
 
     /// Reports each required occurrence and child loop the instance on top
-    /// of the stack never held.
+    /// of the stack never held, occurrences first.
     #[cold]
     fn report_missing(&mut self, at: Option<&Segment<'_>>) {
         let spec = self.spec;
@@ -337,30 +337,32 @@ impl<'s> StructureChecker<'s> {
         };
         let (start, opened_at) = (top.counts, top.opened_at);
         let def = spec.get(top.id);
-        let mut rules = Vec::new();
         let counts = self.counts.get(start..).unwrap_or_default();
-        for (occurrence, &count) in def.occurrences.iter().zip(counts) {
-            if occurrence.usage == Usage::Required && count == 0 {
-                rules.push(Rule::RequiredOccurrenceMissing {
-                    loop_name: def.name.clone(),
-                    opened_at,
-                    occurrence: occurrence.name.clone(),
-                    selector: render_selector(occurrence),
-                });
-            }
-        }
         let children = counts.get(def.occurrences.len()..).unwrap_or_default();
-        for (&child, &count) in def.children.iter().zip(children) {
-            let child_def = spec.get(child);
-            if child_def.usage == Usage::Required && count == 0 {
-                rules.push(Rule::RequiredLoopMissing {
-                    loop_name: def.name.clone(),
-                    opened_at,
-                    child: child_def.name.clone(),
-                    expected_trigger: render_trigger(&child_def.trigger),
-                });
-            }
-        }
+        let occurrences = def
+            .occurrences
+            .iter()
+            .zip(counts)
+            .filter(|(occurrence, count)| occurrence.usage == Usage::Required && **count == 0)
+            .map(|(occurrence, _)| Rule::RequiredOccurrenceMissing {
+                loop_name: def.name.clone(),
+                opened_at,
+                occurrence: occurrence.name.clone(),
+                selector: render_selector(occurrence),
+            });
+        let loops = def
+            .children
+            .iter()
+            .zip(children)
+            .map(|(&child, count)| (spec.get(child), count))
+            .filter(|(child, count)| child.usage == Usage::Required && **count == 0)
+            .map(|(child, _)| Rule::RequiredLoopMissing {
+                loop_name: def.name.clone(),
+                opened_at,
+                child: child.name.clone(),
+                expected_trigger: render_trigger(&child.trigger),
+            });
+        let rules: Vec<Rule> = occurrences.chain(loops).collect();
         for rule in rules {
             self.report(
                 rule,

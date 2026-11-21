@@ -8,9 +8,10 @@ use crate::segment::Segment;
 use crate::spec::{ColumnSource, LoopId, Pick};
 use crate::value::{ColumnType, Parsed};
 
+use super::Projector;
 use super::check::Checked;
 use super::plan::Watcher;
-use super::{Projector, Row, Slot};
+use super::row::{Row, Slot};
 
 impl<'s> Projector<'s> {
     /// Fills the columns that read this segment: in the open rows, or in

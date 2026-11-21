@@ -38,9 +38,10 @@ use crate::spec::Spec;
 use crate::value::parse_dt;
 use crate::value::{civil_from_days, year_start};
 
+use super::Projector;
 use super::plan::Plans;
 use super::quote::unquoted;
-use super::{Projector, Row, Slot};
+use super::row::{Row, Slot};
 
 /// The places flagged columns read, and the mask that rewrites the datums
 /// found there.

@@ -40,7 +40,7 @@ pub(in crate::spec) use rules::{
 // Read only by the sync test, which holds the list to the keys the model writes.
 #[cfg(test)]
 pub(in crate::spec) use segments::ELEMENT_MODEL_KEYS;
-pub(in crate::spec) use segments::{RawSegment, SEGMENT};
+pub(in crate::spec) use segments::SEGMENT;
 pub(in crate::spec) use tables::TABLE;
 
 spec_object! {

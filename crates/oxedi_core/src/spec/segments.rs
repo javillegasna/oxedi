@@ -4,8 +4,8 @@ use std::collections::BTreeMap;
 use std::fmt;
 
 use super::error::SpecError;
-use super::raw::RawElement;
-use crate::value::{ElementType, LengthRange, TypeCodeError};
+use super::model::ElementModel;
+use crate::value::{ElementType, LengthRange};
 
 /// One element of a segment, or one component of a composite element.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -57,26 +57,14 @@ pub struct SegmentDef {
 /// Why an element definition was rejected.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum ElementDefError {
-    /// The position key is not a 1-based integer in canonical form.
-    NonCanonicalPosition,
     /// `name` is the empty string.
     EmptyName,
     /// Another element at the same level already has this name.
     DuplicateName {
         /// The repeated name.
         name: String,
-        /// Position key of the element that used it first, as written.
+        /// Position of the element that used it first.
         first: String,
-    },
-    /// `type` is not one of the known codes.
-    UnknownType {
-        /// The code as written.
-        found: String,
-    },
-    /// `scale` was given for a type other than `R`.
-    ScaleWithoutR {
-        /// The type code as written.
-        kind: String,
     },
     /// `min` is greater than `max`.
     MinAboveMax {
@@ -138,26 +126,12 @@ pub enum ElementDefError {
     },
 }
 
-impl From<TypeCodeError> for ElementDefError {
-    fn from(error: TypeCodeError) -> ElementDefError {
-        match error {
-            TypeCodeError::UnknownType { found } => ElementDefError::UnknownType { found },
-            TypeCodeError::ScaleWithoutR { kind } => ElementDefError::ScaleWithoutR { kind },
-        }
-    }
-}
-
 impl fmt::Display for ElementDefError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            ElementDefError::NonCanonicalPosition => write!(f, "{POSITION_RULE}"),
             ElementDefError::EmptyName => write!(f, "\"name\" is empty"),
             ElementDefError::DuplicateName { name, first } => {
                 write!(f, "name {name:?} is already used by position {first:?}")
-            }
-            ElementDefError::UnknownType { found } => TypeCodeError::write_unknown_type(f, found),
-            ElementDefError::ScaleWithoutR { kind } => {
-                TypeCodeError::write_scale_without_r(f, kind)
             }
             ElementDefError::MinAboveMax { min, max } => {
                 write!(f, "\"min\" {min} is greater than \"max\" {max}")
@@ -233,29 +207,27 @@ pub(super) fn parse_position(key: &str) -> Option<usize> {
 }
 
 /// Compiles the elements of `segment`, or the components of the element at
-/// `parent` (its key as written) when one is given. Each definition is read
-/// one part at a time, in the order its errors are reported: position, name,
-/// type, lengths, codes, composite.
+/// `parent` when one is given. Each definition is read one part at a time, in
+/// the order its errors are reported: name, scale, lengths, codes, composite;
+/// the type and the position are read with the model.
 pub(super) fn compile_elements(
     segment: &str,
-    raw: &BTreeMap<String, RawElement>,
-    parent: Option<&str>,
+    elements: &BTreeMap<usize, ElementModel>,
+    parent: Option<usize>,
 ) -> Result<BTreeMap<usize, ElementDef>, SpecError> {
-    let mut elements = BTreeMap::new();
-    let mut names: BTreeMap<&str, &str> = BTreeMap::new();
-    for (key, def) in raw {
+    let mut compiled = BTreeMap::new();
+    let mut names: BTreeMap<&str, usize> = BTreeMap::new();
+    for (&position, def) in elements {
         let fail = |reason| SpecError::BadElementDef {
             segment: segment.to_string(),
-            position: position_text(parent, key),
+            position: position_text(parent, position),
             reason,
         };
-        let position =
-            parse_position(key).ok_or_else(|| fail(ElementDefError::NonCanonicalPosition))?;
-        claim_name(&mut names, &def.name, key).map_err(fail)?;
+        claim_name(&mut names, &def.name, position).map_err(fail)?;
         let element = compile_element(def, parent.is_some()).map_err(fail)?;
         // A simple element has no components, which compile to an empty map.
-        let composite = compile_elements(segment, &def.composite, Some(key))?;
-        elements.insert(
+        let composite = compile_elements(segment, &def.composite, Some(position))?;
+        compiled.insert(
             position,
             ElementDef {
                 composite,
@@ -263,29 +235,29 @@ pub(super) fn compile_elements(
             },
         );
     }
-    Ok(elements)
+    Ok(compiled)
 }
 
-/// The position of an element as an error names it: its key, or
-/// `<parent>.composite.<key>` for a component.
-fn position_text(parent: Option<&str>, key: &str) -> String {
+/// The position of an element as an error names it: its position, or
+/// `<parent>.composite.<position>` for a component.
+fn position_text(parent: Option<usize>, position: usize) -> String {
     match parent {
-        Some(parent) => format!("{parent}.composite.{key}"),
-        None => key.to_string(),
+        Some(parent) => format!("{parent}.composite.{position}"),
+        None => position.to_string(),
     }
 }
 
-/// Records `name` for the element at `key`; refused when it is empty or
+/// Records `name` for the element at `position`; refused when it is empty or
 /// another element at the same level already has it.
 fn claim_name<'r>(
-    names: &mut BTreeMap<&'r str, &'r str>,
+    names: &mut BTreeMap<&'r str, usize>,
     name: &'r str,
-    key: &'r str,
+    position: usize,
 ) -> Result<(), ElementDefError> {
     if name.is_empty() {
         return Err(ElementDefError::EmptyName);
     }
-    match names.insert(name, key) {
+    match names.insert(name, position) {
         None => Ok(()),
         Some(first) => Err(ElementDefError::DuplicateName {
             name: name.to_string(),
@@ -296,8 +268,8 @@ fn claim_name<'r>(
 
 /// Compiles one definition but its components: its type, lengths and codes,
 /// and whether it may declare a composite (`component` when it is one).
-fn compile_element(def: &RawElement, component: bool) -> Result<ElementDef, ElementDefError> {
-    let kind = element_type(&def.kind, def.scale)?;
+fn compile_element(def: &ElementModel, component: bool) -> Result<ElementDef, ElementDefError> {
+    let kind = check_scale(def.kind)?;
     let length = LengthRange {
         min: def.min,
         max: def.max,
@@ -321,10 +293,9 @@ fn compile_element(def: &RawElement, component: bool) -> Result<ElementDef, Elem
     })
 }
 
-/// Reads a `type` and its `scale`; an `R` scale must not pass
-/// [`ElementType::MAX_SCALE`].
-fn element_type(code: &str, scale: Option<u8>) -> Result<ElementType, ElementDefError> {
-    match ElementType::parse(code, scale)? {
+/// Refuses an `R` scale above [`ElementType::MAX_SCALE`].
+fn check_scale(kind: ElementType) -> Result<ElementType, ElementDefError> {
+    match kind {
         ElementType::R { scale } if scale > ElementType::MAX_SCALE => {
             Err(ElementDefError::ScaleAboveMaximum { scale })
         }

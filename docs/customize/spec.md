@@ -168,7 +168,7 @@ A patched spec also writes: pass it to `oxedi.write(frames, envelope, spec=spec)
 
 Every key a spec can hold, with what it means and the Rust code that reads it. The JSON is
 deserialized into the `Raw*` structs and checked by `spec/shape.rs` against the schema, both emitted by
-the object declarations in `crates/oxedi_core/src/spec/model/` (`RawElement` and `RawSummary` in
+the object declarations in `crates/oxedi_core/src/spec/model/` (`RawSummary` in
 `spec/raw.rs`, their schemas in `spec/sections.rs`), then compiled into the definitions of `oxedi_core::spec`. For the internal names, see the [glossary](https://github.com/javillegasna/oxedi/blob/master/ARCHITECTURE.md#glossary). An unknown key is an
 error that names its path and the keys allowed there, and so is a missing required key. Positions of elements and
 components are 1-based. The code names differ from the JSON in three places: a table's

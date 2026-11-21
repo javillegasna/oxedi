@@ -1,9 +1,8 @@
 //! Segment and element definitions.
 
 use super::{CLP_ONLY, element_error};
-use crate::spec::raw::RawSegment;
 use crate::spec::*;
-use crate::value::{ElementType, LengthRange};
+use crate::value::{ElementType, LengthRange, TypeCodeError};
 
 #[test]
 fn an_empty_segment_id_in_the_segments_section_is_rejected() {
@@ -121,8 +120,8 @@ fn every_type_code_is_read() {
     }
     for code in ["an", "N", "N10", "NA", "R2", "", "B"] {
         assert_eq!(
-            ElementType::parse(code, None).map_err(ElementDefError::from),
-            Err(ElementDefError::UnknownType {
+            ElementType::parse(code, None),
+            Err(TypeCodeError::UnknownType {
                 found: code.to_string()
             }),
             "{code:?}"
@@ -167,16 +166,6 @@ fn a_spec_without_segments_has_none() {
 fn bad_element_definitions_are_rejected_with_segment_position_and_reason() {
     let cases = [
         (
-            r#"{"01":{"name":"a","type":"AN"}}"#,
-            "01",
-            ElementDefError::NonCanonicalPosition,
-        ),
-        (
-            r#"{"0":{"name":"a","type":"AN"}}"#,
-            "0",
-            ElementDefError::NonCanonicalPosition,
-        ),
-        (
             r#"{"1":{"name":"","type":"AN"}}"#,
             "1",
             ElementDefError::EmptyName,
@@ -188,16 +177,6 @@ fn bad_element_definitions_are_rejected_with_segment_position_and_reason() {
                 name: "a".into(),
                 first: "1".into(),
             },
-        ),
-        (
-            r#"{"1":{"name":"a","type":"XX"}}"#,
-            "1",
-            ElementDefError::UnknownType { found: "XX".into() },
-        ),
-        (
-            r#"{"1":{"name":"a","type":"N2","scale":2}}"#,
-            "1",
-            ElementDefError::ScaleWithoutR { kind: "N2".into() },
         ),
         (
             r#"{"1":{"name":"a","type":"AN","min":5,"max":2}}"#,
@@ -220,6 +199,14 @@ fn bad_element_definitions_are_rejected_with_segment_position_and_reason() {
             ElementDefError::DuplicateName {
                 name: "b".into(),
                 first: "1".into(),
+            },
+        ),
+        (
+            r#"{"10":{"name":"a","type":"AN"},"2":{"name":"a","type":"AN"}}"#,
+            "10",
+            ElementDefError::DuplicateName {
+                name: "a".into(),
+                first: "2".into(),
             },
         ),
     ];
@@ -324,14 +311,48 @@ fn to_json_round_trips_the_segments_section() {
 }
 
 #[test]
-fn segment_schema_error_displays_the_segment_and_the_serde_message() {
-    let err = SpecError::SegmentSchema {
-        segment: "CLP".into(),
-        source: serde_json::from_value::<RawSegment>(serde_json::json!(1)).unwrap_err(),
-    };
-    assert_eq!(
-        err.to_string(),
-        "segment \"CLP\" does not match the schema: invalid type: integer `1`, expected a segment object"
-    );
-    assert!(std::error::Error::source(&err).is_none());
+fn a_type_or_a_position_the_model_refuses_fails_at_its_path() {
+    let unknown = "type \"XX\" is not one of AN, ID, N0 to N9, R, DT, TM";
+    let rule = "is not a position: positions are 1-based integers written in canonical form";
+    let cases = [
+        (
+            r#"{"1":{"name":"a","type":"XX"}}"#,
+            format!("spec: at segments.AA.elements.1: {unknown}"),
+        ),
+        (
+            r#"{"1":{"name":"a","type":"N2","scale":2}}"#,
+            "spec: at segments.AA.elements.1: \"scale\" applies only to type R; found type \"N2\""
+                .to_string(),
+        ),
+        (
+            r#"{"1":{"name":"a","type":"AN","composite":{"2":{"name":"b","type":"XX"}}}}"#,
+            format!("spec: at segments.AA.elements.1.composite.2: {unknown}"),
+        ),
+        (
+            r#"{"01":{"name":"a","type":"AN"}}"#,
+            format!("spec: at segments.AA.elements: segment \"elements\" key \"01\" {rule}"),
+        ),
+        (
+            r#"{"0":{"name":"a","type":"AN"}}"#,
+            format!("spec: at segments.AA.elements: segment \"elements\" key \"0\" {rule}"),
+        ),
+        (
+            r#"{"1":{"name":"a","type":"AN","composite":{"0":{"name":"b","type":"AN"}}}}"#,
+            format!(
+                "spec: at segments.AA.elements.1.composite: element \"composite\" key \"0\" {rule}"
+            ),
+        ),
+        (
+            r#"{"1":{"name":"","type":"AN"},"2":{"name":"b","type":"XX"}}"#,
+            format!("spec: at segments.AA.elements.2: {unknown}"),
+        ),
+    ];
+    for (elements, text) in cases {
+        let err = element_error(elements);
+        assert!(
+            matches!(err, SpecError::Format { .. }),
+            "{elements}: {err:?}"
+        );
+        assert_eq!(err.to_string(), text, "{elements}");
+    }
 }

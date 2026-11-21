@@ -20,6 +20,7 @@ use serde::{Deserialize, Deserializer};
 use super::sections::{SUMMARY, TEXT};
 use super::segments::{POSITION_RULE, parse_position};
 use super::shape::{Field, check_shape};
+use super::strict::StrictValue;
 use super::{Spec, SpecError};
 use crate::message::render_key;
 use declare::spec_object;
@@ -109,9 +110,9 @@ impl SpecModel {
 
     /// Reads a spec's JSON into its model in one pass; the first value the
     /// model refuses, in key order, fails with [`SpecError::Format`] at its
-    /// path from the spec's root.
+    /// path from the spec's root. An array where it has an object is refused.
     pub(in crate::spec) fn read(source: &serde_json::Value) -> Result<SpecModel, SpecError> {
-        serde_path_to_error::deserialize(source).map_err(|err| SpecError::Format {
+        serde_path_to_error::deserialize(StrictValue(source)).map_err(|err| SpecError::Format {
             path: root_path(err.path()),
             source: err.into_inner(),
         })

@@ -70,6 +70,7 @@ mod schema;
 mod sections;
 mod segments;
 mod shape;
+mod strict;
 mod summaries;
 mod summary_error;
 mod table_error;

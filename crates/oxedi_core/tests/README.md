@@ -22,6 +22,7 @@ goldens (see below).
 ```bash
 UPDATE_GOLDEN=1 cargo test -p oxedi_core --test engine_golden
 UPDATE_GOLDEN=1 cargo test -p oxedi_core --test project_golden
+UPDATE_GOLDEN=1 cargo test -p oxedi_core --test spec_golden
 make sandbox CMD="UPDATE_GOLDEN=1 make py-test"   # pyx12 findings per file (Python suite)
 git diff crates/oxedi_core/tests/golden crates/oxedi_py/tests/golden   # read it: every change must be intended
 ```
@@ -32,6 +33,7 @@ produced, and on a produced one that is missing.
 | Directory | Written by | Content |
 |-----------|------------|---------|
 | `golden/*.events.txt`, `*.summary.txt` | `engine_golden` | Engine events per file. Small files keep every event; the two large samples (`SUMMARY_ONLY` in `common/mod.rs`) keep a count summary. |
+| `golden/spec/` | `spec_golden` | The compiled definitions of each built-in spec and of the edi_835_parser.json patch (loops, segments, tables, balancing, summaries, version, default table), one Debug line each. |
 | `golden/project/` | `project_golden` | Tables (`*.tables.txt`, or `*.tables.summary.txt` for the large samples) and diagnostics (`*.diagnostics.txt`) under the built-in spec. |
 | `golden/project/edi_835_parser/` | `project_golden` | The same tables under the `edi_835_parser.json` patch. |
 | `golden/project/masked/` | `project_golden` | The same, masked with a fixed key and dates reduced to the year; one file also with shifted dates. |
@@ -67,6 +69,7 @@ the ISA-less fragment and every sample.
 | `engine_custom_spec` | A patch captures a segment the built-in spec does not know, and a proprietary loop opens, with no code. | Two fixtures (`trizetto_sample.rmt`, `multi_claim_sample.txt`) |
 | `check_envelope` | The known envelope anomalies, rendered in full, and nothing else. | All files |
 | `spec_selection` | Each file gets the built-in spec of the version its group header declares; the 5010 spec when it declares none the specs know. Also pins the 4010 codes and structure and the `PLB` reason-code checks. | Every fixture and sample except the ISA-less fragment |
+| `spec_golden` | The compiled form of the 5010 and 4010 built-ins and of the edi_835_parser.json patch, whatever loader builds it. | The three specs, `golden/spec/` |
 
 ### Tables: events become rows
 

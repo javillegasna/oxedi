@@ -1,6 +1,6 @@
 //! Balancing rules: amounts that must add up inside one instance of a loop,
 //! their compilation against the loops and the `segments` section, and the
-//! text that describes them in messages. Their JSON shape is in `schema`.
+//! text that describes them in messages. Their JSON shape is in `model/rules.rs`.
 //!
 //! A rule names the loop whose every instance it checks (`per`), a `target`
 //! and a `sum`, each a list of signed values. A value reads one or more

@@ -130,10 +130,10 @@ The spec files live in `crates/oxedi_core/specs/`:
 | File | What it is | Who loads it |
 |---|---|---|
 | `835.json` | The 5010 spec: `name`, `version`, `loops`, `segments`, `tables`, `balancing`, `summaries`, `default_table`. | `Spec::builtin_835` (`include_str!` in `spec/mod.rs`) |
-| `835.4010.json` | A JSON Merge Patch (RFC 7386) over `835.json` that gives the 4010 version. | `Spec::builtin_835_4010` |
+| `835.4010.json` | A JSON Merge Patch (RFC 7386) over `835.json` that gives the 4010 version. | `Builtin` (`spec/builtin.rs`): the 5010 model with this patch merged over it |
 | `edi_835_parser.json` | A patch with the tables of the `edi-835-parser` compatibility layer. | `crates/oxedi_py/src/lib.rs`, pinned by `tests/project_golden.rs` |
 
-Loading goes `Spec::from_json` → `Spec::from_value` (`spec/build.rs`):
+Loading goes `SpecModel::from_json` (steps 1 and 2, `spec/model/`) → `SpecModel::compile` (`Spec::build`, steps 3 and 4, `spec/build.rs`); `Spec::from_json` does both:
 
 1. `shape.rs` checks the JSON shape against the schema as data: one table of
    keys per object, the root's rows being the sections. Each object's declaration in
@@ -150,13 +150,15 @@ Loading goes `Spec::from_json` → `Spec::from_value` (`spec/build.rs`):
    with a `ColumnSource` per column, `BalanceRule`, `Summary`. The engine compares indices,
    never strings.
 
-`Spec::model` reads a loaded spec into `SpecModel` (`spec/model/`), the checked way to read a
-spec as typed data; a serde read of a model checks only its shape and its position keys.
-`Spec::from_model` writes the model to JSON and loads it through the same steps. A model writes no
-default and no `null`.
+`SpecModel::from_json` reads a spec as typed data (the shape check, then the model; a serde read of
+a model checks only its shape and its position keys) and `SpecModel::compile` checks the rest. A
+model writes no default and no `null`.
 
-`Spec::merge_patch` (`spec/patch.rs`) applies a patch to the spec's JSON and loads the result
-again, so a patched spec goes through the same checks as a new one.
+`LoadedSpec` (`spec/loaded.rs`) keeps the model beside the spec compiled from it.
+`LoadedSpec::merge_patch` (`spec/patch.rs`) applies a patch to the model's canonical JSON, reads it
+back and compiles it again, so a patched spec goes through the same checks as a new one. The
+built-ins are loaded as `LoadedSpec`s and keep only the spec (`Builtin::model` reads the model on demand): 4010 is the 5010 model with its patch merged over
+it. `Spec::merge_patch` still patches the JSON a spec keeps.
 
 Most JSON keys keep their name in code (`TableDef::loops`, `LoopDef::end`). A table's `ref`
 becomes `TableDef::reference`, the name child rows use to point at it. Comments, helpers and a
@@ -258,6 +260,7 @@ Internal words used in the code. X12 and payment terms for users are in
 | document | The whole input plus one span per segment; segments parsed on demand. | `document/` |
 | spec | The JSON description of loops, segments, tables and balancing, compiled to index-based definitions. | `spec/`, `specs/*.json` |
 | spec model | The spec as typed data a program builds and writes, shared with the loader. | `spec/model/` |
+| loaded spec | A spec's model beside the spec compiled from it. | `spec/loaded.rs` |
 | patch | An RFC 7386 JSON Merge Patch over a spec (`835.4010.json`, `edi_835_parser.json`). | `spec/patch.rs` |
 | built-in | The shipped 5010 spec and its 4010 patch, chosen by `Builtin::select` from `GS08`; the registry is `Builtin::all`, each entry with a typed `Version`. | `spec/builtin.rs`, `spec/version.rs` |
 | trigger | The segment (and element conditions) that opens a loop. | `spec/loops.rs` |

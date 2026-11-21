@@ -2,7 +2,7 @@
 
 use std::fmt;
 
-use super::phi::ColumnKind;
+use super::ColumnKind;
 use super::render::{Declared, render_chain};
 use crate::message::ElementRef;
 use crate::vocabulary::Pick;

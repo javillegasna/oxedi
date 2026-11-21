@@ -17,7 +17,7 @@ mod lineage;
 mod paths;
 
 pub use instance::{Instance, InstanceId};
-pub use lineage::lineage;
+pub use lineage::{lineage, named_lineage};
 pub use paths::loop_paths;
 
 use crate::segment::Segment;
@@ -76,6 +76,19 @@ pub enum Event {
 }
 
 impl Event {
+    /// The instance the event is about: the one opened, closed or capturing,
+    /// or the one an unmatched segment fell in. `None` for an empty segment
+    /// and for an unmatched one at the top level.
+    pub fn instance(&self) -> Option<Instance> {
+        match *self {
+            Self::LoopOpened { instance, .. }
+            | Self::LoopClosed { instance }
+            | Self::Captured { instance, .. } => Some(instance),
+            Self::Unmatched { within, .. } => within,
+            Self::Empty { .. } => None,
+        }
+    }
+
     /// Whether this event closes an occurrence of `loop_id`.
     pub fn closes(&self, loop_id: LoopId) -> bool {
         matches!(self, Self::LoopClosed { instance } if instance.loop_id == loop_id)

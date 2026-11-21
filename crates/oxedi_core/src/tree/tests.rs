@@ -227,3 +227,49 @@ fn an_unmatched_segment_at_the_top_level_goes_to_the_root() {
     let (_, tree) = tree(b"ZZ~");
     assert_eq!(tree.node(tree.root()).unmatched, vec![0]);
 }
+
+#[test]
+fn a_segment_goes_to_the_instance_it_names_not_the_last_one_opened() {
+    let spec = nested();
+    let a = Instance {
+        id: InstanceId::at(0),
+        loop_id: spec.loop_id("A").unwrap(),
+        ordinal_in_stream: 1,
+        parent: None,
+    };
+    let b = Instance {
+        id: InstanceId::at(1),
+        loop_id: spec.loop_id("B").unwrap(),
+        ordinal_in_stream: 1,
+        parent: Some(a.id),
+    };
+    let mut builder = LoopTree::builder();
+    builder.on(&[
+        Event::LoopOpened {
+            instance: a,
+            implicit: false,
+            segment: 0,
+        },
+        Event::LoopOpened {
+            instance: b,
+            implicit: false,
+            segment: 1,
+        },
+        Event::Captured {
+            instance: a,
+            segment: 2,
+            occurrence: None,
+        },
+        Event::Unmatched {
+            segment: 3,
+            within: Some(a),
+        },
+    ]);
+    let tree = builder.finish();
+    let root = tree.node(tree.root());
+    let a_node = tree.node(root.children[0]);
+    assert_eq!(a_node.segments, vec![2]);
+    assert_eq!(a_node.unmatched, vec![3]);
+    let b_node = tree.node(a_node.children[0]);
+    assert!(b_node.segments.is_empty() && b_node.unmatched.is_empty());
+}

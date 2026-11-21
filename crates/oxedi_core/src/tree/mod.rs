@@ -42,11 +42,13 @@ pub struct Node {
     pub children: Vec<NodeId>,
     /// Indices of the segments captured here, in stream order.
     pub segments: Vec<usize>,
-    /// Indices of the segments no loop could hold while this node was current.
+    /// Indices of the segments no loop could hold, reported within this
+    /// instance (the innermost open one when they were read); the root holds
+    /// those reported at the top level or within an instance never opened.
     pub unmatched: Vec<usize>,
 }
 
-/// Loop instances of one stream.
+/// Loop instances of the streams folded into it.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct LoopTree {
     nodes: Vec<Node>,
@@ -60,7 +62,7 @@ pub struct LoopTree {
 pub struct TreeBuilder {
     tree: LoopTree,
     /// The node of each opened instance, indexed by [`InstanceId::index`].
-    by_instance: Vec<NodeId>,
+    by_instance: Vec<Option<NodeId>>,
 }
 
 impl TreeBuilder {
@@ -80,15 +82,16 @@ impl TreeBuilder {
     fn node_of(&self, id: Option<InstanceId>) -> NodeId {
         id.and_then(|id| self.by_instance.get(id.index()))
             .copied()
+            .flatten()
             .unwrap_or(NodeId(0))
     }
 
     /// Records `node` as the node of instance `id`, replacing an older entry.
     fn bind(&mut self, id: InstanceId, node: NodeId) {
         if self.by_instance.len() <= id.index() {
-            self.by_instance.resize(id.index() + 1, NodeId(0));
+            self.by_instance.resize(id.index() + 1, None);
         }
-        self.by_instance[id.index()] = node;
+        self.by_instance[id.index()] = Some(node);
     }
 
     fn apply(&mut self, event: Event) {

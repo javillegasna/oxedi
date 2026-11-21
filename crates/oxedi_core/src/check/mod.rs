@@ -40,6 +40,8 @@ struct Open {
     /// Where the instance's counts start in the checker's `counts`: one per
     /// occurrence of its loop, then one per child loop.
     counts: usize,
+    /// Where the counts of its child loops start in the checker's `counts`.
+    child_counts: usize,
     /// The occurrence with the highest position seen in the instance, as
     /// `(loop, index in its occurrences, position)`.
     last: Option<Seen>,
@@ -173,11 +175,7 @@ impl<'s> StructureChecker<'s> {
             parent.children = parent.children.saturating_add(1);
         }
         let opening = self.count_instance(id, implicit);
-        let counts = self.counts.len();
-        let slots = self.layouts.get(id.index()).map_or(0, |layout| {
-            layout.occurrences.saturating_add(layout.children)
-        });
-        self.counts.resize(counts.saturating_add(slots), 0);
+        let (counts, child_counts) = self.reserve_counts(id);
         let number = self.opener_number(id, implicit, segment);
         let missing_opener = number
             .as_ref()
@@ -192,6 +190,7 @@ impl<'s> StructureChecker<'s> {
             control_number: number.and_then(Result::ok),
             ended: false,
             counts,
+            child_counts,
             last: None,
             inner: None,
         });

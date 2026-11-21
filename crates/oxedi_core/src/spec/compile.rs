@@ -1,11 +1,10 @@
 //! Compilation of the `tables` section into table definitions.
 
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, BTreeSet};
 
 use serde::Deserialize;
 use serde_json::Value;
 
-use super::Spec;
 use super::columns::{check_held, compile_column};
 use super::error::SpecError;
 use super::loops::LoopId;
@@ -15,6 +14,7 @@ use super::segments::{ROW_COLUMN, SEGMENT_COLUMN};
 use super::shape::section;
 use super::table_error::{AnchorChains, TableDefError};
 use super::tables::{Repeat, TableDef};
+use super::{RepeatModel, Spec};
 use crate::message::render_key;
 
 /// Compiles the `tables` section against the loops of `spec`, then links
@@ -42,101 +42,234 @@ fn compile_table(
     def: &RawTable,
     value: &Value,
 ) -> Result<TableDef, SpecError> {
-    let fail = |reason| SpecError::BadTable {
-        table: name.to_string(),
-        column: None,
-        reason,
-    };
-    if name.is_empty() {
-        return Err(fail(TableDefError::EmptyName { what: "table name" }));
+    let mut build = TableBuild::new(spec, name, def, value);
+    TABLE_STEPS.iter().try_for_each(|step| step(&mut build))?;
+    Ok(build.table)
+}
+
+/// A table while it compiles: its inputs, and the definition the steps fill
+/// in order.
+struct TableBuild<'a> {
+    spec: &'a Spec,
+    name: &'a str,
+    def: &'a RawTable,
+    value: &'a Value,
+    /// The table so far; each step sets the fields it owns.
+    table: TableDef,
+    /// The `phi` each column writes, parallel to `table.columns`.
+    written: Vec<Option<String>>,
+}
+
+type TableStep = fn(&mut TableBuild<'_>) -> Result<(), SpecError>;
+
+/// The table compile steps, in the order they run; the first error wins.
+const TABLE_STEPS: [TableStep; 8] = [
+    check_name,
+    resolve_anchors,
+    resolve_reference,
+    resolve_segment,
+    compile_repeat,
+    check_anchors,
+    compile_columns,
+    compile_table_phi,
+];
+
+impl<'a> TableBuild<'a> {
+    fn new(spec: &'a Spec, name: &'a str, def: &'a RawTable, value: &'a Value) -> Self {
+        let table = TableDef {
+            name: name.to_string(),
+            reference: name.to_string(),
+            loops: Vec::with_capacity(def.loops.len()),
+            segment: None,
+            repeat: None,
+            columns: Vec::with_capacity(def.columns.len()),
+            parent: None,
+            ancestors: Vec::new(),
+            phi: Vec::new(),
+            phi_seed: None,
+        };
+        TableBuild {
+            spec,
+            name,
+            def,
+            value,
+            table,
+            written: Vec::with_capacity(def.columns.len()),
+        }
     }
-    if def.loops.is_empty() {
-        return Err(fail(TableDefError::NoLoops));
+
+    fn fail(&self, reason: TableDefError) -> SpecError {
+        SpecError::BadTable {
+            table: self.name.to_string(),
+            column: None,
+            reason,
+        }
     }
-    let mut loops = Vec::with_capacity(def.loops.len());
-    for loop_name in &def.loops {
-        let id = spec.loop_id(loop_name).ok_or_else(|| {
-            fail(TableDefError::UnknownLoop {
+}
+
+impl Repeat {
+    /// Checks a table's `repeat`: it needs the table's `segment`, a 1-based
+    /// `from` and a non-zero `step`.
+    fn compile(raw: &RepeatModel, segment: Option<&[u8]>) -> Result<Repeat, TableDefError> {
+        if segment.is_none() {
+            return Err(TableDefError::RepeatWithoutSegment);
+        }
+        if raw.from == 0 {
+            return Err(TableDefError::ZeroPosition { key: "repeat.from" });
+        }
+        if raw.step == 0 {
+            return Err(TableDefError::ZeroStep);
+        }
+        Ok(Repeat {
+            from: raw.from,
+            step: raw.step,
+        })
+    }
+}
+
+fn check_name(build: &mut TableBuild<'_>) -> Result<(), SpecError> {
+    if build.name.is_empty() {
+        return Err(build.fail(TableDefError::EmptyName { what: "table name" }));
+    }
+    Ok(())
+}
+
+/// Resolves the anchor loops; a loop named twice is refused through a set of
+/// the ids seen so far.
+fn resolve_anchors(build: &mut TableBuild<'_>) -> Result<(), SpecError> {
+    if build.def.loops.is_empty() {
+        return Err(build.fail(TableDefError::NoLoops));
+    }
+    let mut seen = BTreeSet::new();
+    for loop_name in &build.def.loops {
+        let id = build.spec.loop_id(loop_name).ok_or_else(|| {
+            build.fail(TableDefError::UnknownLoop {
                 name: loop_name.clone(),
             })
         })?;
-        if loops.contains(&id) {
-            return Err(fail(TableDefError::DuplicateLoop {
+        if !seen.insert(id) {
+            return Err(build.fail(TableDefError::DuplicateLoop {
                 loop_name: loop_name.clone(),
             }));
         }
-        loops.push(id);
+        build.table.loops.push(id);
     }
-    let reference = def.reference.clone().unwrap_or_else(|| name.to_string());
+    Ok(())
+}
+
+fn resolve_reference(build: &mut TableBuild<'_>) -> Result<(), SpecError> {
+    let reference = build
+        .def
+        .reference
+        .clone()
+        .unwrap_or_else(|| build.name.to_string());
     if reference.is_empty() {
-        return Err(fail(TableDefError::EmptyName { what: "ref" }));
+        return Err(build.fail(TableDefError::EmptyName { what: "ref" }));
     }
     if reference == ROW_COLUMN || reference == SEGMENT_COLUMN {
-        return Err(fail(TableDefError::ReservedName { name: reference }));
+        return Err(build.fail(TableDefError::ReservedName { name: reference }));
     }
-    let segment = match def.segment.as_deref() {
+    build.table.reference = reference;
+    Ok(())
+}
+
+fn resolve_segment(build: &mut TableBuild<'_>) -> Result<(), SpecError> {
+    build.table.segment = match build.def.segment.as_deref() {
         None => None,
         Some("") => {
             return Err(SpecError::EmptySegmentId {
                 loop_name: None,
-                key: format!("tables.{}.segment", render_key(name)),
+                key: format!("tables.{}.segment", render_key(build.name)),
             });
         }
         Some(id) => Some(id.as_bytes().to_vec()),
     };
-    let repeat = match &def.repeat {
-        None => None,
-        Some(_) if segment.is_none() => return Err(fail(TableDefError::RepeatWithoutSegment)),
-        Some(raw) if raw.from == 0 => {
-            return Err(fail(TableDefError::ZeroPosition { key: "repeat.from" }));
-        }
-        Some(raw) if raw.step == 0 => return Err(fail(TableDefError::ZeroStep)),
-        Some(raw) => Some(Repeat {
-            from: raw.from,
-            step: raw.step,
-        }),
+    Ok(())
+}
+
+fn compile_repeat(build: &mut TableBuild<'_>) -> Result<(), SpecError> {
+    let segment = build.table.segment.as_deref();
+    build.table.repeat = build
+        .def
+        .repeat
+        .as_ref()
+        .map(|raw| Repeat::compile(raw, segment))
+        .transpose()
+        .map_err(|reason| build.fail(reason))?;
+    Ok(())
+}
+
+/// A table on a segment needs every anchor to hold it; one without a segment
+/// needs anchors none of which sits inside another.
+fn check_anchors(build: &mut TableBuild<'_>) -> Result<(), SpecError> {
+    let table = &build.table;
+    let Some(anchor) = &table.segment else {
+        return check_nested_anchors(build);
     };
-    if let Some(anchor) = &segment {
-        check_held(spec, &loops, anchor).map_err(fail)?;
+    check_held(build.spec, &table.loops, anchor).map_err(|reason| build.fail(reason))
+}
+
+/// Reports the first anchor (in order) that is an ancestor of another anchor,
+/// with the first anchor below it. One pass records, for every ancestor, the
+/// first anchor under it; a lookup per anchor then finds the pair.
+fn check_nested_anchors(build: &TableBuild<'_>) -> Result<(), SpecError> {
+    let (spec, loops) = (build.spec, &build.table.loops);
+    let mut below = BTreeMap::new();
+    for (ancestor, inner) in loops
+        .iter()
+        .flat_map(|&inner| spec.ancestors(inner).into_iter().map(move |a| (a, inner)))
+    {
+        below.entry(ancestor).or_insert(inner);
     }
-    if segment.is_none() {
-        for &a in &loops {
-            for &b in &loops {
-                if spec.ancestors(b).contains(&a) {
-                    return Err(fail(TableDefError::NestedAnchors {
-                        outer: spec.loop_name(a).to_string(),
-                        inner: spec.loop_name(b).to_string(),
-                    }));
-                }
-            }
-        }
+    match loops
+        .iter()
+        .find_map(|outer| below.get(outer).map(|inner| (*outer, *inner)))
+    {
+        Some((outer, inner)) => Err(build.fail(TableDefError::NestedAnchors {
+            outer: spec.loop_name(outer).to_string(),
+            inner: spec.loop_name(inner).to_string(),
+        })),
+        None => Ok(()),
     }
-    let mut columns = Vec::with_capacity(def.columns.len());
-    let mut written = Vec::with_capacity(def.columns.len());
+}
+
+fn compile_columns(build: &mut TableBuild<'_>) -> Result<(), SpecError> {
+    let TableBuild {
+        spec,
+        name,
+        value,
+        table,
+        written,
+        ..
+    } = build;
     for (column, value) in section(value, "columns") {
         let raw = RawColumn::deserialize(value).map_err(|e| SpecError::TableSchema {
             table: name.to_string(),
             column: Some(column.to_string()),
             source: e,
         })?;
-        let source = compile_column(spec, name, column, &raw, &loops, segment.as_deref(), repeat)?;
-        columns.push((column.to_string(), source));
+        let source = compile_column(
+            spec,
+            name,
+            column,
+            &raw,
+            &table.loops,
+            table.segment.as_deref(),
+            table.repeat,
+        )?;
+        table.columns.push((column.to_string(), source));
         written.push(raw.phi);
     }
-    let mut table = TableDef {
-        name: name.to_string(),
-        reference,
-        loops,
-        segment,
-        repeat,
-        columns,
-        parent: None,
-        ancestors: Vec::new(),
-        phi: Vec::new(),
-        phi_seed: None,
-    };
-    compile_phi(spec, &mut table, &written, def.phi_seed.as_deref())?;
-    Ok(table)
+    Ok(())
+}
+
+fn compile_table_phi(build: &mut TableBuild<'_>) -> Result<(), SpecError> {
+    compile_phi(
+        build.spec,
+        &mut build.table,
+        &build.written,
+        build.def.phi_seed.as_deref(),
+    )
 }
 
 /// Rejects a loop anchoring two tables without `segment` and a `ref` used

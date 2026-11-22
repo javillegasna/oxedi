@@ -3,7 +3,8 @@
 use super::{delimiters, spec};
 use crate::project::Projector;
 use crate::spec::test_support::{builtin, patched};
-use crate::spec::{Spec, TableSchema, Version, spec_schema};
+use crate::spec::{Spec, TableSchema, spec_schema};
+use crate::spec_load::Version;
 use crate::value::ColumnType;
 
 /// The names and types of the tables a projector that saw no segment holds.

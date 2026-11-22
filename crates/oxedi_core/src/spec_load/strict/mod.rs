@@ -15,7 +15,7 @@ use serde_json::{Error, Map, Value};
 mod tests;
 
 #[derive(Clone, Copy)]
-pub(in crate::spec) struct StrictValue<'de>(pub(in crate::spec) &'de Value);
+pub(in crate::spec_load) struct StrictValue<'de>(pub(in crate::spec_load) &'de Value);
 
 // One instantiation per visitor, and the visitor's expectation words a refusal.
 macro_rules! forward_to_any {

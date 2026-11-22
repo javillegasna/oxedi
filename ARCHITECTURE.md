@@ -89,7 +89,7 @@ The loop tree is not built by the processor. A caller that wants it folds the ev
 `TreeBuilder` in the same pass (the viewer does, in `crates/oxedi_wasm/src/view/mod.rs`) or
 calls `LoopTree::build`.
 
-Which spec reads a file: the bindings call `Builtin::select` (`spec/builtin.rs`), which picks the
+Which spec reads a file: the bindings call `Builtin::select` (`spec_load/builtin.rs`), which picks the
 built-in spec from the version the file declares in `GS08` (sharing the choice code of
 `Spec::select`, `spec/version.rs`) and falls back to `Builtin::fallback`; `Builtin::find` looks one
 up by transaction and version.
@@ -129,21 +129,21 @@ The spec files live in `crates/oxedi_core/specs/`:
 
 | File | What it is | Who loads it |
 |---|---|---|
-| `835.json` | The 5010 spec: `name`, `version`, `loops`, `segments`, `tables`, `balancing`, `summaries`, `default_table`. | `Spec::builtin_835` (`include_str!` in `spec/builtin.rs`) |
-| `835.4010.json` | A JSON Merge Patch (RFC 7386) over `835.json` that gives the 4010 version. | `Builtin` (`spec/builtin.rs`): the 5010 JSON with this patch merged over it |
+| `835.json` | The 5010 spec: `name`, `version`, `loops`, `segments`, `tables`, `balancing`, `summaries`, `default_table`. | `Spec::builtin_835` (`include_str!` in `spec_load/builtin.rs`) |
+| `835.4010.json` | A JSON Merge Patch (RFC 7386) over `835.json` that gives the 4010 version. | `Builtin` (`spec_load/builtin.rs`): the 5010 JSON with this patch merged over it |
 | `edi_835_parser.json` | A patch with the tables of the `edi-835-parser` compatibility layer. | `crates/oxedi_py/src/lib.rs`, pinned by `tests/project_golden.rs` |
 
-Loading goes `SpecModel::from_json` (step 1, `spec/model/`) → `SpecModel::compile` (`Spec::build`, steps 2 and 3, `spec/build.rs`); `Spec::from_json` does both:
+Loading goes `SpecModel::from_json` (step 1, `spec_load/model/`) → `SpecModel::compile` (`Spec::build`, steps 2 and 3, `spec_load/build.rs`); `Spec::from_json` does both:
 
 1. The whole spec is read once as its `SpecModel` through `serde_path_to_error`, the top level
-   included: each object's `spec_object!` declaration in `spec/model/` emits a model that refuses
+   included: each object's `spec_object!` declaration in `spec_load/model/` emits a model that refuses
    an unknown key and a missing required one. The first value it refuses, in key order, is
    `SpecError::Format`, at its path from the root (`.` for the root itself); `Pick`
    (`vocabulary/pick.rs`) reads through its own visitor.
 2. `build.rs` runs the compile steps in order over that model, one per section or structural check:
    loops (`build_loops.rs`: keys, parent, trigger, control), segments, occurrences (`build_occurrences.rs`), the
-   occurrence index (`occurrence_index.rs`), the version, trigger ambiguity, tables, balancing,
-   summaries (`summaries.rs`) and the default table; `spec/mod.rs` lists which file holds what.
+   occurrence index (`spec/occurrence_index.rs`), the version, trigger ambiguity, tables, balancing,
+   summaries (`summaries.rs`) and the default table; `spec_load/mod.rs` lists which file holds what.
 3. The result is index-based: `LoopDef` (by `LoopId`), `SegmentDef`, `ElementDef`, `TableDef`
    with a `ColumnSource` per column, `BalanceRule`, `Summary`. The engine compares indices,
    never strings.
@@ -152,8 +152,8 @@ Loading goes `SpecModel::from_json` (step 1, `spec/model/`) → `SpecModel::comp
 a model checks only its shape and its position keys) and `SpecModel::compile` checks the rest. A
 model writes no default and no `null`.
 
-`LoadedSpec` (`spec/loaded.rs`) keeps the model beside the spec compiled from it.
-`LoadedSpec::merge_patch` (`spec/patch.rs`) applies a patch to the model's canonical JSON, reads it
+`LoadedSpec` (`spec_load/loaded.rs`) keeps the model beside the spec compiled from it.
+`LoadedSpec::merge_patch` (`spec_load/patch.rs`) applies a patch to the model's canonical JSON, reads it
 back and compiles it again, so a patched spec goes through the same checks as a new one. A
 compiled `Spec` keeps no JSON: patching, writing back and the model live on the loading side.
 The built-ins keep their spec and the JSON they ship (`include_str!`; 4010 is the 5010 JSON with
@@ -171,7 +171,7 @@ Every key is listed in [the spec keys reference](docs/customize/spec.md#spec-key
 | I want to… | Start in | Then |
 |---|---|---|
 | Add a column to a built-in table | `tables.<table>.columns` in `crates/oxedi_core/specs/835.json` | `UPDATE_GOLDEN=1 cargo test -p oxedi_core --test project_golden`, review the diff; document it in `docs/reference/tables.md` |
-| Add a key to the spec format | a row in the object's `spec_object!` declaration in `spec/model/` (field, model type, presence word); for an element, a field of `ElementModel` plus `ELEMENT_MODEL_KEYS` (both in `spec/model/segments.rs`, pinned in `spec/tests/model.rs`); for a summary operation, a field of `SummaryKeys` and its model in `spec/model/rules.rs` | Compile it in `spec/build.rs` or `spec/compile.rs`; a new error in `spec/error.rs` (`SpecError`), or in `occurrence_error.rs`, `table_error.rs` or `balance_error.rs` when it is about one of those, with its `Display` test in `spec/tests/`; add the key to `docs/customize/spec.md`; a closed word implements `Vocabulary` (`vocabulary/`) in `spec/vocabulary.rs` |
+| Add a key to the spec format | a row in the object's `spec_object!` declaration in `spec_load/model/` (field, model type, presence word); for an element, a field of `ElementModel` plus `ELEMENT_MODEL_KEYS` (both in `spec_load/model/segments.rs`, pinned in `spec/tests/model.rs`); for a summary operation, a field of `SummaryKeys` and its model in `spec_load/model/rules.rs` | Compile it in `spec_load/build.rs` or `spec_load/compile.rs`; a new error in `spec_load/error.rs` (`SpecError`), or in `occurrence_error.rs`, `table_error.rs` or `balance_error.rs` when it is about one of those, with its `Display` test in `spec/tests/`; add the key to `docs/customize/spec.md`; a closed word implements `Vocabulary` (`vocabulary/`) in `spec_load/vocabulary.rs` |
 | Change how a message names an element, a set of conditions or a list of names, or quotes file bytes or a key | `message/mod.rs` | `message/tests.rs`; the `Display` tests of the messages that use it |
 | Add a diagnostic rule | `diagnostic/rule.rs` (`Rule` variant, `level`, `kind`, and `segment_id` when the rule is about one segment's elements, so its datum can be masked) and `diagnostic/display.rs` (message, written over the pieces of `diagnostic/text.rs` and `message/`) | Raise it in `check/` (structure) or `project/check.rs` (elements); a full-text `Display` test in `diagnostic/tests.rs` |
 | Change an element check | `project/check.rs` | `cargo test -p oxedi_core --lib project::`, then both golden suites |
@@ -180,7 +180,7 @@ Every key is listed in [the spec keys reference](docs/customize/spec.md#spec-key
 | Add a value type | `ElementType` in `value/element_type.rs`; `ColumnType` in `value/column_type.rs`; `ColumnData` and `render` in `column/mod.rs`; a parser in `value/parse.rs`; its text, displayed and as an element, in `value/format.rs` | Core writer in `write/render.rs` and `write/data.rs`; DuckDB `types/`, `scan/write.rs` and `copy/`; Python `arrow.rs`, `import.rs` and `native.rs` |
 | Refuse a spec the writer cannot write | `write/refusal.rs` (`Refusal`) | Raise it in the compile pass that finds it; `Display` test in `write/tests/display.rs` |
 | Report a new problem in written tables | `write/finding.rs` (`Finding`) | Raise it where the writer meets it (`write/nest.rs` for references, `write/emit.rs` and `write/cells.rs` while writing); test in `tests/write_findings.rs` |
-| Change patient-data masking | `mask/` (tokens, dates), `vocabulary/` (`Phi`, `DateMode`), `project/mask.rs` (columns and datums) | `spec/phi.rs` for the flags; `tests/mask.rs` |
+| Change patient-data masking | `mask/` (tokens, dates), `vocabulary/` (`Phi`, `DateMode`), `project/mask.rs` (columns and datums) | `spec_load/phi.rs` for the flags; `tests/mask.rs` |
 | Add or change a Python attribute | the file in `crates/oxedi_py/src/` with `#[pyclass(name = "X")]` (files are by topic: `Result` is in `parse.rs`), plus `python/oxedi/` when a Python wrapper is involved | `make stubs`, `make stubtest`, a test in `crates/oxedi_py/tests/` |
 | Add a `read_835` parameter | `crates/oxedi_duckdb/src/options/mod.rs` | An error in `error/` with its `Display` test; a SQLLogicTest in `crates/oxedi_duckdb/test/sql/` |
 | Change the viewer | `viewer/js/` (page), `crates/oxedi_wasm/src/view/` (JSON it reads) | `make viewer-units`, `make viewer-test` |
@@ -258,11 +258,11 @@ Internal words used in the code. X12 and payment terms for users are in
 |---|---|---|
 | frame | The byte range of one segment, found knowing only the segment terminator and the release byte (`SegmentEnd`). | `frame/` |
 | document | The whole input plus one span per segment; segments parsed on demand. | `document/` |
-| spec | The JSON description of loops, segments, tables and balancing, compiled to index-based definitions. | `spec/`, `specs/*.json` |
-| spec model | The spec as typed data a program builds and writes, shared with the loader. | `spec/model/` |
-| loaded spec | A spec's model beside the spec compiled from it. | `spec/loaded.rs` |
-| patch | An RFC 7386 JSON Merge Patch over a spec (`835.4010.json`, `edi_835_parser.json`). | `spec/patch.rs` |
-| built-in | The shipped 5010 spec and its 4010 patch, chosen by `Builtin::select` from `GS08`; the registry is `Builtin::all`, each entry with a typed `Version`. | `spec/builtin.rs`, `spec/version.rs` |
+| spec | The JSON description of loops, segments, tables and balancing, compiled to index-based definitions. | `spec/`, `spec_load/`, `specs/*.json` |
+| spec model | The spec as typed data a program builds and writes, shared with the loader. | `spec_load/model/` |
+| loaded spec | A spec's model beside the spec compiled from it. | `spec_load/loaded.rs` |
+| patch | An RFC 7386 JSON Merge Patch over a spec (`835.4010.json`, `edi_835_parser.json`). | `spec_load/patch.rs` |
+| built-in | The shipped 5010 spec and its 4010 patch, chosen by `Builtin::select` from `GS08`; the registry is `Builtin::all`, each entry with a typed `Version`. | `spec_load/builtin.rs`, `spec/version.rs` |
 | trigger | The segment (and element conditions) that opens a loop. | `spec/loops.rs` |
 | occurrence | A named segment slot of a loop: position, usage, maximum repeat, qualifier, code lists. The JSON key is `occurrences`. | `spec/occurrences.rs` |
 | end / closer, opener | A loop's end segment (JSON `end`). For control checks, the trigger (opener) and end (closer) segments whose control numbers must match. | `spec/loops.rs` (`Control`) |
@@ -282,10 +282,10 @@ Internal words used in the code. X12 and payment terms for users are in
 | datum | The offending value exactly as written in the file. | `Diagnostic::datum` |
 | path | The open loops at the diagnostic, outermost first, each with its ordinal. | `Diagnostic::path` |
 | origin | Which validator produced a diagnostic (`oxedi`, or for example `pyx12`). | `Rule::External` |
-| balancing | Amounts that must add up inside a loop instance (charge − payment = adjustments). | `spec/balance_rule.rs`, `spec/balance.rs`, `check/balance.rs` |
-| vocabulary | The closed words a typed value is written as (`Vocabulary`), one table each; `Phi`, `DateMode` and `Pick` live with the trait. | `vocabulary/`, `spec/vocabulary.rs` |
-| summary | A named figure the spec declares over its tables (a count, a distinct count, a sum, the fields of one row); `summarize` computes it. | `spec/summaries.rs`, `summary/` |
-| PHI / mask / phi seed | Patient-data columns flagged in the spec (`Phi`); a keyed digest replaces them; the seed column keys the date shift. User docs say "patient data". | `vocabulary/` (`Phi`), `mask/`, `spec/phi.rs`, `project/mask.rs` |
+| balancing | Amounts that must add up inside a loop instance (charge − payment = adjustments). | `spec/balance_rule.rs`, `spec_load/balance.rs`, `check/balance.rs` |
+| vocabulary | The closed words a typed value is written as (`Vocabulary`), one table each; `Phi`, `DateMode` and `Pick` live with the trait. | `vocabulary/`, `spec_load/vocabulary.rs` |
+| summary | A named figure the spec declares over its tables (a count, a distinct count, a sum, the fields of one row); `summarize` computes it. | `spec_load/summaries.rs`, `summary/` |
+| PHI / mask / phi seed | Patient-data columns flagged in the spec (`Phi`); a keyed digest replaces them; the seed column keys the date shift. User docs say "patient data". | `vocabulary/` (`Phi`), `mask/`, `spec_load/phi.rs`, `project/mask.rs` |
 | write plan | Where each written loop instance and element value comes from; depends only on the spec, built at the start of each write. | `write/plan.rs`, `write/build.rs` |
 | refusal | Why a **spec** cannot be written (`Refusal`, collected in `PlanError`). | `write/refusal.rs` |
 | finding | Something wrong in the **tables or the written file** (`Finding`); strict writing turns findings into `WriteError::Findings`. In prose, "diagnostic" is a reading result and "finding" a writing or external-validator result. | `write/finding.rs` |

@@ -5,7 +5,7 @@ use std::collections::BTreeMap;
 
 use serde_json::{from_value, json};
 
-use crate::spec::{ColumnModel, LoopModel, SpecModel, TableModel, TriggerModel};
+use crate::spec_load::{ColumnModel, LoopModel, SpecModel, TableModel, TriggerModel};
 
 #[test]
 fn a_table_and_its_columns_write_no_default_and_no_null() {

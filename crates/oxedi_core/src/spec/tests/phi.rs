@@ -3,6 +3,7 @@
 use super::assert_model_faults;
 use crate::spec::test_support::{builtin, patched};
 use crate::spec::*;
+use crate::spec_load::*;
 use crate::value::ElementType;
 use crate::{Phi, SpecError};
 

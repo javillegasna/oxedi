@@ -50,7 +50,7 @@ impl Spec {
     }
 
     /// Compiles `model`.
-    pub(in crate::spec) fn build(model: &SpecModel) -> Result<Spec, SpecError> {
+    pub(in crate::spec_load) fn build(model: &SpecModel) -> Result<Spec, SpecError> {
         let mut build = Build::new(model)?;
         STEPS.iter().try_for_each(|step| step(&mut build))?;
         Ok(build.spec)

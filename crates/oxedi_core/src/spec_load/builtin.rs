@@ -81,7 +81,7 @@ pub struct Builtin {
 
 impl Builtin {
     /// The built-in's JSON as it ships, its patch merged over its base.
-    pub(in crate::spec) fn json(&self) -> Result<Value, SpecError> {
+    pub(in crate::spec_load) fn json(&self) -> Result<Value, SpecError> {
         self.shipped.value()
     }
 

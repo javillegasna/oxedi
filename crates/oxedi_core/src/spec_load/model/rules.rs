@@ -5,7 +5,8 @@ use serde::{Deserialize, Serialize};
 
 use super::declare::spec_object;
 use super::present;
-use crate::spec::{Sign, SummaryDefError};
+use crate::spec::Sign;
+use crate::spec_load::SummaryDefError;
 
 spec_object! {
     /// The element of a segment that declares the version a file is written in,

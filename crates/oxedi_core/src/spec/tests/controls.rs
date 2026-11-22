@@ -1,6 +1,7 @@
 //! Loop control declarations.
 
 use crate::spec::*;
+use crate::spec_load::*;
 
 fn control_error(control: &str) -> SpecError {
     let json = format!(

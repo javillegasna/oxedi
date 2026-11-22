@@ -3,6 +3,7 @@
 
 use crate::spec::test_support::{builtin, patched};
 use crate::spec::*;
+use crate::spec_load::*;
 use crate::vocabulary::Pick;
 
 const SPEC: &str = r#"{"name":"t",

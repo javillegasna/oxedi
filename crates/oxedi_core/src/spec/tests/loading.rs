@@ -2,6 +2,7 @@
 
 use super::segs;
 use crate::spec::*;
+use crate::spec_load::*;
 use crate::value::ElementType;
 use std::collections::BTreeMap;
 

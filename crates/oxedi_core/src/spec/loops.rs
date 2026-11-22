@@ -7,7 +7,7 @@ use crate::segment::Segment;
 
 /// Index of a loop definition inside a [`Spec`]. A `LoopId` is only
 /// meaningful for the `Spec` that produced it: using it with another spec,
-/// including one produced by [`LoadedSpec::merge_patch`](super::LoadedSpec::merge_patch),
+/// including one produced by [`LoadedSpec::merge_patch`](crate::spec_load::LoadedSpec::merge_patch),
 /// indexes a different loop or panics.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct LoopId(pub(crate) usize);

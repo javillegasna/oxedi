@@ -4,7 +4,8 @@
 
 use std::sync::Arc;
 
-use super::{Builtin, LoadedSpec, Spec, SpecError, Version};
+use super::Spec;
+use crate::spec_load::{Builtin, LoadedSpec, SpecError, Version};
 
 pub(crate) const SPEC: &str = r#"{"name":"t",
     "loops":{

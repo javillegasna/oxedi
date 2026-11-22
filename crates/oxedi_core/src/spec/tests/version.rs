@@ -5,6 +5,7 @@ use std::cell::Cell;
 use super::{assert_model_faults, segs};
 use crate::spec::test_support::{loaded, patched};
 use crate::spec::*;
+use crate::spec_load::*;
 
 fn declared(name: &str, version: &str) -> String {
     let version = if version.is_empty() {

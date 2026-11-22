@@ -50,6 +50,7 @@ pub mod process;
 pub mod project;
 pub mod segment;
 pub mod spec;
+pub mod spec_load;
 pub mod summary;
 pub mod tokenizer;
 pub mod tree;
@@ -71,11 +72,14 @@ pub use process::{Output, Processor};
 pub use project::Projector;
 pub use segment::{Segment, SegmentWriteError};
 pub use spec::{
-    AnchorChains, AnchorPositions, BalanceError, BalanceRule, BalanceTerm, Builtin, ColumnSchema,
-    ColumnSource, Control, ControlCount, ControlError, DeclaredVersion, ElementDef,
-    ElementDefError, LoadedSpec, LoopDef, LoopId, LoopSegments, OccurrenceId, Repeat, SegmentDef,
-    Spec, SpecError, Summary, SummaryDefError, TableDef, TableDefError, TableSchema, Trigger,
-    UnknownColumn, UnknownTable, UnknownVersion, Version, VersionError, merge_patch, spec_schema,
+    BalanceRule, BalanceTerm, ColumnSchema, ColumnSource, Control, ControlCount, DeclaredVersion,
+    ElementDef, LoopDef, LoopId, OccurrenceId, Repeat, SegmentDef, Spec, Summary, TableDef,
+    TableSchema, Trigger, UnknownColumn, UnknownTable, spec_schema,
+};
+pub use spec_load::{
+    AnchorChains, AnchorPositions, BalanceError, Builtin, ControlError, ElementDefError,
+    LoadedSpec, LoopSegments, SpecError, SummaryDefError, TableDefError, UnknownVersion, Version,
+    VersionError, merge_patch,
 };
 pub use summary::{SummaryError, SummaryValue, summarize};
 pub use tokenizer::Tokenizer;

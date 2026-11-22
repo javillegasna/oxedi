@@ -1,8 +1,9 @@
 //! The write plan over the built-in specs and over a small spec whose
 //! tables are patched to raise each refusal.
 
+use crate::spec::Spec;
 use crate::spec::test_support::{builtin, loaded, patched};
-use crate::spec::{Spec, Version};
+use crate::spec_load::Version;
 use crate::write::*;
 
 /// `env` is an envelope with a required `head`; `head` holds two NM

@@ -4,6 +4,7 @@
 use super::assert_model_faults;
 use crate::spec::test_support::{builtin, patched};
 use crate::spec::*;
+use crate::spec_load::*;
 
 const LOOPS: &str = r#""loops":{
         "pay":{"trigger":{"segment":"PY"},"occurrences":{

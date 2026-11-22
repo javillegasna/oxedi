@@ -3,12 +3,11 @@ use std::collections::{BTreeMap, BTreeSet};
 use serde::Serialize;
 use serde_json::{Value, from_value, json, to_value};
 
-use crate::spec::SpecError;
-use crate::spec::model::ELEMENT_MODEL_KEYS;
-use crate::spec::{
-    Builtin, ColumnModel, ElementModel, ElementPosition, LoopModel, OccurrenceModel,
-    QualifierModel, SegmentModel, Sign, Spec, SpecModel, SummaryModel, SummaryTableModel,
-    TermModel, TriggerModel, Usage, test_support,
+use crate::spec::{Sign, Spec, Usage, test_support};
+use crate::spec_load::{
+    Builtin, ColumnModel, ELEMENT_MODEL_KEYS, ElementModel, ElementPosition, LoopModel,
+    OccurrenceModel, QualifierModel, SegmentModel, SpecError, SpecModel, SummaryModel,
+    SummaryTableModel, TermModel, TriggerModel,
 };
 use crate::value::{ElementType, TypeCodeError};
 use crate::vocabulary::Pick;

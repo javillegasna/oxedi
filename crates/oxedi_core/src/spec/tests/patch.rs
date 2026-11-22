@@ -5,6 +5,7 @@ use serde_json::{Value, from_str};
 use super::{CLP_ONLY, TABLED};
 use crate::spec::test_support::{builtin, loaded, patched};
 use crate::spec::*;
+use crate::spec_load::*;
 use crate::value::LengthRange;
 
 #[test]

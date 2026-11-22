@@ -10,7 +10,7 @@ use crate::segment::Segment;
 /// including one produced by [`LoadedSpec::merge_patch`](super::LoadedSpec::merge_patch),
 /// indexes a different loop or panics.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
-pub struct LoopId(pub(super) usize);
+pub struct LoopId(pub(crate) usize);
 
 impl LoopId {
     /// Position of the loop in [`Spec::loops`].

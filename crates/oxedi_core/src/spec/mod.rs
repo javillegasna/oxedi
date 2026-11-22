@@ -27,7 +27,7 @@
 //! the spec alone; `test_support` (test builds only) the small spec
 //! shared by the spec and projector tests and the nested-loop spec shared by
 //! the engine and tree tests; `build` the construction of a
-//! [`Spec`] as a pipeline of steps, `build_loops` the compilation of one loop and
+//! [`Spec`] as a pipeline of steps and why a version declaration is rejected, `build_loops` the compilation of one loop and
 //! why its control is rejected, `build_occurrences` that of its occurrences,
 //! `compile` that of the tables, `columns` that of one table column and
 //! `column_occurrence` the reading of the occurrence a column names;
@@ -36,8 +36,9 @@
 //! compiled form;
 //! `phi` the check of the columns flagged as patient data and of the seed
 //! column; `error` the load error and `error_text` its `source` and the parts
-//! of its text built from lists; `render` the text used in messages; `patch`
-//! the merge patch; `version` the version declaration and the choice of a
+//! of its text built from lists; `render` the text of triggers and occurrence selectors in messages, `table_chain`
+//! the table chains and declared occurrences a table error quotes; `patch`
+//! the merge patch; `version` the version a compiled spec declares and the choice of a
 //! spec by it; `builtin` the registry of shipped specs by transaction and
 //! version; `vocabulary` the spec's closed words and the codes key, one
 //! table each.
@@ -70,6 +71,7 @@ mod segments;
 mod strict;
 mod summaries;
 mod summary_error;
+mod table_chain;
 mod table_error;
 mod tables;
 #[cfg(test)]
@@ -82,6 +84,7 @@ mod vocabulary;
 
 pub use balance_error::BalanceError;
 pub use balance_rule::{BalanceRule, BalanceTerm, Sign};
+pub use build::VersionError;
 pub use build_loops::ControlError;
 pub use builtin::{Builtin, UnknownVersion, Version};
 pub use elements::{ElementDef, ROW_COLUMN, SEGMENT_COLUMN, SegmentDef};
@@ -106,67 +109,39 @@ pub use summary_error::SummaryDefError;
 pub use table_error::{AnchorChains, AnchorPositions, LoopSegments, TableDefError};
 pub use tables::{ColumnSource, Repeat, Summary, TableDef};
 pub use unknown::{UnknownColumn, UnknownTable};
-pub use version::{DeclaredVersion, VersionError};
+pub use version::DeclaredVersion;
 pub use vocabulary::ElementPosition;
 
 pub(crate) use balance_rule::render_terms;
 pub(crate) use elements::rejects_code;
 pub(crate) use id_map::IdMap;
+pub(crate) use occurrence_index::OccurrenceIndex;
+pub(crate) use occurrences::element_def;
 pub(crate) use render::{render_selector, render_trigger};
 pub(crate) use schema::column_type;
+pub(crate) use version::chosen;
 
 use std::cmp::Reverse;
 use std::collections::BTreeMap;
 
-use self::occurrence_index::OccurrenceIndex;
 use crate::segment::Segment;
 
 /// A loaded, validated loop structure.
 #[derive(Debug, Clone)]
 pub struct Spec {
-    name: String,
-    loops: Vec<LoopDef>,
-    occurrence_index: OccurrenceIndex,
-    roots: Vec<LoopId>,
-    segments: BTreeMap<Vec<u8>, SegmentDef>,
-    tables: Vec<TableDef>,
-    balancing: Vec<BalanceRule>,
-    summaries: Vec<(String, Summary)>,
-    default_table: Option<String>,
-    version: Option<DeclaredVersion>,
+    pub(crate) name: String,
+    pub(crate) loops: Vec<LoopDef>,
+    pub(crate) occurrence_index: OccurrenceIndex,
+    pub(crate) roots: Vec<LoopId>,
+    pub(crate) segments: BTreeMap<Vec<u8>, SegmentDef>,
+    pub(crate) tables: Vec<TableDef>,
+    pub(crate) balancing: Vec<BalanceRule>,
+    pub(crate) summaries: Vec<(String, Summary)>,
+    pub(crate) default_table: Option<String>,
+    pub(crate) version: Option<DeclaredVersion>,
 }
 
 impl Spec {
-    /// The built-in 835 structure as shipped, in the same JSON a user would write.
-    pub const BUILTIN_835_JSON: &'static str = include_str!("../../specs/835.json");
-
-    /// The built-in 835 structure.
-    pub fn builtin_835() -> Spec {
-        Builtin::find("835", Builtin::DEFAULT_VERSION)
-            .map(|builtin| Spec::clone(&builtin.spec))
-            .expect(
-                "the registry holds the 835 at its default version; spec::tests::loading::builtin_835_loads checks it",
-            )
-    }
-
-    /// The merge patch that turns the built-in 835 into its 4010 version.
-    pub const BUILTIN_835_4010_PATCH: &'static str = include_str!("../../specs/835.4010.json");
-
-    /// The built-in 835 for version 4010: [`Spec::builtin_835`] with
-    /// [`Spec::BUILTIN_835_4010_PATCH`] merged over it.
-    pub fn builtin_835_4010() -> Spec {
-        Builtin::find("835", Version::V4010)
-            .map(|builtin| Spec::clone(&builtin.spec))
-            .expect(
-                "the registry holds the 835 at 4010; spec::tests::builtin::find_835_4010_gives_the_4010_patch checks it",
-            )
-    }
-
-    /// Loads and validates a spec from JSON text.
-    pub fn from_json(json: &str) -> Result<Spec, SpecError> {
-        SpecModel::from_json(json).and_then(|model| model.compile())
-    }
-
     /// The spec's name.
     pub fn name(&self) -> &str {
         &self.name

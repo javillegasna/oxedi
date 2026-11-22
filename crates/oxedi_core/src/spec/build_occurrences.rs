@@ -6,12 +6,13 @@
 use std::collections::BTreeMap;
 use std::collections::btree_map::Entry;
 
+use super::element_def;
 use super::elements::{ElementDef, SegmentDef};
 use super::error::SpecError;
 use super::loops::Trigger;
 use super::model::{OccurrenceModel, QualifierModel};
 use super::occurrence_error::OccurrenceError;
-use super::occurrences::{OccurrenceDef, Qualifier, element_def};
+use super::occurrences::{OccurrenceDef, Qualifier};
 use super::render::render_trigger;
 use super::segments::compile_codes;
 use super::vocabulary::ElementPosition;

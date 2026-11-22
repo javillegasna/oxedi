@@ -166,11 +166,10 @@ A patched spec also writes: pass it to `oxedi.write(frames, envelope, spec=spec)
 
 ## Spec keys reference
 
-Every key a spec can hold, with what it means and the Rust code that reads it. The JSON is
-checked at the top level by `spec/shape.rs` (the root keys, and each section being an object) against the schema, both emitted by the object declarations in
-`crates/oxedi_core/src/spec/model/`; every section is read through its model. The whole spec is then read once as its `SpecModel`, whose parts are the typed `*Model`s (`LoopModel`, `TableModel`,
-`SegmentModel`, `SummaryModel`, `BalanceModel`). The result is compiled into the definitions of `oxedi_core::spec`. For the internal names, see the [glossary](https://github.com/javillegasna/oxedi/blob/master/ARCHITECTURE.md#glossary). An unknown key is an
-error that names its path and the keys allowed there, and so is a missing required key. Positions of elements and
+Every key a spec can hold, with what it means and the Rust code that reads it. The whole spec, its top level included, is read once as its `SpecModel`, whose parts are the
+typed `*Model`s (`LoopModel`, `TableModel`, `SegmentModel`, `SummaryModel`, `BalanceModel`), each
+declared in `crates/oxedi_core/src/spec/model/`. The result is compiled into the definitions of `oxedi_core::spec`. For the internal names, see the [glossary](https://github.com/javillegasna/oxedi/blob/master/ARCHITECTURE.md#glossary). An unknown key is an
+error that names its path and the keys allowed there; a missing required key is an error that names its path only. Positions of elements and
 components are 1-based. The code names differ from the JSON in three places: a table's
 `loops` are its *anchors*, `end` is a loop's *closer*, and `ref` is the *reference* name.
 

@@ -39,16 +39,12 @@ fn accepts_covers_segments_and_end() {
 
 #[test]
 fn an_unknown_key_is_rejected_with_its_key_path() {
-    let err =
-        Spec::from_json(r#"{"name":"t","loops":{"a":{"trigger":{"segment":"AA"}}},"tabels":{}}"#)
-            .unwrap_err();
-    assert!(matches!(&err, SpecError::UnknownKey { .. }), "{err:?}");
-    assert_eq!(
-        err.to_string(),
-        "spec: unknown key \"tabels\" at the top level; the allowed keys are: balancing, default_table, loops, name, segments, summaries, tables, version"
-    );
     let loop_json = |loop_def: &str| format!(r#"{{"name":"t","loops":{{"env":{loop_def}}}}}"#);
     let cases = [
+        (
+            r#"{"name":"t","loops":{"a":{"trigger":{"segment":"AA"}}},"tabels":{}}"#.to_string(),
+            "spec: at tabels: unknown field `tabels`, expected one of `name`, `version`, `loops`, `tables`, `balancing`, `segments`, `summaries`, `default_table`",
+        ),
         (
             loop_json(r#"{"trigger":{"segment":"AA"},"typo":1}"#),
             "spec: at loops.env.typo: unknown field `typo`, expected one of `parent`, `end`, `max`, `usage`, `occurrences`, `trigger`, `control`",

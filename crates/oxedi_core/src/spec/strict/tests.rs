@@ -5,7 +5,7 @@ use super::StrictValue;
 use crate::spec::{Builtin, SpecModel, SummaryModel, TriggerModel};
 
 fn refusal(source: &Value) -> String {
-    SpecModel::read(source).unwrap_err().to_string()
+    SpecModel::from_value(source).unwrap_err().to_string()
 }
 
 #[test]
@@ -80,7 +80,7 @@ fn an_enum_variant_reads_its_payload_strictly() {
 fn every_builtin_reads_as_serde_json_reads_it() {
     for builtin in Builtin::all() {
         let source = &builtin.spec.source;
-        let strict = SpecModel::read(source).unwrap();
+        let strict = SpecModel::from_value(source).unwrap();
         let plain = from_value::<SpecModel>(source.clone()).unwrap();
         assert_eq!(
             strict, plain,
@@ -107,7 +107,7 @@ fn scalars_and_maps_read_as_serde_json_reads_them() {
         "balancing": {"r": {"per": "a", "target": [{"occurrence": "o", "elements": [2]}],
             "sum": [{"occurrence": "o", "elements": [3], "sign": "-", "component": null}]}}
     });
-    let strict = SpecModel::read(&source);
+    let strict = SpecModel::from_value(&source);
     let plain = from_value::<SpecModel>(source.clone());
     assert_eq!(strict.unwrap(), plain.unwrap());
 }

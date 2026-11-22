@@ -31,7 +31,7 @@ impl LoadedSpec {
     /// compiles the result: objects merge recursively, arrays and scalars are
     /// replaced, `null` deletes, and a loop's occurrences, keyed by name, are
     /// added, changed or removed one by one, as on [`Spec::merge_patch`]. Every
-    /// failure (the patch text, the shape, the model read, the compile) is a
+    /// failure (the patch text, the model read, the compile) is a
     /// [`SpecError::Patch`].
     ///
     /// ```

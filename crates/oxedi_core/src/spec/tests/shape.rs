@@ -1,20 +1,9 @@
-//! The JSON shape checks and the paths they report.
+//! The top level of a spec and the paths its faults report.
 
 use super::{assert_model_faults, table_error};
 use crate::message::render_key;
-use crate::spec::shape::kind_of;
 use crate::spec::*;
-
-#[test]
-fn a_missing_required_key_is_rejected_with_its_key_path() {
-    let json = r#"{"loops":{"a":{"trigger":{"segment":"AA"}}}}"#;
-    let err = Spec::from_json(json).unwrap_err();
-    assert!(matches!(&err, SpecError::MissingKey { .. }), "{err:?}");
-    assert_eq!(
-        err.to_string(),
-        "spec: missing required key \"name\" at the top level"
-    );
-}
+use serde_json::json;
 
 #[test]
 fn a_loop_the_model_refuses_fails_at_its_path() {
@@ -105,52 +94,7 @@ fn unknown_parent_is_rejected_with_both_names() {
 }
 
 #[test]
-fn a_top_level_without_loops_names_the_missing_key() {
-    let err = Spec::from_json(r#"{"name":"t"}"#).unwrap_err();
-    assert!(
-        matches!(&err, SpecError::MissingKey { path, key: "loops" } if path.is_empty()),
-        "{err:?}"
-    );
-    assert_eq!(
-        err.to_string(),
-        "spec: missing required key \"loops\" at the top level"
-    );
-}
-
-#[test]
-fn a_spec_that_is_not_an_object_says_so_in_plain_words() {
-    let err = Spec::from_json("[]").unwrap_err();
-    assert!(
-        matches!(&err, SpecError::NotAnObject { path, found: "an array" } if path.is_empty()),
-        "{err:?}"
-    );
-    assert_eq!(
-        err.to_string(),
-        "the spec must be a JSON object; found an array"
-    );
-}
-
-#[test]
-fn a_section_that_is_not_an_object_is_refused_by_the_walk() {
-    for section in ["loops", "tables", "balancing", "segments"] {
-        let json = match section {
-            "loops" => r#"{"name":"t","loops":[]}"#.to_string(),
-            _ => format!(r#"{{"name":"t","loops":{{}},"{section}":[]}}"#),
-        };
-        let err = Spec::from_json(&json).unwrap_err();
-        assert!(
-            matches!(&err, SpecError::NotAnObject { path, found } if path == section && *found == "an array"),
-            "{section}: {err:?}"
-        );
-        assert_eq!(
-            err.to_string(),
-            format!("spec: the value at {section} must be a JSON object; found an array")
-        );
-    }
-}
-
-#[test]
-fn a_patched_spec_goes_through_the_same_shape_check() {
+fn a_patched_spec_goes_through_the_same_model_read() {
     let err = Spec::builtin_835()
         .merge_patch(r#"{"loops":{"2100":{"trigger":["CLP"]}}}"#)
         .unwrap_err();
@@ -203,17 +147,6 @@ fn an_empty_segment_id_path_quotes_a_table_or_column_name_that_holds_a_dot() {
         err.to_string(),
         "the spec has an empty segment id at tables.\"a.b\".columns.\"c d\".segment"
     );
-}
-
-#[test]
-fn every_kind_of_json_value_is_named() {
-    use serde_json::json;
-    assert_eq!(kind_of(&json!(null)), "null");
-    assert_eq!(kind_of(&json!(true)), "a boolean");
-    assert_eq!(kind_of(&json!(1)), "a number");
-    assert_eq!(kind_of(&json!("x")), "a string");
-    assert_eq!(kind_of(&json!([])), "an array");
-    assert_eq!(kind_of(&json!({})), "an object");
 }
 
 #[test]
@@ -279,7 +212,46 @@ fn a_top_level_value_the_model_refuses_fails_at_its_path() {
             r#"{"name":"t","loops":{"a":{"trigger":{"segment":"AA"}}},"default_table":null}"#,
             "spec: at default_table: invalid type: null, expected a string",
         ),
+        (
+            r#"{"loops":{"a":{"trigger":{"segment":"AA"}}}}"#,
+            "spec: at .: missing field `name`",
+        ),
+        (r#"{"name":"t"}"#, "spec: at .: missing field `loops`"),
     ];
+    assert_model_faults(&cases, |json| Spec::from_json(json).unwrap_err());
+}
+
+#[test]
+fn a_spec_or_a_section_that_is_not_an_object_fails_at_its_key() {
+    let mut cases = Vec::new();
+    for (json, found) in [
+        ("[]", "sequence"),
+        ("\"835\"", "string \"835\""),
+        ("null", "null"),
+        ("7", "integer `7`"),
+    ] {
+        let expected = "expected a spec object with \"name\" and \"loops\"";
+        cases.push((
+            json.to_string(),
+            format!("spec: at .: invalid type: {found}, {expected}"),
+        ));
+    }
+    for section in ["loops", "tables", "balancing", "segments", "summaries"] {
+        for (value, found) in [
+            (json!([]), "sequence"),
+            (json!(null), "null"),
+            (json!("x"), "string \"x\""),
+        ] {
+            let mut spec = json!({"name":"t","loops":{"a":{"trigger":{"segment":"AA"}}}});
+            spec[section] = value;
+            let text = format!("spec: at {section}: invalid type: {found}, expected a map");
+            cases.push((spec.to_string(), text));
+        }
+    }
+    let cases: Vec<(&str, &str)> = cases
+        .iter()
+        .map(|(a, b)| (a.as_str(), b.as_str()))
+        .collect();
     assert_model_faults(&cases, |json| Spec::from_json(json).unwrap_err());
 }
 

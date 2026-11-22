@@ -1,5 +1,5 @@
 //! The helpers that build a schema `Field`. Every object's schema is emitted
-//! with its model in `model`; `shape` walks a value against them.
+//! with its model in `model`; `shape` holds the tables.
 
 use super::shape::{Field, Leaf};
 

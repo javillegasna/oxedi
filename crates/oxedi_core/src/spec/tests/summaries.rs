@@ -250,11 +250,11 @@ fn a_default_table_the_spec_does_not_define_is_rejected() {
 }
 
 #[test]
-fn the_shape_of_the_sections_is_checked_with_its_key_path() {
+fn a_section_the_model_refuses_fails_at_its_path() {
     let cases = [
         (
             r#"{"summaries":[]}"#,
-            "applying patch: spec: the value at summaries must be a JSON object; found an array",
+            "applying patch: spec: at summaries: invalid type: sequence, expected a map",
         ),
         (
             r#"{"default_table":3}"#,

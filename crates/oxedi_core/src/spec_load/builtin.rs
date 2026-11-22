@@ -109,7 +109,7 @@ impl Spec {
         Builtin::find("835", Builtin::DEFAULT_VERSION)
             .map(|builtin| Spec::clone(&builtin.spec))
             .expect(
-                "the registry holds the 835 at its default version; spec::tests::loading::builtin_835_loads checks it",
+                "the registry holds the 835 at its default version; spec_load::tests::loading::builtin_835_loads checks it",
             )
     }
 
@@ -122,7 +122,7 @@ impl Spec {
         Builtin::find("835", Version::V4010)
             .map(|builtin| Spec::clone(&builtin.spec))
             .expect(
-                "the registry holds the 835 at 4010; spec::tests::builtin::find_835_4010_gives_the_4010_patch checks it",
+                "the registry holds the 835 at 4010; spec_load::tests::builtin::find_835_4010_gives_the_4010_patch checks it",
             )
     }
 }
@@ -155,7 +155,7 @@ fn load() -> Vec<Builtin> {
                 .and_then(|model| model.compile())
                 .expect(
                     "a built-in spec is valid; \
-                     spec::tests::builtin::each_builtin_spec_is_compiled_from_its_model checks it",
+                     spec_load::tests::builtin::each_builtin_spec_is_compiled_from_its_model checks it",
                 );
             Builtin {
                 transaction,

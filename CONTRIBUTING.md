@@ -81,7 +81,7 @@ segment index, byte range, element and component position and loop path for a fi
 variant has one test of its full `Display` text. `Display` reads well on its own and prints any
 inner error in full. `source()` returns the inner error only when `Display` does not print it,
 and one test per error type pins which (for example `no_spec_error_chains_its_source` in
-`crates/oxedi_core/src/spec/tests/display.rs`). From
+`crates/oxedi_core/src/spec_load/tests/display.rs`). From
 `crates/oxedi_core/src/diagnostic/tests.rs`:
 
 ```text

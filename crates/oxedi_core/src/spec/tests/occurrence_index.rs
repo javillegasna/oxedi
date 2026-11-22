@@ -1,7 +1,6 @@
 //! The occurrence a segment takes in a loop, asked of the spec.
 
-use super::segs;
-use crate::spec::test_support::nested;
+use crate::spec::test_support::{nested, segs};
 use crate::spec::*;
 
 /// The name of the occurrence `input` (one segment) takes in loop `loop_name`.

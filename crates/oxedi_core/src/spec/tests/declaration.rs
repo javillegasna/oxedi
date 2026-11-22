@@ -99,13 +99,8 @@ fn registry_text() -> String {
 }
 
 const REGISTRY: &str = "\
-spec: name!=text, version=@version, loops!={@loops.*}, tables={@tables.*}, balancing={@balancing.*}, segments={@segments.*}, summaries={opaque}, default_table=text
+spec: name!=text, version=@version, loops!={opaque}, tables={@tables.*}, balancing={@balancing.*}, segments={@segments.*}, summaries={opaque}, default_table=text
 version: segment!=text, element!=count, values!=[text]
-loops.*: parent=text?, end=text?, max=count?, usage=text?, occurrences={@loops.*.occurrences.*}, trigger!=@loops.*.trigger, control=@loops.*.control
-loops.*.occurrences.*: segment!=text, pos!=count, usage=text?, max=count?, qualifier=@loops.*.occurrences.*.qualifier, codes={[text]}
-loops.*.occurrences.*.qualifier: element!=count, component=count?, codes!=[text]
-loops.*.trigger: segment!=text, where={text}
-loops.*.control: opener_element!=count, closer_element!=count, count_element!=count, count!=text
 tables.*: loops!=[text], ref=text?, segment=text?, phi_seed=text?, repeat=@tables.*.repeat, columns={@tables.*.columns.*}
 tables.*.repeat: from!=count, step!=count
 tables.*.columns.*: loop=text?, segment=text?, where={text}, occurrence=text?, pick=pick?, element=count?, component=count?, group_element=count?, segment_index=flag, phi=text?

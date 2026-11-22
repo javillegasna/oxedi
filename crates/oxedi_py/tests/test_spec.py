@@ -20,7 +20,7 @@ def test_a_bad_spec_raises_spec_error_with_the_core_message():
         Spec.from_json('{"name": "x", "loops": {"a": {"trigger": 1}}}')
     assert isinstance(info.value, ValueError)
     assert str(info.value) == (
-        "spec: the value at loops.a.trigger must be a JSON object; found a number"
+        "spec: at loops.a.trigger: invalid type: integer `1`, expected a trigger object"
     )
 
 

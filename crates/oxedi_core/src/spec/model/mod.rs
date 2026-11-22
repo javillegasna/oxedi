@@ -33,7 +33,6 @@ pub use rules::{
 pub use segments::{ElementModel, SegmentModel};
 pub use tables::{ColumnModel, RepeatModel, TableModel};
 
-pub(in crate::spec) use loops::LOOP;
 pub(in crate::spec) use rules::{BALANCE, VERSION};
 // Read only by the model test that holds the list to the keys the model writes.
 #[cfg(test)]
@@ -72,7 +71,7 @@ spec_object! {
     /// spec declares one.
     version: Option<VersionModel>, Field::Object(&VERSION), optional;
     /// The loops, by name.
-    loops: BTreeMap<String, LoopModel>, Field::Map(&Field::Object(&LOOP)), required;
+    loops: BTreeMap<String, LoopModel>, Field::Map(&Field::Opaque), required;
     /// The tables, by name.
     tables: BTreeMap<String, TableModel>, Field::Map(&Field::Object(&TABLE)), default;
     /// The balancing rules, by name.

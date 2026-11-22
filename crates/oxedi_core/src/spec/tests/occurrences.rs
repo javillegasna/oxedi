@@ -357,7 +357,7 @@ fn invalid_occurrences_are_rejected_naming_loop_occurrence_rule_and_datum() {
         ),
         (
             r#"{"loops":{"head":{"usage":7}}}"#,
-            "spec: the value at loops.head.usage must be a string; found a number (7)",
+            "spec: at loops.head.usage: invalid type: integer `7`, expected a string",
         ),
         (
             r#"{"loops":{"head":{"max":0}}}"#,
@@ -365,15 +365,15 @@ fn invalid_occurrences_are_rejected_naming_loop_occurrence_rule_and_datum() {
         ),
         (
             r#"{"loops":{"head":{"occurrences":{"note":{"maximum":2}}}}}"#,
-            "spec: unknown key \"maximum\" at loops.head.occurrences.note; the allowed keys are: codes, max, pos, qualifier, segment, usage",
+            "spec: at loops.head.occurrences.note.maximum: unknown field `maximum`, expected one of `segment`, `pos`, `usage`, `max`, `qualifier`, `codes`",
         ),
         (
             r#"{"loops":{"head":{"occurrences":{"extra":{"segment":"EX"}}}}}"#,
-            "spec: missing required key \"pos\" at loops.head.occurrences.extra",
+            "spec: at loops.head.occurrences.extra: missing field `pos`",
         ),
         (
             r#"{"loops":{"head":{"occurrences":{"patient":{"qualifier":{"codes":["QC"],"element":null}}}}}}"#,
-            "spec: missing required key \"element\" at loops.head.occurrences.patient.qualifier",
+            "spec: at loops.head.occurrences.patient.qualifier: missing field `element`",
         ),
     ];
     for (patch, expected) in cases {

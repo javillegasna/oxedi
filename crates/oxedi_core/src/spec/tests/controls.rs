@@ -91,20 +91,21 @@ fn bad_controls_are_rejected_with_the_loop_and_the_reason() {
 
 #[test]
 fn a_control_that_is_not_an_object_or_misses_a_key_is_rejected() {
-    let err = control_error("[2,2,1]");
-    assert!(
-        matches!(&err, SpecError::NotAnObject { path, found: "an array" } if path == "loops.env.control"),
-        "{err:?}"
-    );
-    let err = control_error(r#"{"opener_element":2,"closer_element":2,"count":"segments"}"#);
-    assert!(
-        matches!(&err, SpecError::MissingKey { path, key: "count_element" } if path == "loops.env.control"),
-        "{err:?}"
-    );
-    assert_eq!(
-        err.to_string(),
-        "spec: missing required key \"count_element\" at loops.env.control"
-    );
+    let cases = [
+        (
+            "[2,2,1]",
+            "spec: at loops.env.control: invalid type: sequence, expected a control object",
+        ),
+        (
+            r#"{"opener_element":2,"closer_element":2,"count":"segments"}"#,
+            "spec: at loops.env.control: missing field `count_element`",
+        ),
+    ];
+    for (control, expected) in cases {
+        let err = control_error(control);
+        assert!(matches!(&err, SpecError::Format { .. }), "{err:?}");
+        assert_eq!(err.to_string(), expected, "{control}");
+    }
 }
 
 #[test]
@@ -132,74 +133,85 @@ fn bad_control_displays_the_loop_and_every_reason() {
 }
 
 #[test]
-fn a_scalar_of_the_wrong_kind_is_rejected_with_its_key_path() {
+fn a_value_of_the_wrong_kind_is_refused_at_its_path() {
     let loop_json = |loop_def: &str| format!(r#"{{"name":"t","loops":{{"env":{loop_def}}}}}"#);
     let cases = [
         (
             loop_json(
                 r#"{"trigger":{"segment":"HD"},"end":"TR","control":{"opener_element":"2","closer_element":2,"count_element":1,"count":"segments"}}"#,
             ),
-            "spec: the value at loops.env.control.opener_element must be a non-negative integer; found a string (\"2\")",
+            "spec: at loops.env.control.opener_element: invalid type: string \"2\", expected usize",
         ),
         (
             loop_json(
                 r#"{"trigger":{"segment":"HD"},"end":"TR","control":{"opener_element":2,"closer_element":-2,"count_element":1,"count":"segments"}}"#,
             ),
-            "spec: the value at loops.env.control.closer_element must be a non-negative integer; found a negative number (-2)",
+            "spec: at loops.env.control.closer_element: invalid value: integer `-2`, expected usize",
         ),
         (
             loop_json(
                 r#"{"trigger":{"segment":"HD"},"end":"TR","control":{"opener_element":2,"closer_element":2,"count_element":1,"count":7}}"#,
             ),
-            "spec: the value at loops.env.control.count must be a string; found a number (7)",
+            "spec: at loops.env.control.count: invalid type: integer `7`, expected a string",
         ),
         (
             loop_json(r#"{"trigger":{"segment":"HD","where":{"1":"X","2":5}}}"#),
-            "spec: the value at loops.env.trigger.where.2 must be a string; found a number (5)",
+            "spec: at loops.env.trigger.where.2: invalid type: integer `5`, expected a string",
         ),
         (
             loop_json(r#"{"trigger":{"segment":7}}"#),
-            "spec: the value at loops.env.trigger.segment must be a string; found a number (7)",
+            "spec: at loops.env.trigger.segment: invalid type: integer `7`, expected a string",
         ),
         (
             loop_json(
                 r#"{"trigger":{"segment":"HD"},"occurrences":{"a":{"segment":null,"pos":1}}}"#,
             ),
-            "spec: the value at loops.env.occurrences.a.segment must be a string; found null",
+            "spec: at loops.env.occurrences.a.segment: invalid type: null, expected a string",
         ),
         (
             loop_json(
                 r#"{"trigger":{"segment":"HD"},"occurrences":{"a":{"segment":"A","pos":"1"}}}"#,
             ),
-            "spec: the value at loops.env.occurrences.a.pos must be a non-negative integer; found a string (\"1\")",
+            "spec: at loops.env.occurrences.a.pos: invalid type: string \"1\", expected usize",
         ),
         (
             loop_json(r#"{"trigger":{"segment":"HD"},"max":-1}"#),
-            "spec: the value at loops.env.max must be a non-negative integer; found a negative number (-1)",
+            "spec: at loops.env.max: invalid value: integer `-1`, expected usize",
         ),
         (
             loop_json(
                 r#"{"trigger":{"segment":"HD"},"occurrences":{"a":{"segment":"A","pos":1,"codes":{"1":"X"}}}}"#,
             ),
-            "spec: the value at loops.env.occurrences.a.codes.1 must be an array of strings; found a string (\"X\")",
+            "spec: at loops.env.occurrences.a.codes.1: invalid type: string \"X\", expected a sequence",
         ),
         (
             loop_json(
                 r#"{"trigger":{"segment":"HD"},"occurrences":{"a":{"segment":"A","pos":1,"qualifier":{"element":1,"codes":[2]}}}}"#,
             ),
-            "spec: the value at loops.env.occurrences.a.qualifier.codes[0] must be a string; found a number (2)",
+            "spec: at loops.env.occurrences.a.qualifier.codes[0]: invalid type: integer `2`, expected a string",
         ),
         (
             loop_json(r#"{"trigger":{"segment":"HD"},"end":true}"#),
-            "spec: the value at loops.env.end must be a string; found a boolean (true)",
+            "spec: at loops.env.end: invalid type: boolean `true`, expected a string",
+        ),
+        (
+            loop_json(r#"{"trigger":{"segment":"HD"},"end":"TR","control":null}"#),
+            "spec: at loops.env.control: invalid type: null, expected a control object",
+        ),
+        (
+            loop_json(
+                r#"{"trigger":{"segment":"HD"},"occurrences":{"a":{"segment":"A","pos":1,"qualifier":null}}}"#,
+            ),
+            "spec: at loops.env.occurrences.a.qualifier: invalid type: null, expected a qualifier object",
+        ),
+        (
+            loop_json(r#"{"trigger":{"segment":"HD"},"occurrences":null}"#),
+            "spec: at loops.env.occurrences: invalid type: null, expected a map",
         ),
     ];
     for (json, expected) in cases {
         let err = Spec::from_json(&json).unwrap_err();
-        assert!(
-            matches!(&err, SpecError::WrongType { .. }),
-            "{json}: {err:?}"
-        );
+        assert!(matches!(&err, SpecError::Format { .. }), "{json}: {err:?}");
         assert_eq!(err.to_string(), expected, "{json}");
     }
 }

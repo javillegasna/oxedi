@@ -197,6 +197,14 @@ fn a_summary_without_exactly_one_operation_fails_at_its_path() {
             "spec: at summaries.s: holds 2 operations (count, sum); a summary holds exactly \
              one of count, distinct, sum, row",
         ),
+        (
+            r#"{"s":{"count":null,"sum":{"table":"heads","column":"amount"}}}"#,
+            "spec: at summaries.s.count: invalid type: null, expected a summary operation object",
+        ),
+        (
+            r#"{"s":{"count":null}}"#,
+            "spec: at summaries.s.count: invalid type: null, expected a summary operation object",
+        ),
     ];
     for (summaries, expected) in cases {
         let err = spec_with(summaries).unwrap_err();
@@ -254,17 +262,16 @@ fn the_shape_of_the_sections_is_checked_with_its_key_path() {
         ),
         (
             r#"{"summaries":{"s":{"avg":{}}}}"#,
-            "applying patch: spec: unknown key \"avg\" at summaries.s; the allowed keys are: \
-             count, distinct, row, sum",
+            "applying patch: spec: at summaries.s.avg: unknown field `avg`, expected one of `count`, \
+             `distinct`, `row`, `sum`",
         ),
         (
             r#"{"summaries":{"s":{"row":{"table":"heads","fields":{}}}}}"#,
-            "applying patch: spec: the value at summaries.s.row.fields must be an array of \
-             objects; found an object (0 members)",
+            "applying patch: spec: at summaries.s.row.fields: invalid type: map, expected a sequence",
         ),
         (
             r#"{"summaries":{"s":{"distinct":{"table":"heads"}}}}"#,
-            "applying patch: spec: missing required key \"column\" at summaries.s.distinct",
+            "applying patch: spec: at summaries.s.distinct: missing field `column`",
         ),
     ];
     let spec = spec_with("{}").unwrap();

@@ -99,7 +99,7 @@ fn registry_text() -> String {
 }
 
 const REGISTRY: &str = "\
-spec: name!=text, version=@version, loops!={@loops.*}, tables={@tables.*}, balancing={@balancing.*}, segments={@segments.*}, summaries={@summaries.*}, default_table=text
+spec: name!=text, version=@version, loops!={@loops.*}, tables={@tables.*}, balancing={@balancing.*}, segments={@segments.*}, summaries={opaque}, default_table=text
 version: segment!=text, element!=count, values!=[text]
 loops.*: parent=text?, end=text?, max=count?, usage=text?, occurrences={@loops.*.occurrences.*}, trigger!=@loops.*.trigger, control=@loops.*.control
 loops.*.occurrences.*: segment!=text, pos!=count, usage=text?, max=count?, qualifier=@loops.*.occurrences.*.qualifier, codes={[text]}
@@ -111,12 +111,7 @@ tables.*.repeat: from!=count, step!=count
 tables.*.columns.*: loop=text?, segment=text?, where={text}, occurrence=text?, pick=pick?, element=count?, component=count?, group_element=count?, segment_index=flag, phi=text?
 balancing.*: per!=text, target!=[@balancing.*.target[]], sum!=[@balancing.*.target[]]
 balancing.*.target[]: loop=text?, occurrence!=text, component=count?, sign=text?, elements!=[count]
-segments.*: elements=opaque
-summaries.*: count=@summaries.*.count, distinct=@summaries.*.distinct, sum=@summaries.*.distinct, row=@summaries.*.row
-summaries.*.count: table!=text
-summaries.*.distinct: table!=text, column!=text
-summaries.*.row: table!=text, fields!=[@summaries.*.row.fields[]]
-summaries.*.row.fields[]: name!=text, column!=text";
+segments.*: elements=opaque";
 
 #[test]
 fn the_registry_reads_as_pinned() {

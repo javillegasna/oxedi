@@ -4,6 +4,7 @@
 use serde::{Deserialize, Serialize};
 
 use super::declare::spec_object;
+use super::present;
 use crate::spec::sections::{COUNT, COUNTS, TEXT, TEXTS, nullable, objects};
 use crate::spec::shape::{Field, Leaf};
 use crate::spec::{Sign, SummaryDefError};
@@ -20,38 +21,42 @@ spec_object! {
     values: Vec<String>, TEXTS, required;
 }
 
-spec_object! {
-    /// A summary over the rows of a table, written `{"count": {"table": ...}}`.
-    SummaryTableModel, SUMMARY_TABLE, "a summary operation object";
+/// A summary over the rows of a table, written `{"count": {"table": ...}}`.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields, expecting = "a summary operation object")]
+pub struct SummaryTableModel {
     /// The table.
-    table: String, TEXT, required;
+    pub table: String,
 }
 
-spec_object! {
-    /// A summary over one column of a table.
-    SummaryColumnModel, SUMMARY_COLUMN, "a summary operation object";
+/// A summary over one column of a table.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields, expecting = "a summary operation object")]
+pub struct SummaryColumnModel {
     /// The table.
-    table: String, TEXT, required;
+    pub table: String,
     /// The column.
-    column: String, TEXT, required;
+    pub column: String,
 }
 
-spec_object! {
-    /// A summary of named fields of the one row of a table.
-    SummaryRowModel, SUMMARY_ROW, "a summary operation object";
+/// A summary of named fields of the one row of a table.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields, expecting = "a summary operation object")]
+pub struct SummaryRowModel {
     /// The table.
-    table: String, TEXT, required;
+    pub table: String,
     /// The fields, in the order written.
-    fields: Vec<SummaryFieldModel>, objects!(&SUMMARY_FIELD), required;
+    pub fields: Vec<SummaryFieldModel>,
 }
 
-spec_object! {
-    /// One field of a row summary.
-    SummaryFieldModel, SUMMARY_FIELD, "a summary field object";
+/// One field of a row summary.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields, expecting = "a summary field object")]
+pub struct SummaryFieldModel {
     /// The field's name in the summary.
-    name: String, TEXT, required;
+    pub name: String,
     /// The column it reads.
-    column: String, TEXT, required;
+    pub column: String,
 }
 
 /// The one operation a summary holds, the only key of its object.
@@ -69,13 +74,18 @@ pub enum SummaryModel {
 }
 
 // The keys a summary object may hold; exactly one must be present, which
-// the conversion checks so the error lists the ones held.
+// the conversion checks so the error lists the ones held. A key written
+// `null` is refused, not read as absent.
 #[derive(Deserialize)]
 #[serde(deny_unknown_fields, expecting = "a summary object")]
 struct SummaryKeys {
+    #[serde(default, deserialize_with = "present")]
     count: Option<SummaryTableModel>,
+    #[serde(default, deserialize_with = "present")]
     distinct: Option<SummaryColumnModel>,
+    #[serde(default, deserialize_with = "present")]
     row: Option<SummaryRowModel>,
+    #[serde(default, deserialize_with = "present")]
     sum: Option<SummaryColumnModel>,
 }
 

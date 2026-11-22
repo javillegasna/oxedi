@@ -1,6 +1,7 @@
 //! Finds the files of the core and reads every use in them.
 
-use super::scan::{Use, uses_in};
+use super::scan::{Use, shortcut_uses, uses_in};
+use super::table::SHORTCUTS;
 use std::collections::BTreeSet;
 use std::fs;
 use std::path::{Path, PathBuf};
@@ -45,7 +46,8 @@ pub fn modules_of(src: &Path) -> BTreeSet<String> {
         .collect()
 }
 
-/// Every use of a module by another in the non-test files under `src`, but `lib.rs`.
+/// Every use of a module by another in the non-test files under `src`, but `lib.rs`: the paths
+/// that name a module and the calls to a shortcut another module writes.
 pub fn core_uses(src: &Path) -> Vec<Use> {
     let modules = modules_of(src);
     let mut files = Vec::new();
@@ -64,6 +66,7 @@ pub fn core_uses(src: &Path) -> Vec<Use> {
             )
         });
         found.extend(uses_in(rel, &text, &modules));
+        found.extend(shortcut_uses(rel, &text, SHORTCUTS));
     }
     found
 }

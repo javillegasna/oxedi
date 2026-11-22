@@ -1,6 +1,7 @@
 //! Which module of the core may use which. A module may use only the modules in its row, and
 //! the rows may not form a cycle. A use the design needs and the rows do not allow goes in
-//! `EXCEPTIONS`, with the reason.
+//! `EXCEPTIONS`, with the reason. `SHORTCUTS` names the functions a module writes on a type, so a
+//! call to one counts as a use of that module.
 
 /// A module and the modules its files may use.
 pub struct Row {
@@ -101,3 +102,23 @@ pub const TABLE: &[Row] = &[
 ];
 
 pub const EXCEPTIONS: &[Exception] = &[];
+
+/// A function on a type, by the module whose files write it.
+pub struct Shortcut {
+    /// The call as written: the type, `::` and the function.
+    pub call: &'static str,
+    /// The module whose files write the function.
+    pub module: &'static str,
+}
+
+pub const fn shortcut(call: &'static str, module: &'static str) -> Shortcut {
+    Shortcut { call, module }
+}
+
+/// Functions on a type, by the module whose files write them: a call to one is a use of that
+/// module, though the call's path names only the type.
+pub const SHORTCUTS: &[Shortcut] = &[
+    shortcut("Spec::from_json", "spec"),
+    shortcut("Spec::builtin_835", "spec"),
+    shortcut("Spec::builtin_835_4010", "spec"),
+];

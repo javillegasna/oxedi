@@ -163,15 +163,20 @@ fn a_code_list_of_the_wrong_shape_is_named_with_its_path() {
     let cases = [
         (
             r#"{"1":{"name":"a","type":"ID","codes":"PR"}}"#,
-            "spec: the value at segments.AA.elements.1.codes must be an array of strings; found a string (\"PR\")",
+            "spec: at segments.AA.elements.1.codes: invalid type: string \"PR\", expected a sequence",
         ),
         (
             r#"{"1":{"name":"a","type":"AN","composite":{"1":{"name":"b","type":"ID","codes":["A",7]}}}}"#,
-            "spec: the value at segments.AA.elements.1.composite.1.codes[1] must be a string; found a number (7)",
+            "spec: at segments.AA.elements.1.composite.1.codes[1]: invalid type: integer `7`, expected a string",
         ),
     ];
     for (elements, expected) in cases {
-        assert_eq!(element_error(elements).to_string(), expected, "{elements}");
+        let err = element_error(elements);
+        assert!(
+            matches!(err, SpecError::Format { .. }),
+            "{elements}: {err:?}"
+        );
+        assert_eq!(err.to_string(), expected, "{elements}");
     }
 }
 

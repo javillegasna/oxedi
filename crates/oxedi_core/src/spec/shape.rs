@@ -42,7 +42,6 @@ pub(super) enum Leaf {
     Text,
     Flag,
     Count,
-    Byte,
     Pick,
 }
 
@@ -52,7 +51,6 @@ impl Leaf {
             Leaf::Text => "a string",
             Leaf::Flag => "a boolean",
             Leaf::Count => "a non-negative integer",
-            Leaf::Byte => "an integer from 0 to 255",
             Leaf::Pick => Pick::EXPECTED,
         }
     }
@@ -61,21 +59,15 @@ impl Leaf {
     fn mismatch(self, value: &Value) -> Option<&'static str> {
         match (self, value) {
             (Leaf::Text | Leaf::Pick, Value::String(_)) | (Leaf::Flag, Value::Bool(_)) => None,
-            (Leaf::Count | Leaf::Byte | Leaf::Pick, Value::Number(number)) => {
-                if let Some(n) = number.as_u64() {
-                    if matches!(self, Leaf::Byte) && n > 255 {
-                        Some("a number above 255")
-                    } else {
-                        None
-                    }
-                } else if number.is_f64() {
-                    if number.as_f64().is_some_and(|float| float.fract() != 0.0) {
-                        Some("a number with a fractional part")
-                    } else {
-                        Some("a floating-point number")
-                    }
-                } else {
+            (Leaf::Count | Leaf::Pick, Value::Number(number)) => {
+                if number.is_u64() {
+                    None
+                } else if number.is_i64() {
                     Some("a negative number")
+                } else if number.as_f64().is_some_and(|float| float.fract() != 0.0) {
+                    Some("a number with a fractional part")
+                } else {
+                    Some("a floating-point number")
                 }
             }
             _ => Some(kind_of(value)),
@@ -111,6 +103,8 @@ pub(super) enum Field {
     Map(&'static Field),
     /// An object of the schema.
     Object(&'static ObjectSchema),
+    /// A value the walk leaves to the model read, which refuses it at its path.
+    Opaque,
 }
 
 /// The keys an object may hold, in the order their values are checked, and
@@ -129,6 +123,7 @@ impl Field {
             Field::List { item, expected } => check_list(value, at, item, expected),
             Field::Map(item) => check_map(value, at, item),
             Field::Object(schema) => schema.check(value, at),
+            Field::Opaque => Ok(()),
         }
     }
 }

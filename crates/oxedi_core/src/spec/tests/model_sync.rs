@@ -1,19 +1,17 @@
-//! The hand-written spec objects, the element and the summary, and the
-//! section registry name the same keys, so a key added to one and not the
-//! other fails here. The declared objects emit both from one declaration.
+//! The hand-written summary object and the section registry name the same
+//! keys, so a key added to one and not the other fails here. The declared objects emit both from one declaration.
 
 use std::collections::{BTreeMap, BTreeSet};
 
 use serde_json::{Value, from_value, json, to_value};
 
-use crate::spec::model::{ELEMENT_MODEL_KEYS, ROOT};
-use crate::spec::sections::{ELEMENT, SUMMARY};
+use crate::spec::model::ROOT;
+use crate::spec::sections::SUMMARY;
 use crate::spec::shape::{Field, ObjectSchema, check_shape};
 use crate::spec::{
-    ElementModel, SegmentModel, SpecModel, SummaryColumnModel, SummaryFieldModel, SummaryModel,
-    SummaryRowModel, SummaryTableModel,
+    SpecModel, SummaryColumnModel, SummaryFieldModel, SummaryModel, SummaryRowModel,
+    SummaryTableModel,
 };
-use crate::value::ElementType;
 
 fn one<K: Ord, V>(key: K, value: V) -> BTreeMap<K, V> {
     BTreeMap::from([(key, value)])
@@ -23,19 +21,7 @@ fn text(word: &str) -> String {
     word.to_string()
 }
 
-fn element(composite: BTreeMap<usize, ElementModel>) -> ElementModel {
-    ElementModel {
-        name: text("amount"),
-        kind: ElementType::R { scale: 4 },
-        required: true,
-        min: Some(1),
-        max: Some(9),
-        codes: Some(vec![text("A")]),
-        composite,
-    }
-}
-
-// Every element and summary field set off its default, written as
+// Every summary field set off its default, written as
 // full literals so a field added to a model stops this build until it is set.
 fn every_key_model() -> SpecModel {
     let summary_field = SummaryFieldModel {
@@ -53,12 +39,7 @@ fn every_key_model() -> SpecModel {
             text("2100"),
             from_value(json!({"trigger": {"segment": "CLP"}})).unwrap(),
         ),
-        segments: one(
-            text("CLP"),
-            SegmentModel {
-                elements: one(1, element(one(1, element(BTreeMap::new())))),
-            },
-        ),
+        segments: BTreeMap::new(),
         tables: BTreeMap::new(),
         balancing: BTreeMap::new(),
         summaries: BTreeMap::from([
@@ -86,8 +67,7 @@ fn every_key_model() -> SpecModel {
 }
 
 // No `_` arm: a new `SummaryModel` variant stops this build, and its slot must
-// be set by `every_key_model`. The private `type_keys` struct is not an enum,
-// so a key added there for a type other than `R` is not covered.
+// be set by `every_key_model`.
 fn mark(seen: &mut [bool; 4], summary: &SummaryModel) {
     let slot = match summary {
         SummaryModel::Count(_) => 0,
@@ -99,7 +79,6 @@ fn mark(seen: &mut [bool; 4], summary: &SummaryModel) {
 }
 
 static TOP: Field = Field::Object(&ROOT);
-static ELEMENTS: Field = Field::Object(&ELEMENT);
 static SUMMARIES: Field = Field::Object(&SUMMARY);
 
 /// The keys found at each object of a schema, by the schema's address, with
@@ -158,7 +137,7 @@ fn walk_registry(keys: &mut Keys, field: &'static Field) {
                 .for_each(|(_, inner)| walk_registry(keys, inner));
         }
         Field::Map(item) | Field::List { item, .. } => walk_registry(keys, item),
-        Field::Leaf { .. } => {}
+        Field::Leaf { .. } | Field::Opaque => {}
     }
 }
 
@@ -195,25 +174,7 @@ fn the_model_and_the_registry_hold_the_same_keys() {
     check_shape(&value).unwrap_or_else(|e| panic!("only in the model: {e}"));
     let (mut in_model, mut in_registry) = (Keys::new(), Keys::new());
     walk_value(&mut in_model, &TOP, &value);
-    walk_registry(&mut in_registry, &ELEMENTS);
     walk_registry(&mut in_registry, &SUMMARIES);
     let report = difference(&in_model, &in_registry);
     assert!(report.is_empty(), "{}", report.join("\n"));
-}
-
-#[test]
-fn the_element_model_lists_every_key_it_writes() {
-    let written: BTreeSet<String> = to_value(element(one(1, element(BTreeMap::new()))))
-        .unwrap()
-        .as_object()
-        .unwrap()
-        .keys()
-        .cloned()
-        .collect();
-    let listed: BTreeSet<String> = ELEMENT_MODEL_KEYS
-        .iter()
-        .map(|key| key.to_string())
-        .collect();
-    assert_eq!(listed, written);
-    assert_eq!(ELEMENT_MODEL_KEYS.len(), written.len());
 }

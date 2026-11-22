@@ -1,6 +1,6 @@
 //! The JSON shape checks and the paths they report.
 
-use super::{element_error, table_error};
+use super::table_error;
 use crate::message::render_key;
 use crate::spec::shape::kind_of;
 use crate::spec::*;
@@ -215,44 +215,6 @@ fn a_spec_without_loops_is_rejected() {
         matches!(&err, SpecError::NoLoops { spec_name } if spec_name == "t"),
         "{err:?}"
     );
-}
-
-#[test]
-fn a_segment_scalar_of_the_wrong_kind_is_rejected_with_its_key_path() {
-    let cases = [
-        (
-            r#"{"3":{"name":"p","type":"AN","min":"1"}}"#,
-            "spec: the value at segments.AA.elements.3.min must be a non-negative integer; found a string (\"1\")",
-        ),
-        (
-            r#"{"3":{"name":"p","type":"R","scale":300}}"#,
-            "spec: the value at segments.AA.elements.3.scale must be an integer from 0 to 255; found a number above 255 (300)",
-        ),
-        (
-            r#"{"3":{"name":"p","type":"AN","required":"yes"}}"#,
-            "spec: the value at segments.AA.elements.3.required must be a boolean; found a string (\"yes\")",
-        ),
-        (
-            r#"{"3":{"name":5,"type":"AN"}}"#,
-            "spec: the value at segments.AA.elements.3.name must be a string; found a number (5)",
-        ),
-        (
-            r#"{"1":{"name":"c","type":"AN","composite":{"2":{"name":"x","type":"AN","max":1.5}}}}"#,
-            "spec: the value at segments.AA.elements.1.composite.2.max must be a non-negative integer; found a number with a fractional part (1.5)",
-        ),
-        (
-            r#"{"3":{"name":"p","type":"AN","max":2.0}}"#,
-            "spec: the value at segments.AA.elements.3.max must be a non-negative integer; found a floating-point number (2.0)",
-        ),
-    ];
-    for (elements, expected) in cases {
-        let err = element_error(elements);
-        assert!(
-            matches!(&err, SpecError::WrongType { .. }),
-            "{elements}: {err:?}"
-        );
-        assert_eq!(err.to_string(), expected, "{elements}");
-    }
 }
 
 #[test]

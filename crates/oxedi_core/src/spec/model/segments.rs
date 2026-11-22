@@ -5,8 +5,7 @@ use std::collections::BTreeMap;
 use serde::{Deserialize, Deserializer, Serialize};
 
 use super::declare::spec_object;
-use super::{is_default, positions};
-use crate::spec::sections::ELEMENT;
+use super::{is_default, positions, present};
 use crate::spec::shape::Field;
 use crate::value::ElementType;
 
@@ -28,7 +27,7 @@ spec_object! {
     /// The elements, by 1-based element position.
     #[serde(deserialize_with = "segment_elements")]
     elements: BTreeMap<usize, ElementModel>,
-        Field::Map(&Field::Object(&ELEMENT)), default;
+        Field::Opaque, default;
 }
 
 /// The keys an element object takes, as an unknown-key error lists them.
@@ -65,7 +64,11 @@ pub struct ElementModel {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub max: Option<usize>,
     /// The codes it may hold, when the spec lists them.
-    #[serde(skip_serializing_if = "Option::is_none")]
+    #[serde(
+        default,
+        skip_serializing_if = "Option::is_none",
+        deserialize_with = "present"
+    )]
     pub codes: Option<Vec<String>>,
     /// The components, by 1-based component position.
     #[serde(
@@ -87,20 +90,22 @@ mod type_keys {
 
     use crate::value::ElementType;
 
-    #[derive(Serialize, Deserialize)]
+    #[derive(Serialize)]
     struct TypeKeys {
         #[serde(rename = "type")]
         code: String,
-        #[serde(default, skip_serializing_if = "Option::is_none")]
+        #[serde(skip_serializing_if = "Option::is_none")]
         scale: Option<u8>,
     }
 
-    // What the element's other fields leave: the kind's keys, and any key
-    // nothing takes.
+    // What the element's other fields leave: the kind's keys, `type` optional
+    // so a key nothing takes is named before the `type` it leaves missing, and
+    // any key nothing takes.
     #[derive(Deserialize)]
     struct ReadKeys {
-        #[serde(flatten)]
-        keys: TypeKeys,
+        #[serde(rename = "type")]
+        code: Option<String>,
+        scale: Option<u8>,
         #[serde(flatten)]
         unknown: BTreeMap<String, IgnoredAny>,
     }
@@ -122,10 +127,15 @@ mod type_keys {
     pub(super) fn deserialize<'de, D: Deserializer<'de>>(
         deserializer: D,
     ) -> Result<ElementType, D::Error> {
-        let ReadKeys { keys, unknown } = ReadKeys::deserialize(deserializer)?;
+        let ReadKeys {
+            code,
+            scale,
+            unknown,
+        } = ReadKeys::deserialize(deserializer)?;
         if let Some(key) = unknown.keys().next() {
             return Err(de::Error::unknown_field(key, super::ELEMENT_MODEL_KEYS));
         }
-        ElementType::parse(&keys.code, keys.scale).map_err(de::Error::custom)
+        let code = code.ok_or_else(|| de::Error::missing_field("type"))?;
+        ElementType::parse(&code, scale).map_err(de::Error::custom)
     }
 }

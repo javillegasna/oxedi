@@ -44,7 +44,7 @@ impl Names {
             }
             Field::Map(item) => self.visit(item, format!("{base}.*")),
             Field::List { item, .. } => self.visit(item, format!("{base}[]")),
-            Field::Leaf { .. } => {}
+            Field::Leaf { .. } | Field::Opaque => {}
         }
     }
 
@@ -55,7 +55,6 @@ impl Names {
                     Leaf::Text => "text",
                     Leaf::Flag => "flag",
                     Leaf::Count => "count",
-                    Leaf::Byte => "byte",
                     Leaf::Pick => "pick",
                 };
                 format!("{word}{}", if *nullable { "?" } else { "" })
@@ -63,6 +62,7 @@ impl Names {
             Field::List { item, .. } => format!("[{}]", self.render(item)),
             Field::Map(item) => format!("{{{}}}", self.render(item)),
             Field::Object(schema) => format!("@{}", self.by_address[&address(schema)]),
+            Field::Opaque => "opaque".to_string(),
         }
     }
 
@@ -111,8 +111,7 @@ tables.*.repeat: from!=count, step!=count
 tables.*.columns.*: loop=text?, segment=text?, where={text}, occurrence=text?, pick=pick?, element=count?, component=count?, group_element=count?, segment_index=flag, phi=text?
 balancing.*: per!=text, target!=[@balancing.*.target[]], sum!=[@balancing.*.target[]]
 balancing.*.target[]: loop=text?, occurrence!=text, component=count?, sign=text?, elements!=[count]
-segments.*: elements={@segments.*.elements.*}
-segments.*.elements.*: codes=[text], name!=text, type!=text, required=flag, min=count?, max=count?, scale=byte?, composite={@segments.*.elements.*}
+segments.*: elements=opaque
 summaries.*: count=@summaries.*.count, distinct=@summaries.*.distinct, sum=@summaries.*.distinct, row=@summaries.*.row
 summaries.*.count: table!=text
 summaries.*.distinct: table!=text, column!=text

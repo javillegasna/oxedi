@@ -166,10 +166,19 @@ A patched spec also writes: pass it to `oxedi.write(frames, envelope, spec=spec)
 
 ## Spec keys reference
 
-Every key a spec can hold, with what it means and the Rust code that reads it. The whole spec, its top level included, is read once as its `SpecModel`, whose parts are the
-typed `*Model`s (`LoopModel`, `TableModel`, `SegmentModel`, `SummaryModel`, `BalanceModel`), each
-declared in `crates/oxedi_core/src/spec_load/model/`. The result is compiled into the definitions of `oxedi_core::spec`. For the internal names, see the [glossary](https://github.com/javillegasna/oxedi/blob/master/ARCHITECTURE.md#glossary). An unknown key is an
-error that names its path and the keys allowed there; a missing required key is an error that names its path only. Positions of elements and
+Every key a spec can hold, with what it means and the Rust code that reads it. A spec has two
+layers in the core. Loading, in `oxedi_core::spec_load`, reads the whole spec, its top level
+included, once as its `SpecModel`, whose parts are the typed `*Model`s (`LoopModel`,
+`TableModel`, `SegmentModel`, `SummaryModel`, `BalanceModel`), each declared in
+`crates/oxedi_core/src/spec_load/model/`, then checks the model and compiles it into the schema:
+the definitions of `oxedi_core::spec`, which reading and writing use. In the Rust column, files
+are under `crates/oxedi_core/src/`: a `spec_load/` file compiles and checks the key, a `spec/`
+file holds its compiled definition, and any other path is code that uses it. For the internal
+names, see the [glossary](https://github.com/javillegasna/oxedi/blob/master/ARCHITECTURE.md#glossary).
+A load error names the failing key by its path from the root: an unknown key is an error that
+names its path and the keys allowed there, a missing required key one that names its path only,
+and a value of the wrong type one that names its path and what it expected, as in
+`spec: at version.element: invalid type: string "8", expected usize`. Positions of elements and
 components are 1-based. The code names differ from the JSON in three places: a table's
 `loops` are its *anchors*, `end` is a loop's *closer*, and `ref` is the *reference* name.
 
@@ -177,14 +186,14 @@ components are 1-based. The code names differ from the JSON in three places: a t
 
 | Key | Required | Meaning | Rust |
 |-----|----------|---------|------|
-| `name` | yes | The spec's name, shown in `Spec(name=...)`. | `Spec::name`, `build.rs` |
-| `loops` | yes | The loop structure, by loop name; at least one loop. | `LoopDef`, `build.rs` |
-| `segments` | no | Names and types the elements of each segment id. | `SegmentDef`, `segments.rs` |
-| `tables` | no | The tables of the projection, by table name. | `TableDef`, `compile.rs` |
-| `balancing` | no | Amounts that must add up inside a loop, by rule name. | `BalanceRule`, `balance.rs` |
-| `version` | no | Which versions of the format the spec covers, used to choose a built-in spec. | `DeclaredVersion`, `version.rs` |
-| `summaries` | no | Figures computed over the tables, by summary name. | `Summary`, `summaries.rs` |
-| `default_table` | no | The table a reader shows when the caller names none. | `Spec::default_table`, `summaries.rs` |
+| `name` | yes | The spec's name, shown in `Spec(name=...)`. | `Spec::name`, `spec_load/build.rs` |
+| `loops` | yes | The loop structure, by loop name; at least one loop. | `LoopDef`, `spec_load/build.rs`, `spec_load/build_loops.rs` |
+| `segments` | no | Names and types the elements of each segment id. | `SegmentDef`, `spec_load/segments.rs` |
+| `tables` | no | The tables of the projection, by table name. | `TableDef`, `spec_load/compile.rs` |
+| `balancing` | no | Amounts that must add up inside a loop, by rule name. | `BalanceRule`, `spec_load/balance.rs` |
+| `version` | no | Which versions of the format the spec covers, used to choose a built-in spec. | `DeclaredVersion`, `spec/version.rs` |
+| `summaries` | no | Figures computed over the tables, by summary name. | `Summary`, `spec_load/summaries.rs` |
+| `default_table` | no | The table a reader shows when the caller names none. | `Spec::default_table`, `spec_load/summaries.rs` |
 
 ### `version`
 
@@ -201,12 +210,12 @@ All three are required. The first segment with that id decides.
 | Key | Required | Meaning | Rust |
 |-----|----------|---------|------|
 | `parent` | no | Name of the enclosing loop; none for a top-level loop. | `LoopDef::parent` |
-| `trigger` | yes | The segment that opens the loop (see below). | `Trigger`, `loops.rs` |
-| `occurrences` | no | The named places segments take in the loop (see below). | `OccurrenceDef`, `occurrences.rs` |
+| `trigger` | yes | The segment that opens the loop (see below). | `Trigger`, `spec/loops.rs` |
+| `occurrences` | no | The named places segments take in the loop (see below). | `OccurrenceDef`, `spec/occurrences.rs` |
 | `usage` | no | `required` or `situational` (the default): whether every instance of the parent holds an instance of this loop. | `Usage`, read by `check/occurrences.rs` |
 | `max` | no | Most instances under one parent instance; at least 1. | `LoopDef::max`, `check/occurrences.rs` |
 | `end` | no | The segment that closes the loop; the loop captures it. It cannot be the trigger's segment. | `LoopDef::end`, `engine/mod.rs` |
-| `control` | no | What the `end` segment must agree on with the trigger; needs `end`. | `Control`, `loops.rs`; checked by `check/mod.rs` |
+| `control` | no | What the `end` segment must agree on with the trigger; needs `end`. | `Control`, `spec/loops.rs`; checked by `check/mod.rs` |
 
 `trigger`:
 
@@ -250,7 +259,7 @@ The only key of a segment is `elements`. An element or a component takes these k
 | Key | Required | Meaning | Rust |
 |-----|----------|---------|------|
 | `name` | yes | Name used downstream; unique among its siblings. | `ElementDef::name` |
-| `type` | yes | `AN`, `ID`, `N0` to `N9`, `R`, `DT` or `TM`. | `ElementType`, `segments.rs` |
+| `type` | yes | `AN`, `ID`, `N0` to `N9`, `R`, `DT` or `TM`. | `ElementType`, `spec_load/segments.rs` |
 | `required` | no | The element must be present and not empty. Default false. | `ElementDef::required` |
 | `min`, `max` | no | Length bounds, counted as X12 counts them (digits only for `N` and `R`). | `ElementDef` |
 | `scale` | no | Decimal places of an `R` element, 2 by default, at most 18. Only `R` accepts it. | `ElementType::R` |
@@ -267,8 +276,8 @@ The element checks of `project` and the writer's formatting read these.
 | `ref` | no | The name of the column that tables below this one use to refer to a row of it. Defaults to the table's name; unique among tables. | `TableDef::reference` |
 | `segment` | no | One row per occurrence of this segment in an anchor, instead of per loop instance. | `TableDef::segment` |
 | `repeat` | no | One row per element group of `segment`; needs `segment`. | `Repeat` |
-| `columns` | no | The declared columns, by name. | `ColumnSource`, `columns.rs` |
-| `phi_seed` | no | Name of one column flagged `"id"`; its value decides how far the row's dates shift. | `TableDef::phi_seed`, `phi.rs` |
+| `columns` | no | The declared columns, by name. | `ColumnSource`, `spec_load/columns.rs` |
+| `phi_seed` | no | Name of one column flagged `"id"`; its value decides how far the row's dates shift. | `TableDef::phi_seed`, `spec_load/phi.rs` |
 
 `repeat`, both required: `from` (position of the first group's first element) and `step`
 (elements per group). Both are at least 1.

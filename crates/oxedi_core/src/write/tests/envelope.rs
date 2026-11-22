@@ -2,6 +2,8 @@ use super::super::envelope::interchange_version;
 use super::super::{Envelope, Finding, WriteError, write, write_with_findings};
 use crate::delimiters::Delimiters;
 use crate::diagnostic::Rule;
+use crate::spec::Version;
+use crate::spec::test_support::{builtin, patched};
 use crate::{Document, Processor, Spec};
 
 #[test]
@@ -41,9 +43,11 @@ fn written(spec: &Spec, bytes: &[u8], envelope: &Envelope) -> Result<Vec<u8>, Wr
 
 #[test]
 fn a_00402_spec_with_a_code_on_isa11_writes_the_separator() {
-    let spec = Spec::builtin_835()
-        .merge_patch(r#"{"segments":{"ISA":{"elements":{"11":{"codes":["U"]}}}}}"#)
-        .unwrap();
+    let spec = patched(
+        &builtin(Version::V5010),
+        r#"{"segments":{"ISA":{"elements":{"11":{"codes":["U"]}}}}}"#,
+    )
+    .unwrap();
     let envelope = envelope_with(Delimiters::new(b'*', b':', b'~').with_repetition(b'^'));
     let document = Document::parse(BALANCED_5010).unwrap();
     let (tables, _) = Processor::run(&spec, &document, None);
@@ -66,9 +70,11 @@ fn a_00402_spec_with_a_code_on_isa11_writes_the_separator() {
 
 #[test]
 fn a_spec_below_00402_without_a_code_needs_no_separator() {
-    let spec = Spec::builtin_835_4010()
-        .merge_patch(r#"{"segments":{"ISA":{"elements":{"11":{"codes":null,"required":false}}}}}"#)
-        .unwrap();
+    let spec = patched(
+        &builtin(Version::V4010),
+        r#"{"segments":{"ISA":{"elements":{"11":{"codes":null,"required":false}}}}}"#,
+    )
+    .unwrap();
     let envelope = envelope_with(Delimiters::new(b'*', b':', b'~'));
     let bytes = written(&spec, BALANCED_4010, &envelope).unwrap();
     assert_eq!(Delimiters::from_isa(&bytes).unwrap().repetition, None);
@@ -86,8 +92,7 @@ fn a_00402_spec_without_a_separator_is_refused() {
 
 #[test]
 fn a_spec_with_no_value_for_isa12_writes_no_separator() {
-    let spec = Spec::builtin_835()
-        .merge_patch(
+    let spec = patched(&builtin(Version::V5010),
             r#"{"segments":{"ISA":{"elements":{"11":{"required":false},"12":{"codes":null,"required":false}}}}}"#,
         )
         .unwrap();
@@ -98,8 +103,7 @@ fn a_spec_with_no_value_for_isa12_writes_no_separator() {
 
 #[test]
 fn a_declared_version_that_is_not_isa12_does_not_decide_the_separator() {
-    let spec = Spec::builtin_835_4010()
-        .merge_patch(
+    let spec = patched(&builtin(Version::V4010),
             r#"{"version":{"values":["4010"]},"segments":{"GS":{"elements":{"8":{"codes":["4010"]}}}}}"#,
         )
         .unwrap();
@@ -125,17 +129,17 @@ fn written_isa12(spec: &Spec, input: &[u8], envelope: &Envelope) -> Vec<u8> {
 
 #[test]
 fn the_interchange_version_is_the_value_the_header_writes() {
-    let only_a_code = Spec::builtin_835()
-        .merge_patch(r#"{"segments":{"ISA":{"elements":{"12":{"codes":["00402"]}}}}}"#)
-        .unwrap();
-    let declared = Spec::builtin_835()
-        .merge_patch(
+    let only_a_code = patched(
+        &builtin(Version::V5010),
+        r#"{"segments":{"ISA":{"elements":{"12":{"codes":["00402"]}}}}}"#,
+    )
+    .unwrap();
+    let declared = patched(&builtin(Version::V5010),
             r#"{"version":{"segment":"ISA","element":12,"values":["00401"]},
                 "segments":{"ISA":{"elements":{"11":{"required":false},"12":{"codes":["00401"]}}}}}"#,
         )
         .unwrap();
-    let neither = Spec::builtin_835()
-        .merge_patch(
+    let neither = patched(&builtin(Version::V5010),
             r#"{"segments":{"ISA":{"elements":{"11":{"required":false},"12":{"codes":null,"required":false}}}}}"#,
         )
         .unwrap();

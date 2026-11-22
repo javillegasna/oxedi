@@ -5,7 +5,7 @@
 mod common;
 
 use oxedi_core::write::{Envelope, Finding, WriteError, write, write_with_findings};
-use oxedi_core::{Cell, ColumnType, Delimiters, Document, Processor, Spec, Table, Tables};
+use oxedi_core::{Cell, ColumnType, Delimiters, Document, Processor, Spec, Table, Tables, Version};
 
 /// 2024-01-01 at 12:30.
 fn envelope() -> Envelope {
@@ -449,9 +449,10 @@ fn tables_and_delimiters_that_do_not_fit_are_errors() {
         error(&tables, &letter),
         "the segment terminator \"A\" is a letter, a digit or white space, which values hold"
     );
-    let plan = Spec::builtin_835()
-        .merge_patch(r#"{"tables":{"claims":{"columns":{"header_number":null}}}}"#)
-        .unwrap();
+    let plan = common::patched(
+        Version::V5010,
+        r#"{"tables":{"claims":{"columns":{"header_number":null}}}}"#,
+    );
     let error = write(&plan, &Tables::default(), &envelope()).unwrap_err();
     assert!(matches!(error, WriteError::Plan(_)));
     assert!(std::error::Error::source(&error).is_none());

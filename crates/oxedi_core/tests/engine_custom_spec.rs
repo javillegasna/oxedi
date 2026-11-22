@@ -3,7 +3,7 @@
 
 mod common;
 
-use oxedi_core::{Delimiters, Event, LoopTree, Spec, Tokenizer};
+use oxedi_core::{Delimiters, Event, LoopTree, Spec, Tokenizer, Version};
 
 /// How many segments of `bytes` no loop of `spec` holds.
 fn unmatched(spec: &Spec, bytes: &[u8], delims: Delimiters) -> usize {
@@ -17,9 +17,10 @@ fn unmatched(spec: &Spec, bytes: &[u8], delims: Delimiters) -> usize {
 fn a_patch_makes_the_bogus_trizetto_segment_captured() {
     let bytes = common::load_fixture("trizetto_sample.rmt");
     let builtin = Spec::builtin_835();
-    let patched = builtin
-        .merge_patch(r#"{"loops":{"1000A":{"occurrences":{"xx":{"segment":"XX","pos":19000}}}}}"#)
-        .unwrap();
+    let patched = common::patched(
+        Version::V5010,
+        r#"{"loops":{"1000A":{"occurrences":{"xx":{"segment":"XX","pos":19000}}}}}"#,
+    );
     let payer = patched.get(patched.loop_id("1000A").unwrap());
     let before = builtin.get(builtin.loop_id("1000A").unwrap());
     assert_eq!(
@@ -54,11 +55,10 @@ fn a_patch_makes_the_bogus_trizetto_segment_captured() {
 fn a_patch_adding_n3_n4_to_loop_2100_captures_the_multi_claim_addresses() {
     let bytes = common::load_fixture("multi_claim_sample.txt");
     let builtin = Spec::builtin_835();
-    let patched = builtin
-        .merge_patch(
-            r#"{"loops":{"2100":{"occurrences":{"n3":{"segment":"N3","pos":29000},"n4":{"segment":"N4","pos":29001}}}}}"#,
-        )
-        .unwrap();
+    let patched = common::patched(
+        Version::V5010,
+        r#"{"loops":{"2100":{"occurrences":{"n3":{"segment":"N3","pos":29000},"n4":{"segment":"N4","pos":29001}}}}}"#,
+    );
     let delims = Delimiters::from_isa(&bytes).unwrap();
     assert_eq!(
         unmatched(&builtin, &bytes, delims),
@@ -73,9 +73,10 @@ fn a_proprietary_loop_opens_and_captures_with_data_only() {
     let input = b"ST*835*1~LX*1~CLP*1*1*10*10**MC*1~ZZ1*A~ZZ2*B~SVC*HC:1*10*10~SE*7*1~";
     let delims = Delimiters::new(b'*', b':', b'~');
     let builtin = Spec::builtin_835();
-    let patched = builtin
-        .merge_patch(r#"{"loops":{"2100-ZZ":{"parent":"2100","trigger":{"segment":"ZZ1"},"occurrences":{"zz1":{"segment":"ZZ1","pos":0},"zz2":{"segment":"ZZ2","pos":1}}}}}"#)
-        .unwrap();
+    let patched = common::patched(
+        Version::V5010,
+        r#"{"loops":{"2100-ZZ":{"parent":"2100","trigger":{"segment":"ZZ1"},"occurrences":{"zz1":{"segment":"ZZ1","pos":0},"zz2":{"segment":"ZZ2","pos":1}}}}}"#,
+    );
 
     let tree = LoopTree::build(&builtin, Tokenizer::with_delimiters(input, delims));
     let claim = tree

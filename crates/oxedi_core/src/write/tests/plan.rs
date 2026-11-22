@@ -1,7 +1,8 @@
 //! The write plan over the built-in specs and over a small spec whose
 //! tables are patched to raise each refusal.
 
-use crate::spec::Spec;
+use crate::spec::test_support::{builtin, loaded, patched};
+use crate::spec::{Spec, Version};
 use crate::write::*;
 
 /// `env` is an envelope with a required `head`; `head` holds two NM
@@ -56,7 +57,7 @@ const BASE: &str = r#"{"name":"w",
 }"#;
 
 fn spec(patch: &str) -> Spec {
-    Spec::from_json(BASE).unwrap().merge_patch(patch).unwrap()
+    patched(&loaded(BASE), patch).unwrap()
 }
 
 fn refusals(patch: &str) -> Vec<String> {
@@ -244,8 +245,7 @@ fn the_envelope_segment_is_found_by_the_loop_trigger() {
 
 #[test]
 fn the_built_in_tables_without_their_writing_columns_name_what_is_missing() {
-    let spec = Spec::builtin_835()
-        .merge_patch(
+    let spec = patched(&builtin(Version::V5010),
             r#"{"tables":{"payments":{"columns":{"payer_technical_contact_name":null,
                 "payer_technical_contact_qualifier":null,"payer_technical_contact_number":null}},
                 "claims":{"columns":{"header_number":null,"rendering_provider_entity_type":null}}}}"#,

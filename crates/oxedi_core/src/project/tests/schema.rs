@@ -2,7 +2,8 @@
 
 use super::{delimiters, spec};
 use crate::project::Projector;
-use crate::spec::{Spec, TableSchema, spec_schema};
+use crate::spec::test_support::{builtin, patched};
+use crate::spec::{Spec, TableSchema, Version, spec_schema};
 use crate::value::ColumnType;
 
 /// The names and types of the tables a projector that saw no segment holds.
@@ -37,8 +38,7 @@ fn names_and_kinds(schema: &[TableSchema]) -> Vec<(String, Vec<(String, ColumnTy
 
 #[test]
 fn the_schema_is_what_the_projector_fills() {
-    let patched = Spec::builtin_835()
-        .merge_patch(
+    let patched = patched(&builtin(Version::V5010),
             r#"{"tables":{"claims":{"columns":{"received":{"segment":"DTM","where":{"1":"050"},"element":2}}}}}"#,
         )
         .unwrap();

@@ -41,47 +41,6 @@ fn a_loop_the_model_refuses_fails_at_its_path() {
 }
 
 #[test]
-fn unknown_and_missing_keys_display_the_key_and_the_path() {
-    let cases = [
-        (
-            SpecError::UnknownKey {
-                path: "segments.CLP.elements.3".into(),
-                key: "lenght".into(),
-                allowed: vec!["max", "min", "name"],
-            },
-            "spec: unknown key \"lenght\" at segments.CLP.elements.3; the allowed keys are: \
-             max, min, name",
-        ),
-        (
-            SpecError::UnknownKey {
-                path: String::new(),
-                key: "tabels".into(),
-                allowed: vec!["loops", "name"],
-            },
-            "spec: unknown key \"tabels\" at the top level; the allowed keys are: loops, name",
-        ),
-        (
-            SpecError::MissingKey {
-                path: "loops.env.control".into(),
-                key: "count_element",
-            },
-            "spec: missing required key \"count_element\" at loops.env.control",
-        ),
-        (
-            SpecError::MissingKey {
-                path: String::new(),
-                key: "loops",
-            },
-            "spec: missing required key \"loops\" at the top level",
-        ),
-    ];
-    for (err, expected) in cases {
-        assert_eq!(err.to_string(), expected);
-        assert!(std::error::Error::source(&err).is_none());
-    }
-}
-
-#[test]
 fn unknown_parent_is_rejected_with_both_names() {
     let err = Spec::from_json(
         r#"{"name":"t","loops":{"a":{"parent":"ghost","trigger":{"segment":"AA"}}}}"#,
@@ -253,30 +212,6 @@ fn a_spec_or_a_section_that_is_not_an_object_fails_at_its_key() {
         .map(|(a, b)| (a.as_str(), b.as_str()))
         .collect();
     assert_model_faults(&cases, |json| Spec::from_json(json).unwrap_err());
-}
-
-#[test]
-fn wrong_type_displays_the_path_what_is_required_and_what_was_found() {
-    let err = SpecError::WrongType {
-        path: "loops.env.control.opener_element".into(),
-        expected: "a non-negative integer",
-        found: "a string",
-        value: "\"2\"".into(),
-    };
-    assert_eq!(
-        err.to_string(),
-        "spec: the value at loops.env.control.opener_element must be a non-negative integer; found a string (\"2\")"
-    );
-    let null = SpecError::WrongType {
-        path: "loops.env.end".into(),
-        expected: "a string",
-        found: "null",
-        value: String::new(),
-    };
-    assert_eq!(
-        null.to_string(),
-        "spec: the value at loops.env.end must be a string; found null"
-    );
 }
 
 #[test]

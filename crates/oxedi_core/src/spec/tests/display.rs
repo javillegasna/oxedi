@@ -52,27 +52,6 @@ fn patch_error_displays_the_inner_error_once() {
 }
 
 #[test]
-fn not_an_object_displays_the_path_and_what_was_found() {
-    let err = SpecError::NotAnObject {
-        path: "loops.2100.trigger".into(),
-        found: "an array",
-    };
-    assert_eq!(
-        err.to_string(),
-        "spec: the value at loops.2100.trigger must be a JSON object; found an array"
-    );
-    assert!(std::error::Error::source(&err).is_none());
-    let err = SpecError::NotAnObject {
-        path: String::new(),
-        found: "a string",
-    };
-    assert_eq!(
-        err.to_string(),
-        "the spec must be a JSON object; found a string"
-    );
-}
-
-#[test]
 fn unknown_parent_displays_both_names() {
     let err = SpecError::UnknownParent {
         loop_name: "2100".into(),
@@ -271,9 +250,9 @@ fn no_spec_error_chains_its_source() {
     let patch = SpecError::Patch {
         source: Box::new(SpecError::Json(json_error("{"))),
     };
-    let key = SpecError::MissingKey {
-        path: String::new(),
-        key: "name",
+    let format = SpecError::Format {
+        path: ".".into(),
+        source: json_error("{"),
     };
     let bad_summary = SpecError::BadSummary {
         summary: "s".into(),
@@ -286,7 +265,7 @@ fn no_spec_error_chains_its_source() {
     for err in [
         SpecError::Json(json_error("{")),
         patch,
-        key,
+        format,
         bad_summary,
         default_table,
     ] {

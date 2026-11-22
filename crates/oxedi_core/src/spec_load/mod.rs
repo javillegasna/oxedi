@@ -51,6 +51,8 @@ mod summaries;
 mod summary_error;
 mod table_chain;
 mod table_error;
+#[cfg(test)]
+mod tests;
 mod vocabulary;
 
 pub use balance_error::BalanceError;
@@ -71,8 +73,3 @@ pub use segments::ElementDefError;
 pub use summary_error::SummaryDefError;
 pub use table_error::{AnchorChains, AnchorPositions, LoopSegments, TableDefError};
 pub use vocabulary::ElementPosition;
-
-#[cfg(test)]
-pub(crate) use model::ELEMENT_MODEL_KEYS;
-#[cfg(test)]
-pub(crate) use table_chain::Declared;

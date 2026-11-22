@@ -5,7 +5,7 @@ use std::collections::{BTreeMap, BTreeSet};
 
 use serde_json::Value;
 
-use super::segs;
+use crate::spec::test_support::segs;
 use crate::spec::*;
 use crate::spec_load::*;
 

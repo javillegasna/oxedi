@@ -1,4 +1,4 @@
-//! Unit tests of the spec module, one file per topic.
+//! Unit tests of loading a spec, one file per topic.
 
 mod balancing;
 mod builtin;
@@ -9,12 +9,10 @@ mod declaration;
 mod display;
 mod loading;
 mod model;
-mod occurrence_index;
 mod occurrences;
 mod patch;
 mod phi;
 mod round_trip;
-mod schema;
 mod segments;
 mod shape;
 mod summaries;
@@ -23,14 +21,8 @@ mod triggers;
 mod version;
 mod vocabulary;
 
-use crate::segment::Segment;
 use crate::spec::Spec;
 use crate::spec_load::SpecError;
-use crate::{Delimiters, Tokenizer};
-
-pub(super) fn segs(input: &[u8]) -> Vec<Segment<'_>> {
-    Tokenizer::with_delimiters(input, Delimiters::new(b'*', b':', b'~')).collect()
-}
 
 pub(super) const CLP_ONLY: &str = r#"{"name":"t",
         "loops":{"2100":{"trigger":{"segment":"CLP"},"occurrences":{"clp":{"segment":"CLP","pos":0},"zz1":{"segment":"ZZ1","pos":1}}}},

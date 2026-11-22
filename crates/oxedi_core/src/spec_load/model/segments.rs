@@ -29,7 +29,7 @@ spec_object! {
 }
 
 /// The keys an element object takes, as an unknown-key error lists them.
-pub(crate) const ELEMENT_MODEL_KEYS: &[&str] = &[
+pub(in crate::spec_load) const ELEMENT_MODEL_KEYS: &[&str] = &[
     "name",
     "type",
     "scale",

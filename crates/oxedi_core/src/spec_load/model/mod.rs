@@ -34,7 +34,7 @@ pub use tables::{ColumnModel, RepeatModel, TableModel};
 
 // Read only by the model test that holds the list to the keys the model writes.
 #[cfg(test)]
-pub(crate) use segments::ELEMENT_MODEL_KEYS;
+pub(in crate::spec_load) use segments::ELEMENT_MODEL_KEYS;
 
 spec_object! {
     /// A whole spec, as the spec writes it.

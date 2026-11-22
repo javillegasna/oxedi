@@ -1,11 +1,14 @@
 //! Small specs shared by the unit tests: a four-table spec for the spec and the
-//! projector, a three-loop nested spec for the engine and the tree, and the
-//! loaders and patch helper the tests share.
+//! projector, a three-loop nested spec for the engine and the tree, a one-loop
+//! spec that declares a version, and the tokenizer, loaders and patch helper
+//! the tests share.
 
 use std::sync::Arc;
 
 use super::Spec;
+use crate::segment::Segment;
 use crate::spec_load::{Builtin, LoadedSpec, SpecError, Version};
+use crate::{Delimiters, Tokenizer};
 
 pub(crate) const SPEC: &str = r#"{"name":"t",
     "loops":{
@@ -98,4 +101,25 @@ pub(crate) fn loaded(json: &str) -> LoadedSpec {
 pub(crate) fn patched(base: &LoadedSpec, patch: &str) -> Result<Spec, SpecError> {
     base.merge_patch(patch)
         .map(|loaded| Arc::unwrap_or_clone(loaded.spec))
+}
+
+/// The segments of `input`, delimited by `*`, `:` and `~`.
+pub(crate) fn segs(input: &[u8]) -> Vec<Segment<'_>> {
+    Tokenizer::with_delimiters(input, Delimiters::new(b'*', b':', b'~')).collect()
+}
+
+/// The JSON of a one-loop spec named `name` whose `version` is the JSON
+/// `version`, or that declares none when `version` is empty.
+pub(crate) fn declared(name: &str, version: &str) -> String {
+    let version = if version.is_empty() {
+        String::new()
+    } else {
+        format!(r#","version":{version}"#)
+    };
+    format!(r#"{{"name":"{name}","loops":{{"a":{{"trigger":{{"segment":"GS"}}}}}}{version}}}"#)
+}
+
+/// [`declared`], compiled.
+pub(crate) fn declaring(name: &str, version: &str) -> Spec {
+    Spec::from_json(&declared(name, version)).unwrap()
 }

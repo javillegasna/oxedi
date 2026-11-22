@@ -1,6 +1,6 @@
 //! Triggers: matching, specificity and ambiguity between siblings.
 
-use super::segs;
+use crate::spec::test_support::segs;
 use crate::spec::*;
 use crate::spec_load::*;
 

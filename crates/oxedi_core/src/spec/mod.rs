@@ -21,9 +21,9 @@
 //! spec alone; `unknown` the errors for a table or a column the spec does not
 //! define; `render` the text of triggers and occurrence selectors in messages;
 //! `version` the version a compiled spec declares and the choice of a spec by
-//! it; `test_support` (test builds only) the small spec shared by the spec and
-//! projector tests and the nested-loop spec shared by the engine and tree
-//! tests.
+//! it; `test_support` (test builds only) the small specs and helpers the tests
+//! of the spec, of its loading, of the projector, of the engine and of the
+//! tree share.
 
 mod balance_rule;
 mod elements;

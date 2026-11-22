@@ -2398,10 +2398,19 @@ occurrences sit at their own positions inside that space.</p>
 <p>A patched spec also writes: pass it to <code>oxedi.write(frames, envelope, spec=spec)</code>. See
 <a href="../../python/writing/">Writing</a>.</p>
 <h2 id="spec-keys-reference">Spec keys reference<a class="headerlink" href="#spec-keys-reference" title="Permanent link">&para;</a></h2>
-<p>Every key a spec can hold, with what it means and the Rust code that reads it. The whole spec, its top level included, is read once as its <code>SpecModel</code>, whose parts are the
-typed <code>*Model</code>s (<code>LoopModel</code>, <code>TableModel</code>, <code>SegmentModel</code>, <code>SummaryModel</code>, <code>BalanceModel</code>), each
-declared in <code>crates/oxedi_core/src/spec_load/model/</code>. The result is compiled into the definitions of <code>oxedi_core::spec</code>. For the internal names, see the <a href="https://github.com/javillegasna/oxedi/blob/master/ARCHITECTURE.md#glossary">glossary</a>. An unknown key is an
-error that names its path and the keys allowed there; a missing required key is an error that names its path only. Positions of elements and
+<p>Every key a spec can hold, with what it means and the Rust code that reads it. A spec has two
+layers in the core. Loading, in <code>oxedi_core::spec_load</code>, reads the whole spec, its top level
+included, once as its <code>SpecModel</code>, whose parts are the typed <code>*Model</code>s (<code>LoopModel</code>,
+<code>TableModel</code>, <code>SegmentModel</code>, <code>SummaryModel</code>, <code>BalanceModel</code>), each declared in
+<code>crates/oxedi_core/src/spec_load/model/</code>, then checks the model and compiles it into the schema:
+the definitions of <code>oxedi_core::spec</code>, which reading and writing use. In the Rust column, files
+are under <code>crates/oxedi_core/src/</code>: a <code>spec_load/</code> file compiles and checks the key, a <code>spec/</code>
+file holds its compiled definition, and any other path is code that uses it. For the internal
+names, see the <a href="https://github.com/javillegasna/oxedi/blob/master/ARCHITECTURE.md#glossary">glossary</a>.
+A load error names the failing key by its path from the root: an unknown key is an error that
+names its path and the keys allowed there, a missing required key one that names its path only,
+and a value of the wrong type one that names its path and what it expected, as in
+<code>spec: at version.element: invalid type: string "8", expected usize</code>. Positions of elements and
 components are 1-based. The code names differ from the JSON in three places: a table's
 <code>loops</code> are its <em>anchors</em>, <code>end</code> is a loop's <em>closer</em>, and <code>ref</code> is the <em>reference</em> name.</p>
 <h3 id="root">Root<a class="headerlink" href="#root" title="Permanent link">&para;</a></h3>
@@ -2419,49 +2428,49 @@ components are 1-based. The code names differ from the JSON in three places: a t
 <td><code>name</code></td>
 <td>yes</td>
 <td>The spec's name, shown in <code>Spec(name=...)</code>.</td>
-<td><code>Spec::name</code>, <code>build.rs</code></td>
+<td><code>Spec::name</code>, <code>spec_load/build.rs</code></td>
 </tr>
 <tr>
 <td><code>loops</code></td>
 <td>yes</td>
 <td>The loop structure, by loop name; at least one loop.</td>
-<td><code>LoopDef</code>, <code>build.rs</code></td>
+<td><code>LoopDef</code>, <code>spec_load/build.rs</code>, <code>spec_load/build_loops.rs</code></td>
 </tr>
 <tr>
 <td><code>segments</code></td>
 <td>no</td>
 <td>Names and types the elements of each segment id.</td>
-<td><code>SegmentDef</code>, <code>segments.rs</code></td>
+<td><code>SegmentDef</code>, <code>spec_load/segments.rs</code></td>
 </tr>
 <tr>
 <td><code>tables</code></td>
 <td>no</td>
 <td>The tables of the projection, by table name.</td>
-<td><code>TableDef</code>, <code>compile.rs</code></td>
+<td><code>TableDef</code>, <code>spec_load/compile.rs</code></td>
 </tr>
 <tr>
 <td><code>balancing</code></td>
 <td>no</td>
 <td>Amounts that must add up inside a loop, by rule name.</td>
-<td><code>BalanceRule</code>, <code>balance.rs</code></td>
+<td><code>BalanceRule</code>, <code>spec_load/balance.rs</code></td>
 </tr>
 <tr>
 <td><code>version</code></td>
 <td>no</td>
 <td>Which versions of the format the spec covers, used to choose a built-in spec.</td>
-<td><code>DeclaredVersion</code>, <code>version.rs</code></td>
+<td><code>DeclaredVersion</code>, <code>spec/version.rs</code></td>
 </tr>
 <tr>
 <td><code>summaries</code></td>
 <td>no</td>
 <td>Figures computed over the tables, by summary name.</td>
-<td><code>Summary</code>, <code>summaries.rs</code></td>
+<td><code>Summary</code>, <code>spec_load/summaries.rs</code></td>
 </tr>
 <tr>
 <td><code>default_table</code></td>
 <td>no</td>
 <td>The table a reader shows when the caller names none.</td>
-<td><code>Spec::default_table</code>, <code>summaries.rs</code></td>
+<td><code>Spec::default_table</code>, <code>spec_load/summaries.rs</code></td>
 </tr>
 </tbody>
 </table>
@@ -2514,13 +2523,13 @@ components are 1-based. The code names differ from the JSON in three places: a t
 <td><code>trigger</code></td>
 <td>yes</td>
 <td>The segment that opens the loop (see below).</td>
-<td><code>Trigger</code>, <code>loops.rs</code></td>
+<td><code>Trigger</code>, <code>spec/loops.rs</code></td>
 </tr>
 <tr>
 <td><code>occurrences</code></td>
 <td>no</td>
 <td>The named places segments take in the loop (see below).</td>
-<td><code>OccurrenceDef</code>, <code>occurrences.rs</code></td>
+<td><code>OccurrenceDef</code>, <code>spec/occurrences.rs</code></td>
 </tr>
 <tr>
 <td><code>usage</code></td>
@@ -2544,7 +2553,7 @@ components are 1-based. The code names differ from the JSON in three places: a t
 <td><code>control</code></td>
 <td>no</td>
 <td>What the <code>end</code> segment must agree on with the trigger; needs <code>end</code>.</td>
-<td><code>Control</code>, <code>loops.rs</code>; checked by <code>check/mod.rs</code></td>
+<td><code>Control</code>, <code>spec/loops.rs</code>; checked by <code>check/mod.rs</code></td>
 </tr>
 </tbody>
 </table>
@@ -2674,7 +2683,7 @@ balancing rules refer to them by name.</p>
 <td><code>type</code></td>
 <td>yes</td>
 <td><code>AN</code>, <code>ID</code>, <code>N0</code> to <code>N9</code>, <code>R</code>, <code>DT</code> or <code>TM</code>.</td>
-<td><code>ElementType</code>, <code>segments.rs</code></td>
+<td><code>ElementType</code>, <code>spec_load/segments.rs</code></td>
 </tr>
 <tr>
 <td><code>required</code></td>
@@ -2748,13 +2757,13 @@ balancing rules refer to them by name.</p>
 <td><code>columns</code></td>
 <td>no</td>
 <td>The declared columns, by name.</td>
-<td><code>ColumnSource</code>, <code>columns.rs</code></td>
+<td><code>ColumnSource</code>, <code>spec_load/columns.rs</code></td>
 </tr>
 <tr>
 <td><code>phi_seed</code></td>
 <td>no</td>
 <td>Name of one column flagged <code>"id"</code>; its value decides how far the row's dates shift.</td>
-<td><code>TableDef::phi_seed</code>, <code>phi.rs</code></td>
+<td><code>TableDef::phi_seed</code>, <code>spec_load/phi.rs</code></td>
 </tr>
 </tbody>
 </table>

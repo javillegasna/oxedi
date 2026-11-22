@@ -99,14 +99,7 @@ fn registry_text() -> String {
 }
 
 const REGISTRY: &str = "\
-spec: name!=text, version=@version, loops!={opaque}, tables={@tables.*}, balancing={@balancing.*}, segments={@segments.*}, summaries={opaque}, default_table=text
-version: segment!=text, element!=count, values!=[text]
-tables.*: loops!=[text], ref=text?, segment=text?, phi_seed=text?, repeat=@tables.*.repeat, columns={@tables.*.columns.*}
-tables.*.repeat: from!=count, step!=count
-tables.*.columns.*: loop=text?, segment=text?, where={text}, occurrence=text?, pick=pick?, element=count?, component=count?, group_element=count?, segment_index=flag, phi=text?
-balancing.*: per!=text, target!=[@balancing.*.target[]], sum!=[@balancing.*.target[]]
-balancing.*.target[]: loop=text?, occurrence!=text, component=count?, sign=text?, elements!=[count]
-segments.*: elements=opaque";
+spec: name!=opaque, version=opaque, loops!={opaque}, tables={opaque}, balancing={opaque}, segments={opaque}, summaries={opaque}, default_table=opaque";
 
 #[test]
 fn the_registry_reads_as_pinned() {
@@ -178,9 +171,9 @@ fn a_spec_model_writes_no_default_and_no_null() {
     };
     let written = json!({"name": "n", "loops": {"A": {"trigger": {"segment": "ST"}}}});
     assert_eq!(serde_json::to_value(&model).unwrap(), written);
-    let nulls = json!({
+    let defaults = json!({
         "name": "n", "loops": {"A": {"trigger": {"segment": "ST"}}},
-        "segments": {}, "tables": {}, "balancing": {}, "summaries": {}, "default_table": null
+        "segments": {}, "tables": {}, "balancing": {}, "summaries": {}
     });
-    assert_eq!(from_value::<SpecModel>(nulls).unwrap(), model);
+    assert_eq!(from_value::<SpecModel>(defaults).unwrap(), model);
 }

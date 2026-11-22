@@ -2,7 +2,7 @@
 
 use std::cell::Cell;
 
-use super::segs;
+use super::{assert_model_faults, segs};
 use crate::spec::*;
 
 fn declaring(name: &str, version: &str) -> Spec {
@@ -101,32 +101,34 @@ fn every_version_fault_is_named() {
 }
 
 #[test]
-fn a_version_of_the_wrong_shape_is_named_with_its_path() {
+fn a_version_the_model_refuses_fails_at_its_path() {
     let cases = [
         (
             r#""GS08""#,
-            "spec: the value at version must be a JSON object; found a string",
+            "spec: at version: invalid type: string \"GS08\", expected a version object",
         ),
         (
             r#"{"segment":"GS","element":8}"#,
-            "spec: missing required key \"values\" at version",
+            "spec: at version: missing field `values`",
         ),
         (
             r#"{"segment":"GS","element":8,"values":["X"],"value":"X"}"#,
-            "spec: unknown key \"value\" at version; the allowed keys are: element, segment, values",
+            "spec: at version.value: unknown field `value`, expected one of `segment`, `element`, `values`",
         ),
         (
             r#"{"segment":"GS","element":"8","values":["X"]}"#,
-            "spec: the value at version.element must be a non-negative integer; found a string (\"8\")",
+            "spec: at version.element: invalid type: string \"8\", expected usize",
         ),
         (
             r#"{"segment":"GS","element":8,"values":[8]}"#,
-            "spec: the value at version.values[0] must be a string; found a number (8)",
+            "spec: at version.values[0]: invalid type: integer `8`, expected a string",
+        ),
+        (
+            "null",
+            "spec: at version: invalid type: null, expected a version object",
         ),
     ];
-    for (version, expected) in cases {
-        assert_eq!(version_error(version).to_string(), expected, "{version}");
-    }
+    assert_model_faults(&cases, version_error);
 }
 
 const ISA: &str = "ISA*00*          *00*          *ZZ*S              *ZZ*R              *240101*1200*^*00501*000000001*0*P*:~";

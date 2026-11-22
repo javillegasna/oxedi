@@ -1,6 +1,7 @@
 //! Balancing rules: the built-in ones, their validation at load and the
 //! text of every error.
 
+use super::assert_model_faults;
 use crate::spec::*;
 
 const LOOPS: &str = r#""loops":{
@@ -180,48 +181,42 @@ fn an_empty_rule_name_is_rejected() {
 }
 
 #[test]
-fn the_shape_of_the_section_is_checked_with_its_key_path() {
+fn a_balancing_rule_the_model_refuses_fails_at_its_path() {
     let cases = [
         (
-            r#"[]"#,
-            "spec: the value at balancing must be a JSON object; found an array",
-        ),
-        (
             r#"{"r":{"per":"pay","target":[]}}"#,
-            "spec: missing required key \"sum\" at balancing.r",
+            "spec: at balancing.r: missing field `sum`",
         ),
         (
             r#"{"r":{"per":"pay","target":[],"sum":[],"tolerance":0}}"#,
-            "spec: unknown key \"tolerance\" at balancing.r; the allowed keys are: per, sum, target",
+            "spec: at balancing.r.tolerance: unknown field `tolerance`, expected one of `per`, `target`, `sum`",
         ),
         (
             r#"{"r":{"per":"pay","target":{},"sum":[]}}"#,
-            "spec: the value at balancing.r.target must be an array of objects; found an object (0 members)",
+            "spec: at balancing.r.target: invalid type: map, expected a sequence",
         ),
         (
             r#"{"r":{"per":"pay","target":[{"occurrence":"py"}],"sum":[]}}"#,
-            "spec: missing required key \"elements\" at balancing.r.target[0]",
+            "spec: at balancing.r.target[0]: missing field `elements`",
         ),
         (
             r#"{"r":{"per":"pay","target":[{"occurrence":"py","elements":2}],"sum":[]}}"#,
-            "spec: the value at balancing.r.target[0].elements must be an array of non-negative integers; found a number (2)",
+            "spec: at balancing.r.target[0].elements: invalid type: integer `2`, expected a sequence",
         ),
         (
             r#"{"r":{"per":"pay","target":[{"occurrence":"py","elements":["2"]}],"sum":[]}}"#,
-            "spec: the value at balancing.r.target[0].elements[0] must be a non-negative integer; found a string (\"2\")",
+            "spec: at balancing.r.target[0].elements[0]: invalid type: string \"2\", expected usize",
         ),
         (
             r#"{"r":{"per":"pay","target":[],"sum":[{"occurrence":"py","elements":[2],"sign":1}]}}"#,
-            "spec: the value at balancing.r.sum[0].sign must be a string; found a number (1)",
+            "spec: at balancing.r.sum[0].sign: invalid type: integer `1`, expected a string",
+        ),
+        (
+            r#"{"r":{"per":"pay","target":null,"sum":[]}}"#,
+            "spec: at balancing.r.target: invalid type: null, expected a sequence",
         ),
     ];
-    for (balancing, expected) in cases {
-        assert_eq!(
-            load(balancing).unwrap_err().to_string(),
-            expected,
-            "{balancing}"
-        );
-    }
+    assert_model_faults(&cases, |balancing| load(balancing).unwrap_err());
 }
 
 #[test]

@@ -1,6 +1,6 @@
 //! The JSON shape checks and the paths they report.
 
-use super::table_error;
+use super::{assert_model_faults, table_error};
 use crate::message::render_key;
 use crate::spec::shape::kind_of;
 use crate::spec::*;
@@ -131,12 +131,22 @@ fn a_spec_that_is_not_an_object_says_so_in_plain_words() {
 }
 
 #[test]
-fn loops_that_are_not_an_object_are_refused_by_the_walk() {
-    let err = Spec::from_json(r#"{"name":"t","loops":[]}"#).unwrap_err();
-    assert!(
-        matches!(&err, SpecError::NotAnObject { path, found } if path == "loops" && *found == "an array"),
-        "{err:?}"
-    );
+fn a_section_that_is_not_an_object_is_refused_by_the_walk() {
+    for section in ["loops", "tables", "balancing", "segments"] {
+        let json = match section {
+            "loops" => r#"{"name":"t","loops":[]}"#.to_string(),
+            _ => format!(r#"{{"name":"t","loops":{{}},"{section}":[]}}"#),
+        };
+        let err = Spec::from_json(&json).unwrap_err();
+        assert!(
+            matches!(&err, SpecError::NotAnObject { path, found } if path == section && *found == "an array"),
+            "{section}: {err:?}"
+        );
+        assert_eq!(
+            err.to_string(),
+            format!("spec: the value at {section} must be a JSON object; found an array")
+        );
+    }
 }
 
 #[test]
@@ -216,53 +226,61 @@ fn a_spec_without_loops_is_rejected() {
 }
 
 #[test]
-fn a_table_scalar_of_the_wrong_kind_is_rejected_with_its_key_path() {
+fn a_table_value_of_the_wrong_kind_fails_at_its_path() {
     let cases = [
         (
             r#"{"claims":{"loops":["A",2]}}"#,
-            "spec: the value at tables.claims.loops[1] must be a string; found a number (2)",
+            "spec: at tables.claims.loops[1]: invalid type: integer `2`, expected a string",
         ),
         (
             r#"{"claims":{"loops":"A"}}"#,
-            "spec: the value at tables.claims.loops must be an array of strings; found a string (\"A\")",
+            "spec: at tables.claims.loops: invalid type: string \"A\", expected a sequence",
         ),
         (
             r#"{"claims":{"loops":["A"],"repeat":{"from":"2","step":3}}}"#,
-            "spec: the value at tables.claims.repeat.from must be a non-negative integer; found a string (\"2\")",
+            "spec: at tables.claims.repeat.from: invalid type: string \"2\", expected usize",
         ),
         (
             r#"{"claims":{"loops":["A"],"columns":{"x":{"segment":"AA","element":"1"}}}}"#,
-            "spec: the value at tables.claims.columns.x.element must be a non-negative integer; found a string (\"1\")",
+            "spec: at tables.claims.columns.x.element: invalid type: string \"1\", expected usize",
         ),
         (
             r#"{"claims":{"loops":["A"],"columns":{"x":{"segment_index":1}}}}"#,
-            "spec: the value at tables.claims.columns.x.segment_index must be a boolean; found a number (1)",
+            "spec: at tables.claims.columns.x.segment_index: invalid type: integer `1`, expected a boolean",
         ),
         (
             r#"{"claims":{"loops":["A"],"columns":{"x":{"segment":"AA","element":1,"where":{"1":2}}}}}"#,
-            "spec: the value at tables.claims.columns.x.where.1 must be a string; found a number (2)",
+            "spec: at tables.claims.columns.x.where.1: invalid type: integer `2`, expected a string",
         ),
         (
             r#"{"claims":{"loops":["A"],"columns":{"x":{"occurrence":7,"element":1}}}}"#,
-            "spec: the value at tables.claims.columns.x.occurrence must be a string; found a number (7)",
+            "spec: at tables.claims.columns.x.occurrence: invalid type: integer `7`, expected a string",
         ),
         (
             r#"{"claims":{"loops":["A"],"columns":{"x":{"occurrence":"o","pick":true,"element":1}}}}"#,
-            "spec: the value at tables.claims.columns.x.pick must be \"first\", \"last\" or a 1-based position; found a boolean (true)",
+            "spec: at tables.claims.columns.x.pick: \"pick\" must be \"first\", \"last\" or a 1-based position; found true",
         ),
         (
             r#"{"claims":{"loops":["A"],"columns":{"x":{"occurrence":"o","pick":-2,"element":1}}}}"#,
-            "spec: the value at tables.claims.columns.x.pick must be \"first\", \"last\" or a 1-based position; found a negative number (-2)",
+            "spec: at tables.claims.columns.x.pick: \"pick\" must be \"first\", \"last\" or a 1-based position; found -2",
         ),
     ];
-    for (tables, expected) in cases {
-        let err = table_error(tables);
-        assert!(
-            matches!(&err, SpecError::WrongType { .. }),
-            "{tables}: {err:?}"
-        );
-        assert_eq!(err.to_string(), expected, "{tables}");
-    }
+    assert_model_faults(&cases, table_error);
+}
+
+#[test]
+fn a_top_level_value_the_model_refuses_fails_at_its_path() {
+    let cases = [
+        (
+            r#"{"name":7,"loops":{"a":{"trigger":{"segment":"AA"}}}}"#,
+            "spec: at name: invalid type: integer `7`, expected a string",
+        ),
+        (
+            r#"{"name":"t","loops":{"a":{"trigger":{"segment":"AA"}}},"default_table":null}"#,
+            "spec: at default_table: invalid type: null, expected a string",
+        ),
+    ];
+    assert_model_faults(&cases, |json| Spec::from_json(json).unwrap_err());
 }
 
 #[test]

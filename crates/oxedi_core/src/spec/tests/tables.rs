@@ -1,6 +1,6 @@
 //! Table definitions and their errors.
 
-use super::{TABLED, table_error};
+use super::{TABLED, assert_model_faults, table_error};
 use crate::spec::render::Declared;
 use crate::spec::*;
 use crate::vocabulary::Pick;
@@ -502,75 +502,66 @@ fn empty_segment_ids_in_tables_name_their_key() {
 }
 
 #[test]
-fn a_table_key_the_schema_does_not_define_or_requires_is_named_with_its_path() {
+fn a_table_the_model_refuses_fails_at_its_path() {
     let cases = [
         (
             r#"{"t":{"loops":["A"],"anchor":"x"}}"#,
-            "spec: unknown key \"anchor\" at tables.t; the allowed keys are: columns, loops, phi_seed, ref, repeat, segment",
+            "spec: at tables.t.anchor: unknown field `anchor`, expected one of `loops`, `ref`, `segment`, `phi_seed`, `repeat`, `columns`",
         ),
         (
             r#"{"t":{"loops":["A"],"columns":{"c":{"elemnt":1}}}}"#,
-            "spec: unknown key \"elemnt\" at tables.t.columns.c; the allowed keys are: component, element, group_element, loop, occurrence, phi, pick, segment, segment_index, where",
+            "spec: at tables.t.columns.c.elemnt: unknown field `elemnt`, expected one of `loop`, `segment`, `where`, `occurrence`, `pick`, `element`, `component`, `group_element`, `segment_index`, `phi`",
         ),
         (
             r#"{"t":{"loops":["A"],"repeat":{"from":1,"step":2,"to":3}}}"#,
-            "spec: unknown key \"to\" at tables.t.repeat; the allowed keys are: from, step",
+            "spec: at tables.t.repeat.to: unknown field `to`, expected `from` or `step`",
         ),
         (
             r#"{"t":{"segment":"AA"}}"#,
-            "spec: missing required key \"loops\" at tables.t",
+            "spec: at tables.t: missing field `loops`",
         ),
         (
             r#"{"t":{"loops":["A"],"repeat":{"from":1}}}"#,
-            "spec: missing required key \"step\" at tables.t.repeat",
+            "spec: at tables.t.repeat: missing field `step`",
         ),
-    ];
-    for (tables, expected) in cases {
-        let err = table_error(tables);
-        assert!(
-            matches!(
-                &err,
-                SpecError::UnknownKey { .. } | SpecError::MissingKey { .. }
-            ),
-            "{tables}: {err:?}"
-        );
-        assert_eq!(err.to_string(), expected, "{tables}");
-    }
-}
-
-#[test]
-fn every_object_of_the_table_schema_is_checked_with_its_path() {
-    let cases = [
-        (r#"[]"#, "tables", "an array"),
-        (r#"{"t":[]}"#, "tables.t", "an array"),
+        (
+            r#"{"t":[]}"#,
+            "spec: at tables.t: invalid type: sequence, expected a table object",
+        ),
         (
             r#"{"t":{"loops":["A"],"repeat":[2,3]}}"#,
-            "tables.t.repeat",
-            "an array",
+            "spec: at tables.t.repeat: invalid type: sequence, expected a repeat object",
         ),
         (
             r#"{"t":{"loops":["A"],"columns":[]}}"#,
-            "tables.t.columns",
-            "an array",
+            "spec: at tables.t.columns: invalid type: sequence, expected a map",
         ),
         (
             r#"{"t":{"loops":["A"],"columns":{"c":"CLP01"}}}"#,
-            "tables.t.columns.c",
-            "a string",
+            "spec: at tables.t.columns.c: invalid type: string \"CLP01\", expected a column object",
         ),
         (
             r#"{"t":{"loops":["A"],"columns":{"c":{"segment":"AA","element":1,"where":["X"]}}}}"#,
-            "tables.t.columns.c.where",
-            "an array",
+            "spec: at tables.t.columns.c.where: invalid type: sequence, expected a map",
+        ),
+        (
+            r#"{"t":{"loops":["A"],"repeat":null}}"#,
+            "spec: at tables.t.repeat: invalid type: null, expected a repeat object",
+        ),
+        (
+            r#"{"t":{"loops":["A"],"columns":null}}"#,
+            "spec: at tables.t.columns: invalid type: null, expected a map",
+        ),
+        (
+            r#"{"t":{"loops":["A"],"columns":{"c":{"segment_index":null}}}}"#,
+            "spec: at tables.t.columns.c.segment_index: invalid type: null, expected a boolean",
+        ),
+        (
+            r#"{"t":{"loops":["A"],"columns":{"c":{"segment":"AA","element":1,"where":null}}}}"#,
+            "spec: at tables.t.columns.c.where: invalid type: null, expected a map",
         ),
     ];
-    for (tables, expected_path, expected_found) in cases {
-        let err = table_error(tables);
-        assert!(
-            matches!(&err, SpecError::NotAnObject { path, found } if path == expected_path && *found == expected_found),
-            "{tables}: {err:?}"
-        );
-    }
+    assert_model_faults(&cases, table_error);
 }
 
 #[test]

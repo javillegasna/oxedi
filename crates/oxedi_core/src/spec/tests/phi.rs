@@ -1,5 +1,6 @@
 //! The `phi` and `phi_seed` keys: which columns hold patient data.
 
+use super::assert_model_faults;
 use crate::spec::*;
 use crate::value::ElementType;
 use crate::{Phi, SpecError};
@@ -360,20 +361,18 @@ fn phi_declarations_of_the_wrong_shape_show_the_spec_error() {
     let cases = [
         (
             r#"{"t":{"loops":["A"],"columns":{"c":{"segment":"AA","element":1,"phi":1}}}}"#,
-            "spec: the value at tables.t.columns.c.phi must be a string; found a number (1)",
+            "spec: at tables.t.columns.c.phi: invalid type: integer `1`, expected a string",
         ),
         (
             r#"{"t":{"loops":["A"],"phi_seed":3,"columns":{"c":{"segment":"AA","element":1,"phi":"id"}}}}"#,
-            "spec: the value at tables.t.phi_seed must be a string; found a number (3)",
+            "spec: at tables.t.phi_seed: invalid type: integer `3`, expected a string",
         ),
         (
             r#"{"t":{"loops":["A"],"phi_seed":["c"],"columns":{"c":{"segment":"AA","element":1,"phi":"id"}}}}"#,
-            "spec: the value at tables.t.phi_seed must be a string; found an array (1 items)",
+            "spec: at tables.t.phi_seed: invalid type: sequence, expected a string",
         ),
     ];
-    for (tables, expected) in cases {
-        assert_eq!(spec_with(tables).unwrap_err().to_string(), expected);
-    }
+    assert_model_faults(&cases, |tables| spec_with(tables).unwrap_err());
     let spec = spec_with(
         r#"{"t":{"loops":["A"],"columns":{"c":{"segment":"AA","element":1,"phi":null}}}}"#,
     )

@@ -1,10 +1,11 @@
 //! Checks of the JSON shape of a spec before its entries are deserialized.
 //!
-//! The shape is data: every object the schema defines is an [`ObjectSchema`],
-//! a table of its keys and the [`Field`] each holds (the tables are emitted in
-//! `model`; the helpers that build a `Field` are in `sections`), and one walk checks a value against it. The root is such a
-//! table too, one row per section of the spec, so a section is checked by
-//! looking up its key.
+//! The shape is data: the root is an [`ObjectSchema`], a table of the keys the
+//! spec may hold and the [`Field`] each holds (the tables are emitted in
+//! `model`; the helpers that build a `Field` are in `sections`). The walk
+//! checks only the top level: the root's keys, and that each section is an
+//! object. The strict model read refuses everything below a section, at its
+//! own path, so the walk does not repeat it.
 
 use serde_json::Value;
 
@@ -199,11 +200,11 @@ impl ObjectSchema {
     }
 }
 
-/// Requires an object everywhere the schema has one, only the keys the schema
-/// defines and every key it requires, and the scalar kind everywhere the
-/// schema has a scalar, before serde sees the value: serde would accept an
-/// array in place of a struct, and its messages name neither the key path
-/// nor, for objects, that an object was expected.
+/// Requires the root to be an object with only the keys the schema defines and
+/// every key it requires, and each section to be an object, before serde sees
+/// the value: serde would accept an array in place of a struct, and its
+/// message would not say that an object was expected. Everything below a
+/// section is left to the strict model read.
 pub(super) fn check_shape(source: &Value) -> Result<(), SpecError> {
     ROOT.check(source, "")
 }

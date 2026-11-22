@@ -129,7 +129,7 @@ macro_rules! spec_object {
 
         #[allow(
             dead_code,
-            reason = "the shape walk reaches only the schemas of the sections it still checks"
+            reason = "the shape walk reaches only the root's schema"
         )]
         pub(in crate::spec) static $schema: $crate::spec::shape::ObjectSchema =
             $crate::spec::shape::ObjectSchema {

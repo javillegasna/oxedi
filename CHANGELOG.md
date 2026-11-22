@@ -46,10 +46,10 @@ This file covers the Python package; the DuckDB extension has its own changelog 
 - `Spec.to_json()` returns the spec's model as canonical JSON for every spec, loaded, patched or built in: no key equal to its default, no `null`, keys in name order; `Spec.patch` merges over that model.
 - A key holding `.`, `/`, `#` or whitespace is quoted in the path of `SpecError::Format`.
 - Rust: `SpecError::Format { path, source }`, the fault of a value the model refuses, at its path from the root.
-- A fault inside a loop, a segment element or a summary (a key it does not take, a missing key, a value of the wrong JSON type) is reported by the model read at its path, in Rust and Python alike: ``spec: at segments.CLP.elements.3: unknown field `lenght`, expected one of `name`, `type`, `scale`, `required`, `min`, `max`, `codes`, `composite` ``, ``spec: at segments.CLP.elements.3.min: invalid type: string "1", expected usize``, ``spec: at summaries.s.distinct: missing field `column` ``, ``spec: at loops.a.trigger: invalid type: integer `1`, expected a trigger object``.
+- A fault inside a loop, a table, a balancing rule, a segment, a segment element, a summary or the version, or in `name` or `default_table` (a key it does not take, a missing key, a value of the wrong JSON type, `null` where a value belongs) is reported by the model read at its path, in Rust and Python alike: ``spec: at segments.CLP.elements.3: unknown field `lenght`, expected one of `name`, `type`, `scale`, `required`, `min`, `max`, `codes`, `composite` ``, ``spec: at segments.CLP.elements.3.min: invalid type: string "1", expected usize``, ``spec: at summaries.s.distinct: missing field `column` ``, ``spec: at loops.a.trigger: invalid type: integer `1`, expected a trigger object``, ``spec: at tables.t.repeat: missing field `step` ``.
 - A scale the element's type refuses is reported at the element's path, as `scale` is written beside `type`.
 - Rust: that fault is a `SpecError::Format`, no longer `UnknownKey`, `MissingKey`, `NotAnObject` or `WrongType`.
-- That fault is reported after a shape fault anywhere else in the spec.
+- That fault is reported after a fault of the top level: a key it does not take, a missing `name` or `loops`, or a section that is not an object.
 - A spec whose loop or occurrence `usage` is not `required` or `situational`, whose control `count`
   is not `segments` or `children`, or whose `where` or `codes` key is not a 1-based position fails
   at the value's path from the spec's root, in Rust and Python alike, and a word outside that

@@ -1,6 +1,7 @@
 //! Cases of the reader: what it finds in a small piece of source.
 
-use super::scan::{Target, Use, uses_in};
+use super::scan::{Target, Use, shortcut_uses, uses_in};
+use super::table::{Shortcut, shortcut};
 use std::collections::BTreeSet;
 use std::path::Path;
 
@@ -194,6 +195,56 @@ fn the_reader_finds_each_dependency_in_its_place() {
         .into();
     for (name, rel, text, expected) in cases() {
         let got = uses_in(Path::new(rel), text, &modules);
+        assert_eq!(got, expected, "case {name}");
+    }
+}
+
+const LOADING: &[Shortcut] = &[
+    shortcut("Spec::from_json", "spec_load"),
+    shortcut("Spec::builtin_835", "spec_load"),
+    shortcut("Spec::builtin_835_4010", "spec_load"),
+];
+
+#[test]
+fn the_reader_counts_a_shortcut_call_as_a_use_of_its_module() {
+    let cases = [
+        (
+            "a_call_from_another_module",
+            "spec/mod.rs",
+            "fn f() -> Spec {\n    Spec::from_json(\"{}\")\n}",
+            vec![found(
+                "spec/mod.rs",
+                module("spec_load"),
+                2,
+                "Spec::from_json",
+            )],
+        ),
+        (
+            "the_longer_name_alone",
+            "write/plan.rs",
+            "let s = Spec::builtin_835_4010();",
+            vec![found(
+                "write/plan.rs",
+                module("spec_load"),
+                1,
+                "Spec::builtin_835_4010",
+            )],
+        ),
+        (
+            "a_call_inside_its_module",
+            "spec_load/builtin.rs",
+            "Spec::builtin_835()",
+            vec![],
+        ),
+        (
+            "a_comment_or_another_type",
+            "spec/mod.rs",
+            "// Spec::from_json\nLoadedSpec::from_json(x);\nSpecModel::from_json(x);",
+            vec![],
+        ),
+    ];
+    for (name, rel, text, expected) in cases {
+        let got = shortcut_uses(Path::new(rel), text, LOADING);
         assert_eq!(got, expected, "case {name}");
     }
 }

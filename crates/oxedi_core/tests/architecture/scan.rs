@@ -2,9 +2,11 @@
 //!
 //! The reader works on text, not on a parse: it blanks the comments (keeping line breaks, so
 //! line numbers hold) and then looks for `crate::` and `super::` paths. A path inside a string
-//! or a macro counts, because it names a module all the same.
+//! or a macro counts, because it names a module all the same. It also finds the calls to the
+//! shortcuts of `table.rs`.
 
 use super::blank::{is_ident, strip_comments};
+use super::table::Shortcut;
 use std::collections::BTreeSet;
 use std::path::Path;
 
@@ -36,11 +38,7 @@ pub struct Use {
 /// The uses in one file. `rel` is its path relative to `src`; `modules` the core's modules.
 pub fn uses_in(rel: &Path, text: &str, modules: &BTreeSet<String>) -> Vec<Use> {
     let clean = strip_comments(text);
-    let from = rel
-        .components()
-        .next()
-        .map(|c| c.as_os_str().to_string_lossy().into_owned())
-        .unwrap_or_default();
+    let from = module_of(rel);
     let reader = Reader {
         lines: line_starts(&clean),
         from,
@@ -50,6 +48,46 @@ pub fn uses_in(rel: &Path, text: &str, modules: &BTreeSet<String>) -> Vec<Use> {
         clean,
     };
     reader.scan()
+}
+
+/// The module a file belongs to: the first folder of its path relative to `src`.
+fn module_of(rel: &Path) -> String {
+    rel.components()
+        .next()
+        .map(|c| c.as_os_str().to_string_lossy().into_owned())
+        .unwrap_or_default()
+}
+
+/// The calls in one file to the shortcuts another module writes, each a use of the module
+/// that writes it. `rel` is the file's path relative to `src`. A call counts outside comments
+/// only, and only as a whole path: no name character right before or after it.
+pub fn shortcut_uses(rel: &Path, text: &str, shortcuts: &[Shortcut]) -> Vec<Use> {
+    let clean = strip_comments(text);
+    let lines = line_starts(&clean);
+    let from = module_of(rel);
+    let file = rel.to_string_lossy().replace('\\', "/");
+    let mut found = Vec::new();
+    for shortcut in shortcuts.iter().filter(|s| s.module != from) {
+        found.extend(calls_at(&clean, shortcut.call).map(|at| Use {
+            from: from.clone(),
+            to: Target::Module(shortcut.module.to_owned()),
+            file: file.clone(),
+            line: lines.partition_point(|&start| start <= at),
+            path: shortcut.call.to_owned(),
+        }));
+    }
+    found
+}
+
+/// Where `call` starts in `b` as a whole path: no name character right before or after it.
+fn calls_at<'a>(b: &'a [u8], call: &'a str) -> impl Iterator<Item = usize> + 'a {
+    let needle = call.as_bytes();
+    let free = |next: Option<&u8>| !next.is_some_and(|&byte| is_ident(byte));
+    (0..b.len()).filter(move |&at| {
+        b[at..].starts_with(needle)
+            && free(at.checked_sub(1).and_then(|before| b.get(before)))
+            && free(b.get(at + needle.len()))
+    })
 }
 
 /// How deep the file's own module sits: `a/mod.rs` is 1, `a/b.rs` and `a/b/mod.rs` are 2.

@@ -17,10 +17,11 @@ use std::collections::BTreeMap;
 use serde::de;
 use serde::{Deserialize, Deserializer};
 
+use super::SpecError;
 use super::segments::{POSITION_RULE, parse_position};
 use super::strict::StrictValue;
-use super::{Spec, SpecError};
 use crate::message::render_key;
+use crate::spec::Spec;
 use declare::spec_object;
 
 pub use loops::{ControlModel, LoopModel, OccurrenceModel, QualifierModel, TriggerModel};

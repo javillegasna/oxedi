@@ -3,14 +3,12 @@
 use std::collections::{BTreeMap, BTreeSet};
 
 use super::columns::{check_held, compile_column};
-use super::elements::{ROW_COLUMN, SEGMENT_COLUMN};
 use super::error::SpecError;
-use super::loops::LoopId;
 use super::phi::compile_phi;
 use super::table_error::{AnchorChains, TableDefError};
-use super::tables::{Repeat, TableDef};
-use super::{RepeatModel, Spec, TableModel};
+use super::{RepeatModel, TableModel};
 use crate::message::render_key;
+use crate::spec::{LoopId, ROW_COLUMN, Repeat, SEGMENT_COLUMN, Spec, TableDef};
 
 /// Compiles the `tables` section against the loops of `spec`, then links
 /// every table to the tables above it.

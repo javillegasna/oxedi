@@ -1,14 +1,11 @@
 //! Compilation of one table column into its value source.
 
+use super::ColumnModel;
 use super::column_occurrence::by_occurrence;
-use super::elements::{ROW_COLUMN, SEGMENT_COLUMN};
 use super::error::SpecError;
-use super::loops::LoopId;
-use super::occurrences::OccurrenceDef;
 use super::table_error::{AnchorPositions, TableDefError};
-use super::tables::{ColumnSource, Repeat};
-use super::{ColumnModel, Spec};
 use crate::message::render_key;
+use crate::spec::{ColumnSource, LoopId, OccurrenceDef, ROW_COLUMN, Repeat, SEGMENT_COLUMN, Spec};
 use crate::vocabulary::Pick;
 
 /// One refusal of a column's keys: the error when `raw`, written for column

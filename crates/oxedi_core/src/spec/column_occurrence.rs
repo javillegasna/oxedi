@@ -1,11 +1,10 @@
 //! Reading of the occurrence a table column names: the occurrence in each
 //! reading loop, its segment and the pick written for it.
 
+use super::ColumnModel;
 use super::columns::{Read, first_written, location_keys};
-use super::loops::LoopId;
-use super::occurrences::OccurrenceDef;
 use super::table_error::{LoopSegments, TableDefError};
-use super::{ColumnModel, Spec};
+use crate::spec::{LoopId, OccurrenceDef, Spec};
 use crate::vocabulary::Pick;
 
 /// The keys an occurrence already names, which a column naming one must not

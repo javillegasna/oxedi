@@ -6,8 +6,8 @@ use std::collections::{BTreeMap, BTreeSet};
 use std::fmt;
 
 use super::error::SpecError;
-use super::loops::{Control, LoopDef, LoopId, Trigger};
 use super::model::{ControlModel, LoopModel};
+use crate::spec::{Control, LoopDef, LoopId, Trigger};
 
 /// A check of a loop's own keys: the error when the loop breaks it.
 type HeaderRule = fn(&str, &LoopModel) -> Option<SpecError>;

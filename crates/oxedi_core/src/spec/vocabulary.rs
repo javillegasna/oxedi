@@ -7,10 +7,8 @@ use std::fmt;
 use serde::de::{self, Deserialize, Deserializer};
 use serde::ser::{Serialize, Serializer};
 
-use super::balance_rule::Sign;
-use super::loops::ControlCount;
-use super::occurrences::Usage;
 use super::segments::parse_position;
+use crate::spec::{ControlCount, Sign, Usage};
 use crate::vocabulary::{Vocabulary, serde_by_word};
 
 impl Vocabulary for Usage {

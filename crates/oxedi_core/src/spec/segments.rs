@@ -3,9 +3,9 @@
 use std::collections::BTreeMap;
 use std::fmt;
 
-use super::elements::ElementDef;
 use super::error::SpecError;
 use super::model::ElementModel;
+use crate::spec::ElementDef;
 use crate::value::{ElementType, LengthRange};
 
 /// Why an element definition was rejected.

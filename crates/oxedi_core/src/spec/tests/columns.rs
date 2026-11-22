@@ -1,6 +1,7 @@
 //! Column sources that name an occurrence, read a loop above the anchor or
 //! pick a matching segment other than the first.
 
+use crate::spec::test_support::{builtin, patched};
 use crate::spec::*;
 use crate::vocabulary::Pick;
 
@@ -270,8 +271,7 @@ fn a_column_above_the_anchor_at_segments_after_the_anchor_opens_is_rejected() {
 
 #[test]
 fn the_built_in_claims_cannot_read_the_transaction_after_the_claims() {
-    let err = Spec::builtin_835()
-        .merge_patch(
+    let err = patched(&builtin(Version::V5010),
             r#"{"tables":{"claims":{"columns":{"plb":{"loop":"transaction","occurrence":"provider_adjustment","element":1}}}}}"#,
         )
         .unwrap_err();

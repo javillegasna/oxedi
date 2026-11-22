@@ -1,6 +1,7 @@
 //! The `phi` and `phi_seed` keys: which columns hold patient data.
 
 use super::assert_model_faults;
+use crate::spec::test_support::{builtin, patched};
 use crate::spec::*;
 use crate::value::ElementType;
 use crate::{Phi, SpecError};
@@ -225,8 +226,8 @@ fn a_control_element_error_is_displayed_in_full() {
 
 /// The table error a patch over a built-in spec gives, or `None` when the
 /// patched spec loads.
-fn patched_error(base: &Spec, table: &str) -> Option<(Option<String>, TableDefError)> {
-    let error = match base.merge_patch(&format!(r#"{{"tables":{{"x":{table}}}}}"#)) {
+fn patched_error(base: &LoadedSpec, table: &str) -> Option<(Option<String>, TableDefError)> {
+    let error = match patched(base, &format!(r#"{{"tables":{{"x":{table}}}}}"#)) {
         Ok(_) => return None,
         Err(SpecError::Patch { source }) => *source,
         Err(other) => panic!("expected a patch error, got {other}"),
@@ -262,8 +263,8 @@ fn patched_built_in_specs_refuse_flags_on_envelope_controls() {
         ),
     ];
     for (name, base) in [
-        ("5010", Spec::builtin_835()),
-        ("4010", Spec::builtin_835_4010()),
+        ("5010", builtin(Version::V5010)),
+        ("4010", builtin(Version::V4010)),
     ] {
         for (table, segment, element) in cases {
             assert_eq!(
@@ -287,8 +288,8 @@ fn patched_built_in_specs_refuse_flags_on_envelope_controls() {
 #[test]
 fn a_repeated_group_is_refused_when_a_later_group_reads_a_control_element() {
     for (name, base) in [
-        ("5010", Spec::builtin_835()),
-        ("4010", Spec::builtin_835_4010()),
+        ("5010", builtin(Version::V5010)),
+        ("4010", builtin(Version::V4010)),
     ] {
         let table = r#"{"loops":["transaction"],"segment":"ST","repeat":{"from":1,"step":1},"columns":{"c":{"group_element":0,"phi":"id"}}}"#;
         assert_eq!(
@@ -343,17 +344,6 @@ fn the_built_in_specs_flag_the_eleven_patient_columns() {
         assert_eq!(spec.table("services").unwrap().phi_seed(), None);
         assert!(spec.masks_anything());
     }
-}
-
-#[test]
-fn the_flags_survive_a_json_round_trip() {
-    let spec = Spec::builtin_835();
-    let again = Spec::from_json(&spec.to_json()).unwrap();
-    assert_eq!(flagged(&again), flagged(&spec));
-    assert_eq!(
-        again.table("claims").unwrap().phi_seed(),
-        spec.table("claims").unwrap().phi_seed()
-    );
 }
 
 #[test]

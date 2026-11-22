@@ -1,7 +1,10 @@
 //! Small specs shared by the unit tests: a four-table spec for the spec and the
-//! projector, and a three-loop nested spec for the engine and the tree.
+//! projector, a three-loop nested spec for the engine and the tree, and the
+//! loaders and patch helper the tests share.
 
-use super::Spec;
+use std::sync::Arc;
+
+use super::{Builtin, LoadedSpec, Spec, SpecError, Version};
 
 pub(crate) const SPEC: &str = r#"{"name":"t",
     "loops":{
@@ -74,4 +77,24 @@ pub(crate) const NESTED: &str = r#"{"name":"t","loops":{
 
 pub(crate) fn nested() -> Spec {
     Spec::from_json(NESTED).unwrap()
+}
+
+/// The built-in 835 at `version`, its model beside its spec.
+pub(crate) fn builtin(version: Version) -> LoadedSpec {
+    Builtin::find("835", version)
+        .expect("the registry ships the 835 at every version")
+        .loaded()
+        .expect("a built-in's model reads")
+}
+
+/// `json` read into its model and compiled.
+pub(crate) fn loaded(json: &str) -> LoadedSpec {
+    LoadedSpec::from_json(json).expect("the spec loads")
+}
+
+/// `base` with the merge patch `patch` over its model, compiled; fails as
+/// `LoadedSpec::merge_patch` does.
+pub(crate) fn patched(base: &LoadedSpec, patch: &str) -> Result<Spec, SpecError> {
+    base.merge_patch(patch)
+        .map(|loaded| Arc::unwrap_or_clone(loaded.spec))
 }

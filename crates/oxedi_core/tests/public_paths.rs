@@ -222,6 +222,7 @@ fn loaded_items() {
     let _: fn(&str) -> Result<SpecModel, SpecError> = SpecModel::from_json;
     let _: fn(&SpecModel) -> Result<Spec, SpecError> = SpecModel::compile;
     let _: fn(&Builtin) -> Result<SpecModel, SpecError> = Builtin::model;
+    let _: fn(&Builtin) -> Result<LoadedSpec, SpecError> = Builtin::loaded;
 }
 
 // Associated items the bindings read their defaults, names and units from,

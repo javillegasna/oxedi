@@ -2,12 +2,13 @@
 //! declare, how a patch that removes what a summary reads fails, and the
 //! text of every reason a summary is rejected.
 
+use crate::spec::test_support::{builtin, loaded, patched};
 use crate::spec::*;
 
 /// One table `heads` with a text column `id` and a decimal column `amount`,
 /// and the `summaries` given.
-fn spec_with(summaries: &str) -> Result<Spec, SpecError> {
-    Spec::from_json(&format!(
+fn spec_json(summaries: &str) -> String {
+    format!(
         r#"{{"name":"t",
             "loops":{{"A":{{"trigger":{{"segment":"AA"}},"occurrences":{{"aa":{{"segment":"AA","pos":0}}}}}}}},
             "segments":{{"AA":{{"elements":{{
@@ -17,7 +18,11 @@ fn spec_with(summaries: &str) -> Result<Spec, SpecError> {
                 "id":{{"segment":"AA","element":1}},
                 "amount":{{"segment":"AA","element":2}}}}}}}},
             "summaries":{summaries}}}"#
-    ))
+    )
+}
+
+fn spec_with(summaries: &str) -> Result<Spec, SpecError> {
+    Spec::from_json(&spec_json(summaries))
 }
 
 fn text(table: &str) -> String {
@@ -83,18 +88,18 @@ fn builtin_835_declares_the_five_summaries() {
 
 #[test]
 fn the_compat_patch_still_loads() {
-    let spec = Spec::builtin_835()
-        .merge_patch(include_str!("../../../specs/edi_835_parser.json"))
-        .unwrap();
+    let spec = patched(
+        &builtin(Version::V5010),
+        include_str!("../../../specs/edi_835_parser.json"),
+    )
+    .unwrap();
     assert!(spec.summaries().is_empty());
     assert_eq!(spec.default_table(), None);
 }
 
 #[test]
 fn removing_a_summarized_table_names_the_summary() {
-    let err = Spec::builtin_835()
-        .merge_patch(r#"{"tables":{"payments":null}}"#)
-        .unwrap_err();
+    let err = patched(&builtin(Version::V5010), r#"{"tables":{"payments":null}}"#).unwrap_err();
     assert_eq!(
         err.to_string(),
         "applying patch: summary \"payee\": row.table names the table \"payments\", which the \
@@ -113,9 +118,11 @@ fn removing_a_summarized_column_names_the_summary() {
         .map(|(name, _)| name.as_str())
         .filter(|name| *name != "total_payment_amount")
         .collect();
-    let err = spec
-        .merge_patch(r#"{"tables":{"payments":{"columns":{"total_payment_amount":null}}}}"#)
-        .unwrap_err();
+    let err = patched(
+        &builtin(Version::V5010),
+        r#"{"tables":{"payments":{"columns":{"total_payment_amount":null}}}}"#,
+    )
+    .unwrap_err();
     assert_eq!(
         err.to_string(),
         format!(
@@ -238,14 +245,14 @@ fn a_summary_that_compiles_keeps_what_it_names() {
 
 #[test]
 fn a_default_table_the_spec_does_not_define_is_rejected() {
-    let spec = spec_with("{}").unwrap();
-    let err = spec.merge_patch(r#"{"default_table":"nope"}"#).unwrap_err();
+    let base = loaded(&spec_json("{}"));
+    let err = patched(&base, r#"{"default_table":"nope"}"#).unwrap_err();
     assert_eq!(
         err.to_string(),
         "applying patch: default_table names the table \"nope\", which the spec does not \
          define; its tables are: heads"
     );
-    let spec = spec.merge_patch(r#"{"default_table":"heads"}"#).unwrap();
+    let spec = patched(&base, r#"{"default_table":"heads"}"#).unwrap();
     assert_eq!(spec.default_table(), Some("heads"));
 }
 
@@ -274,9 +281,9 @@ fn a_section_the_model_refuses_fails_at_its_path() {
             "applying patch: spec: at summaries.s.distinct: missing field `column`",
         ),
     ];
-    let spec = spec_with("{}").unwrap();
+    let base = loaded(&spec_json("{}"));
     for (patch, expected) in cases {
-        let err = spec.merge_patch(patch).unwrap_err();
+        let err = patched(&base, patch).unwrap_err();
         assert_eq!(err.to_string(), expected, "{patch}");
     }
 }

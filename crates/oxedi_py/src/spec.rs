@@ -82,13 +82,8 @@ impl HeldSpec {
         match &self.model {
             ModelOf::Kept(loaded) => Ok(Cow::Borrowed(&**loaded)),
             ModelOf::Builtin(builtin) => builtin
-                .model()
-                .map(|model| {
-                    Cow::Owned(LoadedSpec {
-                        model,
-                        spec: Arc::clone(&self.spec),
-                    })
-                })
+                .loaded()
+                .map(Cow::Owned)
                 .map_err(|err| SpecError::new_err(format!("{call}: {err}"))),
         }
     }

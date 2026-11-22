@@ -1,7 +1,7 @@
 //! The schema of a spec's tables, known without a file.
 
-use crate::spec::test_support::spec;
-use crate::spec::{ColumnSchema, Spec, require_column, spec_schema, table_columns};
+use crate::spec::test_support::{builtin, patched, spec};
+use crate::spec::{ColumnSchema, Spec, Version, require_column, spec_schema, table_columns};
 use crate::value::ColumnType;
 
 const INDEX: ColumnType = ColumnType::Int64 { scale: 0 };
@@ -52,11 +52,11 @@ fn the_tables_come_in_spec_order_with_their_columns() {
 
 #[test]
 fn a_patched_column_takes_its_element_type() {
-    let spec = Spec::builtin_835()
-        .merge_patch(
-            r#"{"tables":{"payments":{"columns":{"check_date":{"segment":"BPR","element":16}}}}}"#,
-        )
-        .unwrap();
+    let spec = patched(
+        &builtin(Version::V5010),
+        r#"{"tables":{"payments":{"columns":{"check_date":{"segment":"BPR","element":16}}}}}"#,
+    )
+    .unwrap();
     let schema = spec_schema(&spec);
     let payments = schema
         .iter()

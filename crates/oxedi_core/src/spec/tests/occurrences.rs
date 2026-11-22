@@ -7,6 +7,7 @@ use serde_json::Value;
 
 use super::segs;
 use crate::spec::*;
+use crate::spec_load::*;
 
 const BASE: &str = r#"{"name":"t",
     "loops":{

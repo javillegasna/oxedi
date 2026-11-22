@@ -3,7 +3,7 @@
 use std::error::Error;
 
 use crate::Document;
-use crate::spec::{Builtin, UnknownVersion, Version};
+use crate::spec_load::{Builtin, UnknownVersion, Version};
 
 fn selected(bytes: &[u8]) -> Version {
     let document = Document::parse(bytes.to_vec()).unwrap();

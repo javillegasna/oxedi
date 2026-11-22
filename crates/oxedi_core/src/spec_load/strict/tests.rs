@@ -2,7 +2,7 @@ use serde::Deserialize;
 use serde_json::{Value, from_value, json};
 
 use super::StrictValue;
-use crate::spec::{Builtin, SpecModel, SummaryModel, TriggerModel};
+use crate::spec_load::{Builtin, SpecModel, SummaryModel, TriggerModel};
 
 fn refusal(source: &Value) -> String {
     SpecModel::from_value(source).unwrap_err().to_string()

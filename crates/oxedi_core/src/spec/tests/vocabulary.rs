@@ -1,6 +1,7 @@
 use serde_json::{from_str, from_value, json, to_string, to_value};
 
 use crate::spec::*;
+use crate::spec_load::*;
 use crate::value::ElementType;
 use crate::vocabulary::{Phi, Pick, Vocabulary, words_text};
 

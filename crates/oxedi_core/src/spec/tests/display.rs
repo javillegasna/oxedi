@@ -2,6 +2,7 @@
 
 use super::element_error;
 use crate::spec::*;
+use crate::spec_load::*;
 use crate::value::ElementType;
 use serde_json::Value;
 

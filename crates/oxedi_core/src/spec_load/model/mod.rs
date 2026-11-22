@@ -34,7 +34,7 @@ pub use tables::{ColumnModel, RepeatModel, TableModel};
 
 // Read only by the model test that holds the list to the keys the model writes.
 #[cfg(test)]
-pub(in crate::spec) use segments::ELEMENT_MODEL_KEYS;
+pub(crate) use segments::ELEMENT_MODEL_KEYS;
 
 spec_object! {
     /// A whole spec, as the spec writes it.
@@ -51,7 +51,8 @@ spec_object! {
     /// an absent value are left out.
     ///
     /// ```
-    /// # use oxedi_core::spec::{Spec, SpecModel, SummaryModel};
+    /// # use oxedi_core::spec::Spec;
+    /// # use oxedi_core::spec_load::{SpecModel, SummaryModel};
     /// # use serde_json::json;
     /// let mut model = SpecModel::from_json(Spec::BUILTIN_835_JSON)?;
     /// assert_eq!(model.compile()?.name(), "835");
@@ -102,15 +103,17 @@ impl SpecModel {
     /// model refuses, in key order, fails with [`SpecError::Format`] at its
     /// path from the spec's root (`.` for the root itself). An array where it
     /// has an object is refused.
-    pub(in crate::spec) fn from_value(source: &serde_json::Value) -> Result<SpecModel, SpecError> {
+    pub(in crate::spec_load) fn from_value(
+        source: &serde_json::Value,
+    ) -> Result<SpecModel, SpecError> {
         serde_path_to_error::deserialize(StrictValue(source)).map_err(|err| SpecError::Format {
             path: root_path(err.path()),
             source: err.into_inner(),
         })
     }
 
-    /// The model as pretty-printed JSON text, as [`crate::spec::LoadedSpec::to_json`] prints a
-    /// spec.
+    /// The model as pretty-printed JSON text, as
+    /// [`crate::spec_load::LoadedSpec::to_json`] prints a spec.
     pub fn to_json(&self) -> Result<String, serde_json::Error> {
         serde_json::to_string_pretty(self)
     }

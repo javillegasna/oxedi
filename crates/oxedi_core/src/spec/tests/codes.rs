@@ -3,6 +3,7 @@
 use super::element_error;
 use crate::spec::test_support::{loaded, patched};
 use crate::spec::*;
+use crate::spec_load::*;
 use crate::value::LengthRange;
 
 #[test]

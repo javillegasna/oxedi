@@ -6,7 +6,8 @@ use serde::Deserializer;
 
 use super::declare::spec_object;
 use super::{positions, present};
-use crate::spec::{ControlCount, ElementPosition, Usage};
+use crate::spec::{ControlCount, Usage};
+use crate::spec_load::ElementPosition;
 
 spec_object! {
     /// A loop: the segment that opens it, where it sits and what it holds.

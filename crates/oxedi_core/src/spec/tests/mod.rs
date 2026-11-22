@@ -24,7 +24,8 @@ mod version;
 mod vocabulary;
 
 use crate::segment::Segment;
-use crate::spec::{Spec, SpecError};
+use crate::spec::Spec;
+use crate::spec_load::SpecError;
 use crate::{Delimiters, Tokenizer};
 
 pub(super) fn segs(input: &[u8]) -> Vec<Segment<'_>> {

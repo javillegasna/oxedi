@@ -60,7 +60,8 @@ fn module_of(rel: &Path) -> String {
 
 /// The calls in one file to the shortcuts another module writes, each a use of the module
 /// that writes it. `rel` is the file's path relative to `src`. A call counts outside comments
-/// only, and only as a whole path: no name character right before or after it.
+/// only, and only as a whole path: no name character right before or after it. A call through
+/// `Self::` is not seen.
 pub fn shortcut_uses(rel: &Path, text: &str, shortcuts: &[Shortcut]) -> Vec<Use> {
     let clean = strip_comments(text);
     let lines = line_starts(&clean);

@@ -35,7 +35,7 @@ macro_rules! spec_object {
         $model:ident, $expecting:literal;
         $($rows:tt)*
     ) => {
-        $crate::spec::model::declare::spec_object! {
+        $crate::spec_load::model::declare::spec_object! {
             @rows [$(#[$doc])* $model, $expecting] {} $($rows)*
         }
     };
@@ -44,7 +44,7 @@ macro_rules! spec_object {
         $(#[$fdoc:meta])* $field:ident $(as $key:literal)? : $mty:ty, $word:ident;
         $($rest:tt)*
     ) => {
-        $crate::spec::model::declare::spec_object! {
+        $crate::spec_load::model::declare::spec_object! {
             @word $word $head $mf [$(#[$fdoc])*] $field [$($key)?] ($mty) $($rest)*
         }
     };
@@ -58,25 +58,25 @@ macro_rules! spec_object {
         ));
     };
     (@word required $($row:tt)*) => {
-        $crate::spec::model::declare::spec_object! { @field [] $($row)* }
+        $crate::spec_load::model::declare::spec_object! { @field [] $($row)* }
     };
     (@word optional $($row:tt)*) => {
-        $crate::spec::model::declare::spec_object! {
+        $crate::spec_load::model::declare::spec_object! {
             @field [#[serde(skip_serializing_if = "Option::is_none")]] $($row)*
         }
     };
     (@word default $($row:tt)*) => {
-        $crate::spec::model::declare::spec_object! {
-            @field [#[serde(default, skip_serializing_if = "crate::spec::model::is_default")]]
+        $crate::spec_load::model::declare::spec_object! {
+            @field [#[serde(default, skip_serializing_if = "crate::spec_load::model::is_default")]]
             $($row)*
         }
     };
     (@word default_or_null $($row:tt)*) => {
-        $crate::spec::model::declare::spec_object! {
+        $crate::spec_load::model::declare::spec_object! {
             @field [#[serde(
                 default,
-                deserialize_with = "crate::spec::model::null_is_default",
-                skip_serializing_if = "crate::spec::model::is_default"
+                deserialize_with = "crate::spec_load::model::null_is_default",
+                skip_serializing_if = "crate::spec_load::model::is_default"
             )]] $($row)*
         }
     };
@@ -90,7 +90,7 @@ macro_rules! spec_object {
         @field [$($mattr:tt)*] $head:tt {$($mf:tt)*}
         [$($fdoc:tt)*] $field:ident [$($key:literal)?] ($mty:ty) $($rest:tt)*
     ) => {
-        $crate::spec::model::declare::spec_object! {
+        $crate::spec_load::model::declare::spec_object! {
             @rows $head
             {$($mf)* $($fdoc)* $($mattr)* $(#[serde(rename = $key)])? pub $field: $mty,}
             $($rest)*

@@ -4,6 +4,7 @@
 
 use crate::spec::test_support::{builtin, loaded, patched};
 use crate::spec::*;
+use crate::spec_load::*;
 
 /// One table `heads` with a text column `id` and a decimal column `amount`,
 /// and the `summaries` given.

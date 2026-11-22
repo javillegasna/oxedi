@@ -4,7 +4,8 @@
 use serde_json::Value;
 
 use crate::spec::test_support;
-use crate::spec::{Builtin, LoadedSpec, Spec, spec_schema};
+use crate::spec::{Spec, spec_schema};
+use crate::spec_load::{Builtin, LoadedSpec};
 
 use super::{CLP_ONLY, TABLED};
 

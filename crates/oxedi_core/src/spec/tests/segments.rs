@@ -2,6 +2,7 @@
 
 use super::{CLP_ONLY, assert_model_faults, element_error};
 use crate::spec::*;
+use crate::spec_load::*;
 use crate::value::{ElementType, LengthRange, TypeCodeError};
 
 #[test]

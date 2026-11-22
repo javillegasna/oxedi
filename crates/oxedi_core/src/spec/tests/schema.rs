@@ -1,7 +1,8 @@
 //! The schema of a spec's tables, known without a file.
 
 use crate::spec::test_support::{builtin, patched, spec};
-use crate::spec::{ColumnSchema, Spec, Version, require_column, spec_schema, table_columns};
+use crate::spec::{ColumnSchema, Spec, require_column, spec_schema, table_columns};
+use crate::spec_load::Version;
 use crate::value::ColumnType;
 
 const INDEX: ColumnType = ColumnType::Int64 { scale: 0 };

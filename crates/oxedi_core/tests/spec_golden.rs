@@ -11,7 +11,7 @@ mod common;
 use std::fmt::Write as _;
 use std::path::PathBuf;
 
-use oxedi_core::spec::LoadedSpec;
+use oxedi_core::spec_load::LoadedSpec;
 use oxedi_core::{Builtin, Spec, Version};
 
 fn golden_dir() -> PathBuf {

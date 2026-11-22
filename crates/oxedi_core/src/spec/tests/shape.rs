@@ -4,6 +4,7 @@ use super::{assert_model_faults, table_error};
 use crate::message::render_key;
 use crate::spec::test_support::{builtin, patched};
 use crate::spec::*;
+use crate::spec_load::*;
 use serde_json::json;
 
 #[test]

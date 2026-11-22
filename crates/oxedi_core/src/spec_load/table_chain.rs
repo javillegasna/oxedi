@@ -15,7 +15,7 @@ pub(super) fn render_chain(chain: &[String]) -> String {
 }
 
 /// The occurrences a loop declares, or that it declares none.
-pub(super) struct Declared<'a>(pub(super) &'a [String]);
+pub(crate) struct Declared<'a>(pub(crate) &'a [String]);
 
 impl fmt::Display for Declared<'_> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {

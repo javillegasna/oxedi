@@ -2,6 +2,7 @@
 
 use super::segs;
 use crate::spec::*;
+use crate::spec_load::*;
 
 #[test]
 fn matching_any_finds_a_loop_regardless_of_parent() {

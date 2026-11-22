@@ -2,8 +2,8 @@ use super::super::envelope::interchange_version;
 use super::super::{Envelope, Finding, WriteError, write, write_with_findings};
 use crate::delimiters::Delimiters;
 use crate::diagnostic::Rule;
-use crate::spec::Version;
 use crate::spec::test_support::{builtin, patched};
+use crate::spec_load::Version;
 use crate::{Document, Processor, Spec};
 
 #[test]

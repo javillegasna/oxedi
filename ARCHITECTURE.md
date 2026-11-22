@@ -133,29 +133,59 @@ The spec files live in `crates/oxedi_core/specs/`:
 | `835.4010.json` | A JSON Merge Patch (RFC 7386) over `835.json` that gives the 4010 version. | `Builtin` (`spec_load/builtin.rs`): the 5010 JSON with this patch merged over it |
 | `edi_835_parser.json` | A patch with the tables of the `edi-835-parser` compatibility layer. | `crates/oxedi_py/src/lib.rs`, pinned by `tests/project_golden.rs` |
 
-Loading goes `SpecModel::from_json` (step 1, `spec_load/model/`) → `SpecModel::compile` (`Spec::build`, steps 2 and 3, `spec_load/build.rs`); `Spec::from_json` does both:
+### Two layers: the schema and its loading
 
-1. The whole spec is read once as its `SpecModel` through `serde_path_to_error`, the top level
-   included: each object's `spec_object!` declaration in `spec_load/model/` emits a model that refuses
-   an unknown key and a missing required one. The first value it refuses, in key order, is
-   `SpecError::Format`, at its path from the root (`.` for the root itself); `Pick`
+A spec lives in two core modules, one layer each. The schema is the lower layer: loading depends
+on it, never the reverse.
+
+| Layer | Module | What it holds |
+|---|---|---|
+| Schema | `spec/` | The compiled spec: `Spec` and its index-based definitions, `LoopDef` (by `LoopId`), `SegmentDef`, `ElementDef`, `OccurrenceDef`, `TableDef` with a `ColumnSource` per column, `BalanceRule`, `Summary` and `DeclaredVersion`; the occurrence a segment takes in a loop (`spec/occurrence_index.rs`); the columns of each table, known from the spec alone (`spec_schema`, `spec/schema.rs`); `UnknownTable` and `UnknownColumn` (`spec/unknown.rs`); the choice of a spec by the version it declares (`Spec::select`, `spec/version.rs`). It keeps no JSON. |
+| Loading | `spec_load/` | What turns JSON into a `Spec`: the typed model (`SpecModel` and every `*Model`, `spec_load/model/`) and its strict reader (`spec_load/strict/`), the compile steps, the load errors (`SpecError` and the reasons it holds), `LoadedSpec`, the merge patch, the registry of built-in specs (`Builtin`, `Version`) and the spec's closed words (`spec_load/vocabulary.rs`). |
+
+The engine, the checker, the projector and the writer read the schema only. The bindings use both
+layers through the root re-exports (`oxedi_core::Spec`, `oxedi_core::SpecError`,
+`oxedi_core::Builtin`, …). The architecture test keeps the direction: the `spec` row of
+`tests/architecture/table.rs` does not list `spec_load`, so a schema file that names
+`crate::spec_load` fails it. The load shortcuts `Spec::from_json`, `Spec::builtin_835` and
+`Spec::builtin_835_4010` are `impl Spec` blocks written in `spec_load` (`build.rs`, `builtin.rs`);
+the test's `SHORTCUTS` list counts a call to one, or a use of the built-in JSON constants, as a
+use of `spec_load`, so a schema file cannot call them either. `spec/mod.rs` and `spec_load/mod.rs` list which file holds what; the tests of
+each layer are in its own `tests/` folder.
+
+### Loading, step by step
+
+Loading goes `SpecModel::from_json` (step 1, `spec_load/model/`) → `SpecModel::compile`
+(`Spec::build`, steps 2 and 3, `spec_load/build.rs`); `Spec::from_json` does both:
+
+1. The whole spec is read once as its `SpecModel` through `serde_path_to_error` over the strict
+   deserializer of `spec_load/strict/`, the top level included: each object's `spec_object!`
+   declaration (`spec_load/model/declare.rs`) emits a model that refuses an unknown key and a
+   missing required one. The first value it refuses, in key order, is `SpecError::Format`, whose
+   text names the failing key by its path from the root: keys joined by `.`, a key holding `.`,
+   `/`, `#` or whitespace quoted, `.` for the root itself, as in
+   `spec: at version.element: invalid type: string "8", expected usize`. `Pick`
    (`vocabulary/pick.rs`) reads through its own visitor.
-2. `build.rs` runs the compile steps in order over that model, one per section or structural check:
-   loops (`build_loops.rs`: keys, parent, trigger, control), segments, occurrences (`build_occurrences.rs`), the
-   occurrence index (`spec/occurrence_index.rs`), the version, trigger ambiguity, tables, balancing,
-   summaries (`summaries.rs`) and the default table; `spec_load/mod.rs` lists which file holds what.
-3. The result is index-based: `LoopDef` (by `LoopId`), `SegmentDef`, `ElementDef`, `TableDef`
-   with a `ColumnSource` per column, `BalanceRule`, `Summary`. The engine compares indices,
-   never strings.
+2. `build.rs` runs its `STEPS` in order over that model, one per section or structural check: the
+   loops (`build_loops.rs`: keys, parent, trigger, control), the segments (`segments.rs`), the
+   occurrences (`build_occurrences.rs`), the occurrence index (the schema's
+   `spec/occurrence_index.rs`), the version, trigger ambiguity, the tables (`compile.rs`, with
+   `columns.rs`, `column_occurrence.rs` and `phi.rs`), balancing (`balance.rs`), the summaries and
+   the default table (`summaries.rs`). A step that refuses the model returns a `SpecError` that
+   names where in the spec the fault is; the reasons it holds (`ControlError`, `VersionError`,
+   `ElementDefError`, `OccurrenceError`, `TableDefError`, `BalanceError`, `SummaryDefError`) are
+   loading types too.
+3. The result is the schema: index-based definitions, so the engine compares indices, never
+   strings.
 
 `SpecModel::from_json` reads a spec as typed data (one strict read of the whole spec; a serde read of
 a model checks only its shape and its position keys) and `SpecModel::compile` checks the rest. A
 model writes no default and no `null`.
 
 `LoadedSpec` (`spec_load/loaded.rs`) keeps the model beside the spec compiled from it.
-`LoadedSpec::merge_patch` (`spec_load/patch.rs`) applies a patch to the model's canonical JSON, reads it
-back and compiles it again, so a patched spec goes through the same checks as a new one. A
-compiled `Spec` keeps no JSON: patching, writing back and the model live on the loading side.
+`LoadedSpec::merge_patch` (`spec_load/patch.rs`) applies a patch to the model's canonical JSON, reads
+it back and compiles it again, so a patched spec goes through the same checks as a new one. A
+compiled `Spec` keeps no JSON: patching, writing back and the model live in the loading layer.
 The built-ins keep their spec and the JSON they ship (`include_str!`; 4010 is the 5010 JSON with
 its patch merged over it as values); `Builtin::model` reads the model from it on demand and
 `Builtin::loaded` keeps it beside the spec.
@@ -171,7 +201,7 @@ Every key is listed in [the spec keys reference](docs/customize/spec.md#spec-key
 | I want to… | Start in | Then |
 |---|---|---|
 | Add a column to a built-in table | `tables.<table>.columns` in `crates/oxedi_core/specs/835.json` | `UPDATE_GOLDEN=1 cargo test -p oxedi_core --test project_golden`, review the diff; document it in `docs/reference/tables.md` |
-| Add a key to the spec format | a row in the object's `spec_object!` declaration in `spec_load/model/` (field, model type, presence word); for an element, a field of `ElementModel` plus `ELEMENT_MODEL_KEYS` (both in `spec_load/model/segments.rs`, pinned in `spec/tests/model.rs`); for a summary operation, a field of `SummaryKeys` and its model in `spec_load/model/rules.rs` | Compile it in `spec_load/build.rs` or `spec_load/compile.rs`; a new error in `spec_load/error.rs` (`SpecError`), or in `occurrence_error.rs`, `table_error.rs` or `balance_error.rs` when it is about one of those, with its `Display` test in `spec/tests/`; add the key to `docs/customize/spec.md`; a closed word implements `Vocabulary` (`vocabulary/`) in `spec_load/vocabulary.rs` |
+| Add a key to the spec format | a row in the object's `spec_object!` declaration in `spec_load/model/` (field, model type, presence word); for an element, a field of `ElementModel` plus `ELEMENT_MODEL_KEYS` (both in `spec_load/model/segments.rs`, pinned in `spec_load/tests/model.rs`); for a summary operation, a field of `SummaryKeys` and its model in `spec_load/model/rules.rs` | When the compiled spec keeps it, a field on its schema definition in `spec/` (`LoopDef` in `spec/loops.rs`, `TableDef` in `spec/tables.rs`, …); compile it in `spec_load/build.rs` or `spec_load/compile.rs`; a new error in `spec_load/error.rs` (`SpecError`), or in `occurrence_error.rs`, `table_error.rs` or `balance_error.rs` of `spec_load/` when it is about one of those, with its `Display` test in `spec_load/tests/`; when a built-in uses it, `UPDATE_GOLDEN=1 cargo test -p oxedi_core --test spec_golden` and read the diff; add the key to `docs/customize/spec.md`; a closed word implements `Vocabulary` (`vocabulary/`) in `spec_load/vocabulary.rs` |
 | Change how a message names an element, a set of conditions or a list of names, or quotes file bytes or a key | `message/mod.rs` | `message/tests.rs`; the `Display` tests of the messages that use it |
 | Add a diagnostic rule | `diagnostic/rule.rs` (`Rule` variant, `level`, `kind`, and `segment_id` when the rule is about one segment's elements, so its datum can be masked) and `diagnostic/display.rs` (message, written over the pieces of `diagnostic/text.rs` and `message/`) | Raise it in `check/` (structure) or `project/check.rs` (elements); a full-text `Display` test in `diagnostic/tests.rs` |
 | Change an element check | `project/check.rs` | `cargo test -p oxedi_core --lib project::`, then both golden suites |
@@ -258,7 +288,8 @@ Internal words used in the code. X12 and payment terms for users are in
 |---|---|---|
 | frame | The byte range of one segment, found knowing only the segment terminator and the release byte (`SegmentEnd`). | `frame/` |
 | document | The whole input plus one span per segment; segments parsed on demand. | `document/` |
-| spec | The JSON description of loops, segments, tables and balancing, compiled to index-based definitions. | `spec/`, `spec_load/`, `specs/*.json` |
+| spec | The JSON description of loops, segments, tables and balancing, loaded into index-based definitions. | `spec/`, `spec_load/`, `specs/*.json` |
+| schema / loading | The two layers of a spec: the schema (`spec`) is the compiled definitions every reader and the writer use; loading (`spec_load`) reads, checks, patches and compiles the JSON into them, and the schema never uses it. A **table schema** (`TableSchema`) is the columns of one table, part of the schema. | `spec/`, `spec_load/` |
 | spec model | The spec as typed data a program builds and writes, shared with the loader. | `spec_load/model/` |
 | loaded spec | A spec's model beside the spec compiled from it. | `spec_load/loaded.rs` |
 | patch | An RFC 7386 JSON Merge Patch over a spec (`835.4010.json`, `edi_835_parser.json`). | `spec_load/patch.rs` |

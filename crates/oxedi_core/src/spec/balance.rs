@@ -11,15 +11,11 @@
 
 use std::collections::BTreeMap;
 
-use super::Spec;
 use super::balance_error::BalanceError;
-use super::balance_rule::{BalanceRule, BalanceTerm, Sign};
-use super::element_def;
-use super::elements::ElementDef;
 use super::error::SpecError;
-use super::loops::LoopId;
 use super::model::{BalanceModel, TermModel};
 use crate::message::place;
+use crate::spec::{BalanceRule, BalanceTerm, ElementDef, LoopId, Sign, Spec, element_def};
 use crate::value::ElementType;
 
 /// Compiles the `balancing` section against the loops and segments of `spec`.

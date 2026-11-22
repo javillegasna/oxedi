@@ -2,8 +2,9 @@
 
 use std::sync::Arc;
 
+use super::SpecError;
 use super::model::SpecModel;
-use super::{Spec, SpecError};
+use crate::spec::Spec;
 
 /// A spec as its loader keeps it: the typed model, which is patched and
 /// written back, and the spec compiled from it, which the engine runs.

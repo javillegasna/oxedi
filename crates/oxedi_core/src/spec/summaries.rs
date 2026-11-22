@@ -5,12 +5,10 @@
 
 use std::collections::BTreeMap;
 
-use super::ColumnKind;
-use super::Spec;
 use super::error::SpecError;
 use super::model::{SummaryColumnModel, SummaryModel, SummaryRowModel};
 use super::summary_error::SummaryDefError;
-use super::tables::{ColumnSource, Summary, TableDef};
+use crate::spec::{ColumnKind, ColumnSource, Spec, Summary, TableDef};
 use crate::value::ElementType;
 
 /// Compiles the `summaries` section against the tables of `spec`, in name order.

@@ -7,20 +7,17 @@
 use std::collections::BTreeMap;
 use std::fmt;
 
-use super::OccurrenceIndex;
-use super::Spec;
 use super::balance::compile_balancing;
 use super::build_loops::{check_cycles, compile_loop, held_segments};
 use super::build_occurrences::{check_trigger, compile_occurrences};
 use super::compile::compile_tables;
-use super::elements::SegmentDef;
 use super::error::SpecError;
-use super::loops::{LoopId, Trigger};
 use super::model::{SegmentModel, SpecModel, VersionModel};
-use super::render::render_trigger;
 use super::segments::compile_elements;
 use super::summaries::{compile_default_table, compile_summaries};
-use super::version::DeclaredVersion;
+use crate::spec::{
+    DeclaredVersion, LoopId, OccurrenceIndex, SegmentDef, Spec, Trigger, render_trigger,
+};
 
 /// A spec while it compiles, and the model every step reads.
 struct Build<'m> {

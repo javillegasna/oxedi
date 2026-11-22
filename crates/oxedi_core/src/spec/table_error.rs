@@ -2,9 +2,9 @@
 
 use std::fmt;
 
-use super::ColumnKind;
 use super::table_chain::{Declared, render_chain};
 use crate::message::ElementRef;
+use crate::spec::ColumnKind;
 use crate::vocabulary::Pick;
 
 /// The tables above two anchor loops, outermost first.

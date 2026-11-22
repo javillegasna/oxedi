@@ -9,70 +9,55 @@
 //! amounts that must add up inside each instance of a loop. An optional
 //! `summaries` section names figures computed over the tables, and an
 //! optional `default_table` names the table a reader shows when none is
-//! named. Loading compiles that into index-based definitions so the engine
-//! never compares strings. The loader keeps the typed model ([`LoadedSpec`]),
-//! patches it and compiles it again; the compiled spec keeps no JSON. Patches
-//! follow RFC 7386: objects merge key by key, while arrays and scalars replace
-//! wholesale; see [`LoadedSpec::merge_patch`] for what that means for a loop's
-//! occurrences.
+//! named. The compiled spec holds index-based definitions, so the engine
+//! never compares strings, and keeps no JSON.
 //!
-//! The module is split by responsibility: `loops`, `occurrences`, `elements`
-//! (an element, a segment, the automatic column names), `tables`, `balance_rule`
-//! (a balancing rule and its text) and `summaries` hold the definitions, `segments` and `balance` compile the
-//! segments and the balancing rules, `occurrence_index`
-//! the occurrence a segment takes in a loop, `id_map` the map keyed by segment id,
+//! The schema is split by responsibility: `loops`, `occurrences`, `elements`
+//! (an element, a segment, the automatic column names), `tables` and
+//! `balance_rule` (a balancing rule and its text) hold the definitions;
+//! `occurrence_index` the occurrence a segment takes in a loop; `id_map` the
+//! map keyed by segment id; `schema` the columns of each table, known from the
+//! spec alone; `unknown` the errors for a table or a column the spec does not
+//! define; `render` the text of triggers and occurrence selectors in messages;
+//! `version` the version a compiled spec declares and the choice of a spec by
+//! it; `test_support` (test builds only) the small spec shared by the spec and
+//! projector tests and the nested-loop spec shared by the engine and tree
+//! tests.
+//!
+//! Loading reads a spec's JSON whole into its typed model, then compiles the
+//! model into a [`Spec`]. The loader keeps the model
+//! ([`LoadedSpec`]), patches it and compiles it again. Patches follow RFC 7386:
+//! objects merge key by key, while arrays and scalars replace wholesale; see
+//! [`LoadedSpec::merge_patch`] for what that means for a loop's occurrences.
+//!
+//! Loading is split by responsibility: `model` the spec as typed data and
+//! `strict` the deserializer that reads it; `build` the construction of a
+//! [`Spec`] as a pipeline of steps, from JSON with
+//! [`Spec::from_json`](crate::spec::Spec::from_json), and why a version
+//! declaration is rejected; `build_loops` the compilation of one loop and why
+//! its control is rejected, `build_occurrences` that of its occurrences,
+//! `segments` that of the segments, `balance` that of the balancing rules,
+//! `summaries` that of the summaries and the default table, `compile` that of
+//! the tables, `columns` that of one table column and `column_occurrence` the
+//! reading of the occurrence a column names; `phi` the check of the columns
+//! flagged as patient data and of the seed column; `error` the load error and
+//! `error_text` its `source` and the parts of its text built from lists;
 //! `occurrence_error`, `table_error`, `balance_error` and `summary_error` why
-//! an occurrence, a table, a balancing rule or a summary is rejected; `unknown`
-//! the errors for a table or a column the spec does not define; `schema` the columns of each table, known from
-//! the spec alone; `test_support` (test builds only) the small spec
-//! shared by the spec and projector tests and the nested-loop spec shared by
-//! the engine and tree tests; `build` the construction of a
-//! [`Spec`] as a pipeline of steps and why a version declaration is rejected, `build_loops` the compilation of one loop and
-//! why its control is rejected, `build_occurrences` that of its occurrences,
-//! `compile` that of the tables, `columns` that of one table column and
-//! `column_occurrence` the reading of the occurrence a column names;
-//! `model` the spec as typed data, which the loader reads whole before
-//! compiling it; `loaded` the spec as a loader keeps it, its model beside its
-//! compiled form;
-//! `phi` the check of the columns flagged as patient data and of the seed
-//! column; `error` the load error and `error_text` its `source` and the parts
-//! of its text built from lists; `render` the text of triggers and occurrence selectors in messages, `table_chain`
-//! the table chains and declared occurrences a table error quotes; `patch`
-//! the merge patch; `version` the version a compiled spec declares and the choice of a
-//! spec by it; `builtin` the registry of shipped specs by transaction and
-//! version; `vocabulary` the spec's closed words and the codes key, one
-//! table each.
+//! an occurrence, a table, a balancing rule or a summary is rejected, and
+//! `table_chain` the table chains and declared occurrences a table error
+//! quotes; `loaded` the spec as a loader keeps it, its model beside its
+//! compiled form; `patch` the merge patch; `builtin` the registry of shipped
+//! specs by transaction and version, and the built-in 835 shortcuts;
+//! `vocabulary` the spec's closed words and the codes key, one table each.
 
-mod balance;
-mod balance_error;
 mod balance_rule;
-mod build;
-mod build_loops;
-mod build_occurrences;
-mod builtin;
-mod column_occurrence;
-mod columns;
-mod compile;
 mod elements;
-mod error;
-mod error_text;
 mod id_map;
-mod loaded;
 mod loops;
-mod model;
-mod occurrence_error;
 mod occurrence_index;
 mod occurrences;
-mod patch;
-mod phi;
 mod render;
 mod schema;
-mod segments;
-mod strict;
-mod summaries;
-mod summary_error;
-mod table_chain;
-mod table_error;
 mod tables;
 #[cfg(test)]
 pub(crate) mod test_support;
@@ -80,17 +65,49 @@ pub(crate) mod test_support;
 mod tests;
 mod unknown;
 mod version;
+
+mod balance;
+mod balance_error;
+mod build;
+mod build_loops;
+mod build_occurrences;
+mod builtin;
+mod column_occurrence;
+mod columns;
+mod compile;
+mod error;
+mod error_text;
+mod loaded;
+mod model;
+mod occurrence_error;
+mod patch;
+mod phi;
+mod segments;
+mod strict;
+mod summaries;
+mod summary_error;
+mod table_chain;
+mod table_error;
 mod vocabulary;
 
-pub use balance_error::BalanceError;
 pub use balance_rule::{BalanceRule, BalanceTerm, Sign};
+pub use elements::{ElementDef, ROW_COLUMN, SEGMENT_COLUMN, SegmentDef};
+pub use loops::{Control, ControlCount, LoopDef, LoopId, Trigger};
+pub use occurrence_index::OccurrenceId;
+pub use occurrences::{OccurrenceDef, Qualifier, Usage};
+pub use schema::{
+    ColumnKind, ColumnSchema, TableSchema, require_column, spec_schema, table_columns, table_schema,
+};
+pub use tables::{ColumnSource, Repeat, Summary, TableDef};
+pub use unknown::{UnknownColumn, UnknownTable};
+pub use version::DeclaredVersion;
+
+pub use balance_error::BalanceError;
 pub use build::VersionError;
 pub use build_loops::ControlError;
 pub use builtin::{Builtin, UnknownVersion, Version};
-pub use elements::{ElementDef, ROW_COLUMN, SEGMENT_COLUMN, SegmentDef};
 pub use error::SpecError;
 pub use loaded::LoadedSpec;
-pub use loops::{Control, ControlCount, LoopDef, LoopId, Trigger};
 pub use model::{
     BalanceModel, ColumnModel, ControlModel, ElementModel, LoopModel, OccurrenceModel,
     QualifierModel, RepeatModel, SegmentModel, SpecModel, SummaryColumnModel, SummaryFieldModel,
@@ -98,18 +115,10 @@ pub use model::{
     VersionModel,
 };
 pub use occurrence_error::OccurrenceError;
-pub use occurrence_index::OccurrenceId;
-pub use occurrences::{OccurrenceDef, Qualifier, Usage};
 pub use patch::merge_patch;
-pub use schema::{
-    ColumnKind, ColumnSchema, TableSchema, require_column, spec_schema, table_columns, table_schema,
-};
 pub use segments::ElementDefError;
 pub use summary_error::SummaryDefError;
 pub use table_error::{AnchorChains, AnchorPositions, LoopSegments, TableDefError};
-pub use tables::{ColumnSource, Repeat, Summary, TableDef};
-pub use unknown::{UnknownColumn, UnknownTable};
-pub use version::DeclaredVersion;
 pub use vocabulary::ElementPosition;
 
 pub(crate) use balance_rule::render_terms;

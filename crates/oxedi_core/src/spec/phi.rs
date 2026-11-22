@@ -1,11 +1,8 @@
 //! Compilation of the columns flagged as patient data and of the seed column.
 
-use super::ColumnKind;
-use super::Spec;
 use super::error::SpecError;
 use super::table_error::TableDefError;
-use super::tables::ColumnSource;
-use super::tables::TableDef;
+use crate::spec::{ColumnKind, ColumnSource, Spec, TableDef};
 use crate::value::ElementType;
 use crate::vocabulary::Phi;
 

@@ -5,12 +5,12 @@ use std::sync::{Arc, OnceLock};
 
 use serde_json::Value;
 
-use super::chosen;
 use super::model::SpecModel;
 use super::patch::merge_patch;
-use super::{LoadedSpec, Spec, SpecError};
+use super::{LoadedSpec, SpecError};
 use crate::message::render_names;
 use crate::segment::Segment;
+use crate::spec::{Spec, chosen};
 
 /// An X12 release a built-in spec covers. It is not specific to one
 /// transaction set: other sets share the releases.

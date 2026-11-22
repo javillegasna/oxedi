@@ -94,8 +94,7 @@ impl SpecModel {
     /// Compiles the model into the spec the engine runs; it fails with the
     /// errors [`Spec::from_json`] reports for the same spec.
     pub fn compile(&self) -> Result<Spec, SpecError> {
-        let source = serde_json::to_value(self).map_err(SpecError::Json)?;
-        Spec::build(self, source)
+        Spec::build(self)
     }
 
     /// Reads a parsed spec into its model in one pass; the first value the

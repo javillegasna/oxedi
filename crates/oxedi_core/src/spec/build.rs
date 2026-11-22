@@ -6,8 +6,6 @@
 
 use std::collections::BTreeMap;
 
-use serde_json::Value;
-
 use super::Spec;
 use super::balance::compile_balancing;
 use super::build_loops::{check_cycles, compile_loop, held_segments};
@@ -48,15 +46,9 @@ const STEPS: [Step; 11] = [
 ];
 
 impl Spec {
-    pub(crate) fn from_value(source: Value) -> Result<Spec, SpecError> {
-        let model = SpecModel::from_value(&source)?;
-        Spec::build(&model, source)
-    }
-
-    /// Compiles `model`; `source` is kept as the spec's JSON for `merge_patch`
-    /// and `to_json`.
-    pub(in crate::spec) fn build(model: &SpecModel, source: Value) -> Result<Spec, SpecError> {
-        let mut build = Build::new(model, source)?;
+    /// Compiles `model`.
+    pub(in crate::spec) fn build(model: &SpecModel) -> Result<Spec, SpecError> {
+        let mut build = Build::new(model)?;
         STEPS.iter().try_for_each(|step| step(&mut build))?;
         Ok(build.spec)
     }
@@ -124,7 +116,7 @@ impl Spec {
 
 impl<'m> Build<'m> {
     /// The spec's name and an empty structure, or why the spec declares no loops.
-    fn new(model: &'m SpecModel, source: Value) -> Result<Build<'m>, SpecError> {
+    fn new(model: &'m SpecModel) -> Result<Build<'m>, SpecError> {
         if model.loops.is_empty() {
             return Err(SpecError::NoLoops {
                 spec_name: model.name.clone(),
@@ -142,7 +134,6 @@ impl<'m> Build<'m> {
                 summaries: Vec::new(),
                 default_table: None,
                 version: None,
-                source,
             },
             model,
         })

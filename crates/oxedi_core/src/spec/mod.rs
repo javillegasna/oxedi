@@ -11,10 +11,10 @@
 //! optional `default_table` names the table a reader shows when none is
 //! named. Loading compiles that into index-based definitions so the engine
 //! never compares strings. The loader keeps the typed model ([`LoadedSpec`]),
-//! patches it and compiles it again; [`Spec::merge_patch`] still patches the
-//! JSON value a spec keeps. Patches follow RFC 7386: objects merge key by key, while arrays and
-//! scalars replace wholesale; see [`Spec::merge_patch`] for what that means
-//! for a loop's occurrences.
+//! patches it and compiles it again; the compiled spec keeps no JSON. Patches
+//! follow RFC 7386: objects merge key by key, while arrays and scalars replace
+//! wholesale; see [`LoadedSpec::merge_patch`] for what that means for a loop's
+//! occurrences.
 //!
 //! The module is split by responsibility: `loops`, `occurrences`, `elements`
 //! (an element, a segment, the automatic column names), `tables`, `balance_rule`
@@ -118,8 +118,6 @@ pub(crate) use schema::column_type;
 use std::cmp::Reverse;
 use std::collections::BTreeMap;
 
-use serde_json::Value;
-
 use self::occurrence_index::OccurrenceIndex;
 use crate::segment::Segment;
 
@@ -136,7 +134,6 @@ pub struct Spec {
     summaries: Vec<(String, Summary)>,
     default_table: Option<String>,
     version: Option<DeclaredVersion>,
-    source: Value,
 }
 
 impl Spec {
@@ -167,50 +164,7 @@ impl Spec {
 
     /// Loads and validates a spec from JSON text.
     pub fn from_json(json: &str) -> Result<Spec, SpecError> {
-        let source: Value = serde_json::from_str(json).map_err(SpecError::Json)?;
-        Spec::from_value(source)
-    }
-
-    /// Applies a JSON Merge Patch (RFC 7386) to this spec's JSON and loads the
-    /// result: objects merge recursively, arrays and scalars are replaced,
-    /// `null` deletes. The result is validated like any spec; every failure,
-    /// including unparsable patch text, is wrapped in [`SpecError::Patch`].
-    ///
-    /// A loop's `occurrences` is an object keyed by occurrence name, so a
-    /// patch adds, changes or removes (with `null`) one occurrence by its name
-    /// and leaves the others as they are. Arrays, such as an element's
-    /// `codes` or a qualifier's `codes`, are replaced whole. The current spec
-    /// is visible through [`Self::to_json()`] or [`Self::get()`].
-    ///
-    /// # Example
-    ///
-    /// ```
-    /// # use oxedi_core::Spec;
-    /// let spec = Spec::builtin_835();
-    /// let patched = spec.merge_patch(
-    ///     r#"{"loops":{"1000A":{"occurrences":{"extra":{"segment":"XX","pos":11400}}}}}"#
-    /// ).unwrap();
-    /// let loop_1000a = patched.get(patched.loop_id("1000A").unwrap());
-    /// assert!(loop_1000a.segments.contains(&b"XX".to_vec()));
-    /// assert!(loop_1000a.occurrences.iter().any(|o| o.name == "extra"));
-    /// ```
-    pub fn merge_patch(&self, patch_json: &str) -> Result<Spec, SpecError> {
-        let patched = serde_json::from_str::<Value>(patch_json)
-            .map_err(SpecError::Json)
-            .and_then(|patch| {
-                let mut source = self.source.clone();
-                merge_patch(&mut source, &patch);
-                Spec::from_value(source)
-            });
-        patched.map_err(|e| SpecError::Patch {
-            source: Box::new(e),
-        })
-    }
-
-    /// The spec as JSON text, including any patches applied to it.
-    pub fn to_json(&self) -> String {
-        // A `Value` always serializes; a failure here would be a bug in serde_json.
-        serde_json::to_string_pretty(&self.source).unwrap_or_default()
+        SpecModel::from_json(json).and_then(|model| model.compile())
     }
 
     /// The spec's name.

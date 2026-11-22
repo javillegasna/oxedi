@@ -154,9 +154,11 @@ model writes no default and no `null`.
 
 `LoadedSpec` (`spec/loaded.rs`) keeps the model beside the spec compiled from it.
 `LoadedSpec::merge_patch` (`spec/patch.rs`) applies a patch to the model's canonical JSON, reads it
-back and compiles it again, so a patched spec goes through the same checks as a new one. The
-built-ins keep only the spec, read from their JSON (4010 is the 5010 JSON with its patch merged
-over it); `Builtin::model` reads the model on demand and `Builtin::loaded` keeps it beside the spec. `Spec::merge_patch` still patches the JSON a spec keeps.
+back and compiles it again, so a patched spec goes through the same checks as a new one. A
+compiled `Spec` keeps no JSON: patching, writing back and the model live on the loading side.
+The built-ins keep their spec and the JSON they ship (`include_str!`; 4010 is the 5010 JSON with
+its patch merged over it as values); `Builtin::model` reads the model from it on demand and
+`Builtin::loaded` keeps it beside the spec.
 
 Most JSON keys keep their name in code (`TableDef::loops`, `LoopDef::end`). A table's `ref`
 becomes `TableDef::reference`, the name child rows use to point at it. Comments, helpers and a

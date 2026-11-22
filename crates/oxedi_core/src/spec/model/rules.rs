@@ -5,20 +5,18 @@ use serde::{Deserialize, Serialize};
 
 use super::declare::spec_object;
 use super::present;
-use crate::spec::sections::{COUNT, COUNTS, TEXT, TEXTS, nullable, objects};
-use crate::spec::shape::{Field, Leaf};
 use crate::spec::{Sign, SummaryDefError};
 
 spec_object! {
     /// The element of a segment that declares the version a file is written in,
     /// and the values the spec accepts there.
-    VersionModel, VERSION, "a version object";
+    VersionModel, "a version object";
     /// The segment that holds the declaration.
-    segment: String, TEXT, required;
+    segment: String, required;
     /// 1-based element position of the declaration.
-    element: usize, COUNT, required;
+    element: usize, required;
     /// The values the spec accepts.
-    values: Vec<String>, TEXTS, required;
+    values: Vec<String>, required;
 }
 
 /// A summary over the rows of a table, written `{"count": {"table": ...}}`.
@@ -116,26 +114,26 @@ impl TryFrom<SummaryKeys> for SummaryModel {
 
 spec_object! {
     /// Amounts that must add up inside each instance of a loop.
-    BalanceModel, BALANCE, "a balancing rule object";
+    BalanceModel, "a balancing rule object";
     /// The loop whose instances are checked.
-    per: String, TEXT, required;
+    per: String, required;
     /// The values the sum must equal, added together.
-    target: Vec<TermModel>, objects!(&TERM), required;
+    target: Vec<TermModel>, required;
     /// The values added together.
-    sum: Vec<TermModel>, objects!(&TERM), required;
+    sum: Vec<TermModel>, required;
 }
 
 spec_object! {
     /// One value of a balancing rule: elements of an occurrence, added with a sign.
-    TermModel, TERM, "a balancing value object";
+    TermModel, "a balancing value object";
     /// The loop that holds the occurrence, when not the rule's `per` loop.
-    loop_name as "loop": Option<String>, nullable(Leaf::Text), optional;
+    loop_name as "loop": Option<String>, optional;
     /// The occurrence.
-    occurrence: String, TEXT, required;
+    occurrence: String, required;
     /// 1-based component position inside each element, when the value is one.
-    component: Option<usize>, nullable(Leaf::Count), optional;
+    component: Option<usize>, optional;
     /// Whether the value is added or subtracted.
-    sign: Sign, nullable(Leaf::Text), default_or_null;
+    sign: Sign, default_or_null;
     /// 1-based element positions whose values are added.
-    elements: Vec<usize>, COUNTS, required;
+    elements: Vec<usize>, required;
 }

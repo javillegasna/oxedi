@@ -6,40 +6,36 @@ use serde::Deserializer;
 
 use super::declare::spec_object;
 use super::{positions, present};
-use crate::spec::sections::{COUNT, TEXT, TEXTS, nullable};
-use crate::spec::shape::{Field, Leaf};
 use crate::spec::{ControlCount, ElementPosition, Usage};
 
 spec_object! {
     /// A loop: the segment that opens it, where it sits and what it holds.
-    LoopModel, LOOP, "a loop object";
+    LoopModel, "a loop object";
     /// The loop that holds this one, when it is not a top loop.
-    parent: Option<String>, nullable(Leaf::Text), optional;
+    parent: Option<String>, optional;
     /// The segment that closes an instance, when one does.
-    end: Option<String>, nullable(Leaf::Text), optional;
+    end: Option<String>, optional;
     /// The most instances the parent holds, when the spec bounds them.
-    max: Option<usize>, nullable(Leaf::Count), optional;
+    max: Option<usize>, optional;
     /// Whether every instance of the parent holds one.
-    usage: Usage, nullable(Leaf::Text), default_or_null;
+    usage: Usage, default_or_null;
     /// The occurrences an instance holds, by name.
-    occurrences: BTreeMap<String, OccurrenceModel>,
-        Field::Map(&Field::Object(&OCCURRENCE)), default;
+    occurrences: BTreeMap<String, OccurrenceModel>, default;
     /// The segment, and the element values, that open an instance.
-    trigger: TriggerModel, Field::Object(&TRIGGER), required;
+    trigger: TriggerModel, required;
     /// The counts the end segment checks, when it checks any.
     #[serde(default, deserialize_with = "present")]
-    control: Option<ControlModel>, Field::Object(&CONTROL), optional;
+    control: Option<ControlModel>, optional;
 }
 
 spec_object! {
     /// The segment that opens a loop's instance and the element values it holds.
-    TriggerModel, TRIGGER, "a trigger object";
+    TriggerModel, "a trigger object";
     /// The segment.
-    segment: String, TEXT, required;
+    segment: String, required;
     /// The value each element must hold, by 1-based element position.
     #[serde(deserialize_with = "trigger_where")]
-    conditions as "where": BTreeMap<usize, String>,
-        Field::Map(&TEXT), default;
+    conditions as "where": BTreeMap<usize, String>, default;
 }
 
 fn trigger_where<'de, D: Deserializer<'de>>(
@@ -50,44 +46,43 @@ fn trigger_where<'de, D: Deserializer<'de>>(
 
 spec_object! {
     /// One place a segment takes inside a loop's instance.
-    OccurrenceModel, OCCURRENCE, "an occurrence object";
+    OccurrenceModel, "an occurrence object";
     /// The segment.
-    segment: String, TEXT, required;
+    segment: String, required;
     /// The order of the occurrence among those of its loop.
-    pos: usize, COUNT, required;
+    pos: usize, required;
     /// Whether every instance of the loop holds it.
-    usage: Usage, nullable(Leaf::Text), default_or_null;
+    usage: Usage, default_or_null;
     /// The most times it repeats in one instance, when the spec bounds it.
-    max: Option<usize>, nullable(Leaf::Count), optional;
+    max: Option<usize>, optional;
     /// What tells it apart from the other occurrences of its segment.
     #[serde(default, deserialize_with = "present")]
-    qualifier: Option<QualifierModel>, Field::Object(&QUALIFIER), optional;
+    qualifier: Option<QualifierModel>, optional;
     /// The codes an element or component may hold here, by position.
-    codes: BTreeMap<ElementPosition, Vec<String>>,
-        Field::Map(&TEXTS), default;
+    codes: BTreeMap<ElementPosition, Vec<String>>, default;
 }
 
 spec_object! {
     /// The element (or component) and the codes that tell an occurrence apart
     /// from the other occurrences of its segment in the same loop.
-    QualifierModel, QUALIFIER, "a qualifier object";
+    QualifierModel, "a qualifier object";
     /// 1-based element position.
-    element: usize, COUNT, required;
+    element: usize, required;
     /// 1-based component position inside the element, when the qualifier is one.
-    component: Option<usize>, nullable(Leaf::Count), optional;
+    component: Option<usize>, optional;
     /// The codes the element holds in this occurrence.
-    codes: Vec<String>, TEXTS, required;
+    codes: Vec<String>, required;
 }
 
 spec_object! {
     /// The elements of a loop's end segment that check the instance it closes.
-    ControlModel, CONTROL, "a control object";
+    ControlModel, "a control object";
     /// 1-based element position of the control number in the opening segment.
-    opener_element: usize, COUNT, required;
+    opener_element: usize, required;
     /// 1-based element position of the control number in the end segment.
-    closer_element: usize, COUNT, required;
+    closer_element: usize, required;
     /// 1-based element position of the count in the end segment.
-    count_element: usize, COUNT, required;
+    count_element: usize, required;
     /// What the count counts.
-    count: ControlCount, TEXT, required;
+    count: ControlCount, required;
 }

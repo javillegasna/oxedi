@@ -16,12 +16,10 @@ pub enum Validation {
 /// A stack that loads.
 #[derive(Debug)]
 pub struct Valid {
-    /// The top package's id.
-    pub id: PackageId,
-    /// The spec's name.
-    pub name: String,
-    /// Every package of the stack, bases first, the top last.
-    pub members: Vec<Member>,
+    /// The packages the top builds on, bases first.
+    pub bases: Vec<Member>,
+    /// The top package.
+    pub top: Member,
     /// What the editions and patches of the stack changed, in stack order.
     pub changes: Vec<Change>,
     /// The composed model and its compiled spec.
@@ -69,6 +67,21 @@ pub enum Text {
 }
 
 impl Valid {
+    /// The top package's id.
+    pub fn id(&self) -> &PackageId {
+        &self.top.id
+    }
+
+    /// The spec's name.
+    pub fn name(&self) -> &str {
+        self.loaded.spec.name()
+    }
+
+    /// Every package of the stack, bases first, the top last.
+    pub fn members(&self) -> impl Iterator<Item = &Member> {
+        self.bases.iter().chain(std::iter::once(&self.top))
+    }
+
     /// One line per change, in stack order: the change and the package that
     /// made it.
     pub fn change_lines(&self) -> Vec<String> {
@@ -80,11 +93,11 @@ impl Valid {
 }
 
 // The members as the first lines show them: `"id" (role)`, comma separated.
-struct Members<'a>(&'a [Member]);
+struct Members<'a>(&'a Valid);
 
 impl fmt::Display for Members<'_> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        for (index, member) in self.0.iter().enumerate() {
+        for (index, member) in self.0.members().enumerate() {
             let separator = if index == 0 { "" } else { ", " };
             write!(f, "{separator}\"{}\" ({})", member.id, member.role.word())?;
         }
@@ -114,9 +127,9 @@ impl fmt::Display for Valid {
         write!(
             f,
             "yes: stack \"{}\" loads as spec \"{}\"\npackages, bases first: {}\ncan read\n{}",
-            self.id,
-            self.name,
-            Members(&self.members),
+            self.id(),
+            self.name(),
+            Members(self),
             Changes(self)
         )
     }

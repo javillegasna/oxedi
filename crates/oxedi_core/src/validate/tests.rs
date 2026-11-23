@@ -25,9 +25,9 @@ fn no(validation: Validation) -> Invalid {
 #[test]
 fn the_5010_stack_says_yes() {
     let valid = yes(validate(shipped()[4], shipped()));
-    assert_eq!(valid.id.as_str(), "oxedi/views/005010/835/X221A1");
-    assert_eq!(valid.name, "835");
-    let ids: Vec<&str> = valid.members.iter().map(|m| m.id.as_str()).collect();
+    assert_eq!(valid.id().as_str(), "oxedi/views/005010/835/X221A1");
+    assert_eq!(valid.name(), "835");
+    let ids: Vec<&str> = valid.members().map(|m| m.id.as_str()).collect();
     assert_eq!(
         ids,
         [
@@ -38,7 +38,7 @@ fn the_5010_stack_says_yes() {
             "oxedi/views/005010/835/X221A1",
         ]
     );
-    assert!(valid.members.iter().all(|m| m.role == Role::Narrows));
+    assert!(valid.members().all(|m| m.role == Role::Narrows));
     assert!(valid.changes.is_empty());
     assert_eq!(
         valid.to_string(),
@@ -52,8 +52,8 @@ fn the_5010_stack_says_yes() {
 #[test]
 fn the_4010_stack_says_yes_and_lists_its_changes() {
     let valid = yes(validate(shipped()[7], shipped()));
-    assert_eq!(valid.members.len(), 8);
-    let last = valid.members.last().map(|m| m.id.as_str());
+    assert_eq!(valid.members().count(), 8);
+    let last = Some(valid.top.id.as_str());
     assert_eq!(last, Some("oxedi/guide/004010/835/X091A1"));
     assert_eq!(valid.changes.len(), 81);
     assert!(
@@ -77,7 +77,7 @@ fn every_builtin_says_yes() {
             .copied()
             .unwrap_or_else(|| panic!("no shipped text for {}", builtin.id));
         let valid = yes(validate(top, shipped()));
-        assert_eq!(valid.id, builtin.id);
+        assert_eq!(*valid.id(), builtin.id);
         assert_eq!(valid.loaded.spec.loops(), builtin.spec.loops());
         assert_eq!(valid.loaded.spec.tables(), builtin.spec.tables());
     }

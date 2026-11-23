@@ -1,5 +1,6 @@
 import datetime
 import inspect
+import json
 import os
 import shutil
 import sys
@@ -16,9 +17,10 @@ from edi_835_parser.segments import organization as library_organization  # noqa
 import oxedi  # noqa: E402
 from oxedi import ParseError  # noqa: E402
 from oxedi import edi_835_parser as compat  # noqa: E402
-from oxedi.edi_835_parser import _codes, _convert, _frame, _tables, _unpad, _views  # noqa: E402
+from oxedi._core import EDI_835_PARSER_PATCH  # noqa: E402
+from oxedi.edi_835_parser import _codes, _convert, _frame, _patch, _tables, _unpad, _views  # noqa: E402
 from oxedi.edi_835_parser._convert import ENCODING  # noqa: E402
-from oxedi.edi_835_parser._patch import PATCH, spec  # noqa: E402
+from oxedi.edi_835_parser._patch import spec  # noqa: E402
 
 n104_shim.apply()
 
@@ -302,21 +304,40 @@ def test_a_written_empty_cell_and_an_absent_one_differ_without_the_document(tmp_
     assert (actual.payer.address.address, actual.payee.address) == ("", None)
 
 
-def test_every_compat_column_read_by_segment_has_its_source_in_the_core():
+def test_every_compat_column_reads_the_place_its_patch_names():
+    patch = json.loads(EDI_835_PARSER_PATCH)
     compat_spec = spec()
     checked = 0
-    for name, config in PATCH["tables"].items():
-        if config is None or "segment" in config:
+    for name, config in patch["tables"].items():
+        if config is None:
             continue
+        fixed = compat_spec.element_sources(name)
+        groups = compat_spec.group_sources(name)
         for column, source in config.get("columns", {}).items():
-            if source.get("element") is None:
-                continue
-            found = compat_spec.column_source(name, column)
-            assert found.element == source["element"]
-            if "segment" in source:
-                assert found.segment == source["segment"].encode()
+            place = (source.get("element"), source.get("component"))
+            if "group_element" in source:
+                found = groups[column]
+                repeat = config["repeat"]
+                assert (found.offset, found.component) == (source["group_element"], source.get("component"))
+                held = [p for p in range(1, 20) if found.holds(p)]
+                assert held == list(range(repeat["from"] + source["group_element"], 20, repeat["step"]))
+                assert column not in fixed
+            elif source.get("element") is not None:
+                found = fixed[column]
+                assert (found.element, found.component) == place
+                assert found.segment == (source.get("segment") or config["segment"]).encode()
+                assert column not in groups
+            else:
+                assert column not in fixed and column not in groups
             checked += 1
-    assert checked
+    assert checked == 77
+
+
+def test_the_compat_takes_its_tables_trigger_and_dates_from_the_compiled_spec():
+    assert _patch.TABLES == spec().tables()
+    assert _tables.interchange_trigger() == b"ISA"
+    assert _tables.position("rows_payments", "transaction_date") == (16, None)
+    assert not hasattr(_patch, "PATCH")
 
 
 def test_availity_and_zirmed_are_named_as_the_library_names_them(tmp_path):

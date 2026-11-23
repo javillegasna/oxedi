@@ -3,28 +3,27 @@
 from __future__ import annotations
 
 import functools
-import json
 from collections import defaultdict
 from typing import Optional, Tuple
 
 from .. import ParseError, parse
 from ._convert import STRIPPED, ints
-from ._patch import PATCH, TABLES, spec
+from ._patch import TABLES, spec
 from ._unpad import any_padded as _padded
 from ._unpad import unpad
 
 
 @functools.cache
 def interchange_trigger() -> bytes:
-    """The segment id that opens an interchange, as the spec declares it."""
-    return json.loads(spec().to_json())["loops"]["interchange"]["trigger"]["segment"].encode()
+    """The segment id that opens an interchange, as the compat spec compiles it."""
+    return spec().trigger_segment("interchange")
 
 
 def position(table: str, column: str) -> Tuple[int, Optional[int]]:
-    """The element and component (``None`` for a whole element) that the patch
-    reads for ``column`` of ``table``."""
-    source = PATCH["tables"][table]["columns"][column]
-    return source["element"], source.get("component")
+    """The element and component (``None`` for a whole element) that
+    ``column`` of ``table`` reads, as the compat spec compiles it."""
+    source = spec().column_source(table, column)
+    return source.element, source.component
 
 
 SERVICE_DATE, _ = position("rows_service_dates", "date")

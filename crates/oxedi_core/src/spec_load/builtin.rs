@@ -106,28 +106,30 @@ impl Spec {
         Spec::clone(&Builtin::fallback().spec)
     }
 
-    /// The built-in 835 for version 4010: its edition package composed over the
-    /// 5010 one.
+    /// The built-in 835 for version 4010: its edition packages composed over the
+    /// 5010 stack.
     pub fn builtin_835_4010() -> Spec {
         Builtin::find(Builtin::fallback().transaction.as_str(), Version::V4010)
             .map(|builtin| Spec::clone(&builtin.spec))
             .expect(
-                "the registry holds the 835 at 4010; spec_load::tests::builtin::find_835_4010_gives_the_4010_patch checks it",
+                "the registry holds the 835 at 4010; spec_load::tests::builtin::find_835_4010_gives_the_4010_editions checks it",
             )
     }
 }
 
 /// Every package the crate ships: the 5010 stack, then the 4010's.
-pub(in crate::spec_load) const PACKAGES: [&str; 6] = [
+pub(in crate::spec_load) const PACKAGES: [&str; 8] = [
     include_str!("../../specs/oxedi/envelope/005010.json"),
     include_str!("../../specs/oxedi/dictionary/005010.json"),
     include_str!("../../specs/oxedi/transaction-set/005010/835.json"),
     include_str!("../../specs/oxedi/guide/005010/835/X221A1.json"),
     include_str!("../../specs/oxedi/views/005010/835/X221A1.json"),
+    include_str!("../../specs/oxedi/envelope/004010.json"),
+    include_str!("../../specs/oxedi/dictionary/004010.json"),
     include_str!("../../specs/oxedi/guide/004010/835/X091A1.json"),
 ];
 
-/// How many of the first `PACKAGES` the 5010 stack is.
+/// The 5010 stack is the first `FIVE` of `PACKAGES`.
 const FIVE: usize = 5;
 
 /// The package texts of each built-in, bases first and the top last; the

@@ -1,0 +1,19 @@
+{
+  "package": {
+    "format": 1,
+    "id": "oxedi/envelope/004010",
+    "layers": ["envelope"],
+    "bases": ["oxedi/envelope/005010"]
+  },
+  "spec": {
+  "segments": {
+    "ISA": { "elements": {
+      "11": {"type": "ID", "codes": ["U"]},
+      "12": {"codes": ["00401"]}
+    } },
+    "ST": { "elements": {
+      "3": null
+    } }
+  }
+}
+}

@@ -2,8 +2,8 @@
   "package": {
     "format": 1,
     "id": "oxedi/guide/004010/835/X091A1",
-    "layers": ["dictionary", "transaction-set", "guide"],
-    "bases": ["oxedi/views/005010/835/X221A1"]
+    "layers": ["transaction-set", "guide"],
+    "bases": ["oxedi/views/005010/835/X221A1", "oxedi/dictionary/004010"]
   },
   "spec": {
   "version": {"values": ["004010X091A1", "004010X091", "004010"]},
@@ -51,15 +51,8 @@
     }
   },
   "segments": {
-    "ISA": { "elements": {
-      "11": {"type": "ID", "codes": ["U"]},
-      "12": {"codes": ["00401"]}
-    } },
     "GS": { "elements": {
       "8": {"codes": ["004010X091A1", "004010X091", "004010"]}
-    } },
-    "ST": { "elements": {
-      "3": null
     } },
     "REF": { "elements": {
       "1": {"codes": ["0B", "1A", "1B", "1C", "1D", "1E", "1F", "1G", "1H", "1J", "1L", "1S", "1W", "2U", "6R", "9A", "9C", "A6", "BB", "CE", "D3", "E9", "EA", "EO", "EV", "F2", "F8", "G1", "G2", "G3", "HI", "HPI", "IG", "LU", "N5", "NF", "PQ", "RB", "SY", "TJ"]}
@@ -69,8 +62,7 @@
     } },
     "N4": { "elements": {
       "2": {"usage": "required"},
-      "3": {"usage": "required"},
-      "7": null
+      "3": {"usage": "required"}
     } },
     "PER": { "elements": {
       "1": {"codes": ["CX"]},
@@ -78,32 +70,17 @@
       "5": {"codes": ["EM", "EX", "FX", "TE"]},
       "7": {"codes": ["EX"]}
     } },
-    "RDM": null,
-    "TS3": { "elements": {
-      "6": {"name": "total_covered_charge_amount", "type": "R", "min": 1, "max": 18},
-      "7": {"name": "total_noncovered_charge_amount", "type": "R", "min": 1, "max": 18},
-      "8": {"name": "total_denied_charge_amount", "type": "R", "min": 1, "max": 18},
-      "9": {"name": "total_provider_payment_amount", "type": "R", "min": 1, "max": 18},
-      "10": {"name": "total_interest_amount", "type": "R", "min": 1, "max": 18},
-      "11": {"name": "total_contractual_adjustment_amount", "type": "R", "min": 1, "max": 18},
-      "12": {"name": "total_gramm_rudman_reduction_amount", "type": "R", "min": 1, "max": 18},
-      "14": {"name": "total_blood_deductible_amount", "type": "R", "min": 1, "max": 18},
-      "16": {"name": "total_coinsurance_amount", "type": "R", "min": 1, "max": 18},
-      "19": {"name": "total_deductible_amount", "type": "R", "min": 1, "max": 18}
-    } },
     "CLP": { "elements": {
       "2": {"codes": null},
       "6": {"codes": ["12", "13", "14", "15", "16", "AM", "CH", "DS", "HM", "LM", "MA", "MB", "MC", "OF", "TV", "VA", "WC", "ZZ"]},
       "7": {"usage": "situational"},
-      "9": {"codes": ["0", "1", "2", "3", "4", "5", "6", "7", "8", "9", "A", "B", "C", "D", "E", "F", "G", "H", "I", "J", "K", "L", "M", "N", "O", "X", "Y", "Z"]},
-      "14": null
+      "9": {"codes": ["0", "1", "2", "3", "4", "5", "6", "7", "8", "9", "A", "B", "C", "D", "E", "F", "G", "H", "I", "J", "K", "L", "M", "N", "O", "X", "Y", "Z"]}
     } },
     "CAS": { "elements": {
       "1": {"codes": ["CO", "CR", "OA", "PI", "PR"]}
     } },
     "NM1": { "elements": {
-      "1": {"codes": ["74", "82", "IL", "PR", "QC", "TT"]},
-      "12": null
+      "1": {"codes": ["74", "82", "IL", "PR", "QC", "TT"]}
     } },
     "AMT": { "elements": {
       "1": {"codes": ["AU", "B6", "D8", "DY", "F5", "I", "KH", "NE", "NL", "T", "T2", "ZK", "ZL", "ZM", "ZN", "ZO", "ZZ"]}
@@ -113,12 +90,10 @@
     } },
     "SVC": { "elements": {
       "1": {"composite": {
-        "1": {"codes": ["AD", "ER", "HC", "ID", "IV", "N4", "NU", "RB", "ZZ"]},
-        "8": null
+        "1": {"codes": ["AD", "ER", "HC", "ID", "IV", "N4", "NU", "RB", "ZZ"]}
       }},
       "6": {"composite": {
-        "1": {"codes": ["AD", "ER", "HC", "ID", "IV", "N4", "NU", "RB", "ZZ"]},
-        "8": null
+        "1": {"codes": ["AD", "ER", "HC", "ID", "IV", "N4", "NU", "RB", "ZZ"]}
       }}
     } },
     "PLB": { "elements": {

@@ -279,44 +279,22 @@ fn a_views_edition_records_a_table_change() {
     ));
 }
 
-// Every difference of the 4010 edition from the 5010 package, in the order the
-// comparison walks them: the path, and whether the edition narrowed, widened,
-// changed, removed or added it.
-const EDITION_CHANGES: &[(&str, &str)] = &[
-    ("segments.AMT.elements.1.codes", "widened"),
-    ("segments.CAS.elements.1.codes", "widened"),
-    ("segments.CLP.elements.2.codes", "widened"),
-    ("segments.CLP.elements.6.codes", "narrowed"),
-    ("segments.CLP.elements.7.usage", "widened"),
-    ("segments.CLP.elements.9.codes", "narrowed"),
-    ("segments.CLP.elements.14", "removed"),
-    ("segments.GS.elements.8.codes", "widened"),
+// Every difference of each 4010 edition from the model it builds on, in the
+// order the comparison walks them: the path, and whether the edition narrowed,
+// widened, changed, removed or added it.
+const ENVELOPE_CHANGES: &[(&str, &str)] = &[
     ("segments.ISA.elements.11.type", "changed"),
     ("segments.ISA.elements.11.codes", "narrowed"),
     ("segments.ISA.elements.12.codes", "widened"),
-    ("segments.N1.elements.2.usage", "widened"),
-    ("segments.N4.elements.2.usage", "narrowed"),
-    ("segments.N4.elements.3.usage", "narrowed"),
-    ("segments.N4.elements.7", "removed"),
-    ("segments.NM1.elements.1.codes", "narrowed"),
-    ("segments.NM1.elements.12", "removed"),
-    ("segments.PER.elements.1.codes", "narrowed"),
-    ("segments.PER.elements.3.codes", "narrowed"),
-    ("segments.PER.elements.5.codes", "narrowed"),
-    ("segments.PER.elements.7.codes", "narrowed"),
-    ("segments.PLB.elements.3.composite.1.codes", "widened"),
-    ("segments.PLB.elements.5.composite.1.codes", "widened"),
-    ("segments.PLB.elements.7.composite.1.codes", "widened"),
-    ("segments.PLB.elements.9.composite.1.codes", "widened"),
-    ("segments.PLB.elements.11.composite.1.codes", "widened"),
-    ("segments.PLB.elements.13.composite.1.codes", "widened"),
-    ("segments.QTY.elements.1.codes", "widened"),
-    ("segments.RDM", "removed"),
-    ("segments.REF.elements.1.codes", "widened"),
     ("segments.ST.elements.3", "removed"),
-    ("segments.SVC.elements.1.composite.1.codes", "widened"),
+];
+
+const DICTIONARY_CHANGES: &[(&str, &str)] = &[
+    ("segments.CLP.elements.14", "removed"),
+    ("segments.N4.elements.7", "removed"),
+    ("segments.NM1.elements.12", "removed"),
+    ("segments.RDM", "removed"),
     ("segments.SVC.elements.1.composite.8", "removed"),
-    ("segments.SVC.elements.6.composite.1.codes", "widened"),
     ("segments.SVC.elements.6.composite.8", "removed"),
     ("segments.TS3.elements.6", "added"),
     ("segments.TS3.elements.7", "added"),
@@ -328,6 +306,34 @@ const EDITION_CHANGES: &[(&str, &str)] = &[
     ("segments.TS3.elements.14", "added"),
     ("segments.TS3.elements.16", "added"),
     ("segments.TS3.elements.19", "added"),
+];
+
+const GUIDE_CHANGES: &[(&str, &str)] = &[
+    ("segments.AMT.elements.1.codes", "widened"),
+    ("segments.CAS.elements.1.codes", "widened"),
+    ("segments.CLP.elements.2.codes", "widened"),
+    ("segments.CLP.elements.6.codes", "narrowed"),
+    ("segments.CLP.elements.7.usage", "widened"),
+    ("segments.CLP.elements.9.codes", "narrowed"),
+    ("segments.GS.elements.8.codes", "widened"),
+    ("segments.N1.elements.2.usage", "widened"),
+    ("segments.N4.elements.2.usage", "narrowed"),
+    ("segments.N4.elements.3.usage", "narrowed"),
+    ("segments.NM1.elements.1.codes", "narrowed"),
+    ("segments.PER.elements.1.codes", "narrowed"),
+    ("segments.PER.elements.3.codes", "narrowed"),
+    ("segments.PER.elements.5.codes", "narrowed"),
+    ("segments.PER.elements.7.codes", "narrowed"),
+    ("segments.PLB.elements.3.composite.1.codes", "widened"),
+    ("segments.PLB.elements.5.composite.1.codes", "widened"),
+    ("segments.PLB.elements.7.composite.1.codes", "widened"),
+    ("segments.PLB.elements.9.composite.1.codes", "widened"),
+    ("segments.PLB.elements.11.composite.1.codes", "widened"),
+    ("segments.PLB.elements.13.composite.1.codes", "widened"),
+    ("segments.QTY.elements.1.codes", "widened"),
+    ("segments.REF.elements.1.codes", "widened"),
+    ("segments.SVC.elements.1.composite.1.codes", "widened"),
+    ("segments.SVC.elements.6.composite.1.codes", "widened"),
     (
         "loops.1000A.occurrences.payer_business_contact_information.qualifier",
         "removed",
@@ -461,21 +467,39 @@ fn word(kind: &ChangeKind) -> &'static str {
 }
 
 #[test]
-fn the_4010_edition_lists_its_changes() {
+fn the_4010_editions_list_their_changes() {
     let pool = shipped();
     let top = package_of(&pool, "oxedi/guide/004010/835/X091A1");
     let composed = Stack::resolve(top, &pool)
         .unwrap()
         .compose_checked()
         .unwrap();
-    let id = "oxedi/guide/004010/835/X091A1";
-    assert!(composed.changes.iter().all(|c| c.package.as_str() == id));
-    let listed: Vec<(&str, &str)> = composed
+    let editions = [
+        ("oxedi/envelope/004010", ENVELOPE_CHANGES),
+        ("oxedi/dictionary/004010", DICTIONARY_CHANGES),
+        ("oxedi/guide/004010/835/X091A1", GUIDE_CHANGES),
+    ];
+    let expected: Vec<(&str, &str, &str)> = editions
+        .into_iter()
+        .flat_map(|(package, rows)| rows.iter().map(move |&(path, kind)| (package, path, kind)))
+        .collect();
+    let listed: Vec<(&str, &str, &str)> = composed
         .changes
         .iter()
-        .map(|change| (change.path.as_str(), word(&change.kind)))
+        .map(|change| {
+            (
+                change.package.as_str(),
+                change.path.as_str(),
+                word(&change.kind),
+            )
+        })
         .collect();
-    assert_eq!(listed, EDITION_CHANGES);
+    assert_eq!(listed, expected);
+    assert_eq!(
+        expected.len(),
+        81,
+        "the three editions list 81 changes in all"
+    );
     let isa = composed
         .changes
         .iter()

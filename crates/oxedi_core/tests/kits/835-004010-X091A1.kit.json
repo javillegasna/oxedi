@@ -1,0 +1,43 @@
+{
+  "kit": {
+    "format": 1,
+    "package": "oxedi/guide/004010/835/X091A1"
+  },
+  "cases": {
+    "balanced_4010_sample": {
+      "input": "../fixtures/balanced_4010_sample.txt",
+      "expect": {
+        "tables": "../golden/project/balanced_4010_sample.txt.tables.txt",
+        "diagnostics": "../golden/project/balanced_4010_sample.txt.diagnostics.txt"
+      }
+    },
+    "edge_cases_4010_sample": {
+      "input": "../fixtures/edge_cases_4010_sample.txt",
+      "expect": {
+        "tables": "../golden/project/edge_cases_4010_sample.txt.tables.txt",
+        "diagnostics": "../golden/project/edge_cases_4010_sample.txt.diagnostics.txt"
+      }
+    },
+    "masked_findings_4010_sample": {
+      "input": "../fixtures/masked_findings_4010_sample.txt",
+      "expect": {
+        "tables": "../golden/project/masked_findings_4010_sample.txt.tables.txt",
+        "diagnostics": "../golden/project/masked_findings_4010_sample.txt.diagnostics.txt"
+      }
+    },
+    "multi_claim_sample": {
+      "input": "../fixtures/multi_claim_sample.txt",
+      "expect": {
+        "tables": "../golden/project/multi_claim_sample.txt.tables.txt",
+        "diagnostics": "../golden/project/multi_claim_sample.txt.diagnostics.txt"
+      }
+    },
+    "trizetto_sample": {
+      "input": "../fixtures/trizetto_sample.rmt",
+      "expect": {
+        "tables": "../golden/project/trizetto_sample.rmt.tables.txt",
+        "diagnostics": "../golden/project/trizetto_sample.rmt.diagnostics.txt"
+      }
+    }
+  }
+}

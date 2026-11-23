@@ -22,9 +22,10 @@ mod version;
 mod vocabulary;
 
 use crate::spec::Spec;
-use crate::spec_load::Package;
 use crate::spec_load::SpecError;
 use crate::spec_load::builtin::PACKAGES;
+use crate::spec_load::package::Stack;
+use crate::spec_load::{LoadedSpec, Package};
 
 /// Every package the crate ships, read with its header.
 pub(in crate::spec_load) fn shipped() -> Vec<Package> {
@@ -32,6 +33,20 @@ pub(in crate::spec_load) fn shipped() -> Vec<Package> {
         .iter()
         .map(|text| Package::from_json(text).unwrap())
         .collect()
+}
+
+/// The compat patch package, as shipped.
+pub(in crate::spec_load) const COMPAT: &str = include_str!("../../../specs/edi_835_parser.json");
+
+/// The compat patch composed over the shipped stack and compiled.
+pub(in crate::spec_load) fn compat() -> LoadedSpec {
+    let pool = shipped();
+    let top = Package::from_json(COMPAT).unwrap();
+    let composed = Stack::resolve(&top, &pool)
+        .unwrap()
+        .compose_checked()
+        .unwrap();
+    LoadedSpec::from_model(composed.model).unwrap()
 }
 
 /// The package of `pool` whose id is `id`.

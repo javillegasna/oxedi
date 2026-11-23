@@ -34,7 +34,8 @@ impl Stack<'_> {
     /// before: a package that only narrows may not widen what its bases allow
     /// ([`StackError::Widens`]); an edition or a patch may change anything and
     /// its changes are listed in [`Composed::changes`]. The name comes from
-    /// the top package's id; compiling the model is left to the caller, once.
+    /// the top package's id, unless a patch writes it; compiling the model is
+    /// left to the caller, once.
     pub fn compose_checked(&self) -> Result<Composed, SpecError> {
         let mut value = json!({ "name": self.top().id().spec_name() });
         let mut changes = Vec::new();

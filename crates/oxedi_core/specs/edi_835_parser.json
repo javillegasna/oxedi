@@ -1,4 +1,11 @@
 {
+  "package": {
+    "format": 1,
+    "id": "edi-835-parser/patch/005010/835/X221A1",
+    "layers": ["patch"],
+    "bases": ["oxedi/views/005010/835/X221A1"]
+  },
+  "spec": {
   "name": "edi_835_parser",
   "summaries": null,
   "default_table": null,
@@ -117,4 +124,5 @@
       "qual": {"element": 1}, "code": {"element": 2}
     } }
   }
+}
 }

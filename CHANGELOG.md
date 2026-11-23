@@ -54,6 +54,7 @@ This file covers the Python package; the DuckDB extension has its own changelog 
   wanted segment, outermost first, in one pass that stops at the highest index.
 
 ### Changed
+- The edi_835_parser compat spec is a patch package (edi-835-parser/patch/005010/835/X221A1) on the 5010 views, with a conformance kit; oxedi._core.EDI_835_PARSER_PATCH is renamed EDI_835_PARSER_PACKAGE and loads with Spec.from_packages. A patch package may now write "name".
 - `Spec.patch` is typed `str | JsonObject` instead of `dict[str, Any]`: any `Mapping` of `str` keys to JSON values (`JsonValue`, both exported from `oxedi`) is accepted, a `list[str]` or `dict[str, list[str]]` included, and it refuses a dict holding a value JSON cannot hold (a set, bytes, a non-str key, NaN, an integer beyond 64 bits) with a TypeError naming its place, instead of json's message or a silent conversion.
 - Spec format: an element's `required` key is refused, whether true or false: write `usage: "required"` or drop `required: false`; `usage` is the word an occurrence uses (`situational` is the default).
 - A missing required element or a length out of range names the occurrence when that occurrence's entry sets the rule (`… in occurrence "patient"`).

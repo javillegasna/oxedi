@@ -46,12 +46,7 @@ fn compiled(spec: &Spec) -> String {
 fn compiled_specs_match_the_golden_files() {
     let built = |version| &Builtin::find("835", version).unwrap().spec;
     let (five, four) = (built(Version::V5010), built(Version::V4010));
-    let parser = Builtin::fallback()
-        .loaded()
-        .unwrap()
-        .merge_patch(include_str!("../specs/edi_835_parser.json"))
-        .unwrap()
-        .spec;
+    let parser = common::compat();
     let outputs: Vec<(PathBuf, String)> = [
         ("5010.txt", five),
         ("4010.txt", four),

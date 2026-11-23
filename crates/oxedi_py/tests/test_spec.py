@@ -7,7 +7,7 @@ import pytest
 import oxedi
 from conftest import LARGEST, read
 from oxedi import Spec, SpecError, Version
-from oxedi._core import EDI_835_PARSER_PATCH
+from oxedi._core import EDI_835_PARSER_PACKAGE
 
 PATCH = {"loops": {"ZZ": {"parent": "2100", "trigger": {"segment": "ZZ1"}}}}
 
@@ -185,9 +185,9 @@ COMPAT_TABLES = [
 
 
 def test_the_edi_835_parser_patch_loads_with_its_tables():
-    from oxedi._core import EDI_835_PARSER_PATCH
+    from oxedi._core import EDI_835_PARSER_PACKAGE
 
-    spec = Spec.builtin().patch(EDI_835_PARSER_PATCH)
+    spec = Spec.from_packages(EDI_835_PARSER_PACKAGE, Spec.builtin_packages())
     assert repr(spec) == "Spec(name='edi_835_parser', loops=8, tables=17)"
     result = oxedi.parse(read(LARGEST), spec=spec)
     assert result.tables.keys() == COMPAT_TABLES
@@ -362,7 +362,7 @@ def test_a_source_is_a_frozen_value(get, text, kind, field):
 
 def test_a_spec_names_its_tables_and_the_segment_that_opens_each_loop():
     assert Spec.builtin().tables() == ["adjustments", "claims", "payments", "provider_adjustments", "services"]
-    compat = Spec.builtin().patch(EDI_835_PARSER_PATCH)
+    compat = Spec.from_packages(EDI_835_PARSER_PACKAGE, Spec.builtin_packages())
     assert compat.tables() == COMPAT_TABLES
     spec = Spec.builtin()
     assert [spec.trigger_segment(n) for n in ("interchange", "2100", "1000A")] == [b"ISA", b"CLP", b"N1"]
@@ -394,7 +394,7 @@ def test_element_and_group_sources_list_the_columns_that_read_an_element():
         "service_date",
         "units_paid",
     ]
-    compat = spec.patch(EDI_835_PARSER_PATCH).element_sources("rows_payments")
+    compat = Spec.from_packages(EDI_835_PARSER_PACKAGE, Spec.builtin_packages()).element_sources("rows_payments")
     assert list(compat) == ["amount_paid", "payment_method", "routing_number", "transaction_date"]
 
 

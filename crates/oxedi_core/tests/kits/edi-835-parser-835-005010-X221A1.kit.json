@@ -1,0 +1,68 @@
+{
+  "kit": {
+    "format": 1,
+    "package": "edi-835-parser/patch/005010/835/X221A1"
+  },
+  "cases": {
+    "balanced_4010_sample": {
+      "input": "../fixtures/balanced_4010_sample.txt",
+      "expect": {
+        "tables": "../golden/project/edi_835_parser/balanced_4010_sample.txt.tables.txt"
+      }
+    },
+    "balanced_5010_sample": {
+      "input": "../fixtures/balanced_5010_sample.txt",
+      "expect": {
+        "tables": "../golden/project/edi_835_parser/balanced_5010_sample.txt.tables.txt"
+      }
+    },
+    "edge_cases_4010_sample": {
+      "input": "../fixtures/edge_cases_4010_sample.txt",
+      "expect": {
+        "tables": "../golden/project/edi_835_parser/edge_cases_4010_sample.txt.tables.txt"
+      }
+    },
+    "edge_cases_5010_sample": {
+      "input": "../fixtures/edge_cases_5010_sample.txt",
+      "expect": {
+        "tables": "../golden/project/edi_835_parser/edge_cases_5010_sample.txt.tables.txt"
+      }
+    },
+    "emedny_sample": {
+      "input": "../fixtures/emedny_sample.txt",
+      "expect": {
+        "tables": "../golden/project/edi_835_parser/emedny_sample.txt.tables.txt"
+      }
+    },
+    "masked_findings_4010_sample": {
+      "input": "../fixtures/masked_findings_4010_sample.txt",
+      "expect": {
+        "tables": "../golden/project/edi_835_parser/masked_findings_4010_sample.txt.tables.txt"
+      }
+    },
+    "masked_findings_5010_sample": {
+      "input": "../fixtures/masked_findings_5010_sample.txt",
+      "expect": {
+        "tables": "../golden/project/edi_835_parser/masked_findings_5010_sample.txt.tables.txt"
+      }
+    },
+    "multi_claim_sample": {
+      "input": "../fixtures/multi_claim_sample.txt",
+      "expect": {
+        "tables": "../golden/project/edi_835_parser/multi_claim_sample.txt.tables.txt"
+      }
+    },
+    "trizetto_sample": {
+      "input": "../fixtures/trizetto_sample.rmt",
+      "expect": {
+        "tables": "../golden/project/edi_835_parser/trizetto_sample.rmt.tables.txt"
+      }
+    },
+    "united_healthcare_legacy_sample": {
+      "input": "../fixtures/united_healthcare_legacy_sample.txt",
+      "expect": {
+        "tables": "../golden/project/edi_835_parser/united_healthcare_legacy_sample.txt.tables.txt"
+      }
+    }
+  }
+}

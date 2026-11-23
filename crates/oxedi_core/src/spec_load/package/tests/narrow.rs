@@ -202,6 +202,14 @@ fn an_equal_value_is_not_a_difference() {
 }
 
 #[test]
+fn a_name_change_is_listed() {
+    assert_eq!(
+        after(json!({"name": "x"})),
+        [("name".to_owned(), changed(r#""t""#, r#""x""#))]
+    );
+}
+
+#[test]
 fn differences_come_in_key_order() {
     let patch = json!({"segments": {"AA": {"elements": {
         "2": {"name": "other"}, "1": {"max": 3}}}}});

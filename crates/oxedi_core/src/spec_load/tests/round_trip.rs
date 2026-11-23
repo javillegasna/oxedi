@@ -40,11 +40,7 @@ fn round_trip_specs() -> Vec<(&'static str, LoadedSpec)> {
     };
     let loaded = |b: &Builtin| ok("builtin", "model", b.loaded());
     let load = |name, text| ok(name, "load", LoadedSpec::from_json(text));
-    let parser = ok(
-        "edi_835_parser",
-        "merge the patch",
-        loaded(five).merge_patch(include_str!("../../../specs/edi_835_parser.json")),
-    );
+    let parser = super::compat();
     vec![
         ("5010", loaded(five)),
         ("4010", loaded(four)),

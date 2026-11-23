@@ -1,6 +1,6 @@
 //! Merge patches over a loaded spec.
 
-use serde_json::{Value, from_str};
+use serde_json::Value;
 
 use super::{CLP_ONLY, TABLED};
 use crate::spec::test_support::{builtin, loaded, patched};
@@ -177,14 +177,17 @@ fn merge_patch_follows_rfc_7386() {
 
 #[test]
 fn a_patch_over_the_model_reads_as_the_patch_over_the_json_as_written() {
-    let patch = include_str!("../../../specs/edi_835_parser.json");
+    let patch = super::Package::from_json(super::COMPAT)
+        .unwrap()
+        .body()
+        .clone();
     let over_model = Builtin::fallback()
         .loaded()
         .unwrap()
-        .merge_patch(patch)
+        .merge_patch(&patch.to_string())
         .unwrap();
     let mut written: Value = Builtin::fallback().json().unwrap();
-    merge_patch(&mut written, &from_str(patch).unwrap());
+    merge_patch(&mut written, &patch);
     assert_eq!(
         over_model.model,
         SpecModel::from_json(&written.to_string()).unwrap()

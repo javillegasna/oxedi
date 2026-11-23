@@ -7,8 +7,8 @@
 //! loops open at each segment, read from the core's loop engine for adapters
 //! to external validators (module `parse`).
 //! Parsing, streaming and exporting run with the GIL released. It also carries
-//! the text of the core's `edi_835_parser.json` patch, so the Python layer that
-//! reproduces edi-835-parser applies the same file the core's goldens test.
+//! the text of the core's `edi_835_parser.json` patch package, so the Python layer
+//! that reproduces edi-835-parser loads the same file the core's goldens test.
 //! Every class, function and exception is also described for the stub
 //! generator; the `stub_gen` binary writes the descriptions as
 //! `python/oxedi/_core.pyi`. stubtest is what guards completeness: a
@@ -59,10 +59,11 @@ mod tables;
 mod validate;
 mod write;
 
-/// The name of the module attribute holding the text of `edi_835_parser.json`.
-const EDI_835_PARSER_PATCH: &str = "EDI_835_PARSER_PATCH";
+/// The name of the module attribute holding the text of `edi_835_parser.json`, a
+/// patch package over the shipped stack.
+const EDI_835_PARSER_PACKAGE: &str = "EDI_835_PARSER_PACKAGE";
 
-pyo3_stub_gen::module_variable!("oxedi._core", EDI_835_PARSER_PATCH, String);
+pyo3_stub_gen::module_variable!("oxedi._core", EDI_835_PARSER_PACKAGE, String);
 
 /// Registers one member of the module.
 type Register = fn(&Bound<'_, PyModule>) -> PyResult<()>;
@@ -73,7 +74,7 @@ type Register = fn(&Bound<'_, PyModule>) -> PyResult<()>;
 fn core_module(m: &Bound<'_, PyModule>) -> PyResult<()> {
     members().into_iter().try_for_each(|add| add(m))?;
     m.add(
-        EDI_835_PARSER_PATCH,
+        EDI_835_PARSER_PACKAGE,
         include_str!("../../oxedi_core/specs/edi_835_parser.json"),
     )
 }

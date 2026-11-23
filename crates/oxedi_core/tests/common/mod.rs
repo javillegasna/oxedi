@@ -335,3 +335,13 @@ pub fn patched(version: oxedi_core::Version, patch: &str) -> std::sync::Arc<oxed
         .expect("the patch merges into a valid spec")
         .spec
 }
+
+/// The compat patch package over the shipped stack, compiled.
+pub fn compat() -> std::sync::Arc<oxedi_core::Spec> {
+    use oxedi_core::validate::{Validation, validate};
+    let text = include_str!("../../specs/edi_835_parser.json");
+    match validate(text, oxedi_core::Builtin::packages()) {
+        Validation::Yes(valid) => valid.loaded.spec,
+        Validation::No(invalid) => panic!("{invalid}"),
+    }
+}

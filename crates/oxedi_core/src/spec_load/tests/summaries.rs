@@ -89,11 +89,7 @@ fn builtin_835_declares_the_five_summaries() {
 
 #[test]
 fn the_compat_patch_still_loads() {
-    let spec = patched(
-        &builtin(Version::V5010),
-        include_str!("../../../specs/edi_835_parser.json"),
-    )
-    .unwrap();
+    let spec = super::compat().spec;
     assert!(spec.summaries().is_empty());
     assert_eq!(spec.default_table(), None);
 }

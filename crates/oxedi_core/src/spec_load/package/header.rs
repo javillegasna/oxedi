@@ -1,6 +1,6 @@
 //! A package: a header around a spec of the layers it holds.
 
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, HashSet};
 use std::num::NonZeroU32;
 
 use serde::Deserialize;
@@ -78,6 +78,12 @@ impl Package {
                 id: Box::new(header.id),
             }));
         }
+        if let Some(base) = repeated(&header.bases) {
+            return Err(bad_header(HeaderError::RepeatedBase {
+                base: Box::new(base.clone()),
+                package: Box::new(header.id),
+            }));
+        }
         let body = value
             .as_object_mut()
             .and_then(|keys| keys.remove("spec"))
@@ -102,6 +108,12 @@ impl Package {
     pub fn body(&self) -> &Value {
         &self.body
     }
+}
+
+/// The first base that an earlier one in `bases` already names.
+fn repeated(bases: &[PackageId]) -> Option<&PackageId> {
+    let mut seen = HashSet::new();
+    bases.iter().find(|base| !seen.insert(*base))
 }
 
 fn bad_header(reason: HeaderError) -> SpecError {

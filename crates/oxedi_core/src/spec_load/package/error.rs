@@ -74,6 +74,13 @@ pub enum HeaderError {
         /// The top layer `layers` lists.
         top: Layer,
     },
+    /// `bases` lists one package twice.
+    RepeatedBase {
+        /// The package whose header it is, boxed to keep the error small.
+        package: Box<PackageId>,
+        /// The base listed twice, boxed to keep the error small.
+        base: Box<PackageId>,
+    },
 }
 
 impl fmt::Display for HeaderError {
@@ -89,6 +96,11 @@ impl fmt::Display for HeaderError {
                 "package \"{id}\" names layer \"{}\" in its id, but the top layer \"layers\" \
                  lists is \"{top}\"; the id names the package's top layer",
                 id.layer()
+            ),
+            HeaderError::RepeatedBase { package, base } => write!(
+                f,
+                "package \"{package}\" lists base \"{base}\" more than once in \"bases\"; \
+                 list each base once"
             ),
         }
     }

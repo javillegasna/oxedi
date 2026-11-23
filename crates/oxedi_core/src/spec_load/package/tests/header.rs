@@ -123,6 +123,25 @@ fn an_id_naming_another_layer_than_the_top_is_refused() {
 }
 
 #[test]
+fn a_base_listed_twice_is_refused_naming_it() {
+    let header = HEADER.replace(
+        r#""bases":[]"#,
+        r#""bases":["test/envelope/004010","test/envelope/004010"]"#,
+    );
+    let err = read_err(&package_text(&header, "{}"));
+    assert!(matches!(
+        err,
+        SpecError::BadHeader {
+            reason: HeaderError::RepeatedBase { .. }
+        }
+    ));
+    assert_eq!(
+        err.to_string(),
+        "the package header is invalid: package \"test/envelope/005010\" lists base \"test/envelope/004010\" more than once in \"bases\"; list each base once"
+    );
+}
+
+#[test]
 fn header_error_has_no_source() {
     let err = HeaderError::FormatTooNew {
         found: 2,

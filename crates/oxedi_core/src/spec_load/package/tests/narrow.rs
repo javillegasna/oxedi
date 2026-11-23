@@ -166,10 +166,35 @@ fn what_the_base_has_and_the_package_lacks_is_removed() {
 }
 
 #[test]
-fn what_only_the_package_holds_is_not_a_difference() {
-    let added = json!({"segments": {"BB": {"elements": {"1": {"name": "n", "type": "AN"}}},
-        "AA": {"elements": {"3": {"name": "n", "type": "AN"}}}}});
-    assert!(after(added).is_empty());
+fn what_only_the_package_holds_is_added() {
+    let element = json!({"name": "n", "type": "AN"});
+    let added = json!({"segments": {
+        "BB": {"elements": {"1": element}},
+        "AA": {"elements": {"3": element, "2": {"composite": {"2": element}}}}}});
+    let paths: Vec<String> = after(added)
+        .into_iter()
+        .inspect(|(_, kind)| assert!(matches!(kind, ChangeKind::Added { .. })))
+        .map(|(path, _)| path)
+        .collect();
+    assert_eq!(
+        paths,
+        [
+            "segments.AA.elements.2.composite.2",
+            "segments.AA.elements.3",
+            "segments.BB"
+        ]
+    );
+    let kind = after(json!({"segments": {"AA": {"elements": {"3": element}}}}));
+    let text = r#"{"name":"n","type":"AN"}"#.to_owned();
+    assert_eq!(kind[0].1, ChangeKind::Added { after: text });
+}
+
+#[test]
+fn an_equal_value_is_not_a_difference() {
+    let limits = json!({"min": 0, "max": null});
+    let free = json!({"segments": {"AA": {"elements": {"2": limits}}}});
+    assert!(after(free).is_empty());
+    assert!(after(element(json!({"codes": ["Y", "X"]}))).is_empty());
 }
 
 #[test]

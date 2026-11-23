@@ -29,12 +29,16 @@ fn flags(projector: &Projector<'_>, id: &[u8]) -> Vec<Flags> {
         .elements
         .iter()
         .map(|plan| {
-            let components = plan
-                .components
+            let components: Vec<_> = plan
+                .leaves
                 .iter()
-                .map(|&(at, _, _, read)| (at, read))
+                .filter_map(|leaf| Some((leaf.component?, leaf.read)))
                 .collect();
-            (plan.position, plan.read, components)
+            let whole = plan
+                .leaves
+                .iter()
+                .any(|leaf| leaf.component.is_none() && leaf.read);
+            (plan.position, whole, components)
         })
         .collect()
 }
@@ -49,7 +53,8 @@ fn read_flags_follow_the_columns_of_every_table() {
             (1, true, vec![]),
             (2, true, vec![]),
             (3, true, vec![]),
-            (4, true, vec![(1, false), (2, true)]),
+            // A composite read whole is read through its components only.
+            (4, false, vec![(1, false), (2, true)]),
         ]
     );
     assert_eq!(

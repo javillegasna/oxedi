@@ -21,9 +21,10 @@
 //!
 //! Every captured segment the spec defines is checked element by element as
 //! it arrives: required elements, types, lengths, codes and composite
-//! shapes. An element's codes come from the occurrence the segment takes in
-//! its loop when that occurrence lists its own, and from the element's
-//! definition otherwise (also for a segment that matches no occurrence). An
+//! shapes. Each value is checked against one element rule: the element's
+//! definition, whose code list the occurrence the segment takes in its loop
+//! replaces when that occurrence lists its own (a segment that matches no
+//! occurrence takes the definition's). An
 //! element defined without components is read as one text, with any
 //! component separator it contains kept in place; components are read only
 //! where the definition declares them. A column reads the value the check
@@ -106,7 +107,7 @@ pub struct Projector<'s> {
     resets: Vec<Vec<(usize, usize)>>,
     checked: Vec<Checked>,
     /// The occurrence the segment being checked takes in its loop, when it
-    /// has code lists of its own, which replace its elements' lists.
+    /// narrows any of its elements.
     occurrence: Option<&'s OccurrenceDef>,
     /// Index of the occurrence the latest captured segment matched in its
     /// loop's occurrences.

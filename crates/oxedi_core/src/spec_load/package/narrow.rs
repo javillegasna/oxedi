@@ -59,8 +59,9 @@ impl Walk {
     }
 
     // Compares the two maps under `name`, each key of `before` once: a key
-    // `after` lacks is removed, a key both hold goes to `each`.
-    fn entries<K: Ord + ToString, V>(
+    // `after` lacks is removed, a key both hold goes to `each`; the keys only
+    // `after` holds are added, after those.
+    fn entries<K: Ord + ToString, V: Serialize>(
         &mut self,
         name: &str,
         before: &BTreeMap<K, V>,
@@ -70,7 +71,7 @@ impl Walk {
         self.at(name, |walk| walk.each_key(before, after, each));
     }
 
-    fn each_key<K: Ord + ToString, V>(
+    fn each_key<K: Ord + ToString, V: Serialize>(
         &mut self,
         before: &BTreeMap<K, V>,
         after: &BTreeMap<K, V>,
@@ -81,6 +82,10 @@ impl Walk {
                 Some(other) => each(walk, value, other),
                 None => walk.record(ChangeKind::Removed),
             });
+        }
+        for (key, value) in after.iter().filter(|(key, _)| !before.contains_key(key)) {
+            let added = ChangeKind::Added { after: json(value) };
+            self.at(&key.to_string(), |walk| walk.record(added));
         }
     }
 
@@ -149,27 +154,23 @@ impl Walk {
             ),
         };
         let text = |bound: Option<usize>| bound.map_or_else(|| none.to_owned(), |n| n.to_string());
-        self.judged(name, order, text(before), text(after));
+        if order != Ordering::Equal {
+            self.judged(name, order, text(before), text(after));
+        }
     }
 
     // A list of codes: a list allows less than none, and a list inside the
     // base's allows less than the base's.
     fn codes(&mut self, name: &str, before: Option<&[String]>, after: Option<&[String]>) {
-        if before == after {
-            return;
-        }
         let order = match (before, after) {
-            (Some(base), Some(codes)) => {
-                let held: BTreeSet<&String> = base.iter().collect();
-                if codes.iter().all(|code| held.contains(code)) {
-                    Ordering::Greater
-                } else {
-                    Ordering::Less
-                }
-            }
-            (None, _) => Ordering::Greater,
+            (Some(base), Some(codes)) => inclusion(base, codes),
+            (None, None) => Ordering::Equal,
+            (None, Some(_)) => Ordering::Greater,
             (Some(_), None) => Ordering::Less,
         };
+        if order == Ordering::Equal {
+            return;
+        }
         let text = |list: Option<&[String]>| list.map_or_else(|| "any code".to_owned(), json);
         self.judged(name, order, text(before), text(after));
     }
@@ -181,6 +182,20 @@ impl Walk {
             Ordering::Equal | Ordering::Greater => ChangeKind::Narrowed { before, after },
         };
         self.at(name, |walk| walk.record(kind));
+    }
+}
+
+// How much `codes` allows against `base`: greater is less, equal when both
+// hold the same codes whatever their order.
+fn inclusion(base: &[String], codes: &[String]) -> Ordering {
+    let held: BTreeSet<&String> = base.iter().collect();
+    let now: BTreeSet<&String> = codes.iter().collect();
+    if held == now {
+        Ordering::Equal
+    } else if now.is_subset(&held) {
+        Ordering::Greater
+    } else {
+        Ordering::Less
     }
 }
 

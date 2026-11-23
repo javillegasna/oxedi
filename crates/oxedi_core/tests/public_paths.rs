@@ -105,6 +105,7 @@ mod by_module {
     use oxedi_core::spec_load::SegmentModel;
     use oxedi_core::spec_load::SpecError;
     use oxedi_core::spec_load::SpecModel;
+    use oxedi_core::spec_load::StackError;
     use oxedi_core::spec_load::SummaryColumnModel;
     use oxedi_core::spec_load::SummaryDefError;
     use oxedi_core::spec_load::SummaryFieldModel;

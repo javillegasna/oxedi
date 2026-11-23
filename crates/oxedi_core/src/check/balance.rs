@@ -23,7 +23,7 @@
 
 use crate::diagnostic::Rule;
 use crate::segment::Segment;
-use crate::spec::{LoopId, Spec, render_terms};
+use crate::spec::{ElementRule, LoopId, Spec, render_terms};
 use crate::value::parse_r;
 
 use super::StructureChecker;
@@ -96,7 +96,10 @@ impl Balances {
                     .map(|&element| {
                         let required = spec
                             .element_def(&occurrence.segment, element, term.component)
-                            .is_some_and(|def| def.required);
+                            .is_some_and(|def| {
+                                ElementRule::at(def, Some(occurrence), element, term.component)
+                                    .required
+                            });
                         (element, required)
                     })
                     .collect();

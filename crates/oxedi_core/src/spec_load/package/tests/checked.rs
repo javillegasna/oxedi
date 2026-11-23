@@ -186,6 +186,47 @@ fn widening_a_loop_or_an_occurrence_is_refused() {
 }
 
 #[test]
+fn widening_an_occurrence_entry_is_refused() {
+    let entry = |change: &str| {
+        format!(r#"{{"loops":{{"a":{{"occurrences":{{"aa":{{"elements":{{"1":{change}}}}}}}}}}}}}"#)
+    };
+    let at = "loops.a.occurrences.aa.elements.1";
+    let cases = [
+        (
+            entry(r#"{"usage":"situational"}"#),
+            format!(r#"{at}.usage: "required" becomes "situational""#),
+        ),
+        (entry(r#"{"max":2}"#), format!("{at}.max: 1 becomes 2")),
+        (
+            entry(r#"{"min":null}"#),
+            format!("{at}.min: 1 becomes no minimum"),
+        ),
+        (
+            entry(r#"{"codes":["X","Y"]}"#),
+            format!(r#"{at}.codes: ["X"] becomes ["X","Y"]"#),
+        ),
+        (entry("null"), format!("{at} is removed")),
+    ];
+    for (spec, change) in cases {
+        assert_eq!(
+            refusal(&guide(&spec)),
+            format!("package \"{G}\" does not only narrow what its bases allow: {change}{TAIL}"),
+            "{spec}"
+        );
+    }
+}
+
+#[test]
+fn narrowing_an_occurrence_entry_is_accepted() {
+    let narrowed = r#"{"loops":{"a":{"occurrences":{"aa":{"elements":{"1":{"max":1}}}}}}}"#;
+    let added = r#"{"loops":{"a":{"occurrences":{"aa":{"elements":{"2":{"max":3}}}}}}}"#;
+    for spec in [narrowed, added] {
+        let composed = compose(&guide(spec), &[base()]).unwrap();
+        assert!(composed.changes.is_empty(), "{spec}");
+    }
+}
+
+#[test]
 fn a_package_that_changes_the_structure_is_refused() {
     let trigger = r#"{"loops":{"a":{"trigger":{"segment":"AA","where":{"1":"X"}}}}}"#;
     let top = package(

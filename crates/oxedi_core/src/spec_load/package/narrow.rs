@@ -160,8 +160,15 @@ impl Walk {
         );
     }
 
-    // An entry narrows its element where it lists codes.
+    // An entry narrows its element in the facets it sets; a usage it leaves out
+    // is the loosest one.
     fn element_entry(&mut self, before: &ElementEntryModel, after: &ElementEntryModel) {
+        self.usage(
+            before.usage.unwrap_or_default(),
+            after.usage.unwrap_or_default(),
+        );
+        self.limit("min", Limit::Min, before.min, after.min);
+        self.limit("max", Limit::Max, before.max, after.max);
         self.codes("codes", before.codes.as_deref(), after.codes.as_deref());
     }
 

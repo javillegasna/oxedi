@@ -27,3 +27,11 @@ The structure of the 835 and the columns of each table. See [The spec](../../cus
 ::: oxedi.Change
 
 ::: oxedi.ChangeKind
+
+::: oxedi.run_kit
+
+::: oxedi.kit_files
+
+::: oxedi.KitReport
+
+::: oxedi.CaseReport

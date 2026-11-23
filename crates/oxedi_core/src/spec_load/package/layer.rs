@@ -48,6 +48,27 @@ impl Layer {
     pub fn parse(word: &str) -> Option<Layer> {
         Self::from_word(word)
     }
+
+    /// The id form of the layer, written as a message quotes it.
+    pub(in crate::spec_load) const fn form(self) -> &'static str {
+        match self {
+            Layer::Envelope => "<author>/envelope/<release>",
+            Layer::Dictionary => "<author>/dictionary/<release>",
+            Layer::TransactionSet => "<author>/transaction-set/<release>/<transaction set>",
+            Layer::Guide => "<author>/guide/<release>/<transaction set>/<guide>",
+            Layer::Views => "<author>/views/<release>/<transaction set>/<guide>",
+            Layer::Patch => "<author>/patch/<release>/<transaction set>/<guide>",
+        }
+    }
+
+    /// How many `/`-separated parts an id of the layer has.
+    pub(in crate::spec_load) const fn parts(self) -> usize {
+        match self {
+            Layer::Envelope | Layer::Dictionary => 3,
+            Layer::TransactionSet => 4,
+            Layer::Guide | Layer::Views | Layer::Patch => 5,
+        }
+    }
 }
 
 impl Vocabulary for Layer {

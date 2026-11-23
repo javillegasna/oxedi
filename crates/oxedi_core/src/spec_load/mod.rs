@@ -28,7 +28,7 @@
 //! compiled form; `patch` the merge patch; `builtin` the registry of shipped
 //! specs by transaction and version, and the built-in 835 shortcuts;
 //! `vocabulary` the spec's closed words and the codes key, one table each;
-//! `package` the layers of a package and the parts of its identity.
+//! `package` the layers of a package and its identity.
 
 mod balance;
 mod balance_error;
@@ -70,7 +70,7 @@ pub use model::{
     VersionModel,
 };
 pub use occurrence_error::OccurrenceError;
-pub use package::{Guide, IdError, IdPart, Layer, Release, TransactionSet};
+pub use package::{Guide, IdError, IdPart, Layer, PackageId, Release, Scope, TransactionSet};
 pub use patch::merge_patch;
 pub use segments::ElementDefError;
 pub use summary_error::SummaryDefError;

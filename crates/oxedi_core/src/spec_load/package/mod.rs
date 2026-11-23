@@ -12,4 +12,4 @@ mod tests;
 
 pub use error::IdError;
 pub use id::{Guide, IdPart, PackageId, Release, Scope, TransactionSet};
-pub use layer::Layer;
+pub use layer::{Layer, Layers};

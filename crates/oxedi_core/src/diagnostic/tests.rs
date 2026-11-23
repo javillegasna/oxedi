@@ -71,6 +71,7 @@ fn every_rule_names_its_variant() {
                 element: 1,
                 component: None,
                 name: "n".into(),
+                occurrence: None,
             },
             "RequiredElementMissing",
         ),
@@ -95,6 +96,7 @@ fn every_rule_names_its_variant() {
                     max: Some(2),
                 },
                 length: 3,
+                occurrence: None,
             },
             "LengthOutOfRange",
         ),
@@ -431,6 +433,7 @@ fn required_element_missing_displays_the_element_and_its_name() {
             element: 1,
             component: None,
             name: "claim_submitter_identifier".into(),
+            occurrence: None,
         },
         Some(12),
         Some(1),
@@ -446,6 +449,21 @@ fn required_element_missing_displays_the_element_and_its_name() {
     assert_eq!(
         diagnostic.to_string(),
         "SNIP 2 · required element CLP01 (claim_submitter_identifier) is missing or empty · segment #12, element 1 · at transaction#1/2000#1/2100#1 · datum \"\""
+    );
+}
+
+#[test]
+fn required_element_missing_names_the_occurrence_whose_entry_requires_it() {
+    let rule = Rule::RequiredElementMissing {
+        segment_id: b"NM1".to_vec(),
+        element: 3,
+        component: None,
+        name: "last_name".into(),
+        occurrence: Some("patient".into()),
+    };
+    assert_eq!(
+        rule.to_string(),
+        "required element NM103 (last_name) is missing or empty in occurrence \"patient\""
     );
 }
 
@@ -483,6 +501,26 @@ fn type_mismatch_displays_the_component_and_the_declared_type() {
 }
 
 #[test]
+fn length_out_of_range_names_the_occurrence_whose_entry_sets_it() {
+    let rule = Rule::LengthOutOfRange {
+        segment_id: b"NM1".to_vec(),
+        element: 3,
+        component: None,
+        name: "last_name".into(),
+        allowed: LengthRange {
+            min: Some(1),
+            max: Some(35),
+        },
+        length: 40,
+        occurrence: Some("patient".into()),
+    };
+    assert_eq!(
+        rule.to_string(),
+        "element NM103 (last_name) has length 40; the spec allows 1 to 35 in occurrence \"patient\""
+    );
+}
+
+#[test]
 fn length_out_of_range_displays_the_length_and_the_bounds() {
     let rule = |min, max| Rule::LengthOutOfRange {
         segment_id: b"CLP".to_vec(),
@@ -491,6 +529,7 @@ fn length_out_of_range_displays_the_length_and_the_bounds() {
         name: "claim_submitter_identifier".into(),
         allowed: LengthRange { min, max },
         length: 40,
+        occurrence: None,
     };
     let diagnostic = Diagnostic::new(
         rule(Some(1), Some(38)),

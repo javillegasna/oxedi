@@ -84,10 +84,12 @@ impl fmt::Display for Rule {
                 element,
                 component,
                 name,
+                occurrence,
             } => write!(
                 f,
-                "required element {} ({name}) is missing or empty",
-                ElementRef::new(segment_id, *element, *component)
+                "required element {} ({name}) is missing or empty{}",
+                ElementRef::new(segment_id, *element, *component),
+                InOccurrence(occurrence.as_ref())
             ),
             Rule::TypeMismatch {
                 segment_id,
@@ -107,10 +109,12 @@ impl fmt::Display for Rule {
                 name,
                 allowed,
                 length,
+                occurrence,
             } => write!(
                 f,
-                "element {} ({name}) has length {length}; the spec allows {allowed}",
+                "element {} ({name}) has length {length}; the spec allows {allowed}{}",
                 ElementRef::new(segment_id, *element, *component),
+                InOccurrence(occurrence.as_ref())
             ),
             Rule::ValueDropped {
                 table,

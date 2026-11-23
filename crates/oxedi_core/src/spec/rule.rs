@@ -19,6 +19,12 @@ pub(crate) struct ElementRule<'s> {
     /// The occurrence whose own list `codes` is; `None` when it is the
     /// element's.
     pub(crate) codes_of: Option<&'s str>,
+    /// The occurrence whose entry sets `required`; `None` when it is the
+    /// element's.
+    pub(crate) required_of: Option<&'s str>,
+    /// The occurrence whose entry sets `length`; `None` when it is the
+    /// element's.
+    pub(crate) length_of: Option<&'s str>,
 }
 
 impl<'s> ElementRule<'s> {
@@ -30,6 +36,8 @@ impl<'s> ElementRule<'s> {
             length: def.length,
             codes: def.codes.as_slice(),
             codes_of: None,
+            required_of: None,
+            length_of: None,
         }
     }
 
@@ -51,10 +59,9 @@ impl<'s> ElementRule<'s> {
             required: *entry.required.or(&def.required),
             length: *entry.length.or(&def.length),
             codes: entry.codes.or(&def.codes).as_slice(),
-            codes_of: entry
-                .codes
-                .is_occurrence()
-                .then_some(occurrence.name.as_str()),
+            codes_of: named(entry.codes.is_occurrence(), occurrence),
+            required_of: named(entry.required.is_occurrence(), occurrence),
+            length_of: named(entry.length.is_occurrence(), occurrence),
         }
     }
 
@@ -68,4 +75,9 @@ impl<'s> ElementRule<'s> {
     pub(crate) fn own_rejects(&self, value: &[u8]) -> bool {
         self.codes_of.is_some() && self.rejects(value)
     }
+}
+
+/// The occurrence's name when it sets the facet.
+fn named(sets: bool, occurrence: &OccurrenceDef) -> Option<&str> {
+    sets.then_some(occurrence.name.as_str())
 }

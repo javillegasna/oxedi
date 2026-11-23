@@ -81,6 +81,9 @@ pub enum Rule {
         component: Option<usize>,
         /// The element's name in the spec.
         name: String,
+        /// The occurrence whose entry sets it; `None` when the element's
+        /// definition does.
+        occurrence: Option<String>,
     },
     /// A value does not parse as its declared type.
     TypeMismatch {
@@ -109,6 +112,9 @@ pub enum Rule {
         allowed: LengthRange,
         /// The value's length.
         length: usize,
+        /// The occurrence whose entry sets the lengths; `None` when the
+        /// element's definition does.
+        occurrence: Option<String>,
     },
     /// A text value was not stored: its column cannot address more bytes.
     ValueDropped {

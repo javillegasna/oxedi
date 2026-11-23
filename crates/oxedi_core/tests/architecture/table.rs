@@ -86,6 +86,7 @@ pub const TABLE: &[Row] = &[
     row("tokenizer", &["delimiters", "frame", "segment"]),
     row("tree", &["engine", "segment", "spec"]),
     row("trivia", &[]),
+    row("validate", &["spec_load"]),
     row("value", &[]),
     row("vocabulary", &[]),
     row(

@@ -41,8 +41,11 @@ pub enum OccurrenceError {
         /// The key as written.
         key: String,
     },
-    /// A qualifier code is not one the element's own `codes` list allows.
-    QualifierCodeOutsideElement {
+    /// A code of a list (the qualifier's or one under `codes`) is not one the
+    /// element's own `codes` list allows.
+    CodeOutsideElement {
+        /// Where the list sits: `qualifier.codes` or `codes.<key>`.
+        key: String,
         /// The code as written.
         code: String,
         /// The element or component, e.g. `NM101`.
@@ -107,13 +110,14 @@ impl fmt::Display for OccurrenceError {
                 "codes key {key:?} names the qualifier's own place; its codes are the \
                  qualifier's \"codes\""
             ),
-            OccurrenceError::QualifierCodeOutsideElement {
+            OccurrenceError::CodeOutsideElement {
+                key,
                 code,
                 place,
                 allowed,
             } => write!(
                 f,
-                "qualifier.codes: code {code:?} is not among the codes {place} allows ({})",
+                "{key}: code {code:?} is not among the codes {place} allows ({})",
                 allowed.join(", ")
             ),
             OccurrenceError::Indistinct { other, segment } => write!(

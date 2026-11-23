@@ -1,9 +1,10 @@
 //! The version a spec declares: its load, its faults and the built-ins' declarations.
 
 use super::assert_model_faults;
+use super::{package_of, shipped};
 use crate::spec::test_support::{declared, declaring, loaded, patched};
 use crate::spec::*;
-use crate::spec_load::builtin::PACKAGES;
+use crate::spec_load::package::Stack;
 use crate::spec_load::*;
 
 fn version_error(version: &str) -> SpecError {
@@ -153,16 +154,24 @@ fn the_builtins_declare_5010_and_4010_on_gs08() {
 }
 
 #[test]
-fn the_4010_builtin_is_the_5010_with_its_edition_merged() {
-    let patch = Package::from_json(PACKAGES[1]).unwrap();
-    let patched = Builtin::fallback()
-        .loaded()
-        .unwrap()
-        .merge_patch(&patch.body().to_string())
-        .unwrap();
-    let registry = Builtin::find("835", Version::V4010).unwrap();
+fn the_4010_builtin_is_the_5010_with_its_editions_merged() {
+    let pool = shipped();
+    let (five, four) = (
+        Builtin::fallback(),
+        Builtin::find("835", Version::V4010).unwrap(),
+    );
+    let stack =
+        |builtin: &Builtin| Stack::resolve(package_of(&pool, builtin.id.as_str()), &pool).unwrap();
+    let five_ids: Vec<&PackageId> = stack(five).steps().map(|step| step.package.id()).collect();
+    let mut value = serde_json::to_value(five.model().unwrap()).unwrap();
+    for step in stack(four)
+        .steps()
+        .filter(|step| !five_ids.contains(&step.package.id()))
+    {
+        merge_patch(&mut value, step.package.body());
+    }
     assert_eq!(
-        patched.to_json().unwrap(),
-        registry.model().unwrap().to_json().unwrap()
+        SpecModel::from_value(&value).unwrap().to_json().unwrap(),
+        four.model().unwrap().to_json().unwrap()
     );
 }

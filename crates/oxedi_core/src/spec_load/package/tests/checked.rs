@@ -1,7 +1,7 @@
 use super::super::*;
 use super::{BASE, package};
 use crate::spec_load::SpecError;
-use crate::spec_load::builtin::PACKAGES;
+use crate::spec_load::tests::{package_of, shipped};
 
 const E: &str = "test/envelope/005010";
 const D: &str = "test/dictionary/005010";
@@ -462,8 +462,9 @@ fn word(kind: &ChangeKind) -> &'static str {
 
 #[test]
 fn the_4010_edition_lists_its_changes() {
-    let pool = PACKAGES.map(|text| Package::from_json(text).unwrap());
-    let composed = Stack::resolve(&pool[1], &pool)
+    let pool = shipped();
+    let top = package_of(&pool, "oxedi/guide/004010/835/X091A1");
+    let composed = Stack::resolve(top, &pool)
         .unwrap()
         .compose_checked()
         .unwrap();

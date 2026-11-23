@@ -39,7 +39,7 @@ pyx12 4.0.0
 by John Holland
 https://github.com/azoner/pyx12
 
-Used in: crates/oxedi_core/specs/835.json and crates/oxedi_core/specs/835.4010.json
+Used in: crates/oxedi_core/specs/835.json and the package files under crates/oxedi_core/specs/oxedi/
 (element usage, lengths and code lists derived from its 835 transaction maps,
 dataele.xml and codes.xml). The maps themselves are read from the installed
 package by crates/oxedi_core/scripts/spec_vs_pyx12.py and are not copied into the repository.

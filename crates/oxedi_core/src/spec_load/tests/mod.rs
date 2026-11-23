@@ -22,7 +22,24 @@ mod version;
 mod vocabulary;
 
 use crate::spec::Spec;
+use crate::spec_load::Package;
 use crate::spec_load::SpecError;
+use crate::spec_load::builtin::PACKAGES;
+
+/// Every package the crate ships, read with its header.
+pub(in crate::spec_load) fn shipped() -> Vec<Package> {
+    PACKAGES
+        .iter()
+        .map(|text| Package::from_json(text).unwrap())
+        .collect()
+}
+
+/// The package of `pool` whose id is `id`.
+pub(in crate::spec_load) fn package_of<'p>(pool: &'p [Package], id: &str) -> &'p Package {
+    pool.iter()
+        .find(|package| package.id().as_str() == id)
+        .unwrap_or_else(|| panic!("no shipped package {id}"))
+}
 
 pub(super) const CLP_ONLY: &str = r#"{"name":"t",
         "loops":{"2100":{"trigger":{"segment":"CLP"},"occurrences":{"clp":{"segment":"CLP","pos":0},"zz1":{"segment":"ZZ1","pos":1}}}},

@@ -13,8 +13,8 @@ and nothing is dropped**. Input the parser does not understand is kept and repor
 diagnostic, never skipped.
 
 The structure of the 835 is data, not code. Loops, segments, tables and balancing rules live in
-a JSON spec (`crates/oxedi_core/specs/835.json`). No code in the core is specific to the 835
-beyond loading that file, and the Rust bindings and the viewer name no 835 segment.
+JSON packages (`crates/oxedi_core/specs/`, one file per package id). No code in the core is
+specific to the 835 beyond loading those files, and the Rust bindings and the viewer name no 835 segment.
 
 | Crate | What it is | Depends on |
 |---|---|---|
@@ -130,8 +130,9 @@ The spec files live in `crates/oxedi_core/specs/`:
 
 | File | What it is | Who loads it |
 |---|---|---|
-| `835.json` | The 5010 package: a `package` header and the `spec` (`version`, `loops`, `segments`, `tables`, `balancing`, `summaries`, `default_table`). | `Builtin` (`include_str!` in `spec_load/builtin.rs`) |
-| `835.4010.json` | The 4010 package: an edition over `835.json` whose `spec` is a JSON Merge Patch (RFC 7386). | `Builtin` (`spec_load/builtin.rs`): the stack of both packages, composed |
+| `oxedi/envelope/005010.json` | The envelope, first in every stack: the interchange, group and transaction loops and the ISA, TA1, GS, ST, SE, GE and IEA segments. | `Builtin` (`include_str!` in `spec_load/builtin.rs`) |
+| `835.json` | The other layers of the 5010, on the envelope, with the codes of GS01, GS08 and ST01: a `package` header and the `spec` (`version`, `loops`, `segments`, `tables`, `balancing`, `summaries`, `default_table`). | `Builtin` (`spec_load/builtin.rs`) |
+| `oxedi/guide/004010/835/X091A1.json` | The 4010: an edition over the 5010 whose `spec` is a JSON Merge Patch (RFC 7386). | `Builtin` (`spec_load/builtin.rs`): the stack of the packages, composed |
 | `edi_835_parser.json` | A patch with the tables of the `edi-835-parser` compatibility layer. | `crates/oxedi_py/src/lib.rs`, pinned by `tests/project_golden.rs` |
 
 ### Two layers: the schema and its loading
@@ -290,7 +291,7 @@ Internal words used in the code. X12 and payment terms for users are in
 |---|---|---|
 | frame | The byte range of one segment, found knowing only the segment terminator and the release byte (`SegmentEnd`). | `frame/` |
 | document | The whole input plus one span per segment; segments parsed on demand. | `document/` |
-| spec | The JSON description of loops, segments, tables and balancing, loaded into index-based definitions. | `spec/`, `spec_load/`, `specs/*.json` |
+| spec | The JSON description of loops, segments, tables and balancing, loaded into index-based definitions. | `spec/`, `spec_load/`, `specs/` |
 | schema / loading | The two layers of a spec: the schema (`spec`) is the compiled definitions every reader and the writer use; loading (`spec_load`) reads, checks, patches and compiles the JSON into them, and the schema never uses it. A **table schema** (`TableSchema`) is the columns of one table, part of the schema. | `spec/`, `spec_load/` |
 | spec model | The spec as typed data a program builds and writes, shared with the loader. | `spec_load/model/` |
 | loaded spec | A spec's model beside the spec compiled from it. | `spec_load/loaded.rs` |

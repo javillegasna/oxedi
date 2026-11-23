@@ -2,10 +2,10 @@
 
 use std::error::Error;
 
+use super::{package_of, shipped};
 use crate::Document;
-use crate::spec_load::builtin::PACKAGES;
 use crate::spec_load::package::Stack;
-use crate::spec_load::{Builtin, Package, PackageId, UnknownVersion, Version};
+use crate::spec_load::{Builtin, PackageId, UnknownVersion, Version};
 
 fn selected(bytes: &[u8]) -> Version {
     let document = Document::parse(bytes.to_vec()).unwrap();
@@ -137,8 +137,9 @@ fn each_builtin_spec_is_compiled_from_its_model() {
 
 #[test]
 fn the_lean_read_equals_the_checked_composition() {
-    let pool = PACKAGES.map(|text| Package::from_json(text).unwrap());
-    for (builtin, top) in Builtin::all().iter().zip(&pool) {
+    let pool = shipped();
+    for builtin in Builtin::all() {
+        let top = package_of(&pool, builtin.id.as_str());
         let checked = Stack::resolve(top, &pool)
             .unwrap()
             .compose_checked()
@@ -149,7 +150,6 @@ fn the_lean_read_equals_the_checked_composition() {
             checked.model.to_json().unwrap()
         );
         assert_eq!(builtin.json().unwrap(), checked.value);
-        assert_eq!(&builtin.id, top.id());
     }
 }
 

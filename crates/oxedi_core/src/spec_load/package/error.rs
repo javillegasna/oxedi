@@ -3,7 +3,7 @@
 use std::fmt;
 
 use super::id::{IdPart, PackageId};
-use super::layer::Layer;
+use super::layer::{Layer, Layers};
 use crate::vocabulary::words_text;
 
 /// Why an id does not read.
@@ -139,6 +139,22 @@ pub enum StackError {
         /// The base's top layer.
         base_top: Layer,
     },
+    /// A package writes a key that none of its layers owns.
+    KeyNotOwned {
+        /// The package.
+        package: PackageId,
+        /// The key, from the spec's root, a dot between the names.
+        path: String,
+        /// The layers that own the key.
+        owners: Vec<Layer>,
+        /// The layers the package holds.
+        layers: Layers,
+    },
+    /// A package writes the spec's `name`.
+    NameFromIdentity {
+        /// The package.
+        package: PackageId,
+    },
 }
 
 impl fmt::Display for StackError {
@@ -163,6 +179,29 @@ impl fmt::Display for StackError {
                 "package \"{package}\" holds layer \"{lowest}\", which does not come after \
                  layer \"{base_top}\" of its base \"{base}\"; a package builds only on lower \
                  layers, unless it is an edition (it holds a layer its base holds) or a patch"
+            ),
+            StackError::KeyNotOwned {
+                package,
+                path,
+                owners,
+                layers,
+            } => {
+                let owners: Vec<String> = owners
+                    .iter()
+                    .map(|owner| format!("{:?}", owner.word()))
+                    .collect();
+                write!(
+                    f,
+                    "package \"{package}\" holds {path}, a key of layer {}, but its layers are \
+                     {layers}; move the key to a package of that layer, or list the layer in \
+                     \"layers\"",
+                    owners.join(" or ")
+                )
+            }
+            StackError::NameFromIdentity { package } => write!(
+                f,
+                "package \"{package}\" holds \"name\"; a stack takes its name from its top \
+                 package's id, so remove the key"
             ),
             StackError::BaseCycle { members } => {
                 let circle: Vec<&str> = members

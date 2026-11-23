@@ -10,7 +10,7 @@ const D: &str = "test/dictionary/005010";
 const G: &str = "test/guide/005010/835/X1";
 
 fn guide(spec: &str) -> Package {
-    package(G, &["guide"], &[E], spec)
+    package(G, &["dictionary", "transaction-set", "guide"], &[E], spec)
 }
 
 fn ids(stack: &Stack<'_>) -> Vec<String> {

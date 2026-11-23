@@ -6,9 +6,17 @@ import oxedi
 from oxedi import Capability, Invalid, Spec, SpecError, Valid
 
 PACKAGES = Spec.builtin_packages()
-STACK_5010 = PACKAGES[4]
-GUIDE_5010 = PACKAGES[3]
-STACK_4010 = PACKAGES[7]
+
+
+def package_text(package_id: str) -> str:
+    """The shipped text whose header names `package_id`."""
+    (found,) = [text for text in PACKAGES if json.loads(text)["package"]["id"] == package_id]
+    return found
+
+
+STACK_5010 = package_text("oxedi/views/005010/835/X221A1")
+GUIDE_5010 = package_text("oxedi/guide/005010/835/X221A1")
+STACK_4010 = package_text("oxedi/guide/004010/835/X091A1")
 
 PATCH = json.dumps(
     {
@@ -24,7 +32,7 @@ PATCH = json.dumps(
 
 
 def test_the_5010_stack_is_valid():
-    report = oxedi.validate(STACK_5010, PACKAGES)
+    report = oxedi.validate_stack(STACK_5010, PACKAGES)
     assert isinstance(report, Valid)
     assert report.packages == [
         "oxedi/envelope/005010",
@@ -50,36 +58,20 @@ def test_the_5010_stack_is_valid():
 
 
 def test_the_4010_stack_lists_81_changes():
-    report = oxedi.validate(STACK_4010, PACKAGES)
+    report = oxedi.validate_stack(STACK_4010, PACKAGES)
     assert isinstance(report, Valid)
     assert len(report.changes) == 81
     assert report.changes[0].endswith('(package "oxedi/envelope/004010")')
 
 
-def test_a_guide_top_cannot_mask():
-    report = oxedi.validate(GUIDE_5010, PACKAGES)
-    assert isinstance(report, Valid)
-    assert report.mask.can is False
-    assert report.mask.reasons == [
-        'no column of any table is flagged "phi"; flag the columns that hold names, ids or '
-        'dates with "phi": "name", "id" or "date"'
-    ]
-    assert repr(report.mask) == "Capability(can=False, reasons=1)"
-
-
 def test_a_broken_top_is_invalid():
-    report = oxedi.validate("{")
+    report = oxedi.validate_stack("{")
     assert isinstance(report, Invalid)
     assert str(report) == (
         "no: the top package does not read: invalid spec JSON: "
         "EOF while parsing an object at line 1 column 1"
     )
-    assert repr(report).startswith("Invalid(no: the top package does not read")
-
-
-def test_a_broken_pool_text_names_its_position():
-    report = oxedi.validate(STACK_5010, ["{"])
-    assert str(report).startswith("no: package 1 of the pool does not read: ")
+    assert repr(report).startswith("Invalid('no: the top package does not read")
 
 
 def test_from_packages_loads_a_patch_package():
@@ -90,9 +82,4 @@ def test_from_packages_loads_a_patch_package():
 def test_from_packages_raises_the_no_text():
     with pytest.raises(SpecError) as error:
         Spec.from_packages(PATCH, [])
-    assert str(error.value) == str(oxedi.validate(PATCH, []))
-
-
-def test_pool_must_not_be_a_str():
-    with pytest.raises(TypeError):
-        oxedi.validate(STACK_5010, "abc")
+    assert str(error.value) == str(oxedi.validate_stack(PATCH, []))

@@ -19,6 +19,7 @@ use crate::arrow;
 use crate::element_source::{self, PyElementSource, PyGroupSource};
 use crate::json_arg::PatchArg;
 use crate::tables::extra;
+use crate::validate::Pool;
 
 native_exception!(
     SpecError,
@@ -297,17 +298,16 @@ impl PySpec {
     /// package texts of `pool` as its bases; raises `SpecError` with the
     /// core's message when the stack does not load.
     #[staticmethod]
-    #[pyo3(signature = (top, pool = Vec::new()), text_signature = "(top, pool=[])")]
-    fn from_packages(top: &str, pool: Vec<String>) -> PyResult<PySpec> {
-        let texts: Vec<&str> = pool.iter().map(String::as_str).collect();
-        match oxedi_core::validate(top, &texts) {
+    #[pyo3(signature = (top, pool = Pool::default()), text_signature = "(top, pool=())")]
+    fn from_packages(top: &str, pool: Pool) -> PyResult<PySpec> {
+        match oxedi_core::validate(top, &pool.texts()) {
             Validation::Yes(valid) => Ok(HeldSpec::kept(valid.loaded).into()),
             Validation::No(no) => Err(SpecError::new_err(no.to_string())),
         }
     }
 
     /// The package texts the library ships: the 5010 stack, then the 4010
-    /// editions. They are the pool of `Spec.from_packages` and `validate`.
+    /// editions. They are the pool of `Spec.from_packages` and `validate_stack`.
     #[staticmethod]
     fn builtin_packages() -> Vec<&'static str> {
         Builtin::packages().to_vec()

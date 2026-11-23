@@ -16,14 +16,13 @@ import polars
 import oxedi
 from oxedi import (
     Batch,
-    Invalid,
-    Valid,
     Delimiters,
     Diagnostic,
     Document,
     ElementSource,
     Envelope,
     GroupSource,
+    Invalid,
     JsonObject,
     JsonValue,
     ParseError,
@@ -34,6 +33,7 @@ from oxedi import (
     Stream,
     Table,
     Tables,
+    Valid,
     Version,
     WriteError,
     WriteFinding,
@@ -234,9 +234,11 @@ def masked(data: bytes) -> Result:
 
 def validated_stack() -> Spec:
     packages: list[str] = Spec.builtin_packages()
-    report = oxedi.validate(packages[4], packages)
-    alone: Valid | Invalid = oxedi.validate(packages[0])
+    report = oxedi.validate_stack(packages[4], packages)
+    alone: Valid | Invalid = oxedi.validate_stack(packages[0])
     print(alone, repr(alone), str(alone))
+    stacked: Valid | Invalid = oxedi.validate_stack(packages[4], (packages[0], packages[1]))
+    print(stacked)
     loaded: Spec = Spec.from_packages(packages[4], packages)
     if isinstance(report, Valid):
         can: bool = report.write.can

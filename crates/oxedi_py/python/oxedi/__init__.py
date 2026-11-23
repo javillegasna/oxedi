@@ -37,7 +37,7 @@ from ._core import (
     WriteFinding,
     parse,
     stream,
-    validate,
+    validate_stack,
 )
 from ._json import JsonObject, JsonValue
 from ._write import WriteError, write
@@ -53,9 +53,9 @@ __all__ = [
     "ElementSource",
     "Envelope",
     "GroupSource",
+    "Invalid",
     "JsonObject",
     "JsonValue",
-    "Invalid",
     "Mask",
     "ParseError",
     "Result",
@@ -73,7 +73,7 @@ __all__ = [
     "parse",
     "parse_file",
     "stream",
-    "validate",
+    "validate_stack",
     "write",
 ]
 

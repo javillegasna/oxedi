@@ -108,7 +108,7 @@ fn members() -> [Register; 29] {
         |m| wrap_pyfunction!(parse::loop_paths, m).and_then(|f| m.add_function(f)),
         |m| wrap_pyfunction!(parse::parse_document, m).and_then(|f| m.add_function(f)),
         |m| wrap_pyfunction!(stream::stream, m).and_then(|f| m.add_function(f)),
-        |m| wrap_pyfunction!(validate::validate, m).and_then(|f| m.add_function(f)),
+        |m| wrap_pyfunction!(validate::validate_stack, m).and_then(|f| m.add_function(f)),
         |m| wrap_pyfunction!(write::write_tables, m).and_then(|f| m.add_function(f)),
     ]
 }

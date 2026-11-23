@@ -41,7 +41,7 @@ __all__ = [
     "_write",
     "parse",
     "stream",
-    "validate",
+    "validate_stack",
 ]
 
 EDI_835_PARSER_PATCH: builtins.str
@@ -517,7 +517,7 @@ class Spec:
         when it is not valid.
         """
     @staticmethod
-    def from_packages(top: builtins.str, pool: typing.Sequence[builtins.str] = []) -> Spec:
+    def from_packages(top: builtins.str, pool: typing.Sequence[builtins.str] = ()) -> Spec:
         r"""
         The spec of the stack whose top package is the text `top`, with the
         package texts of `pool` as its bases; raises `SpecError` with the
@@ -527,7 +527,7 @@ class Spec:
     def builtin_packages() -> builtins.list[builtins.str]:
         r"""
         The package texts the library ships: the 5010 stack, then the 4010
-        editions. They are the pool of `Spec.from_packages` and `validate`.
+        editions. They are the pool of `Spec.from_packages` and `validate_stack`.
         """
     def patch(self, patch: builtins.str | _json.JsonObject) -> Spec:
         r"""
@@ -863,7 +863,7 @@ def stream(data: typing_extensions.Buffer, spec: typing.Optional[Spec] = None, b
     default one. With `mask`, the patient data of every batch is hidden.
     """
 
-def validate(top: builtins.str, pool: typing.Sequence[builtins.str] = []) -> Valid | Invalid:
+def validate_stack(top: builtins.str, pool: typing.Sequence[builtins.str] = ()) -> Valid | Invalid:
     r"""
     Whether the stack whose top package is `top`, with the packages of `pool`
     as its bases, loads: a `Valid` with what it holds and can do, or an

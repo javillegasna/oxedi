@@ -1,13 +1,56 @@
-//! `validate`: whether a stack of package texts loads, as typed objects.
+//! `validate_stack`: whether a stack of package texts loads, as typed objects.
 
 use oxedi_core::{Capability, Invalid, Reasons, Valid, Validation};
 use pyo3::prelude::*;
+use pyo3::types::{PyString, PyTuple};
 use pyo3_stub_gen::derive::{gen_stub_pyclass, gen_stub_pyfunction, gen_stub_pymethods};
+use pyo3_stub_gen::{PyStubType, TypeInfo};
 
 use crate::spec::{HeldSpec, PySpec};
 
 /// How many characters of the answer `repr(Invalid)` shows.
 const REPR_CHARS: usize = 60;
+
+/// The package texts a stack builds on. It reads any sequence of `str` (a `str`
+/// itself is refused, as it would read as characters) and its default is the
+/// empty tuple, which the stub and the signature show as `()`.
+#[derive(Debug, Clone, Default)]
+pub struct Pool(pub Vec<String>);
+
+impl<'a, 'py> FromPyObject<'a, 'py> for Pool {
+    type Error = PyErr;
+
+    fn extract(object: Borrowed<'a, 'py, PyAny>) -> PyResult<Pool> {
+        object.extract::<Vec<String>>().map(Pool)
+    }
+}
+
+impl<'py> IntoPyObject<'py> for Pool {
+    type Target = PyTuple;
+    type Output = Bound<'py, PyTuple>;
+    type Error = PyErr;
+
+    fn into_pyobject(self, py: Python<'py>) -> PyResult<Bound<'py, PyTuple>> {
+        PyTuple::new(py, self.0)
+    }
+}
+
+impl PyStubType for Pool {
+    fn type_input() -> TypeInfo {
+        <Vec<String> as PyStubType>::type_input()
+    }
+
+    fn type_output() -> TypeInfo {
+        <Vec<String> as PyStubType>::type_output()
+    }
+}
+
+impl Pool {
+    /// The texts, borrowed.
+    pub fn texts(&self) -> Vec<&str> {
+        self.0.iter().map(String::as_str).collect()
+    }
+}
 
 /// What a stack that loads can do beyond reading: whether it can, and when it
 /// cannot, one line per reason, each saying what to change.
@@ -70,11 +113,10 @@ impl PyValid {
         let text = valid.to_string();
         let changes = valid.change_lines();
         Ok(PyValid {
-            id: valid.id.to_string(),
-            name: valid.name,
+            id: valid.id().to_string(),
+            name: valid.name().to_owned(),
             packages: valid
-                .members
-                .iter()
+                .members()
                 .map(|member| member.id.to_string())
                 .collect(),
             write: Py::new(py, PyCapability::from_core(&valid.write))?,
@@ -136,8 +178,12 @@ impl PyValid {
         self.text.clone()
     }
 
-    fn __repr__(&self) -> String {
-        format!("Valid(id='{}', name='{}')", self.id, self.name)
+    fn __repr__(&self, py: Python<'_>) -> PyResult<String> {
+        Ok(format!(
+            "Valid(id={}, name={})",
+            PyString::new(py, &self.id).repr()?,
+            PyString::new(py, &self.name).repr()?
+        ))
     }
 }
 
@@ -155,14 +201,12 @@ impl PyInvalid {
         self.text.clone()
     }
 
-    fn __repr__(&self) -> String {
-        let shown: String = self.text.chars().take(REPR_CHARS).collect();
-        let more = if self.text.chars().count() > REPR_CHARS {
-            "..."
-        } else {
-            ""
-        };
-        format!("Invalid({shown}{more})")
+    fn __repr__(&self, py: Python<'_>) -> PyResult<String> {
+        let mut shown: String = self.text.chars().take(REPR_CHARS).collect();
+        if self.text.chars().count() > REPR_CHARS {
+            shown.push_str("...");
+        }
+        Ok(format!("Invalid({})", PyString::new(py, &shown).repr()?))
     }
 }
 
@@ -178,11 +222,10 @@ fn invalid(invalid: &Invalid) -> PyInvalid {
 /// `Invalid` with the reason. `pool` is a list of package texts.
 #[gen_stub_pyfunction(module = "oxedi._core")]
 #[pyfunction]
-#[pyo3(signature = (top, pool = Vec::new()), text_signature = "(top, pool=[])")]
+#[pyo3(signature = (top, pool = Pool::default()), text_signature = "(top, pool=())")]
 #[gen_stub(override_return_type(type_repr = "Valid | Invalid", imports = ()))]
-pub fn validate(py: Python<'_>, top: &str, pool: Vec<String>) -> PyResult<Py<PyAny>> {
-    let texts: Vec<&str> = pool.iter().map(String::as_str).collect();
-    match oxedi_core::validate(top, &texts) {
+pub fn validate_stack(py: Python<'_>, top: &str, pool: Pool) -> PyResult<Py<PyAny>> {
+    match oxedi_core::validate(top, &pool.texts()) {
         Validation::Yes(valid) => Ok(Py::new(py, PyValid::new(py, *valid)?)?.into_any()),
         Validation::No(no) => Ok(Py::new(py, invalid(&no))?.into_any()),
     }

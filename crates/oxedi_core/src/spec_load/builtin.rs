@@ -111,15 +111,19 @@ impl Spec {
     }
 }
 
-/// Every package the crate ships; a built-in's stack resolves among them.
-pub(in crate::spec_load) const PACKAGES: [&str; 2] = [
+/// Every package the crate ships: the 5010 stack, then the 4010's.
+pub(in crate::spec_load) const PACKAGES: [&str; 3] = [
+    include_str!("../../specs/oxedi/envelope/005010.json"),
     include_str!("../../specs/835.json"),
-    include_str!("../../specs/835.4010.json"),
+    include_str!("../../specs/oxedi/guide/004010/835/X091A1.json"),
 ];
+
+/// The packages of the 5010 stack, the first of `PACKAGES`.
+const FIVE: usize = 2;
 
 /// The package texts of each built-in, bases first and the top last; the
 /// fallback comes first.
-const BUILTINS: [&[&str]; 2] = [&[PACKAGES[0]], &[PACKAGES[0], PACKAGES[1]]];
+const BUILTINS: [&[&str]; 2] = [PACKAGES.split_at(FIVE).0, &PACKAGES];
 
 // The value a built-in is: the spec of each package merged in order under the
 // name the top package's id gives. The packages' headers are not checked here;

@@ -1,0 +1,96 @@
+{
+  "package": {
+    "format": 1,
+    "id": "oxedi/envelope/005010",
+    "layers": ["envelope"],
+    "bases": []
+  },
+  "spec": {
+  "loops": {
+    "interchange": {
+      "trigger": { "segment": "ISA" },
+      "usage": "required",
+      "occurrences": {
+        "interchange_control_header": {"segment": "ISA", "pos": 100, "usage": "required", "max": 1},
+        "interchange_acknowledgement": {"segment": "TA1", "pos": 200, "usage": "situational", "max": 1}
+      },
+      "end": "IEA",
+      "control": { "opener_element": 13, "closer_element": 2, "count_element": 1, "count": "children" }
+    },
+    "group": {
+      "parent": "interchange",
+      "trigger": { "segment": "GS" },
+      "usage": "required",
+      "occurrences": {
+        "functional_group_header": {"segment": "GS", "pos": 100, "usage": "required", "max": 1}
+      },
+      "end": "GE",
+      "control": { "opener_element": 6, "closer_element": 2, "count_element": 1, "count": "children" }
+    },
+    "transaction": {
+      "parent": "group",
+      "trigger": { "segment": "ST" },
+      "usage": "required",
+      "occurrences": {
+        "transaction_set_header": {"segment": "ST", "pos": 100, "usage": "required", "max": 1}
+      },
+      "end": "SE",
+      "control": { "opener_element": 2, "closer_element": 2, "count_element": 1, "count": "segments" }
+    }
+  },
+  "segments": {
+    "ISA": { "elements": {
+      "1": {"name": "authorization_information_qualifier", "type": "ID", "usage": "required", "min": 2, "max": 2, "codes": ["00", "03"]},
+      "2": {"name": "authorization_information", "type": "AN", "usage": "required", "min": 10, "max": 10},
+      "3": {"name": "security_information_qualifier", "type": "ID", "usage": "required", "min": 2, "max": 2, "codes": ["00", "01"]},
+      "4": {"name": "security_information", "type": "AN", "usage": "required", "min": 10, "max": 10},
+      "5": {"name": "interchange_sender_id_qualifier", "type": "ID", "usage": "required", "min": 2, "max": 2, "codes": ["01", "14", "20", "27", "28", "29", "30", "33", "ZZ"]},
+      "6": {"name": "interchange_sender_id", "type": "AN", "usage": "required", "min": 15, "max": 15},
+      "7": {"name": "interchange_receiver_id_qualifier", "type": "ID", "usage": "required", "min": 2, "max": 2, "codes": ["01", "14", "20", "27", "28", "29", "30", "33", "ZZ"]},
+      "8": {"name": "interchange_receiver_id", "type": "AN", "usage": "required", "min": 15, "max": 15},
+      "9": {"name": "interchange_date", "type": "DT", "usage": "required", "min": 6, "max": 6},
+      "10": {"name": "interchange_time", "type": "TM", "usage": "required", "min": 4, "max": 4},
+      "11": {"name": "isa11", "type": "AN", "usage": "required", "min": 1, "max": 1},
+      "12": {"name": "interchange_control_version_number", "type": "ID", "usage": "required", "min": 5, "max": 5, "codes": ["00501"]},
+      "13": {"name": "interchange_control_number", "type": "N0", "usage": "required", "min": 9, "max": 9},
+      "14": {"name": "acknowledgment_requested", "type": "ID", "usage": "required", "min": 1, "max": 1, "codes": ["0", "1"]},
+      "15": {"name": "interchange_usage_indicator", "type": "ID", "usage": "required", "min": 1, "max": 1, "codes": ["P", "T"]},
+      "16": {"name": "component_element_separator", "type": "AN", "usage": "required", "min": 1, "max": 1}
+    } },
+    "TA1": { "elements": {
+      "1": {"name": "interchange_control_number", "type": "N0", "usage": "required", "min": 9, "max": 9},
+      "2": {"name": "interchange_date", "type": "DT", "usage": "required", "min": 6, "max": 6},
+      "3": {"name": "interchange_time", "type": "TM", "usage": "required", "min": 4, "max": 4},
+      "4": {"name": "interchange_acknowledgement_code", "type": "ID", "usage": "required", "min": 1, "max": 1, "codes": ["A", "E", "R"]},
+      "5": {"name": "interchange_note_code", "type": "ID", "usage": "required", "min": 3, "max": 3, "codes": ["000", "001", "002", "003", "004", "005", "006", "007", "008", "009", "010", "011", "012", "013", "014", "015", "016", "017", "018", "019", "020", "021", "022", "023", "024", "025", "026", "027", "028", "029", "030", "031"]}
+    } },
+    "GS": { "elements": {
+      "1": {"name": "functional_identifier_code", "type": "ID", "usage": "required", "min": 2, "max": 2},
+      "2": {"name": "application_sender_code", "type": "AN", "usage": "required", "min": 2, "max": 15},
+      "3": {"name": "application_receiver_code", "type": "AN", "usage": "required", "min": 2, "max": 15},
+      "4": {"name": "date", "type": "DT", "usage": "required", "min": 8, "max": 8},
+      "5": {"name": "time", "type": "TM", "usage": "required", "min": 4, "max": 8},
+      "6": {"name": "group_control_number", "type": "N0", "usage": "required", "min": 1, "max": 9},
+      "7": {"name": "responsible_agency_code", "type": "ID", "usage": "required", "min": 1, "max": 2, "codes": ["X"]},
+      "8": {"name": "version_release_industry_identifier_code", "type": "AN", "usage": "required", "min": 1, "max": 12}
+    } },
+    "ST": { "elements": {
+      "1": {"name": "transaction_set_identifier_code", "type": "ID", "usage": "required", "min": 3, "max": 3},
+      "2": {"name": "transaction_set_control_number", "type": "AN", "usage": "required", "min": 4, "max": 9},
+      "3": {"name": "implementation_convention_reference", "type": "AN", "min": 1, "max": 35}
+    } },
+    "SE": { "elements": {
+      "1": {"name": "number_of_included_segments", "type": "N0", "usage": "required", "min": 1, "max": 10},
+      "2": {"name": "transaction_set_control_number", "type": "AN", "usage": "required", "min": 4, "max": 9}
+    } },
+    "GE": { "elements": {
+      "1": {"name": "number_of_transaction_sets_included", "type": "N0", "usage": "required", "min": 1, "max": 6},
+      "2": {"name": "group_control_number", "type": "N0", "usage": "required", "min": 1, "max": 9}
+    } },
+    "IEA": { "elements": {
+      "1": {"name": "number_of_included_functional_groups", "type": "N0", "usage": "required", "min": 1, "max": 5},
+      "2": {"name": "interchange_control_number", "type": "N0", "usage": "required", "min": 9, "max": 9}
+    } }
+  }
+}
+}

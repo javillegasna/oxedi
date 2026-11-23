@@ -1,10 +1,13 @@
+use std::collections::HashSet;
+
 use serde_json::json;
 
 use super::super::stack::{Role, Stack};
 use super::super::*;
 use super::{envelope, package};
+use crate::spec_load::Builtin;
 use crate::spec_load::SpecError;
-use crate::spec_load::builtin::PACKAGES;
+use crate::spec_load::tests::{package_of, shipped};
 
 const E: &str = "test/envelope/005010";
 const D: &str = "test/dictionary/005010";
@@ -275,19 +278,35 @@ fn a_package_must_come_after_the_layers_it_builds_on() {
     );
 }
 
-#[test]
-fn each_shipped_package_reads_and_names_its_layers() {
-    let [five, four] = PACKAGES.map(|text| Package::from_json(text).unwrap());
-    assert_eq!(five.id().as_str(), "oxedi/views/005010/835/X221A1");
-    assert_eq!(five.header().layers.top(), Layer::Views);
-    assert_eq!(five.header().layers.lowest(), Layer::Envelope);
-    assert_eq!(four.id().as_str(), "oxedi/guide/004010/835/X091A1");
-    assert_eq!(four.header().layers.top(), Layer::Guide);
-    assert_eq!(four.header().bases, [five.id().clone()]);
+// The stack of each built-in, resolved among every shipped package.
+fn builtin_stacks(pool: &[Package]) -> Vec<Stack<'_>> {
+    Builtin::all()
+        .iter()
+        .map(|builtin| Stack::resolve(package_of(pool, builtin.id.as_str()), pool).unwrap())
+        .collect()
 }
 
 #[test]
-fn the_4010_package_is_an_edition() {
-    let pool = PACKAGES.map(|text| Package::from_json(text).unwrap());
-    assert_eq!(roles(&pool[1], &pool), [Role::Narrows, Role::Edition]);
+fn every_shipped_package_is_in_a_builtin_stack() {
+    let pool = shipped();
+    let used: HashSet<String> = builtin_stacks(&pool).iter().flat_map(ids).collect();
+    assert_eq!(used.len(), pool.len());
+    let fallback = package_of(&pool, Builtin::fallback().id.as_str());
+    assert_eq!(fallback.header().layers.top(), Layer::Views);
+}
+
+#[test]
+fn the_builtins_narrow_and_the_4010_packages_are_editions() {
+    let pool = shipped();
+    for stack in builtin_stacks(&pool) {
+        for step in stack.steps() {
+            let edition = step.package.id().release().as_str() == "004010";
+            let role = if edition {
+                Role::Edition
+            } else {
+                Role::Narrows
+            };
+            assert_eq!(step.role, role, "{}", step.package.id());
+        }
+    }
 }

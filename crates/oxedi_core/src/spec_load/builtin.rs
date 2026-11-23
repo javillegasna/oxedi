@@ -3,9 +3,10 @@
 use std::fmt;
 use std::sync::{Arc, OnceLock};
 
+use serde_json::{Value, json};
+
 use super::model::SpecModel;
-use super::package::{Composed, Package, Stack};
-use super::{LoadedSpec, SpecError};
+use super::{LoadedSpec, SpecError, merge_patch};
 use crate::message::render_names;
 use crate::segment::Segment;
 use crate::spec::{Spec, chosen};
@@ -49,20 +50,20 @@ pub struct Builtin {
     pub version: Version,
     /// The spec.
     pub spec: Arc<Spec>,
-    top: &'static str,
+    chain: &'static [&'static str],
 }
 
 impl Builtin {
     /// The built-in's JSON: its package stack composed into one value.
     #[cfg(test)]
-    pub(in crate::spec_load) fn json(&self) -> Result<serde_json::Value, SpecError> {
-        composed(self.top).map(|composed| composed.value)
+    pub(in crate::spec_load) fn json(&self) -> Result<Value, SpecError> {
+        merged(self.chain)
     }
 
     /// The spec's model, composed now from the packages the built-in ships;
     /// the registry holds no model itself.
     pub fn model(&self) -> Result<SpecModel, SpecError> {
-        composed(self.top).map(|composed| composed.model)
+        composed(self.chain)
     }
 
     /// The built-in as a loader keeps it: its model, read now, beside its compiled spec.
@@ -101,30 +102,65 @@ pub(in crate::spec_load) const PACKAGES: [&str; 2] = [
     include_str!("../../specs/835.4010.json"),
 ];
 
-/// The transaction set, version and top package of each built-in, the fallback first.
-const SHIPPED: [(&str, Version, &str); 2] = [
-    ("835", Builtin::DEFAULT_VERSION, PACKAGES[0]),
-    ("835", Version::V4010, PACKAGES[1]),
+/// The transaction set, version and package texts of each built-in, bases first
+/// and the top last; the fallback comes first.
+const SHIPPED: [(&str, Version, &[&str]); 2] = [
+    ("835", Builtin::DEFAULT_VERSION, &[PACKAGES[0]]),
+    ("835", Version::V4010, &[PACKAGES[0], PACKAGES[1]]),
 ];
 
-// The stack of the package `top` reads as, composed: the shipped packages are the pool.
-fn composed(top: &str) -> Result<Composed, SpecError> {
-    let pool = PACKAGES
-        .into_iter()
-        .map(Package::from_json)
+// The value a built-in is: the spec of each package merged in order under the
+// name of the top package's id. The packages' headers are not checked here;
+// `spec_load::tests::builtin::the_lean_read_equals_the_checked_composition`
+// proves this read gives what the checked composer gives.
+fn merged(chain: &[&str]) -> Result<Value, SpecError> {
+    let packages = chain
+        .iter()
+        .map(|text| serde_json::from_str::<Value>(text).map_err(SpecError::Json))
         .collect::<Result<Vec<_>, _>>()?;
-    let top = Package::from_json(top)?;
-    Stack::resolve(&top, &pool)?.compose()
+    let name = packages
+        .last()
+        .and_then(|top| top.pointer("/package/id"))
+        .and_then(Value::as_str)
+        .and_then(spec_name)
+        .ok_or_else(|| shipped_fault("a shipped package has no id that names a spec"))?;
+    let mut value = json!({ "name": name });
+    for package in &packages {
+        let body = package
+            .get("spec")
+            .ok_or_else(|| shipped_fault("a shipped package has no \"spec\""))?;
+        merge_patch(&mut value, body);
+    }
+    Ok(value)
 }
 
-// Each built-in compiles from the stack its top package builds; no model is
+// The name of a stack topped by the id `author/layer/release[/set[/guide]]`: its
+// transaction set, else its release, as `PackageId::spec_name` says.
+fn spec_name(id: &str) -> Option<&str> {
+    let mut parts = id.split('/').skip(2);
+    let release = parts.next()?;
+    Some(parts.next().unwrap_or(release))
+}
+
+fn shipped_fault(reason: impl fmt::Display) -> SpecError {
+    SpecError::Format {
+        path: ".".to_owned(),
+        source: <serde_json::Error as serde::de::Error>::custom(reason),
+    }
+}
+
+fn composed(chain: &[&str]) -> Result<SpecModel, SpecError> {
+    merged(chain).and_then(|value| SpecModel::from_value(&value))
+}
+
+// Each built-in compiles from its packages merged by value; no model is
 // written back to JSON here.
 fn load() -> Vec<Builtin> {
     SHIPPED
         .into_iter()
-        .map(|(transaction, version, top)| {
-            let spec = composed(top)
-                .and_then(|composed| composed.model.compile())
+        .map(|(transaction, version, chain)| {
+            let spec = composed(chain)
+                .and_then(|model| model.compile())
                 .expect(
                     "a built-in spec is valid; \
                      spec_load::tests::builtin::each_builtin_spec_is_compiled_from_its_model checks it",
@@ -133,7 +169,7 @@ fn load() -> Vec<Builtin> {
                 transaction,
                 version,
                 spec: Arc::new(spec),
-                top,
+                chain,
             }
         })
         .collect()

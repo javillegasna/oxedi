@@ -13,8 +13,6 @@ use crate::spec_load::model::SpecModel;
 #[derive(Debug, Clone)]
 pub(in crate::spec_load) struct Composed {
     /// The packages' specs merged in stack order, under the top package's name.
-    // TODO: the narrowing check compares the values of consecutive steps; until then tests read it.
-    #[cfg_attr(not(test), expect(dead_code))]
     pub(in crate::spec_load) value: Value,
     /// The model read from the value.
     pub(in crate::spec_load) model: SpecModel,

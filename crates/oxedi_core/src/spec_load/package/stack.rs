@@ -25,8 +25,6 @@ pub(in crate::spec_load) struct Step<'p> {
     /// The package.
     pub(in crate::spec_load) package: &'p Package,
     /// How it relates to its bases.
-    // TODO: the narrowing check reads the role of each step; until then tests do.
-    #[cfg_attr(not(test), expect(dead_code))]
     pub(in crate::spec_load) role: Role,
 }
 
@@ -62,8 +60,6 @@ impl<'p> Stack<'p> {
     }
 
     /// The steps of the stack, bases first, the top last.
-    // TODO: the narrowing check walks the steps; until then tests do.
-    #[cfg_attr(not(test), expect(dead_code))]
     pub(in crate::spec_load) fn steps(&self) -> impl Iterator<Item = Step<'p>> + '_ {
         self.bases.iter().copied().chain([self.top])
     }

@@ -1,0 +1,97 @@
+{
+  "package": {
+    "format": 1,
+    "id": "oxedi/transaction-set/005010/835",
+    "layers": ["transaction-set"],
+    "bases": ["oxedi/dictionary/005010"]
+  },
+  "spec": {
+  "loops": {
+    "transaction": {
+      "occurrences": {
+        "financial_information": {"segment": "BPR", "pos": 10200},
+        "reassociation_trace_number": {"segment": "TRN", "pos": 10400},
+        "foreign_currency_information": {"segment": "CUR", "pos": 10500},
+        "receiver_identification": {"segment": "REF", "pos": 10600},
+        "version_identification": {"segment": "REF", "pos": 10600},
+        "production_date": {"segment": "DTM", "pos": 10700},
+        "provider_adjustment": {"segment": "PLB", "pos": 30100}
+      }
+    },
+    "1000A": {
+      "parent": "transaction",
+      "trigger": { "segment": "N1", "where": {"1": "PR"} },
+      "occurrences": {
+        "payer_identification": {"segment": "N1", "pos": 10800},
+        "payer_address": {"segment": "N3", "pos": 11000},
+        "payer_city_state_zip_code": {"segment": "N4", "pos": 11100},
+        "additional_payer_identification": {"segment": "REF", "pos": 11200},
+        "payer_business_contact_information": {"segment": "PER", "pos": 11300},
+        "payer_technical_contact_information": {"segment": "PER", "pos": 11300},
+        "payer_web_site": {"segment": "PER", "pos": 11300}
+      }
+    },
+    "1000B": {
+      "parent": "transaction",
+      "trigger": { "segment": "N1", "where": {"1": "PE"} },
+      "occurrences": {
+        "payee_identification": {"segment": "N1", "pos": 10800},
+        "payee_address": {"segment": "N3", "pos": 11000},
+        "payee_city_state_zip_code": {"segment": "N4", "pos": 11100},
+        "payee_additional_identification": {"segment": "REF", "pos": 11200},
+        "remittance_delivery_method": {"segment": "RDM", "pos": 11400}
+      }
+    },
+    "2000": {
+      "parent": "transaction",
+      "trigger": { "segment": "LX" },
+      "occurrences": {
+        "header_number": {"segment": "LX", "pos": 20030},
+        "provider_summary_information": {"segment": "TS3", "pos": 20050},
+        "provider_supplemental_summary_information": {"segment": "TS2", "pos": 20070}
+      }
+    },
+    "2100": {
+      "parent": "2000",
+      "trigger": { "segment": "CLP" },
+      "occurrences": {
+        "claim_payment_information": {"segment": "CLP", "pos": 20100},
+        "claim_adjustment": {"segment": "CAS", "pos": 20200},
+        "patient_name": {"segment": "NM1", "pos": 20300},
+        "insured_name": {"segment": "NM1", "pos": 20300},
+        "corrected_patient_insured_name": {"segment": "NM1", "pos": 20300},
+        "service_provider_name": {"segment": "NM1", "pos": 20300},
+        "crossover_carrier_name": {"segment": "NM1", "pos": 20300},
+        "corrected_priority_payer_name": {"segment": "NM1", "pos": 20300},
+        "other_subscriber_name": {"segment": "NM1", "pos": 20300},
+        "inpatient_adjudication_information": {"segment": "MIA", "pos": 20330},
+        "outpatient_adjudication_information": {"segment": "MOA", "pos": 20350},
+        "other_claim_related_identification": {"segment": "REF", "pos": 20400},
+        "rendering_provider_identification": {"segment": "REF", "pos": 20400},
+        "statement_from_or_to_date": {"segment": "DTM", "pos": 20500},
+        "coverage_expiration_date": {"segment": "DTM", "pos": 20500},
+        "claim_received_date": {"segment": "DTM", "pos": 20500},
+        "claim_contact_information": {"segment": "PER", "pos": 20600},
+        "claim_supplemental_information": {"segment": "AMT", "pos": 20620},
+        "claim_supplemental_information_quantity": {"segment": "QTY", "pos": 20640}
+      }
+    },
+    "2110": {
+      "parent": "2100",
+      "trigger": { "segment": "SVC" },
+      "occurrences": {
+        "service_payment_information": {"segment": "SVC", "pos": 20700},
+        "service_date": {"segment": "DTM", "pos": 20800},
+        "service_adjustment": {"segment": "CAS", "pos": 20900},
+        "service_identification": {"segment": "REF", "pos": 21000},
+        "line_item_control_number": {"segment": "REF", "pos": 21000},
+        "rendering_provider_information": {"segment": "REF", "pos": 21000},
+        "healthcare_policy_identification": {"segment": "REF", "pos": 21000},
+        "service_supplemental_amount": {"segment": "AMT", "pos": 21100},
+        "service_supplemental_quantity": {"segment": "QTY", "pos": 21200},
+        "health_care_remark_codes": {"segment": "LQ", "pos": 21300}
+      }
+    }
+  }
+}
+}

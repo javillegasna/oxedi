@@ -112,7 +112,7 @@ impl Spec {
         Builtin::find(Builtin::fallback().transaction.as_str(), Version::V4010)
             .map(|builtin| Spec::clone(&builtin.spec))
             .expect(
-                "the registry holds the 835 at 4010; spec_load::tests::builtin::find_835_4010_gives_the_4010_patch checks it",
+                "the registry holds the 835 at 4010; spec_load::tests::builtin::find_835_4010_gives_the_4010_editions checks it",
             )
     }
 }

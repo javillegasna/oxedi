@@ -193,8 +193,8 @@ model writes no default and no `null`.
 `LoadedSpec::merge_patch` (`spec_load/patch.rs`) applies a patch to the model's canonical JSON, reads
 it back and compiles it again, so a patched spec goes through the same checks as a new one. A
 compiled `Spec` keeps no JSON: patching, writing back and the model live in the loading layer.
-The built-ins keep their spec and the JSON they ship (`include_str!`; 4010 is the 5010 JSON with
-its patch merged over it as values); `Builtin::model` reads the model from it on demand and
+The built-ins keep their spec and the JSON they ship (`include_str!`; 4010 is the 5010 stack with
+its three editions merged over it as values); `Builtin::model` reads the model from it on demand and
 `Builtin::loaded` keeps it beside the spec.
 
 Most JSON keys keep their name in code (`TableDef::loops`, `LoopDef::end`). A table's `ref`
@@ -302,7 +302,7 @@ Internal words used in the code. X12 and payment terms for users are in
 | loaded spec | A spec's model beside the spec compiled from it. | `spec_load/loaded.rs` |
 | patch | An RFC 7386 JSON Merge Patch over a spec (`edi_835_parser.json`). | `spec_load/patch.rs` |
 | package | One JSON file: a header (`format`, `id`, `layers`, `bases`) around a spec of the layers it holds. | `spec_load/package/` |
-| built-in | The shipped 5010 package and its 4010 edition, chosen by `Builtin::select` from `GS08`; the registry is `Builtin::all`, each entry with a typed `Version`. | `spec_load/builtin.rs`, `spec/version.rs` |
+| built-in | The shipped 5010 package and its three 4010 editions, chosen by `Builtin::select` from `GS08`; the registry is `Builtin::all`, each entry with a typed `Version`. | `spec_load/builtin.rs`, `spec/version.rs` |
 | trigger | The segment (and element conditions) that opens a loop. | `spec/loops.rs` |
 | occurrence | A named segment slot of a loop: position, usage, maximum repeat, qualifier, code lists. The JSON key is `occurrences`. | `spec/occurrences.rs` |
 | end / closer, opener | A loop's end segment (JSON `end`). For control checks, the trigger (opener) and end (closer) segments whose control numbers must match. | `spec/loops.rs` (`Control`) |

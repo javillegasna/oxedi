@@ -25,7 +25,7 @@ fn the_fallback_is_the_first_and_named_by_default_version() {
 }
 
 #[test]
-fn find_835_4010_gives_the_4010_patch() {
+fn find_835_4010_gives_the_4010_editions() {
     let found = Builtin::find("835", Version::V4010).unwrap();
     let declared = found.spec.version().unwrap();
     assert!(declared.values.iter().any(|v| v == b"004010X091A1"));

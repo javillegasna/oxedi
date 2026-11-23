@@ -36,6 +36,13 @@ fn samples_get_the_spec_of_their_declared_version() {
 }
 
 #[test]
+fn a_group_header_declaring_the_guide_without_its_addendum_gets_the_4010() {
+    let text = String::from_utf8(common::load_fixture("emedny_sample.txt")).unwrap();
+    let declared = text.replace("005010X221A1", "004010X091");
+    assert_eq!(selected(declared.into_bytes()), "4010");
+}
+
+#[test]
 fn fixtures_get_the_spec_of_their_declared_version() {
     // `004010` alone (no implementation guide) is still the 4010 835.
     let cases = [

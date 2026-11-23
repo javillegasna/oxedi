@@ -49,6 +49,7 @@ mod document;
 mod element_source;
 mod import;
 mod json_arg;
+mod kit;
 mod mask;
 mod native;
 mod parse;
@@ -80,7 +81,7 @@ fn core_module(m: &Bound<'_, PyModule>) -> PyResult<()> {
 }
 
 /// Every exception, class and function of the module, one registration each.
-fn members() -> [Register; 31] {
+fn members() -> [Register; 35] {
     [
         |m| m.add("ParseError", m.py().get_type::<document::ParseError>()),
         |m| m.add("SpecError", m.py().get_type::<spec::SpecError>()),
@@ -90,6 +91,8 @@ fn members() -> [Register; 31] {
         |m| m.add_class::<document::PySegment>(),
         |m| m.add_class::<element_source::PyElementSource>(),
         |m| m.add_class::<element_source::PyGroupSource>(),
+        |m| m.add_class::<kit::PyKitCase>(),
+        |m| m.add_class::<kit::PyKitResult>(),
         |m| m.add_class::<mask::PyMask>(),
         |m| m.add_class::<validate::PyCapability>(),
         |m| m.add_class::<validate::PyChange>(),
@@ -107,6 +110,8 @@ fn members() -> [Register; 31] {
         |m| m.add_class::<write::PyWriteFinding>(),
         |m| wrap_pyfunction!(diagnostic::external_diagnostic, m).and_then(|f| m.add_function(f)),
         |m| wrap_pyfunction!(diagnostic::mask_findings, m).and_then(|f| m.add_function(f)),
+        |m| wrap_pyfunction!(kit::kit_files, m).and_then(|f| m.add_function(f)),
+        |m| wrap_pyfunction!(kit::run_kit, m).and_then(|f| m.add_function(f)),
         |m| wrap_pyfunction!(parse::parse, m).and_then(|f| m.add_function(f)),
         |m| wrap_pyfunction!(parse::loop_paths, m).and_then(|f| m.add_function(f)),
         |m| wrap_pyfunction!(parse::parse_document, m).and_then(|f| m.add_function(f)),

@@ -272,9 +272,15 @@ pub struct PyValid {
     changes: Vec<PyChange>,
     text: String,
     spec: HeldSpec,
+    core: Valid,
 }
 
 impl PyValid {
+    /// The core's answer, which the kit runner takes.
+    pub(crate) fn core(&self) -> &Valid {
+        &self.core
+    }
+
     fn new(py: Python<'_>, valid: Valid) -> PyResult<PyValid> {
         let text = valid.to_string();
         let changes = valid
@@ -294,7 +300,8 @@ impl PyValid {
             mask: Py::new(py, PyCapability::from_core(&valid.mask))?,
             changes,
             text,
-            spec: HeldSpec::kept(valid.loaded),
+            spec: HeldSpec::kept(valid.loaded.clone()),
+            core: valid,
         })
     }
 }

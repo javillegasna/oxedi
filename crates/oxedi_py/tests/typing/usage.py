@@ -256,3 +256,14 @@ def validated_stack() -> Spec:
         first: Change | None = changes[0] if changes else None
         print(can, reasons, capability, ident, name, members, changes, s, kinds, lines, first)
     return loaded
+
+
+def runs_a_kit(manifest: str, packages: list[str]) -> bool:
+    top = oxedi.validate_stack(packages[4], packages)
+    assert isinstance(top, Valid)
+    needed: list[str] = oxedi.kit_files(manifest)
+    result: oxedi.KitResult = oxedi.run_kit(manifest, top, {path: b"" for path in needed})
+    package: str = result.package
+    for case in result.cases:
+        print(case.name, case.passed, str(case), package)
+    return result.passed

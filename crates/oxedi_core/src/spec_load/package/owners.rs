@@ -55,6 +55,7 @@ impl Key {
 const TRANSACTION_SET: &[Layer] = &[Layer::Envelope, Layer::TransactionSet];
 const GUIDE: &[Layer] = &[Layer::Envelope, Layer::Guide];
 const DICTIONARY: &[Layer] = &[Layer::Envelope, Layer::Dictionary];
+const NARROWABLE: &[Layer] = &[Layer::Envelope, Layer::Dictionary, Layer::Guide];
 const VIEWS: &[Layer] = &[Layer::Views];
 
 const SPEC_KEYS: &[Key] = &[
@@ -68,7 +69,10 @@ const SPEC_KEYS: &[Key] = &[
         name: Name::Is("loops"),
         owner: Owner::Keys(LOOPS),
     },
-    Key::layers("segments", DICTIONARY),
+    Key {
+        name: Name::Is("segments"),
+        owner: Owner::Keys(SEGMENTS),
+    },
     Key::layers("tables", VIEWS),
     Key::layers("summaries", VIEWS),
     Key::layers("default_table", VIEWS),
@@ -105,6 +109,52 @@ const OCCURRENCE_KEYS: &[Key] = &[
     Key::layers("qualifier", GUIDE),
     Key::layers("codes", GUIDE),
 ];
+
+const SEGMENTS: &[Key] = &[Key {
+    name: Name::Any,
+    owner: Owner::Keys(SEGMENT_KEYS),
+}];
+
+const SEGMENT_KEYS: &[Key] = &[Key {
+    name: Name::Is("elements"),
+    owner: Owner::Keys(ELEMENTS),
+}];
+
+const ELEMENTS: &[Key] = &[Key {
+    name: Name::Any,
+    owner: Owner::Keys(ELEMENT_KEYS),
+}];
+
+// The dictionary defines what an element is; a guide may narrow what it
+// allows, so the leaves that narrow have both owners. A component follows the
+// same split and holds no composite of its own, so only an element adds the
+// `composite` row.
+macro_rules! element_keys {
+    ($($extra:expr),*) => {
+        &[
+            Key::layers("name", DICTIONARY),
+            Key::layers("type", DICTIONARY),
+            Key::layers("scale", DICTIONARY),
+            Key::layers("codes", NARROWABLE),
+            Key::layers("min", NARROWABLE),
+            Key::layers("max", NARROWABLE),
+            Key::layers("required", NARROWABLE),
+            $($extra),*
+        ]
+    };
+}
+
+const ELEMENT_KEYS: &[Key] = element_keys!(Key {
+    name: Name::Is("composite"),
+    owner: Owner::Keys(COMPONENTS),
+});
+
+const COMPONENTS: &[Key] = &[Key {
+    name: Name::Any,
+    owner: Owner::Keys(COMPONENT_KEYS),
+}];
+
+const COMPONENT_KEYS: &[Key] = element_keys!();
 
 /// The first key `package` writes that none of its layers owns. A key the
 /// table does not know is left to the strict read of the model.

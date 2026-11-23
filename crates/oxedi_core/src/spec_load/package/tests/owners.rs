@@ -3,7 +3,7 @@ use serde_json::Value;
 use super::super::stack::Stack;
 use super::super::*;
 use super::{envelope, package};
-use crate::spec_load::SpecError;
+use crate::spec_load::{LoadedSpec, SpecError};
 
 const SET: &str = "test/transaction-set/005010/835";
 const GUIDE: &str = "test/guide/005010/835/X1";
@@ -29,6 +29,10 @@ fn nested(path: &str, value: &str) -> String {
 }
 
 fn compose(layers: &[&str], spec: &str) -> Result<(), SpecError> {
+    composed(layers, spec).map(|_| ())
+}
+
+fn composed(layers: &[&str], spec: &str) -> Result<Composed, SpecError> {
     let top = package(
         id_of(layers[layers.len() - 1]),
         layers,
@@ -36,7 +40,7 @@ fn compose(layers: &[&str], spec: &str) -> Result<(), SpecError> {
         spec,
     );
     let pool = [envelope(), top.clone()];
-    Stack::resolve(&top, &pool)?.compose_checked().map(|_| ())
+    Stack::resolve(&top, &pool)?.compose_checked()
 }
 
 // Whether the layers own every key the spec writes; the changes a package
@@ -84,7 +88,12 @@ fn each_key_belongs_to_its_layers() {
             "guide",
             "transaction-set",
         ),
-        ("segments", "{}", "dictionary", "guide"),
+        (
+            "segments.AA.elements.1.name",
+            r#""code""#,
+            "dictionary",
+            "guide",
+        ),
         ("tables", "{}", "views", "guide"),
     ];
     for (path, value, owner, other) in rows {
@@ -95,6 +104,86 @@ fn each_key_belongs_to_its_layers() {
         };
         assert_eq!(refused, path);
     }
+}
+
+#[test]
+fn a_guide_and_the_dictionary_both_own_what_narrows_an_element() {
+    for path in [
+        "segments.AA.elements.1.codes",
+        "segments.AA.elements.1.min",
+        "segments.AA.elements.1.max",
+        "segments.AA.elements.1.required",
+        "segments.AA.elements.2.composite.1.codes",
+    ] {
+        let value = if path.ends_with("codes") {
+            r#"["X"]"#
+        } else if path.ends_with("required") {
+            "true"
+        } else {
+            "1"
+        };
+        let spec = nested(path, value);
+        for layer in ["guide", "dictionary"] {
+            assert!(owned(&[layer], &spec), "{path} by {layer} was refused");
+        }
+        assert!(!owned(&["views"], &spec), "{path} by views was accepted");
+    }
+}
+
+#[test]
+fn a_guide_owns_neither_the_shape_of_an_element_nor_its_deletion() {
+    for (path, value) in [
+        ("segments.AA.elements.2.composite.1.name", r#""x""#),
+        ("segments.AA.elements.1.type", r#""AN""#),
+        ("segments.AA.elements.1.scale", "2"),
+        ("segments.AA.elements.1", "null"),
+        ("segments.AA", "null"),
+    ] {
+        let StackError::KeyNotOwned { path: refused, .. } =
+            refusal(&["guide"], &nested(path, value))
+        else {
+            panic!("{path} by guide was not refused as a key not owned");
+        };
+        assert!(refused.starts_with(path), "{refused} for {path}");
+        assert!(owned(&["dictionary"], &nested(path, value)));
+    }
+}
+
+fn guide_element(change: &str) -> String {
+    format!(r#"{{"segments":{{"AA":{{"elements":{{"1":{change}}}}}}}}}"#)
+}
+
+#[test]
+fn a_guide_narrows_a_segment_element_without_naming_an_occurrence() {
+    let composed = composed(&["guide"], &guide_element(r#"{"codes":["X"]}"#)).unwrap();
+    assert!(composed.changes.is_empty());
+    let spec = LoadedSpec::from_model(composed.model).unwrap().spec;
+    assert_eq!(spec.element_def(b"AA", 1, None).unwrap().codes, ["X"]);
+    let occurrence = &spec.loops()[0].occurrences[0];
+    assert_eq!(occurrence.name, "aa");
+    assert!(occurrence.codes.is_empty());
+}
+
+#[test]
+fn a_guide_cannot_widen_a_segment_element() {
+    let err = composed(&["guide"], &guide_element(r#"{"codes":["X","Y","Z"]}"#)).unwrap_err();
+    assert_eq!(
+        err.to_string(),
+        format!(
+            "package \"{GUIDE}\" does not only narrow what its bases allow: segments.AA.elements.1.codes: [\"X\",\"Y\"] becomes [\"X\",\"Y\",\"Z\"]; a package only narrows its bases, unless it is an edition (it holds a layer its base holds) or a patch"
+        )
+    );
+}
+
+#[test]
+fn a_guide_cannot_rename_a_segment_element() {
+    let err = composed(&["guide"], &guide_element(r#"{"name":"other"}"#)).unwrap_err();
+    assert_eq!(
+        err.to_string(),
+        format!(
+            "package \"{GUIDE}\" holds segments.AA.elements.1.name, a key of layer \"envelope\" or \"dictionary\", but its layers are \"guide\"; move the key to a package of that layer, or list the layer in \"layers\""
+        )
+    );
 }
 
 #[test]

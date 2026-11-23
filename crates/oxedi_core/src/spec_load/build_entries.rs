@@ -95,12 +95,12 @@ pub(super) fn compile_entries(
     raw: &BTreeMap<ElementPosition, ElementEntryModel>,
     qualifier: Option<&Qualifier>,
 ) -> Result<Entries, OccurrenceError> {
-    raw.iter()
-        .map(|(&at, entry)| {
-            compile_entry(segments, segment, at, entry, qualifier)
-                .map(|compiled| ((at.element, at.component), compiled))
-        })
-        .collect()
+    let mut entries = BTreeMap::new();
+    for (&at, entry) in raw {
+        let compiled = compile_entry(segments, segment, at, entry, qualifier)?;
+        entries.insert((at.element, at.component), compiled);
+    }
+    Ok(entries)
 }
 
 /// One entry at `at`: the codes it lists, narrowing the element's.

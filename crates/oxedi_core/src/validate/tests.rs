@@ -149,3 +149,29 @@ fn a_stack_that_does_not_compile_says_no() {
     );
     assert!(text.contains("\"nope\""), "{text}");
 }
+
+#[test]
+fn a_pool_that_holds_two_packages_with_one_id_says_no() {
+    let invalid = no(validate(shipped()[4], &[shipped()[0], shipped()[0]]));
+    assert_eq!(
+        invalid.to_string(),
+        "no: stack \"oxedi/views/005010/835/X221A1\" does not load: two of the packages given \
+         are named \"oxedi/envelope/005010\"; give each package once"
+    );
+}
+
+#[test]
+fn a_pool_package_the_stack_does_not_use_is_ignored() {
+    let pool = [
+        shipped()[0],
+        shipped()[1],
+        shipped()[2],
+        shipped()[3],
+        shipped()[5],
+    ];
+    let valid = yes(validate(shipped()[4], &pool));
+    let ids: Vec<&str> = valid.members().map(|m| m.id.as_str()).collect();
+    assert_eq!(ids.len(), 5);
+    assert!(!ids.contains(&"oxedi/envelope/004010"), "{ids:?}");
+    assert_eq!(valid.id().as_str(), "oxedi/views/005010/835/X221A1");
+}

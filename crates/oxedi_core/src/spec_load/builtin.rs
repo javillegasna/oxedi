@@ -1,4 +1,4 @@
-//! The specs the core ships, found by transaction set and version.
+//! The specs the core ships, found by transaction set and version or by package identity.
 
 use std::fmt;
 use std::sync::{Arc, OnceLock};
@@ -42,7 +42,7 @@ impl Version {
         }
     }
 
-    /// The version whose release is `release`, if a built-in covers it.
+    /// The version whose release word is `release`, if there is one.
     pub fn of_release(release: &Release) -> Option<Version> {
         Version::ALL
             .into_iter()
@@ -76,13 +76,13 @@ impl Builtin {
     /// The built-in's JSON: its package stack composed into one value.
     #[cfg(test)]
     pub(in crate::spec_load) fn json(&self) -> Result<Value, SpecError> {
-        merged(self.chain)
+        merged(self.chain, self.id.spec_name())
     }
 
     /// The spec's model, composed now from the packages the built-in ships;
     /// the registry holds no model itself.
     pub fn model(&self) -> Result<SpecModel, SpecError> {
-        composed(self.chain)
+        composed(self.chain, self.id.spec_name())
     }
 
     /// The built-in as a loader keeps it: its model, read now, beside its compiled spec.
@@ -97,17 +97,13 @@ impl Builtin {
 impl Spec {
     /// The built-in 835 structure.
     pub fn builtin_835() -> Spec {
-        Builtin::find("835", Builtin::DEFAULT_VERSION)
-            .map(|builtin| Spec::clone(&builtin.spec))
-            .expect(
-                "the registry holds the 835 at its default version; spec_load::tests::loading::builtin_835_loads checks it",
-            )
+        Spec::clone(&Builtin::fallback().spec)
     }
 
     /// The built-in 835 for version 4010: its edition package composed over the
     /// 5010 one.
     pub fn builtin_835_4010() -> Spec {
-        Builtin::find("835", Version::V4010)
+        Builtin::find(Builtin::fallback().transaction.as_str(), Version::V4010)
             .map(|builtin| Spec::clone(&builtin.spec))
             .expect(
                 "the registry holds the 835 at 4010; spec_load::tests::builtin::find_835_4010_gives_the_4010_patch checks it",
@@ -126,10 +122,10 @@ pub(in crate::spec_load) const PACKAGES: [&str; 2] = [
 const BUILTINS: [&[&str]; 2] = [&[PACKAGES[0]], &[PACKAGES[0], PACKAGES[1]]];
 
 // The value a built-in is: the spec of each package merged in order under the
-// name of the top package's id. The packages' headers are not checked here;
+// name the top package's id gives. The packages' headers are not checked here;
 // `spec_load::tests::builtin::the_lean_read_equals_the_checked_composition`
 // proves this read gives what the checked composer gives.
-fn merged(chain: &[&str]) -> Result<Value, SpecError> {
+fn merged(chain: &[&str], name: &str) -> Result<Value, SpecError> {
     let packages = chain
         .iter()
         .enumerate()
@@ -143,17 +139,6 @@ fn merged(chain: &[&str]) -> Result<Value, SpecError> {
             })
         })
         .collect::<Result<Vec<_>, _>>()?;
-    let name = packages
-        .last()
-        .and_then(|top| top.pointer("/package/id"))
-        .and_then(Value::as_str)
-        .and_then(spec_name)
-        .ok_or_else(|| {
-            shipped_fault(format_args!(
-                "shipped package {n} of {n} (the top) has no id that names a spec",
-                n = packages.len()
-            ))
-        })?;
     let mut value = json!({ "name": name });
     for (position, package) in packages.iter().enumerate() {
         let body = package.get("spec").ok_or_else(|| {
@@ -168,14 +153,6 @@ fn merged(chain: &[&str]) -> Result<Value, SpecError> {
     Ok(value)
 }
 
-// The name of a stack topped by the id `author/layer/release[/set[/guide]]`: its
-// transaction set, else its release, as `PackageId::spec_name` says.
-fn spec_name(id: &str) -> Option<&str> {
-    let mut parts = id.split('/').skip(2);
-    let release = parts.next()?;
-    Some(parts.next().unwrap_or(release))
-}
-
 fn shipped_fault(reason: impl fmt::Display) -> SpecError {
     SpecError::Format {
         path: ".".to_owned(),
@@ -183,8 +160,8 @@ fn shipped_fault(reason: impl fmt::Display) -> SpecError {
     }
 }
 
-fn composed(chain: &[&str]) -> Result<SpecModel, SpecError> {
-    merged(chain).and_then(|value| SpecModel::from_value(&value))
+fn composed(chain: &[&str], name: &str) -> Result<SpecModel, SpecError> {
+    merged(chain, name).and_then(|value| SpecModel::from_value(&value))
 }
 
 // The identity the last package of `chain` declares.
@@ -206,7 +183,7 @@ fn load() -> Vec<Builtin> {
             let id = top_id(chain).expect(KEYS);
             let transaction = id.transaction_set().cloned().expect(KEYS);
             let version = Version::of_release(id.release()).expect(KEYS);
-            let spec = composed(chain)
+            let spec = composed(chain, id.spec_name())
                 .and_then(|model| model.compile())
                 .expect(
                     "a built-in spec is valid; \

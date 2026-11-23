@@ -54,6 +54,7 @@ mod by_module {
     use oxedi_core::spec::ControlCount;
     use oxedi_core::spec::DeclaredVersion;
     use oxedi_core::spec::ElementDef;
+    use oxedi_core::spec::ElementEntry;
     use oxedi_core::spec::LoopDef;
     use oxedi_core::spec::LoopId;
     use oxedi_core::spec::OccurrenceId;
@@ -61,6 +62,7 @@ mod by_module {
     use oxedi_core::spec::Repeat;
     use oxedi_core::spec::SEGMENT_COLUMN;
     use oxedi_core::spec::SegmentDef;
+    use oxedi_core::spec::Setting;
     use oxedi_core::spec::Sign;
     use oxedi_core::spec::Spec;
     use oxedi_core::spec::Summary;

@@ -47,7 +47,7 @@ pub use balance_rule::{BalanceRule, BalanceTerm, Sign};
 pub use elements::{ElementDef, ROW_COLUMN, SEGMENT_COLUMN, SegmentDef};
 pub use loops::{Control, ControlCount, LoopDef, LoopId, Trigger};
 pub use occurrence_index::OccurrenceId;
-pub use occurrences::{OccurrenceDef, Qualifier, Usage};
+pub use occurrences::{ElementEntry, OccurrenceDef, Qualifier, Setting, Usage};
 pub use schema::{
     ColumnKind, ColumnSchema, TableSchema, require_column, spec_schema, table_columns, table_schema,
 };

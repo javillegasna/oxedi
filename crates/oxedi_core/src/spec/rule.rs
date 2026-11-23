@@ -42,12 +42,19 @@ impl<'s> ElementRule<'s> {
         element: usize,
         component: Option<usize>,
     ) -> Self {
-        let own =
-            occurrence.and_then(|o| o.codes.get(&(element, component)).map(|codes| (o, codes)));
+        let entry = occurrence.and_then(|o| o.elements.get(&(element, component)).map(|e| (o, e)));
+        let Some((occurrence, entry)) = entry else {
+            return Self::of(def);
+        };
         Self {
-            codes: own.map_or(def.codes.as_slice(), |(_, codes)| codes.as_slice()),
-            codes_of: own.map(|(o, _)| o.name.as_str()),
-            ..Self::of(def)
+            def,
+            required: *entry.required.or(&def.required),
+            length: *entry.length.or(&def.length),
+            codes: entry.codes.or(&def.codes).as_slice(),
+            codes_of: entry
+                .codes
+                .is_occurrence()
+                .then_some(occurrence.name.as_str()),
         }
     }
 

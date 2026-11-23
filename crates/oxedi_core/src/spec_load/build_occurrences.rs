@@ -6,10 +6,11 @@
 use std::collections::BTreeMap;
 use std::collections::btree_map::Entry;
 
-use super::build_entries::{CodeList, compile_entries, compile_list};
+use super::build_entries::{CodeList, compile_entries, compile_list, find_element};
 use super::error::SpecError;
 use super::model::{OccurrenceModel, QualifierModel};
 use super::occurrence_error::OccurrenceError;
+use super::vocabulary::ElementPosition;
 use crate::message::{place, render_key};
 use crate::spec::{OccurrenceDef, Qualifier, SegmentDef, Trigger, render_trigger};
 
@@ -193,14 +194,18 @@ fn compile_qualifier(
     segment: &str,
     raw: &QualifierModel,
 ) -> Result<Qualifier, OccurrenceError> {
+    let at = ElementPosition {
+        element: raw.element,
+        component: raw.component,
+    };
+    let def = find_element(segments, segment, "qualifier", at)?;
     let list = CodeList {
-        reference: "qualifier".into(),
         list: "qualifier.codes".into(),
         element: raw.element,
         component: raw.component,
         codes: &raw.codes,
     };
-    let (_, codes) = compile_list(segments, segment, list)?;
+    let codes = compile_list(def, segment, list, def.length)?;
     Ok(Qualifier {
         element: raw.element,
         component: raw.component,
@@ -227,7 +232,7 @@ fn compile_occurrence(
         .map(|q| compile_qualifier(segments, &def.segment, q))
         .transpose()
         .map_err(fail)?;
-    let codes =
+    let elements =
         compile_entries(segments, &def.segment, &def.elements, qualifier.as_ref()).map_err(fail)?;
     Ok(OccurrenceDef {
         name: name.to_string(),
@@ -236,6 +241,6 @@ fn compile_occurrence(
         usage: def.usage,
         max: def.max,
         qualifier,
-        codes,
+        elements,
     })
 }

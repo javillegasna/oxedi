@@ -314,7 +314,7 @@ impl<'s> Projector<'s> {
         self.matched = found.map(OccurrenceId::index);
         self.occurrence = found
             .map(|found| &spec.get(id).occurrences[found.index()])
-            .filter(|occurrence| !occurrence.codes.is_empty());
+            .filter(|occurrence| !occurrence.elements.is_empty());
         self.check(
             plan.map_or(&[], |plan| &plan.elements),
             segment,

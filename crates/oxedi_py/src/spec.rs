@@ -1,19 +1,20 @@
 //! `Spec`: the loop structure, element definitions and tables, as data.
 
 use std::borrow::Cow;
+use std::collections::BTreeMap;
 use std::ops::Deref;
 use std::sync::Arc;
 
 use oxedi_core::{Builtin, LoadedSpec, Segment, Spec, SpecError as CoreSpecError, Version};
-use pyo3::exceptions::{PyTypeError, PyValueError};
+use pyo3::exceptions::{PyKeyError, PyTypeError, PyValueError};
 use pyo3::prelude::*;
-use pyo3::types::{PyCapsule, PyDict, PyString};
+use pyo3::types::{PyBytes, PyCapsule, PyDict, PyString};
 
 use pyo3_stub_gen::derive::{gen_stub_pyclass, gen_stub_pymethods};
 use pyo3_stub_gen::{PyStubType, TypeInfo};
 
 use crate::arrow;
-use crate::element_source::{self, PyElementSource};
+use crate::element_source::{self, PyElementSource, PyGroupSource};
 use crate::tables::extra;
 
 native_exception!(
@@ -408,6 +409,47 @@ impl PySpec {
     /// element of a repeated group, which has no single element.
     fn column_source(&self, table: &str, column: &str) -> PyResult<PyElementSource> {
         element_source::resolve(&self.inner, table, column)
+    }
+
+    /// The table names, in name order.
+    fn tables(&self) -> Vec<String> {
+        self.inner
+            .tables()
+            .iter()
+            .map(|table| table.name.clone())
+            .collect()
+    }
+
+    /// The id of the segment that opens loop `name`, such as `b"CLP"`, without
+    /// the element conditions the trigger may add. Raises `KeyError` for a loop
+    /// the spec does not declare.
+    fn trigger_segment<'py>(&self, py: Python<'py>, name: &str) -> PyResult<Bound<'py, PyBytes>> {
+        let Some(id) = self.inner.loop_id(name) else {
+            let known = self
+                .loops()
+                .iter()
+                .map(|loop_name| format!("{loop_name:?}"))
+                .collect::<Vec<_>>()
+                .join(", ");
+            return Err(PyKeyError::new_err(format!(
+                "Spec.trigger_segment({name:?}): loop {name:?} is not a loop of the spec; its loops are {known}"
+            )));
+        };
+        Ok(PyBytes::new(py, &self.inner.get(id).trigger.segment))
+    }
+
+    /// Every column of table `table` that reads one fixed element, by name, in
+    /// name order; a column holding a segment index or reading a repeated group
+    /// is not listed. Raises `KeyError` for a table the spec does not declare.
+    fn element_sources(&self, table: &str) -> PyResult<BTreeMap<String, PyElementSource>> {
+        element_source::element_sources(&self.inner, table)
+    }
+
+    /// Every column of table `table` that reads an element of each repeated
+    /// group, by name, in name order; empty for a table without `repeat`.
+    /// Raises `KeyError` for a table the spec does not declare.
+    fn group_sources(&self, table: &str) -> PyResult<BTreeMap<String, PyGroupSource>> {
+        element_source::group_sources(&self.inner, table)
     }
 
     fn __repr__(&self) -> String {

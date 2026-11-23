@@ -762,9 +762,12 @@ target may only shrink. Two checks hold that line:
 **Duplicate code.** `make complexity` also looks for copied code in every tracked Rust, Python
 and JavaScript file, tests, benches, examples and tooling included, with the same pinned lizard
 (its duplicate extension at its default size of 70 tokens). There is no baseline: every block it
-finds fails with a `DUPLICATE` line naming each copy's file and lines. Remove it at its cause: a
-helper or fixture each place calls, a table of cases or `pytest.mark.parametrize`, a shared base
-class. Rewording one copy until it no longer matches does not count.
+finds fails with a `DUPLICATE` line naming each copy's file and lines. A Rust module's list of its
+files is not code written twice: a block whose every line is a `mod` declaration, an attribute or
+blank is not reported, so a `tests/mod.rs` can list one topic per file of its module. Remove a real
+duplicate at its cause: a helper or fixture each place calls, a table of cases or
+`pytest.mark.parametrize`, a shared base class. Rewording one copy until it no longer matches does
+not count.
 
 **Touch it, fix it.** A change that modifies a function listed in the baseline must leave it
 within the targets (CCN 7 or less, nesting 3 or less). The check diffs your change against the

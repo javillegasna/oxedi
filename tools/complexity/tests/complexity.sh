@@ -375,6 +375,29 @@ if [ "$(python3 "$script" "$tmp/baseline" --measurements "$tmp/measured.csv" \
   echo "FAIL: one_block_in_another_order_is_one_line"; failed=1
 fi
 
+# A block whose every copy is a module's list of its files (mod lines, attributes, blank lines)
+# is not a duplicate; any other line in a copy, or a copy that cannot be read, keeps it.
+printf 'mod a;\npub mod b;\n#[cfg(test)]\npub(crate) mod c;\n\nmod r#type;\n' > "$tmp/list_one.rs"
+printf '//! Tests.\nmod a;\npub mod b;\n#[cfg(test)]\npub(crate) mod c;\n\nmod r#type;\n' > "$tmp/list_two.rs"
+printf 'mod a;\nfn f() {}\nmod b;\n' > "$tmp/logic.rs"
+duplicates "1,$tmp/list_one.rs,1,6" "1,$tmp/list_two.rs,2,7"
+expect 0 'no duplicate code' --duplicate-blocks "$tmp/duplicates.csv"
+duplicates "1,$tmp/list_one.rs,1,6" "1,$tmp/list_two.rs,1,7"
+expect 1 "DUPLICATE $tmp/list_one.rs:1-6, $tmp/list_two.rs:1-7" --duplicate-blocks "$tmp/duplicates.csv"
+duplicates "1,$tmp/list_one.rs,1,6" "1,$tmp/logic.rs,1,3"
+expect 1 "DUPLICATE $tmp/list_one.rs:1-6, $tmp/logic.rs:1-3" --duplicate-blocks "$tmp/duplicates.csv"
+duplicates "1,$tmp/list_one.rs,1,6" "1,$tmp/missing.rs,1,6"
+expect 1 "DUPLICATE $tmp/list_one.rs:1-6, $tmp/missing.rs:1-6" --duplicate-blocks "$tmp/duplicates.csv"
+printf 'mod x {\n}\n' > "$tmp/inline.rs"
+printf '#[cfg(test)]\nfn f() {}\n' > "$tmp/attr_fn.rs"
+printf '#[cfg(test)]\n#[allow(dead_code)]\n\n' > "$tmp/attrs.rs"
+duplicates "1,$tmp/inline.rs,1,2" "1,$tmp/inline.rs,1,2"
+expect 1 "DUPLICATE $tmp/inline.rs:1-2, $tmp/inline.rs:1-2" --duplicate-blocks "$tmp/duplicates.csv"
+duplicates "1,$tmp/attr_fn.rs,1,2" "1,$tmp/attr_fn.rs,1,2"
+expect 1 "DUPLICATE $tmp/attr_fn.rs:1-2, $tmp/attr_fn.rs:1-2" --duplicate-blocks "$tmp/duplicates.csv"
+duplicates "1,$tmp/attrs.rs,1,3" "1,$tmp/attrs.rs,1,3"
+expect 1 "DUPLICATE $tmp/attrs.rs:1-3, $tmp/attrs.rs:1-3" --duplicate-blocks "$tmp/duplicates.csv"
+
 measurements 'a.rs,big,12,2' 'a.rs,fmt,9,1' 'a.rs,fmt,20,0' 'a.rs,small,8,3'
 duplicates '1,a.rs,10,13' '1,b.py,40,43'
 expect 1 'FAIL a.rs: small' --duplicate-blocks "$tmp/duplicates.csv"

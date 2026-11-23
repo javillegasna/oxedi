@@ -6,7 +6,7 @@
 # .github/ and tools/, docs/ and viewer/tests, and anything git does not track (target/, site/,
 # viewer/pkg/) or that is not a source file (the generated .pyi stubs).
 # The duplicate check reads every tracked .rs, .py, .js, .mjs and .cjs file, tests, benches,
-# examples and tooling included, and fails on any copied block.
+# examples and tooling included, and fails on any copied block but a list of `mod` declarations.
 # A baseline function the change modifies must end within the targets. The change is measured
 # against $COMPLEXITY_BASE; unset, that is $COMPLEXITY_PUSH_BEFORE on a push in CI, the first
 # parent of HEAD on a pull request (the checkout is the merge with the base branch) and

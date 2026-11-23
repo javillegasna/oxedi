@@ -51,7 +51,7 @@ dist: clean-dist ## build the sdist and the release wheel into target/wheels
 	@ls -l $(WHEELS)
 
 # Paths are matched exactly against the archive's listing, under its single top directory.
-SDIST_REQUIRED := crates/oxedi_core/src/lib.rs crates/oxedi_core/specs/oxedi/guide/005010/835/X221A1.json crates/oxedi_core/specs/oxedi/views/005010/835/X221A1.json crates/oxedi_core/specs/oxedi/envelope/005010.json crates/oxedi_core/specs/oxedi/dictionary/005010.json crates/oxedi_core/specs/oxedi/guide/004010/835/X091A1.json crates/oxedi_core/specs/edi_835_parser.json crates/oxedi_core/Cargo.toml crates/oxedi_py/src/lib.rs pyproject.toml LICENSE THIRD_PARTY_NOTICES
+SDIST_REQUIRED := crates/oxedi_core/src/lib.rs crates/oxedi_core/specs/oxedi/guide/005010/835/X221A1.json crates/oxedi_core/specs/oxedi/views/005010/835/X221A1.json crates/oxedi_core/specs/oxedi/envelope/005010.json crates/oxedi_core/specs/oxedi/dictionary/005010.json crates/oxedi_core/specs/oxedi/transaction-set/005010/835.json crates/oxedi_core/specs/oxedi/guide/004010/835/X091A1.json crates/oxedi_core/specs/edi_835_parser.json crates/oxedi_core/Cargo.toml crates/oxedi_py/src/lib.rs pyproject.toml LICENSE THIRD_PARTY_NOTICES
 
 sdist-check: ## fail if the sdist holds the core's test trees or the maintainers' scripts, or lacks what the build needs
 	@sdist=$$(ls $(WHEELS)/oxedi-*.tar.gz 2>/dev/null | head -n 1); \

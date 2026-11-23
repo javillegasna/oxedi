@@ -109,6 +109,59 @@
     } },
     "ST": { "elements": {
       "1": {"codes": ["835"]}
+    } },
+    "BPR": { "elements": {
+      "1": {"usage": "required", "codes": ["C", "D", "H", "I", "P", "U", "X"]},
+      "2": {"usage": "required"},
+      "3": {"usage": "required", "codes": ["C", "D"]},
+      "4": {"usage": "required", "codes": ["ACH", "BOP", "CHK", "FWT", "NON"]},
+      "5": {"codes": ["CCP", "CTX"]},
+      "6": {"codes": ["01", "04"]},
+      "8": {"codes": ["DA"]},
+      "12": {"codes": ["01", "04"]},
+      "14": {"codes": ["DA", "SG"]},
+      "16": {"usage": "required"}
+    } },
+    "TRN": { "elements": {
+      "1": {"usage": "required", "codes": ["1"]},
+      "2": {"usage": "required"},
+      "3": {"usage": "required"}
+    } },
+    "CUR": { "elements": {
+      "1": {"usage": "required", "codes": ["PR"]},
+      "2": {"usage": "required"}
+    } },
+    "REF": { "elements": {
+      "1": {"usage": "required", "codes": ["0B", "0K", "1A", "1B", "1C", "1D", "1G", "1H", "1J", "1L", "1S", "1W", "28", "2U", "6P", "6R", "9A", "9C", "APC", "BB", "CE", "D3", "E9", "EA", "EO", "EV", "F2", "F8", "G1", "G2", "G3", "HI", "HPI", "IG", "LU", "NF", "PQ", "RB", "SY", "TJ"]},
+      "2": {"usage": "required"},
+      "4": {"composite": {
+        "1": {"usage": "required"},
+        "2": {"usage": "required"}
+      }}
+    } },
+    "DTM": { "elements": {
+      "1": {"usage": "required", "codes": ["036", "050", "150", "151", "232", "233", "405", "472"]},
+      "2": {"usage": "required"}
+    } },
+    "N1": { "elements": {
+      "1": {"usage": "required", "codes": ["PE", "PR"]},
+      "2": {"usage": "required"},
+      "3": {"codes": ["FI", "XV", "XX"]}
+    } },
+    "N3": { "elements": {
+      "1": {"usage": "required"}
+    } },
+    "N4": { "elements": {
+      "1": {"usage": "required"}
+    } },
+    "PER": { "elements": {
+      "1": {"usage": "required", "codes": ["BL", "CX", "IC"]},
+      "3": {"codes": ["EM", "FX", "TE", "UR"]},
+      "5": {"codes": ["EM", "EX", "FX", "TE", "UR"]},
+      "7": {"codes": ["EM", "EX", "FX", "UR"]}
+    } },
+    "RDM": { "elements": {
+      "1": {"usage": "required", "codes": ["BM", "EM", "FT", "OL"]}
     } }
   },
   "balancing": {

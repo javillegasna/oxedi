@@ -73,6 +73,12 @@ pub struct Builtin {
 }
 
 impl Builtin {
+    /// The package texts of the built-in, bases first and the top last.
+    #[cfg(test)]
+    pub(in crate::spec_load) fn chain(&self) -> &'static [&'static str] {
+        self.chain
+    }
+
     /// The built-in's JSON: its package stack composed into one value.
     #[cfg(test)]
     pub(in crate::spec_load) fn json(&self) -> Result<Value, SpecError> {
@@ -120,7 +126,7 @@ pub(in crate::spec_load) const PACKAGES: [&str; 5] = [
     include_str!("../../specs/oxedi/guide/004010/835/X091A1.json"),
 ];
 
-/// The packages of the 5010 stack, the first of `PACKAGES`.
+/// How many of the first `PACKAGES` the 5010 stack is.
 const FIVE: usize = 4;
 
 /// The package texts of each built-in, bases first and the top last; the

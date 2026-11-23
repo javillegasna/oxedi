@@ -1,10 +1,11 @@
 import json
+from types import MappingProxyType
 
 import pytest
 from conftest import read
 
 import oxedi
-from oxedi import KitResult, Spec, SpecError, Valid, kit_files, run_kit
+from oxedi import KitReport, Spec, SpecError, Valid, kit_files, run_kit
 
 PACKAGES = Spec.builtin_packages()
 TOP = "oxedi/views/005010/835/X221A1"
@@ -26,14 +27,14 @@ def stack() -> Valid:
 
 def test_a_clean_file_passes_its_diagnostics_case():
     result = run_kit(manifest(), stack(), {"a.835": CLEAN, "d.txt": b""})
-    assert isinstance(result, KitResult)
+    assert isinstance(result, KitReport)
     assert result.passed
     assert result.package == TOP
     assert str(result) == f'kit "{TOP}": 1 of 1 cases pass\ncase "a": passes'
     (case,) = result.cases
     assert (case.name, case.passed, str(case)) == ("a", True, 'case "a": passes')
-    assert repr(result) == f"KitResult(package='{TOP}', passed=True)"
-    assert repr(case) == "KitCase(name='a', passed=True)"
+    assert repr(result) == f"KitReport(package='{TOP}', passed=True)"
+    assert repr(case) == "CaseReport(name='a', passed=True)"
 
 
 def test_a_difference_is_reported_with_its_first_line():
@@ -77,3 +78,8 @@ def test_a_kit_of_another_package_raises_spec_error():
 def test_files_hold_bytes():
     with pytest.raises(TypeError):
         run_kit(manifest(), stack(), {"a.835": "text", "d.txt": b""})  # type: ignore[dict-item]
+
+
+def test_files_may_be_any_mapping():
+    files = MappingProxyType({"a.835": CLEAN, "d.txt": b""})
+    assert run_kit(manifest(), stack(), files).passed

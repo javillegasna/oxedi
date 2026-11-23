@@ -262,7 +262,7 @@ def runs_a_kit(manifest: str, packages: list[str]) -> bool:
     top = oxedi.validate_stack(packages[4], packages)
     assert isinstance(top, Valid)
     needed: list[str] = oxedi.kit_files(manifest)
-    result: oxedi.KitResult = oxedi.run_kit(manifest, top, {path: b"" for path in needed})
+    result: oxedi.KitReport = oxedi.run_kit(manifest, top, {path: b"" for path in needed})
     package: str = result.package
     for case in result.cases:
         print(case.name, case.passed, str(case), package)

@@ -132,10 +132,12 @@ The spec files live in `crates/oxedi_core/specs/`:
 |---|---|---|
 | `oxedi/envelope/005010.json` | The envelope, first in every stack: the interchange, group and transaction loops and the ISA, TA1, GS, ST, SE, GE and IEA segments. | `Builtin` (`include_str!` in `spec_load/builtin.rs`) |
 | `oxedi/dictionary/005010.json` | Every segment the 835 uses beyond the envelope's, its elements and components, on the envelope; each element's and component's name, type, scale and lengths; no usage and no codes. | `Builtin` (`spec_load/builtin.rs`) |
-| `oxedi/transaction-set/005010/835.json` | The 835 transaction set, on the dictionary: each loop's parent, trigger, end and control, and each occurrence's segment and position. | `Builtin` (`spec_load/builtin.rs`) |
+| `oxedi/transaction-set/005010/835.json` | The 835 transaction set, on the dictionary: each loop's parent and trigger, and each occurrence's segment and position. | `Builtin` (`spec_load/builtin.rs`) |
 | `oxedi/guide/005010/835/X221A1.json` | The X221A1 guide, on the transaction set: each loop's usage and maximum; each occurrence's usage, maximum, qualifier and element entries; the usage and codes of segment elements; the version; the balancing rules. A `package` header and the `spec` (`version`, `loops`, `segments`, `balancing`). | `Builtin` (`spec_load/builtin.rs`) |
 | `oxedi/views/005010/835/X221A1.json` | The tables, the summaries and the default table, on the guide; the top of the 5010 stack. | `Builtin` (`spec_load/builtin.rs`) |
-| `oxedi/guide/004010/835/X091A1.json` | The 4010: an edition over the 5010 whose `spec` is a JSON Merge Patch (RFC 7386). | `Builtin` (`spec_load/builtin.rs`): the stack of the packages, composed |
+| `oxedi/envelope/004010.json` | ISA11 type and codes, ISA12 codes, ST03 removed; an edition of the envelope. | `Builtin` (`spec_load/builtin.rs`) |
+| `oxedi/dictionary/004010.json` | The segments and elements 4010 removes or adds; an edition of the dictionary. | `Builtin` (`spec_load/builtin.rs`) |
+| `oxedi/guide/004010/835/X091A1.json` | The X091A1 guide, an edition of X221A1 (layers transaction-set and guide): occurrences, usage, codes and the version. | `Builtin` (`spec_load/builtin.rs`): the stack of the packages, composed |
 | `edi_835_parser.json` | A patch with the tables of the `edi-835-parser` compatibility layer. | `crates/oxedi_py/src/lib.rs`, pinned by `tests/project_golden.rs` |
 
 ### Two layers: the schema and its loading
@@ -298,7 +300,7 @@ Internal words used in the code. X12 and payment terms for users are in
 | schema / loading | The two layers of a spec: the schema (`spec`) is the compiled definitions every reader and the writer use; loading (`spec_load`) reads, checks, patches and compiles the JSON into them, and the schema never uses it. A **table schema** (`TableSchema`) is the columns of one table, part of the schema. | `spec/`, `spec_load/` |
 | spec model | The spec as typed data a program builds and writes, shared with the loader. | `spec_load/model/` |
 | loaded spec | A spec's model beside the spec compiled from it. | `spec_load/loaded.rs` |
-| patch | An RFC 7386 JSON Merge Patch over a spec (`835.4010.json`, `edi_835_parser.json`). | `spec_load/patch.rs` |
+| patch | An RFC 7386 JSON Merge Patch over a spec (`edi_835_parser.json`). | `spec_load/patch.rs` |
 | package | One JSON file: a header (`format`, `id`, `layers`, `bases`) around a spec of the layers it holds. | `spec_load/package/` |
 | built-in | The shipped 5010 package and its 4010 edition, chosen by `Builtin::select` from `GS08`; the registry is `Builtin::all`, each entry with a typed `Version`. | `spec_load/builtin.rs`, `spec/version.rs` |
 | trigger | The segment (and element conditions) that opens a loop. | `spec/loops.rs` |

@@ -1,0 +1,42 @@
+{
+  "package": {
+    "format": 1,
+    "id": "oxedi/dictionary/004010",
+    "layers": ["dictionary"],
+    "bases": ["oxedi/dictionary/005010", "oxedi/envelope/004010"]
+  },
+  "spec": {
+  "segments": {
+    "N4": { "elements": {
+      "7": null
+    } },
+    "RDM": null,
+    "TS3": { "elements": {
+      "6": {"name": "total_covered_charge_amount", "type": "R", "min": 1, "max": 18},
+      "7": {"name": "total_noncovered_charge_amount", "type": "R", "min": 1, "max": 18},
+      "8": {"name": "total_denied_charge_amount", "type": "R", "min": 1, "max": 18},
+      "9": {"name": "total_provider_payment_amount", "type": "R", "min": 1, "max": 18},
+      "10": {"name": "total_interest_amount", "type": "R", "min": 1, "max": 18},
+      "11": {"name": "total_contractual_adjustment_amount", "type": "R", "min": 1, "max": 18},
+      "12": {"name": "total_gramm_rudman_reduction_amount", "type": "R", "min": 1, "max": 18},
+      "14": {"name": "total_blood_deductible_amount", "type": "R", "min": 1, "max": 18},
+      "16": {"name": "total_coinsurance_amount", "type": "R", "min": 1, "max": 18},
+      "19": {"name": "total_deductible_amount", "type": "R", "min": 1, "max": 18}
+    } },
+    "CLP": { "elements": {
+      "14": null
+    } },
+    "NM1": { "elements": {
+      "12": null
+    } },
+    "SVC": { "elements": {
+      "1": {"composite": {
+        "8": null
+      }},
+      "6": {"composite": {
+        "8": null
+      }}
+    } }
+  }
+}
+}

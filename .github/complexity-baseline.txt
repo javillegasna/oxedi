@@ -7,7 +7,6 @@ crates/oxedi_core/scripts/anonymize_835.py	_generate	17	2
 crates/oxedi_core/scripts/anonymize_835.py	anonymize_elements	32	4
 crates/oxedi_core/scripts/anonymize_835.py	main	10	1
 crates/oxedi_core/scripts/anonymize_835.py	verify	14	1
-crates/oxedi_core/scripts/pyx12_compare/elements.py	compare_element	16	2
 crates/oxedi_core/scripts/pyx12_compare/elements.py	compare_elements	20	5
 crates/oxedi_core/scripts/pyx12_compare/elements.py	draft	9	2
 crates/oxedi_core/scripts/pyx12_compare/elements.py	spec_only	8	3
@@ -17,7 +16,6 @@ crates/oxedi_core/scripts/pyx12_compare/loops.py	compare_segments	18	3
 crates/oxedi_core/scripts/pyx12_compare/maps.py	_element	13	2
 crates/oxedi_core/scripts/pyx12_compare/maps.py	load_map.walk	10	4
 crates/oxedi_core/scripts/pyx12_compare/occurrences.py	compare_occurrences	22	4
-crates/oxedi_core/scripts/pyx12_compare/occurrences.py	generate	10	4
 crates/oxedi_core/scripts/pyx12_compare/occurrences.py	identity	12	2
 crates/oxedi_core/scripts/pyx12_compare/occurrences.py	match	17	3
 crates/oxedi_core/scripts/pyx12_compare/occurrences.py	own_codes	18	3

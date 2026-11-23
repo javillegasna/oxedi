@@ -3,10 +3,21 @@
 from __future__ import annotations
 
 import re
+from collections import Counter
 
 from .config import LOOP_MAP
 from .findings import element_ref, identity_codes, normalized, snake_case
 from .spec import merge_diff
+
+
+def occurrence_of(seg, qualifier, codes):
+    """The occurrence a map segment generates; the qualifier and the codes
+    are left out when empty."""
+    return {"segment": seg.id, "pos": seg.pos,
+            "usage": "required" if seg.usage == "R" else "situational",
+            **({} if seg.max_use is None else {"max": seg.max_use}),
+            **({} if qualifier is None else {"qualifier": qualifier}),
+            **({"codes": codes} if codes else {})}
 
 
 class OccurrencesMixin:
@@ -106,35 +117,30 @@ class OccurrencesMixin:
     def generate(self, loop_name, segs):
         """[(map segment, occurrence, identifying codes)] in position order. A
         segment with several places in the loop gets a qualifier."""
-        counts = {}
-        for seg in segs:
-            counts[seg.id] = counts.get(seg.id, 0) + 1
+        shared = {sid for sid, n in Counter(seg.id for seg in segs).items() if n > 1}
         out = []
         for seg in segs:
-            occurrence = {"segment": seg.id, "pos": seg.pos,
-                          "usage": "required" if seg.usage == "R" else "situational"}
-            if seg.max_use is not None:
-                occurrence["max"] = seg.max_use
             identity = self.identity(seg)
-            place = None
-            if counts[seg.id] > 1:
-                if identity is None:
-                    self.add("occurrences", "note", f"occurrences:{loop_name}:{seg.id}",
-                             loop_name, f"loop {loop_name}: {seg.id} {seg.name!r} has no "
-                             "identifying element to tell its places apart")
-                else:
-                    element, component, codes = identity
-                    place = (element, component)
-                    qualifier = {"element": element}
-                    if component is not None:
-                        qualifier["component"] = component
-                    qualifier["codes"] = sorted(set(codes))
-                    occurrence["qualifier"] = qualifier
-            codes = self.own_codes(seg, place)
-            if codes:
-                occurrence["codes"] = codes
+            qualifier, place = self.qualify(loop_name, seg, identity, shared)
+            occurrence = occurrence_of(seg, qualifier, self.own_codes(seg, place))
             out.append((seg, occurrence, set(identity[2]) if identity else set()))
         return out
+
+    def qualify(self, loop_name, seg, identity, shared):
+        """``(qualifier, place)`` of a segment with several places in the loop:
+        both None when it has one place or no identifying element (a note then)."""
+        if seg.id not in shared:
+            return None, None
+        if identity is None:
+            self.add("occurrences", "note", f"occurrences:{loop_name}:{seg.id}",
+                     loop_name, f"loop {loop_name}: {seg.id} {seg.name!r} has no "
+                     "identifying element to tell its places apart")
+            return None, None
+        element, component, codes = identity
+        qualifier = {"element": element,
+                     **({} if component is None else {"component": component}),
+                     "codes": sorted(set(codes))}
+        return qualifier, (element, component)
 
     def own_codes(self, seg, place):
         """The closed code lists of this place that are narrower than the

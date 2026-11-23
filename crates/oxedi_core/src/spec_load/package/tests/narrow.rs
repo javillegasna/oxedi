@@ -272,11 +272,6 @@ fn a_loop_or_an_occurrence_that_allows_less_is_narrowed() {
             "a.occurrences.ab.max",
             narrowed("no maximum", "1"),
         ),
-        (
-            occurrence("ab", json!({"qualifier": null})),
-            "a.occurrences.ab.qualifier",
-            ChangeKind::Removed,
-        ),
     ];
     for (patch, path, kind) in cases {
         assert_eq!(after(patch), [(format!("loops.{path}"), kind)]);
@@ -284,11 +279,25 @@ fn a_loop_or_an_occurrence_that_allows_less_is_narrowed() {
 }
 
 #[test]
-fn a_restriction_the_package_adds_is_not_a_difference() {
+fn a_restriction_the_package_adds_is_added() {
     let codes = occurrence("aa", json!({"codes": {"2": ["Z"]}}));
-    assert!(after(codes).is_empty());
     let qualifier = occurrence("aa", json!({"qualifier": {"element": 1, "codes": ["X"]}}));
-    assert!(after(qualifier).is_empty());
+    let loop_b = json!({"loops": {"b": {"trigger": {"segment": "BB"}}}});
+    let cases = [
+        (codes, "loops.a.occurrences.aa.codes.2", r#"["Z"]"#),
+        (
+            qualifier,
+            "loops.a.occurrences.aa.qualifier",
+            r#"{"element":1,"codes":["X"]}"#,
+        ),
+        (loop_b, "loops.b", r#"{"trigger":{"segment":"BB"}}"#),
+    ];
+    for (patch, path, value) in cases {
+        let added = ChangeKind::Added {
+            after: value.to_owned(),
+        };
+        assert_eq!(after(patch), [(path.to_owned(), added)]);
+    }
 }
 
 #[test]
@@ -334,6 +343,10 @@ fn a_removed_loop_or_occurrence_is_listed() {
     let cases = [
         (json!({"loops": {"a": null}}), "loops.a"),
         (occurrence("aa", Value::Null), "loops.a.occurrences.aa"),
+        (
+            occurrence("ab", json!({"qualifier": null})),
+            "loops.a.occurrences.ab.qualifier",
+        ),
     ];
     for (patch, path) in cases {
         assert_eq!(after(patch), [(path.to_owned(), ChangeKind::Removed)]);

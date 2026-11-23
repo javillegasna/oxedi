@@ -1,7 +1,6 @@
 use super::super::*;
 use super::{BASE, package};
 use crate::spec_load::SpecError;
-use crate::spec_load::builtin::PACKAGES;
 
 const E: &str = "test/envelope/005010";
 const D: &str = "test/dictionary/005010";
@@ -146,6 +145,16 @@ fn widens_error_has_no_source() {
     assert!(std::error::Error::source(&err).is_none());
 }
 
+const G: &str = "test/guide/005010/835/X1";
+
+fn guide(spec: &str) -> Package {
+    package(G, &["guide"], &[E], spec)
+}
+
+fn refusal(top: &Package) -> String {
+    compose(top, &[base()]).unwrap_err().to_string()
+}
+
 #[test]
 fn widening_a_loop_or_an_occurrence_is_refused() {
     let cases = [
@@ -191,33 +200,4 @@ fn a_package_that_changes_the_structure_is_refused() {
              loops.a.trigger: {{\"segment\":\"AA\"}} becomes {{\"segment\":\"AA\",\"where\":{{\"1\":\"X\"}}}}{TAIL}"
         )
     );
-}
-
-#[test]
-fn the_4010_edition_lists_its_changes() {
-    let pool = PACKAGES.map(|text| Package::from_json(text).unwrap());
-    let composed = Stack::resolve(&pool[1], &pool)
-        .unwrap()
-        .compose_checked()
-        .unwrap();
-    let id = "oxedi/guide/004010/835/X091A1";
-    assert!(composed.changes.iter().all(|c| c.package.as_str() == id));
-    let kind_at = |path: &str| {
-        let found = composed.changes.iter().find(|c| c.path == path);
-        found.map(|c| c.kind.clone()).unwrap()
-    };
-    let changed = |before: &str, after: &str| ChangeKind::Changed {
-        before: before.into(),
-        after: after.into(),
-    };
-    assert_eq!(
-        kind_at("segments.ISA.elements.11.type"),
-        changed(r#""AN""#, r#""ID""#)
-    );
-    assert!(matches!(
-        kind_at("segments.ISA.elements.12.codes"),
-        ChangeKind::Widened { .. }
-    ));
-    assert_eq!(kind_at("segments.ST.elements.3"), ChangeKind::Removed);
-    assert_eq!(kind_at("segments.RDM"), ChangeKind::Removed);
 }

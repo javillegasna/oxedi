@@ -96,13 +96,13 @@ class ElementsMixin:
             name, n = f"{base}_{n}", n + 1
         names.add(name)
         if agg.composite:
-            return {"name": name, "type": "AN", **({"required": True} if agg.required else {}),
+            return {"name": name, "type": "AN", **({"usage": "required"} if agg.required else {}),
                     "composite": self.draft(merged, position)}
         # Without a dataele entry the type is a guess and no lengths are set.
         kind, low, high = self.dataele.get(agg.data_ele, ("AN", None, None))
         out = {"name": name, "type": kind}
         if agg.required:
-            out["required"] = True
+            out["usage"] = "required"
         if low is not None:
             out["min"], out["max"] = low, high
         if agg.codes:
@@ -138,9 +138,11 @@ class ElementsMixin:
             return STOP
 
     def compare_usage(self, ref, loops, path, agg, spec_def, proposal):
-        required = bool(spec_def.get("required", False))
-        self.check("usage", ref, loops, path + ["required"], "required", required,
+        required = spec_def.get("usage") == "required"
+        self.check("usage", ref, loops, path + ["usage"], "required", required,
                    agg.required)
+        if required != agg.required:
+            self.set_patch(path + ["usage"], "required" if agg.required else "situational")
 
     def compare_shape(self, ref, loops, path, agg, spec_def, proposal):
         """Composite agreement, or the type and lengths of a simple element;

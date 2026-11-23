@@ -157,7 +157,7 @@ const TYPED_SPEC: &str = r#"{"name":"typed",
         }},
         "CP":{"elements":{
             "1":{"name":"mix","type":"AN","composite":{
-                "1":{"name":"code","type":"ID","required":true,"min":2,"max":3},
+                "1":{"name":"code","type":"ID","usage":"required","min":2,"max":3},
                 "2":{"name":"count","type":"N2","min":2,"max":4},
                 "3":{"name":"amount","type":"R","scale":3,"min":2,"max":4},
                 "4":{"name":"day","type":"DT"},
@@ -166,7 +166,7 @@ const TYPED_SPEC: &str = r#"{"name":"typed",
             }}
         }},
         "TX":{"elements":{
-            "1":{"name":"text","type":"AN","required":true,"min":2,"max":4},
+            "1":{"name":"text","type":"AN","usage":"required","min":2,"max":4},
             "2":{"name":"code","type":"ID","min":2,"max":4},
             "3":{"name":"day","type":"DT","min":6,"max":8},
             "4":{"name":"time","type":"TM","min":4,"max":6}
@@ -408,14 +408,14 @@ const CODED_SPEC: &str = r#"{"name":"coded",
     "loops":{"head":{"trigger":{"segment":"HD"},"occurrences":{"hd":{"segment":"HD","pos":0},"cd":{"segment":"CD","pos":1},"px":{"segment":"PX","pos":2}},"end":"TR"}},
     "segments":{
         "CD":{"elements":{
-            "1":{"name":"qualifier","type":"ID","required":true,"min":2,"max":3,"codes":["PE","PR"]},
+            "1":{"name":"qualifier","type":"ID","usage":"required","min":2,"max":3,"codes":["PE","PR"]},
             "2":{"name":"optional_code","type":"ID","min":1,"max":2,"codes":["A"]},
             "3":{"name":"stamp","type":"TM","min":4,"max":4,"codes":["0000","1200"]},
             "4":{"name":"free","type":"AN"}
         }},
         "PX":{"elements":{
             "1":{"name":"procedure","type":"AN","composite":{
-                "1":{"name":"kind","type":"ID","required":true,"codes":["AD","HC"]},
+                "1":{"name":"kind","type":"ID","usage":"required","codes":["AD","HC"]},
                 "2":{"name":"code","type":"AN"}
             }}
         }}

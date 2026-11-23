@@ -19,10 +19,10 @@ const EXPLICIT_DEFAULTS: &str = r#"{"name":"explicit",
         }}},
     "segments":{
         "AA":{"elements":{
-            "1":{"name":"amount","type":"R","scale":2,"required":false},
-            "2":{"name":"note","type":"AN","required":false}
+            "1":{"name":"amount","type":"R","scale":2,"usage":"situational"},
+            "2":{"name":"note","type":"AN","usage":"situational"}
         }},
-        "A1":{"elements":{"1":{"name":"extra","type":"R","scale":2,"required":false}}}
+        "A1":{"elements":{"1":{"name":"extra","type":"R","scale":2,"usage":"situational"}}}
     },
     "tables":{"rows":{"loops":["A"],"ref":null,"columns":{
         "amount":{"segment":"AA","element":1},
@@ -162,7 +162,7 @@ fn explicit_defaults_are_not_written() {
         .values()
         .flat_map(|s| s["elements"].as_object().unwrap().values())
     {
-        lacks(element, &["required", "scale"]);
+        lacks(element, &["usage", "scale"]);
     }
     let table = &root["tables"]["rows"];
     lacks(table, &["ref"]);

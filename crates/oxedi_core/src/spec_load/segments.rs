@@ -5,7 +5,7 @@ use std::fmt;
 
 use super::error::SpecError;
 use super::model::ElementModel;
-use crate::spec::ElementDef;
+use crate::spec::{ElementDef, Usage};
 use crate::value::{ElementType, LengthRange};
 
 /// Why an element definition was rejected.
@@ -231,7 +231,7 @@ fn compile_element(def: &ElementModel, component: bool) -> Result<ElementDef, El
     Ok(ElementDef {
         name: def.name.clone(),
         kind,
-        required: def.required,
+        required: def.usage == Usage::Required,
         length,
         composite: BTreeMap::new(),
         codes,

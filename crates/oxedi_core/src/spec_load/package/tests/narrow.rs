@@ -77,9 +77,9 @@ fn what_allows_more_is_widened() {
         (json!({"min": null}), "min", widened("1", "no minimum")),
         (json!({"min": 0}), "min", widened("1", "0")),
         (
-            json!({"required": false}),
-            "required",
-            widened("required", "not required"),
+            json!({"usage":"situational"}),
+            "usage",
+            widened(r#""required""#, r#""situational""#),
         ),
     ];
     for (change, key, kind) in cases {
@@ -109,7 +109,7 @@ fn a_bound_where_there_was_none_narrows() {
     before["segments"]["AA"]["elements"]["1"] = json!({"name": "code", "type": "AN"});
     let free = SpecModel::from_value(&before).unwrap();
     let mut merged = before;
-    let bounds = json!({"min": 1, "max": 5, "required": true, "codes": ["X"]});
+    let bounds = json!({"min": 1, "max": 5, "usage":"required", "codes": ["X"]});
     merge_patch(&mut merged, &element(bounds));
     let bounded = SpecModel::from_value(&merged).unwrap();
     let found = differences(&PackageId::parse(D).unwrap(), &free, &bounded);
@@ -117,7 +117,7 @@ fn a_bound_where_there_was_none_narrows() {
     assert_eq!(
         kinds,
         [
-            &narrowed("not required", "required"),
+            &narrowed(r#""situational""#, r#""required""#),
             &narrowed("no minimum", "1"),
             &narrowed("no maximum", "5"),
             &narrowed("any code", r#"["X"]"#),

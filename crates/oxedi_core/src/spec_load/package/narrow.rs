@@ -116,12 +116,7 @@ impl Walk {
             let text = |kind: crate::value::ElementType| format!("{:?}", kind.code());
             self.changed("type", text(before.kind), text(after.kind));
         }
-        self.flag(
-            "required",
-            ["not required", "required"],
-            before.required,
-            after.required,
-        );
+        self.usage(before.usage, after.usage);
         self.limit("min", Limit::Min, before.min, after.min);
         self.limit("max", Limit::Max, before.max, after.max);
         self.codes("codes", before.codes.as_deref(), after.codes.as_deref());
@@ -233,14 +228,6 @@ impl Walk {
         self.at(name, |walk| {
             walk.record(ChangeKind::Changed { before, after })
         });
-    }
-
-    // A yes or no where yes allows less; `words` are its texts, no then yes.
-    fn flag(&mut self, name: &str, words: [&str; 2], before: bool, after: bool) {
-        if before != after {
-            let (from, to) = (words[usize::from(before)], words[usize::from(after)]);
-            self.judged(name, after.cmp(&before), from.to_owned(), to.to_owned());
-        }
     }
 
     // A length bound: a larger minimum and a smaller maximum allow less, and

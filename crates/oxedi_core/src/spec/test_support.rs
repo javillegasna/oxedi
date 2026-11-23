@@ -18,23 +18,23 @@ pub(crate) const SPEC: &str = r#"{"name":"t",
         "line":{"parent":"claim","trigger":{"segment":"LN"},"occurrences":{"ln":{"segment":"LN","pos":0},"dt":{"segment":"DT","pos":1},"aj":{"segment":"AJ","pos":2}}}
     },
     "segments":{
-        "HD":{"elements":{"1":{"name":"batch","type":"AN","required":true,"min":1,"max":5}}},
+        "HD":{"elements":{"1":{"name":"batch","type":"AN","usage":"required","min":1,"max":5}}},
         "CL":{"elements":{
-            "1":{"name":"claim_id","type":"AN","required":true,"min":1,"max":10},
-            "2":{"name":"charge","type":"R","required":true,"max":10},
+            "1":{"name":"claim_id","type":"AN","usage":"required","min":1,"max":10},
+            "2":{"name":"charge","type":"R","usage":"required","max":10},
             "3":{"name":"units","type":"N0","max":2},
             "4":{"name":"procedure","type":"AN","composite":{
-                "1":{"name":"qualifier","type":"ID","required":true,"min":2,"max":2},
-                "2":{"name":"code","type":"AN","required":true,"max":5}
+                "1":{"name":"qualifier","type":"ID","usage":"required","min":2,"max":2},
+                "2":{"name":"code","type":"AN","usage":"required","max":5}
             }}
         }},
         "DT":{"elements":{
-            "1":{"name":"qualifier","type":"ID","required":true},
+            "1":{"name":"qualifier","type":"ID","usage":"required"},
             "2":{"name":"date","type":"DT"},
             "3":{"name":"time","type":"TM"}
         }},
         "AJ":{"elements":{
-            "1":{"name":"group","type":"ID","required":true},
+            "1":{"name":"group","type":"ID","usage":"required"},
             "2":{"name":"reason","type":"ID"},
             "3":{"name":"amount","type":"R"},
             "4":{"name":"reason_2","type":"ID"},

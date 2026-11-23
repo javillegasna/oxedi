@@ -7,7 +7,7 @@ use super::elements::{ElementDef, SegmentDef, holds_code};
 use super::loops::Trigger;
 use crate::segment::Segment;
 
-/// Whether an occurrence must appear in every instance of its loop.
+/// Whether an occurrence, or an element, must be present.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
 pub enum Usage {
     /// Written `required`: every instance of the loop holds it.

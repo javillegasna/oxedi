@@ -22,17 +22,17 @@ const SPEC: &str = r#"{"name":"b",
         }}
     },
     "segments":{
-        "PY":{"elements":{"2":{"name":"total","type":"R","required":true}}},
+        "PY":{"elements":{"2":{"name":"total","type":"R","usage":"required"}}},
         "CL":{"elements":{
-            "3":{"name":"charge","type":"R","required":true},
-            "4":{"name":"paid","type":"R","required":true}
+            "3":{"name":"charge","type":"R","usage":"required"},
+            "4":{"name":"paid","type":"R","usage":"required"}
         }},
         "CA":{"elements":{
-            "2":{"name":"amount","type":"R","required":true},
+            "2":{"name":"amount","type":"R","usage":"required"},
             "4":{"name":"amount_2","type":"R"}
         }},
         "AJ":{"elements":{
-            "2":{"name":"amount","type":"R","required":true},
+            "2":{"name":"amount","type":"R","usage":"required"},
             "4":{"name":"amount_2","type":"R","scale":3}
         }}
     },

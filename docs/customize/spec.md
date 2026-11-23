@@ -260,7 +260,7 @@ The only key of a segment is `elements`. An element or a component takes these k
 |-----|----------|---------|------|
 | `name` | yes | Name used downstream; unique among its siblings. | `ElementDef::name` |
 | `type` | yes | `AN`, `ID`, `N0` to `N9`, `R`, `DT` or `TM`. | `ElementType`, `spec_load/segments.rs` |
-| `required` | no | The element must be present and not empty. Default false. | `ElementDef::required` |
+| `usage` | no | `required`: the element must be present and not empty; `situational` (the default) leaves it out. | `ElementDef::required` |
 | `min`, `max` | no | Length bounds, counted as X12 counts them (digits only for `N` and `R`). | `ElementDef` |
 | `scale` | no | Decimal places of an `R` element, 2 by default, at most 18. Only `R` accepts it. | `ElementType::R` |
 | `codes` | no | The values the element may hold: non-empty, no empty or repeated code, each within `min` and `max`. Refused on `N0` to `N9` and `R`, and on an element with `composite`. | `ElementDef::codes` |

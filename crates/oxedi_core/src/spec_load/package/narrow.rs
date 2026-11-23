@@ -10,14 +10,19 @@ use serde::Serialize;
 use super::change::{Change, ChangeKind};
 use super::id::PackageId;
 use crate::message::render_key;
-use crate::spec_load::model::{ElementModel, SegmentModel, SpecModel};
+use crate::spec::Usage;
+use crate::spec_load::model::{
+    ElementModel, LoopModel, OccurrenceModel, QualifierModel, SegmentModel, SpecModel,
+};
 
 /// Every difference of `next` from `prev`, in a fixed order: the segments in
-/// key order, then each of their elements and components. What only `next`
+/// key order with their elements and components, then the loops with their
+/// occurrences. What only `next`
 /// holds is an addition, never a difference.
 pub(super) fn differences(package: &PackageId, prev: &SpecModel, next: &SpecModel) -> Vec<Change> {
     let mut walk = Walk::default();
     walk.entries("segments", &prev.segments, &next.segments, Walk::segment);
+    walk.entries("loops", &prev.loops, &next.loops, Walk::loop_def);
     walk.found
         .into_iter()
         .map(|(path, kind)| Change {
@@ -117,6 +122,90 @@ impl Walk {
         );
     }
 
+    // A loop: where it sits and what opens it are structure, its usage and
+    // maximum allow more or less, and its occurrences are compared by name.
+    fn loop_def(&mut self, before: &LoopModel, after: &LoopModel) {
+        self.plain("parent", &before.parent, &after.parent);
+        self.plain("end", &before.end, &after.end);
+        self.plain("trigger", &before.trigger, &after.trigger);
+        self.optional("control", &before.control, &after.control, Walk::whole);
+        self.usage(before.usage, after.usage);
+        self.limit("max", Limit::Max, before.max, after.max);
+        let (held, now) = (&before.occurrences, &after.occurrences);
+        self.entries("occurrences", held, now, Walk::occurrence);
+    }
+
+    fn occurrence(&mut self, before: &OccurrenceModel, after: &OccurrenceModel) {
+        self.plain("segment", &before.segment, &after.segment);
+        self.plain("pos", &before.pos, &after.pos);
+        self.usage(before.usage, after.usage);
+        self.limit("max", Limit::Max, before.max, after.max);
+        self.optional(
+            "qualifier",
+            &before.qualifier,
+            &after.qualifier,
+            Walk::qualifier_codes,
+        );
+        self.entries("codes", &before.codes, &after.codes, Walk::listed);
+    }
+
+    fn qualifier_codes(&mut self, before: &QualifierModel, after: &QualifierModel) {
+        self.plain("element", &before.element, &after.element);
+        self.plain("component", &before.component, &after.component);
+        self.codes("codes", Some(&before.codes), Some(&after.codes));
+    }
+
+    // A required usage allows less than a situational one.
+    fn usage(&mut self, before: Usage, after: Usage) {
+        let word = |usage| match usage {
+            Usage::Required => "\"required\"",
+            Usage::Situational => "\"situational\"",
+        };
+        let required = |usage| usage == Usage::Required;
+        if before != after {
+            let order = required(after).cmp(&required(before));
+            self.judged(
+                "usage",
+                order,
+                word(before).to_owned(),
+                word(after).to_owned(),
+            );
+        }
+    }
+
+    // The codes a position holds, where the key already names the position.
+    fn listed<L: AsRef<[String]>>(&mut self, before: &L, after: &L) {
+        self.listing(Some(before.as_ref()), Some(after.as_ref()));
+    }
+
+    // A value a spec may leave out: one the package drops is removed, one it
+    // adds is added, and one both hold goes to `both`.
+    fn optional<T: Serialize>(
+        &mut self,
+        name: &str,
+        before: &Option<T>,
+        after: &Option<T>,
+        both: fn(&mut Walk, &T, &T),
+    ) {
+        self.at(name, |walk| match (before, after) {
+            (Some(held), Some(now)) => both(walk, held, now),
+            (Some(_), None) => walk.record(ChangeKind::Removed),
+            (None, Some(now)) => walk.record(ChangeKind::Added { after: json(now) }),
+            (None, None) => {}
+        });
+    }
+
+    // A value that is neither narrower nor wider when it differs, here at the
+    // key of its own entry.
+    fn whole<T: Serialize + PartialEq>(&mut self, before: &T, after: &T) {
+        if before != after {
+            self.record(ChangeKind::Changed {
+                before: json(before),
+                after: json(after),
+            });
+        }
+    }
+
     // A value that is neither narrower nor wider when it differs.
     fn plain<T: Serialize + PartialEq>(&mut self, name: &str, before: &T, after: &T) {
         if before != after {
@@ -162,6 +251,10 @@ impl Walk {
     // A list of codes: a list allows less than none, and a list inside the
     // base's allows less than the base's.
     fn codes(&mut self, name: &str, before: Option<&[String]>, after: Option<&[String]>) {
+        self.at(name, |walk| walk.listing(before, after));
+    }
+
+    fn listing(&mut self, before: Option<&[String]>, after: Option<&[String]>) {
         let order = match (before, after) {
             (Some(base), Some(codes)) => inclusion(base, codes),
             (None, None) => Ordering::Equal,
@@ -172,16 +265,19 @@ impl Walk {
             return;
         }
         let text = |list: Option<&[String]>| list.map_or_else(|| "any code".to_owned(), json);
-        self.judged(name, order, text(before), text(after));
+        self.verdict(order, text(before), text(after));
     }
 
     // `order` says how much `after` allows against `before`: greater is less.
     fn judged(&mut self, name: &str, order: Ordering, before: String, after: String) {
-        let kind = match order {
+        self.at(name, |walk| walk.verdict(order, before, after));
+    }
+
+    fn verdict(&mut self, order: Ordering, before: String, after: String) {
+        self.record(match order {
             Ordering::Less => ChangeKind::Widened { before, after },
             Ordering::Equal | Ordering::Greater => ChangeKind::Narrowed { before, after },
-        };
-        self.at(name, |walk| walk.record(kind));
+        });
     }
 }
 

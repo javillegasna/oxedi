@@ -29,3 +29,8 @@ fn package(id: &str, layers: &[&str], bases: &[&str], spec: &str) -> Package {
 fn envelope() -> Package {
     package("test/envelope/005010", &["envelope"], &[], ENVELOPE_SPEC)
 }
+
+/// An envelope's spec: a loop with two occurrences, a segment `AA` whose first
+/// element bounds everything and whose second is a composite with one
+/// component, a version and a balancing rule.
+const BASE: &str = r#"{"version":{"segment":"AA","element":1,"values":["V"]},"loops":{"a":{"trigger":{"segment":"AA"},"usage":"required","max":2,"occurrences":{"aa":{"segment":"AA","pos":0,"usage":"required","max":1,"codes":{"1":["X"]}},"ab":{"segment":"AA","pos":1,"qualifier":{"element":1,"codes":["Y"]}}}}},"segments":{"AA":{"elements":{"1":{"name":"code","type":"ID","min":1,"max":2,"required":true,"codes":["X","Y"]},"2":{"name":"pair","type":"AN","composite":{"1":{"name":"part","type":"ID","codes":["P","Q"]}}}}}},"balancing":{"r":{"per":"a","target":[{"occurrence":"aa","elements":[1]}],"sum":[{"occurrence":"ab","elements":[1]}]}}}"#;

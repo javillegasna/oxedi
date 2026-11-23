@@ -10,5 +10,5 @@ mod layer;
 mod tests;
 
 pub use error::IdError;
-pub use id::IdPart;
+pub use id::{Guide, IdPart, Release, TransactionSet};
 pub use layer::Layer;

@@ -11,6 +11,12 @@ fn payer_identification(spec: &Spec) -> &OccurrenceDef {
         .unwrap()
 }
 
+/// The rule at N1's first element, where `payer_identification` lists `PR`.
+fn payer_rule(spec: &Spec) -> ElementRule<'_> {
+    let first = spec.element_def(b"N1", 1, None).unwrap();
+    ElementRule::at(first, Some(payer_identification(spec)), 1, None)
+}
+
 #[test]
 fn an_element_alone_keeps_its_definition() {
     let spec = &Spec::builtin_835();
@@ -26,8 +32,7 @@ fn an_element_alone_keeps_its_definition() {
 fn an_occurrence_list_applies_at_its_place_only() {
     let spec = &Spec::builtin_835();
     let occurrence = payer_identification(spec);
-    let first = spec.element_def(b"N1", 1, None).unwrap();
-    let rule = ElementRule::at(first, Some(occurrence), 1, None);
+    let rule = payer_rule(spec);
     assert_eq!(rule.codes, ["PR"]);
     assert_eq!(rule.codes_of, Some("payer_identification"));
     let second = spec.element_def(b"N1", 2, None).unwrap();
@@ -39,24 +44,21 @@ fn an_occurrence_list_applies_at_its_place_only() {
 #[test]
 fn rejects_follows_the_list_that_applies() {
     let spec = &Spec::builtin_835();
-    let occurrence = payer_identification(spec);
-    let first = spec.element_def(b"N1", 1, None).unwrap();
-    let rule = ElementRule::at(first, Some(occurrence), 1, None);
+    let rule = payer_rule(spec);
     assert!(rule.rejects(b"PE"));
     assert!(!rule.rejects(b"PR"));
-    assert!(!ElementRule::of(first).rejects(b"PE"));
+    assert!(!ElementRule::of(rule.def).rejects(b"PE"));
 }
 
 #[test]
 fn own_rejects_asks_the_occurrence_list_only() {
     let spec = &Spec::builtin_835();
-    let occurrence = payer_identification(spec);
-    let first = spec.element_def(b"N1", 1, None).unwrap();
-    let rule = ElementRule::at(first, Some(occurrence), 1, None);
+    let rule = payer_rule(spec);
     assert!(rule.own_rejects(b"PE"));
     assert!(!rule.own_rejects(b"PR"));
     // Without an occurrence list the element's list is not asked.
-    assert!(!ElementRule::of(first).own_rejects(b"ZZ"));
+    assert!(!ElementRule::of(rule.def).own_rejects(b"ZZ"));
     let second = spec.element_def(b"N1", 2, None).unwrap();
+    let occurrence = payer_identification(spec);
     assert!(!ElementRule::at(second, Some(occurrence), 2, None).own_rejects(b"ZZ"));
 }

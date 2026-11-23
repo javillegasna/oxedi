@@ -2,6 +2,8 @@
 
 use std::fmt;
 
+use serde::de::{self, Deserialize, Deserializer};
+
 use crate::vocabulary::{Vocabulary, serde_by_word};
 
 /// One layer of a vocabulary, in layer order (each builds on the ones before).
@@ -49,6 +51,11 @@ impl Layer {
         Self::from_word(word)
     }
 
+    /// The layer's bit in a [`Layers`] set.
+    const fn bit(self) -> u8 {
+        1 << self as u8
+    }
+
     /// The id form of the layer, written as a message quotes it.
     pub(in crate::spec_load) const fn form(self) -> &'static str {
         match self {
@@ -85,5 +92,71 @@ serde_by_word!(Layer);
 impl fmt::Display for Layer {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         f.write_str(self.word())
+    }
+}
+
+/// The layers a package holds: never empty, each once, read in layer order.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct Layers {
+    bits: u8,
+    lowest: Layer,
+    top: Layer,
+}
+
+impl Layers {
+    /// Whether the package holds `layer`.
+    pub fn contains(self, layer: Layer) -> bool {
+        self.bits & layer.bit() != 0
+    }
+
+    /// The first layer in layer order.
+    pub fn lowest(self) -> Layer {
+        self.lowest
+    }
+
+    /// The last layer in layer order.
+    pub fn top(self) -> Layer {
+        self.top
+    }
+
+    /// The layers held, in layer order.
+    pub fn iter(self) -> impl Iterator<Item = Layer> {
+        Layer::ALL
+            .into_iter()
+            .filter(move |&layer| self.contains(layer))
+    }
+}
+
+impl fmt::Display for Layers {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "{}", quoted(self.iter()))
+    }
+}
+
+/// The words of `layers`, quoted and joined by `, `.
+fn quoted(layers: impl Iterator<Item = Layer>) -> String {
+    layers
+        .map(|layer| format!("{:?}", layer.word()))
+        .collect::<Vec<_>>()
+        .join(", ")
+}
+
+impl<'de> Deserialize<'de> for Layers {
+    fn deserialize<D: Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
+        let written = Vec::<Layer>::deserialize(deserializer)?;
+        let (Some(&lowest), Some(&top)) = (written.first(), written.last()) else {
+            return Err(de::Error::custom(
+                "\"layers\" lists no layer; list the layers the package holds, in layer order",
+            ));
+        };
+        if !written.windows(2).all(|pair| pair[0] < pair[1]) {
+            return Err(de::Error::custom(format!(
+                "\"layers\" must list each layer once, in layer order ({}); found {}",
+                quoted(Layer::ALL.into_iter()),
+                quoted(written.iter().copied())
+            )));
+        }
+        let bits = written.iter().fold(0, |bits, layer| bits | layer.bit());
+        Ok(Layers { bits, lowest, top })
     }
 }

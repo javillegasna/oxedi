@@ -88,6 +88,7 @@ mod by_module {
     use oxedi_core::spec_load::IdError;
     use oxedi_core::spec_load::IdPart;
     use oxedi_core::spec_load::Layer;
+    use oxedi_core::spec_load::Layers;
     use oxedi_core::spec_load::LoadedSpec;
     use oxedi_core::spec_load::LoopModel;
     use oxedi_core::spec_load::LoopSegments;

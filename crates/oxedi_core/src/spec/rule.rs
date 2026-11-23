@@ -55,4 +55,10 @@ impl<'s> ElementRule<'s> {
     pub(crate) fn rejects(&self, value: &[u8]) -> bool {
         rejects_code(self.codes, value)
     }
+
+    /// `true` when the occurrence's own list rejects `value`; an element's
+    /// list is not asked.
+    pub(crate) fn own_rejects(&self, value: &[u8]) -> bool {
+        self.codes_of.is_some() && self.rejects(value)
+    }
 }

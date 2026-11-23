@@ -130,6 +130,25 @@ fn a_where_code_the_segment_excludes_writes_nothing() {
 }
 
 #[test]
+fn a_where_code_outside_the_occurrence_list_selects_nothing() {
+    // X is in the element's list but not in the occurrence's own list, so
+    // the rule at that place refuses it; with the element lists left out no
+    // occurrence takes it either, so it is not an excluded code.
+    let found = refusals(
+        r#"{"segments":{"DT":{"elements":{"1":{"codes":["S","X"]}}}},
+        "loops":{"head":{"occurrences":{"dt":{"codes":{"1":["S"]}}}}},
+        "tables":{"heads":{"columns":{"x_date":{"segment":"DT","where":{"1":"X"},"element":2}}}}}"#,
+    );
+    assert!(found.iter().any(|text| text
+        == r#"table "heads" column "x_date" reads "DT" where {1: "X"} in loop "head", which matches none of its occurrences"#));
+    assert!(
+        found
+            .iter()
+            .all(|text| !text.contains("with the fixed code"))
+    );
+}
+
+#[test]
 fn a_table_anchored_on_several_loops_is_refused() {
     // Sibling anchors the loader accepts; the writer cannot tell them apart.
     assert_eq!(

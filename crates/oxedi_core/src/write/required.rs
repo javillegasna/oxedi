@@ -3,7 +3,7 @@
 //! refusals for the rest.
 
 use crate::spec::{
-    ElementDef, OccurrenceDef, SegmentDef, Spec, Usage, render_selector, render_trigger,
+    ElementRule, OccurrenceDef, SegmentDef, Spec, Usage, render_selector, render_trigger,
 };
 
 use super::build::Builder;
@@ -126,17 +126,17 @@ fn fill_required(
     let Some(def) = spec.segment(&occurrence.segment) else {
         return missing;
     };
-    for (place, element) in required_places(def, segment) {
+    for (place, rule) in required_places(def, segment, occurrence) {
         if is_written(segment, place) {
             continue;
         }
-        match single_code(occurrence, place, element) {
+        match single_code(rule) {
             Some(code) => segment.elements.push(ElementPlan {
                 element: place.element,
                 component: place.component,
                 value: ValueSource::Code(code),
             }),
-            None => missing.push((place.element, place.component, element.name.clone())),
+            None => missing.push((place.element, place.component, rule.def.name.clone())),
         }
     }
     missing
@@ -147,21 +147,27 @@ fn is_written(segment: &SegmentPlan, place: Place) -> bool {
     segment.elements.iter().any(|e| e.place().overlaps(place))
 }
 
-/// The places the segment requires, in element then component order: a
-/// required simple element, and each required component of a composite that
-/// is required or that the plan already writes.
-fn required_places<'a>(def: &'a SegmentDef, segment: &SegmentPlan) -> Vec<(Place, &'a ElementDef)> {
+/// The places the segment requires, in element then component order, with
+/// the rule `occurrence` gives each: a required simple element, and each
+/// required component of a composite that is required or that the plan
+/// already writes.
+fn required_places<'a>(
+    def: &'a SegmentDef,
+    segment: &SegmentPlan,
+    occurrence: &'a OccurrenceDef,
+) -> Vec<(Place, ElementRule<'a>)> {
     let mut places = Vec::new();
     for (&element, definition) in &def.elements {
         let whole = Place {
             element,
             component: None,
         };
+        let rule = ElementRule::at(definition, Some(occurrence), element, None);
         if definition.composite.is_empty() {
-            if definition.required {
-                places.push((whole, definition));
+            if rule.required {
+                places.push((whole, rule));
             }
-        } else if definition.required || is_written(segment, whole) {
+        } else if rule.required || is_written(segment, whole) {
             places.extend(
                 definition
                     .composite
@@ -171,7 +177,9 @@ fn required_places<'a>(def: &'a SegmentDef, segment: &SegmentPlan) -> Vec<(Place
                             element,
                             component: Some(component),
                         };
-                        part.required.then_some((place, part))
+                        let rule =
+                            ElementRule::at(part, Some(occurrence), element, Some(component));
+                        rule.required.then_some((place, rule))
                     }),
             );
         }
@@ -179,14 +187,10 @@ fn required_places<'a>(def: &'a SegmentDef, segment: &SegmentPlan) -> Vec<(Place
     places
 }
 
-/// The one code a place allows: the occurrence's codes for that place, else
-/// the element's own; `None` when there are none or several.
-fn single_code(occurrence: &OccurrenceDef, place: Place, element: &ElementDef) -> Option<Vec<u8>> {
-    let codes = occurrence
-        .codes
-        .get(&(place.element, place.component))
-        .or((!element.codes.is_empty()).then_some(&element.codes))?;
-    match codes.as_slice() {
+/// The one code a place allows: the rule's list, the occurrence's own or
+/// else the element's; `None` when there are none or several.
+fn single_code(rule: ElementRule<'_>) -> Option<Vec<u8>> {
+    match rule.codes {
         [code] => Some(code.as_bytes().to_vec()),
         _ => None,
     }

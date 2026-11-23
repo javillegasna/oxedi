@@ -22,8 +22,8 @@ impl Stack<'_> {
     /// model is left to the caller, once.
     pub(in crate::spec_load) fn compose(&self) -> Result<Composed, SpecError> {
         let mut value = json!({ "name": self.top().id().spec_name() });
-        for base in self.bases() {
-            absorb(&mut value, base)?;
+        for step in self.bases() {
+            absorb(&mut value, step.package)?;
         }
         let model = absorb(&mut value, self.top())?;
         Ok(Composed { model })

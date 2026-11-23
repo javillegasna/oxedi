@@ -109,6 +109,11 @@ impl Layers {
         self.bits & layer.bit() != 0
     }
 
+    /// Whether the package holds a layer `other` holds.
+    pub fn shares(self, other: Layers) -> bool {
+        self.bits & other.bits != 0
+    }
+
     /// The first layer in layer order.
     pub fn lowest(self) -> Layer {
         self.lowest

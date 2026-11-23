@@ -1,10 +1,11 @@
 //! The kit manifest and its strict read.
 
-use std::collections::{BTreeMap, BTreeSet};
+use std::collections::{BTreeMap, BTreeSet, HashSet};
+use std::fmt;
 use std::num::NonZeroU32;
 
 use serde::Deserialize;
-use serde::de::{self, Deserializer};
+use serde::de::{self, Deserializer, IgnoredAny, MapAccess, Visitor};
 use serde_json::Value;
 
 use super::error::KitError;
@@ -122,7 +123,7 @@ impl Kit {
         }
         let Keys { kit: header, cases } =
             serde_path_to_error::deserialize(StrictValue(&value)).map_err(format_error)?;
-        match refuse(&cases) {
+        match refuse(json, &cases) {
             Some(reason) => Err(bad_kit(reason)),
             None => Ok(Kit { header, cases }),
         }
@@ -150,9 +151,53 @@ impl Kit {
     }
 }
 
-/// The first rule a kit that read breaks: it holds a case, and each case
-/// expects an output.
-fn refuse(cases: &BTreeMap<String, KitCase>) -> Option<KitError> {
+/// The names under `cases`, in the order written and with any repeat kept:
+/// reading the object through a value would keep only the last of two equal
+/// keys.
+struct CaseNames(Vec<String>);
+
+impl<'de> Deserialize<'de> for CaseNames {
+    fn deserialize<D: Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
+        struct Names;
+        impl<'de> Visitor<'de> for Names {
+            type Value = CaseNames;
+
+            fn expecting(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+                f.write_str("an object of cases")
+            }
+
+            fn visit_map<A: MapAccess<'de>>(self, mut map: A) -> Result<CaseNames, A::Error> {
+                let mut names = Vec::new();
+                while let Some((name, _)) = map.next_entry::<String, IgnoredAny>()? {
+                    names.push(name);
+                }
+                Ok(CaseNames(names))
+            }
+        }
+        deserializer.deserialize_map(Names)
+    }
+}
+
+/// The text only reads `cases`; every other key is ignored.
+#[derive(Deserialize)]
+struct Probe {
+    cases: CaseNames,
+}
+
+/// The first case name `json` writes twice under `cases`. The text was read
+/// whole already, so a read that fails here finds no repeat.
+fn repeated_case(json: &str) -> Option<String> {
+    let Probe { cases } = serde_json::from_str(json).ok()?;
+    let mut seen = HashSet::new();
+    cases.0.into_iter().find(|name| !seen.insert(name.clone()))
+}
+
+/// The first rule a kit that read breaks: no case is named twice, it holds a
+/// case, and each case expects an output.
+fn refuse(json: &str, cases: &BTreeMap<String, KitCase>) -> Option<KitError> {
+    if let Some(case) = repeated_case(json) {
+        return Some(KitError::RepeatedCase { case });
+    }
     if cases.is_empty() {
         return Some(KitError::NoCases);
     }

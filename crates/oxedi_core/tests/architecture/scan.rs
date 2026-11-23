@@ -5,7 +5,7 @@
 //! or a macro counts, because it names a module all the same. It also finds the calls to the
 //! shortcuts of `table.rs`.
 
-use super::blank::{is_ident, strip_comments};
+use super::blank::{blank_comments_and_escapes, is_ident};
 use super::table::Shortcut;
 use std::collections::BTreeSet;
 use std::path::Path;
@@ -24,7 +24,8 @@ pub enum Target {
 /// One path of one file that names a module other than its own.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Use {
-    /// The module the file belongs to: the first folder of its path.
+    /// The module the file belongs to: the first folder of its path, or the stem of a file directly
+    /// under `src`.
     pub from: String,
     pub to: Target,
     /// The file, relative to `src`, with `/` as separator.
@@ -37,7 +38,7 @@ pub struct Use {
 
 /// The uses in one file. `rel` is its path relative to `src`; `modules` the core's modules.
 pub fn uses_in(rel: &Path, text: &str, modules: &BTreeSet<String>) -> Vec<Use> {
-    let clean = strip_comments(text);
+    let clean = blank_comments_and_escapes(text);
     let from = module_of(rel);
     let reader = Reader {
         lines: line_starts(&clean),
@@ -50,32 +51,42 @@ pub fn uses_in(rel: &Path, text: &str, modules: &BTreeSet<String>) -> Vec<Use> {
     reader.scan()
 }
 
-/// The module a file belongs to: the first folder of its path relative to `src`.
+/// The module a file belongs to: the first folder of its path relative to `src`, or the stem of
+/// a file directly under `src`.
 fn module_of(rel: &Path) -> String {
-    rel.components()
-        .next()
-        .map(|c| c.as_os_str().to_string_lossy().into_owned())
+    let mut parts = rel.components();
+    let first = parts.next().map(|c| c.as_os_str());
+    let name = if parts.next().is_none() {
+        rel.file_stem()
+    } else {
+        first
+    };
+    name.map(|n| n.to_string_lossy().into_owned())
         .unwrap_or_default()
 }
 
 /// The calls in one file to the shortcuts another module writes, each a use of the module
 /// that writes it. `rel` is the file's path relative to `src`. A call counts outside comments
-/// only, and only as a whole path: no name character right before or after it. A call through
-/// `Self::` is not seen.
+/// only, and only as a whole path: no name character right before or after it. In the files of
+/// the type's own module a call through `Self::` counts too, since `Self` can be the type there;
+/// there a `Self::` call to a same-named item of another type counts as well, and fails loudly.
+/// Elsewhere `Self::` is not seen: an `impl` of the type written in a third module is not read.
 pub fn shortcut_uses(rel: &Path, text: &str, shortcuts: &[Shortcut]) -> Vec<Use> {
-    let clean = strip_comments(text);
+    let clean = blank_comments_and_escapes(text);
     let lines = line_starts(&clean);
     let from = module_of(rel);
     let file = rel.to_string_lossy().replace('\\', "/");
     let mut found = Vec::new();
     for shortcut in shortcuts.iter().filter(|s| s.module != from) {
-        found.extend(calls_at(&clean, shortcut.call).map(|at| Use {
-            from: from.clone(),
-            to: Target::Module(shortcut.module.to_owned()),
-            file: file.clone(),
-            line: lines.partition_point(|&start| start <= at),
-            path: shortcut.call.to_owned(),
-        }));
+        for written in shortcut.written_in(&from) {
+            found.extend(calls_at(&clean, &written).map(|at| Use {
+                from: from.clone(),
+                to: Target::Module(shortcut.module.to_owned()),
+                file: file.clone(),
+                line: lines.partition_point(|&start| start <= at),
+                path: written.clone(),
+            }));
+        }
     }
     found
 }

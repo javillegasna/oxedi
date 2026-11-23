@@ -37,12 +37,30 @@ pub fn is_test_file(rel: &Path) -> bool {
     in_tests_dir || named
 }
 
-/// The folders directly under `src`: the modules of the core.
+/// The module an entry directly under `src` holds: a folder by its name, a `.rs` file other
+/// than `lib.rs` by its stem (a module written as one file), anything else none. A name that is
+/// not UTF-8 fails, naming the entry.
+pub fn module_name(path: &Path, is_dir: bool) -> Option<String> {
+    let name = path.file_name()?;
+    let Some(name) = name.to_str() else {
+        panic!(
+            "the entry {} under src has a name that is not UTF-8 · rename it: a module of the core is named in UTF-8",
+            path.display()
+        )
+    };
+    if is_dir {
+        return Some(name.to_owned());
+    }
+    let stem = name.strip_suffix(".rs")?;
+    (name != "lib.rs").then(|| stem.to_owned())
+}
+
+/// The modules of the core: the folders directly under `src`, and the `.rs` files there but
+/// `lib.rs`.
 pub fn modules_of(src: &Path) -> BTreeSet<String> {
     entries(src)
         .iter()
-        .filter(|p| p.is_dir())
-        .filter_map(|p| p.file_name()?.to_str().map(str::to_owned))
+        .filter_map(|p| module_name(p, p.is_dir()))
         .collect()
 }
 
@@ -94,4 +112,30 @@ fn only_files_of_tests_are_test_files() {
     for (rel, expected) in files {
         assert_eq!(is_test_file(Path::new(rel)), expected, "{rel}");
     }
+}
+
+#[test]
+fn each_entry_under_src_names_its_module() {
+    let entries = [
+        ("src/spec", true, Some("spec")),
+        ("src/walk.rs", false, Some("walk")),
+        ("src/lib.rs", false, None),
+        ("src/notes.txt", false, None),
+    ];
+    for (path, is_dir, expected) in entries {
+        assert_eq!(
+            module_name(Path::new(path), is_dir).as_deref(),
+            expected,
+            "{path}"
+        );
+    }
+}
+
+#[cfg(unix)]
+#[test]
+#[should_panic(expected = "has a name that is not UTF-8")]
+fn an_entry_whose_name_is_not_utf8_fails() {
+    use std::os::unix::ffi::OsStrExt;
+    let name = std::ffi::OsStr::from_bytes(b"spe\xffc");
+    let _ = module_name(&Path::new("src").join(name), true);
 }

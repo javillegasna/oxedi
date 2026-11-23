@@ -185,6 +185,44 @@ fn cases() -> Vec<(&'static str, &'static str, &'static str, Vec<Use>)> {
             "my_crate::spec::Spec",
             vec![],
         ),
+        (
+            "a_path_after_an_escape",
+            "write/plan.rs",
+            "let p = \"\\ncrate::spec::Spec\";",
+            vec![found(
+                "write/plan.rs",
+                module("spec"),
+                1,
+                "crate::spec::Spec",
+            )],
+        ),
+        (
+            "a_comment_after_a_raw_byte_string",
+            "write/plan.rs",
+            "let a = br\"\\\"; // crate::spec::Spec",
+            vec![],
+        ),
+        (
+            "a_comment_after_a_non_ascii_character",
+            "write/plan.rs",
+            "let c = ['é','\"']; // crate::spec::Spec",
+            vec![],
+        ),
+        (
+            "a_single_file_module",
+            "walk.rs",
+            "use crate::spec::Spec;\nuse super::Cell;",
+            vec![
+                Use {
+                    from: "walk".to_owned(),
+                    ..found("walk.rs", module("spec"), 1, "crate::spec::Spec")
+                },
+                Use {
+                    from: "walk".to_owned(),
+                    ..found("walk.rs", Target::Outside, 2, "super::Cell")
+                },
+            ],
+        ),
     ]
 }
 
@@ -200,9 +238,9 @@ fn the_reader_finds_each_dependency_in_its_place() {
 }
 
 const LOADING: &[Shortcut] = &[
-    shortcut("Spec::from_json", "spec_load"),
-    shortcut("Spec::builtin_835", "spec_load"),
-    shortcut("Spec::builtin_835_4010", "spec_load"),
+    shortcut("Spec::from_json", "spec_load", "spec"),
+    shortcut("Spec::builtin_835", "spec_load", "spec"),
+    shortcut("Spec::builtin_835_4010", "spec_load", "spec"),
 ];
 
 #[test]
@@ -240,6 +278,35 @@ fn the_reader_counts_a_shortcut_call_as_a_use_of_its_module() {
             "a_comment_or_another_type",
             "spec/mod.rs",
             "// Spec::from_json\nLoadedSpec::from_json(x);\nSpecModel::from_json(x);",
+            vec![],
+        ),
+        (
+            "a_self_call_in_the_types_module",
+            "spec/tables.rs",
+            "impl Spec {\n    fn f() {\n        Self::from_json(\"{}\");\n    }\n}",
+            vec![found(
+                "spec/tables.rs",
+                module("spec_load"),
+                3,
+                "Self::from_json",
+            )],
+        ),
+        (
+            "a_self_call_in_another_module",
+            "write/plan.rs",
+            "Self::from_json(x)",
+            vec![],
+        ),
+        (
+            "a_self_call_inside_its_module",
+            "spec_load/build.rs",
+            "Self::builtin_835()",
+            vec![],
+        ),
+        (
+            "a_longer_self_name",
+            "spec/mod.rs",
+            "Self::from_json_str(x); NotSelf::from_json(x);",
             vec![],
         ),
     ];

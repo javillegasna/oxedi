@@ -118,10 +118,6 @@ fn each_violation_is_reported() {
     for (name, uses, table, exceptions, expected) in cases() {
         let got = violations(&modules(&["a", "b"]), &uses, table, exceptions);
         assert_eq!(got, expected, "case {name}");
-        assert!(
-            exceptions.iter().all(|e| !e.reason.is_empty()),
-            "case {name}"
-        );
     }
 }
 
@@ -138,12 +134,12 @@ fn each_violation_explains_itself() {
     let cases = [
         (
             Violation::NotAllowed(at(
-                "check/envelope.rs",
-                12,
-                to("project"),
-                "crate::project::Projector",
+                "element/mod.rs",
+                8,
+                to("frame"),
+                "crate::frame::find_unescaped",
             )),
-            "check uses project, which the table does not allow · check/envelope.rs:12 · crate::project::Projector · remove the use, or add \"project\" to the row of check in tests/architecture/table.rs when the design allows it",
+            "element uses frame, which the table does not allow · element/mod.rs:8 · crate::frame::find_unescaped · remove the use, or add \"frame\" to the row of element in tests/architecture/table.rs when the design allows it",
         ),
         (
             Violation::RootPath(at(

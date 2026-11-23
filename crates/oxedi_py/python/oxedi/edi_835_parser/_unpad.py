@@ -9,11 +9,13 @@ import functools
 from typing import TYPE_CHECKING, Any, Callable, Optional
 
 from ._convert import ENCODING, STRIPPED, ints, unpadded
-from ._patch import PATCH, spec
+from ._patch import spec
 
 if TYPE_CHECKING:
     import numpy as np
     import numpy.typing as npt
+
+    from .. import ElementSource, GroupSource
 
 
 def _last_of(elements, element, component):
@@ -31,10 +33,10 @@ def _last_of(elements, element, component):
 
 def _segment_of(document, anchors, row, own, bound):
     """The index of the segment a column reads for ``row``: the anchor
-    segment, or the first segment named ``own`` after it and before the next
-    row's anchor."""
+    segment when it is named ``own``, else the first segment named ``own``
+    after it and before the next row's anchor."""
     start = int(anchors[row])
-    if own is None or document[start].id == own:
+    if document[start].id == own:
         return start
     for index in range(start + 1, bound):
         if document[index].id == own:
@@ -42,15 +44,12 @@ def _segment_of(document, anchors, row, own, bound):
     return None
 
 
-def _group_last(document, index, source, repeat):
+def _group_last(document, index, source):
     """The raw text a repeated group's column reads from segment ``index``
     when that is the segment's last element (and component), else ``None``:
-    the group whose element ``group_element`` is the last one."""
+    the group whose column element is the last one."""
     elements = document[index].elements
-    offset = len(elements) - repeat["from"] - source["group_element"]
-    if offset < 0 or offset % repeat["step"]:
-        return None
-    return _last_of(elements, len(elements), source.get("component"))
+    return _last_of(elements, len(elements), source.component) if source.holds(len(elements)) else None
 
 
 def _replace(table, column, changes, kind):
@@ -202,20 +201,19 @@ def _strategy(kind, padded):
 
 
 @dataclasses.dataclass(frozen=True)
-class _Read:
-    """What a column reads from its row's segment: its source, the table's
-    repeat, the segment id the column reads when the table is not anchored on
-    that segment (else ``None``) and whether it reads a repeated group."""
+class _FixedRead:
+    """A column that reads one fixed element: the segment id, element and
+    component, copied out of the core's source once so a row's read calls
+    nothing across the binding."""
 
-    source: dict
-    repeat: "Optional[dict]"
-    segment: "Optional[bytes]"
-    grouped: bool
+    segment: bytes
+    element: int
+    component: "Optional[int]"
+    grouped = False
 
     @classmethod
-    def of(cls, name, config, column, source):
-        segment = None if config.get("segment") else spec().column_source(name, column).segment
-        return cls(source, config.get("repeat"), segment, "group_element" in source)
+    def of(cls, source: "ElementSource"):
+        return cls(source.segment, source.element, source.component)
 
     def raw(self, document, anchoring, row):
         """The raw text row ``row`` reads when it is its segment's last
@@ -223,12 +221,34 @@ class _Read:
         anchor = int(anchoring.anchors[row])
         if anchor < 0:
             return None
-        if self.grouped:
-            return _group_last(document, anchor, self.source, self.repeat) if anchoring.last_of_segment[row] else None
         index = _segment_of(document, anchoring.anchors, row, self.segment, int(anchoring.bounds[row]))
         if index is None:
             return None
-        return _last_of(document[index].elements, self.source["element"], self.source.get("component"))
+        return _last_of(document[index].elements, self.element, self.component)
+
+
+@dataclasses.dataclass(frozen=True)
+class _GroupRead:
+    """A column that reads an element of each repeated group."""
+
+    source: "GroupSource"
+    grouped = True
+
+    def raw(self, document, anchoring, row):
+        """The raw text row ``row`` reads when it is its segment's last
+        element (and component), or ``None``."""
+        anchor = int(anchoring.anchors[row])
+        if anchor < 0 or not anchoring.last_of_segment[row]:
+            return None
+        return _group_last(document, anchor, self.source)
+
+
+def _reads(compat, table):
+    """Every column of ``table`` that reads an element, with how it reads it
+    from the document."""
+    reads = {column: _FixedRead.of(source) for column, source in compat.element_sources(table).items()}
+    reads.update({column: _GroupRead(source) for column, source in compat.group_sources(table).items()})
+    return reads
 
 
 class _Unpadder:
@@ -241,24 +261,23 @@ class _Unpadder:
         self.padded = padded
 
     def run(self, arrow):
-        for name, config in PATCH["tables"].items():
-            if config is not None and name in arrow and "segment" in arrow[name].column_names:
-                arrow[name] = self._table(name, config, arrow[name])
+        compat = spec()
+        for name in list(arrow):
+            if "segment" in arrow[name].column_names:
+                arrow[name] = self._table(arrow[name], _reads(compat, name))
         return arrow
 
-    def _table(self, name, config, table):
+    def _table(self, table, reads):
         anchoring = _Anchoring.of(table, self.diagnosed, len(self.document))
-        for column, source in config["columns"].items():
-            if source.get("element") is not None or "group_element" in source:
-                table = self._column(name, config, anchoring, table, column, source)
+        for column, read in reads.items():
+            table = self._column(anchoring, table, column, read)
         return table
 
-    def _column(self, name, config, anchoring, table, column, source):
+    def _column(self, anchoring, table, column, read):
         kind = table.schema.field(column).type
         strategy = _strategy(kind, self.padded)
         if strategy is None:
             return table
-        read = _Read.of(name, config, column, source)
         rows = strategy.rows(table.column(column), anchoring, read.grouped)
         changes = self._changes(strategy, anchoring, rows, read)
         return _replace(table, column, changes, kind) if changes else table

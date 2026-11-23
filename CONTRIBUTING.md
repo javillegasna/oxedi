@@ -123,10 +123,17 @@ one file.
 **Dependencies between modules are written down.** `crates/oxedi_core/tests/architecture/table.rs`
 lists the modules each core module may use, and the architecture test fails on a use the list does
 not allow, on an entry no file uses and on a cycle. A new dependency changes the list in the same
-commit. From the test's output:
+commit. The test reads a dependency from the path that names it, so a path to another module names
+that module (`crate::frame::find_unescaped`), never an item the crate root re-exports
+(`crate::Segment`), a glob of the crate root (`crate::*`) or a `super::` chain that leaves the
+file's module (`super::spec::Spec` in `engine/mod.rs`); the test refuses each of those and says
+what to write instead. A call to an item another module writes on a type, listed in the test's
+`SHORTCUTS` (`Spec::from_json`, `Spec::builtin_835`), is a use of that module (`spec_load`). If
+the row of `element` did not list `frame`, the test would print, for line 8 of
+`crates/oxedi_core/src/element/mod.rs`:
 
 ```text
-check uses project, which the table does not allow · check/envelope.rs:12 · crate::project::Projector · remove the use, or add "project" to the row of check in tests/architecture/table.rs when the design allows it
+element uses frame, which the table does not allow · element/mod.rs:8 · crate::frame::find_unescaped · remove the use, or add "frame" to the row of element in tests/architecture/table.rs when the design allows it
 ```
 
 **Files stay small.** About 400 lines of code per file, tests excluded. A longer file needs a

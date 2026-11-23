@@ -20,8 +20,9 @@ over from one function to the next. --measurements reads `path,function,ccn,nest
 --duplicates LIST also looks for copied code in every path listed in LIST (one per line) with
 lizard's duplicate extension, at DUPLICATE_MIN_TOKENS tokens; --duplicate-blocks CSV reads
 `block,path,first,last` rows instead (used by the tests), the rows of one block sharing its
-number. There is no baseline for duplicates: every block found fails. --update and
---compare-with do not read either.
+number. There is no baseline for duplicates: every block found fails. A block whose every copy
+is a Rust module's list of its files (each line a `mod` declaration, an attribute or blank) is
+not a duplicate. --update and --compare-with do not read either.
 
 Each finding says how to resolve it:
   FAIL      a function is over a target and not in the baseline, or worse than its entry;
@@ -64,6 +65,9 @@ from typing import NamedTuple
 
 CCN_TARGET = 7
 DUPLICATE_MIN_TOKENS = 70
+# A line of a Rust module's list of its files: a `mod x;` declaration of any visibility, an
+# outer attribute (`#[cfg(test)]`), or blank.
+MOD_LIST_LINE = re.compile(r"\s*(#\[[^\]]*\]\s*)*((pub(\([^)]*\))?\s+)?mod\s+(r#)?\w+\s*;)?\s*")
 NESTING_TARGET = 3
 FLAT_FIELD = "\tflat"
 
@@ -213,6 +217,20 @@ def duplicate_message(block: Block) -> str:
     where = ", ".join(f"{c.path}:{c.first}-{c.last}" for c in block)
     return (f"DUPLICATE {where}: the same code is written {len(block)} times; write it once "
             "(a helper, a fixture, a table of cases or a shared base) and use it from each place")
+
+
+def lists_modules(copy: Copy) -> bool:
+    """Whether the copy is a Rust module's list of its files: every line a `mod` declaration, an
+    attribute or blank. Two modules whose files share names write no logic twice. A copy whose
+    file cannot be read is not such a list, so its block stays reported."""
+    if not copy.path.endswith(".rs"):
+        return False
+    try:
+        text = Path(copy.path).read_text(encoding="utf-8")
+    except (OSError, UnicodeDecodeError):
+        return False
+    lines = text.splitlines()[copy.first - 1:copy.last]
+    return bool(lines) and all(MOD_LIST_LINE.fullmatch(line) for line in lines)
 
 
 def read_measurements(path: str) -> list[Row]:
@@ -566,10 +584,12 @@ def report_changes(new: Table, old: Table, new_flat: set[Key], old_flat: set[Key
 
 def duplicate_blocks(args: argparse.Namespace) -> list[Block] | None:
     if args.duplicates:
-        return find_duplicates(Path(args.duplicates).read_text(encoding="utf-8").split())
-    if args.duplicate_blocks:
-        return read_blocks(args.duplicate_blocks)
-    return None
+        found = find_duplicates(Path(args.duplicates).read_text(encoding="utf-8").split())
+    elif args.duplicate_blocks:
+        found = read_blocks(args.duplicate_blocks)
+    else:
+        return None
+    return [block for block in found if not all(map(lists_modules, block))]
 
 
 def main() -> int:

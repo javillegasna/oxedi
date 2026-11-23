@@ -29,8 +29,9 @@
 //! compiled form; `patch` the merge patch; `builtin` the registry of shipped
 //! specs by transaction and version, and the built-in 835 shortcuts;
 //! `vocabulary` the spec's closed words and the elements key, one table each;
-//! `kit` the conformance kit's manifest, read strictly; `package` the layers of a package, its identity, the stack of packages a
-//! spec is composed from and the check that a package only narrows its bases.
+//! `kit` the conformance kit's manifest, read strictly; `package` the layers
+//! of a package, its identity, the stack of packages a spec is composed from
+//! and the check that a package only narrows its bases.
 
 mod balance;
 mod balance_error;

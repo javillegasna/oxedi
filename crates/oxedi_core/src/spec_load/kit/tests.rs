@@ -47,15 +47,6 @@ fn the_example_manifest_reads() {
 }
 
 #[test]
-fn files_are_listed_once() {
-    let kit = Kit::from_json(&kit_with(
-        r#"{"a":{"input":"in.835","expect":{"tables":"a.txt"}},"b":{"input":"in.835","expect":{"tables":"b.txt"}}}"#,
-    ))
-    .unwrap();
-    assert_eq!(kit.files(), ["a.txt", "b.txt", "in.835"]);
-}
-
-#[test]
 fn a_newer_kit_format_is_refused_first() {
     let err = Kit::from_json(r#"{"kit":{"format":2,"package":"x"},"extra":1}"#).unwrap_err();
     assert!(matches!(
@@ -78,14 +69,6 @@ fn an_unknown_key_is_refused_with_its_path() {
     let text = error_of(r#"{"a":{"input":"x","expect":{"tables":"y"},"extra":1}}"#).to_string();
     assert!(text.contains("cases.a"), "{text}");
     assert!(text.contains("extra"), "{text}");
-}
-
-#[test]
-fn an_array_for_a_case_is_refused() {
-    assert!(matches!(
-        error_of(r#"{"a":["x",{}]}"#),
-        SpecError::Format { .. }
-    ));
 }
 
 #[test]

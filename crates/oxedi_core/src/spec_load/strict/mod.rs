@@ -14,6 +14,16 @@ use serde_json::{Error, Map, Value};
 #[cfg(test)]
 mod tests;
 
+/// The `format` a header at `pointer` writes, when it is above `reader`'s. A
+/// header whose `format` is absent, not an unsigned number or within the
+/// reader's own is left to the strict read.
+pub(in crate::spec_load) fn newer_format(value: &Value, pointer: &str, reader: u32) -> Option<u64> {
+    value
+        .pointer(pointer)
+        .and_then(Value::as_u64)
+        .filter(|&found| found > u64::from(reader))
+}
+
 #[derive(Clone, Copy)]
 pub(in crate::spec_load) struct StrictValue<'de>(pub(in crate::spec_load) &'de Value);
 

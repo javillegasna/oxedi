@@ -11,7 +11,7 @@ use super::error::KitError;
 use crate::spec_load::error::SpecError;
 use crate::spec_load::model::format_error;
 use crate::spec_load::package::PackageId;
-use crate::spec_load::strict::StrictValue;
+use crate::spec_load::strict::{StrictValue, newer_format};
 use crate::vocabulary::{Vocabulary, serde_by_word};
 
 /// The header of a kit.
@@ -54,8 +54,9 @@ impl Vocabulary for KitOutput {
 serde_by_word!(KitOutput);
 
 /// A path a kit names: relative, written with `/`, no empty part. `..` is
-/// allowed. The core never opens it; the caller resolves it against the
-/// manifest's directory.
+/// allowed. The core never opens it: a path is a key into the files the
+/// caller holds, and a caller that resolves it against a directory keeps the
+/// result under a root it trusts.
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
 pub struct KitPath(String);
 
@@ -113,11 +114,7 @@ impl Kit {
     /// unknown fields.
     pub fn from_json(json: &str) -> Result<Kit, SpecError> {
         let value: Value = serde_json::from_str(json).map_err(SpecError::Json)?;
-        let newer = value
-            .pointer("/kit/format")
-            .and_then(Value::as_u64)
-            .filter(|&found| found > u64::from(KitHeader::FORMAT));
-        if let Some(found) = newer {
+        if let Some(found) = newer_format(&value, "/kit/format", KitHeader::FORMAT) {
             return Err(bad_kit(KitError::FormatTooNew {
                 found,
                 reader: KitHeader::FORMAT,

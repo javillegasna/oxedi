@@ -5,6 +5,7 @@ import pytest
 import oxedi
 from conftest import LARGEST, read
 from oxedi import Spec, SpecError, Version
+from oxedi._core import EDI_835_PARSER_PATCH
 
 PATCH = {"loops": {"ZZ": {"parent": "2100", "trigger": {"segment": "ZZ1"}}}}
 
@@ -239,15 +240,95 @@ def test_column_source_names_the_segment_element_and_component(make_spec, table,
     assert (source.segment, source.element, source.component) == expected
 
 
-def test_a_column_source_is_a_frozen_value():
-    a = Spec.builtin().column_source("services", "procedure_code")
-    again = Spec.builtin().column_source("services", "procedure_code")
-    assert repr(a) == "ElementSource(segment=b'SVC', element=1, component=2)"
+@pytest.mark.parametrize(
+    ("get", "text", "kind", "field"),
+    [
+        (
+            lambda: Spec.builtin().column_source("services", "procedure_code"),
+            "ElementSource(segment=b'SVC', element=1, component=2)",
+            oxedi.ElementSource,
+            "element",
+        ),
+        (
+            lambda: Spec.builtin().group_sources("provider_adjustments")["reason_code"],
+            "GroupSource(first=3, step=2, offset=0, component=1)",
+            oxedi.GroupSource,
+            "offset",
+        ),
+    ],
+)
+def test_a_source_is_a_frozen_value(get, text, kind, field):
+    a, again = get(), get()
+    assert repr(a) == text
     assert a == again
     assert hash(a) == hash(again)
-    assert isinstance(a, oxedi.ElementSource)
+    assert isinstance(a, kind)
     with pytest.raises(AttributeError):
-        a.element = 3
+        setattr(a, field, 3)
+
+
+def test_a_spec_names_its_tables_and_the_segment_that_opens_each_loop():
+    assert Spec.builtin().tables() == ["adjustments", "claims", "payments", "provider_adjustments", "services"]
+    compat = Spec.builtin().patch(EDI_835_PARSER_PATCH)
+    assert compat.tables() == COMPAT_TABLES
+    spec = Spec.builtin()
+    assert [spec.trigger_segment(n) for n in ("interchange", "2100", "1000A")] == [b"ISA", b"CLP", b"N1"]
+
+
+def test_element_and_group_sources_list_the_columns_that_read_an_element():
+    spec = Spec.builtin()
+    fixed = spec.element_sources("provider_adjustments")
+    assert {n: (s.segment, s.element, s.component) for n, s in fixed.items()} == {
+        "fiscal_period_date": (b"PLB", 2, None),
+        "provider_id": (b"PLB", 1, None),
+    }
+    groups = spec.group_sources("provider_adjustments")
+    assert {n: (g.first, g.step, g.offset, g.component) for n, g in groups.items()} == {
+        "amount": (3, 2, 1, None),
+        "reason_code": (3, 2, 0, 1),
+        "reference_id": (3, 2, 0, 2),
+    }
+    assert [p for p in range(1, 10) if groups["amount"].holds(p)] == [4, 6, 8]
+    assert spec.group_sources("services") == {}
+    assert list(spec.element_sources("services")) == [
+        "allowed_amount",
+        "charge_amount",
+        "line_item_control_number",
+        "original_units",
+        "payment_amount",
+        "procedure_code",
+        "procedure_qualifier",
+        "service_date",
+        "units_paid",
+    ]
+    compat = spec.patch(EDI_835_PARSER_PATCH).element_sources("rows_payments")
+    assert list(compat) == ["amount_paid", "payment_method", "routing_number", "transaction_date"]
+
+
+@pytest.mark.parametrize(
+    ("call", "text"),
+    [
+        (
+            lambda: Spec.builtin().element_sources("claim"),
+            'Spec.element_sources("claim"): table "claim" is not a table of the spec; its tables are '
+            '"adjustments", "claims", "payments", "provider_adjustments", "services"',
+        ),
+        (
+            lambda: Spec.builtin().group_sources("claim"),
+            'Spec.group_sources("claim"): table "claim" is not a table of the spec; its tables are '
+            '"adjustments", "claims", "payments", "provider_adjustments", "services"',
+        ),
+        (
+            lambda: Spec.builtin().trigger_segment("ZZ"),
+            'Spec.trigger_segment("ZZ"): loop "ZZ" is not a loop of the spec; its loops are '
+            '"1000A", "1000B", "2000", "2100", "2110", "group", "interchange", "transaction"',
+        ),
+    ],
+)
+def test_a_lookup_by_name_refuses_an_unknown_name_and_lists_the_known_ones(call, text):
+    with pytest.raises(KeyError) as info:
+        call()
+    assert info.value.args[0] == text
 
 
 @pytest.mark.parametrize(

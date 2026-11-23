@@ -25,6 +25,11 @@ This file covers the Python package; the DuckDB extension has its own changelog 
 - `Spec.column_source(table, column)` → `ElementSource` (`segment`, `element`, `component`): where a
   table column reads its value, as the spec resolved it; `KeyError` for an unknown table or column,
   `ValueError` for a column that reads a segment index or a repeated group.
+- `Spec.element_sources(table)` and `Spec.group_sources(table)`: by name, every column of a table that
+  reads one fixed element (`ElementSource`) or an element of each repeated group (`GroupSource`:
+  `first`, `step`, `offset`, `component`, `holds(position)`); `Spec.tables()`, the table names;
+  `Spec.trigger_segment(name)`, the segment that opens a loop. `KeyError` for an unknown table or
+  loop. Rust: `Repeat::holds(offset, position)`.
 - Rust: `engine::Instance` and `engine::InstanceId`: one open occurrence of a loop, numbered by the
   engine in opening order, with its loop, its 1-based ordinal in the stream and its parent.
   `LoopEngine::path` returns the open instances (`&[Instance]`) instead of their loop ids.

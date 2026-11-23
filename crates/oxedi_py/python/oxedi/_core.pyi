@@ -18,6 +18,7 @@ __all__ = [
     "EDI_835_PARSER_PATCH",
     "ElementSource",
     "Envelope",
+    "GroupSource",
     "Mask",
     "ParseError",
     "Result",
@@ -300,6 +301,44 @@ class Envelope:
     def __repr__(self) -> builtins.str: ...
 
 @typing.final
+class GroupSource:
+    r"""
+    Where a table column reads its value in a segment that repeats a group of
+    elements, one row per group: the element at `offset` inside each group, or
+    one component of it. `holds(position)` says whether an element position of
+    the segment is that element of some group.
+    """
+    @property
+    def first(self) -> builtins.int:
+        r"""
+        The 1-based position of the first group's first element.
+        """
+    @property
+    def step(self) -> builtins.int:
+        r"""
+        Elements per group.
+        """
+    @property
+    def offset(self) -> builtins.int:
+        r"""
+        The 0-based position of the column's element inside each group.
+        """
+    @property
+    def component(self) -> typing.Optional[builtins.int]:
+        r"""
+        The 1-based component position, when the column reads one component of
+        a composite.
+        """
+    def __eq__(self, other: builtins.object, /) -> builtins.bool: ...
+    def __hash__(self) -> builtins.int: ...
+    def holds(self, position: builtins.int) -> builtins.bool:
+        r"""
+        Whether 1-based element `position` of the segment is the column's
+        element in some group.
+        """
+    def __repr__(self) -> builtins.str: ...
+
+@typing.final
 class Mask:
     r"""
     Hides the patient data of a parse: the columns the spec flags as
@@ -476,6 +515,28 @@ class Spec:
         compiled it. Raises `KeyError` for a table or column the spec does not
         declare, and `ValueError` for a column that reads a segment index or an
         element of a repeated group, which has no single element.
+        """
+    def tables(self) -> builtins.list[builtins.str]:
+        r"""
+        The table names, in name order.
+        """
+    def trigger_segment(self, name: builtins.str) -> bytes:
+        r"""
+        The id of the segment that opens loop `name`, such as `b"CLP"`, without
+        the element conditions the trigger may add. Raises `KeyError` for a loop
+        the spec does not declare.
+        """
+    def element_sources(self, table: builtins.str) -> builtins.dict[builtins.str, ElementSource]:
+        r"""
+        Every column of table `table` that reads one fixed element, by name, in
+        name order; a column holding a segment index or reading a repeated group
+        is not listed. Raises `KeyError` for a table the spec does not declare.
+        """
+    def group_sources(self, table: builtins.str) -> builtins.dict[builtins.str, GroupSource]:
+        r"""
+        Every column of table `table` that reads an element of each repeated
+        group, by name, in name order; empty for a table without `repeat`.
+        Raises `KeyError` for a table the spec does not declare.
         """
     def __repr__(self) -> builtins.str: ...
 

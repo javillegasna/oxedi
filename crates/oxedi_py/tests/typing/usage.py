@@ -21,6 +21,7 @@ from oxedi import (
     Document,
     ElementSource,
     Envelope,
+    GroupSource,
     ParseError,
     Result,
     Segment,
@@ -44,6 +45,14 @@ def results(data: bytes, path: str) -> list[Result]:
     segment: bytes = source.segment
     component: int | None = source.component
     print(segment, source.element, component)
+    tables: list[str] = spec.tables()
+    trigger: bytes = spec.trigger_segment("interchange")
+    fixed: dict[str, ElementSource] = spec.element_sources("services")
+    group: GroupSource = spec.group_sources("adjustments")["amount"]
+    offset: int = group.offset
+    held: bool = group.holds(4)
+    part: int | None = group.component
+    print(tables, trigger, fixed, offset, held, part)
     schema_names: list[str] = list(spec.schema())
     assert schema_names
     delimiters = Delimiters(element=b"*", component=b":", segment=b"~", repetition=None, release=None)

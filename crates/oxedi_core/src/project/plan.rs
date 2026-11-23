@@ -139,21 +139,15 @@ impl<'s> Plans<'s> {
                 let (Some(anchor), Some(repeat)) = (&table.segment, table.repeat) else {
                     return positions;
                 };
-                let Some(first) = repeat.from.checked_add(*offset) else {
-                    return positions;
-                };
                 let defined = self
                     .get(anchor)
                     .into_iter()
                     .flat_map(|plan| plan.elements.iter().map(|e| e.position));
-                for position in defined {
-                    let in_group = position
-                        .checked_sub(first)
-                        .is_some_and(|gap| gap.checked_rem(repeat.step).unwrap_or(gap) == 0);
-                    if in_group {
-                        positions.push((anchor.as_slice(), position, *component));
-                    }
-                }
+                positions.extend(
+                    defined
+                        .filter(|&position| repeat.holds(*offset, position))
+                        .map(|position| (anchor.as_slice(), position, *component)),
+                );
             }
             ColumnSource::SegmentIndex { .. } => {}
         }

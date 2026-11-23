@@ -204,7 +204,8 @@ struct CodeList<'r> {
 
 /// Finds the element a code list is for, refuses an empty list and validates
 /// the list with the checks an element's own `codes` gets: the element's
-/// definition and the list sorted by bytes.
+/// definition and the list sorted by bytes; no code may be one the element's
+/// own `codes` leaves out.
 fn compile_list<'d>(
     segments: &'d BTreeMap<Vec<u8>, SegmentDef>,
     segment: &str,
@@ -228,8 +229,20 @@ fn compile_list<'d>(
     if codes.is_empty() {
         return Err(OccurrenceError::EmptyCodes { key });
     }
-    let codes = compile_codes(codes, def.kind, def.length, !def.composite.is_empty())
-        .map_err(|reason| OccurrenceError::BadCodes { key, reason })?;
+    let codes = compile_codes(codes, def.kind, def.length, !def.composite.is_empty()).map_err(
+        |reason| OccurrenceError::BadCodes {
+            key: key.clone(),
+            reason,
+        },
+    )?;
+    if let Some(code) = outside(def, &codes) {
+        return Err(OccurrenceError::CodeOutsideElement {
+            key,
+            code: code.clone(),
+            place: place(segment, element, component),
+            allowed: def.codes.clone(),
+        });
+    }
     Ok((def, codes))
 }
 
@@ -254,15 +267,7 @@ fn compile_qualifier(
         component: raw.component,
         codes: &raw.codes,
     };
-    let (target, codes) = compile_list(segments, segment, list)?;
-    if let Some(code) = outside(target, &codes) {
-        return Err(OccurrenceError::CodeOutsideElement {
-            key: "qualifier.codes".into(),
-            code: code.clone(),
-            place: place(segment, raw.element, raw.component),
-            allowed: target.codes.clone(),
-        });
-    }
+    let (_, codes) = compile_list(segments, segment, list)?;
     Ok(Qualifier {
         element: raw.element,
         component: raw.component,
@@ -292,20 +297,12 @@ fn compile_own_codes(
         let key = format!("codes.{at}");
         let list = CodeList {
             reference: key.clone(),
-            list: key.clone(),
+            list: key,
             element,
             component,
             codes: list,
         };
-        let (def, list) = compile_list(segments, segment, list)?;
-        if let Some(code) = outside(def, &list) {
-            return Err(OccurrenceError::CodeOutsideElement {
-                key,
-                code: code.clone(),
-                place: place(segment, element, component),
-                allowed: def.codes.clone(),
-            });
-        }
+        let (_, list) = compile_list(segments, segment, list)?;
         codes.insert((element, component), list);
     }
     Ok(codes)

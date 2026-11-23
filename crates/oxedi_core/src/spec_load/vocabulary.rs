@@ -1,4 +1,4 @@
-//! The words of the spec's own closed vocabularies and the codes key, one table
+//! The words of the spec's own closed vocabularies and the elements key, one table
 //! each: the word of each value and the value of each word, so the loader reads
 //! every word through one place.
 

@@ -65,7 +65,8 @@ spec_object! {
 }
 
 spec_object! {
-    /// How one occurrence narrows an element or component of its segment.
+    /// How one occurrence narrows an element or component of its segment. An
+    /// empty entry `{}` is written back as it is.
     ElementEntryModel, "an element entry object";
     /// The codes the place may hold here; the element's list when absent.
     #[serde(default, deserialize_with = "present")]

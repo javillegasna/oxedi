@@ -28,7 +28,7 @@
 //! quotes; `loaded` the spec as a loader keeps it, its model beside its
 //! compiled form; `patch` the merge patch; `builtin` the registry of shipped
 //! specs by transaction and version, and the built-in 835 shortcuts;
-//! `vocabulary` the spec's closed words and the codes key, one table each;
+//! `vocabulary` the spec's closed words and the elements key, one table each;
 //! `package` the layers of a package, its identity, the stack of packages a
 //! spec is composed from and the check that a package only narrows its bases.
 

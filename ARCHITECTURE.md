@@ -131,7 +131,8 @@ The spec files live in `crates/oxedi_core/specs/`:
 | File | What it is | Who loads it |
 |---|---|---|
 | `oxedi/envelope/005010.json` | The envelope, first in every stack: the interchange, group and transaction loops and the ISA, TA1, GS, ST, SE, GE and IEA segments. | `Builtin` (`include_str!` in `spec_load/builtin.rs`) |
-| `835.json` | The other layers of the 5010, on the envelope, with the codes of GS01, GS08 and ST01: a `package` header and the `spec` (`version`, `loops`, `segments`, `tables`, `balancing`, `summaries`, `default_table`). | `Builtin` (`spec_load/builtin.rs`) |
+| `oxedi/guide/005010/835/X221A1.json` | The 5010 guide, still holding the dictionary and the transaction set, on the envelope: the 835's loops and segments, the version, the balancing rules and the codes of GS01, GS08 and ST01. A `package` header and the `spec` (`version`, `loops`, `segments`, `balancing`). | `Builtin` (`spec_load/builtin.rs`) |
+| `oxedi/views/005010/835/X221A1.json` | The tables, the summaries and the default table, on the guide; the top of the 5010 stack. | `Builtin` (`spec_load/builtin.rs`) |
 | `oxedi/guide/004010/835/X091A1.json` | The 4010: an edition over the 5010 whose `spec` is a JSON Merge Patch (RFC 7386). | `Builtin` (`spec_load/builtin.rs`): the stack of the packages, composed |
 | `edi_835_parser.json` | A patch with the tables of the `edi-835-parser` compatibility layer. | `crates/oxedi_py/src/lib.rs`, pinned by `tests/project_golden.rs` |
 
@@ -202,7 +203,7 @@ Every key is listed in [the spec keys reference](docs/customize/spec.md#spec-key
 
 | I want to… | Start in | Then |
 |---|---|---|
-| Add a column to a built-in table | `tables.<table>.columns` in `crates/oxedi_core/specs/835.json` | `UPDATE_GOLDEN=1 cargo test -p oxedi_core --test project_golden`, review the diff; document it in `docs/reference/tables.md` |
+| Add a column to a built-in table | `tables.<table>.columns` in `crates/oxedi_core/specs/oxedi/views/005010/835/X221A1.json` | `UPDATE_GOLDEN=1 cargo test -p oxedi_core --test project_golden`, review the diff; document it in `docs/reference/tables.md` |
 | Add a key to the spec format | a row in the object's `spec_object!` declaration in `spec_load/model/` (field, model type, presence word); for an element, a field of `ElementModel` plus `ELEMENT_MODEL_KEYS` (both in `spec_load/model/segments.rs`, pinned in `spec_load/tests/model.rs`); for a summary operation, a field of `SummaryKeys` and its model in `spec_load/model/rules.rs` | When the compiled spec keeps it, a field on its schema definition in `spec/` (`LoopDef` in `spec/loops.rs`, `TableDef` in `spec/tables.rs`, …); compile it in `spec_load/build.rs` or `spec_load/compile.rs`; a new error in `spec_load/error.rs` (`SpecError`), or in `occurrence_error.rs`, `table_error.rs` or `balance_error.rs` of `spec_load/` when it is about one of those, with its `Display` test in `spec_load/tests/`; when a built-in uses it, `UPDATE_GOLDEN=1 cargo test -p oxedi_core --test spec_golden` and read the diff; add the key to `docs/customize/spec.md`; a closed word implements `Vocabulary` (`vocabulary/`) in `spec_load/vocabulary.rs` |
 | Change how a message names an element, a set of conditions or a list of names, or quotes file bytes or a key | `message/mod.rs` | `message/tests.rs`; the `Display` tests of the messages that use it |
 | Add a diagnostic rule | `diagnostic/rule.rs` (`Rule` variant, `level`, `kind`, and `segment_id` when the rule is about one segment's elements, so its datum can be masked) and `diagnostic/display.rs` (message, written over the pieces of `diagnostic/text.rs` and `message/`) | Raise it in `check/` (structure) or `project/check.rs` (elements); a full-text `Display` test in `diagnostic/tests.rs` |

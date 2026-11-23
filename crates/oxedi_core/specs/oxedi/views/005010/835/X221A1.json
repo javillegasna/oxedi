@@ -1,0 +1,114 @@
+{
+  "package": {
+    "format": 1,
+    "id": "oxedi/views/005010/835/X221A1",
+    "layers": ["views"],
+    "bases": ["oxedi/guide/005010/835/X221A1"]
+  },
+  "spec": {
+  "tables": {
+    "payments": { "loops": ["transaction"], "ref": "payment", "columns": {
+      "handling_code": {"segment": "BPR", "element": 1},
+      "total_payment_amount": {"segment": "BPR", "element": 2},
+      "credit_debit_flag": {"segment": "BPR", "element": 3},
+      "payment_method": {"segment": "BPR", "element": 4},
+      "payment_format": {"segment": "BPR", "element": 5},
+      "payment_date": {"segment": "BPR", "element": 16},
+      "trace_number": {"segment": "TRN", "element": 2},
+      "payer_identifier": {"segment": "TRN", "element": 3},
+      "payer_name": {"loop": "1000A", "occurrence": "payer_identification", "element": 2},
+      "payee_name": {"loop": "1000B", "occurrence": "payee_identification", "element": 2},
+      "payee_id": {"loop": "1000B", "occurrence": "payee_identification", "element": 4},
+      "payer_id": {"loop": "1000A", "occurrence": "payer_identification", "element": 4},
+      "payer_address": {"loop": "1000A", "occurrence": "payer_address", "element": 1},
+      "payer_city": {"loop": "1000A", "occurrence": "payer_city_state_zip_code", "element": 1},
+      "payer_state": {"loop": "1000A", "occurrence": "payer_city_state_zip_code", "element": 2},
+      "payer_zip": {"loop": "1000A", "occurrence": "payer_city_state_zip_code", "element": 3},
+      "payee_address": {"loop": "1000B", "occurrence": "payee_address", "element": 1},
+      "payee_city": {"loop": "1000B", "occurrence": "payee_city_state_zip_code", "element": 1},
+      "payee_state": {"loop": "1000B", "occurrence": "payee_city_state_zip_code", "element": 2},
+      "payee_zip": {"loop": "1000B", "occurrence": "payee_city_state_zip_code", "element": 3},
+      "payer_id_qualifier": {"loop": "1000A", "occurrence": "payer_identification", "element": 3},
+      "payee_id_qualifier": {"loop": "1000B", "occurrence": "payee_identification", "element": 3},
+      "payer_technical_contact_name": {"loop": "1000A", "segment": "PER", "where": {"1": "BL"}, "element": 2},
+      "payer_technical_contact_qualifier": {"loop": "1000A", "segment": "PER", "where": {"1": "BL"}, "element": 3},
+      "payer_technical_contact_number": {"loop": "1000A", "segment": "PER", "where": {"1": "BL"}, "element": 4},
+      "receiver_id": {"occurrence": "receiver_identification", "element": 2},
+      "production_date": {"segment": "DTM", "where": {"1": "405"}, "element": 2}
+    } },
+    "claims": { "loops": ["2100"], "ref": "claim", "phi_seed": "patient_id", "columns": {
+      "claim_id": {"segment": "CLP", "element": 1, "phi": "id"},
+      "claim_status": {"segment": "CLP", "element": 2},
+      "charge_amount": {"segment": "CLP", "element": 3},
+      "payment_amount": {"segment": "CLP", "element": 4},
+      "patient_responsibility": {"segment": "CLP", "element": 5},
+      "filing_indicator": {"segment": "CLP", "element": 6},
+      "payer_control_number": {"segment": "CLP", "element": 7, "phi": "id"},
+      "facility_type": {"segment": "CLP", "element": 8},
+      "frequency_code": {"segment": "CLP", "element": 9},
+      "drg_code": {"segment": "CLP", "element": 11},
+      "drg_weight": {"segment": "CLP", "element": 12},
+      "discharge_fraction": {"segment": "CLP", "element": 13},
+      "patient_last_name": {"occurrence": "patient_name", "element": 3, "phi": "name"},
+      "patient_first_name": {"occurrence": "patient_name", "element": 4, "phi": "name"},
+      "patient_id": {"occurrence": "patient_name", "element": 9, "phi": "id"},
+      "patient_id_qualifier": {"occurrence": "patient_name", "element": 8},
+      "header_number": {"loop": "2000", "occurrence": "header_number", "element": 1},
+      "rendering_provider_entity_type": {"occurrence": "service_provider_name", "element": 2},
+      "rendering_provider_id_qualifier": {"occurrence": "service_provider_name", "element": 8},
+      "rendering_provider_name": {"occurrence": "service_provider_name", "element": 3},
+      "rendering_provider_id": {"occurrence": "service_provider_name", "element": 9},
+      "statement_from": {"segment": "DTM", "where": {"1": "232"}, "element": 2, "phi": "date"},
+      "statement_to": {"segment": "DTM", "where": {"1": "233"}, "element": 2, "phi": "date"},
+      "coverage_amount": {"segment": "AMT", "where": {"1": "AU"}, "element": 2},
+      "group_number": {"segment": "REF", "where": {"1": "1L"}, "element": 2, "phi": "id"}
+    } },
+    "services": { "loops": ["2110"], "ref": "service", "columns": {
+      "procedure_qualifier": {"segment": "SVC", "element": 1, "component": 1},
+      "procedure_code": {"segment": "SVC", "element": 1, "component": 2},
+      "charge_amount": {"segment": "SVC", "element": 2},
+      "payment_amount": {"segment": "SVC", "element": 3},
+      "units_paid": {"segment": "SVC", "element": 5},
+      "original_units": {"segment": "SVC", "element": 7},
+      "service_date": {"segment": "DTM", "where": {"1": "472"}, "element": 2, "phi": "date"},
+      "line_item_control_number": {"segment": "REF", "where": {"1": "6R"}, "element": 2, "phi": "id"},
+      "allowed_amount": {"segment": "AMT", "where": {"1": "B6"}, "element": 2}
+    } },
+    "adjustments": { "loops": ["2100", "2110"], "segment": "CAS", "repeat": {"from": 2, "step": 3}, "columns": {
+      "group_code": {"element": 1},
+      "reason_code": {"group_element": 0},
+      "amount": {"group_element": 1},
+      "quantity": {"group_element": 2}
+    } },
+    "provider_adjustments": { "loops": ["transaction"], "segment": "PLB", "repeat": {"from": 3, "step": 2}, "columns": {
+      "provider_id": {"element": 1},
+      "fiscal_period_date": {"element": 2},
+      "reason_code": {"group_element": 0, "component": 1},
+      "reference_id": {"group_element": 0, "component": 2, "phi": "id"},
+      "amount": {"group_element": 1}
+    } }
+  },
+  "summaries": {
+    "count_claims": {"count": {"table": "claims"}},
+    "count_patients": {"distinct": {"table": "claims", "column": "patient_id"}},
+    "sum_payments": {"sum": {"table": "payments", "column": "total_payment_amount"}},
+    "payer": {"row": {"table": "payments", "fields": [
+      {"name": "name", "column": "payer_name"},
+      {"name": "identification_code", "column": "payer_id"},
+      {"name": "address", "column": "payer_address"},
+      {"name": "city", "column": "payer_city"},
+      {"name": "state", "column": "payer_state"},
+      {"name": "zip_code", "column": "payer_zip"}
+    ]}},
+    "payee": {"row": {"table": "payments", "fields": [
+      {"name": "name", "column": "payee_name"},
+      {"name": "identification_code", "column": "payee_id"},
+      {"name": "address", "column": "payee_address"},
+      {"name": "city", "column": "payee_city"},
+      {"name": "state", "column": "payee_state"},
+      {"name": "zip_code", "column": "payee_zip"}
+    ]}}
+  },
+  "default_table": "claims"
+}
+}

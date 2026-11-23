@@ -28,8 +28,7 @@
 //! compiled form; `patch` the merge patch; `builtin` the registry of shipped
 //! specs by transaction and version, and the built-in 835 shortcuts;
 //! `vocabulary` the spec's closed words and the codes key, one table each;
-//! `package` the package header, its identity and the composition of a stack of
-//! packages.
+//! `package` the layers of a package and the parts of its identity.
 
 mod balance;
 mod balance_error;

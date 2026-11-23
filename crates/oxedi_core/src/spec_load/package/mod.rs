@@ -3,9 +3,11 @@
 //!
 //! `header` the package and its header, read strictly; `layer` the layers a
 //! vocabulary is written in, in layer order; `id` the identity of a package
-//! and its grammar; `change` one difference between two models; `stack` a top package with the packages it builds on and
-//! `compose` their specs merged in order, `owners` the keys each layer may
-//! write; `error` why an identity, a header or a stack is rejected.
+//! and its grammar; `change` one difference between two models; `stack` a top
+//! package with the packages it builds on and `compose` their specs merged in
+//! order, `narrow` the comparison of the model before a package with the one
+//! after it, `owners` the keys each layer may write; `error` why an identity,
+//! a header or a stack is rejected.
 
 // TODO: a public package loader calls Stack::resolve(..).compose(); until then only tests use
 // compose, owners and stack.
@@ -19,6 +21,9 @@ mod error;
 mod header;
 mod id;
 mod layer;
+// TODO: the comparison is the check of a composed stack, which no code outside tests runs yet.
+#[cfg_attr(not(test), expect(dead_code))]
+mod narrow;
 #[cfg_attr(not(test), expect(dead_code))]
 mod owners;
 #[cfg_attr(not(test), expect(dead_code))]

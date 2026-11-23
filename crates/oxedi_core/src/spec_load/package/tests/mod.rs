@@ -4,6 +4,7 @@ mod change;
 mod header;
 mod id;
 mod layers;
+mod narrow;
 mod owners;
 mod stack;
 

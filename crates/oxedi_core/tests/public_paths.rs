@@ -11,10 +11,17 @@ mod by_module {
     use oxedi_core::column::RowError;
     use oxedi_core::column::Table;
     use oxedi_core::column::Tables;
+    use oxedi_core::conformance::CaseFault;
+    use oxedi_core::conformance::CaseReport;
+    use oxedi_core::conformance::Difference;
+    use oxedi_core::conformance::KitReport;
     use oxedi_core::conformance::Line;
     use oxedi_core::conformance::LineDifference;
+    use oxedi_core::conformance::Outcome;
+    use oxedi_core::conformance::WrongStack;
     use oxedi_core::conformance::first_difference;
     use oxedi_core::conformance::render;
+    use oxedi_core::conformance::run_kit;
     use oxedi_core::delimiters::Delimiters;
     use oxedi_core::delimiters::IsaError;
     use oxedi_core::diagnostic::Diagnostic;

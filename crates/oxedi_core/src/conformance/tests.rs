@@ -1,6 +1,11 @@
+use std::collections::BTreeMap;
+
 use super::*;
-use crate::spec_load::KitOutput;
+use crate::spec_load::{Builtin, Kit, KitOutput};
+use crate::validate::{Valid, Validation, validate};
 use crate::{Document, Processor, Spec};
+
+const FIVE: &[u8] = include_bytes!("../../tests/fixtures/balanced_5010_sample.txt");
 
 fn text(line: &str) -> Line {
     Line::Text(line.to_owned())
@@ -83,9 +88,7 @@ fn multi_byte_lines_are_kept_whole() {
 
 #[test]
 fn render_writes_the_tables_and_one_line_per_diagnostic() {
-    let document =
-        Document::parse(&include_bytes!("../../tests/fixtures/balanced_5010_sample.txt")[..])
-            .unwrap();
+    let document = Document::parse(FIVE).unwrap();
     let (tables, diagnostics) = Processor::run(&Spec::builtin_835(), &document, None);
     let lines: String = diagnostics.iter().map(|d| format!("{d}\n")).collect();
     assert_eq!(
@@ -94,4 +97,67 @@ fn render_writes_the_tables_and_one_line_per_diagnostic() {
     );
     assert_eq!(render(KitOutput::Diagnostics, &tables, &diagnostics), lines);
     assert_eq!(render(KitOutput::Diagnostics, &tables, &[]), "");
+}
+
+/// The tables text and the diagnostics text of the balanced 5010 file.
+fn rendered() -> (String, String) {
+    let document = Document::parse(FIVE).unwrap();
+    let (tables, diagnostics) = Processor::run(&Spec::builtin_835(), &document, None);
+    (
+        tables.to_string(),
+        diagnostics.iter().map(|d| format!("{d}\n")).collect(),
+    )
+}
+
+/// The built-in 5010 stack, as the validator loads it.
+fn stack() -> Valid {
+    let packages = Builtin::packages();
+    match validate(packages[4], packages) {
+        Validation::Yes(valid) => *valid,
+        Validation::No(invalid) => panic!("the shipped stack does not load: {invalid}"),
+    }
+}
+
+fn kit_of(package: &str, cases: &str) -> Kit {
+    let json = format!(r#"{{"kit":{{"format":1,"package":"{package}"}},"cases":{cases}}}"#);
+    Kit::from_json(&json).unwrap()
+}
+
+/// Runs a kit of the given cases (a JSON object) over `files` with the 5010 stack.
+fn run(cases: &str, files: &[(&str, &[u8])]) -> KitReport {
+    let kit = kit_of("oxedi/views/005010/835/X221A1", cases);
+    let files: BTreeMap<&str, &[u8]> = files.iter().copied().collect();
+    run_kit(&kit, &stack(), &files).unwrap()
+}
+
+#[test]
+fn a_case_that_matches_passes() {
+    let (tables, diagnostics) = rendered();
+    let cases = r#"{"a":{"input":"in.835","expect":{"tables":"t.txt","diagnostics":"d.txt"}}}"#;
+    let files = [
+        ("in.835", FIVE),
+        ("t.txt", tables.as_bytes()),
+        ("d.txt", diagnostics.as_bytes()),
+    ];
+    let report = run(cases, &files);
+    assert!(report.passed());
+    assert_eq!(report.cases[0].outcome, Outcome::Passed);
+    assert_eq!(
+        report.to_string(),
+        "kit \"oxedi/views/005010/835/X221A1\": 1 of 1 cases pass\ncase \"a\": passes"
+    );
+}
+
+#[test]
+fn a_kit_for_another_package_is_refused() {
+    let kit = kit_of(
+        "oxedi/guide/005010/835/X221A1",
+        r#"{"a":{"input":"in.835","expect":{"tables":"t.txt"}}}"#,
+    );
+    let err = run_kit(&kit, &stack(), &BTreeMap::new()).unwrap_err();
+    assert_eq!(
+        err.to_string(),
+        "the kit checks package \"oxedi/guide/005010/835/X221A1\", but the stack's top package is \"oxedi/views/005010/835/X221A1\"; run the kit on the stack that has \"oxedi/guide/005010/835/X221A1\" on top, or change the kit's \"package\" to \"oxedi/views/005010/835/X221A1\""
+    );
+    assert!(std::error::Error::source(&err).is_none());
 }

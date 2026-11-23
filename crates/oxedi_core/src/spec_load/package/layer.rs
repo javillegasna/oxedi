@@ -109,6 +109,11 @@ impl Layers {
         self.bits & layer.bit() != 0
     }
 
+    /// Whether a layer of `self` is also in `other`.
+    pub(in crate::spec_load) fn shares(self, other: Layers) -> bool {
+        self.bits & other.bits != 0
+    }
+
     /// The first layer in layer order.
     pub fn lowest(self) -> Layer {
         self.lowest

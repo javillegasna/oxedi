@@ -1,6 +1,6 @@
 use serde_json::json;
 
-use super::super::stack::Stack;
+use super::super::stack::{Role, Stack};
 use super::super::*;
 use super::{envelope, package};
 use crate::spec_load::SpecError;
@@ -14,7 +14,10 @@ fn guide(spec: &str) -> Package {
 }
 
 fn ids(stack: &Stack<'_>) -> Vec<String> {
-    stack.steps().map(|p| p.id().to_string()).collect()
+    stack
+        .steps()
+        .map(|step| step.package.id().to_string())
+        .collect()
 }
 
 #[test]
@@ -199,5 +202,71 @@ fn stack_error_has_no_source() {
             reason: Box::new(err)
         })
         .is_none()
+    );
+}
+
+fn roles(top: &Package, pool: &[Package]) -> Vec<Role> {
+    Stack::resolve(top, pool)
+        .unwrap()
+        .steps()
+        .map(|step| step.role)
+        .collect()
+}
+
+#[test]
+fn a_package_narrows_shares_a_layer_or_patches() {
+    let dictionary = package(D, &["dictionary"], &[E], "{}");
+    let edition = package("acme/dictionary/005010", &["dictionary"], &[D], "{}");
+    let patch = package("acme/patch/005010/835/X1", &["patch"], &[E], "{}");
+    let pool = [envelope(), dictionary, edition.clone(), patch.clone()];
+    assert_eq!(
+        roles(&edition, &pool),
+        [Role::Narrows, Role::Narrows, Role::Edition]
+    );
+    assert_eq!(roles(&patch, &pool), [Role::Narrows, Role::Patch]);
+}
+
+#[test]
+fn an_edition_of_a_layer_further_down_the_chain_is_an_edition() {
+    let views = package(
+        "test/views/005010/835/X1",
+        &[
+            "envelope",
+            "dictionary",
+            "transaction-set",
+            "guide",
+            "views",
+        ],
+        &[],
+        "{}",
+    );
+    let dictionary_edition = package(
+        "acme/dictionary/005010",
+        &["dictionary"],
+        &[views.id().as_str()],
+        "{}",
+    );
+    let top = package(G, &["guide"], &["acme/dictionary/005010"], "{}");
+    let pool = [views, dictionary_edition, top.clone()];
+    assert_eq!(
+        roles(&top, &pool),
+        [Role::Narrows, Role::Edition, Role::Edition]
+    );
+}
+
+#[test]
+fn a_package_must_come_after_the_layers_it_builds_on() {
+    let transaction_set = package(
+        "test/transaction-set/005010/835",
+        &["transaction-set"],
+        &[G],
+        "{}",
+    );
+    let guide = package(G, &["guide"], &[E], "{}");
+    let pool = [envelope(), guide, transaction_set.clone()];
+    let err = Stack::resolve(&transaction_set, &pool).unwrap_err();
+    assert_eq!(
+        err.to_string(),
+        "package \"test/transaction-set/005010/835\" holds layer \"transaction-set\", which does not come after layer \"guide\" of its base \"test/guide/005010/835/X1\"; a package builds only on lower layers, unless it is an edition (it holds a layer its base holds) or a patch"
     );
 }

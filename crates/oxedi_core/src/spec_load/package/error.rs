@@ -128,6 +128,17 @@ pub enum StackError {
         /// The packages of the circle, from the first one reached.
         members: Vec<PackageId>,
     },
+    /// A package builds on a layer it does not come after.
+    LayerOrder {
+        /// The package, boxed to keep the error small.
+        package: Box<PackageId>,
+        /// The lowest layer the package holds.
+        lowest: Layer,
+        /// The base whose top layer is not below it, boxed to keep the error small.
+        base: Box<PackageId>,
+        /// The base's top layer.
+        base_top: Layer,
+    },
 }
 
 impl fmt::Display for StackError {
@@ -141,6 +152,17 @@ impl fmt::Display for StackError {
             StackError::DuplicatePackage { id } => write!(
                 f,
                 "two of the packages given are named \"{id}\"; give each package once"
+            ),
+            StackError::LayerOrder {
+                package,
+                lowest,
+                base,
+                base_top,
+            } => write!(
+                f,
+                "package \"{package}\" holds layer \"{lowest}\", which does not come after \
+                 layer \"{base_top}\" of its base \"{base}\"; a package builds only on lower \
+                 layers, unless it is an edition (it holds a layer its base holds) or a patch"
             ),
             StackError::BaseCycle { members } => {
                 let circle: Vec<&str> = members

@@ -138,6 +138,7 @@ fn a_guide_owns_neither_the_shape_of_an_element_nor_its_deletion() {
         ("segments.AA.elements.1.scale", "2"),
         ("segments.AA.elements.1", "null"),
         ("segments.AA", "null"),
+        ("segments.ZZ", "{}"),
     ] {
         let StackError::KeyNotOwned { path: refused, .. } =
             refusal(&["guide"], &nested(path, value))

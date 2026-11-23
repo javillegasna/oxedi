@@ -220,6 +220,11 @@ fn check_member<'v>(
     layers: Layers,
 ) -> Result<(), Fault> {
     match (owner, value) {
+        // An empty object adds the section itself, which takes every owner of
+        // the keys beneath it, as a deletion does.
+        (Owner::Keys(_), Value::Object(members)) if members.is_empty() => {
+            require_all(owner, path, layers)
+        }
         (Owner::Keys(inner), Value::Object(members)) => walk(members, inner, path, layers),
         // A section that is not an object is left to the strict read.
         (Owner::Keys(_), other) if !other.is_null() => Ok(()),

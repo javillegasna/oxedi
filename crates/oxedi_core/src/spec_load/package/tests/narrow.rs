@@ -9,11 +9,16 @@ use crate::spec_load::model::SpecModel;
 
 const D: &str = "test/dictionary/005010";
 
+// The base and the keys only a views package holds.
 fn base() -> Value {
     let mut base: Value = serde_json::from_str(BASE).unwrap();
+    let views: Value = serde_json::from_str(VIEWS).unwrap();
+    merge_patch(&mut base, &views);
     base["name"] = json!("t");
     base
 }
+
+const VIEWS: &str = r#"{"tables":{"t":{"loops":["a"],"columns":{"c":{"segment":"AA","element":1}}}},"summaries":{"n":{"count":{"table":"t"}}},"default_table":"t"}"#;
 
 // The differences between the base and the base with `patch` merged over it.
 fn after(patch: Value) -> Vec<(String, ChangeKind)> {
@@ -347,8 +352,48 @@ fn a_removed_loop_or_occurrence_is_listed() {
             occurrence("ab", json!({"qualifier": null})),
             "loops.a.occurrences.ab.qualifier",
         ),
+        (json!({"balancing": {"r": null}}), "balancing.r"),
+        (json!({"tables": {"t": null}}), "tables.t"),
+        (json!({"summaries": {"n": null}}), "summaries.n"),
+        (json!({"version": null}), "version"),
+        (json!({"default_table": null}), "default_table"),
     ];
     for (patch, path) in cases {
         assert_eq!(after(patch), [(path.to_owned(), ChangeKind::Removed)]);
     }
+}
+
+#[test]
+fn a_rule_or_a_view_the_package_adds_is_added() {
+    let table = json!({"loops": ["a"]});
+    let patch = json!({"tables": {"u": table}, "summaries": {"m": {"count": {"table": "t"}}}});
+    let paths: Vec<String> = after(patch)
+        .into_iter()
+        .inspect(|(_, kind)| assert!(matches!(kind, ChangeKind::Added { .. })))
+        .map(|(path, _)| path)
+        .collect();
+    assert_eq!(paths, ["tables.u", "summaries.m"]);
+}
+
+#[test]
+fn the_version_the_rules_and_the_views_are_changed() {
+    let table = json!({"loops": ["a"], "columns": {"c": {"segment": "AA", "element": 2}}});
+    let distinct = json!({"count": null, "distinct": {"table": "t", "column": "c"}});
+    let cases = [
+        (json!({"version": {"values": ["W"]}}), "version"),
+        (json!({"balancing": {"r": {"per": "b"}}}), "balancing.r"),
+        (json!({"tables": {"t": table}}), "tables.t"),
+        (json!({"summaries": {"n": distinct}}), "summaries.n"),
+        (json!({"default_table": "u"}), "default_table"),
+    ];
+    for (patch, path) in cases {
+        let found = after(patch);
+        assert_eq!(found.len(), 1, "{path}");
+        assert_eq!(found[0].0, path);
+        assert!(matches!(found[0].1, ChangeKind::Changed { .. }), "{path}");
+    }
+    assert_eq!(
+        after(json!({"default_table": "u"}))[0].1,
+        changed(r#""t""#, r#""u""#)
+    );
 }

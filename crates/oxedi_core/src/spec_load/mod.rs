@@ -71,7 +71,8 @@ pub use model::{
 };
 pub use occurrence_error::OccurrenceError;
 pub use package::{
-    Guide, IdError, IdPart, Layer, Layers, PackageId, Release, Scope, TransactionSet,
+    Guide, HeaderError, IdError, IdPart, Layer, Layers, Package, PackageHeader, PackageId, Release,
+    Scope, TransactionSet,
 };
 pub use patch::merge_patch;
 pub use segments::ElementDefError;

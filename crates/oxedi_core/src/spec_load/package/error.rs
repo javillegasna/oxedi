@@ -2,7 +2,7 @@
 
 use std::fmt;
 
-use super::id::IdPart;
+use super::id::{IdPart, PackageId};
 use super::layer::Layer;
 use crate::vocabulary::words_text;
 
@@ -56,3 +56,42 @@ impl fmt::Display for IdError {
 }
 
 impl std::error::Error for IdError {}
+
+/// Why a package header is refused once its keys read.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum HeaderError {
+    /// The header's `format` is newer than the reader's.
+    FormatTooNew {
+        /// The format as written.
+        found: u64,
+        /// The newest format this reader takes.
+        reader: u32,
+    },
+    /// The id names another layer than the top one `layers` lists.
+    IdLayerNotTop {
+        /// The package's id.
+        id: PackageId,
+        /// The top layer `layers` lists.
+        top: Layer,
+    },
+}
+
+impl fmt::Display for HeaderError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            HeaderError::FormatTooNew { found, reader } => write!(
+                f,
+                "package format {found} is newer than {reader}, the newest format this reader \
+                 takes; read the package with a newer oxedi, or write it in format {reader}"
+            ),
+            HeaderError::IdLayerNotTop { id, top } => write!(
+                f,
+                "package \"{id}\" names layer \"{}\" in its id, but the top layer \"layers\" \
+                 lists is \"{top}\"; the id names the package's top layer",
+                id.layer()
+            ),
+        }
+    }
+}
+
+impl std::error::Error for HeaderError {}

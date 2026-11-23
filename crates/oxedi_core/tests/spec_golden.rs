@@ -11,7 +11,6 @@ mod common;
 use std::fmt::Write as _;
 use std::path::PathBuf;
 
-use oxedi_core::spec_load::LoadedSpec;
 use oxedi_core::{Builtin, Spec, Version};
 
 fn golden_dir() -> PathBuf {
@@ -47,7 +46,8 @@ fn compiled(spec: &Spec) -> String {
 fn compiled_specs_match_the_golden_files() {
     let built = |version| &Builtin::find("835", version).unwrap().spec;
     let (five, four) = (built(Version::V5010), built(Version::V4010));
-    let parser = LoadedSpec::from_json(Spec::BUILTIN_835_JSON)
+    let parser = Builtin::fallback()
+        .loaded()
         .unwrap()
         .merge_patch(include_str!("../specs/edi_835_parser.json"))
         .unwrap()

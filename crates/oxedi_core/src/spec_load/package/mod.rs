@@ -7,7 +7,8 @@
 //! `compose` their specs merged in order, `owners` the keys each layer may
 //! write; `error` why an identity, a header or a stack is rejected.
 
-// TODO: the built-in specs compose through a stack; until then only tests use it.
+// TODO: a public package loader calls Stack::resolve(..).compose(); until then only tests use
+// compose, owners and stack.
 #[cfg_attr(not(test), expect(dead_code))]
 mod compose;
 mod error;
@@ -25,3 +26,5 @@ pub use error::{HeaderError, IdError, StackError};
 pub use header::{Package, PackageHeader};
 pub use id::{Guide, IdPart, PackageId, Release, Scope, TransactionSet};
 pub use layer::{Layer, Layers};
+#[cfg(test)]
+pub(in crate::spec_load) use stack::Stack;

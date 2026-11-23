@@ -3,7 +3,9 @@
 use std::error::Error;
 
 use crate::Document;
-use crate::spec_load::{Builtin, UnknownVersion, Version};
+use crate::spec_load::builtin::PACKAGES;
+use crate::spec_load::package::Stack;
+use crate::spec_load::{Builtin, Package, UnknownVersion, Version};
 
 fn selected(bytes: &[u8]) -> Version {
     let document = Document::parse(bytes.to_vec()).unwrap();
@@ -131,4 +133,18 @@ fn each_builtin_spec_is_compiled_from_its_model() {
         four.model().unwrap().version.as_ref().unwrap().values[0],
         "004010X091A1"
     );
+}
+
+#[test]
+fn the_lean_read_equals_the_checked_composition() {
+    let pool = PACKAGES.map(|text| Package::from_json(text).unwrap());
+    for (builtin, top) in Builtin::all().iter().zip(&pool) {
+        let checked = Stack::resolve(top, &pool).unwrap().compose().unwrap();
+        assert_eq!(builtin.model().unwrap(), checked.model);
+        assert_eq!(
+            builtin.model().unwrap().to_json().unwrap(),
+            checked.model.to_json().unwrap()
+        );
+        assert_eq!(builtin.json().unwrap(), checked.value);
+    }
 }

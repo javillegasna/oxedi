@@ -150,6 +150,4 @@ pub const SHORTCUTS: &[Shortcut] = &[
     shortcut("Spec::from_json", "spec_load", "spec"),
     shortcut("Spec::builtin_835", "spec_load", "spec"),
     shortcut("Spec::builtin_835_4010", "spec_load", "spec"),
-    shortcut("Spec::BUILTIN_835_JSON", "spec_load", "spec"),
-    shortcut("Spec::BUILTIN_835_4010_PATCH", "spec_load", "spec"),
 ];

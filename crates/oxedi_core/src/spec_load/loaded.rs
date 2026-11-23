@@ -36,9 +36,8 @@ impl LoadedSpec {
     /// compile) is a [`SpecError::Patch`].
     ///
     /// ```
-    /// # use oxedi_core::spec::Spec;
-    /// # use oxedi_core::spec_load::LoadedSpec;
-    /// let loaded = LoadedSpec::from_json(Spec::BUILTIN_835_JSON)?;
+    /// # use oxedi_core::spec_load::Builtin;
+    /// let loaded = Builtin::fallback().loaded()?;
     /// let patched = loaded.merge_patch(
     ///     r#"{"loops":{"1000A":{"occurrences":{"extra":{"segment":"XX","pos":11400}}}}}"#,
     /// )?;

@@ -51,10 +51,9 @@ spec_object! {
     /// an absent value are left out.
     ///
     /// ```
-    /// # use oxedi_core::spec::Spec;
-    /// # use oxedi_core::spec_load::{SpecModel, SummaryModel};
+    /// # use oxedi_core::spec_load::{Builtin, SummaryModel};
     /// # use serde_json::json;
-    /// let mut model = SpecModel::from_json(Spec::BUILTIN_835_JSON)?;
+    /// let mut model = Builtin::fallback().model()?;
     /// assert_eq!(model.compile()?.name(), "835");
     /// let summary = serde_json::from_value::<SummaryModel>(json!({"count":{"table":"nope"}}))?;
     /// model.summaries.insert("ghost".into(), summary);

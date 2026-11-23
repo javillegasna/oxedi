@@ -9,9 +9,11 @@ use crate::spec_load::error::SpecError;
 use crate::spec_load::merge_patch;
 use crate::spec_load::model::SpecModel;
 
-/// A composed stack: the model read from the cumulative value.
+/// A composed stack: the cumulative value and the model read from it.
 #[derive(Debug, Clone)]
 pub(in crate::spec_load) struct Composed {
+    /// The packages' specs merged in stack order, under the top package's name.
+    pub(in crate::spec_load) value: Value,
     /// The model read from the value.
     pub(in crate::spec_load) model: SpecModel,
 }
@@ -27,7 +29,7 @@ impl Stack<'_> {
             absorb(&mut value, step.package)?;
         }
         let model = absorb(&mut value, self.top())?;
-        Ok(Composed { model })
+        Ok(Composed { value, model })
     }
 }
 

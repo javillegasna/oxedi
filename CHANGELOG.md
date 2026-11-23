@@ -50,6 +50,7 @@ This file covers the Python package; the DuckDB extension has its own changelog 
 
 ### Changed
 - A spec whose occurrence lists a code under `codes` that its element's own `codes` leaves out is refused. Rust: `OccurrenceError::CodeOutsideElement` also replaces `QualifierCodeOutsideElement`, with the same text for a qualifier.
+- The built-in spec files are packages: `835.json` is the 5010 spec under a header (`oxedi/views/005010/835/X221A1`, every layer) and `835.4010.json` an edition over it (`oxedi/guide/004010/835/X091A1`); the built-ins are the two spec bodies merged by value in order and read once; tests prove that read gives the same model as composing the stack of packages.
 - Rust: loading a spec has its own module, `oxedi_core::spec_load`, beside the compiled schema in `oxedi_core::spec`. `SpecError`, `LoadedSpec`, `Builtin`, `Version`, `UnknownVersion`, `ElementPosition`, `merge_patch`, every `*Model` (`SpecModel`, `LoopModel`, …) and the load errors (`VersionError`, `ControlError`, `ElementDefError`, `OccurrenceError`, `TableDefError`, `AnchorChains`, `AnchorPositions`, `LoopSegments`, `BalanceError`, `SummaryDefError`) move from `oxedi_core::spec::` to `oxedi_core::spec_load::`; their root paths (`oxedi_core::SpecError`, …) are unchanged.
 - Rust: `Spec::merge_patch` and `Spec::to_json` are removed, and a compiled `Spec` keeps no JSON: patch and write a spec through `LoadedSpec` (`LoadedSpec::merge_patch`, `LoadedSpec::to_json`), a built-in through `Builtin::loaded`.
 - `Spec.to_json()` returns the spec's model as canonical JSON for every spec, loaded, patched or built in: no key equal to its default, no `null`, keys in name order; `Spec.patch` merges over that model.
@@ -146,6 +147,7 @@ This file covers the Python package; the DuckDB extension has its own changelog 
 - Rust: `SpecError::Schema` is removed; such a fault is `SpecError::Format`.
 
 ### Removed
+- Rust: `Spec::BUILTIN_835_JSON` and `Spec::BUILTIN_835_4010_PATCH`; use `Builtin::fallback().model()` or `Builtin::find(..)?.loaded()`.
 - Rust: `Spec::model`, `Spec::from_model` and `SpecError::ModelMismatch`. Read a spec's model with `SpecModel::from_json` or keep it in a `LoadedSpec`, and compile one with `SpecModel::compile` or `LoadedSpec::from_model`.
 
 ### Fixed

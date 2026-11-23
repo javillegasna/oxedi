@@ -96,6 +96,7 @@ impl Package {
     }
 
     /// The spec value the package holds.
+    #[cfg_attr(not(test), expect(dead_code))]
     pub(in crate::spec_load) fn body(&self) -> &Value {
         &self.body
     }

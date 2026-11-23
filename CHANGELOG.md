@@ -50,7 +50,7 @@ This file covers the Python package; the DuckDB extension has its own changelog 
   wanted segment, outermost first, in one pass that stops at the highest index.
 
 ### Changed
-- Spec format: an element's `required: true` is now `usage: "required"`, the word an occurrence uses (`situational` is the default).
+- Spec format: an element's `required` key is refused, whether true or false: write `usage: "required"` or drop `required: false`; `usage` is the word an occurrence uses (`situational` is the default).
 - Spec format: an occurrence narrows its segment's elements under `elements`, one entry per position (`"elements": {"1": {"codes": ["PR"]}}`); it replaces the occurrence's `codes` map (`"codes": {"1": ["PR"]}`). Load errors name the entry's path (`elements.2.codes`).
 - Rust: a guide package may narrow a segment's element (its `codes`, `min`, `max` and `usage`) without naming an occurrence; the dictionary alone defines its name, type and components.
 - A spec whose occurrence lists a code under `elements.<pos>.codes` that its element's own `codes` leaves out is refused. Rust: `OccurrenceError::CodeOutsideElement` also replaces `QualifierCodeOutsideElement`, with the same text for a qualifier.

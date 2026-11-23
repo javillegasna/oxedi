@@ -6,6 +6,7 @@ use super::balance_error::BalanceError;
 use super::build::VersionError;
 use super::build_loops::ControlError;
 use super::error_text::{Under, write_ambiguous, write_cycle};
+use super::kit::KitError;
 use super::occurrence_error::OccurrenceError;
 use super::package::{HeaderError, PackageId, StackError};
 use super::segments::ElementDefError;
@@ -89,6 +90,11 @@ pub enum SpecError {
     BadHeader {
         /// What is wrong with it.
         reason: HeaderError,
+    },
+    /// A kit manifest is invalid.
+    BadKit {
+        /// What is wrong with it.
+        reason: KitError,
     },
     /// The cumulative value after a package does not read as the model.
     Package {
@@ -262,6 +268,7 @@ impl fmt::Display for SpecError {
             SpecError::BadHeader { reason } => {
                 write!(f, "the package header is invalid: {reason}")
             }
+            SpecError::BadKit { reason } => write!(f, "the kit is invalid: {reason}"),
             SpecError::Package { id, source } => write!(f, "package \"{id}\": {source}"),
             SpecError::Stack { reason } => write!(f, "{reason}"),
             SpecError::BadVersion { reason } => {

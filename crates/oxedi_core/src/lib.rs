@@ -78,7 +78,7 @@ pub use spec::{
     TableSchema, Trigger, UnknownColumn, UnknownTable, spec_schema,
 };
 pub use spec_load::{
-    AnchorChains, AnchorPositions, BalanceError, Builtin, ControlError, ElementDefError,
+    AnchorChains, AnchorPositions, BalanceError, Builtin, ControlError, ElementDefError, Kit,
     LoadedSpec, LoopSegments, SpecError, SummaryDefError, TableDefError, UnknownVersion, Version,
     VersionError, merge_patch,
 };

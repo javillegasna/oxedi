@@ -12,6 +12,9 @@ from conftest import CORE_TESTS
 
 SCRIPT = CORE_TESTS.parent / "scripts" / "spec_vs_pyx12.py"
 
+# How an element of a spec says it must be present.
+REQUIRED = {"required": True}
+
 
 def load_script():
     spec = importlib.util.spec_from_file_location("spec_vs_pyx12", SCRIPT)
@@ -98,13 +101,13 @@ SPEC = {
                      "dtm": {"segment": "DTM", "pos": 600, "usage": "situational"}}},
     },
     "segments": {
-        "ISA": {"elements": {"1": {"name": "qualifier", "type": "ID", "required": True,
+        "ISA": {"elements": {"1": {"name": "qualifier", "type": "ID", **REQUIRED,
                                    "min": 2, "max": 2, "codes": ["00", "01"]}}},
         "REF": {"elements": {
-            "1": {"name": "qualifier", "type": "ID", "required": True, "min": 2, "max": 3},
-            "2": {"name": "value", "type": "AN", "required": True, "min": 1, "max": 50},
+            "1": {"name": "qualifier", "type": "ID", **REQUIRED, "min": 2, "max": 3},
+            "2": {"name": "value", "type": "AN", **REQUIRED, "min": 1, "max": 50},
         }},
-        "DTM": {"elements": {"1": {"name": "qualifier", "type": "ID", "required": True,
+        "DTM": {"elements": {"1": {"name": "qualifier", "type": "ID", **REQUIRED,
                                    "min": 3, "max": 3}}},
     },
 }
@@ -153,7 +156,7 @@ def test_report_and_patch_name_each_difference(tiny, tmp_path):
         "segment": "DTM", "pos": 300, "usage": "situational", "elements": {"1": {"codes": ["232"]}}}}
     # CLP and SVC have no element definitions in the spec.
     assert draft["segments"]["CLP"]["elements"]["1"] == {
-        "name": "claim_id", "type": "AN", "required": True, "min": 1, "max": 38,
+        "name": "claim_id", "type": "AN", **REQUIRED, "min": 1, "max": 38,
     }
 
 
@@ -301,16 +304,16 @@ OCC_MAP = """<?xml version="1.0"?>
 """
 
 OCC_SEGMENTS = {
-    "ISA": {"elements": {"1": {"name": "qualifier", "type": "ID", "required": True,
+    "ISA": {"elements": {"1": {"name": "qualifier", "type": "ID", **REQUIRED,
                                "min": 2, "max": 2, "codes": ["00"]}}},
-    "CLP": {"elements": {"1": {"name": "claim_id", "type": "AN", "required": True,
+    "CLP": {"elements": {"1": {"name": "claim_id", "type": "AN", **REQUIRED,
                                "min": 1, "max": 38}}},
     "REF": {"elements": {
-        "1": {"name": "qualifier", "type": "ID", "required": True, "min": 2, "max": 3,
+        "1": {"name": "qualifier", "type": "ID", **REQUIRED, "min": 2, "max": 3,
               "codes": ["1A", "BB", "EA"]},
-        "2": {"name": "value", "type": "AN", "required": True, "min": 1, "max": 50},
+        "2": {"name": "value", "type": "AN", **REQUIRED, "min": 1, "max": 50},
     }},
-    "DTM": {"elements": {"1": {"name": "qualifier", "type": "ID", "required": True,
+    "DTM": {"elements": {"1": {"name": "qualifier", "type": "ID", **REQUIRED,
                                "min": 3, "max": 3, "codes": ["232", "472"]}}},
 }
 

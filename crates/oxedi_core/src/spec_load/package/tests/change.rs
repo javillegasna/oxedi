@@ -7,6 +7,12 @@ fn change_display() {
     let cases = [
         (ChangeKind::Removed, "x is removed"),
         (
+            ChangeKind::Added {
+                after: "[\"A\"]".into(),
+            },
+            "x is added: [\"A\"]",
+        ),
+        (
             ChangeKind::Narrowed {
                 before: "1".into(),
                 after: "2".into(),

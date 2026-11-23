@@ -41,10 +41,15 @@ pub enum ChangeKind {
     },
     /// The base has it and the package does not.
     Removed,
+    /// The package has it and the base does not.
+    Added {
+        /// The package's value as a spec writes it.
+        after: String,
+    },
 }
 
 impl fmt::Display for Change {
-    /// `path: before becomes after`, or `path is removed`.
+    /// `path: before becomes after`, `path is removed` or `path is added: after`.
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match &self.kind {
             ChangeKind::Narrowed { before, after }
@@ -53,6 +58,7 @@ impl fmt::Display for Change {
                 write!(f, "{}: {before} becomes {after}", self.path)
             }
             ChangeKind::Removed => write!(f, "{} is removed", self.path),
+            ChangeKind::Added { after } => write!(f, "{} is added: {after}", self.path),
         }
     }
 }

@@ -1,6 +1,7 @@
 use super::super::*;
 use super::{BASE, package};
 use crate::spec_load::SpecError;
+use crate::spec_load::builtin::PACKAGES;
 
 const E: &str = "test/envelope/005010";
 const D: &str = "test/dictionary/005010";
@@ -200,4 +201,243 @@ fn a_package_that_changes_the_structure_is_refused() {
              loops.a.trigger: {{\"segment\":\"AA\"}} becomes {{\"segment\":\"AA\",\"where\":{{\"1\":\"X\"}}}}{TAIL}"
         )
     );
+}
+
+#[test]
+fn a_guide_changing_the_version_is_refused() {
+    let top = guide(r#"{"version":{"values":["W"]}}"#);
+    assert_eq!(
+        refusal(&top),
+        format!(
+            "package \"{G}\" does not only narrow what its bases allow: version: \
+             {{\"segment\":\"AA\",\"element\":1,\"values\":[\"V\"]}} becomes \
+             {{\"segment\":\"AA\",\"element\":1,\"values\":[\"W\"]}}{TAIL}"
+        )
+    );
+}
+
+#[test]
+fn a_views_edition_records_a_table_change() {
+    let table = r#"{"tables":{"t":{"loops":["a"],"columns":{"c":{"segment":"AA","element":1}}}}}"#;
+    let views = |id, bases: &[&str], spec| package(id, &["views"], bases, spec);
+    let first = views("test/views/005010/835/X1", &[E], table);
+    let renamed = r#"{"tables":{"t":{"columns":{"c":null,"d":{"segment":"AA","element":1}}}}}"#;
+    let edition = views(
+        "test/views/004010/835/X1",
+        &["test/views/005010/835/X1"],
+        renamed,
+    );
+    let first_composed = compose(&first, &[base()]).unwrap();
+    assert!(first_composed.changes.is_empty());
+    let composed = compose(&edition, &[base(), first]).unwrap();
+    assert_eq!(composed.changes.len(), 1);
+    assert_eq!(composed.changes[0].path, "tables.t");
+    assert!(matches!(
+        composed.changes[0].kind,
+        ChangeKind::Changed { .. }
+    ));
+}
+
+// Every difference of the 4010 edition from the 5010 package, in the order the
+// comparison walks them: the path, and whether the edition narrowed, widened,
+// changed, removed or added it.
+const EDITION_CHANGES: &[(&str, &str)] = &[
+    ("segments.AMT.elements.1.codes", "widened"),
+    ("segments.CAS.elements.1.codes", "widened"),
+    ("segments.CLP.elements.2.codes", "widened"),
+    ("segments.CLP.elements.6.codes", "narrowed"),
+    ("segments.CLP.elements.7.required", "widened"),
+    ("segments.CLP.elements.9.codes", "narrowed"),
+    ("segments.CLP.elements.14", "removed"),
+    ("segments.GS.elements.8.codes", "widened"),
+    ("segments.ISA.elements.11.type", "changed"),
+    ("segments.ISA.elements.11.codes", "narrowed"),
+    ("segments.ISA.elements.12.codes", "widened"),
+    ("segments.N1.elements.2.required", "widened"),
+    ("segments.N4.elements.2.required", "narrowed"),
+    ("segments.N4.elements.3.required", "narrowed"),
+    ("segments.N4.elements.7", "removed"),
+    ("segments.NM1.elements.1.codes", "narrowed"),
+    ("segments.NM1.elements.12", "removed"),
+    ("segments.PER.elements.1.codes", "narrowed"),
+    ("segments.PER.elements.3.codes", "narrowed"),
+    ("segments.PER.elements.5.codes", "narrowed"),
+    ("segments.PER.elements.7.codes", "narrowed"),
+    ("segments.PLB.elements.3.composite.1.codes", "widened"),
+    ("segments.PLB.elements.5.composite.1.codes", "widened"),
+    ("segments.PLB.elements.7.composite.1.codes", "widened"),
+    ("segments.PLB.elements.9.composite.1.codes", "widened"),
+    ("segments.PLB.elements.11.composite.1.codes", "widened"),
+    ("segments.PLB.elements.13.composite.1.codes", "widened"),
+    ("segments.QTY.elements.1.codes", "widened"),
+    ("segments.RDM", "removed"),
+    ("segments.REF.elements.1.codes", "widened"),
+    ("segments.ST.elements.3", "removed"),
+    ("segments.SVC.elements.1.composite.1.codes", "widened"),
+    ("segments.SVC.elements.1.composite.8", "removed"),
+    ("segments.SVC.elements.6.composite.1.codes", "widened"),
+    ("segments.SVC.elements.6.composite.8", "removed"),
+    ("segments.TS3.elements.6", "added"),
+    ("segments.TS3.elements.7", "added"),
+    ("segments.TS3.elements.8", "added"),
+    ("segments.TS3.elements.9", "added"),
+    ("segments.TS3.elements.10", "added"),
+    ("segments.TS3.elements.11", "added"),
+    ("segments.TS3.elements.12", "added"),
+    ("segments.TS3.elements.14", "added"),
+    ("segments.TS3.elements.16", "added"),
+    ("segments.TS3.elements.19", "added"),
+    (
+        "loops.1000A.occurrences.payer_business_contact_information.qualifier",
+        "removed",
+    ),
+    (
+        "loops.1000A.occurrences.payer_business_contact_information.codes.3",
+        "removed",
+    ),
+    (
+        "loops.1000A.occurrences.payer_business_contact_information.codes.5",
+        "removed",
+    ),
+    (
+        "loops.1000A.occurrences.payer_business_contact_information.codes.7",
+        "removed",
+    ),
+    (
+        "loops.1000A.occurrences.payer_technical_contact_information",
+        "removed",
+    ),
+    ("loops.1000A.occurrences.payer_web_site", "removed"),
+    (
+        "loops.1000B.occurrences.payee_additional_identification.codes.1",
+        "widened",
+    ),
+    (
+        "loops.1000B.occurrences.payee_identification.codes.3",
+        "added",
+    ),
+    (
+        "loops.1000B.occurrences.remittance_delivery_method",
+        "removed",
+    ),
+    (
+        "loops.2100.occurrences.claim_contact_information.max",
+        "widened",
+    ),
+    (
+        "loops.2100.occurrences.claim_contact_information.codes.1",
+        "removed",
+    ),
+    (
+        "loops.2100.occurrences.claim_contact_information.codes.3",
+        "removed",
+    ),
+    (
+        "loops.2100.occurrences.claim_contact_information.codes.5",
+        "removed",
+    ),
+    (
+        "loops.2100.occurrences.claim_contact_information.codes.7",
+        "removed",
+    ),
+    ("loops.2100.occurrences.claim_received_date", "removed"),
+    (
+        "loops.2100.occurrences.claim_supplemental_information.max",
+        "widened",
+    ),
+    (
+        "loops.2100.occurrences.claim_supplemental_information.codes.1",
+        "widened",
+    ),
+    (
+        "loops.2100.occurrences.claim_supplemental_information_quantity.max",
+        "widened",
+    ),
+    (
+        "loops.2100.occurrences.corrected_priority_payer_name.max",
+        "widened",
+    ),
+    ("loops.2100.occurrences.coverage_expiration_date", "removed"),
+    ("loops.2100.occurrences.insured_name.codes.8", "widened"),
+    (
+        "loops.2100.occurrences.other_claim_related_identification.qualifier.codes",
+        "widened",
+    ),
+    ("loops.2100.occurrences.other_subscriber_name", "removed"),
+    (
+        "loops.2100.occurrences.rendering_provider_identification.qualifier.codes",
+        "narrowed",
+    ),
+    (
+        "loops.2100.occurrences.statement_from_or_to_date",
+        "removed",
+    ),
+    ("loops.2100.occurrences.claim_date", "added"),
+    (
+        "loops.2110.occurrences.healthcare_policy_identification",
+        "removed",
+    ),
+    ("loops.2110.occurrences.line_item_control_number", "removed"),
+    (
+        "loops.2110.occurrences.rendering_provider_information.qualifier.codes",
+        "narrowed",
+    ),
+    ("loops.2110.occurrences.service_date.max", "widened"),
+    (
+        "loops.2110.occurrences.service_identification.max",
+        "narrowed",
+    ),
+    (
+        "loops.2110.occurrences.service_identification.qualifier.codes",
+        "widened",
+    ),
+    (
+        "loops.2110.occurrences.service_supplemental_amount.max",
+        "widened",
+    ),
+    (
+        "loops.2110.occurrences.service_supplemental_amount.codes.1",
+        "widened",
+    ),
+    (
+        "loops.2110.occurrences.service_supplemental_quantity.codes.1",
+        "widened",
+    ),
+    ("version", "changed"),
+];
+
+fn word(kind: &ChangeKind) -> &'static str {
+    match kind {
+        ChangeKind::Narrowed { .. } => "narrowed",
+        ChangeKind::Widened { .. } => "widened",
+        ChangeKind::Changed { .. } => "changed",
+        ChangeKind::Removed => "removed",
+        ChangeKind::Added { .. } => "added",
+    }
+}
+
+#[test]
+fn the_4010_edition_lists_its_changes() {
+    let pool = PACKAGES.map(|text| Package::from_json(text).unwrap());
+    let composed = Stack::resolve(&pool[1], &pool)
+        .unwrap()
+        .compose_checked()
+        .unwrap();
+    let id = "oxedi/guide/004010/835/X091A1";
+    assert!(composed.changes.iter().all(|c| c.package.as_str() == id));
+    let listed: Vec<(&str, &str)> = composed
+        .changes
+        .iter()
+        .map(|change| (change.path.as_str(), word(&change.kind)))
+        .collect();
+    assert_eq!(listed, EDITION_CHANGES);
+    let isa = composed
+        .changes
+        .iter()
+        .find(|c| c.path == "segments.ISA.elements.11.type");
+    let changed = ChangeKind::Changed {
+        before: r#""AN""#.into(),
+        after: r#""ID""#.into(),
+    };
+    assert_eq!(isa.map(|c| &c.kind), Some(&changed));
 }

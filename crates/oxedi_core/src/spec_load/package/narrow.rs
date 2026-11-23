@@ -16,13 +16,23 @@ use crate::spec_load::model::{
 };
 
 /// Every difference of `next` from `prev`, in a fixed order: the segments in
-/// key order with their elements and components, then the loops with their
-/// occurrences. What only `next`
-/// holds is an addition, never a difference.
+/// key order with their elements and components, the loops with their
+/// occurrences, the version, then the balancing rules, tables, summaries and
+/// the default table. What only `next` holds is an addition.
 pub(super) fn differences(package: &PackageId, prev: &SpecModel, next: &SpecModel) -> Vec<Change> {
     let mut walk = Walk::default();
     walk.entries("segments", &prev.segments, &next.segments, Walk::segment);
     walk.entries("loops", &prev.loops, &next.loops, Walk::loop_def);
+    walk.optional("version", &prev.version, &next.version, Walk::whole);
+    walk.entries("balancing", &prev.balancing, &next.balancing, Walk::whole);
+    walk.entries("tables", &prev.tables, &next.tables, Walk::whole);
+    walk.entries("summaries", &prev.summaries, &next.summaries, Walk::whole);
+    walk.optional(
+        "default_table",
+        &prev.default_table,
+        &next.default_table,
+        Walk::whole,
+    );
     walk.found
         .into_iter()
         .map(|(path, kind)| Change {

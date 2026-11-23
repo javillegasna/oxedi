@@ -2,8 +2,9 @@
 
 Reads pyx12's installed maps (the transaction map, ``dataele.xml`` and
 ``codes.xml``), located through the installed package and never copied into
-the repository, and a spec (``specs/835.json``, with ``specs/835.4010.json``
-merged over it for the 4010 map). It compares loops (ids, parents, triggers,
+the repository, and a spec composed by oxedi (``Spec.builtin`` of the
+version, or ``--spec`` with its ``--spec-patch`` files; oxedi must be
+installed). It compares loops (ids, parents, triggers,
 maximum repeat), the segments each loop holds, the occurrences of each loop,
 element usage, types, lengths and code lists, and writes:
 
@@ -59,13 +60,12 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
 from pyx12_compare import (  # noqa: E402,F401  (the names callers and tests read from here)
-    SPECS,
     VERSIONS,
+    Source,
     load_map,
     main,
     map_position as _position,
     merge_diff,
-    merge_patch,
 )
 
 if __name__ == "__main__":

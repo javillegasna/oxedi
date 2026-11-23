@@ -1,4 +1,4 @@
-"""Paths, the versions the script compares and the loop mapping table."""
+"""Paths, the versions the script compares (version -> map file) and the loop mapping table."""
 
 from __future__ import annotations
 
@@ -6,14 +6,10 @@ from pathlib import Path
 
 
 REPO = Path(__file__).resolve().parents[4]
-SPECS = REPO / "crates" / "oxedi_core" / "specs"
 IGNORE = Path(__file__).resolve().parents[1] / "spec_vs_pyx12.ignore.json"
 OUT = REPO / "target" / "spec_vs_pyx12"
 
-VERSIONS = {
-    "5010": {"map": "835.5010.X221.A1.xml", "patches": []},
-    "4010": {"map": "835.4010.X091.A1.xml", "patches": ["835.4010.json"]},
-}
+VERSIONS = {"5010": "835.5010.X221.A1.xml", "4010": "835.4010.X091.A1.xml"}
 
 # pyx12 loop id -> spec loop name. The wrapper loops of the transaction
 # (HEADER, DETAIL, FOOTER) hold segments and loops the spec places directly

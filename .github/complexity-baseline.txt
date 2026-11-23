@@ -7,7 +7,6 @@ crates/oxedi_core/scripts/anonymize_835.py	_generate	17	2
 crates/oxedi_core/scripts/anonymize_835.py	anonymize_elements	32	4
 crates/oxedi_core/scripts/anonymize_835.py	main	10	1
 crates/oxedi_core/scripts/anonymize_835.py	verify	14	1
-crates/oxedi_core/scripts/pyx12_compare/cli.py	main	16	2
 crates/oxedi_core/scripts/pyx12_compare/elements.py	compare_element	16	2
 crates/oxedi_core/scripts/pyx12_compare/elements.py	compare_elements	20	5
 crates/oxedi_core/scripts/pyx12_compare/elements.py	draft	9	2

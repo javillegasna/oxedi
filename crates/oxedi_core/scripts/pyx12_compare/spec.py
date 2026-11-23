@@ -1,30 +1,57 @@
-"""Reading a spec and its merge patches, and the RFC 7386 helpers and ignore list."""
+"""Reading the compared spec through oxedi, the RFC 7386 diff the draft patch is, and the ignore list."""
 
 from __future__ import annotations
 
+import dataclasses
 import json
 import sys
 from pathlib import Path
 
-
-def merge_patch(target, patch):
-    """RFC 7386: objects merge key by key, null deletes, anything else replaces."""
-    if not isinstance(patch, dict):
-        return patch
-    result = dict(target) if isinstance(target, dict) else {}
-    for key, value in patch.items():
-        if value is None:
-            result.pop(key, None)
-        else:
-            result[key] = merge_patch(result.get(key), value)
-    return result
+from oxedi import Spec, SpecError
 
 
-def load_spec(path, patches=()):
-    spec = json.loads(Path(path).read_text())
-    for patch in patches:
-        spec = merge_patch(spec, json.loads(Path(patch).read_text()))
-    return spec
+@dataclasses.dataclass(frozen=True)
+class Source:
+    """The spec a run compares, read and patched by oxedi, and its name in the
+    report title and the ``--check`` summary."""
+
+    spec: Spec
+    label: str
+
+    @classmethod
+    def builtin(cls, version):
+        """The built-in spec of ``version`` (``5010`` or ``4010``), as oxedi composes it."""
+        return cls(Spec.builtin(version), f"built-in {version}")
+
+    @classmethod
+    def file(cls, path):
+        """The spec in the JSON file ``path``."""
+        return cls(_read(path, Spec.from_json), path.name)
+
+    def patched(self, path):
+        """This spec with the merge patch in the JSON file ``path`` applied by oxedi."""
+        return Source(_read(path, self.spec.patch), f"{self.label} + {path.name}")
+
+    def model(self):
+        """The spec's model as the comparison reads it: oxedi's canonical JSON,
+        with each occurrence's ``usage`` written out. The canonical JSON leaves
+        out the default ``situational``; the occurrences generated from the
+        map write it, and the draft patch is their difference, so the spec's
+        occurrences carry it too."""
+        model = json.loads(self.spec.to_json())
+        for loop in model.get("loops", {}).values():
+            for occurrence in loop.get("occurrences", {}).values():
+                occurrence.setdefault("usage", "situational")
+        return model
+
+
+def _read(path, load):
+    """``load`` applied to the text of ``path``; a spec or patch oxedi refuses
+    stops the run with the path and oxedi's reason."""
+    try:
+        return load(path.read_text())
+    except SpecError as error:
+        sys.exit(f"{path}: {error}")
 
 
 def merge_diff(base, target):

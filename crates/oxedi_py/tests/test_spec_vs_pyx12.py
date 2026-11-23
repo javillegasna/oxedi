@@ -6,6 +6,7 @@ import json
 import sys
 
 import pytest
+from oxedi import Spec
 
 from conftest import CORE_TESTS
 
@@ -29,32 +30,32 @@ MAP = """<?xml version="1.0"?>
         <seq>01</seq><valid_codes><code>00</code><code>03</code></valid_codes></element>
     </segment>
     <loop xid="2100">
-      <segment xid="CLP"><usage>R</usage>
+      <segment xid="CLP"><usage>R</usage><pos>010</pos>
         <element xid="CLP01"><data_ele>1028</data_ele><name>Claim Id</name><usage>R</usage>
           <seq>01</seq></element>
       </segment>
-      <segment xid="REF"><usage>S</usage>
+      <segment xid="REF"><usage>S</usage><pos>020</pos>
         <element xid="REF01"><data_ele>128</data_ele><name>Qualifier</name><usage>R</usage>
           <seq>01</seq><valid_codes><code>EA</code></valid_codes></element>
         <element xid="REF02"><data_ele>127</data_ele><name>Value</name><usage>R</usage>
           <seq>02</seq></element>
       </segment>
-      <segment xid="DTM"><usage>S</usage>
+      <segment xid="DTM"><usage>S</usage><pos>030</pos>
         <element xid="DTM01"><data_ele>374</data_ele><name>Date Qualifier</name><usage>R</usage>
           <seq>01</seq><valid_codes><code>232</code></valid_codes></element>
       </segment>
       <loop xid="2110">
-        <segment xid="SVC"><usage>R</usage>
+        <segment xid="SVC"><usage>R</usage><pos>040</pos>
           <element xid="SVC01"><data_ele>782</data_ele><name>Charge</name><usage>R</usage>
             <seq>01</seq></element>
         </segment>
-        <segment xid="REF"><usage>S</usage>
+        <segment xid="REF"><usage>S</usage><pos>050</pos>
           <element xid="REF01"><data_ele>128</data_ele><name>Qualifier</name><usage>R</usage>
             <seq>01</seq><valid_codes><code>6R</code></valid_codes></element>
           <element xid="REF02"><data_ele>127</data_ele><name>Value</name><usage>S</usage>
             <seq>02</seq></element>
         </segment>
-        <segment xid="DTM"><usage>S</usage>
+        <segment xid="DTM"><usage>S</usage><pos>060</pos>
           <element xid="DTM01"><data_ele>374</data_ele><name>Date Qualifier</name>
             <usage>R</usage><seq>01</seq><valid_codes /></element>
         </segment>
@@ -86,15 +87,15 @@ SPEC = {
         "interchange": {"trigger": {"segment": "ISA"}, "end": "IEA"},
         "2100": {"parent": "interchange", "trigger": {"segment": "CLP"},
                  "occurrences": {
-                     "clp": {"segment": "CLP", "pos": 0, "usage": "required"},
-                     "ref": {"segment": "REF", "pos": 0, "usage": "situational",
+                     "clp": {"segment": "CLP", "pos": 100, "usage": "required"},
+                     "ref": {"segment": "REF", "pos": 200, "usage": "situational",
                              "codes": {"1": ["EA"]}}}},
         "2110": {"parent": "2100", "trigger": {"segment": "SVC"},
                  "occurrences": {
-                     "svc": {"segment": "SVC", "pos": 0, "usage": "required"},
-                     "ref": {"segment": "REF", "pos": 0, "usage": "situational",
+                     "svc": {"segment": "SVC", "pos": 400, "usage": "required"},
+                     "ref": {"segment": "REF", "pos": 500, "usage": "situational",
                              "codes": {"1": ["6R"]}},
-                     "dtm": {"segment": "DTM", "pos": 0, "usage": "situational"}}},
+                     "dtm": {"segment": "DTM", "pos": 600, "usage": "situational"}}},
     },
     "segments": {
         "ISA": {"elements": {"1": {"name": "qualifier", "type": "ID", "required": True,
@@ -149,7 +150,7 @@ def test_report_and_patch_name_each_difference(tiny, tmp_path):
     # The spec's 2100 does not hold DTM; the patch adds an occurrence for it.
     assert "`segments:2100:DTM` [2100] loop 2100 does not hold DTM" in text
     assert draft["loops"]["2100"]["occurrences"] == {"dtm": {
-        "segment": "DTM", "pos": 0, "usage": "situational", "codes": {"1": ["232"]}}}
+        "segment": "DTM", "pos": 300, "usage": "situational", "codes": {"1": ["232"]}}}
     # CLP and SVC have no element definitions in the spec.
     assert draft["segments"]["CLP"]["elements"]["1"] == {
         "name": "claim_id", "type": "AN", "required": True, "min": 1, "max": 38,
@@ -237,18 +238,13 @@ def test_real_maps_cover_every_loop(tmp_path):
 @pytest.mark.parametrize("version", ["5010", "4010"])
 def test_real_draft_patches_load_over_the_compared_spec(tmp_path, version):
     pytest.importorskip("pyx12")
-    from oxedi import Spec
-
     script = load_script()
     report, patch = tmp_path / "report.md", tmp_path / "patch.json"
     assert script.main(["--version", version, "--report", str(report),
                         "--patch", str(patch)]) == 0
-    spec = Spec.builtin()
-    for name in script.VERSIONS[version]["patches"]:
-        spec = spec.patch((script.SPECS / name).read_text())
     # The draft carries code lists, lengths and new definitions in the
     # spec format; the core loads every one of them.
-    spec.patch(patch.read_text())
+    Spec.builtin(version).patch(patch.read_text())
 
 
 @pytest.mark.parametrize("version", ["5010", "4010"])
@@ -445,4 +441,44 @@ def test_merge_diff_is_the_patch_between_two_objects():
     target = {"a": {"x": 1, "y": [2]}, "c": 3}
     diff = script.merge_diff(base, target)
     assert diff == {"a": {"y": [2]}, "b": None, "c": 3}
-    assert script.merge_patch(base, diff) == target
+
+
+def test_merge_diff_round_trips_through_the_core_patch():
+    base = json.loads(Spec.builtin().to_json())
+    target = json.loads(Spec.builtin().to_json())
+    target["name"] = "other"
+    del target["segments"]["CLP"]["elements"]["1"]["max"]
+    target["segments"]["ZZZ"] = {"elements": {"1": {"name": "z", "type": "AN"}}}
+    diff = load_script().merge_diff(base, target)
+    assert diff == {"name": "other", "segments": {
+        "CLP": {"elements": {"1": {"max": None}}},
+        "ZZZ": {"elements": {"1": {"name": "z", "type": "AN"}}}}}
+    assert json.loads(Spec.builtin().patch(diff).to_json()) == target
+
+
+def test_a_spec_file_and_its_patches_are_read_by_oxedi(tiny, tmp_path):
+    rename = tmp_path / "rename.json"
+    rename.write_text('{"name": "renamed"}')
+    source = load_script().Source.file(tiny["spec"]).patched(rename)
+    assert source.label == "spec.json + rename.json"
+    assert source.model()["name"] == "renamed"
+    assert source.model()["loops"]["2100"]["occurrences"]["ref"]["usage"] == "situational"
+
+
+def test_a_spec_oxedi_refuses_stops_with_its_path_and_reason(tiny):
+    tiny["spec"].write_text('{"name": "x", "loops": {"a": {"trigger": 1}}}')
+    with pytest.raises(SystemExit) as info:
+        load_script().main(args(tiny, "--check"))
+    assert str(info.value) == (f"{tiny['spec']}: spec: at loops.a.trigger: invalid type: "
+                               "integer `1`, expected a trigger object")
+
+
+@pytest.mark.parametrize("version", ["5010", "4010"])
+def test_the_compared_built_in_is_the_one_oxedi_composes(version):
+    expected = json.loads(Spec.builtin(version).to_json())
+    for loop in expected["loops"].values():
+        for occurrence in loop.get("occurrences", {}).values():
+            occurrence.setdefault("usage", "situational")
+    source = load_script().Source.builtin(version)
+    assert source.model() == expected
+    assert source.label == f"built-in {version}"

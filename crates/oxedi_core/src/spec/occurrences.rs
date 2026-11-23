@@ -6,6 +6,7 @@ use std::collections::BTreeMap;
 use super::elements::{ElementDef, SegmentDef, holds_code};
 use super::loops::Trigger;
 use crate::segment::Segment;
+use crate::value::LengthRange;
 
 /// Whether an occurrence, or an element, must be present.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
@@ -64,8 +65,44 @@ pub struct OccurrenceDef {
     pub max: Option<usize>,
     /// What tells it apart from the other occurrences of its segment.
     pub qualifier: Option<Qualifier>,
-    /// Code lists of its own, by `(element, component)`, each sorted by bytes.
-    pub codes: BTreeMap<(usize, Option<usize>), Vec<String>>,
+    /// How it narrows its segment's elements, by `(element, component)`.
+    pub elements: BTreeMap<(usize, Option<usize>), ElementEntry>,
+}
+
+/// Which definition sets one facet of an element's rule in an occurrence.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum Setting<T> {
+    /// The element's own definition sets it.
+    Element,
+    /// The occurrence sets it to this value.
+    Occurrence(T),
+}
+
+impl<T> Setting<T> {
+    /// The occurrence's value, or `element` when the element's applies.
+    pub fn or<'a>(&'a self, element: &'a T) -> &'a T {
+        match self {
+            Setting::Element => element,
+            Setting::Occurrence(value) => value,
+        }
+    }
+
+    /// `true` when the occurrence sets it.
+    pub fn is_occurrence(&self) -> bool {
+        matches!(self, Setting::Occurrence(_))
+    }
+}
+
+/// How an occurrence narrows one element or component of its segment.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct ElementEntry {
+    /// Whether the place must hold a value here.
+    pub required: Setting<bool>,
+    /// The lengths it allows here: the element's bounds, with the entry's
+    /// replacing them.
+    pub length: Setting<LengthRange>,
+    /// The codes it allows here, sorted by their bytes.
+    pub codes: Setting<Vec<String>>,
 }
 
 impl OccurrenceDef {

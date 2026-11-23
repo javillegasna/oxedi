@@ -72,8 +72,15 @@ fn occurrences_load_in_position_order_with_their_fields() {
         })
     );
     assert_eq!(
-        patient.codes,
-        BTreeMap::from([((2, None), vec!["1".to_string()])])
+        patient.elements,
+        BTreeMap::from([(
+            (2, None),
+            ElementEntry {
+                required: Setting::Element,
+                length: Setting::Element,
+                codes: Setting::Occurrence(vec!["1".to_string()]),
+            }
+        )])
     );
     let note = &head.occurrences[1];
     assert_eq!(
@@ -489,7 +496,7 @@ fn a_trigger_opens_on_an_occurrence_by_segment_and_qualifier_code() {
         usage: Usage::Required,
         max: None,
         qualifier,
-        codes: BTreeMap::new(),
+        elements: BTreeMap::new(),
     };
     let trigger = |conditions: &[(usize, &[u8])]| Trigger {
         segment: b"NM".to_vec(),
@@ -540,8 +547,8 @@ fn an_entry_lists_its_codes_by_position_and_component() {
     )
     .unwrap();
     assert_eq!(
-        occurrence_named(&spec, "id").codes[&(1, Some(2))],
-        ["A", "B"],
+        occurrence_named(&spec, "id").elements[&(1, Some(2))].codes,
+        Setting::Occurrence(vec!["A".to_string(), "B".to_string()]),
         "codes are sorted by their bytes"
     );
 }
@@ -551,8 +558,15 @@ fn an_entry_without_codes_narrows_nothing() {
     let spec =
         patched(r#"{"loops":{"head":{"occurrences":{"patient":{"elements":{"3":{}}}}}}}"#).unwrap();
     let patient = occurrence_named(&spec, "patient");
-    assert!(!patient.codes.contains_key(&(3, None)));
-    assert_eq!(patient.codes.len(), 1, "the entry at 2 is kept");
+    assert_eq!(
+        patient.elements[&(3, None)],
+        ElementEntry {
+            required: Setting::Element,
+            length: Setting::Element,
+            codes: Setting::Element,
+        }
+    );
+    assert_eq!(patient.elements.len(), 2, "the entry at 2 is kept");
 }
 
 #[test]

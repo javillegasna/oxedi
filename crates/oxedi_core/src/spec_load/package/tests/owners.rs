@@ -162,7 +162,7 @@ fn a_guide_narrows_a_segment_element_without_naming_an_occurrence() {
     assert_eq!(spec.element_def(b"AA", 1, None).unwrap().codes, ["X"]);
     let occurrence = &spec.loops()[0].occurrences[0];
     assert_eq!(occurrence.name, "aa");
-    assert!(occurrence.codes.is_empty());
+    assert!(occurrence.elements.is_empty());
 }
 
 #[test]

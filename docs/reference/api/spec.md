@@ -15,3 +15,11 @@ The structure of the 835 and the columns of each table. See [The spec](../../cus
 ::: oxedi.JsonValue
 
 ::: oxedi.JsonObject
+
+::: oxedi.validate_stack
+
+::: oxedi.Valid
+
+::: oxedi.Invalid
+
+::: oxedi.Capability

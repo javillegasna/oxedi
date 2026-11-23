@@ -168,8 +168,8 @@ fn widening_a_loop_or_an_occurrence_is_refused() {
             "loops.a.max: 2 becomes no maximum",
         ),
         (
-            r#"{"loops":{"a":{"occurrences":{"aa":{"codes":{"1":["X","Y"]}}}}}}"#,
-            r#"loops.a.occurrences.aa.codes.1: ["X"] becomes ["X","Y"]"#,
+            r#"{"loops":{"a":{"occurrences":{"aa":{"elements":{"1":{"codes":["X","Y"]}}}}}}}"#,
+            r#"loops.a.occurrences.aa.elements.1.codes: ["X"] becomes ["X","Y"]"#,
         ),
         (
             r#"{"loops":{"a":{"occurrences":{"ab":{"qualifier":{"codes":["X","Y"]}}}}}}"#,
@@ -292,15 +292,15 @@ const EDITION_CHANGES: &[(&str, &str)] = &[
         "removed",
     ),
     (
-        "loops.1000A.occurrences.payer_business_contact_information.codes.3",
+        "loops.1000A.occurrences.payer_business_contact_information.elements.3",
         "removed",
     ),
     (
-        "loops.1000A.occurrences.payer_business_contact_information.codes.5",
+        "loops.1000A.occurrences.payer_business_contact_information.elements.5",
         "removed",
     ),
     (
-        "loops.1000A.occurrences.payer_business_contact_information.codes.7",
+        "loops.1000A.occurrences.payer_business_contact_information.elements.7",
         "removed",
     ),
     (
@@ -309,11 +309,11 @@ const EDITION_CHANGES: &[(&str, &str)] = &[
     ),
     ("loops.1000A.occurrences.payer_web_site", "removed"),
     (
-        "loops.1000B.occurrences.payee_additional_identification.codes.1",
+        "loops.1000B.occurrences.payee_additional_identification.elements.1.codes",
         "widened",
     ),
     (
-        "loops.1000B.occurrences.payee_identification.codes.3",
+        "loops.1000B.occurrences.payee_identification.elements.3",
         "added",
     ),
     (
@@ -325,19 +325,19 @@ const EDITION_CHANGES: &[(&str, &str)] = &[
         "widened",
     ),
     (
-        "loops.2100.occurrences.claim_contact_information.codes.1",
+        "loops.2100.occurrences.claim_contact_information.elements.1",
         "removed",
     ),
     (
-        "loops.2100.occurrences.claim_contact_information.codes.3",
+        "loops.2100.occurrences.claim_contact_information.elements.3",
         "removed",
     ),
     (
-        "loops.2100.occurrences.claim_contact_information.codes.5",
+        "loops.2100.occurrences.claim_contact_information.elements.5",
         "removed",
     ),
     (
-        "loops.2100.occurrences.claim_contact_information.codes.7",
+        "loops.2100.occurrences.claim_contact_information.elements.7",
         "removed",
     ),
     ("loops.2100.occurrences.claim_received_date", "removed"),
@@ -346,7 +346,7 @@ const EDITION_CHANGES: &[(&str, &str)] = &[
         "widened",
     ),
     (
-        "loops.2100.occurrences.claim_supplemental_information.codes.1",
+        "loops.2100.occurrences.claim_supplemental_information.elements.1.codes",
         "widened",
     ),
     (
@@ -358,7 +358,10 @@ const EDITION_CHANGES: &[(&str, &str)] = &[
         "widened",
     ),
     ("loops.2100.occurrences.coverage_expiration_date", "removed"),
-    ("loops.2100.occurrences.insured_name.codes.8", "widened"),
+    (
+        "loops.2100.occurrences.insured_name.elements.8.codes",
+        "widened",
+    ),
     (
         "loops.2100.occurrences.other_claim_related_identification.qualifier.codes",
         "widened",
@@ -396,11 +399,11 @@ const EDITION_CHANGES: &[(&str, &str)] = &[
         "widened",
     ),
     (
-        "loops.2110.occurrences.service_supplemental_amount.codes.1",
+        "loops.2110.occurrences.service_supplemental_amount.elements.1.codes",
         "widened",
     ),
     (
-        "loops.2110.occurrences.service_supplemental_quantity.codes.1",
+        "loops.2110.occurrences.service_supplemental_quantity.elements.1.codes",
         "widened",
     ),
     ("version", "changed"),

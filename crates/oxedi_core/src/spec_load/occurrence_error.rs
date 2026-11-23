@@ -12,10 +12,10 @@ pub enum OccurrenceError {
     EmptyName,
     /// `max` is 0.
     ZeroMax,
-    /// The qualifier or a `codes` key names an element or component the
+    /// The qualifier or an `elements` key names an element or component the
     /// `segments` section does not define for the segment.
     UndefinedElement {
-        /// Where the reference sits: `qualifier` or `codes.<key>`.
+        /// Where the reference sits: `qualifier` or `elements.<key>`.
         key: String,
         /// The segment id.
         segment: String,
@@ -24,27 +24,27 @@ pub enum OccurrenceError {
         /// The component position, if any.
         component: Option<usize>,
     },
-    /// A code list (the qualifier's or one under `codes`) is empty.
+    /// A code list (the qualifier's or an entry's) is empty.
     EmptyCodes {
-        /// Where the list sits: `qualifier.codes` or `codes.<key>`.
+        /// Where the list sits: `qualifier.codes` or `elements.<key>.codes`.
         key: String,
     },
-    /// A code list (the qualifier's or one under `codes`) is invalid for its element.
+    /// A code list (the qualifier's or an entry's) is invalid for its element.
     BadCodes {
-        /// Where the list sits: `qualifier.codes` or `codes.<key>`.
+        /// Where the list sits: `qualifier.codes` or `elements.<key>.codes`.
         key: String,
         /// What is wrong with it.
         reason: ElementDefError,
     },
-    /// A `codes` key names the qualifier's own element or component.
+    /// An entry lists codes at the qualifier's own element or component.
     QualifierInCodes {
-        /// The key as written.
+        /// Where the list sits: `elements.<key>.codes`.
         key: String,
     },
-    /// A code of a list (the qualifier's or one under `codes`) is not one the
+    /// A code of a list (the qualifier's or an entry's) is not one the
     /// element's own `codes` list allows.
     CodeOutsideElement {
-        /// Where the list sits: `qualifier.codes` or `codes.<key>`.
+        /// Where the list sits: `qualifier.codes` or `elements.<key>.codes`.
         key: String,
         /// The code as written.
         code: String,
@@ -107,7 +107,7 @@ impl fmt::Display for OccurrenceError {
             OccurrenceError::BadCodes { key, reason } => write!(f, "{key}: {reason}"),
             OccurrenceError::QualifierInCodes { key } => write!(
                 f,
-                "codes key {key:?} names the qualifier's own place; its codes are the \
+                "{key} sits at the qualifier's own place; its codes are the \
                  qualifier's \"codes\""
             ),
             OccurrenceError::CodeOutsideElement {

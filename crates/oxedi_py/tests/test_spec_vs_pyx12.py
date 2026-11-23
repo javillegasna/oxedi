@@ -89,12 +89,12 @@ SPEC = {
                  "occurrences": {
                      "clp": {"segment": "CLP", "pos": 100, "usage": "required"},
                      "ref": {"segment": "REF", "pos": 200, "usage": "situational",
-                             "codes": {"1": ["EA"]}}}},
+                             "elements": {"1": {"codes": ["EA"]}}}}},
         "2110": {"parent": "2100", "trigger": {"segment": "SVC"},
                  "occurrences": {
                      "svc": {"segment": "SVC", "pos": 400, "usage": "required"},
                      "ref": {"segment": "REF", "pos": 500, "usage": "situational",
-                             "codes": {"1": ["6R"]}},
+                             "elements": {"1": {"codes": ["6R"]}}},
                      "dtm": {"segment": "DTM", "pos": 600, "usage": "situational"}}},
     },
     "segments": {
@@ -150,7 +150,7 @@ def test_report_and_patch_name_each_difference(tiny, tmp_path):
     # The spec's 2100 does not hold DTM; the patch adds an occurrence for it.
     assert "`segments:2100:DTM` [2100] loop 2100 does not hold DTM" in text
     assert draft["loops"]["2100"]["occurrences"] == {"dtm": {
-        "segment": "DTM", "pos": 300, "usage": "situational", "codes": {"1": ["232"]}}}
+        "segment": "DTM", "pos": 300, "usage": "situational", "elements": {"1": {"codes": ["232"]}}}}
     # CLP and SVC have no element definitions in the spec.
     assert draft["segments"]["CLP"]["elements"]["1"] == {
         "name": "claim_id", "type": "AN", "required": True, "min": 1, "max": 38,
@@ -320,7 +320,7 @@ OCC_SEGMENTS = {
 OCC_2100 = {
     "claim": {"segment": "CLP", "pos": 200, "usage": "required", "max": 1},
     "claim_date": {"segment": "DTM", "pos": 300, "usage": "situational", "max": 2,
-                   "codes": {"1": ["232"]}},
+                   "elements": {"1": {"codes": ["232"]}}},
     "other_id": {"segment": "REF", "pos": 400, "usage": "situational", "max": 5,
                  "qualifier": {"element": 1, "codes": ["BB", "EA"]}},
     "provider_id": {"segment": "REF", "pos": 400, "usage": "situational",

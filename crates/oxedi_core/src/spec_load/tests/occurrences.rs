@@ -14,7 +14,7 @@ const BASE: &str = r#"{"name":"t",
         "head":{"trigger":{"segment":"HD"},"max":1,"end":"TR","occurrences":{
             "head":{"segment":"HD","pos":10,"usage":"required","max":1},
             "patient":{"segment":"NM","pos":30,"usage":"required","max":1,
-                "qualifier":{"element":1,"codes":["QC"]},"codes":{"2":["1"]}},
+                "qualifier":{"element":1,"codes":["QC"]},"elements":{"2":{"codes":["1"]}}},
             "insured":{"segment":"NM","pos":30,"qualifier":{"element":1,"codes":["IL"]}},
             "note":{"segment":"NT","pos":20,"max":5},
             "id":{"segment":"ID","pos":40,"qualifier":{"element":1,"component":1,"codes":["B","A"]}}
@@ -293,28 +293,32 @@ fn invalid_occurrences_are_rejected_naming_loop_occurrence_rule_and_datum() {
             "loop \"head\" occurrence \"patient\": qualifier.codes: code \"QCXX\" at codes[0] has length 4; the element allows 2 to 3",
         ),
         (
-            r#"{"loops":{"head":{"occurrences":{"patient":{"codes":{"02":["1"]}}}}}}"#,
-            "spec: at loops.head.occurrences.patient.codes.02: codes key \"02\" must be \"<element>\" or \"<element>-<component>\", 1-based integers in canonical form",
+            r#"{"loops":{"head":{"occurrences":{"patient":{"elements":{"02":{"codes":["1"]}}}}}}}"#,
+            "spec: at loops.head.occurrences.patient.elements.02: elements key \"02\" must be \"<element>\" or \"<element>-<component>\", 1-based integers in canonical form",
         ),
         (
-            r#"{"loops":{"head":{"occurrences":{"id":{"codes":{"1-x":["A"]}}}}}}"#,
-            "spec: at loops.head.occurrences.id.codes.1-x: codes key \"1-x\" must be \"<element>\" or \"<element>-<component>\", 1-based integers in canonical form",
+            r#"{"loops":{"head":{"occurrences":{"id":{"elements":{"1-x":{"codes":["A"]}}}}}}}"#,
+            "spec: at loops.head.occurrences.id.elements.1-x: elements key \"1-x\" must be \"<element>\" or \"<element>-<component>\", 1-based integers in canonical form",
         ),
         (
-            r#"{"loops":{"head":{"occurrences":{"patient":{"codes":{"9":["1"]}}}}}}"#,
-            "loop \"head\" occurrence \"patient\": codes.9 names NM09, which the \"segments\" section does not define for \"NM\"",
+            r#"{"loops":{"head":{"occurrences":{"patient":{"elements":{"9":{"codes":["1"]}}}}}}}"#,
+            "loop \"head\" occurrence \"patient\": elements.9 names NM09, which the \"segments\" section does not define for \"NM\"",
         ),
         (
-            r#"{"loops":{"head":{"occurrences":{"patient":{"codes":{"2":[]}}}}}}"#,
-            "loop \"head\" occurrence \"patient\": codes.2 is empty; list at least one code",
+            r#"{"loops":{"head":{"occurrences":{"patient":{"elements":{"2":{"codes":[]}}}}}}}"#,
+            "loop \"head\" occurrence \"patient\": elements.2.codes is empty; list at least one code",
         ),
         (
-            r#"{"loops":{"head":{"occurrences":{"patient":{"codes":{"1":["QC"]}}}}}}"#,
-            "loop \"head\" occurrence \"patient\": codes key \"1\" names the qualifier's own place; its codes are the qualifier's \"codes\"",
+            r#"{"loops":{"head":{"occurrences":{"patient":{"elements":{"1":{"codes":["QC"]}}}}}}}"#,
+            "loop \"head\" occurrence \"patient\": elements.1.codes sits at the qualifier's own place; its codes are the qualifier's \"codes\"",
         ),
         (
-            r#"{"loops":{"head":{"occurrences":{"patient":{"codes":{"2":["1","1"]}}}}}}"#,
-            "loop \"head\" occurrence \"patient\": codes.2: code \"1\" is listed twice, at codes[0] and codes[1]",
+            r#"{"loops":{"head":{"occurrences":{"patient":{"elements":{"2":{"codes":["1","1"]}}}}}}}"#,
+            "loop \"head\" occurrence \"patient\": elements.2.codes: code \"1\" is listed twice, at codes[0] and codes[1]",
+        ),
+        (
+            r#"{"loops":{"head":{"occurrences":{"patient":{"elements":{"2":{"max":1}}}}}}}"#,
+            "spec: at loops.head.occurrences.patient.elements.2.max: unknown field `max`, expected `codes`",
         ),
         (
             r#"{"loops":{"head":{"occurrences":{"insured":{"qualifier":null}}}}}"#,
@@ -345,8 +349,8 @@ fn invalid_occurrences_are_rejected_naming_loop_occurrence_rule_and_datum() {
             "loop \"head\" occurrence \"patient\": qualifier.codes: code \"ZZ\" is not among the codes NM01 allows (IL, QC, QD)",
         ),
         (
-            r#"{"segments":{"NM":{"elements":{"2":{"codes":["1","2"]}}}},"loops":{"head":{"occurrences":{"patient":{"codes":{"2":["3"]}}}}}}"#,
-            "loop \"head\" occurrence \"patient\": codes.2: code \"3\" is not among the codes NM02 allows (1, 2)",
+            r#"{"segments":{"NM":{"elements":{"2":{"codes":["1","2"]}}}},"loops":{"head":{"occurrences":{"patient":{"elements":{"2":{"codes":["3"]}}}}}}}"#,
+            "loop \"head\" occurrence \"patient\": elements.2.codes: code \"3\" is not among the codes NM02 allows (1, 2)",
         ),
         (
             r#"{"loops":{"party":{"occurrences":{"payer":{"qualifier":{"codes":["PR","ZZ"]}}}}}}"#,
@@ -370,7 +374,7 @@ fn invalid_occurrences_are_rejected_naming_loop_occurrence_rule_and_datum() {
         ),
         (
             r#"{"loops":{"head":{"occurrences":{"note":{"maximum":2}}}}}"#,
-            "spec: at loops.head.occurrences.note.maximum: unknown field `maximum`, expected one of `segment`, `pos`, `usage`, `max`, `qualifier`, `codes`",
+            "spec: at loops.head.occurrences.note.maximum: unknown field `maximum`, expected one of `segment`, `pos`, `usage`, `max`, `qualifier`, `elements`",
         ),
         (
             r#"{"loops":{"head":{"occurrences":{"extra":{"segment":"EX"}}}}}"#,
@@ -411,13 +415,13 @@ fn occurrence_errors_are_their_own_variants() {
         }
     ));
     let err = patched(
-        r#"{"segments":{"NM":{"elements":{"2":{"codes":["1","2"]}}}},"loops":{"head":{"occurrences":{"patient":{"codes":{"2":["3"]}}}}}}"#,
+        r#"{"segments":{"NM":{"elements":{"2":{"codes":["1","2"]}}}},"loops":{"head":{"occurrences":{"patient":{"elements":{"2":{"codes":["3"]}}}}}}}"#,
     )
     .unwrap_err();
     assert!(matches!(
         &err,
         SpecError::BadOccurrence { reason, .. }
-            if matches!(&**reason, OccurrenceError::CodeOutsideElement { key, .. } if key == "codes.2")
+            if matches!(&**reason, OccurrenceError::CodeOutsideElement { key, .. } if key == "elements.2.codes")
     ));
     let err = patched(r#"{"loops":{"head":{"max":0}}}"#).unwrap_err();
     assert!(matches!(&err, SpecError::ZeroLoopMax { loop_name } if loop_name == "head"));

@@ -45,7 +45,8 @@ def identity_codes(occurrence):
     """The codes that identify a spec occurrence: its qualifier's, else its
     own codes for the first element."""
     qualifier = occurrence.get("qualifier") or {}
-    return set(qualifier.get("codes") or occurrence.get("codes", {}).get("1") or [])
+    first = occurrence.get("elements", {}).get("1") or {}
+    return set(qualifier.get("codes") or first.get("codes") or [])
 
 
 def normalized(occurrence):
@@ -61,7 +62,9 @@ def normalized(occurrence):
         "usage": occurrence.get("usage", "situational"),
         "max": occurrence.get("max"),
         "qualifier": qualifier,
-        "codes": {key: sorted(codes) for key, codes in occurrence.get("codes", {}).items()},
+        "elements": {key: {"codes": sorted(entry["codes"])}
+                     for key, entry in occurrence.get("elements", {}).items()
+                     if entry.get("codes")},
     }
 
 

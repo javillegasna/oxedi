@@ -59,8 +59,17 @@ spec_object! {
     /// What tells it apart from the other occurrences of its segment.
     #[serde(default, deserialize_with = "present")]
     qualifier: Option<QualifierModel>, optional;
-    /// The codes an element or component may hold here, by position.
-    codes: BTreeMap<ElementPosition, Vec<String>>, default;
+    /// How the occurrence narrows its segment's elements and components, by
+    /// position.
+    elements: BTreeMap<ElementPosition, ElementEntryModel>, default;
+}
+
+spec_object! {
+    /// How one occurrence narrows an element or component of its segment.
+    ElementEntryModel, "an element entry object";
+    /// The codes the place may hold here; the element's list when absent.
+    #[serde(default, deserialize_with = "present")]
+    codes: Option<Vec<String>>, optional;
 }
 
 spec_object! {

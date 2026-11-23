@@ -6,7 +6,7 @@
 use std::collections::BTreeMap;
 use std::collections::btree_map::Entry;
 
-use super::build_entries::{CodeList, compile_list, compile_own_codes};
+use super::build_entries::{CodeList, compile_entries, compile_list};
 use super::error::SpecError;
 use super::model::{OccurrenceModel, QualifierModel};
 use super::occurrence_error::OccurrenceError;
@@ -228,7 +228,7 @@ fn compile_occurrence(
         .transpose()
         .map_err(fail)?;
     let codes =
-        compile_own_codes(segments, &def.segment, &def.codes, qualifier.as_ref()).map_err(fail)?;
+        compile_entries(segments, &def.segment, &def.elements, qualifier.as_ref()).map_err(fail)?;
     Ok(OccurrenceDef {
         name: name.to_string(),
         segment: def.segment.as_bytes().to_vec(),

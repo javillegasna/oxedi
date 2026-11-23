@@ -67,10 +67,10 @@ pub use builtin::{Builtin, UnknownVersion, Version};
 pub use error::SpecError;
 pub use loaded::LoadedSpec;
 pub use model::{
-    BalanceModel, ColumnModel, ControlModel, ElementModel, LoopModel, OccurrenceModel,
-    QualifierModel, RepeatModel, SegmentModel, SpecModel, SummaryColumnModel, SummaryFieldModel,
-    SummaryModel, SummaryRowModel, SummaryTableModel, TableModel, TermModel, TriggerModel,
-    VersionModel,
+    BalanceModel, ColumnModel, ControlModel, ElementEntryModel, ElementModel, LoopModel,
+    OccurrenceModel, QualifierModel, RepeatModel, SegmentModel, SpecModel, SummaryColumnModel,
+    SummaryFieldModel, SummaryModel, SummaryRowModel, SummaryTableModel, TableModel, TermModel,
+    TriggerModel, VersionModel,
 };
 pub use occurrence_error::OccurrenceError;
 pub use package::{

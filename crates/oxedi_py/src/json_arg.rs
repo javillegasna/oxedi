@@ -120,7 +120,7 @@ fn refuse<T>(message: String) -> Walk<T> {
 fn check<'py>(value: &Bound<'py, PyAny>, path: &mut Vec<Step>) -> Walk<Bound<'py, PyAny>> {
     if path.len() > MAX_DEPTH {
         return refuse(format!(
-            "the value at {} nests deeper than {MAX_DEPTH} levels, which a cycle does",
+            "the value at {} nests deeper than {MAX_DEPTH} levels (a cycle, or deeper than any spec)",
             place(&path[..MAX_DEPTH])
         ));
     }

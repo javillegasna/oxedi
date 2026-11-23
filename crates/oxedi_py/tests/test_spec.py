@@ -112,8 +112,8 @@ def test_a_cycle_is_refused():
     cycle: dict = {}
     cycle["x"] = cycle
     assert _refused(cycle) == (
-        "Spec.patch: the value at " + ".".join(["x"] * 128) + " nests deeper than 128 levels, "
-        "which a cycle does"
+        "Spec.patch: the value at " + ".".join(["x"] * 128) + " nests deeper than 128 levels "
+        "(a cycle, or deeper than any spec)"
     )
 
 

@@ -53,7 +53,7 @@ This file covers the Python package; the DuckDB extension has its own changelog 
   wanted segment, outermost first, in one pass that stops at the highest index.
 
 ### Changed
-- Spec.patch is typed str | oxedi._json.JsonObject instead of dict[str, Any], and refuses a dict holding a value JSON cannot hold (a set, bytes, a non-str key, NaN, an integer beyond 64 bits) with a TypeError naming its place, instead of json's message or a silent conversion.
+- `Spec.patch` is typed `str | JsonObject` instead of `dict[str, Any]`: any `Mapping` of `str` keys to JSON values (`JsonValue`, both exported from `oxedi`) is accepted, a `list[str]` or `dict[str, list[str]]` included, and it refuses a dict holding a value JSON cannot hold (a set, bytes, a non-str key, NaN, an integer beyond 64 bits) with a TypeError naming its place, instead of json's message or a silent conversion.
 - Spec format: an element's `required` key is refused, whether true or false: write `usage: "required"` or drop `required: false`; `usage` is the word an occurrence uses (`situational` is the default).
 - A missing required element or a length out of range names the occurrence when that occurrence's entry sets the rule (`… in occurrence "patient"`).
 - An occurrence's element entry may also set `usage` (`required` only tightens), `min` and `max` (inside the element's lengths); reading and writing apply them in that occurrence only (`OccurrenceError::UsageLooserThanElement`, `BadLengths`, `LengthsOutsideElement`). A package that narrows another package's entry may not loosen its `usage`, `min`, `max` or `codes`, nor remove the entry.

@@ -1,5 +1,6 @@
 //! `validate_stack`: whether a stack of package texts loads, as typed objects.
 
+use oxedi_core::spec_load::{Change, ChangeKind};
 use oxedi_core::{Capability, Invalid, Reasons, Valid, Validation};
 use pyo3::prelude::*;
 use pyo3::types::{PyString, PyTuple};
@@ -94,6 +95,171 @@ impl PyCapability {
     }
 }
 
+/// How a change left a value, compared with the package it builds on.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+enum Kind {
+    Narrowed,
+    Widened,
+    Changed,
+    Removed,
+    Added,
+}
+
+impl From<&ChangeKind> for Kind {
+    fn from(kind: &ChangeKind) -> Kind {
+        match kind {
+            ChangeKind::Narrowed { .. } => Kind::Narrowed,
+            ChangeKind::Widened { .. } => Kind::Widened,
+            ChangeKind::Changed { .. } => Kind::Changed,
+            ChangeKind::Removed => Kind::Removed,
+            ChangeKind::Added { .. } => Kind::Added,
+        }
+    }
+}
+
+/// How a change left a value, compared with the package it builds on: one
+/// member per kind of the core's change.
+#[gen_stub_pyclass(module = "oxedi._core")]
+#[pyclass(
+    name = "ChangeKind",
+    module = "oxedi",
+    eq,
+    frozen,
+    hash,
+    skip_from_py_object
+)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub struct PyChangeKind(Kind);
+
+impl From<&ChangeKind> for PyChangeKind {
+    fn from(kind: &ChangeKind) -> PyChangeKind {
+        PyChangeKind(Kind::from(kind))
+    }
+}
+
+#[gen_stub_pymethods]
+#[pymethods]
+impl PyChangeKind {
+    /// It allows less than before.
+    #[classattr]
+    #[pyo3(name = "NARROWED")]
+    fn narrowed() -> PyChangeKind {
+        PyChangeKind(Kind::Narrowed)
+    }
+
+    /// It allows more than before.
+    #[classattr]
+    #[pyo3(name = "WIDENED")]
+    fn widened() -> PyChangeKind {
+        PyChangeKind(Kind::Widened)
+    }
+
+    /// It is neither narrower nor wider: a name, a type, a structure.
+    #[classattr]
+    #[pyo3(name = "CHANGED")]
+    fn changed() -> PyChangeKind {
+        PyChangeKind(Kind::Changed)
+    }
+
+    /// It is gone.
+    #[classattr]
+    #[pyo3(name = "REMOVED")]
+    fn removed() -> PyChangeKind {
+        PyChangeKind(Kind::Removed)
+    }
+
+    /// It is new.
+    #[classattr]
+    #[pyo3(name = "ADDED")]
+    fn added() -> PyChangeKind {
+        PyChangeKind(Kind::Added)
+    }
+
+    fn __repr__(&self) -> String {
+        format!("ChangeKind.{}", self.member())
+    }
+}
+
+impl PyChangeKind {
+    /// The member's name as Python spells it.
+    fn member(self) -> &'static str {
+        match self.0 {
+            Kind::Narrowed => "NARROWED",
+            Kind::Widened => "WIDENED",
+            Kind::Changed => "CHANGED",
+            Kind::Removed => "REMOVED",
+            Kind::Added => "ADDED",
+        }
+    }
+}
+
+/// One difference between a package and the stack it builds on: the package
+/// that made it, where, and how.
+#[gen_stub_pyclass(module = "oxedi._core")]
+#[pyclass(
+    name = "Change",
+    module = "oxedi",
+    frozen,
+    eq,
+    hash,
+    skip_from_py_object
+)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub struct PyChange {
+    package: String,
+    path: String,
+    kind: PyChangeKind,
+    line: String,
+}
+
+impl PyChange {
+    /// `line` is the core's text of the change with its package.
+    fn from_core(change: &Change, line: String) -> PyChange {
+        PyChange {
+            package: change.package.to_string(),
+            path: change.path.clone(),
+            kind: PyChangeKind::from(&change.kind),
+            line,
+        }
+    }
+}
+
+#[gen_stub_pymethods]
+#[pymethods]
+impl PyChange {
+    /// The id of the package that made the change.
+    #[getter]
+    fn package(&self) -> String {
+        self.package.clone()
+    }
+
+    /// Where, from the spec's root, a dot between the names.
+    #[getter]
+    fn path(&self) -> String {
+        self.path.clone()
+    }
+
+    /// How the value changed.
+    #[getter]
+    fn kind(&self) -> PyChangeKind {
+        self.kind
+    }
+
+    /// The change and its package, as one line.
+    fn __str__(&self) -> String {
+        self.line.clone()
+    }
+
+    fn __repr__(&self, py: Python<'_>) -> PyResult<String> {
+        Ok(format!(
+            "Change(package={}, path={}, kind={})",
+            PyString::new(py, &self.package).repr()?,
+            PyString::new(py, &self.path).repr()?,
+            self.kind.__repr__()
+        ))
+    }
+}
+
 /// A stack of packages that loads.
 #[gen_stub_pyclass(module = "oxedi._core")]
 #[pyclass(name = "Valid", module = "oxedi", frozen)]
@@ -103,7 +269,7 @@ pub struct PyValid {
     packages: Vec<String>,
     write: Py<PyCapability>,
     mask: Py<PyCapability>,
-    changes: Vec<String>,
+    changes: Vec<PyChange>,
     text: String,
     spec: HeldSpec,
 }
@@ -111,7 +277,12 @@ pub struct PyValid {
 impl PyValid {
     fn new(py: Python<'_>, valid: Valid) -> PyResult<PyValid> {
         let text = valid.to_string();
-        let changes = valid.change_lines();
+        let changes = valid
+            .changes
+            .iter()
+            .zip(valid.change_lines())
+            .map(|(change, line)| PyChange::from_core(change, line))
+            .collect();
         Ok(PyValid {
             id: valid.id().to_string(),
             name: valid.name().to_owned(),
@@ -161,10 +332,9 @@ impl PyValid {
         self.mask.clone_ref(py)
     }
 
-    /// What the editions and patches of the stack changed, in stack order,
-    /// one line each with the package that made it.
+    /// What the editions and patches of the stack changed, in stack order.
     #[getter]
-    fn changes(&self) -> Vec<String> {
+    fn changes(&self) -> Vec<PyChange> {
         self.changes.clone()
     }
 

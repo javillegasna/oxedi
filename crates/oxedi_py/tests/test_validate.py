@@ -1,11 +1,12 @@
 import ast
 import inspect
 import json
+from collections import Counter
 
 import pytest
 
 import oxedi
-from oxedi import Capability, Invalid, Spec, SpecError, Valid
+from oxedi import Capability, Change, ChangeKind, Invalid, Spec, SpecError, Valid
 
 PACKAGES = Spec.builtin_packages()
 
@@ -63,7 +64,27 @@ def test_the_4010_stack_lists_81_changes():
     report = oxedi.validate_stack(STACK_4010, PACKAGES)
     assert isinstance(report, Valid)
     assert len(report.changes) == 81
-    assert report.changes[0].endswith('(package "oxedi/envelope/004010")')
+    first = report.changes[0]
+    assert isinstance(first, Change)
+    assert first.package == "oxedi/envelope/004010"
+    assert first.path == "segments.ISA.elements.11.type"
+    assert first.kind == ChangeKind.CHANGED
+    assert str(first) == (
+        'segments.ISA.elements.11.type: "AN" becomes "ID" (package "oxedi/envelope/004010")'
+    )
+    assert repr(first) == (
+        "Change(package='oxedi/envelope/004010', path='segments.ISA.elements.11.type', "
+        "kind=ChangeKind.CHANGED)"
+    )
+    assert first == report.changes[0] and hash(first) == hash(report.changes[0])
+    kinds = Counter(change.kind for change in report.changes)
+    assert kinds == {
+        ChangeKind.WIDENED: 30,
+        ChangeKind.REMOVED: 24,
+        ChangeKind.NARROWED: 13,
+        ChangeKind.ADDED: 12,
+        ChangeKind.CHANGED: 2,
+    }
 
 
 def test_a_guide_top_cannot_mask():

@@ -13,7 +13,7 @@ use crate::spec_load::error::SpecError;
 pub(in crate::spec_load) enum Role {
     /// It holds layers above every base's.
     Narrows,
-    /// It holds a layer one of its bases holds.
+    /// It holds a layer one of the packages it builds on holds.
     Edition,
     /// It holds the patch layer.
     Patch,
@@ -109,7 +109,7 @@ fn visit_bases<'p>(
             role,
         });
     }
-    role_of(package, &found)
+    role_of(package, &found, &lineage(&found, pool))
 }
 
 fn find_base<'p>(
@@ -127,14 +127,38 @@ fn find_base<'p>(
         })
 }
 
-// A patch holds the patch layer; an edition shares a layer with a base; any
-// other package narrows, and must hold only layers above its bases' tops.
-fn role_of(package: &Package, bases: &[&Package]) -> Result<Role, Box<StackError>> {
+/// `bases` and every package they build on, each once; a base missing from
+/// `pool` is skipped, since the walk that found `bases` already refused it.
+fn lineage<'p>(bases: &[&'p Package], pool: &'p [Package]) -> Vec<&'p Package> {
+    let mut seen: Vec<&'p Package> = Vec::new();
+    let mut pending = bases.to_vec();
+    while let Some(package) = pending.pop() {
+        if seen.iter().any(|known| known.id() == package.id()) {
+            continue;
+        }
+        seen.push(package);
+        let parents = package.header().bases.iter();
+        pending.extend(parents.filter_map(|id| pool.iter().find(|p| p.id() == id)));
+    }
+    seen
+}
+
+// A patch holds the patch layer; an edition shares a layer with any package it
+// builds on, directly or not; any other package narrows, and must hold only
+// layers above its direct bases' tops.
+fn role_of(
+    package: &Package,
+    bases: &[&Package],
+    lineage: &[&Package],
+) -> Result<Role, Box<StackError>> {
     let layers = package.header().layers;
     if layers.contains(Layer::Patch) {
         return Ok(Role::Patch);
     }
-    if bases.iter().any(|base| base.header().layers.shares(layers)) {
+    if lineage
+        .iter()
+        .any(|base| base.header().layers.shares(layers))
+    {
         return Ok(Role::Edition);
     }
     match bases

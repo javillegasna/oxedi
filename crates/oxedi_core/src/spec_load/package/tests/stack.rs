@@ -227,6 +227,34 @@ fn a_package_narrows_shares_a_layer_or_patches() {
 }
 
 #[test]
+fn an_edition_of_a_layer_further_down_the_chain_is_an_edition() {
+    let views = package(
+        "test/views/005010/835/X1",
+        &[
+            "envelope",
+            "dictionary",
+            "transaction-set",
+            "guide",
+            "views",
+        ],
+        &[],
+        "{}",
+    );
+    let dictionary_edition = package(
+        "acme/dictionary/005010",
+        &["dictionary"],
+        &[views.id().as_str()],
+        "{}",
+    );
+    let top = package(G, &["guide"], &["acme/dictionary/005010"], "{}");
+    let pool = [views, dictionary_edition, top.clone()];
+    assert_eq!(
+        roles(&top, &pool),
+        [Role::Narrows, Role::Edition, Role::Edition]
+    );
+}
+
+#[test]
 fn a_package_must_come_after_the_layers_it_builds_on() {
     let transaction_set = package(
         "test/transaction-set/005010/835",

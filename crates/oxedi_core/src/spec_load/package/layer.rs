@@ -109,8 +109,8 @@ impl Layers {
         self.bits & layer.bit() != 0
     }
 
-    /// Whether the package holds a layer `other` holds.
-    pub fn shares(self, other: Layers) -> bool {
+    /// Whether a layer of `self` is also in `other`.
+    pub(in crate::spec_load) fn shares(self, other: Layers) -> bool {
         self.bits & other.bits != 0
     }
 

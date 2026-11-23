@@ -47,7 +47,18 @@ fn every_refusal_says_what_to_do() {
                 source: s("\"DTM\""),
                 candidates: vec![],
             },
-            "give the column a \"where\" that matches exactly one occurrence of the loop",
+            "anchor the table on a segment that occurs once in the loop",
+        ),
+        (
+            Refusal::AmbiguousSource {
+                table: s("t"),
+                column: Some(s("c")),
+                loop_name: s("2100"),
+                source: s("\"DTM\""),
+                candidates: vec![],
+            },
+            "name an occurrence the loop has with \"occurrence\", or give the column a \
+             \"where\" that matches exactly one",
         ),
         (
             Refusal::PickNotContiguous {
@@ -67,7 +78,7 @@ fn every_refusal_says_what_to_do() {
                 loop_name: s("2100"),
                 writer: s("table \"u\""),
             },
-            "remove the column, or move it to the table that writes the loop",
+            "remove the column, or move it to the table that writes the loop, when a table does",
         ),
         (
             Refusal::DuplicateSource {
@@ -127,10 +138,10 @@ fn every_refusal_says_what_to_do() {
              guide",
         ),
     ];
-    assert_eq!(cases.len(), 12);
+    assert_eq!(cases.len(), 13);
     for (refusal, expected) in &cases {
         assert_eq!(refusal.remedy(), *expected, "{refusal}");
     }
     let distinct: HashSet<&str> = cases.iter().map(|(refusal, _)| refusal.remedy()).collect();
-    assert_eq!(distinct.len(), 12);
+    assert_eq!(distinct.len(), 13);
 }

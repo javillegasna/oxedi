@@ -57,7 +57,7 @@ crates/oxedi_core/src/write/finding.rs	fmt	8	0	flat
 crates/oxedi_core/src/write/layout.rs	new	12	3
 crates/oxedi_core/src/write/nest.rs	nest	19	5
 crates/oxedi_core/src/write/refusal.rs	fmt	12	0	flat
-crates/oxedi_core/src/write/refusal.rs	remedy	12	0	flat
+crates/oxedi_core/src/write/refusal.rs	remedy	13	0	flat
 crates/oxedi_core/src/write/required.rs	required	14	4
 crates/oxedi_core/src/write/walk.rs	instances	10	1
 crates/oxedi_duckdb/src/copy/error.rs	fmt	21	0	flat

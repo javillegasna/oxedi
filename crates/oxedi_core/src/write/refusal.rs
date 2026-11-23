@@ -323,15 +323,21 @@ impl Refusal {
                 "add a column that writes the element, give it a single code, or make it \
                  situational in the guide"
             }
-            Refusal::AmbiguousSource { .. } => {
-                "give the column a \"where\" that matches exactly one occurrence of the loop"
+            Refusal::AmbiguousSource { column: None, .. } => {
+                "anchor the table on a segment that occurs once in the loop"
+            }
+            Refusal::AmbiguousSource {
+                column: Some(_), ..
+            } => {
+                "name an occurrence the loop has with \"occurrence\", or give the column a \
+                 \"where\" that matches exactly one"
             }
             Refusal::PickNotContiguous { .. } => {
                 "renumber the picks of the occurrence's columns from 1 with none missing, or \
                  keep a lone \"last\""
             }
             Refusal::WrittenByAnotherTable { .. } => {
-                "remove the column, or move it to the table that writes the loop"
+                "remove the column, or move it to the table that writes the loop, when a table does"
             }
             Refusal::DuplicateSource { .. } => "remove one of the two columns",
             Refusal::EnvelopeColumn { .. } => {

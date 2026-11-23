@@ -44,14 +44,6 @@ def _segment_of(document, anchors, row, own, bound):
     return None
 
 
-def _group_last(document, index, source):
-    """The raw text a repeated group's column reads from segment ``index``
-    when that is the segment's last element (and component), else ``None``:
-    the group whose column element is the last one."""
-    elements = document[index].elements
-    return _last_of(elements, len(elements), source.component) if source.holds(len(elements)) else None
-
-
 def _replace(table, column, changes, kind):
     """``table`` with the cells of ``column`` at the positions of ``changes``
     set to their values."""
@@ -229,10 +221,17 @@ class _FixedRead:
 
 @dataclasses.dataclass(frozen=True)
 class _GroupRead:
-    """A column that reads an element of each repeated group."""
+    """A column that reads an element of each repeated group: the core's
+    source, which decides whether an element position is the column's, and
+    its component, copied out once."""
 
     source: "GroupSource"
+    component: "Optional[int]"
     grouped = True
+
+    @classmethod
+    def of(cls, source: "GroupSource"):
+        return cls(source, source.component)
 
     def raw(self, document, anchoring, row):
         """The raw text row ``row`` reads when it is its segment's last
@@ -240,14 +239,17 @@ class _GroupRead:
         anchor = int(anchoring.anchors[row])
         if anchor < 0 or not anchoring.last_of_segment[row]:
             return None
-        return _group_last(document, anchor, self.source)
+        elements = document[anchor].elements
+        if not self.source.holds(len(elements)):
+            return None
+        return _last_of(elements, len(elements), self.component)
 
 
 def _reads(compat, table):
     """Every column of ``table`` that reads an element, with how it reads it
     from the document."""
     reads = {column: _FixedRead.of(source) for column, source in compat.element_sources(table).items()}
-    reads.update({column: _GroupRead(source) for column, source in compat.group_sources(table).items()})
+    reads.update({column: _GroupRead.of(source) for column, source in compat.group_sources(table).items()})
     return reads
 
 

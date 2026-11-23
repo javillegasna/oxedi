@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import datetime
 import decimal
+import json
 from collections.abc import Iterator
 
 import polars
@@ -259,11 +260,21 @@ def validated_stack() -> Spec:
 
 
 def runs_a_kit(manifest: str, packages: list[str]) -> bool:
-    top = oxedi.validate_stack(packages[4], packages)
+    (views,) = [t for t in packages if json.loads(t)["package"]["id"] == "oxedi/views/005010/835/X221A1"]
+    top = oxedi.validate_stack(views, packages)
     assert isinstance(top, Valid)
     needed: list[str] = oxedi.kit_files(manifest)
     result: oxedi.KitReport = oxedi.run_kit(manifest, top, {path: b"" for path in needed})
     package: str = result.package
     for case in result.cases:
-        print(case.name, case.passed, str(case), package)
+        outcome: oxedi.KitPassed | oxedi.KitDiffers | oxedi.KitBroken = case.outcome
+        if isinstance(outcome, oxedi.KitDiffers):
+            for difference in outcome.differences:
+                output: oxedi.KitOutput = difference.output
+                expected: str | oxedi.KitEnd = difference.expected
+                at: int = difference.line
+                print(output, expected, at, difference.file, str(difference))
+        elif isinstance(outcome, oxedi.KitBroken):
+            print(outcome.path, outcome.message)
+        print(case.name, case.passed, package)
     return result.passed

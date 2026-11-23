@@ -25,6 +25,12 @@ __all__ = [
     "Envelope",
     "GroupSource",
     "Invalid",
+    "KitBroken",
+    "KitDifference",
+    "KitDiffers",
+    "KitEnd",
+    "KitOutput",
+    "KitPassed",
     "KitReport",
     "Mask",
     "ParseError",
@@ -102,11 +108,12 @@ class CaseReport:
         r"""
         Whether every expected output matches.
         """
-    def __str__(self) -> builtins.str:
+    @property
+    def outcome(self) -> KitPassed | KitDiffers | KitBroken:
         r"""
-        The case and how it ended, as one line: where each output first
-        differs, or why the case could not run.
+        How the case ended.
         """
+    def __str__(self) -> builtins.str: ...
     def __repr__(self) -> builtins.str: ...
 
 @typing.final
@@ -454,6 +461,107 @@ class Invalid:
     A stack of packages that does not load.
     """
     def __str__(self) -> builtins.str: ...
+    def __repr__(self) -> builtins.str: ...
+
+@typing.final
+class KitBroken:
+    r"""
+    A case that could not run: the file it names was not given, is not text or
+    is not an X12 document.
+    """
+    @property
+    def path(self) -> builtins.str:
+        r"""
+        The file the fault names, as the kit writes its path.
+        """
+    @property
+    def message(self) -> builtins.str:
+        r"""
+        What failed and what to do.
+        """
+    def __eq__(self, other: builtins.object, /) -> builtins.bool: ...
+    def __hash__(self) -> builtins.int: ...
+    def __str__(self) -> builtins.str: ...
+    def __repr__(self) -> builtins.str: ...
+
+@typing.final
+class KitDifference:
+    r"""
+    The first line where an output differs from the text the kit expects.
+    """
+    @property
+    def output(self) -> KitOutput:
+        r"""
+        The output that differs.
+        """
+    @property
+    def file(self) -> builtins.str:
+        r"""
+        The file that holds the expected text, as the kit writes its path.
+        """
+    @property
+    def line(self) -> builtins.int:
+        r"""
+        The 1-based number of the first line that differs.
+        """
+    @property
+    def expected(self) -> str | KitEnd:
+        r"""
+        What the expected text has there: the line without its line break, or
+        `KitEnd` when it ended before.
+        """
+    @property
+    def actual(self) -> str | KitEnd:
+        r"""
+        What the run's output has there, as `expected`.
+        """
+    def __str__(self) -> builtins.str: ...
+    def __repr__(self) -> builtins.str: ...
+
+@typing.final
+class KitDiffers:
+    r"""
+    A case where some expected output differs, one difference per output.
+    """
+    @property
+    def differences(self) -> builtins.list[KitDifference]:
+        r"""
+        The differing outputs, in output order.
+        """
+
+@typing.final
+class KitEnd:
+    r"""
+    The text of an output ended before the line a difference names.
+    """
+    def __eq__(self, other: builtins.object, /) -> builtins.bool: ...
+    def __hash__(self) -> builtins.int: ...
+    def __repr__(self) -> builtins.str: ...
+
+@typing.final
+class KitOutput:
+    r"""
+    The output of a run a case can expect: one member per output of the core.
+    """
+    TABLES: KitOutput
+    r"""
+    The tables.
+    """
+    DIAGNOSTICS: KitOutput
+    r"""
+    The diagnostics.
+    """
+    def __eq__(self, other: builtins.object, /) -> builtins.bool: ...
+    def __hash__(self) -> builtins.int: ...
+    def __repr__(self) -> builtins.str: ...
+
+@typing.final
+class KitPassed:
+    r"""
+    A case whose every expected output matches.
+    """
+    def __eq__(self, other: builtins.object, /) -> builtins.bool: ...
+    def __hash__(self) -> builtins.int: ...
     def __repr__(self) -> builtins.str: ...
 
 @typing.final

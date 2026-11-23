@@ -15,10 +15,11 @@
 //! [`Spec::from_json`](crate::spec::Spec::from_json), and why a version
 //! declaration is rejected; `build_loops` the compilation of one loop and why
 //! its control is rejected, `build_occurrences` that of its occurrences,
-//! `segments` that of the segments, `balance` that of the balancing rules,
-//! `summaries` that of the summaries and the default table, `compile` that of
-//! the tables, `columns` that of one table column and `column_occurrence` the
-//! reading of the occurrence a column names; `phi` the check of the columns
+//! `build_entries` that of their code lists, `segments` that of the segments,
+//! `balance` that of the balancing rules, `summaries` that of the summaries and
+//! the default table, `compile` that of the tables, `columns` that of one
+//! table column and `column_occurrence` the reading of the occurrence a column
+//! names; `phi` the check of the columns
 //! flagged as patient data and of the seed column; `error` the load error and
 //! `error_text` its `source` and the parts of its text built from lists;
 //! `occurrence_error`, `table_error`, `balance_error` and `summary_error` why
@@ -34,6 +35,7 @@
 mod balance;
 mod balance_error;
 mod build;
+mod build_entries;
 mod build_loops;
 mod build_occurrences;
 mod builtin;

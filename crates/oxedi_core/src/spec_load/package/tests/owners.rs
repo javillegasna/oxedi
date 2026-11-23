@@ -36,7 +36,7 @@ fn compose(layers: &[&str], spec: &str) -> Result<(), SpecError> {
         spec,
     );
     let pool = [envelope(), top.clone()];
-    Stack::resolve(&top, &pool)?.compose().map(|_| ())
+    Stack::resolve(&top, &pool)?.compose_checked().map(|_| ())
 }
 
 fn refusal(layers: &[&str], spec: &str) -> StackError {

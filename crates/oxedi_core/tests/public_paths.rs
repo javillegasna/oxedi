@@ -78,7 +78,10 @@ mod by_module {
     use oxedi_core::spec_load::BalanceError;
     use oxedi_core::spec_load::BalanceModel;
     use oxedi_core::spec_load::Builtin;
+    use oxedi_core::spec_load::Change;
+    use oxedi_core::spec_load::ChangeKind;
     use oxedi_core::spec_load::ColumnModel;
+    use oxedi_core::spec_load::Composed;
     use oxedi_core::spec_load::ControlError;
     use oxedi_core::spec_load::ControlModel;
     use oxedi_core::spec_load::ElementDefError;
@@ -101,11 +104,14 @@ mod by_module {
     use oxedi_core::spec_load::QualifierModel;
     use oxedi_core::spec_load::Release;
     use oxedi_core::spec_load::RepeatModel;
+    use oxedi_core::spec_load::Role;
     use oxedi_core::spec_load::Scope;
     use oxedi_core::spec_load::SegmentModel;
     use oxedi_core::spec_load::SpecError;
     use oxedi_core::spec_load::SpecModel;
+    use oxedi_core::spec_load::Stack;
     use oxedi_core::spec_load::StackError;
+    use oxedi_core::spec_load::Step;
     use oxedi_core::spec_load::SummaryColumnModel;
     use oxedi_core::spec_load::SummaryDefError;
     use oxedi_core::spec_load::SummaryFieldModel;

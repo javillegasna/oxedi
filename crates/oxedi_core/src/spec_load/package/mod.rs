@@ -9,31 +9,22 @@
 //! after it, `owners` the keys each layer may write; `error` why an identity,
 //! a header or a stack is rejected.
 
-// TODO: a public package loader calls Stack::resolve(..).compose(); until then only tests use
-// compose, owners and stack.
-#[cfg_attr(not(test), expect(dead_code))]
-mod compose;
-// TODO: a change is what the comparison of two models reports, which no code outside tests
-// runs yet.
-#[cfg_attr(not(test), expect(dead_code))]
 mod change;
+mod compose;
 mod error;
 mod header;
 mod id;
 mod layer;
-// TODO: the comparison is the check of a composed stack, which no code outside tests runs yet.
-#[cfg_attr(not(test), expect(dead_code))]
 mod narrow;
-#[cfg_attr(not(test), expect(dead_code))]
 mod owners;
-#[cfg_attr(not(test), expect(dead_code))]
 mod stack;
 #[cfg(test)]
 mod tests;
 
+pub use change::{Change, ChangeKind};
+pub use compose::Composed;
 pub use error::{HeaderError, IdError, StackError};
 pub use header::{Package, PackageHeader};
 pub use id::{Guide, IdPart, PackageId, Release, Scope, TransactionSet};
 pub use layer::{Layer, Layers};
-#[cfg(test)]
-pub(in crate::spec_load) use stack::Stack;
+pub use stack::{Role, Stack, Step};

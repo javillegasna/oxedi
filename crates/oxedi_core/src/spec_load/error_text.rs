@@ -57,6 +57,7 @@ impl std::error::Error for SpecError {
             | SpecError::Format { .. }
             | SpecError::BadElementDef { .. }
             | SpecError::BadTable { .. }
+            | SpecError::BadHeader { .. }
             | SpecError::BadVersion { .. }
             | SpecError::BadControl { .. }
             | SpecError::BadOccurrence { .. }

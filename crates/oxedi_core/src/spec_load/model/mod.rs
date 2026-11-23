@@ -106,10 +106,7 @@ impl SpecModel {
     pub(in crate::spec_load) fn from_value(
         source: &serde_json::Value,
     ) -> Result<SpecModel, SpecError> {
-        serde_path_to_error::deserialize(StrictValue(source)).map_err(|err| SpecError::Format {
-            path: root_path(err.path()),
-            source: err.into_inner(),
-        })
+        serde_path_to_error::deserialize(StrictValue(source)).map_err(format_error)
     }
 
     /// The model as pretty-printed JSON text, as
@@ -137,6 +134,16 @@ fn render_path(path: &serde_path_to_error::Path) -> String {
         }
     }
     text
+}
+
+// The load error of a value the strict read refused, at its path from the root.
+pub(in crate::spec_load) fn format_error(
+    err: serde_path_to_error::Error<serde_json::Error>,
+) -> SpecError {
+    SpecError::Format {
+        path: root_path(err.path()),
+        source: err.into_inner(),
+    }
 }
 
 // The path of a refused value from the spec's root; `.` for the root itself.

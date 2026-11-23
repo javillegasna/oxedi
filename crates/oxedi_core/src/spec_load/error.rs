@@ -7,6 +7,7 @@ use super::build::VersionError;
 use super::build_loops::ControlError;
 use super::error_text::{Under, write_ambiguous, write_cycle};
 use super::occurrence_error::OccurrenceError;
+use super::package::HeaderError;
 use super::segments::ElementDefError;
 use super::summary_error::SummaryDefError;
 use super::table_error::TableDefError;
@@ -83,6 +84,11 @@ pub enum SpecError {
         column: Option<String>,
         /// What is wrong with it.
         reason: TableDefError,
+    },
+    /// A package header is invalid.
+    BadHeader {
+        /// What is wrong with it.
+        reason: HeaderError,
     },
     /// The spec's `version` is invalid.
     BadVersion {
@@ -241,6 +247,9 @@ impl fmt::Display for SpecError {
                 column: Some(column),
                 reason,
             } => write!(f, "table {table:?} column {column:?}: {reason}"),
+            SpecError::BadHeader { reason } => {
+                write!(f, "the package header is invalid: {reason}")
+            }
             SpecError::BadVersion { reason } => {
                 write!(f, "the spec's \"version\" is invalid: {reason}")
             }

@@ -85,6 +85,7 @@ mod by_module {
     use oxedi_core::spec_load::ElementModel;
     use oxedi_core::spec_load::ElementPosition;
     use oxedi_core::spec_load::Guide;
+    use oxedi_core::spec_load::HeaderError;
     use oxedi_core::spec_load::IdError;
     use oxedi_core::spec_load::IdPart;
     use oxedi_core::spec_load::Layer;
@@ -94,6 +95,8 @@ mod by_module {
     use oxedi_core::spec_load::LoopSegments;
     use oxedi_core::spec_load::OccurrenceError;
     use oxedi_core::spec_load::OccurrenceModel;
+    use oxedi_core::spec_load::Package;
+    use oxedi_core::spec_load::PackageHeader;
     use oxedi_core::spec_load::PackageId;
     use oxedi_core::spec_load::QualifierModel;
     use oxedi_core::spec_load::Release;

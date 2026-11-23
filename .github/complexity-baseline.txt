@@ -39,7 +39,7 @@ crates/oxedi_core/src/project/quote.rs	unquoted	11	4
 crates/oxedi_core/src/spec_load/balance_error.rs	fmt	9	0	flat
 crates/oxedi_core/src/spec_load/build.rs	check_ambiguity	10	4
 crates/oxedi_core/src/spec_load/compile.rs	link_tables	17	4
-crates/oxedi_core/src/spec_load/error.rs	fmt	25	0	flat
+crates/oxedi_core/src/spec_load/error.rs	fmt	26	0	flat
 crates/oxedi_core/src/spec_load/occurrence_error.rs	fmt	10	0	flat
 crates/oxedi_core/src/spec_load/phi.rs	control_element	13	2
 crates/oxedi_core/src/spec_load/segments.rs	fmt	13	0	flat

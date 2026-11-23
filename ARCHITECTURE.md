@@ -294,6 +294,7 @@ Internal words used in the code. X12 and payment terms for users are in
 | spec model | The spec as typed data a program builds and writes, shared with the loader. | `spec_load/model/` |
 | loaded spec | A spec's model beside the spec compiled from it. | `spec_load/loaded.rs` |
 | patch | An RFC 7386 JSON Merge Patch over a spec (`835.4010.json`, `edi_835_parser.json`). | `spec_load/patch.rs` |
+| package | One JSON file: a header (`format`, `id`, `layers`, `bases`) around a spec of the layers it holds. | `spec_load/package/` |
 | built-in | The shipped 5010 spec and its 4010 patch, chosen by `Builtin::select` from `GS08`; the registry is `Builtin::all`, each entry with a typed `Version`. | `spec_load/builtin.rs`, `spec/version.rs` |
 | trigger | The segment (and element conditions) that opens a loop. | `spec/loops.rs` |
 | occurrence | A named segment slot of a loop: position, usage, maximum repeat, qualifier, code lists. The JSON key is `occurrences`. | `spec/occurrences.rs` |

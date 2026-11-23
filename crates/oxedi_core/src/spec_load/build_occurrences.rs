@@ -233,6 +233,13 @@ fn compile_list<'d>(
     Ok((def, codes))
 }
 
+/// The first of `codes` that the element's own `codes` leaves out.
+fn outside<'c>(target: &ElementDef, codes: &'c [String]) -> Option<&'c String> {
+    codes
+        .iter()
+        .find(|code| target.rejects_code(code.as_bytes()))
+}
+
 /// The qualifier: its code list, then no code its element's own `codes`
 /// leaves out.
 fn compile_qualifier(
@@ -248,11 +255,9 @@ fn compile_qualifier(
         codes: &raw.codes,
     };
     let (target, codes) = compile_list(segments, segment, list)?;
-    if let Some(code) = codes
-        .iter()
-        .find(|code| target.rejects_code(code.as_bytes()))
-    {
-        return Err(OccurrenceError::QualifierCodeOutsideElement {
+    if let Some(code) = outside(target, &codes) {
+        return Err(OccurrenceError::CodeOutsideElement {
+            key: "qualifier.codes".into(),
             code: code.clone(),
             place: place(segment, raw.element, raw.component),
             allowed: target.codes.clone(),
@@ -287,15 +292,21 @@ fn compile_own_codes(
         let key = format!("codes.{at}");
         let list = CodeList {
             reference: key.clone(),
-            list: key,
+            list: key.clone(),
             element,
             component,
             codes: list,
         };
-        codes.insert(
-            (element, component),
-            compile_list(segments, segment, list)?.1,
-        );
+        let (def, list) = compile_list(segments, segment, list)?;
+        if let Some(code) = outside(def, &list) {
+            return Err(OccurrenceError::CodeOutsideElement {
+                key,
+                code: code.clone(),
+                place: place(segment, element, component),
+                allowed: def.codes.clone(),
+            });
+        }
+        codes.insert((element, component), list);
     }
     Ok(codes)
 }

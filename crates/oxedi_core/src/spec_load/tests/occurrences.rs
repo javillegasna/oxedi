@@ -345,6 +345,10 @@ fn invalid_occurrences_are_rejected_naming_loop_occurrence_rule_and_datum() {
             "loop \"head\" occurrence \"patient\": qualifier.codes: code \"ZZ\" is not among the codes NM01 allows (IL, QC, QD)",
         ),
         (
+            r#"{"segments":{"NM":{"elements":{"2":{"codes":["1","2"]}}}},"loops":{"head":{"occurrences":{"patient":{"codes":{"2":["3"]}}}}}}"#,
+            "loop \"head\" occurrence \"patient\": codes.2: code \"3\" is not among the codes NM02 allows (1, 2)",
+        ),
+        (
             r#"{"loops":{"party":{"occurrences":{"payer":{"qualifier":{"codes":["PR","ZZ"]}}}}}}"#,
             "loop \"party\" opens on \"N1\" where {1: \"PR\"}, and its occurrence \"payer\" also accepts code \"ZZ\": a segment with that code would match the occurrence without opening the loop",
         ),
@@ -405,6 +409,15 @@ fn occurrence_errors_are_their_own_variants() {
             segment_held: true,
             ..
         }
+    ));
+    let err = patched(
+        r#"{"segments":{"NM":{"elements":{"2":{"codes":["1","2"]}}}},"loops":{"head":{"occurrences":{"patient":{"codes":{"2":["3"]}}}}}}"#,
+    )
+    .unwrap_err();
+    assert!(matches!(
+        &err,
+        SpecError::BadOccurrence { reason, .. }
+            if matches!(&**reason, OccurrenceError::CodeOutsideElement { key, .. } if key == "codes.2")
     ));
     let err = patched(r#"{"loops":{"head":{"max":0}}}"#).unwrap_err();
     assert!(matches!(&err, SpecError::ZeroLoopMax { loop_name } if loop_name == "head"));

@@ -12,7 +12,7 @@ from .spec import merge_diff
 
 def occurrence_of(seg, qualifier, codes):
     """The occurrence a map segment generates, with one entry per place in
-    `codes` (codes key to list); the qualifier and the entries are left out
+    `codes` (position key to list); the qualifier and the entries are left out
     when empty."""
     return {"segment": seg.id, "pos": seg.pos,
             "usage": "required" if seg.usage == "R" else "situational",
@@ -146,7 +146,7 @@ class OccurrencesMixin:
 
     def own_codes(self, seg, place):
         """The closed code lists of this place that are narrower than the
-        spec's list for the element, by codes key; the qualifier's place and
+        spec's list for the element, by position key; the qualifier's place and
         elements the spec does not define, or keeps apart on purpose, are left out."""
         definitions = self.spec.get("segments", {}).get(seg.id, {}).get("elements", {})
         out = {}

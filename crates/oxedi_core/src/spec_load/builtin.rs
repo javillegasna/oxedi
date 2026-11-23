@@ -116,19 +116,37 @@ const SHIPPED: [(&str, Version, &[&str]); 2] = [
 fn merged(chain: &[&str]) -> Result<Value, SpecError> {
     let packages = chain
         .iter()
-        .map(|text| serde_json::from_str::<Value>(text).map_err(SpecError::Json))
+        .enumerate()
+        .map(|(position, text)| {
+            serde_json::from_str::<Value>(text).map_err(|error| {
+                shipped_fault(format_args!(
+                    "shipped package {} of {} is not JSON: {error}",
+                    position + 1,
+                    chain.len()
+                ))
+            })
+        })
         .collect::<Result<Vec<_>, _>>()?;
     let name = packages
         .last()
         .and_then(|top| top.pointer("/package/id"))
         .and_then(Value::as_str)
         .and_then(spec_name)
-        .ok_or_else(|| shipped_fault("a shipped package has no id that names a spec"))?;
+        .ok_or_else(|| {
+            shipped_fault(format_args!(
+                "shipped package {n} of {n} (the top) has no id that names a spec",
+                n = packages.len()
+            ))
+        })?;
     let mut value = json!({ "name": name });
-    for package in &packages {
-        let body = package
-            .get("spec")
-            .ok_or_else(|| shipped_fault("a shipped package has no \"spec\""))?;
+    for (position, package) in packages.iter().enumerate() {
+        let body = package.get("spec").ok_or_else(|| {
+            shipped_fault(format_args!(
+                "shipped package {} of {} has no \"spec\"",
+                position + 1,
+                packages.len()
+            ))
+        })?;
         merge_patch(&mut value, body);
     }
     Ok(value)

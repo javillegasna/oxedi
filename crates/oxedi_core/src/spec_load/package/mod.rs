@@ -7,8 +7,8 @@
 //! `compose` their specs merged in order, `owners` the keys each layer may
 //! write; `error` why an identity, a header or a stack is rejected.
 
-// TODO: the checked composer is the API for callers that load packages; no code outside
-// tests calls it yet.
+// TODO: a public package loader calls Stack::resolve(..).compose(); until then only tests use
+// compose, owners and stack.
 #[cfg_attr(not(test), expect(dead_code))]
 mod compose;
 mod error;

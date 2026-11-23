@@ -20,6 +20,7 @@
 //! map keyed by segment id; `schema` the columns of each table, known from the
 //! spec alone; `unknown` the errors for a table or a column the spec does not
 //! define; `render` the text of triggers and occurrence selectors in messages;
+//! `rule` what an element allows where a segment is read or written;
 //! `version` the version a compiled spec declares and the choice of a spec by
 //! it; `test_support` (test builds only) the small specs and helpers the tests
 //! of the spec, of its loading, of the projector, of the engine and of the
@@ -32,6 +33,7 @@ mod loops;
 mod occurrence_index;
 mod occurrences;
 mod render;
+mod rule;
 mod schema;
 mod tables;
 #[cfg(test)]
@@ -59,6 +61,7 @@ pub(crate) use id_map::IdMap;
 pub(crate) use occurrence_index::OccurrenceIndex;
 pub(crate) use occurrences::element_def;
 pub(crate) use render::{render_selector, render_trigger};
+pub(crate) use rule::ElementRule;
 pub(crate) use schema::column_type;
 pub(crate) use version::chosen;
 

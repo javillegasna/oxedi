@@ -5,51 +5,68 @@ use crate::spec::{ColumnSource, ElementDef, IdMap, Spec, TableDef};
 use crate::value::ColumnType;
 use crate::vocabulary::Pick;
 
+/// One value the check visits: a simple element, or one declared component.
+#[derive(Debug, Clone)]
+pub(super) struct Leaf<'s> {
+    /// 1-based component position; `None` for a simple element.
+    pub(super) component: Option<usize>,
+    pub(super) def: &'s ElementDef,
+    /// The column type the definition maps to.
+    pub(super) kind: ColumnType,
+    /// Whether a column reads it. A value no column reads is validated
+    /// without keeping it.
+    pub(super) read: bool,
+}
+
+impl<'s> Leaf<'s> {
+    fn new(component: Option<usize>, def: &'s ElementDef) -> Self {
+        Self {
+            component,
+            def,
+            kind: ColumnType::of(Some(def.kind)),
+            read: false,
+        }
+    }
+}
+
 /// One defined element, with what checking it needs worked out once.
 #[derive(Debug, Clone)]
 pub(super) struct ElementPlan<'s> {
     pub(super) position: usize,
     pub(super) def: &'s ElementDef,
-    /// The column type the definition maps to.
-    pub(super) kind: ColumnType,
-    /// Highest component position the definition declares (0 for a simple
-    /// element).
-    pub(super) declared: usize,
-    /// The components by position, with their column types and whether a
-    /// column reads them.
-    pub(super) components: Vec<(usize, &'s ElementDef, ColumnType, bool)>,
-    /// Whether a column reads the element as a whole. An element or
-    /// component no column reads is validated without keeping its value.
-    pub(super) read: bool,
+    /// Highest component position the definition declares; `None` for a
+    /// simple element.
+    pub(super) composite: Option<usize>,
+    /// The element itself when it is simple, else each declared component,
+    /// in position order.
+    pub(super) leaves: Vec<Leaf<'s>>,
 }
 
 impl<'s> ElementPlan<'s> {
     pub(super) fn new(position: usize, def: &'s ElementDef) -> Self {
+        let leaves = if def.composite.is_empty() {
+            vec![Leaf::new(None, def)]
+        } else {
+            def.composite
+                .iter()
+                .map(|(&at, part)| Leaf::new(Some(at), part))
+                .collect()
+        };
         Self {
             position,
             def,
-            kind: ColumnType::of(Some(def.kind)),
-            declared: def.composite.keys().copied().max().unwrap_or_default(),
-            components: def
-                .composite
-                .iter()
-                .map(|(&at, part)| (at, part, ColumnType::of(Some(part.kind)), false))
-                .collect(),
-            read: false,
+            composite: def.composite.keys().next_back().copied(),
+            leaves,
         }
     }
 
     /// Records that a column reads this element (`component` `None`) or one
-    /// of its declared components.
+    /// of its declared components. A composite read whole marks nothing.
     fn mark_read(&mut self, component: Option<usize>) {
-        match component {
-            None => self.read = true,
-            Some(wanted) => self
-                .components
-                .iter_mut()
-                .filter(|(at, ..)| *at == wanted)
-                .for_each(|(.., read)| *read = true),
-        }
+        self.leaves
+            .iter_mut()
+            .filter(|leaf| leaf.component == component)
+            .for_each(|leaf| leaf.read = true);
     }
 }
 

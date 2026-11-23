@@ -1,14 +1,17 @@
 //! Element checks: the values a segment's elements parse to, and the diagnostics they raise.
 
+use std::borrow::Cow;
+
 use crate::diagnostic::Rule;
 use crate::element::Element;
 use crate::segment::Segment;
-use crate::spec::{ElementDef, rejects_code};
+use crate::spec::ElementRule;
 use crate::value::{ColumnType, Parsed};
 
 use super::Projector;
 use super::fill::leaf_text;
-use super::plan::ElementPlan;
+use super::plan::{ElementPlan, Leaf};
+
 /// One defined element (or component) of the current segment, checked.
 #[derive(Debug, Clone, Copy)]
 pub(super) struct Checked {
@@ -31,74 +34,84 @@ impl<'s> Projector<'s> {
     ) {
         self.checked.clear();
         for plan in elements {
-            let (position, element) = (plan.position, plan.def);
-            if plan.components.is_empty() {
-                let text = leaf_text(segment, position, None, self.separator, joined);
-                let value = self.check_value(segment, position, None, element, text, plan.read);
-                if plan.read {
-                    self.checked.push(Checked {
-                        element: position,
-                        component: None,
-                        kind: plan.kind,
-                        value,
-                    });
-                }
+            if plan
+                .composite
+                .is_some_and(|declared| !self.composite_holds(plan, declared, segment))
+            {
                 continue;
             }
-            let parts: &[std::borrow::Cow<'_, [u8]>] = match segment.element(position) {
-                Some(Element::Composite(parts)) => parts,
-                Some(Element::Simple(value)) => std::slice::from_ref(value),
-                None => &[],
-            };
-            if parts.iter().all(|part| part.is_empty()) {
-                if element.required {
-                    self.report(
-                        Rule::RequiredElementMissing {
-                            segment_id: segment.id.to_vec(),
-                            element: position,
-                            component: None,
-                            name: element.name.clone(),
-                        },
-                        segment.index,
-                        position,
-                        None,
-                        &[],
-                    );
-                }
-                continue;
+            for leaf in &plan.leaves {
+                self.check_leaf(plan.position, leaf, segment, joined);
             }
-            let declared = plan.declared;
-            if parts.len() > declared {
-                let extra = parts.get(declared).map_or(&[][..], |part| part.as_ref());
+        }
+    }
+
+    /// Checks a composite as a whole: an empty one is reported when required
+    /// and its components are not checked (`false`); more components than
+    /// declared are reported.
+    fn composite_holds(
+        &mut self,
+        plan: &ElementPlan<'_>,
+        declared: usize,
+        segment: &Segment<'_>,
+    ) -> bool {
+        let position = plan.position;
+        let parts = composite_parts(segment, position);
+        if parts.iter().all(|part| part.is_empty()) {
+            let rule = ElementRule::at(plan.def, self.occurrence, position, None);
+            if rule.required {
                 self.report(
-                    Rule::CompositeShape {
+                    Rule::RequiredElementMissing {
                         segment_id: segment.id.to_vec(),
                         element: position,
-                        name: element.name.clone(),
-                        declared,
-                        found: parts.len(),
+                        component: None,
+                        name: plan.def.name.clone(),
                     },
                     segment.index,
                     position,
-                    declared.checked_add(1),
-                    extra,
+                    None,
+                    &[],
                 );
             }
-            for &(component, def, kind, read) in &plan.components {
-                let text = component
-                    .checked_sub(1)
-                    .and_then(|at| parts.get(at))
-                    .map_or(&[][..], |part| part.as_ref());
-                let value = self.check_value(segment, position, Some(component), def, text, read);
-                if read {
-                    self.checked.push(Checked {
-                        element: position,
-                        component: Some(component),
-                        kind,
-                        value,
-                    });
-                }
-            }
+            return false;
+        }
+        if parts.len() > declared {
+            let extra = parts.get(declared).map_or(&[][..], |part| part.as_ref());
+            self.report(
+                Rule::CompositeShape {
+                    segment_id: segment.id.to_vec(),
+                    element: position,
+                    name: plan.def.name.clone(),
+                    declared,
+                    found: parts.len(),
+                },
+                segment.index,
+                position,
+                declared.checked_add(1),
+                extra,
+            );
+        }
+        true
+    }
+
+    /// Checks one leaf and keeps its parsed value when a column reads it.
+    fn check_leaf(
+        &mut self,
+        position: usize,
+        leaf: &Leaf<'_>,
+        segment: &Segment<'_>,
+        joined: &mut Vec<u8>,
+    ) {
+        let text = leaf_text(segment, position, leaf.component, self.separator, joined);
+        let rule = ElementRule::at(leaf.def, self.occurrence, position, leaf.component);
+        let value = self.check_value(segment, position, leaf.component, rule, text, leaf.read);
+        if leaf.read {
+            self.checked.push(Checked {
+                element: position,
+                component: leaf.component,
+                kind: leaf.kind,
+                value,
+            });
         }
     }
 
@@ -111,12 +124,13 @@ impl<'s> Projector<'s> {
         segment: &Segment<'_>,
         element: usize,
         component: Option<usize>,
-        def: &ElementDef,
+        rule: ElementRule<'_>,
         text: &[u8],
         keep: bool,
     ) -> Option<Parsed> {
+        let def = rule.def;
         if text.is_empty() {
-            if def.required {
+            if rule.required {
                 self.report(
                     Rule::RequiredElementMissing {
                         segment_id: segment.id.to_vec(),
@@ -150,14 +164,14 @@ impl<'s> Projector<'s> {
         };
         let value = keep.then_some(value);
         // Numeric lengths count digits only, as X12 does: no sign, no point.
-        if !def.kind.length_in_range(text, def.length) {
+        if !def.kind.length_in_range(text, rule.length) {
             self.report(
                 Rule::LengthOutOfRange {
                     segment_id: segment.id.to_vec(),
                     element,
                     component,
                     name: def.name.clone(),
-                    allowed: def.length,
+                    allowed: rule.length,
                     length: def.kind.length_of(text),
                 },
                 segment.index,
@@ -166,18 +180,9 @@ impl<'s> Projector<'s> {
                 text,
             );
         } else {
-            // The occurrence the segment matched may list its own codes for
-            // the element; otherwise the element's own list applies.
-            let own = self.occurrence.and_then(|occurrence| {
-                occurrence
-                    .codes
-                    .get(&(element, component))
-                    .map(|codes| (codes, occurrence))
-            });
-            let codes = own.map_or(&def.codes, |(codes, _)| codes);
             // Every code fits the element's lengths, so a value of the wrong
             // length is reported once, as a length.
-            if !rejects_code(codes, text) {
+            if !rule.rejects(text) {
                 return value;
             }
             self.report(
@@ -186,8 +191,8 @@ impl<'s> Projector<'s> {
                     element,
                     component,
                     name: def.name.clone(),
-                    codes: codes.clone(),
-                    occurrence: own.map(|(_, occurrence)| occurrence.name.clone()),
+                    codes: rule.codes.to_vec(),
+                    occurrence: rule.codes_of.map(str::to_owned),
                 },
                 segment.index,
                 element,
@@ -196,5 +201,15 @@ impl<'s> Projector<'s> {
             );
         }
         value
+    }
+}
+
+/// The components of the element at `position`; a simple element is its own
+/// only component, a missing one has none.
+fn composite_parts<'a>(segment: &'a Segment<'_>, position: usize) -> &'a [Cow<'a, [u8]>] {
+    match segment.element(position) {
+        Some(Element::Composite(parts)) => parts,
+        Some(Element::Simple(value)) => std::slice::from_ref(value),
+        None => &[],
     }
 }

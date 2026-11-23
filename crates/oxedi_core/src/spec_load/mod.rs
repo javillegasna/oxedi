@@ -70,7 +70,9 @@ pub use model::{
     VersionModel,
 };
 pub use occurrence_error::OccurrenceError;
-pub use package::{Guide, IdError, IdPart, Layer, PackageId, Release, Scope, TransactionSet};
+pub use package::{
+    Guide, IdError, IdPart, Layer, Layers, PackageId, Release, Scope, TransactionSet,
+};
 pub use patch::merge_patch;
 pub use segments::ElementDefError;
 pub use summary_error::SummaryDefError;

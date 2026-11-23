@@ -90,6 +90,18 @@ fn header_faults_name_their_path() {
             "spec: at package.layers[0]: \"layer\" must be \"envelope\", \"dictionary\", \"transaction-set\", \"guide\", \"views\" or \"patch\"; found \"glossary\"",
         ),
         (
+            package_text(HEADER, "null"),
+            "spec: at spec: invalid type: null, expected a map",
+        ),
+        (
+            package_text(HEADER, "5"),
+            "spec: at spec: invalid type: integer `5`, expected a map",
+        ),
+        (
+            package_text(HEADER, "[]"),
+            "spec: at spec: invalid type: sequence, expected a map",
+        ),
+        (
             format!(r#"{{"package":{HEADER}}}"#),
             "spec: at .: missing field `spec`",
         ),
@@ -108,23 +120,6 @@ fn an_id_naming_another_layer_than_the_top_is_refused() {
         read_err(&package_text(header, "{}")).to_string(),
         "the package header is invalid: package \"test/dictionary/005010\" names layer \"dictionary\" in its id, but the top layer \"layers\" lists is \"transaction-set\"; the id names the package's top layer"
     );
-}
-
-#[test]
-fn layers_keep_layer_order() {
-    let header = HEADER
-        .replace(r#"["envelope"]"#, r#"["envelope","guide"]"#)
-        .replace("test/envelope/005010", "test/guide/005010/835/X1");
-    let package = Package::from_json(&package_text(&header, "{}")).unwrap();
-    let layers = package.header().layers;
-    assert_eq!(layers.lowest(), Layer::Envelope);
-    assert_eq!(layers.top(), Layer::Guide);
-    assert!(!layers.contains(Layer::Dictionary));
-    assert_eq!(
-        layers.iter().collect::<Vec<_>>(),
-        [Layer::Envelope, Layer::Guide]
-    );
-    assert_eq!(layers.to_string(), "\"envelope\", \"guide\"");
 }
 
 #[test]

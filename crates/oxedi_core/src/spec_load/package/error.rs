@@ -69,8 +69,8 @@ pub enum HeaderError {
     },
     /// The id names another layer than the top one `layers` lists.
     IdLayerNotTop {
-        /// The package's id.
-        id: PackageId,
+        /// The package's id, boxed to keep the error small.
+        id: Box<PackageId>,
         /// The top layer `layers` lists.
         top: Layer,
     },

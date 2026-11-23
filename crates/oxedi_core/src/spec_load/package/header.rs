@@ -1,5 +1,6 @@
 //! A package: a header around a spec of the layers it holds.
 
+use std::collections::BTreeMap;
 use std::num::NonZeroU32;
 
 use serde::Deserialize;
@@ -42,7 +43,7 @@ impl PackageHeader {
 struct Keys {
     package: PackageHeader,
     #[serde(rename = "spec")]
-    _spec: IgnoredAny,
+    _spec: BTreeMap<String, IgnoredAny>,
 }
 
 /// One package file: its header and the spec value it holds.
@@ -74,7 +75,7 @@ impl Package {
         if header.id.layer() != header.layers.top() {
             return Err(bad_header(HeaderError::IdLayerNotTop {
                 top: header.layers.top(),
-                id: header.id,
+                id: Box::new(header.id),
             }));
         }
         let body = value

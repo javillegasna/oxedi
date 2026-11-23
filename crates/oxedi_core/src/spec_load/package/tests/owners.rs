@@ -124,6 +124,34 @@ fn a_patch_owns_every_key_but_the_name() {
 }
 
 #[test]
+fn a_name_holding_a_separator_is_quoted_in_the_path() {
+    let spec = r#"{"loops":{"a.b":{"occurrences":{"":{"usage":"required"}}}}}"#;
+    let StackError::KeyNotOwned { path, .. } = refusal(&["dictionary"], spec) else {
+        panic!("a dictionary wrote a guide key");
+    };
+    assert_eq!(path, r#"loops."a.b".occurrences."".usage"#);
+}
+
+#[test]
+fn an_unknown_key_is_left_to_the_strict_read() {
+    let err = compose(&["dictionary"], r#"{"glossary":{}}"#).unwrap_err();
+    assert_eq!(
+        err.to_string(),
+        "package \"test/dictionary/005010\": spec: at glossary: unknown field `glossary`, expected one of `name`, `version`, `loops`, `tables`, `balancing`, `segments`, `summaries`, `default_table`"
+    );
+}
+
+#[test]
+fn a_section_that_is_not_an_object_is_left_to_the_strict_read() {
+    let err = compose(&["guide"], r#"{"loops":5}"#).unwrap_err();
+    assert!(matches!(&err, SpecError::Package { .. }), "{err:?}");
+    assert_eq!(
+        err.to_string(),
+        "package \"test/guide/005010/835/X1\": spec: at loops: invalid type: integer `5`, expected a map"
+    );
+}
+
+#[test]
 fn ownership_errors_have_no_source() {
     let err = refusal(&["patch"], r#"{"name":"x"}"#);
     assert!(std::error::Error::source(&err).is_none());

@@ -112,15 +112,16 @@ impl Spec {
 }
 
 /// Every package the crate ships: the 5010 stack, then the 4010's.
-pub(in crate::spec_load) const PACKAGES: [&str; 4] = [
+pub(in crate::spec_load) const PACKAGES: [&str; 5] = [
     include_str!("../../specs/oxedi/envelope/005010.json"),
+    include_str!("../../specs/oxedi/dictionary/005010.json"),
     include_str!("../../specs/oxedi/guide/005010/835/X221A1.json"),
     include_str!("../../specs/oxedi/views/005010/835/X221A1.json"),
     include_str!("../../specs/oxedi/guide/004010/835/X091A1.json"),
 ];
 
 /// The packages of the 5010 stack, the first of `PACKAGES`.
-const FIVE: usize = 3;
+const FIVE: usize = 4;
 
 /// The package texts of each built-in, bases first and the top last; the
 /// fallback comes first.

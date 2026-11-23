@@ -3,8 +3,8 @@
 
 use serde_json::Value;
 
+use crate::spec::spec_schema;
 use crate::spec::test_support;
-use crate::spec::{Spec, spec_schema};
 use crate::spec_load::{Builtin, LoadedSpec};
 
 use super::{CLP_ONLY, TABLED};
@@ -43,8 +43,7 @@ fn round_trip_specs() -> Vec<(&'static str, LoadedSpec)> {
     let parser = ok(
         "edi_835_parser",
         "merge the patch",
-        load("edi_835_parser", Spec::BUILTIN_835_JSON)
-            .merge_patch(include_str!("../../../specs/edi_835_parser.json")),
+        loaded(five).merge_patch(include_str!("../../../specs/edi_835_parser.json")),
     );
     vec![
         ("5010", loaded(five)),

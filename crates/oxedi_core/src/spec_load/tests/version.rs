@@ -3,6 +3,7 @@
 use super::assert_model_faults;
 use crate::spec::test_support::{declared, declaring, loaded, patched};
 use crate::spec::*;
+use crate::spec_load::builtin::PACKAGES;
 use crate::spec_load::*;
 
 fn version_error(version: &str) -> SpecError {
@@ -149,10 +150,15 @@ fn the_builtins_declare_5010_and_4010_on_gs08() {
             ]
         )
     );
-    // The 4010 spec is the 5010 one with the patch over it.
-    let patched = LoadedSpec::from_json(Spec::BUILTIN_835_JSON)
+}
+
+#[test]
+fn the_4010_builtin_is_the_5010_with_its_edition_merged() {
+    let patch = Package::from_json(PACKAGES[1]).unwrap();
+    let patched = Builtin::fallback()
+        .loaded()
         .unwrap()
-        .merge_patch(Spec::BUILTIN_835_4010_PATCH)
+        .merge_patch(&patch.body().to_string())
         .unwrap();
     let registry = Builtin::find("835", Version::V4010).unwrap();
     assert_eq!(

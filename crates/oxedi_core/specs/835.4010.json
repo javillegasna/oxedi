@@ -1,4 +1,11 @@
 {
+  "package": {
+    "format": 1,
+    "id": "oxedi/guide/004010/835/X091A1",
+    "layers": ["dictionary", "transaction-set", "guide"],
+    "bases": ["oxedi/views/005010/835/X221A1"]
+  },
+  "spec": {
   "version": {"values": ["004010X091A1", "004010X091", "004010"]},
   "loops": {
     "1000A": {
@@ -135,4 +142,5 @@
       }}
     } }
   }
+}
 }

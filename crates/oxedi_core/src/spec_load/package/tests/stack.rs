@@ -4,6 +4,7 @@ use super::super::stack::{Role, Stack};
 use super::super::*;
 use super::{envelope, package};
 use crate::spec_load::SpecError;
+use crate::spec_load::builtin::PACKAGES;
 
 const E: &str = "test/envelope/005010";
 const D: &str = "test/dictionary/005010";
@@ -269,4 +270,21 @@ fn a_package_must_come_after_the_layers_it_builds_on() {
         err.to_string(),
         "package \"test/transaction-set/005010/835\" holds layer \"transaction-set\", which does not come after layer \"guide\" of its base \"test/guide/005010/835/X1\"; a package builds only on lower layers, unless it is an edition (it holds a layer its base holds) or a patch"
     );
+}
+
+#[test]
+fn each_shipped_package_reads_and_names_its_layers() {
+    let [five, four] = PACKAGES.map(|text| Package::from_json(text).unwrap());
+    assert_eq!(five.id().as_str(), "oxedi/views/005010/835/X221A1");
+    assert_eq!(five.header().layers.top(), Layer::Views);
+    assert_eq!(five.header().layers.lowest(), Layer::Envelope);
+    assert_eq!(four.id().as_str(), "oxedi/guide/004010/835/X091A1");
+    assert_eq!(four.header().layers.top(), Layer::Guide);
+    assert_eq!(four.header().bases, [five.id().clone()]);
+}
+
+#[test]
+fn the_4010_package_is_an_edition() {
+    let pool = PACKAGES.map(|text| Package::from_json(text).unwrap());
+    assert_eq!(roles(&pool[1], &pool), [Role::Narrows, Role::Edition]);
 }

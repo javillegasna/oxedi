@@ -1,5 +1,11 @@
 {
-  "name": "835",
+  "package": {
+    "format": 1,
+    "id": "oxedi/views/005010/835/X221A1",
+    "layers": ["envelope", "dictionary", "transaction-set", "guide", "views"],
+    "bases": []
+  },
+  "spec": {
   "version": {"segment": "GS", "element": 8, "values": ["005010X221A1"]},
   "loops": {
     "interchange": {
@@ -608,4 +614,5 @@
     ]}}
   },
   "default_table": "claims"
+}
 }

@@ -203,7 +203,6 @@ fn every_public_path_resolves() {}
 // Associated items added to `Spec`, named so the build fails if one disappears.
 #[allow(dead_code)]
 fn spec_items(spec: &Spec) {
-    let _: &str = Spec::BUILTIN_835_4010_PATCH;
     let _: fn() -> Spec = Spec::builtin_835_4010;
     let _: for<'a> fn(&'a Spec) -> Option<&'a DeclaredVersion> = Spec::version;
     let _: &Spec = Spec::select(&[spec], spec, Vec::<Segment<'static>>::new());

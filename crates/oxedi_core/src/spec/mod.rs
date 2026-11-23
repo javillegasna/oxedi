@@ -56,7 +56,7 @@ pub use unknown::{UnknownColumn, UnknownTable};
 pub use version::DeclaredVersion;
 
 pub(crate) use balance_rule::render_terms;
-pub(crate) use elements::rejects_code;
+pub(crate) use elements::{holds_code, rejects_code};
 pub(crate) use id_map::IdMap;
 pub(crate) use occurrence_index::OccurrenceIndex;
 pub(crate) use occurrences::element_def;

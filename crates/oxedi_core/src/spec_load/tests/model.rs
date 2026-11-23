@@ -36,7 +36,7 @@ fn paid(kind: ElementType) -> ElementModel {
     ElementModel {
         name: "paid".into(),
         kind,
-        required: false,
+        usage: Usage::Situational,
         min: None,
         max: None,
         codes: None,
@@ -117,8 +117,18 @@ fn an_r_scale_is_written_only_when_not_the_default() {
         assert_eq!(json_of(&model), written);
         assert_eq!(from_value::<ElementModel>(written).unwrap(), model);
     }
-    let written = json!({"name":"paid","type":"R","scale":2,"required":false});
+    let written = json!({"name":"paid","type":"R","scale":2,"usage":"situational"});
     assert_eq!(from_value::<ElementModel>(written).unwrap(), paid(r(2)));
+}
+
+#[test]
+fn an_element_usage_is_a_word_and_situational_is_left_out() {
+    let required = from_value::<ElementModel>(json!({"name":"a","type":"ID","usage":"required"}));
+    assert_eq!(required.unwrap().usage, Usage::Required);
+    assert_eq!(json_of(&paid(ElementType::An)).get("usage"), None);
+    let old = from_value::<ElementModel>(json!({"name":"a","type":"ID","required":true}));
+    let found = old.unwrap_err().to_string();
+    assert!(found.starts_with("unknown field `required`"), "{found}");
 }
 
 #[test]
@@ -399,7 +409,7 @@ fn an_unknown_element_key_is_refused_with_the_keys_it_takes() {
         assert_eq!(
             read.unwrap_err().to_string(),
             format!(
-                "unknown field `{key}`, expected one of `name`, `type`, `scale`, `required`, `min`, `max`, `codes`, `composite`"
+                "unknown field `{key}`, expected one of `name`, `type`, `scale`, `usage`, `min`, `max`, `codes`, `composite`"
             )
         );
     }
@@ -451,7 +461,7 @@ fn the_element_model_lists_every_key_it_writes() {
     let element = ElementModel {
         name: "amount".into(),
         kind: ElementType::R { scale: 4 },
-        required: true,
+        usage: Usage::Required,
         min: Some(1),
         max: Some(9),
         codes: Some(vec!["A".into()]),

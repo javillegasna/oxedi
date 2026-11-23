@@ -6,6 +6,7 @@ use serde::{Deserialize, Deserializer, Serialize};
 
 use super::declare::spec_object;
 use super::{is_default, positions, present};
+use crate::spec::Usage;
 use crate::value::ElementType;
 
 fn segment_elements<'de, D: Deserializer<'de>>(
@@ -33,7 +34,7 @@ pub(in crate::spec_load) const ELEMENT_MODEL_KEYS: &[&str] = &[
     "name",
     "type",
     "scale",
-    "required",
+    "usage",
     "min",
     "max",
     "codes",
@@ -52,9 +53,14 @@ pub struct ElementModel {
     /// The data type, written `type`, and for `R` its `scale`.
     #[serde(flatten, with = "type_keys")]
     pub kind: ElementType,
-    /// Whether a segment must hold it.
-    #[serde(default, skip_serializing_if = "is_default")]
-    pub required: bool,
+    /// Whether a segment must hold it: `required`, or `situational` (the
+    /// default).
+    #[serde(
+        default,
+        deserialize_with = "super::null_is_default",
+        skip_serializing_if = "is_default"
+    )]
+    pub usage: Usage,
     /// The shortest length, when the spec bounds it.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub min: Option<usize>,

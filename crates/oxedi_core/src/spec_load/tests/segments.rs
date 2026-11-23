@@ -261,7 +261,7 @@ fn an_element_the_model_refuses_fails_at_its_path() {
     let unknown = "type \"XX\" is not one of AN, ID, N0 to N9, R, DT, TM";
     let rule = "is not a position: positions are 1-based integers written in canonical form";
     let keys =
-        "expected one of `name`, `type`, `scale`, `required`, `min`, `max`, `codes`, `composite`";
+        "expected one of `name`, `type`, `scale`, `usage`, `min`, `max`, `codes`, `composite`";
     let cases = [
         (
             r#"{"3":{"name":"p","type":"AN","min":"1"}}"#,
@@ -272,8 +272,8 @@ fn an_element_the_model_refuses_fails_at_its_path() {
             "spec: at segments.AA.elements.3: invalid value: integer `300`, expected u8".to_string(),
         ),
         (
-            r#"{"3":{"name":"p","type":"AN","required":"yes"}}"#,
-            "spec: at segments.AA.elements.3.required: invalid type: string \"yes\", expected a boolean".to_string(),
+            r#"{"3":{"name":"p","type":"AN","usage":"yes"}}"#,
+            "spec: at segments.AA.elements.3.usage: \"usage\" must be \"required\" or \"situational\"; found \"yes\"".to_string(),
         ),
         (
             r#"{"3":{"name":5,"type":"AN"}}"#,

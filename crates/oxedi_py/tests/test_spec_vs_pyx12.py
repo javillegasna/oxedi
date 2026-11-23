@@ -13,7 +13,7 @@ from conftest import CORE_TESTS
 SCRIPT = CORE_TESTS.parent / "scripts" / "spec_vs_pyx12.py"
 
 # How an element of a spec says it must be present.
-REQUIRED = {"required": True}
+REQUIRED = {"usage": "required"}
 
 
 def load_script():

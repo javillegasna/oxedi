@@ -138,7 +138,7 @@ macro_rules! element_keys {
             Key::layers("codes", NARROWABLE),
             Key::layers("min", NARROWABLE),
             Key::layers("max", NARROWABLE),
-            Key::layers("required", NARROWABLE),
+            Key::layers("usage", NARROWABLE),
             $($extra),*
         ]
     };

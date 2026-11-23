@@ -26,18 +26,18 @@ const BASE: &str = r#"{"name":"w",
       "it":{"segment":"IT","pos":50,"usage":"required"}}}
  },
  "segments":{
-   "EV":{"elements":{"1":{"name":"control","type":"AN","required":true}}},
-   "HD":{"elements":{"1":{"name":"id","type":"AN","required":true}}},
-   "NM":{"elements":{"1":{"name":"kind","type":"ID","required":true,"codes":["A","B","C"]},
-       "2":{"name":"entity_type","type":"ID","required":true,"codes":["1","2"]},
+   "EV":{"elements":{"1":{"name":"control","type":"AN","usage":"required"}}},
+   "HD":{"elements":{"1":{"name":"id","type":"AN","usage":"required"}}},
+   "NM":{"elements":{"1":{"name":"kind","type":"ID","usage":"required","codes":["A","B","C"]},
+       "2":{"name":"entity_type","type":"ID","usage":"required","codes":["1","2"]},
        "3":{"name":"name","type":"AN"}}},
-   "DT":{"elements":{"1":{"name":"qualifier","type":"ID","required":true},"2":{"name":"date","type":"AN"}}},
-   "GR":{"elements":{"1":{"name":"number","type":"N0","required":true}}},
-   "IT":{"elements":{"1":{"name":"code","type":"AN","required":true},
+   "DT":{"elements":{"1":{"name":"qualifier","type":"ID","usage":"required"},"2":{"name":"date","type":"AN"}}},
+   "GR":{"elements":{"1":{"name":"number","type":"N0","usage":"required"}}},
+   "IT":{"elements":{"1":{"name":"code","type":"AN","usage":"required"},
        "2":{"name":"pair","type":"AN","composite":{
-           "1":{"name":"pair_kind","type":"ID","required":true},"2":{"name":"pair_value","type":"AN"}}}}},
-   "AJ":{"elements":{"1":{"name":"group","type":"ID","required":true},
-       "2":{"name":"reason","type":"ID","required":true},"3":{"name":"amount","type":"R","required":true}}}
+           "1":{"name":"pair_kind","type":"ID","usage":"required"},"2":{"name":"pair_value","type":"AN"}}}}},
+   "AJ":{"elements":{"1":{"name":"group","type":"ID","usage":"required"},
+       "2":{"name":"reason","type":"ID","usage":"required"},"3":{"name":"amount","type":"R","usage":"required"}}}
  },
  "tables":{
    "heads":{"loops":["head"],"ref":"head","columns":{
@@ -464,7 +464,7 @@ fn a_component_and_an_implied_loop_are_refused_with_what_is_missing() {
             r#"{"tables":{"items":{"columns":{"group_number":null}}},
             "loops":{"group":{"occurrences":{"gr":{"usage":"situational"},
                 "gr2":{"segment":"G2","pos":41,"usage":"required"}}}},
-            "segments":{"G2":{"elements":{"1":{"name":"g2","type":"AN","required":true}}}}}"#
+            "segments":{"G2":{"elements":{"1":{"name":"g2","type":"AN","usage":"required"}}}}}"#
         ),
         vec![
             "occurrence \"gr2\" (\"G2\") is required in every loop \"group\", but no column writes it"
@@ -531,7 +531,7 @@ fn item_elements_at_two(columns: &str, segments: &str) -> Vec<ElementPlan> {
 /// IT02-2 is the required component, with the given codes.
 fn pair_value_required(codes: &str) -> String {
     format!(
-        r#"{{"IT":{{"elements":{{"2":{{"composite":{{"2":{{"required":true,"codes":{codes}}}}}}}}}}}}}"#
+        r#"{{"IT":{{"elements":{{"2":{{"composite":{{"2":{{"usage":"required","codes":{codes}}}}}}}}}}}}}"#
     )
 }
 

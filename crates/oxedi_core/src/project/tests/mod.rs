@@ -170,7 +170,7 @@ fn segment_ids_of_any_length_are_checked_and_read() {
         r#"{"name":"t",
             "loops":{"head":{"trigger":{"segment":"A"},"occurrences":{"a":{"segment":"A","pos":0},"longsegment":{"segment":"LONGSEGMENT","pos":1},"\u0000a":{"segment":"\u0000A","pos":2}},"end":"Z"}},
             "segments":{
-                "LONGSEGMENT":{"elements":{"1":{"name":"n","type":"N0","required":true}}},
+                "LONGSEGMENT":{"elements":{"1":{"name":"n","type":"N0","usage":"required"}}},
                 "\u0000A":{"elements":{"1":{"name":"m","type":"AN"}}}
             },
             "tables":{"heads":{"loops":["head"],"ref":"head","columns":{

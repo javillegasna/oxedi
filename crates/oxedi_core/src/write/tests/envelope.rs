@@ -72,7 +72,7 @@ fn a_00402_spec_with_a_code_on_isa11_writes_the_separator() {
 fn a_spec_below_00402_without_a_code_needs_no_separator() {
     let spec = patched(
         &builtin(Version::V4010),
-        r#"{"segments":{"ISA":{"elements":{"11":{"codes":null,"required":false}}}}}"#,
+        r#"{"segments":{"ISA":{"elements":{"11":{"codes":null,"usage":"situational"}}}}}"#,
     )
     .unwrap();
     let envelope = envelope_with(Delimiters::new(b'*', b':', b'~'));
@@ -93,7 +93,7 @@ fn a_00402_spec_without_a_separator_is_refused() {
 #[test]
 fn a_spec_with_no_value_for_isa12_writes_no_separator() {
     let spec = patched(&builtin(Version::V5010),
-            r#"{"segments":{"ISA":{"elements":{"11":{"required":false},"12":{"codes":null,"required":false}}}}}"#,
+            r#"{"segments":{"ISA":{"elements":{"11":{"usage":"situational"},"12":{"codes":null,"usage":"situational"}}}}}"#,
         )
         .unwrap();
     let envelope = envelope_with(Delimiters::new(b'*', b':', b'~').with_repetition(b'^'));
@@ -136,11 +136,11 @@ fn the_interchange_version_is_the_value_the_header_writes() {
     .unwrap();
     let declared = patched(&builtin(Version::V5010),
             r#"{"version":{"segment":"ISA","element":12,"values":["00401"]},
-                "segments":{"ISA":{"elements":{"11":{"required":false},"12":{"codes":["00401"]}}}}}"#,
+                "segments":{"ISA":{"elements":{"11":{"usage":"situational"},"12":{"codes":["00401"]}}}}}"#,
         )
         .unwrap();
     let neither = patched(&builtin(Version::V5010),
-            r#"{"segments":{"ISA":{"elements":{"11":{"required":false},"12":{"codes":null,"required":false}}}}}"#,
+            r#"{"segments":{"ISA":{"elements":{"11":{"usage":"situational"},"12":{"codes":null,"usage":"situational"}}}}}"#,
         )
         .unwrap();
     let envelope = envelope_with(Delimiters::new(b'*', b':', b'~').with_repetition(b'^'));

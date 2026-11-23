@@ -27,14 +27,14 @@ use crate::spec_load::SpecError;
 pub(super) const CLP_ONLY: &str = r#"{"name":"t",
         "loops":{"2100":{"trigger":{"segment":"CLP"},"occurrences":{"clp":{"segment":"CLP","pos":0},"zz1":{"segment":"ZZ1","pos":1}}}},
         "segments":{"CLP":{"elements":{
-            "1":{"name":"claim_submitter_id","type":"AN","required":true,"min":1,"max":38},
-            "3":{"name":"total_claim_charge_amount","type":"R","required":true},
+            "1":{"name":"claim_submitter_id","type":"AN","usage":"required","min":1,"max":38},
+            "3":{"name":"total_claim_charge_amount","type":"R","usage":"required"},
             "12":{"name":"drg_weight","type":"R","scale":4}
         }},
         "SVC":{"elements":{
-            "1":{"name":"procedure","type":"AN","required":true,"composite":{
-                "1":{"name":"qualifier","type":"ID","required":true,"min":2,"max":2},
-                "2":{"name":"code","type":"AN","required":true}
+            "1":{"name":"procedure","type":"AN","usage":"required","composite":{
+                "1":{"name":"qualifier","type":"ID","usage":"required","min":2,"max":2},
+                "2":{"name":"code","type":"AN","usage":"required"}
             }},
             "5":{"name":"units","type":"N0"}
         }}}

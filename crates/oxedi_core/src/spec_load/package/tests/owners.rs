@@ -112,13 +112,13 @@ fn a_guide_and_the_dictionary_both_own_what_narrows_an_element() {
         "segments.AA.elements.1.codes",
         "segments.AA.elements.1.min",
         "segments.AA.elements.1.max",
-        "segments.AA.elements.1.required",
+        "segments.AA.elements.1.usage",
         "segments.AA.elements.2.composite.1.codes",
     ] {
         let value = if path.ends_with("codes") {
             r#"["X"]"#
-        } else if path.ends_with("required") {
-            "true"
+        } else if path.ends_with("usage") {
+            r#""required""#
         } else {
             "1"
         };

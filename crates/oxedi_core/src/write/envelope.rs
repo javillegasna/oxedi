@@ -351,6 +351,7 @@ impl<'a> Header<'a> {
         if let Some(version) = self.declared_version(position) {
             return Source::Version(version);
         }
+        // TODO: ask the element rule of the trigger occurrence once the envelope roles are data
         def.codes
             .first()
             .map_or(Source::Nothing, |code| Source::Code(code))

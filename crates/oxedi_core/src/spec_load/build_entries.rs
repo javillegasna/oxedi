@@ -1,9 +1,10 @@
 //! The compilation of the code lists of a loop's occurrences against the
-//! `segments` section: the qualifier's list and each own list, checked with
-//! the rules an element's own `codes` gets.
+//! `segments` section: the qualifier's list and each element entry's codes,
+//! checked with the rules an element's own `codes` gets.
 
 use std::collections::BTreeMap;
 
+use super::model::ElementEntryModel;
 use super::occurrence_error::OccurrenceError;
 use super::segments::compile_codes;
 use super::vocabulary::ElementPosition;
@@ -12,9 +13,9 @@ use crate::spec::{ElementDef, Qualifier, SegmentDef, element_def};
 
 /// A code list of an occurrence and the element or component it is for.
 pub(super) struct CodeList<'r> {
-    /// Where the element reference sits: `qualifier` or `codes.<key>`.
+    /// Where the element reference sits: `qualifier` or `elements.<key>`.
     pub(super) reference: String,
-    /// Where the list sits: `qualifier.codes` or `codes.<key>`.
+    /// Where the list sits: `qualifier.codes` or `elements.<key>.codes`.
     pub(super) list: String,
     /// 1-based element position.
     pub(super) element: usize,
@@ -75,34 +76,48 @@ fn outside<'c>(target: &ElementDef, codes: &'c [String]) -> Option<&'c String> {
 }
 
 /// Code lists by `(element, component)`, each sorted by bytes.
-type OwnCodes = BTreeMap<(usize, Option<usize>), Vec<String>>;
+pub(super) type OwnCodes = BTreeMap<(usize, Option<usize>), Vec<String>>;
 
-/// The occurrence's own code lists by `(element, component)`; none may sit at
-/// the qualifier's place.
-pub(super) fn compile_own_codes(
+/// The occurrence's own code lists by `(element, component)`, one per entry
+/// that lists codes; none may sit at the qualifier's place.
+pub(super) fn compile_entries(
     segments: &BTreeMap<Vec<u8>, SegmentDef>,
     segment: &str,
-    raw: &BTreeMap<ElementPosition, Vec<String>>,
+    raw: &BTreeMap<ElementPosition, ElementEntryModel>,
     qualifier: Option<&Qualifier>,
 ) -> Result<OwnCodes, OccurrenceError> {
     let mut codes = BTreeMap::new();
-    for (&at, list) in raw {
-        let ElementPosition { element, component } = at;
-        if qualifier.is_some_and(|q| (q.element, q.component) == (element, component)) {
-            return Err(OccurrenceError::QualifierInCodes {
-                key: at.to_string(),
-            });
+    for (&at, entry) in raw {
+        if let Some(list) = compile_entry(segments, segment, at, entry, qualifier)? {
+            codes.insert((at.element, at.component), list);
         }
-        let key = format!("codes.{at}");
-        let list = CodeList {
-            reference: key.clone(),
-            list: key,
-            element,
-            component,
-            codes: list,
-        };
-        let (_, list) = compile_list(segments, segment, list)?;
-        codes.insert((element, component), list);
     }
     Ok(codes)
+}
+
+/// The codes one entry lists at `at`, sorted by bytes; `None` when the entry
+/// lists none and so narrows nothing.
+fn compile_entry(
+    segments: &BTreeMap<Vec<u8>, SegmentDef>,
+    segment: &str,
+    at: ElementPosition,
+    entry: &ElementEntryModel,
+    qualifier: Option<&Qualifier>,
+) -> Result<Option<Vec<String>>, OccurrenceError> {
+    let Some(codes) = &entry.codes else {
+        return Ok(None);
+    };
+    let ElementPosition { element, component } = at;
+    let list = format!("elements.{at}.codes");
+    if qualifier.is_some_and(|q| (q.element, q.component) == (element, component)) {
+        return Err(OccurrenceError::QualifierInCodes { key: list });
+    }
+    let list = CodeList {
+        reference: format!("elements.{at}"),
+        list,
+        element,
+        component,
+        codes,
+    };
+    compile_list(segments, segment, list).map(|(_, codes)| Some(codes))
 }

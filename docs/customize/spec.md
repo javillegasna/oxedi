@@ -245,7 +245,7 @@ opens on has the lowest `pos` of its loop.
 | `usage` | no | `required` or `situational` (the default). | `OccurrenceDef::usage` |
 | `max` | no | Most times it may repeat in one instance. | `OccurrenceDef::max` |
 | `qualifier` | no | Tells this occurrence apart from others of the same segment in the loop. | `Qualifier` |
-| `codes` | no | Code lists of its own, by `"<element>"` or `"<element>-<component>"`; for a segment at this occurrence the list replaces the element's own; the list must be a subset of the element's `codes` when the element has any; on an element with none, it may hold any codes of the element's type. | `OccurrenceDef::codes` |
+| `elements` | no | How the occurrence narrows its segment's elements, by `"<element>"` or `"<element>-<component>"`: an entry with `codes`, a list of its own that replaces the element's for a segment at this occurrence; the list must be a subset of the element's `codes` when the element has any; on an element with none, it may hold any codes of the element's type. | `OccurrenceDef::codes` |
 
 `qualifier`: `element` (required), `component` (optional) and `codes` (required, the values
 that identify the occurrence). Two occurrences of one segment in a loop need qualifiers on the

@@ -14,8 +14,8 @@ const EXPLICIT_DEFAULTS: &str = r#"{"name":"explicit",
     "loops":{"A":{"parent":null,"end":null,"max":null,"usage":"situational",
         "trigger":{"segment":"AA","where":{}},
         "occurrences":{
-            "aa":{"segment":"AA","pos":0,"usage":null,"codes":{}},
-            "a1":{"segment":"A1","pos":1,"usage":"situational","max":2,"codes":{}}
+            "aa":{"segment":"AA","pos":0,"usage":null,"elements":{}},
+            "a1":{"segment":"A1","pos":1,"usage":"situational","max":2,"elements":{}}
         }}},
     "segments":{
         "AA":{"elements":{

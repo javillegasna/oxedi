@@ -136,7 +136,7 @@ fn a_where_code_outside_the_occurrence_list_selects_nothing() {
     // occurrence takes it either, so it is not an excluded code.
     let found = refusals(
         r#"{"segments":{"DT":{"elements":{"1":{"codes":["S","X"]}}}},
-        "loops":{"head":{"occurrences":{"dt":{"codes":{"1":["S"]}}}}},
+        "loops":{"head":{"occurrences":{"dt":{"elements":{"1":{"codes":["S"]}}}}}},
         "tables":{"heads":{"columns":{"x_date":{"segment":"DT","where":{"1":"X"},"element":2}}}}}"#,
     );
     assert!(found.iter().any(|text| text

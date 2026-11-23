@@ -187,7 +187,7 @@ fn a_codes_key_is_a_map_key() {
             .unwrap_err()
             .to_string();
         assert!(
-            error.starts_with(&format!("codes key \"{key}\" must be \"<element>\" or \"<element>-<component>\", 1-based integers in canonical form")),
+            error.starts_with(&format!("elements key \"{key}\" must be \"<element>\" or \"<element>-<component>\", 1-based integers in canonical form")),
             "{error}"
         );
     }

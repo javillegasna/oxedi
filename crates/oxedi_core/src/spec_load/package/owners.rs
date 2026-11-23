@@ -107,7 +107,7 @@ const OCCURRENCE_KEYS: &[Key] = &[
     Key::layers("usage", GUIDE),
     Key::layers("max", GUIDE),
     Key::layers("qualifier", GUIDE),
-    Key::layers("codes", GUIDE),
+    Key::layers("elements", GUIDE),
 ];
 
 const SEGMENTS: &[Key] = &[Key {

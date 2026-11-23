@@ -72,7 +72,7 @@ pub use model::{
 pub use occurrence_error::OccurrenceError;
 pub use package::{
     Guide, HeaderError, IdError, IdPart, Layer, Layers, Package, PackageHeader, PackageId, Release,
-    Scope, TransactionSet,
+    Scope, StackError, TransactionSet,
 };
 pub use patch::merge_patch;
 pub use segments::ElementDefError;

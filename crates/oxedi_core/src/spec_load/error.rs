@@ -7,7 +7,7 @@ use super::build::VersionError;
 use super::build_loops::ControlError;
 use super::error_text::{Under, write_ambiguous, write_cycle};
 use super::occurrence_error::OccurrenceError;
-use super::package::HeaderError;
+use super::package::{HeaderError, PackageId, StackError};
 use super::segments::ElementDefError;
 use super::summary_error::SummaryDefError;
 use super::table_error::TableDefError;
@@ -89,6 +89,18 @@ pub enum SpecError {
     BadHeader {
         /// What is wrong with it.
         reason: HeaderError,
+    },
+    /// The cumulative value after a package does not read as the model.
+    Package {
+        /// The package whose spec made the value unreadable, boxed to keep the error small.
+        id: Box<PackageId>,
+        /// Why the value does not read.
+        source: Box<SpecError>,
+    },
+    /// A stack of packages is invalid.
+    Stack {
+        /// What is wrong with it.
+        reason: Box<StackError>,
     },
     /// The spec's `version` is invalid.
     BadVersion {
@@ -250,6 +262,8 @@ impl fmt::Display for SpecError {
             SpecError::BadHeader { reason } => {
                 write!(f, "the package header is invalid: {reason}")
             }
+            SpecError::Package { id, source } => write!(f, "package \"{id}\": {source}"),
+            SpecError::Stack { reason } => write!(f, "{reason}"),
             SpecError::BadVersion { reason } => {
                 write!(f, "the spec's \"version\" is invalid: {reason}")
             }

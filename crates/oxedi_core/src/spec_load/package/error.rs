@@ -1,4 +1,4 @@
-//! Why a package's identity is rejected.
+//! Why a package's identity, header or stack is rejected.
 
 use std::fmt;
 
@@ -107,3 +107,46 @@ impl fmt::Display for HeaderError {
 }
 
 impl std::error::Error for HeaderError {}
+
+/// Why a stack of packages is refused.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum StackError {
+    /// A package builds on a package that is not among those given.
+    UnknownBase {
+        /// The package that names the base, boxed to keep the error small.
+        package: Box<PackageId>,
+        /// The base as written, boxed to keep the error small.
+        base: Box<PackageId>,
+    },
+    /// Packages build on each other in a circle.
+    BaseCycle {
+        /// The packages of the circle, from the first one reached.
+        members: Vec<PackageId>,
+    },
+}
+
+impl fmt::Display for StackError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            StackError::UnknownBase { package, base } => write!(
+                f,
+                "package \"{package}\" builds on \"{base}\", which is not among the packages \
+                 given; give that package too, or remove it from \"bases\""
+            ),
+            StackError::BaseCycle { members } => {
+                let circle: Vec<&str> = members
+                    .iter()
+                    .chain(members.first())
+                    .map(PackageId::as_str)
+                    .collect();
+                write!(
+                    f,
+                    "packages form a base cycle: {}; a package cannot build on itself",
+                    circle.join(" -> ")
+                )
+            }
+        }
+    }
+}
+
+impl std::error::Error for StackError {}

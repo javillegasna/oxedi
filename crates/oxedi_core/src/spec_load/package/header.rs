@@ -96,7 +96,7 @@ impl Package {
     }
 
     /// The spec value the package holds.
-    pub fn body(&self) -> &Value {
+    pub(in crate::spec_load) fn body(&self) -> &Value {
         &self.body
     }
 }

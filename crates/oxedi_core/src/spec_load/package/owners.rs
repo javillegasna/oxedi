@@ -5,6 +5,7 @@ use serde_json::{Map, Value};
 use super::error::StackError;
 use super::header::Package;
 use super::layer::{Layer, Layers};
+use crate::message::render_key;
 
 /// How a key's name is matched.
 #[derive(Clone, Copy)]
@@ -112,7 +113,7 @@ pub(super) fn check_owners(package: &Package) -> Result<(), Box<StackError>> {
     let Value::Object(body) = package.body() else {
         return Ok(());
     };
-    walk(body, SPEC_KEYS, "", layers).map_err(|fault| {
+    walk(body, SPEC_KEYS, &mut Vec::new(), layers).map_err(|fault| {
         Box::new(match fault {
             Fault::Name => StackError::NameFromIdentity {
                 package: package.id().clone(),
@@ -136,51 +137,59 @@ enum Fault {
     },
 }
 
-// Checks each key of `object` against `table`; `path` is the object's own.
-fn walk(
-    object: &Map<String, Value>,
+/// The path as the error shows it: each name written by `render_key`, a dot
+/// between them, so a name holding a separator cannot make it ambiguous.
+fn render(path: &[&str]) -> String {
+    let names: Vec<_> = path.iter().map(|name| render_key(name)).collect();
+    names.join(".")
+}
+
+// Checks each key of `object` against `table`; `path` holds the names from the
+// spec's root down to `object`, and only an error renders it.
+fn walk<'v>(
+    object: &'v Map<String, Value>,
     table: &'static [Key],
-    path: &str,
+    path: &mut Vec<&'v str>,
     layers: Layers,
 ) -> Result<(), Fault> {
     for (name, value) in object {
         if let Some(key) = table.iter().find(|key| key.matches(name)) {
-            check_member(key.owner, &join(path, name), value, layers)?;
+            path.push(name);
+            check_member(key.owner, path, value, layers)?;
+            path.pop();
         }
     }
     Ok(())
 }
 
-fn join(path: &str, name: &str) -> String {
-    match path {
-        "" => name.to_owned(),
-        path => format!("{path}.{name}"),
-    }
-}
-
 // Checks one member: a section is walked, anything else is owned whole.
-fn check_member(owner: Owner, at: &str, value: &Value, layers: Layers) -> Result<(), Fault> {
+fn check_member<'v>(
+    owner: Owner,
+    path: &mut Vec<&'v str>,
+    value: &'v Value,
+    layers: Layers,
+) -> Result<(), Fault> {
     match (owner, value) {
-        (Owner::Keys(inner), Value::Object(members)) => walk(members, inner, at, layers),
+        (Owner::Keys(inner), Value::Object(members)) => walk(members, inner, path, layers),
         // A section that is not an object is left to the strict read.
         (Owner::Keys(_), other) if !other.is_null() => Ok(()),
         // A deletion removes every key beneath it.
-        (owner, _) => require_all(owner, at, layers),
+        (owner, _) => require_all(owner, path, layers),
     }
 }
 
 // Whether `layers` own `owner` whole: every leaf beneath it, for a section.
-fn require_all(owner: Owner, at: &str, layers: Layers) -> Result<(), Fault> {
+fn require_all(owner: Owner, path: &[&str], layers: Layers) -> Result<(), Fault> {
     match owner {
         Owner::Identity => Err(Fault::Name),
         Owner::Layers(owners) if holds_any(layers, owners) => Ok(()),
         Owner::Layers(owners) => Err(Fault::Key {
-            path: at.to_owned(),
+            path: render(path),
             owners,
         }),
         Owner::Keys(table) => table
             .iter()
-            .try_for_each(|key| require_all(key.owner, at, layers)),
+            .try_for_each(|key| require_all(key.owner, path, layers)),
     }
 }
 

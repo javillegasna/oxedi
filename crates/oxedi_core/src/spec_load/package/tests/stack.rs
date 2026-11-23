@@ -90,7 +90,7 @@ fn two_packages_with_one_id_are_refused() {
 fn a_fault_in_a_base_names_the_base() {
     let dictionary = package(
         D,
-        &["dictionary"],
+        &["envelope", "dictionary"],
         &[E],
         r#"{"loops":{"a":{"occurrences":{"aa":{"usage":"sometimes"}}}}}"#,
     );

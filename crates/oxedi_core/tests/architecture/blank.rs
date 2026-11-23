@@ -17,7 +17,7 @@ enum Kind {
 
 /// The text with every comment, and every escape of a string or character literal, replaced by
 /// spaces, line breaks kept. Raw strings are left as written.
-pub fn strip_comments(text: &str) -> Vec<u8> {
+pub fn blank_comments_and_escapes(text: &str) -> Vec<u8> {
     let b = text.as_bytes();
     let mut out = Vec::with_capacity(b.len());
     let mut at = 0;

@@ -5,7 +5,7 @@
 //! or a macro counts, because it names a module all the same. It also finds the calls to the
 //! shortcuts of `table.rs`.
 
-use super::blank::{is_ident, strip_comments};
+use super::blank::{blank_comments_and_escapes, is_ident};
 use super::table::Shortcut;
 use std::collections::BTreeSet;
 use std::path::Path;
@@ -38,7 +38,7 @@ pub struct Use {
 
 /// The uses in one file. `rel` is its path relative to `src`; `modules` the core's modules.
 pub fn uses_in(rel: &Path, text: &str, modules: &BTreeSet<String>) -> Vec<Use> {
-    let clean = strip_comments(text);
+    let clean = blank_comments_and_escapes(text);
     let from = module_of(rel);
     let reader = Reader {
         lines: line_starts(&clean),
@@ -72,7 +72,7 @@ fn module_of(rel: &Path) -> String {
 /// there a `Self::` call to a same-named item of another type counts as well, and fails loudly.
 /// Elsewhere `Self::` is not seen: an `impl` of the type written in a third module is not read.
 pub fn shortcut_uses(rel: &Path, text: &str, shortcuts: &[Shortcut]) -> Vec<Use> {
-    let clean = strip_comments(text);
+    let clean = blank_comments_and_escapes(text);
     let lines = line_starts(&clean);
     let from = module_of(rel);
     let file = rel.to_string_lossy().replace('\\', "/");

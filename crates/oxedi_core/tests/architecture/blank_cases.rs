@@ -1,6 +1,6 @@
 //! Cases of the blanker: what it keeps and what it blanks.
 
-use super::blank::strip_comments;
+use super::blank::blank_comments_and_escapes;
 
 #[test]
 fn comments_and_escapes_become_spaces_and_literals_stay() {
@@ -73,7 +73,8 @@ fn comments_and_escapes_become_spaces_and_literals_stay() {
         ),
     ];
     for (name, text, expected) in cases {
-        let got = String::from_utf8(strip_comments(text)).expect("blanking keeps UTF-8");
+        let got =
+            String::from_utf8(blank_comments_and_escapes(text)).expect("blanking keeps UTF-8");
         assert_eq!(got, expected, "case {name}");
     }
 }

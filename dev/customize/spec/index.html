@@ -2652,7 +2652,7 @@ opens on has the lowest <code>pos</code> of its loop.</p>
 <tr>
 <td><code>codes</code></td>
 <td>no</td>
-<td>Code lists of its own, by <code>"&lt;element&gt;"</code> or <code>"&lt;element&gt;-&lt;component&gt;"</code>; for a segment at this occurrence the list replaces the element's own; it need not be a subset, and it works on an element that has none.</td>
+<td>Code lists of its own, by <code>"&lt;element&gt;"</code> or <code>"&lt;element&gt;-&lt;component&gt;"</code>; for a segment at this occurrence the list replaces the element's own; the list must be a subset of the element's <code>codes</code> when the element has any; on an element with none, it may hold any codes of the element's type.</td>
 <td><code>OccurrenceDef::codes</code></td>
 </tr>
 </tbody>

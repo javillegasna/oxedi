@@ -15,6 +15,18 @@ pub struct Repeat {
     pub step: usize,
 }
 
+impl Repeat {
+    /// Whether 1-based element `position` is the element at 0-based `offset`
+    /// inside some group: `from + offset + k * step` for a group `k`. With a
+    /// `step` of 0, only the first group's.
+    pub fn holds(&self, offset: usize, position: usize) -> bool {
+        self.from
+            .checked_add(offset)
+            .and_then(|first| position.checked_sub(first))
+            .is_some_and(|gap| gap.checked_rem(self.step).unwrap_or(gap) == 0)
+    }
+}
+
 /// Where a column takes its value from.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum ColumnSource {

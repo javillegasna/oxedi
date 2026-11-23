@@ -248,8 +248,8 @@ fn a_loop_or_an_occurrence_that_allows_more_is_widened() {
             widened("1", "2"),
         ),
         (
-            occurrence("aa", json!({"codes": {"1": ["X", "Y"]}})),
-            "a.occurrences.aa.codes.1",
+            occurrence("aa", json!({"elements": {"1": {"codes": ["X", "Y"]}}})),
+            "a.occurrences.aa.elements.1.codes",
             widened(r#"["X"]"#, r#"["X","Y"]"#),
         ),
         (
@@ -285,11 +285,15 @@ fn a_loop_or_an_occurrence_that_allows_less_is_narrowed() {
 
 #[test]
 fn a_restriction_the_package_adds_is_added() {
-    let codes = occurrence("aa", json!({"codes": {"2": ["Z"]}}));
+    let codes = occurrence("aa", json!({"elements": {"2": {"codes": ["Z"]}}}));
     let qualifier = occurrence("aa", json!({"qualifier": {"element": 1, "codes": ["X"]}}));
     let loop_b = json!({"loops": {"b": {"trigger": {"segment": "BB"}}}});
     let cases = [
-        (codes, "loops.a.occurrences.aa.codes.2", r#"["Z"]"#),
+        (
+            codes,
+            "loops.a.occurrences.aa.elements.2",
+            r#"{"codes":["Z"]}"#,
+        ),
         (
             qualifier,
             "loops.a.occurrences.aa.qualifier",

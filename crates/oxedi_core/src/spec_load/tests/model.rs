@@ -6,9 +6,9 @@ use serde_json::{Value, from_value, json, to_value};
 use crate::spec::{Sign, Spec, Usage, test_support};
 use crate::spec_load::model::ELEMENT_MODEL_KEYS;
 use crate::spec_load::{
-    Builtin, ColumnModel, ElementModel, ElementPosition, LoopModel, OccurrenceModel,
-    QualifierModel, SegmentModel, SpecError, SpecModel, SummaryModel, SummaryTableModel, TermModel,
-    TriggerModel,
+    Builtin, ColumnModel, ElementEntryModel, ElementModel, ElementPosition, LoopModel,
+    OccurrenceModel, QualifierModel, SegmentModel, SpecError, SpecModel, SummaryModel,
+    SummaryTableModel, TermModel, TriggerModel,
 };
 use crate::value::{ElementType, TypeCodeError};
 use crate::vocabulary::Pick;
@@ -100,7 +100,7 @@ fn null_reads_as_absent_or_default() {
     let written =
         json!({"trigger":{"segment":"ST"},"parent":null,"end":null,"max":null,"usage":null});
     assert_eq!(from_value::<LoopModel>(written).unwrap(), minimal_loop());
-    let written = json!({"segment":"NM1","pos":10,"usage":"situational","codes":{}});
+    let written = json!({"segment":"NM1","pos":10,"usage":"situational","elements":{}});
     let occurrence = from_value::<OccurrenceModel>(written).unwrap();
     assert_eq!(json_of(&occurrence), json!({"segment":"NM1","pos":10}));
 }
@@ -176,20 +176,23 @@ fn a_trigger_and_occurrence_write_their_position_keys() {
     let mut model = minimal_loop();
     model.trigger.segment = "NM1".into();
     model.trigger.conditions.insert(1, "QC".into());
-    let codes = BTreeMap::from([
+    let entry = |codes: &[&str]| ElementEntryModel {
+        codes: Some(codes.iter().map(ToString::to_string).collect()),
+    };
+    let elements = BTreeMap::from([
         (
             ElementPosition {
                 element: 1,
                 component: None,
             },
-            vec!["QC".to_string(), "IL".to_string()],
+            entry(&["QC", "IL"]),
         ),
         (
             ElementPosition {
                 element: 3,
                 component: Some(2),
             },
-            vec!["A".to_string()],
+            entry(&["A"]),
         ),
     ]);
     let occurrence = OccurrenceModel {
@@ -198,13 +201,13 @@ fn a_trigger_and_occurrence_write_their_position_keys() {
         usage: Usage::Situational,
         max: None,
         qualifier: None,
-        codes,
+        elements,
     };
     model.occurrences.insert("nm1".into(), occurrence);
     let written = json!({
         "trigger": {"segment": "NM1", "where": {"1": "QC"}},
         "occurrences": {"nm1": {
-            "segment": "NM1", "pos": 0, "codes": {"1": ["QC", "IL"], "3-2": ["A"]}
+            "segment": "NM1", "pos": 0, "elements": {"1": {"codes": ["QC", "IL"]}, "3-2": {"codes": ["A"]}}
         }}
     });
     assert_eq!(json_of(&model), written);
@@ -285,7 +288,7 @@ fn a_built_model_loads() {
             usage: Usage::Situational,
             max: None,
             qualifier: None,
-            codes: BTreeMap::new(),
+            elements: BTreeMap::new(),
         },
     );
     let model = SpecModel {

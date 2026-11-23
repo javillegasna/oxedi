@@ -24,7 +24,9 @@ use crate::message::render_key;
 use crate::spec::Spec;
 use declare::spec_object;
 
-pub use loops::{ControlModel, LoopModel, OccurrenceModel, QualifierModel, TriggerModel};
+pub use loops::{
+    ControlModel, ElementEntryModel, LoopModel, OccurrenceModel, QualifierModel, TriggerModel,
+};
 pub use rules::{
     BalanceModel, SummaryColumnModel, SummaryFieldModel, SummaryModel, SummaryRowModel,
     SummaryTableModel, TermModel, VersionModel,

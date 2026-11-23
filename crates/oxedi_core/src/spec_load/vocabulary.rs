@@ -1,4 +1,4 @@
-//! The words of the spec's own closed vocabularies and the codes key, one table
+//! The words of the spec's own closed vocabularies and the elements key, one table
 //! each: the word of each value and the value of each word, so the loader reads
 //! every word through one place.
 
@@ -49,7 +49,7 @@ impl Vocabulary for Sign {
 
 serde_by_word!(Usage, ControlCount, Sign);
 
-/// The position a `codes` key names: an element and maybe one of its
+/// The position an `elements` key names: an element and maybe one of its
 /// components, written `<element>` or `<element>-<component>`.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct ElementPosition {
@@ -96,7 +96,7 @@ impl<'de> Deserialize<'de> for ElementPosition {
         let key = String::deserialize(deserializer)?;
         ElementPosition::parse(&key).ok_or_else(|| {
             de::Error::custom(format!(
-                "codes key {key:?} must be \"<element>\" or \"<element>-<component>\", 1-based integers in canonical form"
+                "elements key {key:?} must be \"<element>\" or \"<element>-<component>\", 1-based integers in canonical form"
             ))
         })
     }

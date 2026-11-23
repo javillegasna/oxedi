@@ -513,9 +513,9 @@ proptest! {
 const OCCURRENCE_SPEC: &str = r#"{"name":"occurrence codes",
     "loops":{"head":{"trigger":{"segment":"HD"},"end":"TR","occurrences":{
         "hd":{"segment":"HD","pos":0},
-        "patient":{"segment":"NM","pos":1,"qualifier":{"element":1,"codes":["QC"]},"codes":{"2":["1"]}},
-        "insured":{"segment":"NM","pos":1,"qualifier":{"element":1,"codes":["IL"]},"codes":{"2":["1","2"],"3-1":["A"]}},
-        "service_date":{"segment":"DT","pos":2,"codes":{"1":["472"]}}
+        "patient":{"segment":"NM","pos":1,"qualifier":{"element":1,"codes":["QC"]},"elements":{"2":{"codes":["1"]}}},
+        "insured":{"segment":"NM","pos":1,"qualifier":{"element":1,"codes":["IL"]},"elements":{"2":{"codes":["1","2"]},"3-1":{"codes":["A"]}}},
+        "service_date":{"segment":"DT","pos":2,"elements":{"1":{"codes":["472"]}}}
     }}},
     "segments":{
         "NM":{"elements":{

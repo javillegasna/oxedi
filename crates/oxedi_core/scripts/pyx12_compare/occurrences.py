@@ -11,13 +11,15 @@ from .spec import merge_diff
 
 
 def occurrence_of(seg, qualifier, codes):
-    """The occurrence a map segment generates; the qualifier and the codes
-    are left out when empty."""
+    """The occurrence a map segment generates, with one entry per place in
+    `codes` (position key to list); the qualifier and the entries are left out
+    when empty."""
     return {"segment": seg.id, "pos": seg.pos,
             "usage": "required" if seg.usage == "R" else "situational",
             **({} if seg.max_use is None else {"max": seg.max_use}),
             **({} if qualifier is None else {"qualifier": qualifier}),
-            **({"codes": codes} if codes else {})}
+            **({"elements": {key: {"codes": listed} for key, listed in codes.items()}}
+               if codes else {})}
 
 
 class OccurrencesMixin:

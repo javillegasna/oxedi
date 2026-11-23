@@ -12,7 +12,8 @@ use super::id::PackageId;
 use crate::message::render_key;
 use crate::spec::Usage;
 use crate::spec_load::model::{
-    ElementModel, LoopModel, OccurrenceModel, QualifierModel, SegmentModel, SpecModel,
+    ElementEntryModel, ElementModel, LoopModel, OccurrenceModel, QualifierModel, SegmentModel,
+    SpecModel,
 };
 
 /// Every difference of `next` from `prev`, in a fixed order: the segments in
@@ -156,7 +157,17 @@ impl Walk {
             &after.qualifier,
             Walk::qualifier_codes,
         );
-        self.entries("codes", &before.codes, &after.codes, Walk::listed);
+        self.entries(
+            "elements",
+            &before.elements,
+            &after.elements,
+            Walk::element_entry,
+        );
+    }
+
+    // An entry narrows its element where it lists codes.
+    fn element_entry(&mut self, before: &ElementEntryModel, after: &ElementEntryModel) {
+        self.codes("codes", before.codes.as_deref(), after.codes.as_deref());
     }
 
     fn qualifier_codes(&mut self, before: &QualifierModel, after: &QualifierModel) {
@@ -181,11 +192,6 @@ impl Walk {
                 word(after).to_owned(),
             );
         }
-    }
-
-    // The codes a position holds, where the key already names the position.
-    fn listed<L: AsRef<[String]>>(&mut self, before: &L, after: &L) {
-        self.listing(Some(before.as_ref()), Some(after.as_ref()));
     }
 
     // A value a spec may leave out: one the package drops is removed, one it

@@ -181,9 +181,9 @@ fn a_value_of_the_wrong_kind_is_refused_at_its_path() {
         ),
         (
             loop_json(
-                r#"{"trigger":{"segment":"HD"},"occurrences":{"a":{"segment":"A","pos":1,"codes":{"1":"X"}}}}"#,
+                r#"{"trigger":{"segment":"HD"},"occurrences":{"a":{"segment":"A","pos":1,"elements":{"1":"X"}}}}"#,
             ),
-            "spec: at loops.env.occurrences.a.codes.1: invalid type: string \"X\", expected a sequence",
+            "spec: at loops.env.occurrences.a.elements.1: invalid type: string \"X\", expected an element entry object",
         ),
         (
             loop_json(

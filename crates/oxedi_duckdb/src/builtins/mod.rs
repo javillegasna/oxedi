@@ -111,7 +111,7 @@ impl Builtins {
     /// The built-in of `version`; `UnknownVersion` also when the registry
     /// has an entry this table does not describe.
     pub fn by_version(&self, version: &str) -> Result<&BuiltinSchema, UnknownVersion> {
-        let transaction = Builtin::fallback().transaction;
+        let transaction = Builtin::fallback().transaction.as_str();
         let found = Builtin::find_text(transaction, version)?;
         self.of(found).ok_or_else(|| UnknownVersion {
             transaction: transaction.to_owned(),

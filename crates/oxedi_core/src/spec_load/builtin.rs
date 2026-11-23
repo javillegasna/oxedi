@@ -6,6 +6,7 @@ use std::sync::{Arc, OnceLock};
 use serde_json::{Value, json};
 
 use super::model::SpecModel;
+use super::package::{PackageId, Release, TransactionSet};
 use super::{LoadedSpec, SpecError, merge_patch};
 use crate::message::render_names;
 use crate::segment::Segment;
@@ -33,6 +34,21 @@ impl Version {
         }
     }
 
+    /// The release word of the id's release this version covers, e.g. `"005010"`.
+    pub const fn release(self) -> &'static str {
+        match self {
+            Version::V5010 => "005010",
+            Version::V4010 => "004010",
+        }
+    }
+
+    /// The version whose release is `release`, if a built-in covers it.
+    pub fn of_release(release: &Release) -> Option<Version> {
+        Version::ALL
+            .into_iter()
+            .find(|version| version.release() == release.as_str())
+    }
+
     /// The version `text` names, if there is one.
     pub fn parse(text: &str) -> Option<Version> {
         Version::ALL
@@ -41,12 +57,15 @@ impl Version {
     }
 }
 
-/// One spec the core ships, with the transaction set and version it covers.
+/// One spec the core ships, found by the identity of its top package, or by the
+/// transaction set and version that identity names.
 #[derive(Debug)]
 pub struct Builtin {
-    /// The transaction set, e.g. `"835"`.
-    pub transaction: &'static str,
-    /// The version the spec covers.
+    /// The identity of the built-in's top package.
+    pub id: PackageId,
+    /// The transaction set the id names, e.g. `835`, read from it once.
+    pub transaction: TransactionSet,
+    /// The version of the id's release, read from it once.
     pub version: Version,
     /// The spec.
     pub spec: Arc<Spec>,
@@ -102,12 +121,9 @@ pub(in crate::spec_load) const PACKAGES: [&str; 2] = [
     include_str!("../../specs/835.4010.json"),
 ];
 
-/// The transaction set, version and package texts of each built-in, bases first
-/// and the top last; the fallback comes first.
-const SHIPPED: [(&str, Version, &[&str]); 2] = [
-    ("835", Builtin::DEFAULT_VERSION, &[PACKAGES[0]]),
-    ("835", Version::V4010, &[PACKAGES[0], PACKAGES[1]]),
-];
+/// The package texts of each built-in, bases first and the top last; the
+/// fallback comes first.
+const BUILTINS: [&[&str]; 2] = [&[PACKAGES[0]], &[PACKAGES[0], PACKAGES[1]]];
 
 // The value a built-in is: the spec of each package merged in order under the
 // name of the top package's id. The packages' headers are not checked here;
@@ -171,12 +187,25 @@ fn composed(chain: &[&str]) -> Result<SpecModel, SpecError> {
     merged(chain).and_then(|value| SpecModel::from_value(&value))
 }
 
-// Each built-in compiles from its packages merged by value; no model is
+// The identity the last package of `chain` declares.
+fn top_id(chain: &[&str]) -> Option<PackageId> {
+    let top: Value = serde_json::from_str(chain.last()?).ok()?;
+    PackageId::parse(top.pointer("/package/id")?.as_str()?).ok()
+}
+
+const KEYS: &str = "a built-in's id names a transaction set and a known release; \
+    spec_load::tests::builtin::every_builtin_takes_its_keys_from_its_id checks it";
+
+// Each built-in compiles from its packages merged by value, and takes its
+// transaction set and version from the id of its top package; no model is
 // written back to JSON here.
 fn load() -> Vec<Builtin> {
-    SHIPPED
+    BUILTINS
         .into_iter()
-        .map(|(transaction, version, chain)| {
+        .map(|chain| {
+            let id = top_id(chain).expect(KEYS);
+            let transaction = id.transaction_set().cloned().expect(KEYS);
+            let version = Version::of_release(id.release()).expect(KEYS);
             let spec = composed(chain)
                 .and_then(|model| model.compile())
                 .expect(
@@ -184,6 +213,7 @@ fn load() -> Vec<Builtin> {
                      spec_load::tests::builtin::each_builtin_spec_is_compiled_from_its_model checks it",
                 );
             Builtin {
+                id,
                 transaction,
                 version,
                 spec: Arc::new(spec),
@@ -209,11 +239,16 @@ impl Builtin {
         &Builtin::all()[0]
     }
 
+    /// The built-in whose top package is `id`.
+    pub fn get(id: &PackageId) -> Option<&'static Builtin> {
+        Builtin::all().iter().find(|b| &b.id == id)
+    }
+
     /// The built-in of `transaction` at `version`.
     pub fn find(transaction: &str, version: Version) -> Result<&'static Builtin, UnknownVersion> {
         Builtin::all()
             .iter()
-            .find(|b| b.transaction == transaction && b.version == version)
+            .find(|b| b.transaction.as_str() == transaction && b.version == version)
             .ok_or_else(|| UnknownVersion::new(transaction, version.text()))
     }
 
@@ -228,7 +263,7 @@ impl Builtin {
     pub fn versions(transaction: &str) -> Vec<Version> {
         Builtin::all()
             .iter()
-            .filter(|b| b.transaction == transaction)
+            .filter(|b| b.transaction.as_str() == transaction)
             .map(|b| b.version)
             .collect()
     }

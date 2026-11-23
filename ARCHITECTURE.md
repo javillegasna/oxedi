@@ -91,8 +91,8 @@ calls `LoopTree::build`.
 
 Which spec reads a file: the bindings call `Builtin::select` (`spec_load/builtin.rs`), which picks the
 built-in spec from the version the file declares in `GS08` (sharing the choice code of
-`Spec::select`, `spec/version.rs`) and falls back to `Builtin::fallback`; `Builtin::find` looks one
-up by transaction and version.
+`Spec::select`, `spec/version.rs`) and falls back to `Builtin::fallback`; The registry is keyed by package identity (`Builtin::get`, the id of a built-in's top package); `Builtin::find` looks one
+up by the transaction set and version that identity names.
 
 ### Writing: tables to bytes
 

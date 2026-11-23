@@ -220,6 +220,9 @@ fn builtin_items() {
     let _: fn(&str, Version) -> Result<&'static Builtin, UnknownVersion> = Builtin::find;
     let _: fn(&str, &str) -> Result<&'static Builtin, UnknownVersion> = Builtin::find_text;
     let _: fn(&str) -> Vec<Version> = Builtin::versions;
+    let _: fn(&oxedi_core::spec_load::PackageId) -> Option<&'static Builtin> = Builtin::get;
+    let _: fn(Version) -> &'static str = Version::release;
+    let _: fn(&oxedi_core::spec_load::Release) -> Option<Version> = Version::of_release;
     let _: [Version; 2] = Version::ALL;
     let _: fn(Version) -> &'static str = Version::text;
     let _: fn(&str) -> Option<Version> = Version::parse;

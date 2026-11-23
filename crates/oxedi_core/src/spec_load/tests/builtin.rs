@@ -5,7 +5,7 @@ use std::error::Error;
 use crate::Document;
 use crate::spec_load::builtin::PACKAGES;
 use crate::spec_load::package::Stack;
-use crate::spec_load::{Builtin, Package, UnknownVersion, Version};
+use crate::spec_load::{Builtin, Package, PackageId, UnknownVersion, Version};
 
 fn selected(bytes: &[u8]) -> Version {
     let document = Document::parse(bytes.to_vec()).unwrap();
@@ -19,8 +19,8 @@ fn the_fallback_is_the_first_and_named_by_default_version() {
     let first = &Builtin::all()[0];
     let fallback = Builtin::fallback();
     assert_eq!(
-        (fallback.transaction, fallback.version),
-        (first.transaction, first.version)
+        (&fallback.transaction, fallback.version),
+        (&first.transaction, first.version)
     );
 }
 
@@ -146,5 +146,40 @@ fn the_lean_read_equals_the_checked_composition() {
             checked.model.to_json().unwrap()
         );
         assert_eq!(builtin.json().unwrap(), checked.value);
+        assert_eq!(&builtin.id, top.id());
     }
+}
+
+#[test]
+fn every_builtin_takes_its_keys_from_its_id() {
+    for builtin in Builtin::all() {
+        assert_eq!(Some(&builtin.transaction), builtin.id.transaction_set());
+        assert_eq!(
+            Version::of_release(builtin.id.release()),
+            Some(builtin.version)
+        );
+        let found = Builtin::get(&builtin.id).unwrap();
+        assert!(std::ptr::eq(found, builtin));
+    }
+}
+
+#[test]
+fn the_fallback_is_named_by_its_package() {
+    let fallback = Builtin::fallback();
+    assert_eq!(fallback.id.as_str(), "oxedi/views/005010/835/X221A1");
+    assert_eq!(fallback.transaction.as_str(), "835");
+}
+
+#[test]
+fn a_version_names_its_release() {
+    assert_eq!(Version::V5010.release(), "005010");
+    assert_eq!(Version::V4010.release(), "004010");
+    let other = PackageId::parse("x/dictionary/006020").unwrap();
+    assert_eq!(Version::of_release(other.release()), None);
+}
+
+#[test]
+fn get_finds_no_builtin_for_another_id() {
+    let other = PackageId::parse("oxedi/guide/005010/277/X212").unwrap();
+    assert!(Builtin::get(&other).is_none());
 }

@@ -330,7 +330,7 @@ impl PySpec {
     #[staticmethod]
     #[pyo3(signature = (version = VersionArg::DEFAULT))]
     fn builtin(version: VersionArg) -> PyResult<PySpec> {
-        let found = version.resolve("Spec.builtin", Builtin::fallback().transaction)?;
+        let found = version.resolve("Spec.builtin", Builtin::fallback().transaction.as_str())?;
         Ok(HeldSpec::builtin(found).into())
     }
 

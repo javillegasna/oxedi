@@ -162,6 +162,84 @@
     } },
     "RDM": { "elements": {
       "1": {"usage": "required", "codes": ["BM", "EM", "FT", "OL"]}
+    } },
+    "LX": { "elements": {
+      "1": {"usage": "required"}
+    } },
+    "TS3": { "elements": {
+      "1": {"usage": "required"},
+      "2": {"usage": "required"},
+      "3": {"usage": "required"},
+      "4": {"usage": "required"},
+      "5": {"usage": "required"}
+    } },
+    "CLP": { "elements": {
+      "1": {"usage": "required"},
+      "2": {"usage": "required", "codes": ["1", "19", "2", "20", "21", "22", "23", "25", "3", "4"]},
+      "3": {"usage": "required"},
+      "4": {"usage": "required"},
+      "6": {"usage": "required", "codes": ["12", "13", "14", "15", "16", "17", "AM", "CH", "DS", "HM", "LM", "MA", "MB", "MC", "OF", "TV", "VA", "WC", "ZZ"]},
+      "7": {"usage": "required"}
+    } },
+    "CAS": { "elements": {
+      "1": {"usage": "required", "codes": ["CO", "OA", "PI", "PR"]},
+      "2": {"usage": "required"},
+      "3": {"usage": "required"}
+    } },
+    "NM1": { "elements": {
+      "1": {"usage": "required", "codes": ["74", "82", "GB", "IL", "PR", "QC", "TT"]},
+      "2": {"usage": "required", "codes": ["1", "2"]},
+      "8": {"codes": ["34", "AD", "BD", "BS", "C", "FI", "HN", "II", "MC", "MI", "MR", "NI", "PC", "PI", "PP", "SL", "UP", "XV", "XX"]}
+    } },
+    "MIA": { "elements": {
+      "1": {"usage": "required"}
+    } },
+    "AMT": { "elements": {
+      "1": {"usage": "required", "codes": ["AU", "B6", "D8", "DY", "F5", "I", "KH", "NL", "T", "T2", "ZK", "ZL", "ZM", "ZN", "ZO"]},
+      "2": {"usage": "required"}
+    } },
+    "QTY": { "elements": {
+      "1": {"usage": "required", "codes": ["CA", "CD", "LA", "LE", "NE", "NR", "OU", "PS", "VS", "ZK", "ZL", "ZM", "ZN", "ZO"]},
+      "2": {"usage": "required"}
+    } },
+    "SVC": { "elements": {
+      "1": {"usage": "required", "composite": {
+        "1": {"usage": "required", "codes": ["AD", "ER", "HC", "HP", "IV", "N4", "N6", "NU", "UI", "WK"]},
+        "2": {"usage": "required"}
+      }},
+      "2": {"usage": "required"},
+      "3": {"usage": "required"},
+      "6": {"composite": {
+        "1": {"usage": "required", "codes": ["AD", "ER", "HC", "HP", "IV", "N4", "NU", "WK"]},
+        "2": {"usage": "required"}
+      }}
+    } },
+    "LQ": { "elements": {
+      "1": {"usage": "required", "codes": ["HE", "RX"]},
+      "2": {"usage": "required"}
+    } },
+    "PLB": { "elements": {
+      "1": {"usage": "required"},
+      "2": {"usage": "required"},
+      "3": {"usage": "required", "composite": {
+        "1": {"usage": "required", "codes": ["50", "51", "72", "90", "AH", "AM", "AP", "B2", "B3", "BD", "BN", "C5", "CR", "CS", "CT", "CV", "CW", "DM", "E3", "FB", "FC", "GO", "HM", "IP", "IR", "IS", "J1", "L3", "L6", "LE", "LS", "OA", "OB", "PI", "PL", "RA", "RE", "SL", "TL", "WO", "WU"]}
+      }},
+      "4": {"usage": "required"},
+      "5": {"composite": {
+        "1": {"usage": "required", "codes": ["50", "51", "72", "90", "AH", "AM", "AP", "B2", "B3", "BD", "BN", "C5", "CR", "CS", "CT", "CV", "CW", "DM", "E3", "FB", "FC", "GO", "HM", "IP", "IR", "IS", "J1", "L3", "L6", "LE", "LS", "OA", "OB", "PI", "PL", "RA", "RE", "SL", "TL", "WO", "WU"]}
+      }},
+      "7": {"composite": {
+        "1": {"usage": "required", "codes": ["50", "51", "72", "90", "AH", "AM", "AP", "B2", "B3", "BD", "BN", "C5", "CR", "CS", "CT", "CV", "CW", "DM", "E3", "FB", "FC", "GO", "HM", "IP", "IR", "IS", "J1", "L3", "L6", "LE", "LS", "OA", "OB", "PI", "PL", "RA", "RE", "SL", "TL", "WO", "WU"]}
+      }},
+      "9": {"composite": {
+        "1": {"usage": "required", "codes": ["50", "51", "72", "90", "AH", "AM", "AP", "B2", "B3", "BD", "BN", "C5", "CR", "CS", "CT", "CV", "CW", "DM", "E3", "FB", "FC", "GO", "HM", "IP", "IR", "IS", "J1", "L3", "L6", "LE", "LS", "OA", "OB", "PI", "PL", "RA", "RE", "SL", "TL", "WO", "WU"]}
+      }},
+      "11": {"composite": {
+        "1": {"usage": "required", "codes": ["50", "51", "72", "90", "AH", "AM", "AP", "B2", "B3", "BD", "BN", "C5", "CR", "CS", "CT", "CV", "CW", "DM", "E3", "FB", "FC", "GO", "HM", "IP", "IR", "IS", "J1", "L3", "L6", "LE", "LS", "OA", "OB", "PI", "PL", "RA", "RE", "SL", "TL", "WO", "WU"]}
+      }},
+      "13": {"composite": {
+        "1": {"usage": "required", "codes": ["50", "51", "72", "90", "AH", "AM", "AP", "B2", "B3", "BD", "BN", "C5", "CR", "CS", "CT", "CV", "CW", "DM", "E3", "FB", "FC", "GO", "HM", "IP", "IR", "IS", "J1", "L3", "L6", "LE", "LS", "OA", "OB", "PI", "PL", "RA", "RE", "SL", "TL", "WO", "WU"]}
+      }}
     } }
   },
   "balancing": {

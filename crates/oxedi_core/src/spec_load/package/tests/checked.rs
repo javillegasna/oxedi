@@ -1,14 +1,11 @@
 use super::super::*;
-use super::package;
+use super::{BASE, package};
 use crate::spec_load::SpecError;
+use crate::spec_load::builtin::PACKAGES;
 
 const E: &str = "test/envelope/005010";
 const D: &str = "test/dictionary/005010";
 const D2: &str = "test/dictionary/004010";
-
-// A loop and a segment `AA` with an element that bounds everything and a
-// composite element with one component.
-const BASE: &str = r#"{"loops":{"a":{"trigger":{"segment":"AA"},"occurrences":{"aa":{"segment":"AA","pos":0}}}},"segments":{"AA":{"elements":{"1":{"name":"code","type":"ID","min":1,"max":2,"required":true,"codes":["X","Y"]},"2":{"name":"pair","type":"AN","composite":{"1":{"name":"part","type":"ID","codes":["P","Q"]}}}}}}}"#;
 
 fn base() -> Package {
     package(E, &["envelope"], &[], BASE)
@@ -147,4 +144,80 @@ fn widens_error_has_no_source() {
         }),
     };
     assert!(std::error::Error::source(&err).is_none());
+}
+
+#[test]
+fn widening_a_loop_or_an_occurrence_is_refused() {
+    let cases = [
+        (
+            r#"{"loops":{"a":{"usage":"situational"}}}"#,
+            r#"loops.a.usage: "required" becomes "situational""#,
+        ),
+        (
+            r#"{"loops":{"a":{"max":null}}}"#,
+            "loops.a.max: 2 becomes no maximum",
+        ),
+        (
+            r#"{"loops":{"a":{"occurrences":{"aa":{"codes":{"1":["X","Y"]}}}}}}"#,
+            r#"loops.a.occurrences.aa.codes.1: ["X"] becomes ["X","Y"]"#,
+        ),
+        (
+            r#"{"loops":{"a":{"occurrences":{"ab":{"qualifier":{"codes":["X","Y"]}}}}}}"#,
+            r#"loops.a.occurrences.ab.qualifier.codes: ["Y"] becomes ["X","Y"]"#,
+        ),
+    ];
+    for (spec, change) in cases {
+        assert_eq!(
+            refusal(&guide(spec)),
+            format!("package \"{G}\" does not only narrow what its bases allow: {change}{TAIL}"),
+            "{spec}"
+        );
+    }
+}
+
+#[test]
+fn a_package_that_changes_the_structure_is_refused() {
+    let trigger = r#"{"loops":{"a":{"trigger":{"segment":"AA","where":{"1":"X"}}}}}"#;
+    let top = package(
+        "test/transaction-set/005010/835",
+        &["transaction-set"],
+        &[E],
+        trigger,
+    );
+    assert_eq!(
+        refusal(&top),
+        format!(
+            "package \"test/transaction-set/005010/835\" does not only narrow what its bases allow: \
+             loops.a.trigger: {{\"segment\":\"AA\"}} becomes {{\"segment\":\"AA\",\"where\":{{\"1\":\"X\"}}}}{TAIL}"
+        )
+    );
+}
+
+#[test]
+fn the_4010_edition_lists_its_changes() {
+    let pool = PACKAGES.map(|text| Package::from_json(text).unwrap());
+    let composed = Stack::resolve(&pool[1], &pool)
+        .unwrap()
+        .compose_checked()
+        .unwrap();
+    let id = "oxedi/guide/004010/835/X091A1";
+    assert!(composed.changes.iter().all(|c| c.package.as_str() == id));
+    let kind_at = |path: &str| {
+        let found = composed.changes.iter().find(|c| c.path == path);
+        found.map(|c| c.kind.clone()).unwrap()
+    };
+    let changed = |before: &str, after: &str| ChangeKind::Changed {
+        before: before.into(),
+        after: after.into(),
+    };
+    assert_eq!(
+        kind_at("segments.ISA.elements.11.type"),
+        changed(r#""AN""#, r#""ID""#)
+    );
+    assert!(matches!(
+        kind_at("segments.ISA.elements.12.codes"),
+        ChangeKind::Widened { .. }
+    ));
+    assert_eq!(kind_at("segments.ST.elements.3"), ChangeKind::Removed);
+    assert_eq!(kind_at("segments.RDM"), ChangeKind::Removed);
 }

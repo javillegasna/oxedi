@@ -3,17 +3,16 @@ use serde_json::{Value, json};
 use super::super::change::ChangeKind;
 use super::super::narrow::differences;
 use super::super::*;
+use super::BASE;
 use crate::spec_load::merge_patch;
 use crate::spec_load::model::SpecModel;
 
 const D: &str = "test/dictionary/005010";
 
-// A loop and a segment `AA` with an element that bounds everything and a
-// composite element with one component.
-const BASE: &str = r#"{"name":"t","loops":{"a":{"trigger":{"segment":"AA"},"occurrences":{"aa":{"segment":"AA","pos":0}}}},"segments":{"AA":{"elements":{"1":{"name":"code","type":"ID","min":1,"max":2,"required":true,"codes":["X","Y"]},"2":{"name":"pair","type":"AN","composite":{"1":{"name":"part","type":"ID","codes":["P","Q"]}}}}}}}"#;
-
 fn base() -> Value {
-    serde_json::from_str(BASE).unwrap()
+    let mut base: Value = serde_json::from_str(BASE).unwrap();
+    base["name"] = json!("t");
+    base
 }
 
 // The differences between the base and the base with `patch` merged over it.
@@ -209,4 +208,134 @@ fn differences_come_in_key_order() {
             "segments.AA.elements.2.name".to_owned()
         ]
     );
+}
+
+fn loop_a(change: Value) -> Value {
+    json!({"loops": {"a": change}})
+}
+
+fn occurrence(name: &str, change: Value) -> Value {
+    loop_a(json!({"occurrences": {name: change}}))
+}
+
+#[test]
+fn a_loop_or_an_occurrence_that_allows_more_is_widened() {
+    let cases = [
+        (
+            loop_a(json!({"usage": "situational"})),
+            "a.usage",
+            widened("\"required\"", "\"situational\""),
+        ),
+        (loop_a(json!({"max": 3})), "a.max", widened("2", "3")),
+        (
+            loop_a(json!({"max": null})),
+            "a.max",
+            widened("2", "no maximum"),
+        ),
+        (
+            occurrence("aa", json!({"usage": "situational"})),
+            "a.occurrences.aa.usage",
+            widened("\"required\"", "\"situational\""),
+        ),
+        (
+            occurrence("aa", json!({"max": 2})),
+            "a.occurrences.aa.max",
+            widened("1", "2"),
+        ),
+        (
+            occurrence("aa", json!({"codes": {"1": ["X", "Y"]}})),
+            "a.occurrences.aa.codes.1",
+            widened(r#"["X"]"#, r#"["X","Y"]"#),
+        ),
+        (
+            occurrence("ab", json!({"qualifier": {"codes": ["X", "Y"]}})),
+            "a.occurrences.ab.qualifier.codes",
+            widened(r#"["Y"]"#, r#"["X","Y"]"#),
+        ),
+    ];
+    for (patch, path, kind) in cases {
+        assert_eq!(after(patch), [(format!("loops.{path}"), kind)]);
+    }
+}
+
+#[test]
+fn a_loop_or_an_occurrence_that_allows_less_is_narrowed() {
+    let cases = [
+        (loop_a(json!({"max": 1})), "a.max", narrowed("2", "1")),
+        (
+            occurrence("ab", json!({"usage": "required"})),
+            "a.occurrences.ab.usage",
+            narrowed("\"situational\"", "\"required\""),
+        ),
+        (
+            occurrence("ab", json!({"max": 1})),
+            "a.occurrences.ab.max",
+            narrowed("no maximum", "1"),
+        ),
+        (
+            occurrence("ab", json!({"qualifier": null})),
+            "a.occurrences.ab.qualifier",
+            ChangeKind::Removed,
+        ),
+    ];
+    for (patch, path, kind) in cases {
+        assert_eq!(after(patch), [(format!("loops.{path}"), kind)]);
+    }
+}
+
+#[test]
+fn a_restriction_the_package_adds_is_not_a_difference() {
+    let codes = occurrence("aa", json!({"codes": {"2": ["Z"]}}));
+    assert!(after(codes).is_empty());
+    let qualifier = occurrence("aa", json!({"qualifier": {"element": 1, "codes": ["X"]}}));
+    assert!(after(qualifier).is_empty());
+}
+
+#[test]
+fn structure_is_changed_not_widened() {
+    let trigger = json!({"segment": "AA", "where": {"1": "X"}});
+    let cases = [
+        (
+            loop_a(json!({"trigger": trigger})),
+            "a.trigger",
+            changed(
+                r#"{"segment":"AA"}"#,
+                r#"{"segment":"AA","where":{"1":"X"}}"#,
+            ),
+        ),
+        (
+            loop_a(json!({"parent": "b"})),
+            "a.parent",
+            changed("null", r#""b""#),
+        ),
+        (
+            occurrence("aa", json!({"pos": 5})),
+            "a.occurrences.aa.pos",
+            changed("0", "5"),
+        ),
+        (
+            occurrence("aa", json!({"segment": "BB"})),
+            "a.occurrences.aa.segment",
+            changed(r#""AA""#, r#""BB""#),
+        ),
+        (
+            occurrence("ab", json!({"qualifier": {"element": 2}})),
+            "a.occurrences.ab.qualifier.element",
+            changed("1", "2"),
+        ),
+    ];
+    for (patch, path, kind) in cases {
+        assert_eq!(after(patch), [(format!("loops.{path}"), kind)]);
+    }
+}
+
+#[test]
+fn a_removed_loop_or_occurrence_is_listed() {
+    let cases = [
+        (json!({"loops": {"a": null}}), "loops.a"),
+        (occurrence("aa", Value::Null), "loops.a.occurrences.aa"),
+    ];
+    for (patch, path) in cases {
+        assert_eq!(after(patch), [(path.to_owned(), ChangeKind::Removed)]);
+    }
 }

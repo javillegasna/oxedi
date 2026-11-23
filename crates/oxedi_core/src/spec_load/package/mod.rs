@@ -3,7 +3,7 @@
 //!
 //! `header` the package and its header, read strictly; `layer` the layers a
 //! vocabulary is written in, in layer order; `id` the identity of a package
-//! and its grammar; `stack` a top package with the packages it builds on and
+//! and its grammar; `change` one difference between two models; `stack` a top package with the packages it builds on and
 //! `compose` their specs merged in order, `owners` the keys each layer may
 //! write; `error` why an identity, a header or a stack is rejected.
 
@@ -11,6 +11,10 @@
 // compose, owners and stack.
 #[cfg_attr(not(test), expect(dead_code))]
 mod compose;
+// TODO: a change is what the comparison of two models reports, which no code outside tests
+// runs yet.
+#[cfg_attr(not(test), expect(dead_code))]
+mod change;
 mod error;
 mod header;
 mod id;

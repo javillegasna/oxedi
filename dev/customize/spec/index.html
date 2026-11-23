@@ -2652,7 +2652,7 @@ opens on has the lowest <code>pos</code> of its loop.</p>
 <tr>
 <td><code>elements</code></td>
 <td>no</td>
-<td>How the occurrence narrows its segment's elements, by <code>"&lt;element&gt;"</code> or <code>"&lt;element&gt;-&lt;component&gt;"</code>: an entry with <code>codes</code>, a list of its own that replaces the element's for a segment at this occurrence; the list must be a subset of the element's <code>codes</code> when the element has any; on an element with none, it may hold any codes of the element's type.</td>
+<td>How the occurrence narrows its segment's elements, by <code>"&lt;element&gt;"</code> or <code>"&lt;element&gt;-&lt;component&gt;"</code>: an entry with any of <code>usage</code> (<code>required</code> or <code>situational</code>), <code>min</code>, <code>max</code> and <code>codes</code>, each replacing the element's for a segment at this occurrence. An entry only narrows: <code>situational</code> is refused on an element that is required, <code>min</code> and <code>max</code> stay inside the element's lengths, and <code>codes</code> is a subset of the element's <code>codes</code> when the element has any (on an element with none, it may hold any codes of the element's type) and fits the lengths that apply. <code>codes</code> is refused at the qualifier's own place.</td>
 <td><code>OccurrenceDef::elements</code></td>
 </tr>
 </tbody>

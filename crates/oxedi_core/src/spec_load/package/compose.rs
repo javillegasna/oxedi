@@ -3,6 +3,7 @@
 use serde_json::{Value, json};
 
 use super::header::Package;
+use super::owners::check_owners;
 use super::stack::Stack;
 use crate::spec_load::error::SpecError;
 use crate::spec_load::merge_patch;
@@ -30,8 +31,10 @@ impl Stack<'_> {
     }
 }
 
-// Merges one package into the cumulative value and reads the result.
+// Checks the keys a package writes, merges it into the cumulative value and
+// reads the result.
 fn absorb(value: &mut Value, package: &Package) -> Result<SpecModel, SpecError> {
+    check_owners(package).map_err(|reason| SpecError::Stack { reason })?;
     merge_patch(value, package.body());
     SpecModel::from_value(value).map_err(|source| SpecError::Package {
         id: Box::new(package.id().clone()),

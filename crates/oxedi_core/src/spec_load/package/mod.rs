@@ -4,8 +4,8 @@
 //! `header` the package and its header, read strictly; `layer` the layers a
 //! vocabulary is written in, in layer order; `id` the identity of a package
 //! and its grammar; `stack` a top package with the packages it builds on and
-//! `compose` their specs merged in order; `error` why an identity, a header or
-//! a stack is rejected.
+//! `compose` their specs merged in order, `owners` the keys each layer may
+//! write; `error` why an identity, a header or a stack is rejected.
 
 // TODO: the built-in specs compose through a stack; until then only tests use it.
 #[cfg_attr(not(test), expect(dead_code))]
@@ -14,6 +14,8 @@ mod error;
 mod header;
 mod id;
 mod layer;
+#[cfg_attr(not(test), expect(dead_code))]
+mod owners;
 #[cfg_attr(not(test), expect(dead_code))]
 mod stack;
 #[cfg(test)]

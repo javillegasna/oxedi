@@ -10,7 +10,7 @@ const D: &str = "test/dictionary/005010";
 const G: &str = "test/guide/005010/835/X1";
 
 fn guide(spec: &str) -> Package {
-    package(G, &["guide"], &[E], spec)
+    package(G, &["dictionary", "transaction-set", "guide"], &[E], spec)
 }
 
 fn ids(stack: &Stack<'_>) -> Vec<String> {
@@ -90,7 +90,7 @@ fn two_packages_with_one_id_are_refused() {
 fn a_fault_in_a_base_names_the_base() {
     let dictionary = package(
         D,
-        &["dictionary"],
+        &["envelope", "dictionary"],
         &[E],
         r#"{"loops":{"a":{"occurrences":{"aa":{"usage":"sometimes"}}}}}"#,
     );

@@ -146,7 +146,7 @@ class OccurrencesMixin:
 
     def own_codes(self, seg, place):
         """The closed code lists of this place that are narrower than the
-        spec's list for the element, by position key; the qualifier's place and
+        spec's list for the element, by codes key; the qualifier's place and
         elements the spec does not define, or keeps apart on purpose, are left out."""
         definitions = self.spec.get("segments", {}).get(seg.id, {}).get("elements", {})
         out = {}

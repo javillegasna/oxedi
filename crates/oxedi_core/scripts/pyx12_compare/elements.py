@@ -5,6 +5,9 @@ from __future__ import annotations
 from .config import LOOP_MAP
 from .findings import aggregate, element_ref, snake_case
 
+# Returned by a facet comparison to end the element's comparison.
+STOP = object()
+
 
 class ElementsMixin:
     """Usage, types, lengths and codes."""
@@ -114,19 +117,34 @@ class ElementsMixin:
             path += ["composite", str(component)]
         for external in agg.externals:
             self.externals.setdefault(external, set()).add(ref)
+        proposal = (names, merged, position)
+        for facet in (self.compare_presence, self.compare_usage, self.compare_shape,
+                      self.compare_codes):
+            if facet(ref, loops, path, agg, spec_def, proposal) is STOP:
+                return
+
+    def compare_presence(self, ref, loops, path, agg, spec_def, proposal):
+        """Whether the spec defines the element and pyx12 uses it; STOP when
+        either is missing, since nothing else is comparable then."""
         if spec_def is None:
             if agg.used:
                 self.add("usage", "lacks", f"usage:{ref}", loops,
                          f"{ref} ({agg.name}) has no definition in the spec")
-                self.set_patch(path, self.definition(agg, names, merged, position))
-            return
+                self.set_patch(path, self.definition(agg, *proposal))
+            return STOP
         if not agg.used:
             self.add("usage", "note", f"usage:{ref}", loops,
                      f"{ref} is defined in the spec; pyx12 marks it not used everywhere")
-            return
+            return STOP
+
+    def compare_usage(self, ref, loops, path, agg, spec_def, proposal):
         required = bool(spec_def.get("required", False))
         self.check("usage", ref, loops, path + ["required"], "required", required,
                    agg.required)
+
+    def compare_shape(self, ref, loops, path, agg, spec_def, proposal):
+        """Composite agreement, or the type and lengths of a simple element;
+        STOP after a composite, which has no code list."""
         if agg.composite or spec_def.get("composite"):
             if agg.composite != bool(spec_def.get("composite")):
                 self.add("types", "differs", f"types:{ref}", loops,
@@ -135,7 +153,7 @@ class ElementsMixin:
                          agg.composite, defined=True)
             else:
                 self.add("types", "match", f"types:{ref}", loops, "composite")
-            return
+            return STOP
         if agg.data_ele in self.dataele:
             kind, low, high = self.dataele[agg.data_ele]
             self.check("types", ref, loops, path + ["type"], "type", spec_def.get("type"), kind)
@@ -145,6 +163,8 @@ class ElementsMixin:
             self.add("types", "note", f"types:{ref}", loops,
                      f"{ref}: data element {agg.data_ele!r} is not in dataele.xml; type and "
                      "lengths are not compared")
+
+    def compare_codes(self, ref, loops, path, agg, spec_def, proposal):
         spec_codes = spec_def.get("codes")
         map_codes = list(agg.codes) if agg.codes is not None else None
         if spec_codes is None and map_codes is None:

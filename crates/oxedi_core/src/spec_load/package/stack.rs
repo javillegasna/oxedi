@@ -1,5 +1,7 @@
 //! A stack of packages: a top package and everything it builds on.
 
+use std::collections::HashSet;
+
 use super::error::StackError;
 use super::header::Package;
 use super::id::PackageId;
@@ -20,6 +22,13 @@ impl<'p> Stack<'p> {
         top: &'p Package,
         pool: &'p [Package],
     ) -> Result<Stack<'p>, SpecError> {
+        if let Some(id) = repeated_id(pool) {
+            return Err(SpecError::Stack {
+                reason: Box::new(StackError::DuplicatePackage {
+                    id: Box::new(id.clone()),
+                }),
+            });
+        }
         let mut bases = Vec::new();
         visit_bases(top, pool, &mut bases, &mut vec![top.id()])
             .map_err(|reason| SpecError::Stack { reason })?;
@@ -40,6 +49,12 @@ impl<'p> Stack<'p> {
     pub(in crate::spec_load) fn bases(&self) -> &[&'p Package] {
         &self.bases
     }
+}
+
+/// The first id that an earlier package of `pool` already carries.
+fn repeated_id(pool: &[Package]) -> Option<&PackageId> {
+    let mut seen = HashSet::new();
+    pool.iter().map(Package::id).find(|id| !seen.insert(*id))
 }
 
 // Places each base of `package` after the bases it builds on. `path` holds the

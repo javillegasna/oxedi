@@ -187,6 +187,9 @@ fn a_trigger_and_occurrence_write_their_position_keys() {
     model.trigger.segment = "NM1".into();
     model.trigger.conditions.insert(1, "QC".into());
     let entry = |codes: &[&str]| ElementEntryModel {
+        usage: None,
+        min: None,
+        max: None,
         codes: Some(codes.iter().map(ToString::to_string).collect()),
     };
     let elements = BTreeMap::from([

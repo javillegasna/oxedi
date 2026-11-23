@@ -4,6 +4,7 @@ use std::fmt;
 
 use super::segments::ElementDefError;
 use crate::message::place;
+use crate::value::LengthRange;
 
 /// Why an occurrence was rejected.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -36,10 +37,42 @@ pub enum OccurrenceError {
         /// What is wrong with it.
         reason: ElementDefError,
     },
+    /// An entry's `usage` is `situational` where the element is required.
+    UsageLooserThanElement {
+        /// Where the usage sits: `elements.<key>.usage`.
+        key: String,
+        /// The element or component, e.g. `NM102`.
+        place: String,
+    },
+    /// An entry's `min` and `max` are not valid lengths.
+    BadLengths {
+        /// Where the entry sits: `elements.<key>`.
+        key: String,
+        /// What is wrong with them.
+        reason: ElementDefError,
+    },
+    /// An entry's lengths reach outside the element's.
+    LengthsOutsideElement {
+        /// Where the entry sits: `elements.<key>`.
+        key: String,
+        /// The element or component, e.g. `NM103`.
+        place: String,
+        /// The lengths the entry sets, with the element's bounds where it sets none.
+        found: LengthRange,
+        /// The element's own lengths.
+        allowed: LengthRange,
+    },
     /// An entry lists codes at the qualifier's own element or component.
     QualifierInCodes {
         /// Where the list sits: `elements.<key>.codes`.
         key: String,
+    },
+    /// An entry sets `min` or `max` at the qualifier's own element or component.
+    QualifierLengths {
+        /// Where the entry sits: `elements.<key>`.
+        key: String,
+        /// The lengths the entry sets, with the element's bounds where it sets none.
+        found: LengthRange,
     },
     /// A code of a list (the qualifier's or an entry's) is not one the
     /// element's own `codes` list allows.
@@ -105,10 +138,31 @@ impl fmt::Display for OccurrenceError {
                 write!(f, "{key} is empty; list at least one code")
             }
             OccurrenceError::BadCodes { key, reason } => write!(f, "{key}: {reason}"),
+            OccurrenceError::UsageLooserThanElement { key, place } => write!(
+                f,
+                "{key}: \"situational\" is looser than {place}, which the segment requires; \
+                 an occurrence only narrows its element"
+            ),
+            OccurrenceError::BadLengths { key, reason } => write!(f, "{key}: {reason}"),
+            OccurrenceError::LengthsOutsideElement {
+                key,
+                place,
+                found,
+                allowed,
+            } => write!(
+                f,
+                "{key}: lengths {found} are not inside {allowed}, which {place} allows; \
+                 an occurrence only narrows its element"
+            ),
             OccurrenceError::QualifierInCodes { key } => write!(
                 f,
                 "{key} sits at the qualifier's own place; its codes are the \
                  qualifier's \"codes\""
+            ),
+            OccurrenceError::QualifierLengths { key, found } => write!(
+                f,
+                "{key}: lengths {found} sit at the qualifier's own place; its codes are \
+                 checked against the element's own lengths, so only the element sets them"
             ),
             OccurrenceError::CodeOutsideElement {
                 key,

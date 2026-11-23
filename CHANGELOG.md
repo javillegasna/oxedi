@@ -51,6 +51,7 @@ This file covers the Python package; the DuckDB extension has its own changelog 
 
 ### Changed
 - Spec format: an element's `required` key is refused, whether true or false: write `usage: "required"` or drop `required: false`; `usage` is the word an occurrence uses (`situational` is the default).
+- An occurrence's element entry may also set `usage` (`required` only tightens), `min` and `max` (inside the element's lengths); reading and writing apply them in that occurrence only (`OccurrenceError::UsageLooserThanElement`, `BadLengths`, `LengthsOutsideElement`).
 - Rust: `OccurrenceDef.codes` is now `OccurrenceDef.elements` (`ElementEntry` with `Setting` facets).
 - Spec format: an occurrence narrows its segment's elements under `elements`, one entry per position (`"elements": {"1": {"codes": ["PR"]}}`); it replaces the occurrence's `codes` map (`"codes": {"1": ["PR"]}`). Load errors name the entry's path (`elements.2.codes`).
 - Rust: a guide package may narrow a segment's element (its `codes`, `min`, `max` and `usage`) without naming an occurrence; the dictionary alone defines its name, type and components.

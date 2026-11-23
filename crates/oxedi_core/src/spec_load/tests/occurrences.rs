@@ -28,8 +28,8 @@ const BASE: &str = r#"{"name":"t",
     "segments":{
         "NM":{"elements":{
             "1":{"name":"entity","type":"ID","min":2,"max":3,"codes":["IL","QC","QD"]},
-            "2":{"name":"kind","type":"ID","min":1,"max":1},
-            "3":{"name":"amount","type":"R"}
+            "2":{"name":"kind","type":"ID","usage":"required","min":1,"max":1},
+            "3":{"name":"amount","type":"R","min":1,"max":60}
         }},
         "ID":{"elements":{"1":{"name":"ident","type":"AN","composite":{
             "1":{"name":"qualifier","type":"ID"},"2":{"name":"value","type":"AN"}}},
@@ -321,12 +321,28 @@ fn invalid_occurrences_are_rejected_naming_loop_occurrence_rule_and_datum() {
             "loop \"head\" occurrence \"patient\": elements.1.codes sits at the qualifier's own place; its codes are the qualifier's \"codes\"",
         ),
         (
+            r#"{"loops":{"head":{"occurrences":{"patient":{"elements":{"1":{"max":2}}}}}}}"#,
+            "loop \"head\" occurrence \"patient\": elements.1: lengths 2 to 2 sit at the qualifier's own place; its codes are checked against the element's own lengths, so only the element sets them",
+        ),
+        (
             r#"{"loops":{"head":{"occurrences":{"patient":{"elements":{"2":{"codes":["1","1"]}}}}}}}"#,
             "loop \"head\" occurrence \"patient\": elements.2.codes: code \"1\" is listed twice, at codes[0] and codes[1]",
         ),
         (
-            r#"{"loops":{"head":{"occurrences":{"patient":{"elements":{"2":{"max":1}}}}}}}"#,
-            "spec: at loops.head.occurrences.patient.elements.2.max: unknown field `max`, expected `codes`",
+            r#"{"loops":{"head":{"occurrences":{"patient":{"elements":{"2":{"usage":"situational"}}}}}}}"#,
+            "loop \"head\" occurrence \"patient\": elements.2.usage: \"situational\" is looser than NM02, which the segment requires; an occurrence only narrows its element",
+        ),
+        (
+            r#"{"loops":{"head":{"occurrences":{"patient":{"elements":{"3":{"min":5,"max":2}}}}}}}"#,
+            "loop \"head\" occurrence \"patient\": elements.3: \"min\" 5 is greater than \"max\" 2",
+        ),
+        (
+            r#"{"loops":{"head":{"occurrences":{"patient":{"elements":{"3":{"max":80}}}}}}}"#,
+            "loop \"head\" occurrence \"patient\": elements.3: lengths 1 to 80 are not inside 1 to 60, which NM03 allows; an occurrence only narrows its element",
+        ),
+        (
+            r#"{"loops":{"head":{"occurrences":{"patient":{"elements":{"2":{"codes":["1"],"max":0}}}}}}}"#,
+            "loop \"head\" occurrence \"patient\": elements.2: \"max\" is 0; an element holds at least one character",
         ),
         (
             r#"{"loops":{"head":{"occurrences":{"insured":{"qualifier":null}}}}}"#,
@@ -434,6 +450,35 @@ fn occurrence_errors_are_their_own_variants() {
     let err = patched(r#"{"loops":{"head":{"max":0}}}"#).unwrap_err();
     assert!(matches!(&err, SpecError::ZeroLoopMax { loop_name } if loop_name == "head"));
     assert!(std::error::Error::source(&err).is_none());
+}
+
+#[test]
+fn entry_errors_are_their_own_variants() {
+    for (patch, expected) in [
+        (
+            r#"{"elements":{"2":{"usage":"situational"}}}"#,
+            "elements.2.usage",
+        ),
+        (r#"{"elements":{"3":{"min":5,"max":2}}}"#, "elements.3"),
+        (r#"{"elements":{"3":{"max":80}}}"#, "elements.3"),
+        (r#"{"elements":{"1":{"max":2}}}"#, "elements.1"),
+    ] {
+        let err = patched(&format!(
+            r#"{{"loops":{{"head":{{"occurrences":{{"patient":{patch}}}}}}}}}"#
+        ))
+        .unwrap_err();
+        let SpecError::BadOccurrence { reason, .. } = &err else {
+            panic!("{err}");
+        };
+        let found = match &**reason {
+            OccurrenceError::UsageLooserThanElement { key, .. }
+            | OccurrenceError::BadLengths { key, .. }
+            | OccurrenceError::QualifierLengths { key, .. }
+            | OccurrenceError::LengthsOutsideElement { key, .. } => key,
+            other => panic!("{other}"),
+        };
+        assert_eq!(found, expected);
+    }
 }
 
 #[test]

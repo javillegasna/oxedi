@@ -401,6 +401,33 @@ fn a_required_element_with_one_code_is_written_with_it() {
 }
 
 #[test]
+fn an_occurrence_entry_requires_an_element_there() {
+    let found = refusals(
+        r#"{"loops":{"head":{"occurrences":{"nm_a":{"elements":{"3":{"usage":"required"}}}}}},
+        "tables":{"heads":{"columns":{"a_name":null}}}}"#,
+    );
+    assert_eq!(
+        found,
+        vec![
+            "required element NM03 (name) of occurrence \"nm_a\" in loop \"head\", written by table \"heads\", has no column and no single code to write".to_string()
+        ],
+        "nm_b raises none: only nm_a's entry requires NM03"
+    );
+}
+
+#[test]
+fn an_occurrence_entry_with_one_code_fills_it() {
+    let spec = spec(
+        r#"{"loops":{"head":{"occurrences":{"nm_a":{"elements":{"3":{"usage":"required","codes":["Z"]}}}}}},
+        "tables":{"heads":{"columns":{"a_name":null}}}}"#,
+    );
+    let plan = WritePlan::new(&spec).unwrap();
+    let nm = &loop_plan(&spec, &plan, "head").segments[1];
+    assert_eq!(nm.elements[2].element, 3);
+    assert_eq!(nm.elements[2].value, ValueSource::Code(b"Z".to_vec()));
+}
+
+#[test]
 fn every_refusal_names_the_table_the_column_and_the_occurrence() {
     let cases: [(&str, &str); 10] = [
         (

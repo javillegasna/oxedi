@@ -180,8 +180,8 @@ impl<'s> Projector<'s> {
                 text,
             );
         } else {
-            // Every code fits the element's lengths, so a value of the wrong
-            // length is reported once, as a length.
+            // Lengths are checked first, so a value of the wrong length is
+            // reported once, as a length.
             if !rule.rejects(text) {
                 return value;
             }

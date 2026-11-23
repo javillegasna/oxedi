@@ -113,8 +113,8 @@ fn compile_entry(
     qualifier: Option<&Qualifier>,
 ) -> Result<ElementEntry, OccurrenceError> {
     let key = format!("elements.{at}");
-    refuse_qualifier_codes(&key, at, entry, qualifier)?;
     let def = find_element(segments, segment, &key, at)?;
+    refuse_at_qualifier(&key, at, entry, qualifier, def)?;
     let place = place(segment, at.element, at.component);
     let length = entry_length(def, &key, &place, entry)?;
     Ok(ElementEntry {
@@ -124,18 +124,29 @@ fn compile_entry(
     })
 }
 
-/// Refuses codes at the qualifier's own place: they are the qualifier's.
-fn refuse_qualifier_codes(
+/// Refuses codes, `min` and `max` at the qualifier's own place: its codes are
+/// the qualifier's, and they are checked against the element's own lengths.
+fn refuse_at_qualifier(
     key: &str,
     at: ElementPosition,
     entry: &ElementEntryModel,
     qualifier: Option<&Qualifier>,
+    def: &ElementDef,
 ) -> Result<(), OccurrenceError> {
     let at_qualifier =
         qualifier.is_some_and(|q| (q.element, q.component) == (at.element, at.component));
-    if at_qualifier && entry.codes.is_some() {
+    if !at_qualifier {
+        return Ok(());
+    }
+    if entry.codes.is_some() {
         return Err(OccurrenceError::QualifierInCodes {
             key: format!("{key}.codes"),
+        });
+    }
+    if entry.min.is_some() || entry.max.is_some() {
+        return Err(OccurrenceError::QualifierLengths {
+            key: key.to_owned(),
+            found: entry_range(def, entry),
         });
     }
     Ok(())
@@ -170,10 +181,7 @@ fn entry_length(
     if entry.min.is_none() && entry.max.is_none() {
         return Ok(Setting::Element);
     }
-    let found = LengthRange {
-        min: entry.min.or(def.length.min),
-        max: entry.max.or(def.length.max),
-    };
+    let found = entry_range(def, entry);
     check_lengths(found).map_err(|reason| OccurrenceError::BadLengths {
         key: key.to_owned(),
         reason,
@@ -187,6 +195,14 @@ fn entry_length(
         });
     }
     Ok(Setting::Occurrence(found))
+}
+
+/// The lengths an entry sets, the element's bound where it sets none.
+fn entry_range(def: &ElementDef, entry: &ElementEntryModel) -> LengthRange {
+    LengthRange {
+        min: entry.min.or(def.length.min),
+        max: entry.max.or(def.length.max),
+    }
 }
 
 /// The codes an entry lists, validated against the lengths that apply at its

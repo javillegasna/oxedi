@@ -321,6 +321,10 @@ fn invalid_occurrences_are_rejected_naming_loop_occurrence_rule_and_datum() {
             "loop \"head\" occurrence \"patient\": elements.1.codes sits at the qualifier's own place; its codes are the qualifier's \"codes\"",
         ),
         (
+            r#"{"loops":{"head":{"occurrences":{"patient":{"elements":{"1":{"max":2}}}}}}}"#,
+            "loop \"head\" occurrence \"patient\": elements.1: lengths 2 to 2 sit at the qualifier's own place; its codes are checked against the element's own lengths, so only the element sets them",
+        ),
+        (
             r#"{"loops":{"head":{"occurrences":{"patient":{"elements":{"2":{"codes":["1","1"]}}}}}}}"#,
             "loop \"head\" occurrence \"patient\": elements.2.codes: code \"1\" is listed twice, at codes[0] and codes[1]",
         ),
@@ -457,6 +461,7 @@ fn entry_errors_are_their_own_variants() {
         ),
         (r#"{"elements":{"3":{"min":5,"max":2}}}"#, "elements.3"),
         (r#"{"elements":{"3":{"max":80}}}"#, "elements.3"),
+        (r#"{"elements":{"1":{"max":2}}}"#, "elements.1"),
     ] {
         let err = patched(&format!(
             r#"{{"loops":{{"head":{{"occurrences":{{"patient":{patch}}}}}}}}}"#
@@ -468,6 +473,7 @@ fn entry_errors_are_their_own_variants() {
         let found = match &**reason {
             OccurrenceError::UsageLooserThanElement { key, .. }
             | OccurrenceError::BadLengths { key, .. }
+            | OccurrenceError::QualifierLengths { key, .. }
             | OccurrenceError::LengthsOutsideElement { key, .. } => key,
             other => panic!("{other}"),
         };

@@ -67,6 +67,13 @@ pub enum OccurrenceError {
         /// Where the list sits: `elements.<key>.codes`.
         key: String,
     },
+    /// An entry sets `min` or `max` at the qualifier's own element or component.
+    QualifierLengths {
+        /// Where the entry sits: `elements.<key>`.
+        key: String,
+        /// The lengths the entry sets, with the element's bounds where it sets none.
+        found: LengthRange,
+    },
     /// A code of a list (the qualifier's or an entry's) is not one the
     /// element's own `codes` list allows.
     CodeOutsideElement {
@@ -151,6 +158,11 @@ impl fmt::Display for OccurrenceError {
                 f,
                 "{key} sits at the qualifier's own place; its codes are the \
                  qualifier's \"codes\""
+            ),
+            OccurrenceError::QualifierLengths { key, found } => write!(
+                f,
+                "{key}: lengths {found} sit at the qualifier's own place; its codes are \
+                 checked against the element's own lengths, so only the element sets them"
             ),
             OccurrenceError::CodeOutsideElement {
                 key,

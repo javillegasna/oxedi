@@ -13,6 +13,7 @@ import typing
 import typing_extensions
 __all__ = [
     "Batch",
+    "Capability",
     "Delimiters",
     "Diagnostic",
     "Document",
@@ -20,6 +21,7 @@ __all__ = [
     "ElementSource",
     "Envelope",
     "GroupSource",
+    "Invalid",
     "Mask",
     "ParseError",
     "Result",
@@ -29,6 +31,7 @@ __all__ = [
     "Stream",
     "Table",
     "Tables",
+    "Valid",
     "Version",
     "WriteFinding",
     "_external_diagnostic",
@@ -38,6 +41,7 @@ __all__ = [
     "_write",
     "parse",
     "stream",
+    "validate",
 ]
 
 EDI_835_PARSER_PATCH: builtins.str
@@ -56,6 +60,24 @@ class Batch:
     def diagnostics(self) -> builtins.list[Diagnostic]:
         r"""
         The diagnostics emitted since the previous batch, in stream order.
+        """
+    def __repr__(self) -> builtins.str: ...
+
+@typing.final
+class Capability:
+    r"""
+    What a stack that loads can do beyond reading: whether it can, and when it
+    cannot, one line per reason, each saying what to change.
+    """
+    @property
+    def can(self) -> builtins.bool:
+        r"""
+        Whether the stack can.
+        """
+    @property
+    def reasons(self) -> builtins.list[builtins.str]:
+        r"""
+        Why it cannot, one line each; empty when it can.
         """
     def __repr__(self) -> builtins.str: ...
 
@@ -340,6 +362,14 @@ class GroupSource:
     def __repr__(self) -> builtins.str: ...
 
 @typing.final
+class Invalid:
+    r"""
+    A stack of packages that does not load.
+    """
+    def __str__(self) -> builtins.str: ...
+    def __repr__(self) -> builtins.str: ...
+
+@typing.final
 class Mask:
     r"""
     Hides the patient data of a parse: the columns the spec flags as
@@ -485,6 +515,19 @@ class Spec:
         r"""
         The spec described by `json`; raises `SpecError` with the core message
         when it is not valid.
+        """
+    @staticmethod
+    def from_packages(top: builtins.str, pool: typing.Sequence[builtins.str] = []) -> Spec:
+        r"""
+        The spec of the stack whose top package is the text `top`, with the
+        package texts of `pool` as its bases; raises `SpecError` with the
+        core's message when the stack does not load.
+        """
+    @staticmethod
+    def builtin_packages() -> builtins.list[builtins.str]:
+        r"""
+        The package texts the library ships: the 5010 stack, then the 4010
+        editions. They are the pool of `Spec.from_packages` and `validate`.
         """
     def patch(self, patch: builtins.str | _json.JsonObject) -> Spec:
         r"""
@@ -639,6 +682,50 @@ class Tables:
     def __getitem__(self, name: builtins.str, /) -> Table: ...
 
 @typing.final
+class Valid:
+    r"""
+    A stack of packages that loads.
+    """
+    @property
+    def id(self) -> builtins.str:
+        r"""
+        The top package's id.
+        """
+    @property
+    def name(self) -> builtins.str:
+        r"""
+        The spec's name.
+        """
+    @property
+    def packages(self) -> builtins.list[builtins.str]:
+        r"""
+        The id of every package of the stack, bases first, the top last.
+        """
+    @property
+    def write(self) -> Capability:
+        r"""
+        Whether the spec's tables can be written back into a file, and why not.
+        """
+    @property
+    def mask(self) -> Capability:
+        r"""
+        Whether the spec can mask patient data, and why not.
+        """
+    @property
+    def changes(self) -> builtins.list[builtins.str]:
+        r"""
+        What the editions and patches of the stack changed, in stack order,
+        one line each with the package that made it.
+        """
+    @property
+    def spec(self) -> Spec:
+        r"""
+        The spec the stack loads as.
+        """
+    def __str__(self) -> builtins.str: ...
+    def __repr__(self) -> builtins.str: ...
+
+@typing.final
 class Version:
     r"""
     An X12 release a built-in spec covers.
@@ -774,5 +861,12 @@ def stream(data: typing_extensions.Buffer, spec: typing.Optional[Spec] = None, b
     closes, and one more at the end when anything is left. Without `spec`,
     the built-in spec of the version the file declares is used, else the
     default one. With `mask`, the patient data of every batch is hidden.
+    """
+
+def validate(top: builtins.str, pool: typing.Sequence[builtins.str] = []) -> Valid | Invalid:
+    r"""
+    Whether the stack whose top package is `top`, with the packages of `pool`
+    as its bases, loads: a `Valid` with what it holds and can do, or an
+    `Invalid` with the reason. `pool` is a list of package texts.
     """
 

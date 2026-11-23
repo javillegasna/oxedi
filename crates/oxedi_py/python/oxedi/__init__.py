@@ -15,12 +15,14 @@ from typing import Optional, Union
 
 from ._core import (
     Batch,
+    Capability,
     Delimiters,
     Diagnostic,
     Document,
     ElementSource,
     Envelope,
     GroupSource,
+    Invalid,
     Mask,
     ParseError,
     Result,
@@ -30,10 +32,12 @@ from ._core import (
     Stream,
     Table,
     Tables,
+    Valid,
     Version,
     WriteFinding,
     parse,
     stream,
+    validate,
 )
 from ._json import JsonObject, JsonValue
 from ._write import WriteError, write
@@ -42,6 +46,7 @@ __version__ = importlib.metadata.version("oxedi")
 
 __all__ = [
     "Batch",
+    "Capability",
     "Delimiters",
     "Diagnostic",
     "Document",
@@ -50,6 +55,7 @@ __all__ = [
     "GroupSource",
     "JsonObject",
     "JsonValue",
+    "Invalid",
     "Mask",
     "ParseError",
     "Result",
@@ -59,6 +65,7 @@ __all__ = [
     "Stream",
     "Table",
     "Tables",
+    "Valid",
     "Version",
     "WriteError",
     "WriteFinding",
@@ -66,6 +73,7 @@ __all__ = [
     "parse",
     "parse_file",
     "stream",
+    "validate",
     "write",
 ]
 

@@ -26,4 +26,4 @@ def test_the_subpackage_imports_without_pyx12(monkeypatch):
     module = importlib.reload(sys.modules["oxedi.pyx12"])
     assert module.__all__ == ["validate"]
     assert not hasattr(module, "Pyx12Diagnostic")
-    assert not hasattr(oxedi, "validate")
+    assert oxedi.validate is not module.validate

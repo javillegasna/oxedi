@@ -56,6 +56,7 @@ mod spec;
 mod stamp;
 mod stream;
 mod tables;
+mod validate;
 mod write;
 
 /// The name of the module attribute holding the text of `edi_835_parser.json`.
@@ -78,7 +79,7 @@ fn core_module(m: &Bound<'_, PyModule>) -> PyResult<()> {
 }
 
 /// Every exception, class and function of the module, one registration each.
-fn members() -> [Register; 25] {
+fn members() -> [Register; 29] {
     [
         |m| m.add("ParseError", m.py().get_type::<document::ParseError>()),
         |m| m.add("SpecError", m.py().get_type::<spec::SpecError>()),
@@ -89,6 +90,9 @@ fn members() -> [Register; 25] {
         |m| m.add_class::<element_source::PyElementSource>(),
         |m| m.add_class::<element_source::PyGroupSource>(),
         |m| m.add_class::<mask::PyMask>(),
+        |m| m.add_class::<validate::PyCapability>(),
+        |m| m.add_class::<validate::PyInvalid>(),
+        |m| m.add_class::<validate::PyValid>(),
         |m| m.add_class::<parse::PyParseResult>(),
         |m| m.add_class::<spec::PySpec>(),
         |m| m.add_class::<spec::PyVersion>(),
@@ -104,6 +108,7 @@ fn members() -> [Register; 25] {
         |m| wrap_pyfunction!(parse::loop_paths, m).and_then(|f| m.add_function(f)),
         |m| wrap_pyfunction!(parse::parse_document, m).and_then(|f| m.add_function(f)),
         |m| wrap_pyfunction!(stream::stream, m).and_then(|f| m.add_function(f)),
+        |m| wrap_pyfunction!(validate::validate, m).and_then(|f| m.add_function(f)),
         |m| wrap_pyfunction!(write::write_tables, m).and_then(|f| m.add_function(f)),
     ]
 }

@@ -16,6 +16,8 @@ import polars
 import oxedi
 from oxedi import (
     Batch,
+    Invalid,
+    Valid,
     Delimiters,
     Diagnostic,
     Document,
@@ -228,3 +230,22 @@ def masked(data: bytes) -> Result:
     batches: Stream = oxedi.stream(data, mask=oxedi.Mask("0123456789abcdef"))
     assert batches
     return oxedi.parse(data, mask=mask)
+
+
+def validated_stack() -> Spec:
+    packages: list[str] = Spec.builtin_packages()
+    report = oxedi.validate(packages[4], packages)
+    alone: Valid | Invalid = oxedi.validate(packages[0])
+    print(alone, repr(alone), str(alone))
+    loaded: Spec = Spec.from_packages(packages[4], packages)
+    if isinstance(report, Valid):
+        can: bool = report.write.can
+        reasons: list[str] = report.mask.reasons
+        capability: oxedi.Capability = report.write
+        ident: str = report.id
+        name: str = report.name
+        members: list[str] = report.packages
+        changes: list[str] = report.changes
+        s: Spec = report.spec
+        print(can, reasons, capability, ident, name, members, changes, s)
+    return loaded

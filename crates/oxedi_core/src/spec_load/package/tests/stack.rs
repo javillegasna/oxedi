@@ -60,6 +60,47 @@ fn a_base_cycle_is_refused() {
 }
 
 #[test]
+fn a_package_that_builds_on_itself_is_a_cycle() {
+    let own = package(E, &["envelope"], &[E], "{}");
+    let err = Stack::resolve(&own, std::slice::from_ref(&own)).unwrap_err();
+    assert_eq!(
+        err.to_string(),
+        "packages form a base cycle: test/envelope/005010 -> test/envelope/005010; a package cannot build on itself"
+    );
+}
+
+#[test]
+fn two_packages_with_one_id_are_refused() {
+    let pool = [envelope(), envelope()];
+    let err = Stack::resolve(&pool[0], &pool).unwrap_err();
+    assert!(matches!(
+        &err,
+        SpecError::Stack { reason } if matches!(**reason, StackError::DuplicatePackage { .. })
+    ));
+    assert_eq!(
+        err.to_string(),
+        "two of the packages given are named \"test/envelope/005010\"; give each package once"
+    );
+}
+
+#[test]
+fn a_fault_in_a_base_names_the_base() {
+    let dictionary = package(
+        D,
+        &["dictionary"],
+        &[E],
+        r#"{"loops":{"a":{"occurrences":{"aa":{"usage":"sometimes"}}}}}"#,
+    );
+    let top = package(G, &["guide"], &[D], "{}");
+    let pool = [envelope(), dictionary, top.clone()];
+    let err = Stack::resolve(&top, &pool).unwrap().compose().unwrap_err();
+    assert_eq!(
+        err.to_string(),
+        "package \"test/dictionary/005010\": spec: at loops.a.occurrences.aa.usage: \"usage\" must be \"required\" or \"situational\"; found \"sometimes\""
+    );
+}
+
+#[test]
 fn the_name_comes_from_the_top_id() {
     let envelope = envelope();
     let transaction_set = package(

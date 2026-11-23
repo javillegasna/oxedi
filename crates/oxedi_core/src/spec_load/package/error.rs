@@ -118,6 +118,11 @@ pub enum StackError {
         /// The base as written, boxed to keep the error small.
         base: Box<PackageId>,
     },
+    /// Two packages among those given have one id.
+    DuplicatePackage {
+        /// The id both packages carry, boxed to keep the error small.
+        id: Box<PackageId>,
+    },
     /// Packages build on each other in a circle.
     BaseCycle {
         /// The packages of the circle, from the first one reached.
@@ -132,6 +137,10 @@ impl fmt::Display for StackError {
                 f,
                 "package \"{package}\" builds on \"{base}\", which is not among the packages \
                  given; give that package too, or remove it from \"bases\""
+            ),
+            StackError::DuplicatePackage { id } => write!(
+                f,
+                "two of the packages given are named \"{id}\"; give each package once"
             ),
             StackError::BaseCycle { members } => {
                 let circle: Vec<&str> = members

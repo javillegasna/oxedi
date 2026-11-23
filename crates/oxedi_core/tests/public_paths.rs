@@ -11,6 +11,9 @@ mod by_module {
     use oxedi_core::column::RowError;
     use oxedi_core::column::Table;
     use oxedi_core::column::Tables;
+    use oxedi_core::conformance::Line;
+    use oxedi_core::conformance::LineDifference;
+    use oxedi_core::conformance::first_difference;
     use oxedi_core::delimiters::Delimiters;
     use oxedi_core::delimiters::IsaError;
     use oxedi_core::diagnostic::Diagnostic;
@@ -247,6 +250,8 @@ fn builtin_items() {
     let _: fn() -> &'static [&'static str] = Builtin::packages;
     let _: fn(oxedi_core::spec_load::Role) -> &'static str = oxedi_core::spec_load::Role::word;
     let _: fn(&str, &[&str]) -> Validation = validate;
+    let _: fn(&str, &str) -> Option<oxedi_core::conformance::LineDifference> =
+        oxedi_core::conformance::first_difference;
     let _: fn() -> &'static Builtin = Builtin::fallback;
     let _: fn(&str, Version) -> Result<&'static Builtin, UnknownVersion> = Builtin::find;
     let _: fn(&str, &str) -> Result<&'static Builtin, UnknownVersion> = Builtin::find_text;

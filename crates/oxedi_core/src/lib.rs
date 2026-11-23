@@ -38,6 +38,7 @@
 
 pub mod check;
 pub mod column;
+pub mod conformance;
 pub mod delimiters;
 pub mod diagnostic;
 pub mod document;

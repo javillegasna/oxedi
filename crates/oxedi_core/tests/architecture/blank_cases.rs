@@ -3,7 +3,7 @@
 use super::blank::strip_comments;
 
 #[test]
-fn comments_become_spaces_and_literals_stay() {
+fn comments_and_escapes_become_spaces_and_literals_stay() {
     let cases = [
         ("a line comment", "a // b\nc", "a     \nc"),
         (
@@ -29,7 +29,7 @@ fn comments_become_spaces_and_literals_stay() {
         (
             "an escaped quote in a string",
             "\"a\\\" // b\" c",
-            "\"a\\\" // b\" c",
+            "\"a   // b\" c",
         ),
         (
             "a comment marker in a raw string",
@@ -41,6 +41,35 @@ fn comments_become_spaces_and_literals_stay() {
             "a lifetime is not a literal",
             "&'a str // b",
             "&'a str     ",
+        ),
+        ("a newline escape", "\"\\ncrate\"", "\"  crate\""),
+        ("a byte escape", "\"\\x41y\"", "\"    y\""),
+        ("a unicode escape", "\"\\u{41}z\"", "\"      z\""),
+        (
+            "an escaped line break keeps its line",
+            "\"a\\\nb\" // c",
+            "\"a \nb\"     ",
+        ),
+        (
+            "an escaped quote in a character literal",
+            "'\\'' // b",
+            "'  '     ",
+        ),
+        (
+            "a raw string keeps its backslashes",
+            "r\"\\n\" c",
+            "r\"\\n\" c",
+        ),
+        ("a raw byte string", "br\"\\\" // b\" c", "br\"\\\"        "),
+        (
+            "a raw C string with hashes",
+            "cr#\"a\"# // b",
+            "cr#\"a\"#     ",
+        ),
+        (
+            "a non-ASCII character literal",
+            "['é','\"'] // b",
+            "['é','\"']     ",
         ),
     ];
     for (name, text, expected) in cases {

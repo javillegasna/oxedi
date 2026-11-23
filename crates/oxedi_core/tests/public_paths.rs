@@ -93,9 +93,11 @@ mod by_module {
     use oxedi_core::spec_load::LoopSegments;
     use oxedi_core::spec_load::OccurrenceError;
     use oxedi_core::spec_load::OccurrenceModel;
+    use oxedi_core::spec_load::PackageId;
     use oxedi_core::spec_load::QualifierModel;
     use oxedi_core::spec_load::Release;
     use oxedi_core::spec_load::RepeatModel;
+    use oxedi_core::spec_load::Scope;
     use oxedi_core::spec_load::SegmentModel;
     use oxedi_core::spec_load::SpecError;
     use oxedi_core::spec_load::SpecModel;

@@ -141,7 +141,7 @@ on it, never the reverse.
 | Layer | Module | What it holds |
 |---|---|---|
 | Schema | `spec/` | The compiled spec: `Spec` and its index-based definitions, `LoopDef` (by `LoopId`), `SegmentDef`, `ElementDef`, `OccurrenceDef`, `TableDef` with a `ColumnSource` per column, `BalanceRule`, `Summary` and `DeclaredVersion`; the occurrence a segment takes in a loop (`spec/occurrence_index.rs`); the columns of each table, known from the spec alone (`spec_schema`, `spec/schema.rs`); `UnknownTable` and `UnknownColumn` (`spec/unknown.rs`); the choice of a spec by the version it declares (`Spec::select`, `spec/version.rs`). It keeps no JSON. |
-| Loading | `spec_load/` | What turns JSON into a `Spec`: the typed model (`SpecModel` and every `*Model`, `spec_load/model/`) and its strict reader (`spec_load/strict/`), the compile steps, the load errors (`SpecError` and the reasons it holds), `LoadedSpec`, the merge patch, the registry of built-in specs (`Builtin`, `Version`) and the spec's closed words (`spec_load/vocabulary.rs`). |
+| Loading | `spec_load/` | What turns JSON into a `Spec`: the typed model (`SpecModel` and every `*Model`, `spec_load/model/`) and its strict reader (`spec_load/strict/`), the compile steps, the load errors (`SpecError` and the reasons it holds), `LoadedSpec`, the merge patch, the registry of built-in specs (`Builtin`, `Version`), the package identity (`spec_load/package/`) and the spec's closed words (`spec_load/vocabulary.rs`). |
 
 The engine, the checker, the projector and the writer read the schema only. The bindings use both
 layers through the root re-exports (`oxedi_core::Spec`, `oxedi_core::SpecError`,

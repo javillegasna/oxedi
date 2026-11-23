@@ -15,6 +15,7 @@ use pyo3_stub_gen::{PyStubType, TypeInfo};
 
 use crate::arrow;
 use crate::element_source::{self, PyElementSource, PyGroupSource};
+use crate::json_arg::PatchArg;
 use crate::tables::extra;
 
 native_exception!(
@@ -248,60 +249,6 @@ impl PyStubType for VersionArg {
     }
 }
 
-/// A patch argument: JSON text, a dict written as JSON text, a dict that
-/// cannot be written (with the reason), or anything else (with its type
-/// name), so `Spec.patch` can refuse the last two with their own messages.
-enum PatchArg {
-    Json(String),
-    Unwritable { reason: String },
-    Other { kind: String },
-}
-
-impl PatchArg {
-    /// The JSON text of the patch, or the `TypeError` `Spec.patch` raises.
-    fn into_json(self) -> PyResult<String> {
-        match self {
-            PatchArg::Json(text) => Ok(text),
-            PatchArg::Unwritable { reason } => Err(PyTypeError::new_err(format!(
-                "Spec.patch: the dict cannot be written as JSON: {reason}"
-            ))),
-            PatchArg::Other { kind } => Err(PyTypeError::new_err(format!(
-                "Spec.patch takes a dict or a JSON string, not {kind}"
-            ))),
-        }
-    }
-
-    /// A dict written as JSON text by Python's `json.dumps`.
-    fn dumped(dict: &Borrowed<'_, '_, PyAny>) -> PatchArg {
-        let py = dict.py();
-        match py
-            .import("json")
-            .and_then(|json| json.call_method1("dumps", (dict,)))
-            .and_then(|text| text.extract::<String>())
-        {
-            Ok(text) => PatchArg::Json(text),
-            Err(err) => PatchArg::Unwritable {
-                reason: err.value(py).to_string(),
-            },
-        }
-    }
-}
-
-impl<'a, 'py> FromPyObject<'a, 'py> for PatchArg {
-    type Error = PyErr;
-
-    fn extract(object: Borrowed<'a, 'py, PyAny>) -> PyResult<PatchArg> {
-        if let Ok(text) = object.cast::<PyString>() {
-            return Ok(PatchArg::Json(text.to_cow()?.into_owned()));
-        }
-        if object.is_instance_of::<PyDict>() {
-            return Ok(PatchArg::dumped(&object));
-        }
-        let kind = object.get_type().name()?.to_string();
-        Ok(PatchArg::Other { kind })
-    }
-}
-
 /// The loop structure, element definitions and tables of a file format.
 #[gen_stub_pyclass(module = "oxedi._core")]
 #[pyclass(name = "Spec", module = "oxedi", frozen)]
@@ -344,12 +291,13 @@ impl PySpec {
             .map_err(spec_error)
     }
 
-    /// A new spec with `patch` (a dict or JSON text) merged over this one;
-    /// raises `SpecError` when the result is not valid.
+    /// A new spec with `patch` merged over this one; `patch` is JSON text or a
+    /// JSON object (a dict of JSON values); raises `SpecError` when the
+    /// result is not valid.
     fn patch(
         &self,
-        // A JSON merge patch: the dict's values are any JSON value.
-        #[gen_stub(override_type(type_repr = "builtins.str | builtins.dict[builtins.str, typing.Any]", imports = ("builtins", "typing")))]
+        // A JSON merge patch: JSON text, or an object of JSON values.
+        #[gen_stub(override_type(type_repr = "builtins.str | _json.JsonObject", imports = ("builtins", "oxedi._json")))]
         patch: PatchArg,
     ) -> PyResult<PySpec> {
         let json = patch.into_json()?;

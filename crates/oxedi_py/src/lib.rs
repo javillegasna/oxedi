@@ -48,6 +48,7 @@ mod diagnostic;
 mod document;
 mod element_source;
 mod import;
+mod json_arg;
 mod mask;
 mod native;
 mod parse;

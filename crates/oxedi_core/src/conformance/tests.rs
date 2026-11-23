@@ -44,3 +44,37 @@ fn expected_is_longer() {
         })
     );
 }
+
+#[test]
+fn crlf_and_lf_line_ends_are_equal() {
+    assert_eq!(first_difference("a\r\nb", "a\nb"), None);
+}
+
+#[test]
+fn two_empty_texts_are_equal() {
+    assert_eq!(first_difference("", ""), None);
+}
+
+#[test]
+fn an_empty_text_lacks_the_empty_line_a_lone_break_holds() {
+    assert_eq!(
+        first_difference("", "\n"),
+        Some(LineDifference {
+            line: 1,
+            expected: Line::End,
+            actual: text(""),
+        })
+    );
+}
+
+#[test]
+fn multi_byte_lines_are_kept_whole() {
+    assert_eq!(
+        first_difference("año\nñandú", "año\nñandá"),
+        Some(LineDifference {
+            line: 2,
+            expected: text("ñandú"),
+            actual: text("ñandá"),
+        })
+    );
+}

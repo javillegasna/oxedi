@@ -28,7 +28,8 @@ pub struct LineDifference {
 
 /// The first line where `expected` and `actual` differ, or `None` when their
 /// lines are equal. Texts compare by `str::lines`, so a final line break does
-/// not count and `"a\n"` equals `"a"`. One pass; no line is kept but the one
+/// not count, `"a\n"` equals `"a"`, and `\r\n` and `\n` line ends are equal.
+/// One pass; no line is kept but the one
 /// that differs.
 pub fn first_difference(expected: &str, actual: &str) -> Option<LineDifference> {
     let mut expected_lines = expected.lines();

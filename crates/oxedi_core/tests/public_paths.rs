@@ -84,12 +84,17 @@ mod by_module {
     use oxedi_core::spec_load::ElementDefError;
     use oxedi_core::spec_load::ElementModel;
     use oxedi_core::spec_load::ElementPosition;
+    use oxedi_core::spec_load::Guide;
+    use oxedi_core::spec_load::IdError;
+    use oxedi_core::spec_load::IdPart;
+    use oxedi_core::spec_load::Layer;
     use oxedi_core::spec_load::LoadedSpec;
     use oxedi_core::spec_load::LoopModel;
     use oxedi_core::spec_load::LoopSegments;
     use oxedi_core::spec_load::OccurrenceError;
     use oxedi_core::spec_load::OccurrenceModel;
     use oxedi_core::spec_load::QualifierModel;
+    use oxedi_core::spec_load::Release;
     use oxedi_core::spec_load::RepeatModel;
     use oxedi_core::spec_load::SegmentModel;
     use oxedi_core::spec_load::SpecError;
@@ -103,6 +108,7 @@ mod by_module {
     use oxedi_core::spec_load::TableDefError;
     use oxedi_core::spec_load::TableModel;
     use oxedi_core::spec_load::TermModel;
+    use oxedi_core::spec_load::TransactionSet;
     use oxedi_core::spec_load::TriggerModel;
     use oxedi_core::spec_load::UnknownVersion;
     use oxedi_core::spec_load::Version;

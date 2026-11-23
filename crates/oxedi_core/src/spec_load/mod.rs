@@ -27,7 +27,8 @@
 //! quotes; `loaded` the spec as a loader keeps it, its model beside its
 //! compiled form; `patch` the merge patch; `builtin` the registry of shipped
 //! specs by transaction and version, and the built-in 835 shortcuts;
-//! `vocabulary` the spec's closed words and the codes key, one table each.
+//! `vocabulary` the spec's closed words and the codes key, one table each;
+//! `package` the layers of a package and the parts of its identity.
 
 mod balance;
 mod balance_error;
@@ -43,6 +44,7 @@ mod error_text;
 mod loaded;
 mod model;
 mod occurrence_error;
+mod package;
 mod patch;
 mod phi;
 mod segments;
@@ -68,6 +70,7 @@ pub use model::{
     VersionModel,
 };
 pub use occurrence_error::OccurrenceError;
+pub use package::{Guide, IdError, IdPart, Layer, Release, TransactionSet};
 pub use patch::merge_patch;
 pub use segments::ElementDefError;
 pub use summary_error::SummaryDefError;

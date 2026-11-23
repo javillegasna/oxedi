@@ -32,7 +32,8 @@ const BASE: &str = r#"{"name":"t",
             "3":{"name":"amount","type":"R"}
         }},
         "ID":{"elements":{"1":{"name":"ident","type":"AN","composite":{
-            "1":{"name":"qualifier","type":"ID"},"2":{"name":"value","type":"AN"}}}}},
+            "1":{"name":"qualifier","type":"ID"},"2":{"name":"value","type":"AN"}}},
+            "2":{"name":"extra","type":"AN"}}},
         "N1":{"elements":{"1":{"name":"entity","type":"ID"}}}
     }
 }"#;
@@ -512,4 +513,110 @@ fn a_trigger_opens_on_an_occurrence_by_segment_and_qualifier_code() {
         conditions: Vec::new(),
     };
     assert!(!bare.opens_on(&other));
+}
+
+#[test]
+fn an_entry_at_the_qualifiers_place_is_its_own_variant() {
+    let err = patched(
+        r#"{"loops":{"head":{"occurrences":{"patient":{"elements":{"1":{"codes":["QC"]}}}}}}}"#,
+    )
+    .unwrap_err();
+    assert!(matches!(
+        &err,
+        SpecError::BadOccurrence { reason, .. }
+            if matches!(&**reason, OccurrenceError::QualifierInCodes { key } if key == "elements.1.codes")
+    ));
+}
+
+fn occurrence_named<'s>(spec: &'s Spec, name: &str) -> &'s OccurrenceDef {
+    let head = spec.get(spec.loop_id("head").unwrap());
+    head.occurrences.iter().find(|o| o.name == name).unwrap()
+}
+
+#[test]
+fn an_entry_lists_its_codes_by_position_and_component() {
+    let spec = patched(
+        r#"{"loops":{"head":{"occurrences":{"id":{"elements":{"1-2":{"codes":["B","A"]}}}}}}}"#,
+    )
+    .unwrap();
+    assert_eq!(
+        occurrence_named(&spec, "id").codes[&(1, Some(2))],
+        ["A", "B"],
+        "codes are sorted by their bytes"
+    );
+}
+
+#[test]
+fn an_entry_without_codes_narrows_nothing() {
+    let spec =
+        patched(r#"{"loops":{"head":{"occurrences":{"patient":{"elements":{"3":{}}}}}}}"#).unwrap();
+    let patient = occurrence_named(&spec, "patient");
+    assert!(!patient.codes.contains_key(&(3, None)));
+    assert_eq!(patient.codes.len(), 1, "the entry at 2 is kept");
+}
+
+#[test]
+fn entries_write_back_canonically() {
+    let written = LoadedSpec::from_json(BASE).unwrap().to_json().unwrap();
+    let written: Value = serde_json::from_str(&written).unwrap();
+    let occurrences = &written["loops"]["head"]["occurrences"];
+    assert_eq!(
+        occurrences["patient"]["elements"],
+        serde_json::json!({"2": {"codes": ["1"]}})
+    );
+    assert!(occurrences["insured"].get("elements").is_none());
+}
+
+#[test]
+fn a_patch_merges_entries_by_occurrence_and_position() {
+    let patch = |occurrence: &str, entries: &str| {
+        format!(
+            r#"{{"loops":{{"head":{{"occurrences":{{"{occurrence}":{{"elements":{entries}}}}}}}}}}}"#
+        )
+    };
+    let both = LoadedSpec::from_json(BASE)
+        .unwrap()
+        .merge_patch(&patch(
+            "id",
+            r#"{"1-2":{"codes":["A"]},"2":{"codes":["B"]}}"#,
+        ))
+        .unwrap();
+    let id_codes = |loaded: &LoadedSpec| {
+        let id = &loaded.model.loops["head"].occurrences["id"];
+        id.elements
+            .iter()
+            .map(|(at, entry)| (at.to_string(), entry.codes.clone().unwrap()))
+            .collect::<Vec<_>>()
+    };
+    let other = both
+        .merge_patch(&patch("patient", r#"{"2":{"codes":["2"]}}"#))
+        .unwrap();
+    assert_eq!(
+        id_codes(&other),
+        id_codes(&both),
+        "another occurrence is left alone"
+    );
+    let patient = &other.model.loops["head"].occurrences["patient"].elements;
+    assert_eq!(
+        patient.values().next().unwrap().codes,
+        Some(vec!["2".to_string()])
+    );
+    let narrowed = both
+        .merge_patch(&patch("id", r#"{"2":{"codes":["C"]}}"#))
+        .unwrap();
+    assert_eq!(
+        id_codes(&narrowed),
+        [
+            ("1-2".to_string(), vec!["A".to_string()]),
+            ("2".to_string(), vec!["C".to_string()]),
+        ],
+        "an entry is replaced and its neighbour kept"
+    );
+    let removed = narrowed
+        .merge_patch(&patch("id", r#"{"1-2":null}"#))
+        .unwrap();
+    assert_eq!(
+        id_codes(&removed),
+        [("2".to_string(), vec!["C".to_string()])]
+    );
 }

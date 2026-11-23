@@ -72,17 +72,8 @@ impl Package {
         let Keys {
             package: header, ..
         } = serde_path_to_error::deserialize(StrictValue(&value)).map_err(format_error)?;
-        if header.id.layer() != header.layers.top() {
-            return Err(bad_header(HeaderError::IdLayerNotTop {
-                top: header.layers.top(),
-                id: Box::new(header.id),
-            }));
-        }
-        if let Some(base) = repeated(&header.bases) {
-            return Err(bad_header(HeaderError::RepeatedBase {
-                base: Box::new(base.clone()),
-                package: Box::new(header.id),
-            }));
+        if let Some(reason) = refuse(&header) {
+            return Err(bad_header(reason));
         }
         let body = value
             .as_object_mut()
@@ -108,6 +99,21 @@ impl Package {
     pub fn body(&self) -> &Value {
         &self.body
     }
+}
+
+/// The first rule a header that read breaks: the id names the top layer, and
+/// no base is listed twice.
+fn refuse(header: &PackageHeader) -> Option<HeaderError> {
+    if header.id.layer() != header.layers.top() {
+        return Some(HeaderError::IdLayerNotTop {
+            top: header.layers.top(),
+            id: Box::new(header.id.clone()),
+        });
+    }
+    repeated(&header.bases).map(|base| HeaderError::RepeatedBase {
+        base: Box::new(base.clone()),
+        package: Box::new(header.id.clone()),
+    })
 }
 
 /// The first base that an earlier one in `bases` already names.

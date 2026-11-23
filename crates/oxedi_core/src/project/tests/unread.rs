@@ -577,8 +577,8 @@ fn an_occurrence_entry_requires_and_shortens_its_element_there_only() {
     assert_eq!(
         rendered(&diagnostics),
         vec![
-            "SNIP 2 · required element NM03-2 (value) is missing or empty · segment #1, element 3, component 2 · at head#1 · datum \"\"",
-            "SNIP 2 · element NM03-2 (value) has length 3; the spec allows at most 2 · segment #3, element 3, component 2 · at head#1 · datum \"XYZ\"",
+            "SNIP 2 · required element NM03-2 (value) is missing or empty in occurrence \"patient\" · segment #1, element 3, component 2 · at head#1 · datum \"\"",
+            "SNIP 2 · element NM03-2 (value) has length 3; the spec allows at most 2 in occurrence \"patient\" · segment #3, element 3, component 2 · at head#1 · datum \"XYZ\"",
         ]
     );
 }

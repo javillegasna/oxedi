@@ -121,8 +121,8 @@ impl fmt::Display for CodeCount {
     }
 }
 
-/// The occurrence whose own code list applies, ` in occurrence "name"`, or
-/// nothing for the element's list.
+/// The occurrence whose own code list, requirement or lengths apply,
+/// ` in occurrence "name"`, or nothing for the element's definition.
 pub(super) struct InOccurrence<'a>(pub(super) Option<&'a String>);
 
 impl fmt::Display for InOccurrence<'_> {

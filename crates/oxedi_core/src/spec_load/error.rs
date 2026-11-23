@@ -92,8 +92,8 @@ pub enum SpecError {
     },
     /// The cumulative value after a package does not read as the model.
     Package {
-        /// The package whose spec made the value unreadable.
-        id: PackageId,
+        /// The package whose spec made the value unreadable, boxed to keep the error small.
+        id: Box<PackageId>,
         /// Why the value does not read.
         source: Box<SpecError>,
     },

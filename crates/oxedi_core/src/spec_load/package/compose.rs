@@ -34,7 +34,7 @@ impl Stack<'_> {
 fn absorb(value: &mut Value, package: &Package) -> Result<SpecModel, SpecError> {
     merge_patch(value, package.body());
     SpecModel::from_value(value).map_err(|source| SpecError::Package {
-        id: package.id().clone(),
+        id: Box::new(package.id().clone()),
         source: Box::new(source),
     })
 }

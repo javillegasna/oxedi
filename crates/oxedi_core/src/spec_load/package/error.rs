@@ -1,4 +1,4 @@
-//! Why a package's identity is rejected.
+//! Why a package's identity, header or stack is rejected.
 
 use std::fmt;
 
@@ -113,10 +113,10 @@ impl std::error::Error for HeaderError {}
 pub enum StackError {
     /// A package builds on a package that is not among those given.
     UnknownBase {
-        /// The package that names the base.
-        package: PackageId,
-        /// The base as written.
-        base: PackageId,
+        /// The package that names the base, boxed to keep the error small.
+        package: Box<PackageId>,
+        /// The base as written, boxed to keep the error small.
+        base: Box<PackageId>,
     },
     /// Packages build on each other in a circle.
     BaseCycle {

@@ -63,8 +63,8 @@ fn visit_bases<'p>(
             .find(|candidate| candidate.id() == id)
             .ok_or_else(|| {
                 Box::new(StackError::UnknownBase {
-                    package: package.id().clone(),
-                    base: id.clone(),
+                    package: Box::new(package.id().clone()),
+                    base: Box::new(id.clone()),
                 })
             })?;
         path.push(base.id());

@@ -127,6 +127,14 @@ fn check<'py>(value: &Bound<'py, PyAny>, path: &mut Vec<Step>) -> Walk<Bound<'py
     if let Some(scalar) = check_scalar(value, path)? {
         return Ok(scalar);
     }
+    check_container(value, path)
+}
+
+/// `check` for a mapping, a list or a tuple; anything else is not JSON.
+fn check_container<'py>(
+    value: &Bound<'py, PyAny>,
+    path: &mut Vec<Step>,
+) -> Walk<Bound<'py, PyAny>> {
     if let Ok(mapping) = value.cast::<PyMapping>() {
         return check_mapping(mapping, path);
     }
@@ -188,20 +196,30 @@ fn check_mapping<'py>(
 ) -> Walk<Bound<'py, PyAny>> {
     let plain = PyDict::new(mapping.py());
     for item in mapping.items()?.try_iter()? {
-        let (key, value) = item?.extract::<(Bound<'py, PyAny>, Bound<'py, PyAny>)>()?;
-        let Ok(name) = key.cast::<PyString>() else {
-            return refuse(format!(
-                "a key at {} has type {}; keys must be str",
-                place(path),
-                kind(&key)?
-            ));
-        };
-        path.push(Step::Key(name.to_cow()?.into_owned()));
-        let checked = check(&value, path)?;
-        path.pop();
+        let (name, checked) = check_entry(&item?, path)?;
         plain.set_item(name, checked)?;
     }
     Ok(plain.into_any())
+}
+
+/// One `(key, value)` pair of a mapping: the key, which must be a `str`, and
+/// the checked value.
+fn check_entry<'py>(
+    item: &Bound<'py, PyAny>,
+    path: &mut Vec<Step>,
+) -> Walk<(Bound<'py, PyAny>, Bound<'py, PyAny>)> {
+    let (key, value) = item.extract::<(Bound<'py, PyAny>, Bound<'py, PyAny>)>()?;
+    let Ok(name) = key.cast::<PyString>() else {
+        return refuse(format!(
+            "a key at {} has type {}; keys must be str",
+            place(path),
+            kind(&key)?
+        ));
+    };
+    path.push(Step::Key(name.to_cow()?.into_owned()));
+    let checked = check(&value, path)?;
+    path.pop();
+    Ok((key, checked))
 }
 
 /// A list of a list's or tuple's items.

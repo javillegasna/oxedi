@@ -23,7 +23,7 @@ pub struct Valid {
     /// The top package.
     pub top: Member,
     /// Whether the spec's tables can be written back into a file, or why not.
-    pub write: Capability<PlanError>,
+    pub write: Capability<CannotWrite>,
     /// Whether the spec can mask patient data, or why not.
     pub mask: Capability<NoPatientData>,
     /// What the editions and patches of the stack changed, in stack order.
@@ -62,13 +62,30 @@ impl<R: Reasons> Capability<R> {
     }
 }
 
-impl Reasons for PlanError {
-    /// Each refusal, then what to change to remove it.
+/// Why a spec's tables cannot be written back into a file.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum CannotWrite {
+    /// The spec has no tables, so every required loop would lack a source;
+    /// one reason says so instead of one refusal per loop.
+    NoTables,
+    /// The write plan refuses the tables.
+    Refused(PlanError),
+}
+
+impl Reasons for CannotWrite {
+    /// The one reason when there is no table, else each refusal and what to
+    /// change to remove it.
     fn lines(&self) -> Vec<String> {
-        self.refusals
-            .iter()
-            .map(|refusal| format!("{refusal}; {}", refusal.remedy()))
-            .collect()
+        match self {
+            CannotWrite::NoTables => {
+                vec!["the stack has no tables; build a views package on it".to_string()]
+            }
+            CannotWrite::Refused(plan) => plan
+                .refusals
+                .iter()
+                .map(|refusal| format!("{refusal}; {}", refusal.remedy()))
+                .collect(),
+        }
     }
 }
 

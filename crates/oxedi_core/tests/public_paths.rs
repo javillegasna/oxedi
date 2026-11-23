@@ -141,6 +141,7 @@ mod by_module {
     use oxedi_core::trivia::BYTE_ORDER_MARK;
     use oxedi_core::trivia::LeadingTrivia;
     use oxedi_core::trivia::is_trivia;
+    use oxedi_core::validate::CannotWrite;
     use oxedi_core::validate::Capability;
     use oxedi_core::validate::Invalid;
     use oxedi_core::validate::Member;
@@ -201,7 +202,8 @@ use oxedi_core::{
     Bitmap, Cell, CellError, Column, ColumnData, ColumnType, RowError, Table, Tables,
 };
 use oxedi_core::{
-    Capability, Invalid, Member, NoPatientData, Reasons, Text, Valid, Validation, validate,
+    CannotWrite, Capability, Invalid, Member, NoPatientData, Reasons, Text, Valid, Validation,
+    validate,
 };
 use oxedi_core::{ColumnSchema, TableSchema, spec_schema};
 use oxedi_core::{DateMode, Mask, MaskError, Phi};

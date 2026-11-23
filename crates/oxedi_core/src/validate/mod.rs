@@ -13,10 +13,12 @@ mod report;
 #[cfg(test)]
 mod tests;
 
-pub use report::{Capability, Invalid, Member, NoPatientData, Reasons, Text, Valid, Validation};
+pub use report::{
+    CannotWrite, Capability, Invalid, Member, NoPatientData, Reasons, Text, Valid, Validation,
+};
 
 use crate::spec_load::{LoadedSpec, Package, SpecError, Stack, Step};
-use crate::write::{PlanError, WritePlan};
+use crate::write::WritePlan;
 
 /// Composes the stack that `top` builds on, with the packages of `pool` as its
 /// bases, and answers whether it loads: [`Validation::Yes`] with what the
@@ -59,11 +61,15 @@ fn load(top: &str, pool: &[&str]) -> Result<Valid, Box<Invalid>> {
     })
 }
 
-// Whether the write plan builds, the plan's own refusals being the reasons.
-fn write_capability(loaded: &LoadedSpec) -> Capability<PlanError> {
+// Whether the spec has tables and the write plan builds, the plan's own
+// refusals being the reasons.
+fn write_capability(loaded: &LoadedSpec) -> Capability<CannotWrite> {
+    if loaded.spec.tables().is_empty() {
+        return Capability::Cannot(CannotWrite::NoTables);
+    }
     match WritePlan::new(&loaded.spec) {
         Ok(_) => Capability::Can,
-        Err(plan) => Capability::Cannot(plan),
+        Err(plan) => Capability::Cannot(CannotWrite::Refused(plan)),
     }
 }
 

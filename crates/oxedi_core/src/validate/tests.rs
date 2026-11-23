@@ -1,7 +1,9 @@
 //! Tests of `validate`: the answer for the shipped stacks and for each way a
 //! stack fails to load.
 
-use super::{Capability, Invalid, NoPatientData, Reasons, Text, Valid, Validation, validate};
+use super::{
+    CannotWrite, Capability, Invalid, NoPatientData, Reasons, Text, Valid, Validation, validate,
+};
 use crate::spec_load::{Builtin, Role};
 use crate::write::{PlanError, Refusal};
 
@@ -188,13 +190,11 @@ fn the_4010_stack_can_write_and_mask() {
 #[test]
 fn a_guide_top_cannot_write_or_mask() {
     let valid = yes(validate(shipped()[3], shipped()));
-    let Capability::Cannot(plan) = &valid.write else {
-        panic!("a guide has no table, so it cannot write");
-    };
-    let reasons = valid.write.reasons();
-    assert!(!plan.refusals.is_empty());
-    assert_eq!(reasons.len(), plan.refusals.len());
-    assert!(reasons.iter().all(|reason| reason.contains("; ")));
+    assert_eq!(valid.write, Capability::Cannot(CannotWrite::NoTables));
+    assert_eq!(
+        valid.write.reasons(),
+        vec!["the stack has no tables; build a views package on it"]
+    );
     assert_eq!(
         valid.mask.reasons(),
         vec![
@@ -207,7 +207,12 @@ fn a_guide_top_cannot_write_or_mask() {
         text.contains("\ncannot mask (1 reason):\n1. no column of any table is flagged"),
         "{text}"
     );
-    assert!(text.contains(&format!("\ncannot write ({} reasons):\n1. ", reasons.len())));
+    assert!(
+        text.contains(
+            "\ncannot write (1 reason):\n1. the stack has no tables; build a views package on it\n"
+        ),
+        "{text}"
+    );
 }
 
 #[test]
@@ -220,7 +225,7 @@ fn write_reasons_say_what_to_do() {
         }],
     };
     assert_eq!(
-        plan.lines(),
+        CannotWrite::Refused(plan).lines(),
         vec![
             "table \"names\" is anchored on 2 loops (\"1000A\", \"1000B\"); a written row opens one \
              loop instance and nothing in the row says which; anchor the table on one loop"

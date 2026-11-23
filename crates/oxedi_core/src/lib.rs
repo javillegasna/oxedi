@@ -86,7 +86,8 @@ pub use summary::{SummaryError, SummaryValue, summarize};
 pub use tokenizer::Tokenizer;
 pub use tree::{LoopTree, Node, NodeId, TreeBuilder};
 pub use validate::{
-    Capability, Invalid, Member, NoPatientData, Reasons, Text, Valid, Validation, validate,
+    CannotWrite, Capability, Invalid, Member, NoPatientData, Reasons, Text, Valid, Validation,
+    validate,
 };
 pub use value::{ColumnType, ConvertError, ElementType, parse_dt, parse_n, parse_r, parse_tm};
 pub use vocabulary::{DateMode, Phi, Pick};

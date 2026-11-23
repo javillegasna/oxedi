@@ -1,11 +1,11 @@
-//! The one rule that says what an element or component allows where a segment is read.
+//! The one rule that says what an element or component allows where a segment is read or written.
 
 use super::{ElementDef, OccurrenceDef, rejects_code};
 use crate::value::LengthRange;
 
-/// What an element or component allows where a segment is read: its
-/// definition, narrowed by the entry of the occurrence the segment takes,
-/// when that occurrence has one.
+/// What an element or component allows where a segment is read or
+/// written: its definition, narrowed by the entry of the occurrence the
+/// segment takes, when that occurrence has one.
 #[derive(Debug, Clone, Copy)]
 pub(crate) struct ElementRule<'s> {
     /// The definition (name and type).
@@ -35,7 +35,7 @@ impl<'s> ElementRule<'s> {
 
     /// The rule at `(element, component)` of `occurrence`, when given, for
     /// `def`. One map lookup over the places the occurrence narrows, and no
-    /// allocation.
+    /// allocation. `element` and `component` are 1-based.
     pub(crate) fn at(
         def: &'s ElementDef,
         occurrence: Option<&'s OccurrenceDef>,

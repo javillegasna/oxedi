@@ -1,7 +1,6 @@
 use super::super::*;
 use super::package;
-use crate::spec_load::builtin::PACKAGES;
-use crate::spec_load::{Builtin, SpecError};
+use crate::spec_load::SpecError;
 
 const E: &str = "test/envelope/005010";
 const D: &str = "test/dictionary/005010";
@@ -60,7 +59,7 @@ fn widening_an_element_is_refused() {
         let err = compose(&top, &[base()]).unwrap_err();
         assert_eq!(
             err.to_string(),
-            format!("package \"{D}\" widens what its bases allow: {change}{TAIL}"),
+            format!("package \"{D}\" does not only narrow what its bases allow: {change}{TAIL}"),
             "{spec}"
         );
     }
@@ -110,6 +109,22 @@ fn an_edition_records_its_changes() {
 }
 
 #[test]
+fn what_a_package_adds_is_recorded_only_for_an_edition() {
+    let added = r#"{"segments":{"BB":{"elements":{"1":{"name":"n","type":"AN"}}}}}"#;
+    let narrowing = dictionary(D, &[E], added);
+    assert!(compose(&narrowing, &[base()]).unwrap().changes.is_empty());
+    let first = dictionary(D, &[E], r#"{"segments":{}}"#);
+    let edition = dictionary(D2, &[D], added);
+    let changes = compose(&edition, &[base(), first]).unwrap().changes;
+    assert_eq!(changes.len(), 1);
+    assert_eq!(changes[0].path, "segments.BB");
+    assert_eq!(
+        changes[0].to_string(),
+        "segments.BB is added: {\"elements\":{\"1\":{\"name\":\"n\",\"type\":\"AN\"}}}"
+    );
+}
+
+#[test]
 fn a_patch_records_a_removal() {
     let patch = package(
         "test/patch/005010/835/X1",
@@ -132,16 +147,4 @@ fn widens_error_has_no_source() {
         }),
     };
     assert!(std::error::Error::source(&err).is_none());
-}
-
-#[test]
-fn every_builtin_composes_checked_to_the_model_of_the_registry() {
-    let pool = PACKAGES.map(|text| Package::from_json(text).unwrap());
-    for (builtin, top) in Builtin::all().iter().zip(&pool) {
-        let checked = Stack::resolve(top, &pool)
-            .unwrap()
-            .compose_checked()
-            .unwrap();
-        assert_eq!(builtin.model().unwrap(), checked.model);
-    }
 }

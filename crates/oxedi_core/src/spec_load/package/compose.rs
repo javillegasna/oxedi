@@ -22,8 +22,9 @@ pub struct Composed {
     pub(in crate::spec_load) value: Value,
     /// The model read from the value.
     pub model: SpecModel,
-    /// What the editions and patches of the stack changed, in stack order.
-    /// A package that only narrows changes nothing listed here.
+    /// What the editions and patches of the stack changed, added or removed,
+    /// in stack order. A package that only narrows adds to its bases and
+    /// narrows them, and lists nothing here.
     pub changes: Vec<Change>,
 }
 
@@ -36,36 +37,15 @@ impl Stack<'_> {
     /// its changes are listed in [`Composed::changes`]. The name comes from
     /// the top package's id; compiling the model is left to the caller, once.
     pub fn compose_checked(&self) -> Result<Composed, SpecError> {
-        self.fold(changes_of)
-    }
-
-    // The same composition without the comparison, which the registry of
-    // built-in specs does not link.
-    #[cfg_attr(not(test), expect(dead_code))]
-    pub(in crate::spec_load) fn compose(&self) -> Result<Composed, SpecError> {
-        self.fold(|_, _, _| Ok(Vec::new()))
-    }
-
-    // Reads the cumulative value after each package and hands `check` the
-    // model before and after every package but the first, to list its changes.
-    fn fold(
-        &self,
-        mut check: impl FnMut(Step<'_>, &SpecModel, &SpecModel) -> Result<Vec<Change>, SpecError>,
-    ) -> Result<Composed, SpecError> {
         let mut value = json!({ "name": self.top().id().spec_name() });
         let mut changes = Vec::new();
         let mut before = None;
         for step in self.bases() {
-            let next = advance(&mut value, *step, before.as_ref(), &mut check, &mut changes)?;
+            let next = advance(&mut value, *step, before.as_ref(), &mut changes)?;
             before = Some(next);
         }
-        let model = advance(
-            &mut value,
-            self.top_step(),
-            before.as_ref(),
-            &mut check,
-            &mut changes,
-        )?;
+        let top = self.top_step();
+        let model = advance(&mut value, top, before.as_ref(), &mut changes)?;
         Ok(Composed {
             value,
             model,
@@ -74,28 +54,24 @@ impl Stack<'_> {
     }
 }
 
-// Merges one package and reads the result; `check` lists what it changed from
-// the model `before` it, when there is one.
-fn advance<F>(
+// Merges one package, reads the result and lists what it changed from the
+// model `before` it, when there is one.
+fn advance(
     value: &mut Value,
     step: Step<'_>,
     before: Option<&SpecModel>,
-    check: &mut F,
     changes: &mut Vec<Change>,
-) -> Result<SpecModel, SpecError>
-where
-    F: FnMut(Step<'_>, &SpecModel, &SpecModel) -> Result<Vec<Change>, SpecError>,
-{
+) -> Result<SpecModel, SpecError> {
     let after = absorb(value, step.package)?;
     if let Some(prev) = before {
-        changes.extend(check(step, prev, &after)?);
+        changes.extend(changes_of(step, prev, &after)?);
     }
     Ok(after)
 }
 
-// The changes a package lists: all of an edition's or a patch's; a package that
-// only narrows lists none, and its first difference that is not a narrowing is
-// refused.
+// The changes a package lists: all of an edition's or a patch's, additions
+// included; a package that only narrows lists none, may add, and its first
+// difference that is not a narrowing is refused.
 fn changes_of(
     step: Step<'_>,
     prev: &SpecModel,
@@ -105,10 +81,12 @@ fn changes_of(
     if step.role != Role::Narrows {
         return Ok(found);
     }
-    match found
-        .into_iter()
-        .find(|change| !matches!(change.kind, ChangeKind::Narrowed { .. }))
-    {
+    match found.into_iter().find(|change| {
+        !matches!(
+            change.kind,
+            ChangeKind::Narrowed { .. } | ChangeKind::Added { .. }
+        )
+    }) {
         None => Ok(Vec::new()),
         Some(change) => Err(SpecError::Stack {
             reason: Box::new(StackError::Widens {

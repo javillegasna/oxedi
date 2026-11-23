@@ -97,7 +97,10 @@ fn a_fault_in_a_base_names_the_base() {
     );
     let top = package(G, &["guide"], &[D], "{}");
     let pool = [envelope(), dictionary, top.clone()];
-    let err = Stack::resolve(&top, &pool).unwrap().compose().unwrap_err();
+    let err = Stack::resolve(&top, &pool)
+        .unwrap()
+        .compose_checked()
+        .unwrap_err();
     assert_eq!(
         err.to_string(),
         "package \"test/dictionary/005010\": spec: at loops.a.occurrences.aa.usage: \"usage\" must be \"required\" or \"situational\"; found \"sometimes\""
@@ -115,9 +118,9 @@ fn the_name_comes_from_the_top_id() {
     );
     let pool = [envelope.clone(), transaction_set.clone()];
     let stack = Stack::resolve(&transaction_set, &pool).unwrap();
-    assert_eq!(stack.compose().unwrap().model.name, "835");
+    assert_eq!(stack.compose_checked().unwrap().model.name, "835");
     let alone = Stack::resolve(&envelope, &pool).unwrap();
-    assert_eq!(alone.compose().unwrap().model.name, "005010");
+    assert_eq!(alone.compose_checked().unwrap().model.name, "005010");
 }
 
 #[test]
@@ -128,7 +131,7 @@ fn packages_merge_by_value_in_order() {
     let pool = [envelope(), guided.clone()];
     let model = Stack::resolve(&guided, &pool)
         .unwrap()
-        .compose()
+        .compose_checked()
         .unwrap()
         .model;
     let value = serde_json::to_value(&model).unwrap();
@@ -151,7 +154,7 @@ fn packages_merge_by_value_in_order() {
     let value = serde_json::to_value(
         Stack::resolve(&patch, &pool)
             .unwrap()
-            .compose()
+            .compose_checked()
             .unwrap()
             .model,
     )
@@ -165,7 +168,7 @@ fn a_refusal_after_a_package_names_it_and_the_path() {
     let pool = [envelope(), guided.clone()];
     let err = Stack::resolve(&guided, &pool)
         .unwrap()
-        .compose()
+        .compose_checked()
         .unwrap_err();
     assert!(matches!(
         &err,
@@ -184,7 +187,7 @@ fn the_first_package_must_read_as_a_whole_model() {
     let dictionary = package(D, &["dictionary"], &[], r#"{"segments":{}}"#);
     let err = Stack::resolve(&dictionary, std::slice::from_ref(&dictionary))
         .unwrap()
-        .compose()
+        .compose_checked()
         .unwrap_err();
     assert_eq!(
         err.to_string(),

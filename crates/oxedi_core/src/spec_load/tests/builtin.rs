@@ -139,7 +139,10 @@ fn each_builtin_spec_is_compiled_from_its_model() {
 fn the_lean_read_equals_the_checked_composition() {
     let pool = PACKAGES.map(|text| Package::from_json(text).unwrap());
     for (builtin, top) in Builtin::all().iter().zip(&pool) {
-        let checked = Stack::resolve(top, &pool).unwrap().compose().unwrap();
+        let checked = Stack::resolve(top, &pool)
+            .unwrap()
+            .compose_checked()
+            .unwrap();
         assert_eq!(builtin.model().unwrap(), checked.model);
         assert_eq!(
             builtin.model().unwrap().to_json().unwrap(),

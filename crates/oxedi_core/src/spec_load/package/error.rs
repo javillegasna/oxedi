@@ -156,7 +156,8 @@ pub enum StackError {
         /// The package.
         package: PackageId,
     },
-    /// A package that only narrows its bases allows more than they do.
+    /// A package that only narrows its bases changes what they allow in some other
+    /// way: it allows more, or changes or removes what they hold.
     Widens {
         /// What widened and the package that did it, boxed to keep the error small.
         change: Box<Change>,
@@ -211,7 +212,7 @@ impl fmt::Display for StackError {
             ),
             StackError::Widens { change } => write!(
                 f,
-                "package \"{}\" widens what its bases allow: {change}; a package only narrows \
+                "package \"{}\" does not only narrow what its bases allow: {change}; a package only narrows \
                  its bases, unless it is an edition (it holds a layer its base holds) or a patch",
                 change.package
             ),

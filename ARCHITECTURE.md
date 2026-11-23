@@ -131,7 +131,7 @@ The spec files live in `crates/oxedi_core/specs/`:
 | File | What it is | Who loads it |
 |---|---|---|
 | `oxedi/envelope/005010.json` | The envelope, first in every stack: the interchange, group and transaction loops and the ISA, TA1, GS, ST, SE, GE and IEA segments. | `Builtin` (`include_str!` in `spec_load/builtin.rs`) |
-| `oxedi/dictionary/005010.json` | Every segment the 835 uses beyond the envelope's, its elements and components, on the envelope; its usage and codes move to the guide. | `Builtin` (`spec_load/builtin.rs`) |
+| `oxedi/dictionary/005010.json` | Every segment the 835 uses beyond the envelope's, its elements and components, on the envelope; the usage and codes of BPR, TRN, CUR, REF, DTM, N1, N3, N4, PER and RDM are in the guide, those of the other segments are still here. | `Builtin` (`spec_load/builtin.rs`) |
 | `oxedi/guide/005010/835/X221A1.json` | The 5010 guide (layers transaction-set and guide), on the dictionary: the 835's loops, the version, the balancing rules and the codes of GS01, GS08 and ST01. A `package` header and the `spec` (`version`, `loops`, `segments`, `balancing`). | `Builtin` (`spec_load/builtin.rs`) |
 | `oxedi/views/005010/835/X221A1.json` | The tables, the summaries and the default table, on the guide; the top of the 5010 stack. | `Builtin` (`spec_load/builtin.rs`) |
 | `oxedi/guide/004010/835/X091A1.json` | The 4010: an edition over the 5010 whose `spec` is a JSON Merge Patch (RFC 7386). | `Builtin` (`spec_load/builtin.rs`): the stack of the packages, composed |

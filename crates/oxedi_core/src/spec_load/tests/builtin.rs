@@ -5,7 +5,7 @@ use std::error::Error;
 use super::{package_of, shipped};
 use crate::Document;
 use crate::spec_load::package::Stack;
-use crate::spec_load::{Builtin, PackageId, UnknownVersion, Version};
+use crate::spec_load::{Builtin, Package, PackageId, UnknownVersion, Version};
 
 fn selected(bytes: &[u8]) -> Version {
     let document = Document::parse(bytes.to_vec()).unwrap();
@@ -144,6 +144,18 @@ fn the_lean_read_equals_the_checked_composition() {
             .unwrap()
             .compose_checked()
             .unwrap();
+        // The lean chain lists the packages in the order the stack resolves them.
+        let chain_ids: Vec<String> = builtin
+            .chain()
+            .iter()
+            .map(|text| Package::from_json(text).unwrap().id().to_string())
+            .collect();
+        let stack_ids: Vec<String> = Stack::resolve(top, &pool)
+            .unwrap()
+            .steps()
+            .map(|step| step.package.id().to_string())
+            .collect();
+        assert_eq!(chain_ids, stack_ids);
         assert_eq!(builtin.model().unwrap(), checked.model);
         assert_eq!(
             builtin.model().unwrap().to_json().unwrap(),

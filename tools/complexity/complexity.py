@@ -68,6 +68,7 @@ DUPLICATE_MIN_TOKENS = 70
 # A line of a Rust module's list of its files: a `mod x;` declaration of any visibility, an
 # outer attribute (`#[cfg(test)]`), or blank.
 MOD_LIST_LINE = re.compile(r"\s*(#\[[^\]]*\]\s*)*((pub(\([^)]*\))?\s+)?mod\s+(r#)?\w+\s*;)?\s*")
+MOD_DECLARATION = re.compile(r"\s*(#\[[^\]]*\]\s*)*(pub(\([^)]*\))?\s+)?mod\s+(r#)?\w+\s*;\s*")
 NESTING_TARGET = 3
 FLAT_FIELD = "\tflat"
 
@@ -221,7 +222,7 @@ def duplicate_message(block: Block) -> str:
 
 def lists_modules(copy: Copy) -> bool:
     """Whether the copy is a Rust module's list of its files: every line a `mod` declaration, an
-    attribute or blank. Two modules whose files share names write no logic twice. A copy whose
+    attribute or blank, and at least one a `mod` declaration. Two modules whose files share names write no logic twice. A copy whose
     file cannot be read is not such a list, so its block stays reported."""
     if not copy.path.endswith(".rs"):
         return False
@@ -230,7 +231,8 @@ def lists_modules(copy: Copy) -> bool:
     except (OSError, UnicodeDecodeError):
         return False
     lines = text.splitlines()[copy.first - 1:copy.last]
-    return bool(lines) and all(MOD_LIST_LINE.fullmatch(line) for line in lines)
+    return (all(MOD_LIST_LINE.fullmatch(line) for line in lines)
+            and any(MOD_DECLARATION.fullmatch(line) for line in lines))
 
 
 def read_measurements(path: str) -> list[Row]:

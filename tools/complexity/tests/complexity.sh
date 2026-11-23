@@ -388,6 +388,15 @@ duplicates "1,$tmp/list_one.rs,1,6" "1,$tmp/logic.rs,1,3"
 expect 1 "DUPLICATE $tmp/list_one.rs:1-6, $tmp/logic.rs:1-3" --duplicate-blocks "$tmp/duplicates.csv"
 duplicates "1,$tmp/list_one.rs,1,6" "1,$tmp/missing.rs,1,6"
 expect 1 "DUPLICATE $tmp/list_one.rs:1-6, $tmp/missing.rs:1-6" --duplicate-blocks "$tmp/duplicates.csv"
+printf 'mod x {\n}\n' > "$tmp/inline.rs"
+printf '#[cfg(test)]\nfn f() {}\n' > "$tmp/attr_fn.rs"
+printf '#[cfg(test)]\n#[allow(dead_code)]\n\n' > "$tmp/attrs.rs"
+duplicates "1,$tmp/inline.rs,1,2" "1,$tmp/inline.rs,1,2"
+expect 1 "DUPLICATE $tmp/inline.rs:1-2, $tmp/inline.rs:1-2" --duplicate-blocks "$tmp/duplicates.csv"
+duplicates "1,$tmp/attr_fn.rs,1,2" "1,$tmp/attr_fn.rs,1,2"
+expect 1 "DUPLICATE $tmp/attr_fn.rs:1-2, $tmp/attr_fn.rs:1-2" --duplicate-blocks "$tmp/duplicates.csv"
+duplicates "1,$tmp/attrs.rs,1,3" "1,$tmp/attrs.rs,1,3"
+expect 1 "DUPLICATE $tmp/attrs.rs:1-3, $tmp/attrs.rs:1-3" --duplicate-blocks "$tmp/duplicates.csv"
 
 measurements 'a.rs,big,12,2' 'a.rs,fmt,9,1' 'a.rs,fmt,20,0' 'a.rs,small,8,3'
 duplicates '1,a.rs,10,13' '1,b.py,40,43'

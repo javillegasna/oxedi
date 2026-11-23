@@ -10,7 +10,7 @@ use crate::spec_load::error::SpecError;
 
 /// How a package relates to its bases.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub(in crate::spec_load) enum Role {
+pub enum Role {
     /// It holds layers above every base's.
     Narrows,
     /// It holds a layer one of the packages it builds on holds.
@@ -21,16 +21,16 @@ pub(in crate::spec_load) enum Role {
 
 /// One package of a stack and its role.
 #[derive(Debug, Clone, Copy)]
-pub(in crate::spec_load) struct Step<'p> {
+pub struct Step<'p> {
     /// The package.
-    pub(in crate::spec_load) package: &'p Package,
+    pub package: &'p Package,
     /// How it relates to its bases.
-    pub(in crate::spec_load) role: Role,
+    pub role: Role,
 }
 
 /// A top package and every package it builds on, bases first, each once.
 #[derive(Debug, Clone)]
-pub(in crate::spec_load) struct Stack<'p> {
+pub struct Stack<'p> {
     bases: Vec<Step<'p>>,
     top: Step<'p>,
 }
@@ -39,10 +39,7 @@ impl<'p> Stack<'p> {
     /// Resolves the bases of `top`, and theirs, among `pool`, depth first, so a
     /// package comes after every package it builds on and a shared base
     /// appears once. Stacks are a handful of packages, so the lookups are linear.
-    pub(in crate::spec_load) fn resolve(
-        top: &'p Package,
-        pool: &'p [Package],
-    ) -> Result<Stack<'p>, SpecError> {
+    pub fn resolve(top: &'p Package, pool: &'p [Package]) -> Result<Stack<'p>, SpecError> {
         if let Some(id) = repeated_id(pool) {
             return Err(SpecError::Stack {
                 reason: Box::new(StackError::DuplicatePackage {
@@ -60,18 +57,23 @@ impl<'p> Stack<'p> {
     }
 
     /// The steps of the stack, bases first, the top last.
-    pub(in crate::spec_load) fn steps(&self) -> impl Iterator<Item = Step<'p>> + '_ {
+    pub fn steps(&self) -> impl Iterator<Item = Step<'p>> + '_ {
         self.bases.iter().copied().chain([self.top])
     }
 
     /// The package the stack is built for.
-    pub(in crate::spec_load) fn top(&self) -> &'p Package {
+    pub fn top(&self) -> &'p Package {
         self.top.package
     }
 
     /// The steps the top builds on, bases first.
-    pub(in crate::spec_load) fn bases(&self) -> &[Step<'p>] {
+    pub(super) fn bases(&self) -> &[Step<'p>] {
         &self.bases
+    }
+
+    /// The last step: the top package and its role.
+    pub(super) fn top_step(&self) -> Step<'p> {
+        self.top
     }
 }
 

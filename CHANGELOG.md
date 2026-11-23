@@ -10,6 +10,7 @@ This file covers the Python package; the DuckDB extension has its own changelog 
 ## [Unreleased]
 
 ### Added
+- Rust: `Stack::resolve` and `Stack::compose_checked` compose a stack of packages and refuse a package that widens what its bases allow (`StackError::Widens`): an element's or a component's codes, lengths, requirement, type and name, and a removed segment or element. An edition or a patch may change anything, and `Composed::changes` lists what it changed.
 - Rust: `spec_load::Package` reads a package, a JSON file `{"package": {...}, "spec": {...}}` whose header holds `format` (an integer; a reader takes its own and every lower number and refuses a higher one naming both), `id` (`PackageId`: author, `Layer`, `Release`, transaction set, guide), `layers` (`Layers`) and `bases`; `SpecError::BadHeader` names what is wrong.
 - Rust: `LoadedSpec` (`model`, `spec`) keeps a spec's typed model beside the spec compiled from it; `LoadedSpec::merge_patch` merges a patch over the model and compiles again, every failure a `SpecError::Patch`. `SpecModel::from_json` reads a spec's text into its model, `SpecModel::compile` compiles it, and `Builtin::model` reads a built-in's model from the JSON the built-in ships. `Builtin::loaded` keeps a built-in's model, read on demand, beside its spec.
 - `oxedi.Version` (`V5010`, `V4010`, with `text` and `str()`): the X12 release of a built-in spec.

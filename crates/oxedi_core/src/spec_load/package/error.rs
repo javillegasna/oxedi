@@ -2,6 +2,7 @@
 
 use std::fmt;
 
+use super::change::Change;
 use super::id::{IdPart, PackageId};
 use super::layer::{Layer, Layers};
 use crate::vocabulary::words_text;
@@ -155,6 +156,11 @@ pub enum StackError {
         /// The package.
         package: PackageId,
     },
+    /// A package that only narrows its bases allows more than they do.
+    Widens {
+        /// What widened and the package that did it, boxed to keep the error small.
+        change: Box<Change>,
+    },
 }
 
 impl fmt::Display for StackError {
@@ -202,6 +208,12 @@ impl fmt::Display for StackError {
                 f,
                 "package \"{package}\" holds \"name\"; a stack takes its name from its top \
                  package's id, so remove the key"
+            ),
+            StackError::Widens { change } => write!(
+                f,
+                "package \"{}\" widens what its bases allow: {change}; a package only narrows \
+                 its bases, unless it is an edition (it holds a layer its base holds) or a patch",
+                change.package
             ),
             StackError::BaseCycle { members } => {
                 let circle: Vec<&str> = members

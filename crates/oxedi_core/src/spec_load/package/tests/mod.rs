@@ -1,6 +1,7 @@
 //! Unit tests of the package module, one file per topic.
 
 mod change;
+mod checked;
 mod header;
 mod id;
 mod layers;

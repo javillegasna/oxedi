@@ -28,7 +28,8 @@
 //! compiled form; `patch` the merge patch; `builtin` the registry of shipped
 //! specs by transaction and version, and the built-in 835 shortcuts;
 //! `vocabulary` the spec's closed words and the codes key, one table each;
-//! `package` the layers of a package and its identity.
+//! `package` the layers of a package, its identity, the stack of packages a
+//! spec is composed from and the check that a package only narrows its bases.
 
 mod balance;
 mod balance_error;
@@ -71,8 +72,8 @@ pub use model::{
 };
 pub use occurrence_error::OccurrenceError;
 pub use package::{
-    Guide, HeaderError, IdError, IdPart, Layer, Layers, Package, PackageHeader, PackageId, Release,
-    Scope, StackError, TransactionSet,
+    Change, ChangeKind, Composed, Guide, HeaderError, IdError, IdPart, Layer, Layers, Package,
+    PackageHeader, PackageId, Release, Role, Scope, Stack, StackError, Step, TransactionSet,
 };
 pub use patch::merge_patch;
 pub use segments::ElementDefError;

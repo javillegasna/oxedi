@@ -34,7 +34,7 @@ pub const TABLE: &[Row] = &[
         ],
     ),
     row("column", &["message", "value"]),
-    row("conformance", &[]),
+    row("conformance", &["column", "diagnostic", "spec_load"]),
     row("delimiters", &["frame", "message", "trivia"]),
     row("diagnostic", &["document", "message", "value"]),
     row("document", &["delimiters", "element", "frame", "segment"]),

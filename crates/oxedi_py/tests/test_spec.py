@@ -102,6 +102,53 @@ def test_a_huge_int_is_refused():
     )
 
 
+def test_an_infinity_is_refused():
+    assert _refused({"x": float("inf")}) == (
+        "Spec.patch: the value at x is inf, which JSON cannot hold"
+    )
+    assert _refused({"x": [float("-inf")]}) == (
+        "Spec.patch: the value at x[0] is -inf, which JSON cannot hold"
+    )
+
+
+def _spec_error(patch):
+    with pytest.raises(SpecError) as info:
+        Spec.builtin().patch(patch)
+    return str(info.value)
+
+
+def test_a_bool_stays_a_bool():
+    assert "boolean `true`" in _spec_error({"name": True})
+    assert "boolean `false`" in _spec_error({"name": False})
+    assert "integer `1`" in _spec_error({"name": 1})
+
+
+def test_the_64_bit_boundary_of_an_integer():
+    for edge in (2**64 - 1, -(2**63)):
+        assert "integer" in _spec_error({"name": edge}), edge
+    for beyond in (2**64, -(2**63) - 1):
+        assert _refused({"x": beyond}) == (
+            f"Spec.patch: the value at x is {beyond}, outside the 64-bit integers a spec reads"
+        )
+
+
+class _NotAMapping:
+    def keys(self):
+        return ["a"]
+
+    def __getitem__(self, key):
+        return 1
+
+
+def test_an_object_that_is_not_a_registered_mapping_is_refused():
+    assert _refused(_NotAMapping()) == (
+        "Spec.patch takes a dict or a JSON string, not _NotAMapping"
+    )
+    assert _refused({"x": _NotAMapping()}) == (
+        "Spec.patch: the value at x has type _NotAMapping, which is not a JSON value"
+    )
+
+
 def test_bytes_are_refused():
     assert _refused({"x": [b"a"]}) == (
         "Spec.patch: the value at x[0] has type bytes, which is not a JSON value"

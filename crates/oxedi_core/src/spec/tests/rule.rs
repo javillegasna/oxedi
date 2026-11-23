@@ -42,6 +42,28 @@ fn an_occurrence_list_applies_at_its_place_only() {
 }
 
 #[test]
+fn an_entry_sets_only_its_facets() {
+    let spec = Spec::from_json(
+        r#"{"name":"t","loops":{"a":{"trigger":{"segment":"AA"},"occurrences":{
+            "x":{"segment":"AA","pos":0,"elements":{"1":{"usage":"required"},"2":{"max":3}}}}}},
+        "segments":{"AA":{"elements":{
+            "1":{"name":"one","type":"ID","min":1,"max":5,"codes":["P","Q"]},
+            "2":{"name":"two","type":"AN","min":2,"max":9}}}}}"#,
+    )
+    .unwrap();
+    let occurrence = &spec.get(spec.loop_id("a").unwrap()).occurrences[0];
+    let first = spec.element_def(b"AA", 1, None).unwrap();
+    let rule = ElementRule::at(first, Some(occurrence), 1, None);
+    assert!(rule.required && !first.required);
+    assert_eq!((rule.codes_of, rule.codes), (None, first.codes.as_slice()));
+    assert_eq!(rule.length, first.length);
+    let second = spec.element_def(b"AA", 2, None).unwrap();
+    let rule = ElementRule::at(second, Some(occurrence), 2, None);
+    assert_eq!((rule.length.min, rule.length.max), (Some(2), Some(3)));
+    assert_eq!(rule.required, second.required);
+}
+
+#[test]
 fn rejects_follows_the_list_that_applies() {
     let spec = &Spec::builtin_835();
     let rule = payer_rule(spec);

@@ -250,7 +250,7 @@ fn check_scale(kind: ElementType) -> Result<ElementType, ElementDefError> {
 
 /// Checks `min` and `max`: a `max` of 0 admits no value, and `min` may not
 /// pass `max`.
-fn check_lengths(length: LengthRange) -> Result<(), ElementDefError> {
+pub(super) fn check_lengths(length: LengthRange) -> Result<(), ElementDefError> {
     match (length.min, length.max) {
         (_, Some(0)) => Err(ElementDefError::ZeroMax),
         (Some(min), Some(max)) if min > max => Err(ElementDefError::MinAboveMax { min, max }),

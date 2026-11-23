@@ -1,15 +1,15 @@
 //! The compilation of the element entries of a loop's occurrences against the
-//! `segments` section: the qualifier's code list and, per entry, the codes it
-//! lists, checked with the rules an element's own `codes` gets.
+//! `segments` section: the qualifier's code list and, per entry, the usage,
+//! lengths and codes it sets, each checked to only narrow its element.
 
 use std::collections::BTreeMap;
 
 use super::model::ElementEntryModel;
 use super::occurrence_error::OccurrenceError;
-use super::segments::compile_codes;
+use super::segments::{check_lengths, compile_codes};
 use super::vocabulary::ElementPosition;
 use crate::message::place;
-use crate::spec::{ElementDef, ElementEntry, Qualifier, SegmentDef, Setting, element_def};
+use crate::spec::{ElementDef, ElementEntry, Qualifier, SegmentDef, Setting, Usage, element_def};
 use crate::value::LengthRange;
 
 /// A code list of an occurrence and the element or component it is for.
@@ -103,7 +103,8 @@ pub(super) fn compile_entries(
     Ok(entries)
 }
 
-/// One entry at `at`: the codes it lists, narrowing the element's.
+/// One entry at `at`: its usage, lengths and codes, each narrowing the
+/// element's.
 fn compile_entry(
     segments: &BTreeMap<Vec<u8>, SegmentDef>,
     segment: &str,
@@ -114,10 +115,12 @@ fn compile_entry(
     let key = format!("elements.{at}");
     refuse_qualifier_codes(&key, at, entry, qualifier)?;
     let def = find_element(segments, segment, &key, at)?;
+    let place = place(segment, at.element, at.component);
+    let length = entry_length(def, &key, &place, entry)?;
     Ok(ElementEntry {
-        required: Setting::Element,
-        length: Setting::Element,
-        codes: entry_codes(def, segment, at, &key, entry)?,
+        required: entry_required(def, &key, &place, entry.usage)?,
+        codes: entry_codes(def, segment, at, &key, entry, *length.or(&def.length))?,
+        length,
     })
 }
 
@@ -138,14 +141,63 @@ fn refuse_qualifier_codes(
     Ok(())
 }
 
-/// The codes an entry lists, validated against its element; the element's
-/// when it lists none.
+/// The requirement an entry sets; it may tighten the element's, never loosen.
+fn entry_required(
+    def: &ElementDef,
+    key: &str,
+    place: &str,
+    usage: Option<Usage>,
+) -> Result<Setting<bool>, OccurrenceError> {
+    match usage {
+        None => Ok(Setting::Element),
+        Some(Usage::Required) => Ok(Setting::Occurrence(true)),
+        Some(Usage::Situational) if def.required => Err(OccurrenceError::UsageLooserThanElement {
+            key: format!("{key}.usage"),
+            place: place.to_owned(),
+        }),
+        Some(Usage::Situational) => Ok(Setting::Occurrence(false)),
+    }
+}
+
+/// The lengths an entry sets: the element's bounds with the entry's `min` and
+/// `max` replacing them, inside what the element allows.
+fn entry_length(
+    def: &ElementDef,
+    key: &str,
+    place: &str,
+    entry: &ElementEntryModel,
+) -> Result<Setting<LengthRange>, OccurrenceError> {
+    if entry.min.is_none() && entry.max.is_none() {
+        return Ok(Setting::Element);
+    }
+    let found = LengthRange {
+        min: entry.min.or(def.length.min),
+        max: entry.max.or(def.length.max),
+    };
+    check_lengths(found).map_err(|reason| OccurrenceError::BadLengths {
+        key: key.to_owned(),
+        reason,
+    })?;
+    if !found.within(def.length) {
+        return Err(OccurrenceError::LengthsOutsideElement {
+            key: key.to_owned(),
+            place: place.to_owned(),
+            found,
+            allowed: def.length,
+        });
+    }
+    Ok(Setting::Occurrence(found))
+}
+
+/// The codes an entry lists, validated against the lengths that apply at its
+/// place; the element's when it lists none.
 fn entry_codes(
     def: &ElementDef,
     segment: &str,
     at: ElementPosition,
     key: &str,
     entry: &ElementEntryModel,
+    length: LengthRange,
 ) -> Result<Setting<Vec<String>>, OccurrenceError> {
     let Some(codes) = &entry.codes else {
         return Ok(Setting::Element);
@@ -156,5 +208,5 @@ fn entry_codes(
         component: at.component,
         codes,
     };
-    compile_list(def, segment, list, def.length).map(Setting::Occurrence)
+    compile_list(def, segment, list, length).map(Setting::Occurrence)
 }

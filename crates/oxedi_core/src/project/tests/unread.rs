@@ -564,6 +564,25 @@ fn an_occurrence_list_replaces_the_element_list_read_or_unread() {
     );
 }
 
+#[test]
+fn an_occurrence_entry_requires_and_shortens_its_element_there_only() {
+    // `patient` requires NM03-2 and allows at most 2 characters there;
+    // `insured` keeps the element's rule.
+    let spec = OCCURRENCE_SPEC.replacen(
+        r#""elements":{"2":{"codes":["1"]}}"#,
+        r#""elements":{"2":{"codes":["1"]},"3-2":{"usage":"required","max":2}}"#,
+        1,
+    );
+    let diagnostics = parity(&spec, "HD~NM*QC*1*A~NM*IL*1*A~NM*QC*1*A:XYZ~TR~");
+    assert_eq!(
+        rendered(&diagnostics),
+        vec![
+            "SNIP 2 · required element NM03-2 (value) is missing or empty · segment #1, element 3, component 2 · at head#1 · datum \"\"",
+            "SNIP 2 · element NM03-2 (value) has length 3; the spec allows at most 2 · segment #3, element 3, component 2 · at head#1 · datum \"XYZ\"",
+        ]
+    );
+}
+
 proptest! {
     #[test]
     fn occurrence_code_diagnostics_do_not_depend_on_what_columns_read(

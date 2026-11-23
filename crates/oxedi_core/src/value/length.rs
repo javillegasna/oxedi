@@ -14,6 +14,23 @@ pub struct LengthRange {
 }
 
 impl LengthRange {
+    /// `true` when every bound `outer` sets is kept or tightened here: the
+    /// shortest length is no lower than its minimum and the longest no higher
+    /// than its maximum.
+    pub(crate) const fn within(self, outer: LengthRange) -> bool {
+        let above_min = match (self.min, outer.min) {
+            (_, None) => true,
+            (Some(min), Some(floor)) => min >= floor,
+            (None, Some(_)) => false,
+        };
+        let below_max = match (self.max, outer.max) {
+            (_, None) => true,
+            (Some(max), Some(ceiling)) => max <= ceiling,
+            (None, Some(_)) => false,
+        };
+        above_min && below_max
+    }
+
     /// `true` when `length` is at least `min` and at most `max`.
     pub const fn contains(self, length: usize) -> bool {
         let above_min = match self.min {

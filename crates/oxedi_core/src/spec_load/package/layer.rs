@@ -149,7 +149,7 @@ impl<'de> Deserialize<'de> for Layers {
                 "\"layers\" lists no layer; list the layers the package holds, in layer order",
             ));
         };
-        if !written.windows(2).all(|pair| pair[0] < pair[1]) {
+        if !written.is_sorted_by(|a, b| a < b) {
             return Err(de::Error::custom(format!(
                 "\"layers\" must list each layer once, in layer order ({}); found {}",
                 quoted(Layer::ALL.into_iter()),

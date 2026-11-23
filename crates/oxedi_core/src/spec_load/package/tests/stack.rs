@@ -310,3 +310,10 @@ fn the_builtins_narrow_and_the_4010_packages_are_editions() {
         }
     }
 }
+
+#[test]
+fn role_words() {
+    assert_eq!(Role::Narrows.word(), "narrows");
+    assert_eq!(Role::Edition.word(), "edition");
+    assert_eq!(Role::Patch.word(), "patch");
+}

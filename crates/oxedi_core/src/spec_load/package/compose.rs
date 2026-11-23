@@ -15,9 +15,8 @@ use crate::spec_load::model::SpecModel;
 /// A composed stack: the cumulative value and the model read from it.
 #[derive(Debug, Clone)]
 pub struct Composed {
-    /// The packages' specs merged in stack order, under the top package's name.
-    // TODO: the value is the input of the validator of a composed stack, which does not
-    // exist yet.
+    /// The packages' specs merged in stack order, under the top package's name;
+    /// kept for the test that ties the built-ins' lean read to this composition.
     #[cfg_attr(not(test), expect(dead_code))]
     pub(in crate::spec_load) value: Value,
     /// The model read from the value.

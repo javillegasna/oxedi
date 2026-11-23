@@ -198,3 +198,14 @@ fn get_finds_no_builtin_for_another_id() {
     let other = PackageId::parse("oxedi/guide/005010/277/X212").unwrap();
     assert!(Builtin::get(&other).is_none());
 }
+
+#[test]
+fn the_shipped_packages_are_the_texts_of_the_built_ins_stacks() {
+    let packages = Builtin::packages();
+    assert_eq!(packages.len(), 8);
+    for builtin in Builtin::all() {
+        for text in builtin.chain() {
+            assert!(packages.contains(text), "{}", builtin.id);
+        }
+    }
+}

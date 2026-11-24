@@ -110,6 +110,7 @@ nav:
       - When the writer refuses: python/when-write-refuses.md
       - Validating with pyx12: python/pyx12.md
       - Customizing the spec: customize/spec.md
+      - Packages and layers: customize/packages.md
   - DuckDB:
       - Overview: duckdb/index.md
       - Reading with SQL: duckdb/reading.md

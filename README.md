@@ -92,7 +92,7 @@ FROM read_835('remits/*.835', table_name := 'diagnostics', ignore_errors := true
 | [Reading](https://javillegas.dev/oxedi/latest/python/reading/) | Tables in depth, [large files](https://javillegas.dev/oxedi/latest/python/large-files/), [diagnostics](https://javillegas.dev/oxedi/latest/python/diagnostics/) |
 | [Writing](https://javillegas.dev/oxedi/latest/python/writing/) | The envelope, [your own tables](https://javillegas.dev/oxedi/latest/python/own-tables/), [when the writer refuses](https://javillegas.dev/oxedi/latest/python/when-write-refuses/) |
 | [DuckDB](https://javillegas.dev/oxedi/latest/duckdb/) | `read_835` parameters, `COPY` options, limits |
-| [The spec](https://javillegas.dev/oxedi/latest/customize/spec/) | Spec versions (5010, 4010) and patches |
+| [The spec](https://javillegas.dev/oxedi/latest/customize/spec/) | Spec versions (5010, 4010), patches, and [packages](https://javillegas.dev/oxedi/latest/customize/packages/) with how to check them |
 | [Validating with pyx12](https://javillegas.dev/oxedi/latest/python/pyx12/) | What `validate` reports and where |
 | [Recipes](https://javillegas.dev/oxedi/latest/recipes/lakehouse/) | A Parquet lakehouse, Polars analytics, pipelines |
 | [Tables and columns](https://javillegas.dev/oxedi/latest/reference/tables/) | Every column, its type and its source element; a [glossary](https://javillegas.dev/oxedi/latest/reference/glossary/) |

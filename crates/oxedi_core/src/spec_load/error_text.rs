@@ -58,6 +58,7 @@ impl std::error::Error for SpecError {
             | SpecError::BadElementDef { .. }
             | SpecError::BadTable { .. }
             | SpecError::BadHeader { .. }
+            | SpecError::BadKit { .. }
             | SpecError::Package { .. }
             | SpecError::Stack { .. }
             | SpecError::BadVersion { .. }

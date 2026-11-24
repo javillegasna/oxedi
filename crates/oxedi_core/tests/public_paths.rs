@@ -93,6 +93,12 @@ mod by_module {
     use oxedi_core::spec_load::HeaderError;
     use oxedi_core::spec_load::IdError;
     use oxedi_core::spec_load::IdPart;
+    use oxedi_core::spec_load::Kit;
+    use oxedi_core::spec_load::KitCase;
+    use oxedi_core::spec_load::KitError;
+    use oxedi_core::spec_load::KitHeader;
+    use oxedi_core::spec_load::KitOutput;
+    use oxedi_core::spec_load::KitPath;
     use oxedi_core::spec_load::Layer;
     use oxedi_core::spec_load::Layers;
     use oxedi_core::spec_load::LoadedSpec;
@@ -258,6 +264,8 @@ fn builtin_items() {
 #[allow(dead_code)]
 fn loaded_items() {
     let _: fn(&str) -> Result<LoadedSpec, SpecError> = LoadedSpec::from_json;
+    let _: fn(&str) -> Result<oxedi_core::spec_load::Kit, SpecError> =
+        oxedi_core::spec_load::Kit::from_json;
     let _: fn(SpecModel) -> Result<LoadedSpec, SpecError> = LoadedSpec::from_model;
     let _: fn(&LoadedSpec, &str) -> Result<LoadedSpec, SpecError> = LoadedSpec::merge_patch;
     let _: fn(&LoadedSpec) -> Result<String, serde_json::Error> = LoadedSpec::to_json;

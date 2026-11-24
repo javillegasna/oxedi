@@ -12,7 +12,7 @@ use super::id::PackageId;
 use super::layer::Layers;
 use crate::spec_load::error::SpecError;
 use crate::spec_load::model::format_error;
-use crate::spec_load::strict::StrictValue;
+use crate::spec_load::strict::{StrictValue, newer_format};
 
 /// The header of a package.
 #[derive(Debug, Clone, PartialEq, Eq, Deserialize)]
@@ -59,11 +59,7 @@ impl Package {
     /// surface as unknown fields.
     pub fn from_json(json: &str) -> Result<Package, SpecError> {
         let mut value: Value = serde_json::from_str(json).map_err(SpecError::Json)?;
-        let newer = value
-            .pointer("/package/format")
-            .and_then(Value::as_u64)
-            .filter(|&found| found > u64::from(PackageHeader::FORMAT));
-        if let Some(found) = newer {
+        if let Some(found) = newer_format(&value, "/package/format", PackageHeader::FORMAT) {
             return Err(bad_header(HeaderError::FormatTooNew {
                 found,
                 reader: PackageHeader::FORMAT,

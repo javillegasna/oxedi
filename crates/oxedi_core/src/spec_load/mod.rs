@@ -29,8 +29,9 @@
 //! compiled form; `patch` the merge patch; `builtin` the registry of shipped
 //! specs by transaction and version, and the built-in 835 shortcuts;
 //! `vocabulary` the spec's closed words and the elements key, one table each;
-//! `package` the layers of a package, its identity, the stack of packages a
-//! spec is composed from and the check that a package only narrows its bases.
+//! `kit` the conformance kit's manifest, read strictly; `package` the layers
+//! of a package, its identity, the stack of packages a spec is composed from
+//! and the check that a package only narrows its bases.
 
 mod balance;
 mod balance_error;
@@ -44,6 +45,7 @@ mod columns;
 mod compile;
 mod error;
 mod error_text;
+mod kit;
 mod loaded;
 mod model;
 mod occurrence_error;
@@ -65,6 +67,7 @@ pub use build::VersionError;
 pub use build_loops::ControlError;
 pub use builtin::{Builtin, UnknownVersion, Version};
 pub use error::SpecError;
+pub use kit::{Kit, KitCase, KitError, KitHeader, KitOutput, KitPath};
 pub use loaded::LoadedSpec;
 pub use model::{
     BalanceModel, ColumnModel, ControlModel, ElementEntryModel, ElementModel, LoopModel,

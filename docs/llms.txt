@@ -22,6 +22,7 @@ Read an 835 into payment, claim, service line and adjustment tables for Polars, 
 - [Sharing data without patient information](https://javillegas.dev/oxedi/latest/python/without-patient-data/): Mask patient names, ids and dates in the tables and diagnostics with a key
 - [Validating with pyx12](https://javillegas.dev/oxedi/latest/python/pyx12/): Run pyx12 validation and get findings as oxedi diagnostics
 - [Customizing the spec](https://javillegas.dev/oxedi/latest/customize/spec/): Adapt parsing to your payers by changing the spec, which is plain data
+- [Packages and layers](https://javillegas.dev/oxedi/latest/customize/packages/): The package format, the layers and the keys each writes, and how to check a stack and run its kit
 
 ## DuckDB
 

@@ -4,6 +4,9 @@ A JSON spec defines the structure of the 835 and the columns of each table. You 
 version, or adapt the spec to a payer's variations with a patch, without touching the code.
 `parse`, `parse_file` and `stream` all accept `spec=`.
 
+The built-in specs are stacks of packages, one per layer. To write a package of your own, check it
+and run its conformance kit, see [Packages and layers](packages.md).
+
 ## Choose a version
 
 By default oxedi reads the version a file declares (`ISA12` and `GS08`) and uses the matching
@@ -52,8 +55,9 @@ True
 
 - Objects merge key by key.
 - Arrays are replaced whole.
-- `patch` accepts a dict or JSON text, and raises `oxedi.SpecError` when the result is not a
-  valid spec.
+- `patch` accepts JSON text or a mapping of JSON values (`oxedi.JsonObject`). It raises
+  `oxedi.SpecError` when the result is not a valid spec, and `TypeError`, naming the place, for a
+  value JSON cannot hold (a set, bytes, NaN, a key that is not `str`).
 
 ## Choose where a column reads
 
@@ -164,47 +168,10 @@ occurrence of the loop has a higher `pos`.
 A patched spec also writes: pass it to `oxedi.write(frames, envelope, spec=spec)`. See
 [Writing](../python/writing.md).
 
-## Validate a stack and run its kit
-
-A spec is a stack of packages: the shipped 5010 packages and, on top, any package of yours. `oxedi.validate_stack` answers whether a stack loads and what it can do; `oxedi.Spec.builtin_packages()` lists the shipped texts. The answer is a `Valid` or an `Invalid`, and printing either gives the core's text.
-
-```python
-import json
-
-import oxedi
-
-packages = oxedi.Spec.builtin_packages()
-(views,) = [t for t in packages if json.loads(t)["package"]["id"] == "oxedi/views/005010/835/X221A1"]
-report = oxedi.validate_stack(views, packages)
-assert isinstance(report, oxedi.Valid) and report.write.can
-print(report)
-```
-
-A kit is a manifest that names inputs and the output each one must give. Python reads no file for it: `oxedi.kit_files` lists the paths it names, you read them, and `oxedi.run_kit` compares. Each case passes, differs (the first differing line of each output) or cannot run (a file it names is missing, an expected output is not text, or the input is not an X12 document). The names a manifest holds are relative to the manifest's folder and may hold `..`: keep them under a root you trust when you read the files.
-
-```python
-import pathlib
-
-manifest = json.dumps({
-    "kit": {"format": 1, "package": report.id},
-    "cases": {"remittance": {
-        "input": "remittance.835",
-        "expect": {"diagnostics": "remittance.diagnostics.txt"},
-    }},
-})
-files = {
-    "remittance.835": pathlib.Path("remittance.835").read_bytes(),
-    "remittance.diagnostics.txt": b"",
-}
-assert oxedi.kit_files(manifest) == ["remittance.835", "remittance.diagnostics.txt"]
-result = oxedi.run_kit(manifest, report, files)
-assert result.passed
-print(result)
-```
-
 ## Spec keys reference
 
-Every key a spec can hold, with what it means and the Rust code that reads it. A spec has two
+Every key a spec can hold, with what it means and the Rust code that reads it. In a package, the
+layer that may write each key is in [Who writes which key](packages.md#who-writes-which-key). A spec has two
 layers in the core. Loading, in `oxedi_core::spec_load`, reads the whole spec, its top level
 included, once as its `SpecModel`, whose parts are the typed `*Model`s (`LoopModel`,
 `TableModel`, `SegmentModel`, `SummaryModel`, `BalanceModel`), each declared in
@@ -224,7 +191,7 @@ components are 1-based. The code names differ from the JSON in three places: a t
 
 | Key | Required | Meaning | Rust |
 |-----|----------|---------|------|
-| `name` | yes | The spec's name, shown in `Spec(name=...)`. | `Spec::name`, `spec_load/build.rs` |
+| `name` | yes | The spec's name, shown in `Spec(name=...)`. A package does not write it: a stack takes it from its top package's id. | `Spec::name`, `spec_load/build.rs` |
 | `loops` | yes | The loop structure, by loop name; at least one loop. | `LoopDef`, `spec_load/build.rs`, `spec_load/build_loops.rs` |
 | `segments` | no | Names and types the elements of each segment id. | `SegmentDef`, `spec_load/segments.rs` |
 | `tables` | no | The tables of the projection, by table name. | `TableDef`, `spec_load/compile.rs` |
@@ -283,7 +250,7 @@ opens on has the lowest `pos` of its loop.
 | `usage` | no | `required` or `situational` (the default). | `OccurrenceDef::usage` |
 | `max` | no | Most times it may repeat in one instance. | `OccurrenceDef::max` |
 | `qualifier` | no | Tells this occurrence apart from others of the same segment in the loop. | `Qualifier` |
-| `elements` | no | How the occurrence narrows its segment's elements, by `"<element>"` or `"<element>-<component>"`: an entry with any of `usage` (`required` or `situational`), `min`, `max` and `codes`, each replacing the element's for a segment at this occurrence. An entry only narrows: `situational` is refused on an element that is required, `min` and `max` stay inside the element's lengths, and `codes` is a subset of the element's `codes` when the element has any (on an element with none, it may hold any codes of the element's type) and fits the lengths that apply. `codes` is refused at the qualifier's own place. | `OccurrenceDef::elements` |
+| `elements` | no | How the occurrence narrows its segment's elements, by `"<element>"` or `"<element>-<component>"`: an entry with any of `usage` (`required` or `situational`), `min`, `max` and `codes`, each replacing the element's for a segment at this occurrence. An entry only narrows: `situational` is refused on an element that is required, `min` and `max` stay inside the element's lengths, and `codes` is a subset of the element's `codes` when the element has any (on an element with none, it may hold any codes of the element's type) and fits the lengths that apply. `codes`, `min` and `max` are refused at the qualifier's own place. | `OccurrenceDef::elements` |
 
 `qualifier`: `element` (required), `component` (optional) and `codes` (required, the values
 that identify the occurrence). Two occurrences of one segment in a loop need qualifiers on the

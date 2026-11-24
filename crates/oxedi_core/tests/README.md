@@ -91,6 +91,7 @@ the ISA-less fragment and every sample.
 
 | Suite | Pins |
 |-------|------|
+| `kits` | Every built-in kit (`kits/*.kit.json`) passes against its built-in; kits name only fixtures and goldens, and every fixture with an ISA is a case of the kit of its version. |
 | `file_lists` | The lists in `common/mod.rs` hold every file of `fixtures/` and `samples/`. |
 | `public_paths` | Public items stay reachable by their module path; the build fails if one disappears. |
 | `fixtures_harness` | Fixtures load as bytes, never as `String`. |

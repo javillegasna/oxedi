@@ -1,0 +1,43 @@
+{
+  "kit": {
+    "format": 1,
+    "package": "oxedi/views/005010/835/X221A1"
+  },
+  "cases": {
+    "balanced_5010_sample": {
+      "input": "../fixtures/balanced_5010_sample.txt",
+      "expect": {
+        "tables": "../golden/project/balanced_5010_sample.txt.tables.txt",
+        "diagnostics": "../golden/project/balanced_5010_sample.txt.diagnostics.txt"
+      }
+    },
+    "edge_cases_5010_sample": {
+      "input": "../fixtures/edge_cases_5010_sample.txt",
+      "expect": {
+        "tables": "../golden/project/edge_cases_5010_sample.txt.tables.txt",
+        "diagnostics": "../golden/project/edge_cases_5010_sample.txt.diagnostics.txt"
+      }
+    },
+    "emedny_sample": {
+      "input": "../fixtures/emedny_sample.txt",
+      "expect": {
+        "tables": "../golden/project/emedny_sample.txt.tables.txt",
+        "diagnostics": "../golden/project/emedny_sample.txt.diagnostics.txt"
+      }
+    },
+    "masked_findings_5010_sample": {
+      "input": "../fixtures/masked_findings_5010_sample.txt",
+      "expect": {
+        "tables": "../golden/project/masked_findings_5010_sample.txt.tables.txt",
+        "diagnostics": "../golden/project/masked_findings_5010_sample.txt.diagnostics.txt"
+      }
+    },
+    "united_healthcare_legacy_sample": {
+      "input": "../fixtures/united_healthcare_legacy_sample.txt",
+      "expect": {
+        "tables": "../golden/project/united_healthcare_legacy_sample.txt.tables.txt",
+        "diagnostics": "../golden/project/united_healthcare_legacy_sample.txt.diagnostics.txt"
+      }
+    }
+  }
+}

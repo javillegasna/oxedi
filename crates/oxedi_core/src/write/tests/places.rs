@@ -2,14 +2,21 @@
 //! write plan writes it to, over the built-in specs.
 
 use std::collections::{BTreeMap, BTreeSet};
+use std::sync::Arc;
 
 use crate::delimiters::test_support::plain;
 use crate::project::Projector;
 use crate::spec::test_support::{builtin, segs};
 use crate::spec::{ColumnSource, LoopId, Qualifier, Spec, TableDef};
-use crate::spec_load::Version;
+use crate::spec_load::{Builtin, Version};
+use crate::validate::{Validation, validate};
 use crate::vocabulary::Pick;
+use crate::write::build::Builder;
+use crate::write::codes::Resolved;
 use crate::write::{SegmentSource, ValueSource, WritePlan};
+
+/// The `edi_835_parser` patch package, whose spec the writer refuses as a whole.
+const COMPAT: &str = include_str!("../../../specs/edi_835_parser.json");
 
 /// What of a segment a place reads or writes.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
@@ -110,14 +117,21 @@ fn engine_occurrences(
     found
 }
 
-/// The segment and conditions a column reads, and what of the segment.
-type Target<'s> = (&'s [u8], &'s [(usize, Vec<u8>)], Option<At>);
+/// The segment and conditions a column reads, the occurrence it names, and
+/// what of the segment.
+type Target<'s> = (
+    &'s [u8],
+    &'s [(usize, Vec<u8>)],
+    Option<&'s str>,
+    Option<At>,
+);
 
 fn target<'s>(def: &'s TableDef, source: &'s ColumnSource) -> Target<'s> {
     match source {
         ColumnSource::Element {
             segment,
             conditions,
+            occurrence,
             element,
             component,
             ..
@@ -126,19 +140,25 @@ fn target<'s>(def: &'s TableDef, source: &'s ColumnSource) -> Target<'s> {
                 element: *element,
                 component: *component,
             };
-            (segment, conditions, Some(at))
+            (segment, conditions, occurrence.as_deref(), Some(at))
         }
         ColumnSource::SegmentIndex {
             segment,
             conditions,
+            occurrence,
             ..
-        } => (segment, conditions, None),
+        } => (segment, conditions, occurrence.as_deref(), None),
         ColumnSource::GroupElement { offset, component } => {
             let at = At::Group {
                 offset: *offset,
                 component: *component,
             };
-            (def.segment.as_deref().unwrap_or_default(), &[], Some(at))
+            (
+                def.segment.as_deref().unwrap_or_default(),
+                &[],
+                None,
+                Some(at),
+            )
         }
     }
 }
@@ -149,7 +169,7 @@ fn readings(spec: &Spec) -> Vec<Reading> {
     for place in Projector::new(spec, &plain()).read_places() {
         let def = &spec.tables()[place.table];
         let (_, source) = &def.columns[place.column];
-        let (segment, conditions, at) = target(def, source);
+        let (segment, conditions, _, at) = target(def, source);
         let occurrences = match place.occurrence {
             Some(occurrence) => BTreeSet::from([occurrence]),
             None => engine_occurrences(spec, place.loop_id, segment, conditions),
@@ -270,16 +290,9 @@ fn the_writer_writes_every_column_where_the_reader_reads_it() {
         let spec = builtin(version).spec;
         let plan = WritePlan::new(&spec).expect("a built-in writes");
 
-        let declared: BTreeSet<(String, String)> = spec
-            .tables()
-            .iter()
-            .flat_map(|def| {
-                def.columns
-                    .iter()
-                    .filter(|(_, source)| !matches!(source, ColumnSource::SegmentIndex { .. }))
-                    .map(|(column, _)| (def.name.clone(), column.clone()))
-            })
-            .collect();
+        let declared = declared_columns(&spec, |source| {
+            !matches!(source, ColumnSource::SegmentIndex { .. })
+        });
         let read = read_places(&spec);
         let read_columns: BTreeSet<(String, String)> = read
             .iter()
@@ -326,4 +339,94 @@ fn the_writer_writes_every_column_where_the_reader_reads_it() {
             .collect();
         assert_eq!(unwritten, expected, "{version:?}: unwritten");
     }
+}
+
+/// The compat spec: the package over the built-in stack.
+fn compat() -> Arc<Spec> {
+    match validate(COMPAT, Builtin::packages()) {
+        Validation::Yes(valid) => valid.loaded.spec,
+        Validation::No(invalid) => panic!("{invalid}"),
+    }
+}
+
+/// The names of the occurrences of `loop_id` at `occurrences`.
+fn names(spec: &Spec, loop_id: LoopId, occurrences: &BTreeSet<usize>) -> BTreeSet<String> {
+    let def = spec.get(loop_id);
+    occurrences
+        .iter()
+        .map(|&at| def.occurrences[at].name.clone())
+        .collect()
+}
+
+/// Every declared column whose source `keep` accepts, as (table, column).
+fn declared_columns(spec: &Spec, keep: fn(&ColumnSource) -> bool) -> BTreeSet<(String, String)> {
+    spec.tables()
+        .iter()
+        .flat_map(|def| {
+            def.columns
+                .iter()
+                .filter(|(_, source)| keep(source))
+                .map(|(column, _)| (def.name.clone(), column.clone()))
+        })
+        .collect()
+}
+
+/// The occurrences of `loop_id` the write plan places a column in: the one it
+/// resolves to, none when no valid file holds it, every candidate when several
+/// take it.
+fn resolved(
+    spec: &Spec,
+    builder: &Builder<'_>,
+    loop_id: LoopId,
+    segment: &[u8],
+    conditions: &[(usize, Vec<u8>)],
+    named: Option<&str>,
+) -> BTreeSet<usize> {
+    let occurrences = &spec.get(loop_id).occurrences;
+    let position = |name: &str| occurrences.iter().position(|found| found.name == name);
+    match named {
+        Some(name) => position(name).into_iter().collect(),
+        None => match builder.resolve(loop_id, segment, conditions) {
+            Resolved::One(at, _) => BTreeSet::from([at]),
+            Resolved::Nothing(_) => BTreeSet::new(),
+            Resolved::Candidates(found) => found.iter().filter_map(|name| position(name)).collect(),
+        },
+    }
+}
+
+#[test]
+fn the_writer_resolves_every_compat_column_where_the_reader_reads_it() {
+    let spec = compat();
+    assert!(
+        WritePlan::new(&spec).is_err(),
+        "the compat spec writes; compare its plan in the_writer_writes_every_column_where_the_reader_reads_it"
+    );
+    let builder = Builder::new(&spec);
+    let mut differences = Vec::new();
+    let mut read_columns = BTreeSet::new();
+    for reading in readings(&spec) {
+        let def = &spec.tables()[reading.table];
+        let (column, source) = &def.columns[reading.column];
+        let (segment, conditions, named, _) = target(def, source);
+        let reader = names(&spec, reading.loop_id, &reading.occurrences);
+        let writer = names(
+            &spec,
+            reading.loop_id,
+            &resolved(&spec, &builder, reading.loop_id, segment, conditions, named),
+        );
+        if reader != writer {
+            let loop_name = &spec.get(reading.loop_id).name;
+            differences.push(format!(
+                "{}.{column} in {loop_name}: read {reader:?}, written {writer:?}",
+                def.name
+            ));
+        }
+        read_columns.insert((def.name.clone(), column.clone()));
+    }
+    assert_eq!(differences, Vec::<String>::new());
+    assert_eq!(
+        read_columns,
+        declared_columns(&spec, |_| true),
+        "columns read"
+    );
 }

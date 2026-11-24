@@ -18,12 +18,15 @@ every expected output stays byte for byte.
 - **Thin bindings** (done). Python, DuckDB and the browser viewer no longer repeat rules that
   belong in the Rust core: converting values before writing, picking the spec version of a file,
   turning diagnostics into rows and choosing a masked or unmasked run each live in the core once.
-- **One home for X12 values, and a spec the code can build** (in progress). Element types,
-  number and date parsing now live in one place. Next, the spec gets a typed model that code can
-  build and write back as JSON, which generating specs (next section) needs.
-- **Checker and projector with one state per concern** (after that). The structure checker and
-  the table projector each track loop instances and match segments to occurrences on their own.
-  Sharing that makes a new check, such as hierarchical (HL) parent pointers, a small addition.
+- **One home for X12 values and a typed spec** (done). Element types, number and date parsing
+  live in one place, and the spec is a typed model code can build and write back as JSON.
+- **Loop instances owned by the parser** (done). The structure checker and the table projector
+  read the loop instances the parser tracks instead of tracking their own.
+- **A vocabulary in layers** (done). The 835 is now a stack of packages: an envelope, a
+  dictionary, a transaction set, an implementation guide and views; a guide sets usage, lengths
+  and codes per occurrence. See [Packages and layers](customize/packages.md).
+- **One description for reading and writing** (next). Reading and writing walk one compiled map
+  of the spec instead of two plans.
 
 ## Next: specs for any X12 transaction set
 
@@ -31,7 +34,7 @@ Writing a spec by hand takes hundreds of lines, while the open source
 [pyx12](https://github.com/azoner/pyx12) project already maps the 270/271, 276/277, 820, 834, 837
 and 999. The plan:
 
-- `oxedi.pyx12.spec_from_map(...)` turns an installed pyx12 map into an oxedi spec, with
+- `oxedi.pyx12.spec_from_map(...)` turns an installed pyx12 map into oxedi packages, with
   automatic tables (one per loop, one per repeating segment) that a merge patch can rename or
   reshape.
 - Patient data columns are flagged from the guide, and masking refuses a spec with no flagged
@@ -40,8 +43,8 @@ and 999. The plan:
 - Proven first on the 835 (the generated spec must match today's), then the 277, the 271 and
   the 837P.
 
-**Open question, opinions welcome:** should element usage, length and codes be defined once per
-segment, as today, or per occurrence, as implementation guides do? Discussed in
+**Open question, opinions welcome:** which syntax rules between elements (pairs, conditionals,
+exclusions) the format should express. Discussed in
 [#130](https://github.com/javillegasna/oxedi/issues/130).
 
 ## Available now
@@ -56,6 +59,9 @@ segment, as today, or per occurrence, as implementation guides do? Discussed in
 - **Validate with pyx12** and get its findings in the same shape as oxedi's own. See
   [Validating with pyx12](python/pyx12.md).
 - **Adapt to your payers** by changing the spec. See [The spec](customize/spec.md).
+- **Write your own vocabulary as packages** on the built-in layers, check it with
+  `oxedi.validate_stack` (what it can read, write and mask, and what it changes) and run its
+  conformance kit with `oxedi.run_kit`. See [Packages and layers](customize/packages.md).
 - **Try it in your browser.** Drop an 835 on the [viewer](https://javillegas.dev/oxedi/viewer/);
   the file is read in the browser and never uploaded. See [Try it in your browser](start/viewer.md).
 - **Hide patient data** with keyed tokens and coarser dates, in Python and in the viewer, and in

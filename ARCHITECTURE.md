@@ -126,19 +126,24 @@ delimiter, because the file then splits where the data does not.
 
 ## From the spec JSON to code
 
-The spec files live in `crates/oxedi_core/specs/`:
+The spec files are packages under `crates/oxedi_core/specs/`, each at the path of its id: a header
+(`format`, `id`, `layers`, `bases`) around a spec of the layers it holds (see
+[Packages and layers](docs/customize/packages.md)).
 
 | File | What it is | Who loads it |
 |---|---|---|
 | `oxedi/envelope/005010.json` | The envelope, first in every stack: the interchange, group and transaction loops and the ISA, TA1, GS, ST, SE, GE and IEA segments. | `Builtin` (`include_str!` in `spec_load/builtin.rs`) |
 | `oxedi/dictionary/005010.json` | Every segment the 835 uses beyond the envelope's, its elements and components, on the envelope; each element's and component's name, type, scale and lengths; no usage and no codes. | `Builtin` (`spec_load/builtin.rs`) |
 | `oxedi/transaction-set/005010/835.json` | The 835 transaction set, on the dictionary: each loop's parent and trigger, and each occurrence's segment and position. | `Builtin` (`spec_load/builtin.rs`) |
-| `oxedi/guide/005010/835/X221A1.json` | The X221A1 guide, on the transaction set: each loop's usage and maximum; each occurrence's usage, maximum, qualifier and element entries; the usage and codes of segment elements; the version; the balancing rules. A `package` header and the `spec` (`version`, `loops`, `segments`, `balancing`). | `Builtin` (`spec_load/builtin.rs`) |
+| `oxedi/guide/005010/835/X221A1.json` | The X221A1 guide, on the transaction set: each loop's usage and maximum; each occurrence's usage, maximum, qualifier and element entries; the usage and codes of segment elements; the version; the balancing rules. | `Builtin` (`spec_load/builtin.rs`) |
 | `oxedi/views/005010/835/X221A1.json` | The tables, the summaries and the default table, on the guide; the top of the 5010 stack. | `Builtin` (`spec_load/builtin.rs`) |
 | `oxedi/envelope/004010.json` | ISA11 type and codes, ISA12 codes, ST03 removed; an edition of the envelope. | `Builtin` (`spec_load/builtin.rs`) |
 | `oxedi/dictionary/004010.json` | The segments and elements 4010 removes or adds; an edition of the dictionary. | `Builtin` (`spec_load/builtin.rs`) |
 | `oxedi/guide/004010/835/X091A1.json` | The X091A1 guide, an edition of X221A1 (layers transaction-set and guide): occurrences, usage, codes and the version. | `Builtin` (`spec_load/builtin.rs`): the stack of the packages, composed |
 | `edi_835_parser.json` | A patch package (`edi-835-parser/patch/005010/835/X221A1`) on the 5010 views, with the tables of the `edi-835-parser` compatibility layer; it renames the spec. Its kit is `tests/kits/edi-835-parser-835-005010-X221A1.kit.json`. | `crates/oxedi_py/src/lib.rs`, pinned by `tests/project_golden.rs` |
+
+The built-in kits are under `tests/kits/`, one per stack top and one for the compat package: they
+name fixtures and goldens the sdist does not carry, so they do not sit beside the packages.
 
 ### Two layers: the schema and its loading
 
@@ -150,15 +155,21 @@ on it, never the reverse.
 | Schema | `spec/` | The compiled spec: `Spec` and its index-based definitions, `LoopDef` (by `LoopId`), `SegmentDef`, `ElementDef`, `OccurrenceDef` (with an `ElementEntry` per narrowed element, its facets `Setting`s), `TableDef` with a `ColumnSource` per column, `BalanceRule`, `Summary` and `DeclaredVersion`; the occurrence a segment takes in a loop (`spec/occurrence_index.rs`); the columns of each table, known from the spec alone (`spec_schema`, `spec/schema.rs`); `UnknownTable` and `UnknownColumn` (`spec/unknown.rs`); the choice of a spec by the version it declares (`Spec::select`, `spec/version.rs`). It keeps no JSON. |
 | Loading | `spec_load/` | What turns JSON into a `Spec`: the typed model (`SpecModel` and every `*Model`, `spec_load/model/`) and its strict reader (`spec_load/strict/`), the compile steps, the load errors (`SpecError` and the reasons it holds), `LoadedSpec`, the merge patch, the registry of built-in specs (`Builtin`, `Version`), the package identity and the stack of packages composed into one spec, each package checked to only narrow its bases (`spec_load/package/`), the conformance kit's manifest, read strictly (`spec_load/kit/`) and the spec's closed words (`spec_load/vocabulary.rs`). |
 
+Two modules above `write` read packages for tools: `validate` (`validate::validate`) answers
+whether a stack loads and what it can do, and `conformance` (`conformance::run_kit`) runs a kit
+over bytes. In `tests/architecture/table.rs`, `validate` uses `message`, `spec_load` and `write`, and
+`conformance` uses `validate` among others; no other module uses either, so the built-ins'
+run-time path and the browser module link neither.
+
 The engine, the checker, the projector and the writer read the schema only. The bindings use both
 layers through the root re-exports (`oxedi_core::Spec`, `oxedi_core::SpecError`,
 `oxedi_core::Builtin`, …). The architecture test keeps the direction: the `spec` row of
 `tests/architecture/table.rs` does not list `spec_load`, so a schema file that names
 `crate::spec_load` fails it. The load shortcuts `Spec::from_json`, `Spec::builtin_835` and
 `Spec::builtin_835_4010` are `impl Spec` blocks written in `spec_load` (`build.rs`, `builtin.rs`);
-the test's `SHORTCUTS` list counts a call to one, or a use of the built-in JSON constants, as a
-use of `spec_load`, so a schema file cannot call them either. `spec/mod.rs` and `spec_load/mod.rs` list which file holds what; the tests of
-each layer are in its own `tests/` folder.
+the test's `SHORTCUTS` list counts a call to one as a use of `spec_load`, so a schema file cannot call them either.
+`spec/mod.rs` and `spec_load/mod.rs` list which file holds what; the tests of each layer are in its
+own `tests/` folder.
 
 ### Loading, step by step
 
@@ -193,9 +204,12 @@ model writes no default and no `null`.
 `LoadedSpec::merge_patch` (`spec_load/patch.rs`) applies a patch to the model's canonical JSON, reads
 it back and compiles it again, so a patched spec goes through the same checks as a new one. A
 compiled `Spec` keeps no JSON: patching, writing back and the model live in the loading layer.
-The built-ins keep their spec and the JSON they ship (`include_str!`; 4010 is the 5010 stack with
-its three editions merged over it as values); `Builtin::model` reads the model from it on demand and
-`Builtin::loaded` keeps it beside the spec.
+The built-ins keep their spec and the package texts they ship (`include_str!`,
+`spec_load/builtin.rs`): at run time the stack's spec bodies are merged by value in order and read
+once, without the header, ownership and narrowing checks of `Stack::compose_checked`;
+`the_lean_read_equals_the_checked_composition` (`spec_load/tests/builtin.rs`) proves both give the
+same model. `Builtin::model` reads the model on demand and `Builtin::loaded` keeps it beside the
+spec.
 
 Most JSON keys keep their name in code (`TableDef::loops`, `LoopDef::end`). A table's `ref`
 becomes `TableDef::reference`, the name child rows use to point at it. Comments, helpers and a
@@ -208,7 +222,9 @@ Every key is listed in [the spec keys reference](docs/customize/spec.md#spec-key
 | I want to… | Start in | Then |
 |---|---|---|
 | Add a column to a built-in table | `tables.<table>.columns` in `crates/oxedi_core/specs/oxedi/views/005010/835/X221A1.json` | `UPDATE_GOLDEN=1 cargo test -p oxedi_core --test project_golden`, review the diff; document it in `docs/reference/tables.md` |
-| Add a key to the spec format | a row in the object's `spec_object!` declaration in `spec_load/model/` (field, model type, presence word); for an element, a field of `ElementModel` plus `ELEMENT_MODEL_KEYS` (both in `spec_load/model/segments.rs`, pinned in `spec_load/tests/model.rs`); for a summary operation, a field of `SummaryKeys` and its model in `spec_load/model/rules.rs` | When the compiled spec keeps it, a field on its schema definition in `spec/` (`LoopDef` in `spec/loops.rs`, `TableDef` in `spec/tables.rs`, …); compile it in `spec_load/build.rs` or `spec_load/compile.rs`; a new error in `spec_load/error.rs` (`SpecError`), or in `occurrence_error.rs`, `table_error.rs` or `balance_error.rs` of `spec_load/` when it is about one of those, with its `Display` test in `spec_load/tests/`; when a built-in uses it, `UPDATE_GOLDEN=1 cargo test -p oxedi_core --test spec_golden` and read the diff; add the key to `docs/customize/spec.md`; a closed word implements `Vocabulary` (`vocabulary/`) in `spec_load/vocabulary.rs` |
+| Add a key to the spec format | a row in the object's `spec_object!` declaration in `spec_load/model/` (field, model type, presence word); for an element, a field of `ElementModel` plus `ELEMENT_MODEL_KEYS` (both in `spec_load/model/segments.rs`, pinned in `spec_load/tests/model.rs`); for a summary operation, a field of `SummaryKeys` and its model in `spec_load/model/rules.rs` | When the compiled spec keeps it, a field on its schema definition in `spec/` (`LoopDef` in `spec/loops.rs`, `TableDef` in `spec/tables.rs`, …); compile it in `spec_load/build.rs` or `spec_load/compile.rs`; a new error in `spec_load/error.rs` (`SpecError`), or in `occurrence_error.rs`, `table_error.rs` or `balance_error.rs` of `spec_load/` when it is about one of those, with its `Display` test in `spec_load/tests/`; when a built-in uses it, `UPDATE_GOLDEN=1 cargo test -p oxedi_core --test spec_golden` and read the diff; add the key to `docs/customize/spec.md`; a closed word implements `Vocabulary` (`vocabulary/`) in `spec_load/vocabulary.rs`; the layer that owns the key, a row in `spec_load/package/owners.rs` (pinned in `spec_load/package/tests/owners.rs`); how a package may change it, a facet in `spec_load/package/narrow.rs`; raise `PackageHeader::FORMAT` (`spec_load/package/header.rs`) when the key is optional and new; add it to `docs/customize/packages.md` |
+| Add or change a shipped package | its file under `crates/oxedi_core/specs/` (the path of its id); a new one also in `PACKAGES` and `BUILTINS` of `spec_load/builtin.rs` | `THIRD_PARTY_NOTICES` (at the repository root) and `SDIST_REQUIRED` (`make/python.mk`); its kit under `tests/kits/`; `UPDATE_GOLDEN=1 cargo test -p oxedi_core --test spec_golden` and read the diff |
+| Change what a stack refuses or lists | `spec_load/package/` (`stack.rs` roles, `owners.rs`, `narrow.rs`, `compose.rs`) | An error in `spec_load/package/error.rs` with its `Display` test in `spec_load/package/tests/`; `validate/tests.rs` |
 | Change how a message names an element, a set of conditions or a list of names, or quotes file bytes or a key | `message/mod.rs` | `message/tests.rs`; the `Display` tests of the messages that use it |
 | Add a diagnostic rule | `diagnostic/rule.rs` (`Rule` variant, `level`, `kind`, and `segment_id` when the rule is about one segment's elements, so its datum can be masked) and `diagnostic/display.rs` (message, written over the pieces of `diagnostic/text.rs` and `message/`) | Raise it in `check/` (structure) or `project/check.rs` (elements); a full-text `Display` test in `diagnostic/tests.rs` |
 | Change an element check | `project/check.rs` | `cargo test -p oxedi_core --lib project::`, then both golden suites |
@@ -235,7 +251,8 @@ The same concept, named in each binding. The Rust files are under `crates/oxedi_
 |---|---|---|---|
 | Read a file (`Processor::run`) | `oxedi.parse(data)`, `oxedi.parse_file(path)` → `Result` (`parse.rs`) | `read_835(path)`, the table named by `table_name :=` or else the spec's default table (`function/`, `scan/`) | `parse(bytes, mask_key)` → JSON `View` (`lib.rs`, `view/`) |
 | Read in batches (`Processor::feed`) | `oxedi.stream(data, by='transaction')` (`stream.rs`) | one file at a time (`scan/`) | — |
-| Choose the spec (`Builtin::select`, `Builtin::find`) | `Spec.builtin("4010")`, `Spec.from_json`, `Spec.patch` (`spec.rs`) | `version := '4010'` (`builtins/`, `BuiltinTable`) | by the file's declared version |
+| Choose the spec (`Builtin::select`, `Builtin::find`) | `Spec.builtin("4010")`, `Spec.from_json`, `Spec.patch`; `Spec.from_packages(top, pool)`, `Spec.builtin_packages()` (`spec.rs`) | `version := '4010'` (`builtins/`, `BuiltinTable`) | by the file's declared version |
+| Check a stack, run a kit (`validate::validate`, `conformance::run_kit`) | `oxedi.validate_stack(top, pool)` → `Valid` or `Invalid` (`validate.rs`); `oxedi.run_kit`, `oxedi.kit_files` (`kit.rs`) | — | — |
 | Tables (`Tables`, `Table`) | `Result.tables`, `Table.to_polars()` (`tables.rs`, `arrow.rs`) | the rows of `table_name` (`scan/`, `types/`) | `View.tables` (`TableView`, `ColumnView`) |
 | Table schema (`spec_schema`, `spec/schema.rs`) | `Spec.schema()` | `oxedi_schema()` (`oxedi_schema/`) | — |
 | Loops and their triggers (`Spec::loops`, `LoopDef::trigger`) | `Spec.loops()`, `Spec.trigger_segment(name)`, `Spec.tables()` (`spec.rs`) | — | — |
@@ -300,11 +317,14 @@ Internal words used in the code. X12 and payment terms for users are in
 | schema / loading | The two layers of a spec: the schema (`spec`) is the compiled definitions every reader and the writer use; loading (`spec_load`) reads, checks, patches and compiles the JSON into them, and the schema never uses it. A **table schema** (`TableSchema`) is the columns of one table, part of the schema. | `spec/`, `spec_load/` |
 | spec model | The spec as typed data a program builds and writes, shared with the loader. | `spec_load/model/` |
 | loaded spec | A spec's model beside the spec compiled from it. | `spec_load/loaded.rs` |
-| patch | An RFC 7386 JSON Merge Patch over a spec; a patch package is one. | `spec_load/patch.rs` |
+| patch | An RFC 7386 JSON Merge Patch over a spec; a patch package is one under a header with the `patch` layer. | `spec_load/patch.rs` |
 | package | One JSON file: a header (`format`, `id`, `layers`, `bases`) around a spec of the layers it holds. | `spec_load/package/` |
-| built-in | The shipped 5010 package and its three 4010 editions, chosen by `Builtin::select` from `GS08`; the registry is `Builtin::all`, each entry with a typed `Version`. | `spec_load/builtin.rs`, `spec/version.rs` |
+| layer | One level of a vocabulary, in order: envelope, dictionary, transaction-set, guide, views, patch (`Layer`); a package declares the ones it holds (`Layers`). | `spec_load/package/layer.rs` |
+| role: narrows / edition / patch | How a package relates to its bases (`Role`): a package that only narrows (makes stricter) may add and tighten; an edition repeats a layer of its lineage and a patch holds the patch layer, and both may change anything, listed as `Change` values. | `spec_load/package/stack.rs`, `narrow.rs` |
+| kit | A conformance kit: a manifest (`Kit`) naming inputs and the tables and diagnostics each must give, read strictly; `conformance` runs it. | `spec_load/kit/`, `conformance/` |
+| built-in | The shipped 5010 stack (five packages, one per layer) and the 4010 stack (three editions over it), chosen by `Builtin::select` from `GS08`; the registry is `Builtin::all`, keyed by the top package's id, each entry with a typed `Version`. | `spec_load/builtin.rs`, `spec/version.rs` |
 | trigger | The segment (and element conditions) that opens a loop. | `spec/loops.rs` |
-| occurrence | A named segment slot of a loop: position, usage, maximum repeat, qualifier, code lists. The JSON key is `occurrences`. | `spec/occurrences.rs` |
+| occurrence | A named segment slot of a loop: position, usage, maximum repeat, qualifier, element entries (usage, lengths, codes). The JSON key is `occurrences`. | `spec/occurrences.rs` |
 | end / closer, opener | A loop's end segment (JSON `end`). For control checks, the trigger (opener) and end (closer) segments whose control numbers must match. | `spec/loops.rs` (`Control`) |
 | event | What the engine emits per segment: loop opened or closed, segment captured, unmatched or empty; each names its instance. | `engine/` (`Event`) |
 | held / captured | A segment an open loop's occurrences allow / the event saying an open loop took it. | `engine/` |

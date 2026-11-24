@@ -9,7 +9,9 @@
 //! - [`Spec`] is a JSON loop structure (parents, triggers, held segments, end
 //!   segments, envelope controls), the names and types of each segment's
 //!   elements, and the tables to project, and can be patched with JSON Merge
-//!   Patch; [`Spec::builtin_835`] ships the 835 as such data, and
+//!   Patch; it is composed from layer packages ([`spec_load::Package`],
+//!   [`spec_load::Stack`]): an envelope, a dictionary, a transaction set, a
+//!   guide and views; [`Spec::builtin_835`] ships the 835 as such data, and
 //!   [`Spec::builtin_835_4010`] its 4010 version. A spec may declare the
 //!   version it covers, and [`Spec::select`] picks among specs by it.
 //! - [`LoopEngine`] interprets a segment stream against a spec and emits
@@ -32,6 +34,10 @@
 //!   cell it comes from.
 //! - [`Processor`] feeds one segment at a time to the engine, the checker and
 //!   the projector; [`Processor::run`] does it over a whole [`Document`].
+//! - [`validate::validate`] answers whether a stack of package texts loads and
+//!   what it can do (read, write, mask), and [`conformance::run_kit`] runs a
+//!   conformance kit over bytes; tools use them, the built-ins' run-time path
+//!   does not.
 //!
 //! The structure is data: no code in this crate is specific to the 835 beyond
 //! the built-in spec it loads.

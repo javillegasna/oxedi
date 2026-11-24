@@ -1917,6 +1917,28 @@
   
 </li>
       
+        <li class="md-nav__item">
+  <a href="#oxedi.JsonValue" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        JsonValue
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#oxedi.JsonObject" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        JsonObject
+      
+    </span>
+  </a>
+  
+</li>
+      
     </ul>
   
 </nav>
@@ -2575,6 +2597,28 @@
   
 </li>
       
+        <li class="md-nav__item">
+  <a href="#oxedi.JsonValue" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        JsonValue
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#oxedi.JsonObject" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        JsonObject
+      
+    </span>
+  </a>
+  
+</li>
+      
     </ul>
   
 </nav>
@@ -2719,13 +2763,14 @@ when it is not valid.</p>
 
 
 <a href="#oxedi.Spec.patch" class="headerlink" title="Permanent link">&para;</a></h3>
-<div class="doc-signature highlight"><pre><span></span><code><span class="nf">patch</span><span class="p">(</span><span class="n">patch</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="n">Spec</span>
+<div class="doc-signature highlight"><pre><span></span><code><span class="nf">patch</span><span class="p">(</span><span class="n">patch</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="n">JsonObject</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Spec</span>
 </code></pre></div>
 
     <div class="doc doc-contents ">
 
-        <p>A new spec with <code>patch</code> (a dict or JSON text) merged over this one;
-raises <code>SpecError</code> when the result is not valid.</p>
+        <p>A new spec with <code>patch</code> merged over this one; <code>patch</code> is JSON text or a
+JSON object (a dict of JSON values); raises <code>SpecError</code> when the
+result is not valid.</p>
 
 
     </div>
@@ -3380,6 +3425,65 @@ element in some group.</p>
 
 
   </div>
+
+    </div>
+
+</div>
+
+<div class="doc doc-object doc-attribute">
+
+
+
+<h2 id="oxedi.JsonValue" class="doc doc-heading">
+            <span class="doc doc-object-name doc-attribute-name">JsonValue</span>
+
+
+  <span class="doc doc-labels">
+      <small class="doc doc-label doc-label-module-attribute"><code>module-attribute</code></small>
+  </span>
+
+<a href="#oxedi.JsonValue" class="headerlink" title="Permanent link">&para;</a></h2>
+<div class="doc-signature highlight"><pre><span></span><code><span class="n">JsonValue</span><span class="p">:</span> <span class="n">TypeAlias</span> <span class="o">=</span> <span class="n">Union</span><span class="p">[</span>
+    <span class="kc">None</span><span class="p">,</span>
+    <span class="nb">bool</span><span class="p">,</span>
+    <span class="nb">int</span><span class="p">,</span>
+    <span class="nb">float</span><span class="p">,</span>
+    <span class="nb">str</span><span class="p">,</span>
+    <span class="n">Sequence</span><span class="p">[</span><span class="s2">"JsonValue"</span><span class="p">],</span>
+    <span class="n">Mapping</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="s2">"JsonValue"</span><span class="p">],</span>
+<span class="p">]</span>
+</code></pre></div>
+
+    <div class="doc doc-contents first">
+
+        <p>A value JSON can hold; an integer must fit in 64 bits and a float be finite.</p>
+<p>The sequence and the mapping are read-only types, so a <code>list[str]</code> or a
+<code>dict[str, list[str]]</code> is a value; at run time a list or a tuple and any
+registered <code>Mapping</code> are accepted, and <code>bytes</code> are refused.</p>
+
+    </div>
+
+</div>
+
+<div class="doc doc-object doc-attribute">
+
+
+
+<h2 id="oxedi.JsonObject" class="doc doc-heading">
+            <span class="doc doc-object-name doc-attribute-name">JsonObject</span>
+
+
+  <span class="doc doc-labels">
+      <small class="doc doc-label doc-label-module-attribute"><code>module-attribute</code></small>
+  </span>
+
+<a href="#oxedi.JsonObject" class="headerlink" title="Permanent link">&para;</a></h2>
+<div class="doc-signature highlight"><pre><span></span><code><span class="n">JsonObject</span><span class="p">:</span> <span class="n">TypeAlias</span> <span class="o">=</span> <span class="n">Mapping</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">JsonValue</span><span class="p">]</span>
+</code></pre></div>
+
+    <div class="doc doc-contents first">
+
+        <p>A JSON object: a mapping whose keys are <code>str</code> and whose values are JSON values.</p>
 
     </div>
 

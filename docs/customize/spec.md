@@ -164,6 +164,44 @@ occurrence of the loop has a higher `pos`.
 A patched spec also writes: pass it to `oxedi.write(frames, envelope, spec=spec)`. See
 [Writing](../python/writing.md).
 
+## Validate a stack and run its kit
+
+A spec is a stack of packages: the shipped 5010 packages and, on top, any package of yours. `oxedi.validate_stack` answers whether a stack loads and what it can do; `oxedi.Spec.builtin_packages()` lists the shipped texts. The answer is a `Valid` or an `Invalid`, and printing either gives the core's text.
+
+```python
+import json
+
+import oxedi
+
+packages = oxedi.Spec.builtin_packages()
+(views,) = [t for t in packages if json.loads(t)["package"]["id"] == "oxedi/views/005010/835/X221A1"]
+report = oxedi.validate_stack(views, packages)
+assert isinstance(report, oxedi.Valid) and report.write.can
+print(report)
+```
+
+A kit is a manifest that names inputs and the output each one must give. Python reads no file for it: `oxedi.kit_files` lists the paths it names, you read them, and `oxedi.run_kit` compares. Each case passes, differs (the first differing line of each output) or cannot run (a file it names is missing, an expected output is not text, or the input is not an X12 document). The names a manifest holds are relative to the manifest's folder and may hold `..`: keep them under a root you trust when you read the files.
+
+```python
+import pathlib
+
+manifest = json.dumps({
+    "kit": {"format": 1, "package": report.id},
+    "cases": {"remittance": {
+        "input": "remittance.835",
+        "expect": {"diagnostics": "remittance.diagnostics.txt"},
+    }},
+})
+files = {
+    "remittance.835": pathlib.Path("remittance.835").read_bytes(),
+    "remittance.diagnostics.txt": b"",
+}
+assert oxedi.kit_files(manifest) == ["remittance.835", "remittance.diagnostics.txt"]
+result = oxedi.run_kit(manifest, report, files)
+assert result.passed
+print(result)
+```
+
 ## Spec keys reference
 
 Every key a spec can hold, with what it means and the Rust code that reads it. A spec has two

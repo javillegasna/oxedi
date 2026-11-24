@@ -12,6 +12,7 @@ use super::build_loops::{check_cycles, compile_loop, held_segments};
 use super::build_occurrences::{check_trigger, compile_occurrences};
 use super::compile::compile_tables;
 use super::error::SpecError;
+use super::places::place_columns;
 use super::model::{SegmentModel, SpecModel, VersionModel};
 use super::segments::compile_elements;
 use super::summaries::{compile_default_table, compile_summaries};
@@ -29,7 +30,7 @@ struct Build<'m> {
 type Step = fn(&mut Build<'_>) -> Result<(), SpecError>;
 
 /// The compile steps, in the order they run.
-const STEPS: [Step; 11] = [
+const STEPS: [Step; 12] = [
     compile_loop_headers,
     link_loops,
     compile_segment_section,
@@ -38,6 +39,7 @@ const STEPS: [Step; 11] = [
     compile_version_section,
     check_trigger_ambiguity,
     compile_table_section,
+    compile_place_section,
     compile_balancing_section,
     compile_summary_section,
     compile_default_table_section,
@@ -133,6 +135,7 @@ impl<'m> Build<'m> {
                 roots: Vec::new(),
                 segments: BTreeMap::new(),
                 tables: Vec::new(),
+                places: Vec::new(),
                 balancing: Vec::new(),
                 summaries: Vec::new(),
                 default_table: None,
@@ -228,6 +231,11 @@ fn check_trigger_ambiguity(build: &mut Build<'_>) -> Result<(), SpecError> {
 fn compile_table_section(build: &mut Build<'_>) -> Result<(), SpecError> {
     let spec = &build.spec;
     build.spec.tables = compile_tables(spec, &build.model.tables)?;
+    Ok(())
+}
+
+fn compile_place_section(build: &mut Build<'_>) -> Result<(), SpecError> {
+    build.spec.places = place_columns(&build.spec);
     Ok(())
 }
 

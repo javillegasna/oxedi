@@ -12,8 +12,8 @@ use super::build_loops::{check_cycles, compile_loop, held_segments};
 use super::build_occurrences::{check_trigger, compile_occurrences};
 use super::compile::compile_tables;
 use super::error::SpecError;
-use super::places::place_columns;
 use super::model::{SegmentModel, SpecModel, VersionModel};
+use super::places::place_columns;
 use super::segments::compile_elements;
 use super::summaries::{compile_default_table, compile_summaries};
 use crate::spec::{

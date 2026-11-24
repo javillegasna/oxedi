@@ -79,9 +79,7 @@ use crate::diagnostic::{Diagnostic, locate};
 use crate::engine::{Event, Instance, named_lineage};
 use crate::mask::Mask;
 use crate::segment::Segment;
-use crate::spec::{
-    LoopId, OccurrenceDef, OccurrenceId, Spec, UnknownTable, table_columns,
-};
+use crate::spec::{LoopId, OccurrenceDef, OccurrenceId, Spec, UnknownTable, table_columns};
 use crate::value::ColumnType;
 
 use carry::Carried;
@@ -153,7 +151,7 @@ impl<'s> Projector<'s> {
             } else {
                 Vec::new()
             };
-            plans.mark_columns(def);
+            plans.mark_columns(spec, def);
             tables.push(TableState {
                 kinds,
                 next: 0,

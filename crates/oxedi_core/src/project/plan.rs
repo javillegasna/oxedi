@@ -122,53 +122,12 @@ impl<'s> Plans<'s> {
     }
 
     /// Marks every element and component some column of `table` can read.
-    pub(super) fn mark_columns(&mut self, table: &TableDef) {
+    pub(super) fn mark_columns(&mut self, spec: &Spec, table: &TableDef) {
         for (_, source) in &table.columns {
-            for (id, element, component) in self.positions(table, source) {
+            for (id, element, component) in spec.positions(table, source) {
                 self.mark_read(id, element, component);
             }
         }
-    }
-
-    /// The segment id, element and component of every place `source`, a
-    /// column of `table`, can read. A column of a table anchored on a
-    /// segment reads that segment too, and a group column reads its offset
-    /// in every group of the defined elements the segment can hold.
-    pub(super) fn positions<'t>(
-        &self,
-        table: &'t TableDef,
-        source: &'t ColumnSource,
-    ) -> Vec<(&'t [u8], usize, Option<usize>)> {
-        let mut positions = Vec::new();
-        match source {
-            ColumnSource::Element {
-                segment,
-                element,
-                component,
-                ..
-            } => {
-                positions.push((segment.as_slice(), *element, *component));
-                if let Some(anchor) = &table.segment {
-                    positions.push((anchor.as_slice(), *element, *component));
-                }
-            }
-            ColumnSource::GroupElement { offset, component } => {
-                let (Some(anchor), Some(repeat)) = (&table.segment, table.repeat) else {
-                    return positions;
-                };
-                let defined = self
-                    .get(anchor)
-                    .into_iter()
-                    .flat_map(|plan| plan.elements.iter().map(|e| e.position));
-                positions.extend(
-                    defined
-                        .filter(|&position| repeat.holds(*offset, position))
-                        .map(|position| (anchor.as_slice(), position, *component)),
-                );
-            }
-            ColumnSource::SegmentIndex { .. } => {}
-        }
-        positions
     }
 
     /// Makes every column of table `index` (one without `segment`) watch the

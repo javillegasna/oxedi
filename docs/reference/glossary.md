@@ -67,6 +67,10 @@ oxedi's description of the format, in JSON: loops, segments, elements, code list
 rules and the tables to fill. oxedi ships a 5010 and a 4010 spec, and you can patch them. See
 [Customizing the spec](../customize/spec.md).
 
+The built-in specs are written as **packages**, one per layer (envelope, dictionary, transaction
+set, implementation guide, views); a stack of packages makes one spec. See
+[Packages and layers](../customize/packages.md).
+
 ### Control number
 
 A number that must match between a header and its trailer: `ISA13` and `IEA02`, `GS06` and

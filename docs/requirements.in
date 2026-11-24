@@ -5,11 +5,11 @@
 mkdocs==1.6.1
 mkdocs-material==9.8.1
 mkdocstrings[python]==1.0.8
-mkdocstrings-python==2.0.10
+mkdocstrings-python==2.0.11
 mike==2.2.0
 mkdocs-redirects==1.2.3
 # ruff formats the signatures that mkdocstrings prints.
-ruff==0.17.4
+ruff==0.17.5
 pytest==9.2.0
 pytest-playwright==0.10.0
 maturin==1.16.0

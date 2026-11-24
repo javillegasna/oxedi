@@ -15,7 +15,9 @@ mod common;
 use std::fmt::Write as _;
 use std::path::PathBuf;
 
-use oxedi_core::{DateMode, Diagnostic, Document, Mask, Processor, Tables, Version};
+use oxedi_core::conformance::render;
+use oxedi_core::spec_load::KitOutput;
+use oxedi_core::{DateMode, Document, Mask, Processor, Tables, Version};
 
 fn golden_dir() -> PathBuf {
     PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("tests/golden/project")
@@ -27,15 +29,6 @@ fn row_counts(tables: &Tables) -> String {
         let _ = writeln!(out, "{} rows: {}", table.name(), table.len());
         out
     })
-}
-
-fn diagnostic_lines(diagnostics: &[Diagnostic]) -> String {
-    diagnostics
-        .iter()
-        .fold(String::new(), |mut out, diagnostic| {
-            let _ = writeln!(out, "{diagnostic}");
-            out
-        })
 }
 
 /// Each file is projected with the built-in spec of the version it declares.
@@ -58,7 +51,7 @@ fn tables_and_diagnostics_match_the_golden_files() {
         });
         outputs.push((
             golden_dir().join(format!("{name}.diagnostics.txt")),
-            diagnostic_lines(&diagnostics),
+            render(KitOutput::Diagnostics, &tables, &diagnostics),
         ));
     }
     let failures = common::compare_goldens(&golden_dir(), &outputs, &["edi_835_parser", "masked"]);
@@ -117,7 +110,7 @@ fn masked_tables_and_diagnostics_match_the_golden_files() {
             });
             outputs.push((
                 dir.join(format!("{label}.diagnostics.txt")),
-                diagnostic_lines(&diagnostics),
+                render(KitOutput::Diagnostics, &tables, &diagnostics),
             ));
         }
     }

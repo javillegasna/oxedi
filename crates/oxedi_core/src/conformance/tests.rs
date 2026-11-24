@@ -1,4 +1,6 @@
 use super::*;
+use crate::spec_load::KitOutput;
+use crate::{Document, Processor, Spec};
 
 fn text(line: &str) -> Line {
     Line::Text(line.to_owned())
@@ -77,4 +79,19 @@ fn multi_byte_lines_are_kept_whole() {
             actual: text("ñandá"),
         })
     );
+}
+
+#[test]
+fn render_writes_the_tables_and_one_line_per_diagnostic() {
+    let document =
+        Document::parse(&include_bytes!("../../tests/fixtures/balanced_5010_sample.txt")[..])
+            .unwrap();
+    let (tables, diagnostics) = Processor::run(&Spec::builtin_835(), &document, None);
+    let lines: String = diagnostics.iter().map(|d| format!("{d}\n")).collect();
+    assert_eq!(
+        render(KitOutput::Tables, &tables, &diagnostics),
+        tables.to_string()
+    );
+    assert_eq!(render(KitOutput::Diagnostics, &tables, &diagnostics), lines);
+    assert_eq!(render(KitOutput::Diagnostics, &tables, &[]), "");
 }

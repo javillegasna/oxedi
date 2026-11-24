@@ -14,6 +14,11 @@ pub enum KitError {
     },
     /// The kit holds no case.
     NoCases,
+    /// Two cases carry the same name.
+    RepeatedCase {
+        /// The name written twice under `cases`.
+        case: String,
+    },
     /// A case names no expected output.
     NoOutputs {
         /// The case, as named under `cases`.
@@ -32,6 +37,10 @@ impl fmt::Display for KitError {
             KitError::NoCases => {
                 write!(f, "the kit has no case; add one under \"cases\"")
             }
+            KitError::RepeatedCase { case } => write!(
+                f,
+                "case {case:?} is named twice under \"cases\"; rename one"
+            ),
             KitError::NoOutputs { case } => write!(
                 f,
                 "case {case:?} expects no output; name a file under \"expect\" for \

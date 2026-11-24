@@ -22,6 +22,8 @@ from oxedi import (
     ElementSource,
     Envelope,
     GroupSource,
+    JsonObject,
+    JsonValue,
     ParseError,
     Result,
     Segment,
@@ -40,6 +42,11 @@ from oxedi.pyx12 import validate
 def results(data: bytes, path: str) -> list[Result]:
     spec: Spec = Spec.builtin(version=Version.V4010).patch({"name": "x"}).patch('{"name": "y"}')
     nested: Spec = spec.patch({"name": "x", "summaries": None, "tables": {"claims": {"loops": ("2100",)}}})
+    codes: dict[str, list[str]] = {"name": ["x"]}
+    typed: JsonValue = codes
+    object_: JsonObject = {"name": "x"}
+    listed: Spec = spec.patch(codes).patch(object_).patch({"tables": {"claims": {"loops": ["2100"]}}})
+    print(typed, listed)
     loops: list[str] = Spec.from_json(spec.to_json()).loops()
     assert loops
     source: ElementSource = spec.column_source("services", "procedure_code")

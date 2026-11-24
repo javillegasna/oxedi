@@ -19,7 +19,7 @@ enum Name {
 /// Who may write a key.
 #[derive(Clone, Copy)]
 enum Owner {
-    /// No layer: the name of a stack comes from its top package's id.
+    /// Only a patch: the name of a stack comes from its top package's id.
     Identity,
     /// The whole value belongs to these layers.
     Layers(&'static [Layer]),
@@ -236,6 +236,7 @@ fn check_member<'v>(
 // Whether `layers` own `owner` whole: every leaf beneath it, for a section.
 fn require_all(owner: Owner, path: &[&str], layers: Layers) -> Result<(), Fault> {
     match owner {
+        Owner::Identity if layers.contains(Layer::Patch) => Ok(()),
         Owner::Identity => Err(Fault::Name),
         Owner::Layers(owners) if holds_any(layers, owners) => Ok(()),
         Owner::Layers(owners) => Err(Fault::Key {
@@ -248,7 +249,7 @@ fn require_all(owner: Owner, path: &[&str], layers: Layers) -> Result<(), Fault>
     }
 }
 
-// A patch owns every key but the name.
+// A patch owns every key, the name too.
 fn holds_any(layers: Layers, owners: &[Layer]) -> bool {
     layers.contains(Layer::Patch) || owners.iter().any(|&owner| layers.contains(owner))
 }

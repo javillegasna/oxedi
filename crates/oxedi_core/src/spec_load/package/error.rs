@@ -208,7 +208,7 @@ impl fmt::Display for StackError {
             StackError::NameFromIdentity { package } => write!(
                 f,
                 "package \"{package}\" holds \"name\"; a stack takes its name from its top \
-                 package's id, so remove the key"
+                 package's id and only a patch may change it, so remove the key"
             ),
             StackError::Widens { change } => write!(
                 f,

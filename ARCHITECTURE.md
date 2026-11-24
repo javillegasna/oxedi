@@ -138,7 +138,7 @@ The spec files live in `crates/oxedi_core/specs/`:
 | `oxedi/envelope/004010.json` | ISA11 type and codes, ISA12 codes, ST03 removed; an edition of the envelope. | `Builtin` (`spec_load/builtin.rs`) |
 | `oxedi/dictionary/004010.json` | The segments and elements 4010 removes or adds; an edition of the dictionary. | `Builtin` (`spec_load/builtin.rs`) |
 | `oxedi/guide/004010/835/X091A1.json` | The X091A1 guide, an edition of X221A1 (layers transaction-set and guide): occurrences, usage, codes and the version. | `Builtin` (`spec_load/builtin.rs`): the stack of the packages, composed |
-| `edi_835_parser.json` | A patch with the tables of the `edi-835-parser` compatibility layer. | `crates/oxedi_py/src/lib.rs`, pinned by `tests/project_golden.rs` |
+| `edi_835_parser.json` | A patch package (`edi-835-parser/patch/005010/835/X221A1`) on the 5010 views, with the tables of the `edi-835-parser` compatibility layer; it renames the spec. Its kit is `tests/kits/edi-835-parser-835-005010-X221A1.kit.json`. | `crates/oxedi_py/src/lib.rs`, pinned by `tests/project_golden.rs` |
 
 ### Two layers: the schema and its loading
 
@@ -300,7 +300,7 @@ Internal words used in the code. X12 and payment terms for users are in
 | schema / loading | The two layers of a spec: the schema (`spec`) is the compiled definitions every reader and the writer use; loading (`spec_load`) reads, checks, patches and compiles the JSON into them, and the schema never uses it. A **table schema** (`TableSchema`) is the columns of one table, part of the schema. | `spec/`, `spec_load/` |
 | spec model | The spec as typed data a program builds and writes, shared with the loader. | `spec_load/model/` |
 | loaded spec | A spec's model beside the spec compiled from it. | `spec_load/loaded.rs` |
-| patch | An RFC 7386 JSON Merge Patch over a spec (`edi_835_parser.json`). | `spec_load/patch.rs` |
+| patch | An RFC 7386 JSON Merge Patch over a spec; a patch package is one. | `spec_load/patch.rs` |
 | package | One JSON file: a header (`format`, `id`, `layers`, `bases`) around a spec of the layers it holds. | `spec_load/package/` |
 | built-in | The shipped 5010 package and its three 4010 editions, chosen by `Builtin::select` from `GS08`; the registry is `Builtin::all`, each entry with a typed `Version`. | `spec_load/builtin.rs`, `spec/version.rs` |
 | trigger | The segment (and element conditions) that opens a loop. | `spec/loops.rs` |

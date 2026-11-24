@@ -66,11 +66,17 @@ fn resolve(path: &str) -> PathBuf {
     resolved
 }
 
-/// The validated stack whose top package is `id`, from the shipped texts.
+/// The compat patch package, which sits on the shipped stack and is not part of it.
+const COMPAT: &str = include_str!("../specs/edi_835_parser.json");
+
+/// The validated stack whose top package is `id`: a shipped package, or the
+/// compat patch, over the shipped texts.
 fn stack_of(id: &PackageId) -> Valid {
     let packages = Builtin::packages();
     packages
         .iter()
+        .copied()
+        .chain([COMPAT])
         .find_map(|top| match validate(top, packages) {
             Validation::Yes(valid) if valid.id() == id => Some(*valid),
             _ => None,
@@ -126,7 +132,9 @@ fn every_fixture_with_an_isa_is_a_case_of_its_version() {
     let mut inputs = Vec::new();
     for manifest in manifests() {
         let kit = read_kit(&manifest);
-        let named = Builtin::get(&kit.header().package).expect("a kit names a built-in");
+        let Some(named) = Builtin::get(&kit.header().package) else {
+            continue;
+        };
         let expected = if std::ptr::eq(named, Builtin::fallback()) {
             &five
         } else {
@@ -143,4 +151,15 @@ fn every_fixture_with_an_isa_is_a_case_of_its_version() {
     }
     let named: Vec<&str> = inputs.iter().map(String::as_str).collect();
     common::assert_same_names("kit inputs and FIXTURES", &named, common::FIXTURES);
+}
+
+#[test]
+fn the_compat_kit_names_every_isa_fixture() {
+    let kit = read_kit("edi-835-parser-835-005010-X221A1.kit.json");
+    let inputs: Vec<&str> = kit
+        .cases()
+        .values()
+        .map(|case| case.input.as_str().rsplit('/').next().unwrap())
+        .collect();
+    common::assert_same_names("compat kit inputs and FIXTURES", &inputs, common::FIXTURES);
 }

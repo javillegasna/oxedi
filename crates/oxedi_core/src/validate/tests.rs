@@ -237,3 +237,33 @@ fn write_reasons_say_what_to_do() {
 fn a_capability_that_can_has_no_reasons() {
     assert!(Capability::<NoPatientData>::Can.reasons().is_empty());
 }
+
+#[test]
+fn every_builtin_says_yes_with_its_capabilities() {
+    let compat = include_str!("../../specs/edi_835_parser.json");
+    for top in [shipped()[4], shipped()[7]] {
+        let valid = yes(validate(top, shipped()));
+        assert!(valid.write.can() && valid.mask.can(), "{}", valid.id());
+    }
+    let valid = yes(validate(compat, shipped()));
+    assert_eq!(
+        valid.id().as_str(),
+        "edi-835-parser/patch/005010/835/X221A1"
+    );
+    assert!(!valid.write.can());
+    let write = valid.write.reasons();
+    assert_eq!(write.len(), 17);
+    assert_eq!(
+        write[0],
+        "table \"rows_organizations\" is anchored on 2 loops (\"1000A\", \"1000B\"); a written \
+         row opens one loop instance and nothing in the row says which; anchor the table on one loop"
+    );
+    assert!(!valid.mask.can());
+    assert_eq!(
+        valid.mask.reasons(),
+        [
+            "no column of any table is flagged \"phi\"; flag the columns that hold names, ids or \
+             dates with \"phi\": \"name\", \"id\" or \"date\""
+        ]
+    );
+}

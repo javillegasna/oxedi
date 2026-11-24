@@ -197,12 +197,18 @@ fn key_not_owned_display() {
 }
 
 #[test]
-fn the_name_belongs_to_no_layer() {
-    let err = compose(&["patch"], r#"{"name":"x"}"#).unwrap_err();
+fn the_name_belongs_to_no_layer_but_a_patch() {
+    let err = compose(&["views"], r#"{"name":"x"}"#).unwrap_err();
     assert_eq!(
         err.to_string(),
-        "package \"test/patch/005010/835/X1\" holds \"name\"; a stack takes its name from its top package's id, so remove the key"
+        "package \"test/views/005010/835/X1\" holds \"name\"; a stack takes its name from its top package's id and only a patch may change it, so remove the key"
     );
+}
+
+#[test]
+fn a_patch_may_rename_its_stack() {
+    let composed = composed(&["patch"], r#"{"name":"x"}"#).unwrap();
+    assert_eq!(composed.model.name, "x");
 }
 
 #[test]
@@ -217,7 +223,7 @@ fn a_deletion_needs_every_layer_beneath() {
 }
 
 #[test]
-fn a_patch_owns_every_key_but_the_name() {
+fn a_patch_owns_every_key() {
     let spec = r#"{"segments":{},"tables":{},"loops":{"a":{"trigger":{"segment":"AA"}}}}"#;
     assert!(compose(&["patch"], spec).is_ok());
 }
@@ -252,6 +258,6 @@ fn a_section_that_is_not_an_object_is_left_to_the_strict_read() {
 
 #[test]
 fn ownership_errors_have_no_source() {
-    let err = refusal(&["patch"], r#"{"name":"x"}"#);
+    let err = refusal(&["views"], r#"{"name":"x"}"#);
     assert!(std::error::Error::source(&err).is_none());
 }

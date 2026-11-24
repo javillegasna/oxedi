@@ -14,7 +14,7 @@ mod tests;
 
 pub use report::{Invalid, Member, Text, Valid, Validation};
 
-use crate::spec_load::{LoadedSpec, Package, SpecError, Stack};
+use crate::spec_load::{LoadedSpec, Package, SpecError, Stack, Step};
 
 /// Composes the stack that `top` builds on, with the packages of `pool` as its
 /// bases, and answers whether it loads: [`Validation::Yes`] with what the
@@ -39,19 +39,17 @@ fn load(top: &str, pool: &[&str]) -> Result<Valid, Box<Invalid>> {
         })
     };
     let stack = Stack::resolve(&top, &pool).map_err(unloadable)?;
-    let members = stack
-        .steps()
-        .map(|step| Member {
-            id: step.package.id().clone(),
-            role: step.role,
-        })
-        .collect();
+    let member = |step: &Step| Member {
+        id: step.package.id().clone(),
+        role: step.role,
+    };
+    let bases = stack.bases().iter().map(member).collect();
+    let top = member(&stack.top_step());
     let composed = stack.compose_checked().map_err(unloadable)?;
     let loaded = LoadedSpec::from_model(composed.model).map_err(unloadable)?;
     Ok(Valid {
-        id: id.clone(),
-        name: loaded.spec.name().to_string(),
-        members,
+        bases,
+        top,
         changes: composed.changes,
         loaded,
     })

@@ -78,12 +78,12 @@ impl<'p> Stack<'p> {
     }
 
     /// The steps the top builds on, bases first.
-    pub(super) fn bases(&self) -> &[Step<'p>] {
+    pub fn bases(&self) -> &[Step<'p>] {
         &self.bases
     }
 
     /// The last step: the top package and its role.
-    pub(super) fn top_step(&self) -> Step<'p> {
+    pub fn top_step(&self) -> Step<'p> {
         self.top
     }
 }

@@ -56,6 +56,7 @@ fn fixtures_get_the_spec_of_their_declared_version() {
         ("edge_cases_4010_sample.txt", "4010"),
         ("masked_findings_5010_sample.txt", "5010"),
         ("masked_findings_4010_sample.txt", "4010"),
+        ("payer_technical_contact_4010_sample.txt", "4010"),
     ];
     let named: Vec<&str> = cases.iter().map(|(name, _)| *name).collect();
     common::assert_same_names(

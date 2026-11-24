@@ -261,7 +261,7 @@ fn columns_have_equal_lengths_and_arrow_buffers() {
 }
 
 /// Each file under the built-in spec of the version it declares: the element
-/// findings over the thirteen files are all defects of the synthetic fixtures;
+/// findings over the fourteen files are all defects of the synthetic fixtures;
 /// the six anonymized payer files raise none.
 #[test]
 fn only_the_synthetic_fixtures_raise_element_findings() {
@@ -284,6 +284,7 @@ fn only_the_synthetic_fixtures_raise_element_findings() {
             ("masked_findings_4010_sample.txt".to_string(), 5),
             ("masked_findings_5010_sample.txt".to_string(), 5),
             ("multi_claim_sample.txt".to_string(), 18),
+            ("payer_technical_contact_4010_sample.txt".to_string(), 1),
             ("trizetto_sample.rmt".to_string(), 5),
         ])
     );

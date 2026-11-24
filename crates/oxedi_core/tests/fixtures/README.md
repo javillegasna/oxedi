@@ -121,3 +121,17 @@ Each finding is a length or format rule, the same five in both files, all in the
 - `REF02` of the service's `REF*6R` is a 59-character line item control number (1 to 50).
 
 A masked parse replaces each of the five datums with a 16-character token.
+
+## A payer technical contact under 4010
+
+One synthetic 4010 file for the payer technical contact: a copy of `balanced_4010_sample.txt`
+with its `PER*CX*CLAIMS DEPT*TE*8005551234` replaced by `PER*BL*EDI SUPPORT*TE*8005559876`.
+**Never edit it.** Every name and number is invented.
+
+| File | Bytes | Version | Line endings | Diagnostics |
+|------|-------|---------|--------------|-------------|
+| `payer_technical_contact_4010_sample.txt` | 1 470 | 00401 / 004010X091A1 | none | 1 |
+
+It has 61 segments. The one diagnostic is PER01 `BL`, which the 4010 list of that element (`CX`)
+leaves out. The reader still fills the three payer technical contact columns of `payments` from
+that `PER`, and the writer does not write them.

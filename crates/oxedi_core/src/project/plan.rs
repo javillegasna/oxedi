@@ -1,7 +1,9 @@
 //! The per-segment plans the projector builds once from the spec.
 
 use super::carry::Carried;
-use crate::spec::{ColumnSource, ElementDef, IdMap, Spec, TableDef};
+use crate::spec::{
+    ColumnSource, ElementDef, IdMap, OccurrencePlace, Reading, Relation, Spec, TableDef,
+};
 use crate::value::ColumnType;
 use crate::vocabulary::Pick;
 
@@ -131,69 +133,45 @@ impl<'s> Plans<'s> {
     }
 
     /// Makes every column of table `index` (one without `segment`) watch the
-    /// segment id it reads in each loop it reads from. A column that reads
-    /// a loop above the anchor gets a carried value, which an instance of
-    /// that loop opening starts over (recorded in `resets`, per loop); the
+    /// segment id it reads in each loop the spec placed it in. A column that
+    /// reads a loop above the anchor gets a carried value, which an instance
+    /// of that loop opening starts over (recorded in `resets`, per loop); the
     /// carried values are returned in column order.
-    pub(super) fn watch_columns(
+    pub(super) fn watch_places(
         &mut self,
         spec: &'s Spec,
         index: usize,
         resets: &mut [Vec<(usize, usize)>],
     ) -> Vec<Carried> {
-        let def = &spec.tables()[index];
         let loops = spec.loops().len();
         let mut carried = Vec::new();
-        for (column, (_, source)) in def.columns.iter().enumerate() {
-            let (reader, segment, occurrence, pick) = match source {
-                ColumnSource::Element {
-                    loop_id,
-                    segment,
-                    occurrence,
-                    pick,
-                    ..
-                }
-                | ColumnSource::SegmentIndex {
-                    loop_id,
-                    segment,
-                    occurrence,
-                    pick,
-                    ..
-                } => (*loop_id, segment, occurrence.as_deref(), *pick),
-                ColumnSource::GroupElement { .. } => continue,
+        let columns = &spec.tables()[index].columns;
+        for (column, (place, (_, source))) in spec.places(index).iter().zip(columns).enumerate() {
+            let (Reading::Watch { relation, reads }, Some((segment, pick))) =
+                (&place.reading, segment_pick(source))
+            else {
+                continue;
             };
-            let above = reader.filter(|&id| {
-                def.loops
-                    .iter()
-                    .any(|&anchor| spec.ancestors(anchor).contains(&id))
-            });
-            let slot = match above.and_then(|id| resets.get_mut(id.index())) {
-                Some(reset) => {
-                    reset.push((index, carried.len()));
+            let slot = match relation {
+                Relation::Above { carried: slot } => {
                     carried.push(Carried::new(column));
-                    Some(carried.len() - 1)
-                }
-                None => None,
-            };
-            let readers = reader.map_or_else(|| def.loops.clone(), |id| vec![id]);
-            let plan = self.entry(segment, loops);
-            for id in readers {
-                let occurrence = match occurrence {
-                    None => None,
-                    // Compilation checked that every reading loop declares
-                    // the occurrence.
-                    Some(name) => {
-                        match spec.get(id).occurrences.iter().position(|o| o.name == name) {
-                            Some(found) => Some(found),
-                            None => continue,
+                    // An `Above` column reads exactly its one named loop.
+                    for read in reads {
+                        if let Some(reset) = resets.get_mut(read.loop_id.index()) {
+                            reset.push((index, *slot));
                         }
                     }
-                };
-                if let Some(watchers) = plan.watchers.get_mut(id.index()) {
+                    Some(*slot)
+                }
+                Relation::Anchor | Relation::Inside => None,
+            };
+            let plan = self.entry(segment, loops);
+            for read in reads {
+                if let Some(watchers) = plan.watchers.get_mut(read.loop_id.index()) {
                     watchers.push(Watcher {
                         table: index,
                         column,
-                        occurrence,
+                        occurrence: named_index(&read.place),
                         pick,
                         carried: slot,
                     });
@@ -211,6 +189,25 @@ impl<'s> Plans<'s> {
             watchers: vec![Vec::new(); loops],
         };
         self.by_id.entry_or_insert_with(id, empty)
+    }
+}
+
+/// The segment id and pick of a column that reads a segment of a loop.
+fn segment_pick(source: &ColumnSource) -> Option<(&[u8], Pick)> {
+    match source {
+        ColumnSource::Element { segment, pick, .. }
+        | ColumnSource::SegmentIndex { segment, pick, .. } => Some((segment.as_slice(), *pick)),
+        ColumnSource::GroupElement { .. } => None,
+    }
+}
+
+/// The index in its loop's occurrences of the occurrence a read names, which
+/// a captured segment must match; `None` when the column reads by its
+/// conditions.
+fn named_index(place: &OccurrencePlace) -> Option<usize> {
+    match place {
+        OccurrencePlace::Named(occurrence) => Some(occurrence.index()),
+        OccurrencePlace::Chosen(_) | OccurrencePlace::Unplaced(_) => None,
     }
 }
 

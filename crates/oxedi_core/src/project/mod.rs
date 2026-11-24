@@ -147,7 +147,7 @@ impl<'s> Projector<'s> {
                 }
             }
             let carried = if def.segment.is_none() {
-                plans.watch_columns(spec, index, &mut resets)
+                plans.watch_places(spec, index, &mut resets)
             } else {
                 Vec::new()
             };

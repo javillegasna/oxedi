@@ -161,3 +161,111 @@ fn a_kit_for_another_package_is_refused() {
     );
     assert!(std::error::Error::source(&err).is_none());
 }
+
+const TABLES_CASE: &str = r#"{"a":{"input":"in.835","expect":{"tables":"t.txt"}}}"#;
+
+#[test]
+fn a_table_difference_names_the_first_line() {
+    let (tables, _) = rendered();
+    let mut lines: Vec<&str> = tables.lines().collect();
+    let real = lines[2].to_owned();
+    lines[2] = "x";
+    let edited = lines.join("\n");
+    let report = run(
+        TABLES_CASE,
+        &[("in.835", FIVE), ("t.txt", edited.as_bytes())],
+    );
+    let at = LineDifference {
+        line: 3,
+        expected: text("x"),
+        actual: Line::Text(real.clone()),
+    };
+    assert_eq!(
+        report.cases[0].outcome,
+        Outcome::Differs(vec![Difference {
+            output: KitOutput::Tables,
+            file: "t.txt".to_owned(),
+            at,
+        }])
+    );
+    let Outcome::Differs(differences) = &report.cases[0].outcome else {
+        panic!("{report}");
+    };
+    assert_eq!(
+        differences[0].to_string(),
+        format!("tables (t.txt) line 3: expected \"x\", found {real:?}")
+    );
+}
+
+#[test]
+fn expected_diagnostics_on_a_clean_file() {
+    let cases = r#"{"a":{"input":"in.835","expect":{"diagnostics":"d.txt"}}}"#;
+    let report = run(cases, &[("in.835", FIVE), ("d.txt", b"x\n")]);
+    let Outcome::Differs(differences) = &report.cases[0].outcome else {
+        panic!("{report}");
+    };
+    assert_eq!(differences[0].at.line, 1);
+    assert_eq!(differences[0].at.expected, text("x"));
+    assert_eq!(differences[0].at.actual, Line::End);
+    assert!(report.to_string().contains("found the end"));
+}
+
+#[test]
+fn faults_break_the_case_and_say_what_to_do() {
+    let missing = run(TABLES_CASE, &[("t.txt", b"")]);
+    assert_eq!(
+        missing.cases[0].outcome,
+        Outcome::Broken(CaseFault::MissingFile {
+            path: "in.835".to_owned()
+        })
+    );
+    assert_eq!(
+        missing.cases[0].to_string(),
+        "case \"a\": cannot run: the kit names \"in.835\", which was not given; give the file to the runner"
+    );
+    let binary = run(TABLES_CASE, &[("in.835", FIVE), ("t.txt", &[0xff])]);
+    assert_eq!(
+        binary.cases[0].to_string(),
+        "case \"a\": cannot run: \"t.txt\" is not UTF-8 text; an expected output is a text file"
+    );
+    let hello = run(TABLES_CASE, &[("in.835", b"hello"), ("t.txt", b"")]);
+    let Outcome::Broken(fault @ CaseFault::NotADocument { .. }) = &hello.cases[0].outcome else {
+        panic!("{hello}");
+    };
+    let reason = Document::parse(&b"hello"[..]).unwrap_err();
+    assert_eq!(
+        fault.to_string(),
+        format!("\"in.835\" is not an X12 document: {reason}; give a file that opens with ISA")
+    );
+}
+
+#[test]
+fn the_first_fault_ends_the_case() {
+    let cases =
+        r#"{"a":{"input":"in.835","expect":{"tables":"missing.txt","diagnostics":"t.txt"}}}"#;
+    let report = run(cases, &[("in.835", FIVE), ("t.txt", &[0xff])]);
+    assert_eq!(
+        report.cases[0].outcome,
+        Outcome::Broken(CaseFault::MissingFile {
+            path: "missing.txt".to_owned()
+        })
+    );
+}
+
+#[test]
+fn cases_report_in_name_order() {
+    let (tables, _) = rendered();
+    let cases = r#"{"b":{"input":"in.835","expect":{"tables":"t.txt"}},"a":{"input":"in.835","expect":{"tables":"x.txt"}}}"#;
+    let report = run(
+        cases,
+        &[
+            ("in.835", FIVE),
+            ("t.txt", tables.as_bytes()),
+            ("x.txt", b"x"),
+        ],
+    );
+    let names: Vec<&str> = report.cases.iter().map(|c| c.name.as_str()).collect();
+    assert_eq!(names, ["a", "b"]);
+    assert!(!report.passed());
+    assert!(report.to_string().contains("1 of 2 cases pass"));
+}

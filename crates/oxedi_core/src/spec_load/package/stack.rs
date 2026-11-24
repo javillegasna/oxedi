@@ -19,6 +19,17 @@ pub enum Role {
     Patch,
 }
 
+impl Role {
+    /// The role as a message words it: `narrows`, `edition` or `patch`.
+    pub const fn word(self) -> &'static str {
+        match self {
+            Role::Narrows => "narrows",
+            Role::Edition => "edition",
+            Role::Patch => "patch",
+        }
+    }
+}
+
 /// One package of a stack and its role.
 #[derive(Debug, Clone, Copy)]
 pub struct Step<'p> {

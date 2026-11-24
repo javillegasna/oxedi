@@ -100,6 +100,13 @@ impl Builtin {
     }
 }
 
+impl Builtin {
+    /// Every package text the crate ships: the 5010 stack, then the 4010 editions.
+    pub fn packages() -> &'static [&'static str] {
+        &PACKAGES
+    }
+}
+
 impl Spec {
     /// The built-in 835 structure.
     pub fn builtin_835() -> Spec {

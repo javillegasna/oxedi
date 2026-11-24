@@ -224,6 +224,8 @@ fn spec_items(spec: &Spec) {
 fn builtin_items() {
     let _: Version = Builtin::DEFAULT_VERSION;
     let _: fn() -> &'static [Builtin] = Builtin::all;
+    let _: fn() -> &'static [&'static str] = Builtin::packages;
+    let _: fn(oxedi_core::spec_load::Role) -> &'static str = oxedi_core::spec_load::Role::word;
     let _: fn() -> &'static Builtin = Builtin::fallback;
     let _: fn(&str, Version) -> Result<&'static Builtin, UnknownVersion> = Builtin::find;
     let _: fn(&str, &str) -> Result<&'static Builtin, UnknownVersion> = Builtin::find_text;

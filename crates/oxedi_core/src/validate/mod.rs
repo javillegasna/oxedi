@@ -3,7 +3,8 @@
 //!
 //! `mod.rs` the entry point, [`validate`], which runs the checks the loader
 //! already has and decides nothing itself; `report` the typed answer
-//! ([`Validation`]), what it holds and the text it prints; `tests` its tests.
+//! ([`Validation`]), what it holds, the capabilities it reports and the text it
+//! prints; `tests` its tests.
 //!
 //! The module is for tools that check packages. The browser module and the
 //! built-in specs' run-time path never name it.
@@ -12,9 +13,12 @@ mod report;
 #[cfg(test)]
 mod tests;
 
-pub use report::{Invalid, Member, Text, Valid, Validation};
+pub use report::{
+    CannotWrite, Capability, Invalid, Member, NoPatientData, Reasons, Text, Valid, Validation,
+};
 
 use crate::spec_load::{LoadedSpec, Package, SpecError, Stack, Step};
+use crate::write::WritePlan;
 
 /// Composes the stack that `top` builds on, with the packages of `pool` as its
 /// bases, and answers whether it loads: [`Validation::Yes`] with what the
@@ -50,9 +54,32 @@ fn load(top: &str, pool: &[&str]) -> Result<Valid, Box<Invalid>> {
     Ok(Valid {
         bases,
         top,
+        write: write_capability(&loaded),
+        mask: mask_capability(&loaded),
         changes: composed.changes,
         loaded,
     })
+}
+
+// Whether the spec has tables and the write plan builds, the plan's own
+// refusals being the reasons.
+fn write_capability(loaded: &LoadedSpec) -> Capability<CannotWrite> {
+    if loaded.spec.tables().is_empty() {
+        return Capability::Cannot(CannotWrite::NoTables);
+    }
+    match WritePlan::new(&loaded.spec) {
+        Ok(_) => Capability::Can,
+        Err(plan) => Capability::Cannot(CannotWrite::Refused(plan)),
+    }
+}
+
+// Whether the spec flags any column as patient data.
+fn mask_capability(loaded: &LoadedSpec) -> Capability<NoPatientData> {
+    if loaded.spec.masks_anything() {
+        Capability::Can
+    } else {
+        Capability::Cannot(NoPatientData)
+    }
 }
 
 // Reads the pool's texts, the first that does not read being the answer.

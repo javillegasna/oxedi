@@ -85,7 +85,10 @@ pub use spec_load::{
 pub use summary::{SummaryError, SummaryValue, summarize};
 pub use tokenizer::Tokenizer;
 pub use tree::{LoopTree, Node, NodeId, TreeBuilder};
-pub use validate::{Invalid, Member, Text, Valid, Validation, validate};
+pub use validate::{
+    CannotWrite, Capability, Invalid, Member, NoPatientData, Reasons, Text, Valid, Validation,
+    validate,
+};
 pub use value::{ColumnType, ConvertError, ElementType, parse_dt, parse_n, parse_r, parse_tm};
 pub use vocabulary::{DateMode, Phi, Pick};
 pub use write::{PlanError, Refusal, WritePlan};

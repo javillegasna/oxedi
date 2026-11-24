@@ -1,8 +1,11 @@
 //! Tests of `validate`: the answer for the shipped stacks and for each way a
 //! stack fails to load.
 
-use super::{Invalid, Text, Valid, Validation, validate};
+use super::{
+    CannotWrite, Capability, Invalid, NoPatientData, Reasons, Text, Valid, Validation, validate,
+};
 use crate::spec_load::{Builtin, Role};
+use crate::write::{PlanError, Refusal};
 
 fn shipped() -> &'static [&'static str] {
     Builtin::packages()
@@ -40,12 +43,13 @@ fn the_5010_stack_says_yes() {
     );
     assert!(valid.members().all(|m| m.role == Role::Narrows));
     assert!(valid.changes.is_empty());
+    assert!(valid.write.can() && valid.mask.can());
     assert_eq!(
         valid.to_string(),
         "yes: stack \"oxedi/views/005010/835/X221A1\" loads as spec \"835\"\npackages, bases \
          first: \"oxedi/envelope/005010\" (narrows), \"oxedi/dictionary/005010\" (narrows), \
          \"oxedi/transaction-set/005010/835\" (narrows), \"oxedi/guide/005010/835/X221A1\" \
-         (narrows), \"oxedi/views/005010/835/X221A1\" (narrows)\ncan read\nchanges: none"
+         (narrows), \"oxedi/views/005010/835/X221A1\" (narrows)\ncan read\ncan write\ncan mask\nchanges: none"
     );
 }
 
@@ -174,4 +178,62 @@ fn a_pool_package_the_stack_does_not_use_is_ignored() {
     assert_eq!(ids.len(), 5);
     assert!(!ids.contains(&"oxedi/envelope/004010"), "{ids:?}");
     assert_eq!(valid.id().as_str(), "oxedi/views/005010/835/X221A1");
+}
+
+#[test]
+fn the_4010_stack_can_write_and_mask() {
+    let valid = yes(validate(shipped()[7], shipped()));
+    assert!(valid.write.can());
+    assert!(valid.mask.can());
+}
+
+#[test]
+fn a_guide_top_cannot_write_or_mask() {
+    let valid = yes(validate(shipped()[3], shipped()));
+    assert_eq!(valid.write, Capability::Cannot(CannotWrite::NoTables));
+    assert_eq!(
+        valid.write.reasons(),
+        vec!["the stack has no tables; build a views package on it"]
+    );
+    assert_eq!(
+        valid.mask.reasons(),
+        vec![
+            "no column of any table is flagged \"phi\"; flag the columns that hold names, ids \
+             or dates with \"phi\": \"name\", \"id\" or \"date\""
+        ]
+    );
+    let text = valid.to_string();
+    assert!(
+        text.contains("\ncannot mask (1 reason):\n1. no column of any table is flagged"),
+        "{text}"
+    );
+    assert!(
+        text.contains(
+            "\ncannot write (1 reason):\n1. the stack has no tables; build a views package on it\n"
+        ),
+        "{text}"
+    );
+}
+
+#[test]
+fn write_reasons_say_what_to_do() {
+    let plan = PlanError {
+        spec: "s".into(),
+        refusals: vec![Refusal::SeveralAnchorLoops {
+            table: "names".into(),
+            loops: vec!["1000A".into(), "1000B".into()],
+        }],
+    };
+    assert_eq!(
+        CannotWrite::Refused(plan).lines(),
+        vec![
+            "table \"names\" is anchored on 2 loops (\"1000A\", \"1000B\"); a written row opens one \
+             loop instance and nothing in the row says which; anchor the table on one loop"
+        ]
+    );
+}
+
+#[test]
+fn a_capability_that_can_has_no_reasons() {
+    assert!(Capability::<NoPatientData>::Can.reasons().is_empty());
 }

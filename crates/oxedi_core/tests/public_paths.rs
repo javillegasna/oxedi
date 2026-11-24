@@ -141,8 +141,12 @@ mod by_module {
     use oxedi_core::trivia::BYTE_ORDER_MARK;
     use oxedi_core::trivia::LeadingTrivia;
     use oxedi_core::trivia::is_trivia;
+    use oxedi_core::validate::CannotWrite;
+    use oxedi_core::validate::Capability;
     use oxedi_core::validate::Invalid;
     use oxedi_core::validate::Member;
+    use oxedi_core::validate::NoPatientData;
+    use oxedi_core::validate::Reasons;
     use oxedi_core::validate::Text;
     use oxedi_core::validate::Valid;
     use oxedi_core::validate::Validation;
@@ -197,6 +201,10 @@ use oxedi_core::{
 use oxedi_core::{
     Bitmap, Cell, CellError, Column, ColumnData, ColumnType, RowError, Table, Tables,
 };
+use oxedi_core::{
+    CannotWrite, Capability, Invalid, Member, NoPatientData, Reasons, Text, Valid, Validation,
+    validate,
+};
 use oxedi_core::{ColumnSchema, TableSchema, spec_schema};
 use oxedi_core::{DateMode, Mask, MaskError, Phi};
 use oxedi_core::{Delimiters, IsaError};
@@ -205,7 +213,6 @@ use oxedi_core::{Document, DocumentError, Segments, SizeError, Span, Spans};
 use oxedi_core::{Element, Value};
 use oxedi_core::{Event, Instance, InstanceId, LoopEngine, lineage, loop_paths, named_lineage};
 use oxedi_core::{Frame, SegmentEnd, next_frame};
-use oxedi_core::{Invalid, Member, Text, Valid, Validation, validate};
 use oxedi_core::{LoopTree, Node, NodeId, TreeBuilder};
 use oxedi_core::{Output, Processor};
 use oxedi_core::{Segment, SegmentWriteError};

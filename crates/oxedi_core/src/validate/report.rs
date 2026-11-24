@@ -2,7 +2,9 @@
 
 use std::fmt;
 
+use crate::message::Counted;
 use crate::spec_load::{Change, LoadedSpec, PackageId, Role, SpecError};
+use crate::write::PlanError;
 
 /// Whether a stack of packages loads.
 #[derive(Debug)]
@@ -20,10 +22,90 @@ pub struct Valid {
     pub bases: Vec<Member>,
     /// The top package.
     pub top: Member,
+    /// Whether the spec's tables can be written back into a file, or why not.
+    pub write: Capability<CannotWrite>,
+    /// Whether the spec can mask patient data, or why not.
+    pub mask: Capability<NoPatientData>,
     /// What the editions and patches of the stack changed, in stack order.
     pub changes: Vec<Change>,
     /// The composed model and its compiled spec.
     pub loaded: LoadedSpec,
+}
+
+/// What a stack that loads can do beyond reading, or why it cannot.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum Capability<R> {
+    /// It can.
+    Can,
+    /// It cannot, for these reasons.
+    Cannot(R),
+}
+
+/// Reasons a capability is missing, one line each.
+pub trait Reasons {
+    /// One line per reason: what is wrong and where, then what to do.
+    fn lines(&self) -> Vec<String>;
+}
+
+impl<R: Reasons> Capability<R> {
+    /// Whether the stack can.
+    pub fn can(&self) -> bool {
+        matches!(self, Capability::Can)
+    }
+
+    /// The reasons it cannot, one line each; empty when it can.
+    pub fn reasons(&self) -> Vec<String> {
+        match self {
+            Capability::Can => Vec::new(),
+            Capability::Cannot(reasons) => reasons.lines(),
+        }
+    }
+}
+
+/// Why a spec's tables cannot be written back into a file.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum CannotWrite {
+    /// The spec has no tables, so every required loop would lack a source;
+    /// one reason says so instead of one refusal per loop.
+    NoTables,
+    /// The write plan refuses the tables.
+    Refused(PlanError),
+}
+
+impl Reasons for CannotWrite {
+    /// The one reason when there is no table, else each refusal and what to
+    /// change to remove it.
+    fn lines(&self) -> Vec<String> {
+        match self {
+            CannotWrite::NoTables => {
+                vec!["the stack has no tables; build a views package on it".to_string()]
+            }
+            CannotWrite::Refused(plan) => plan
+                .refusals
+                .iter()
+                .map(|refusal| format!("{refusal}; {}", refusal.remedy()))
+                .collect(),
+        }
+    }
+}
+
+/// The spec flags no column as patient data, so there is nothing to mask.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct NoPatientData;
+
+impl fmt::Display for NoPatientData {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.write_str(
+            "no column of any table is flagged \"phi\"; flag the columns that hold names, ids \
+             or dates with \"phi\": \"name\", \"id\" or \"date\"",
+        )
+    }
+}
+
+impl Reasons for NoPatientData {
+    fn lines(&self) -> Vec<String> {
+        vec![self.to_string()]
+    }
 }
 
 /// One package of a stack and how it relates to its bases.
@@ -122,14 +204,39 @@ impl fmt::Display for Changes<'_> {
     }
 }
 
+// A capability's line: `can <what>`, or `cannot <what> (n reasons):` and one
+// numbered line per reason.
+struct Line<'a, R>(&'static str, &'a Capability<R>);
+
+impl<R: Reasons> fmt::Display for Line<'_, R> {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let reasons = self.1.reasons();
+        if self.1.can() {
+            return write!(f, "can {}", self.0);
+        }
+        write!(
+            f,
+            "cannot {} ({}):",
+            self.0,
+            Counted(reasons.len(), "reason", "reasons")
+        )?;
+        for (index, line) in reasons.iter().enumerate() {
+            write!(f, "\n{}. {line}", index + 1)?;
+        }
+        Ok(())
+    }
+}
+
 impl fmt::Display for Valid {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(
             f,
-            "yes: stack \"{}\" loads as spec \"{}\"\npackages, bases first: {}\ncan read\n{}",
+            "yes: stack \"{}\" loads as spec \"{}\"\npackages, bases first: {}\ncan read\n{}\n{}\n{}",
             self.id(),
             self.name(),
             Members(self),
+            Line("write", &self.write),
+            Line("mask", &self.mask),
             Changes(self)
         )
     }

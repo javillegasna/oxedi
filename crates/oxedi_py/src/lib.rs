@@ -81,7 +81,7 @@ fn core_module(m: &Bound<'_, PyModule>) -> PyResult<()> {
 }
 
 /// Every exception, class and function of the module, one registration each.
-fn members() -> [Register; 35] {
+fn members() -> [Register; 41] {
     [
         |m| m.add("ParseError", m.py().get_type::<document::ParseError>()),
         |m| m.add("SpecError", m.py().get_type::<spec::SpecError>()),
@@ -91,7 +91,13 @@ fn members() -> [Register; 35] {
         |m| m.add_class::<document::PySegment>(),
         |m| m.add_class::<element_source::PyElementSource>(),
         |m| m.add_class::<element_source::PyGroupSource>(),
+        |m| m.add_class::<kit::PyKitBroken>(),
         |m| m.add_class::<kit::PyCaseReport>(),
+        |m| m.add_class::<kit::PyKitDifference>(),
+        |m| m.add_class::<kit::PyKitDiffers>(),
+        |m| m.add_class::<kit::PyKitEnd>(),
+        |m| m.add_class::<kit::PyKitOutput>(),
+        |m| m.add_class::<kit::PyKitPassed>(),
         |m| m.add_class::<kit::PyKitReport>(),
         |m| m.add_class::<mask::PyMask>(),
         |m| m.add_class::<validate::PyCapability>(),

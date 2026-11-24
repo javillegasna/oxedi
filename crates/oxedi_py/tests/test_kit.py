@@ -5,7 +5,20 @@ import pytest
 from conftest import read
 
 import oxedi
-from oxedi import KitReport, Spec, SpecError, Valid, kit_files, run_kit
+from oxedi import (
+    KitBroken,
+    KitDifference,
+    KitDiffers,
+    KitEnd,
+    KitOutput,
+    KitPassed,
+    KitReport,
+    Spec,
+    SpecError,
+    Valid,
+    kit_files,
+    run_kit,
+)
 
 PACKAGES = Spec.builtin_packages()
 TOP = "oxedi/views/005010/835/X221A1"
@@ -32,25 +45,46 @@ def test_a_clean_file_passes_its_diagnostics_case():
     assert result.package == TOP
     assert str(result) == f'kit "{TOP}": 1 of 1 cases pass\ncase "a": passes'
     (case,) = result.cases
-    assert (case.name, case.passed, str(case)) == ("a", True, 'case "a": passes')
+    assert case.name == "a"
+    assert case.passed
+    assert isinstance(case.outcome, KitPassed)
     assert repr(result) == f"KitReport(package='{TOP}', passed=True)"
-    assert repr(case) == "CaseReport(name='a', passed=True)"
 
 
-def test_a_difference_is_reported_with_its_first_line():
+def test_a_difference_is_reported_as_typed_values():
     result = run_kit(manifest(), stack(), {"a.835": CLEAN, "d.txt": b"x\n"})
     assert not result.passed
     (case,) = result.cases
     assert not case.passed
+    outcome = case.outcome
+    assert isinstance(outcome, KitDiffers)
+    (difference,) = outcome.differences
+    assert isinstance(difference, KitDifference)
+    assert difference.output == KitOutput.DIAGNOSTICS
+    assert difference.file == "d.txt"
+    assert difference.line == 1
+    assert difference.expected == "x"
+    assert isinstance(difference.actual, KitEnd)
+    assert str(difference) == 'diagnostics (d.txt) line 1: expected "x", found the end'
     assert str(case) == 'case "a": differs: diagnostics (d.txt) line 1: expected "x", found the end'
+    assert repr(difference) == "KitDifference(output=KitOutput.DIAGNOSTICS, file='d.txt', line=1)"
 
 
 def test_a_missing_file_breaks_the_case_naming_it():
-    (case,) = run_kit(manifest(), stack(), {"a.835": CLEAN}).cases
+    result = run_kit(manifest(), stack(), {"a.835": CLEAN})
+    (case,) = result.cases
     assert not case.passed
-    assert str(case) == (
-        'case "a": cannot run: the kit names "d.txt", which was not given; give the file to the runner'
-    )
+    outcome = case.outcome
+    assert isinstance(outcome, KitBroken)
+    assert outcome.path == "d.txt"
+    assert str(outcome) == outcome.message == 'the kit names "d.txt", which was not given; give the file to the runner'
+
+
+def test_an_input_that_is_not_a_document_breaks_the_case():
+    (case,) = run_kit(manifest(), stack(), {"a.835": b"not x12", "d.txt": b""}).cases
+    assert isinstance(case.outcome, KitBroken)
+    assert case.outcome.path == "a.835"
+    assert case.outcome.message.startswith('"a.835" is not an X12 document: ')
 
 
 def test_kit_files_lists_every_path_sorted():

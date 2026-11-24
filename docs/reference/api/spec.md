@@ -35,3 +35,15 @@ The structure of the 835 and the columns of each table. See [The spec](../../cus
 ::: oxedi.KitReport
 
 ::: oxedi.CaseReport
+
+::: oxedi.KitPassed
+
+::: oxedi.KitDiffers
+
+::: oxedi.KitBroken
+
+::: oxedi.KitDifference
+
+::: oxedi.KitOutput
+
+::: oxedi.KitEnd

@@ -14,6 +14,7 @@ import typing_extensions
 __all__ = [
     "Batch",
     "Capability",
+    "CaseReport",
     "Change",
     "ChangeKind",
     "Delimiters",
@@ -24,6 +25,7 @@ __all__ = [
     "Envelope",
     "GroupSource",
     "Invalid",
+    "KitReport",
     "Mask",
     "ParseError",
     "Result",
@@ -41,7 +43,9 @@ __all__ = [
     "_mask_findings",
     "_parse_document",
     "_write",
+    "kit_files",
     "parse",
+    "run_kit",
     "stream",
     "validate_stack",
 ]
@@ -80,6 +84,28 @@ class Capability:
     def reasons(self) -> builtins.list[builtins.str]:
         r"""
         Why it cannot, one line each; empty when it can.
+        """
+    def __repr__(self) -> builtins.str: ...
+
+@typing.final
+class CaseReport:
+    r"""
+    What running one case gave.
+    """
+    @property
+    def name(self) -> builtins.str:
+        r"""
+        The case's name.
+        """
+    @property
+    def passed(self) -> builtins.bool:
+        r"""
+        Whether every expected output matches.
+        """
+    def __str__(self) -> builtins.str:
+        r"""
+        The case and how it ended, as one line: where each output first
+        differs, or why the case could not run.
         """
     def __repr__(self) -> builtins.str: ...
 
@@ -427,6 +453,29 @@ class Invalid:
     r"""
     A stack of packages that does not load.
     """
+    def __str__(self) -> builtins.str: ...
+    def __repr__(self) -> builtins.str: ...
+
+@typing.final
+class KitReport:
+    r"""
+    What running a kit gave: one case report per case, in name order.
+    """
+    @property
+    def package(self) -> builtins.str:
+        r"""
+        The id of the top package of the stack the kit checks.
+        """
+    @property
+    def passed(self) -> builtins.bool:
+        r"""
+        Whether every case passed.
+        """
+    @property
+    def cases(self) -> builtins.list[CaseReport]:
+        r"""
+        Each case's report, in name order.
+        """
     def __str__(self) -> builtins.str: ...
     def __repr__(self) -> builtins.str: ...
 
@@ -906,6 +955,13 @@ def _write(tables: Tables | collections.abc.Mapping[builtins.str, typing.Any], e
     the bytes and the findings, which are empty unless `allow_findings`.
     """
 
+def kit_files(manifest: builtins.str) -> builtins.list[builtins.str]:
+    r"""
+    The paths a kit manifest names, sorted: the files `run_kit` needs. They are
+    relative to the manifest's folder and may hold `..`, so the caller keeps them under a root it
+    trusts. Raises `SpecError` with the core's message when the manifest does not read.
+    """
+
 def parse(data: typing_extensions.Buffer, spec: typing.Optional[Spec] = None, delimiters: typing.Optional[Delimiters] = None, mask: typing.Optional[Mask] = None) -> Result:
     r"""
     Parses a whole file: indexes every segment, runs the loop engine, the
@@ -913,6 +969,15 @@ def parse(data: typing_extensions.Buffer, spec: typing.Optional[Spec] = None, de
     tables and every diagnostic. Without `spec`, the built-in spec of the
     version the file declares is used, else the default one. With `mask`, the
     patient data of the tables and diagnostics is hidden.
+    """
+
+def run_kit(manifest: builtins.str, stack: Valid, files: typing.Mapping[builtins.str, builtins.bytes]) -> KitReport:
+    r"""
+    Runs the kit `manifest` (the manifest's text) on the validated stack
+    `stack`. `files` maps each path `kit_files` lists, as the kit writes it, to
+    its bytes: nothing is opened, and the caller keeps the paths under a root it
+    trusts. Raises `SpecError` with the core's message when the manifest does
+    not read or checks another package than the stack's top.
     """
 
 def stream(data: typing_extensions.Buffer, spec: typing.Optional[Spec] = None, by: builtins.str = "transaction", delimiters: typing.Optional[Delimiters] = None, mask: typing.Optional[Mask] = None) -> Stream:

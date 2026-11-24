@@ -1,3 +1,5 @@
+import ast
+import inspect
 import json
 
 import pytest
@@ -64,6 +66,17 @@ def test_the_4010_stack_lists_81_changes():
     assert report.changes[0].endswith('(package "oxedi/envelope/004010")')
 
 
+def test_a_guide_top_cannot_mask():
+    report = oxedi.validate_stack(GUIDE_5010, PACKAGES)
+    assert isinstance(report, Valid)
+    assert report.mask.can is False
+    assert report.mask.reasons == [
+        'no column of any table is flagged "phi"; flag the columns that hold names, ids or '
+        'dates with "phi": "name", "id" or "date"'
+    ]
+    assert repr(report.mask) == "Capability(can=False, reasons=1)"
+
+
 def test_a_broken_top_is_invalid():
     report = oxedi.validate_stack("{")
     assert isinstance(report, Invalid)
@@ -72,6 +85,11 @@ def test_a_broken_top_is_invalid():
         "EOF while parsing an object at line 1 column 1"
     )
     assert repr(report).startswith("Invalid('no: the top package does not read")
+
+
+def test_a_broken_pool_text_names_its_position():
+    report = oxedi.validate_stack(STACK_5010, ["{"])
+    assert str(report).startswith("no: package 1 of the pool does not read: ")
 
 
 def test_from_packages_loads_a_patch_package():
@@ -83,3 +101,25 @@ def test_from_packages_raises_the_no_text():
     with pytest.raises(SpecError) as error:
         Spec.from_packages(PATCH, [])
     assert str(error.value) == str(oxedi.validate_stack(PATCH, []))
+
+
+def test_pool_must_not_be_a_str():
+    with pytest.raises(TypeError):
+        oxedi.validate_stack(STACK_5010, "abc")
+
+
+def test_an_invalid_repr_follows_the_rules_of_a_python_repr():
+    quoted = json.loads(PATCH)
+    quoted["package"]["it's"] = 1
+    report = oxedi.validate_stack(json.dumps(quoted))
+    assert isinstance(report, Invalid)
+    assert "it's" in str(report)
+    shown = ast.literal_eval(repr(report)[len("Invalid(") : -1])
+    assert str(report).startswith(shown.removesuffix("..."))
+    assert shown.endswith("...")
+
+
+def test_the_default_pool_is_an_empty_tuple():
+    assert str(inspect.signature(oxedi.validate_stack)) == "(top, pool=())"
+    assert str(inspect.signature(Spec.from_packages)) == "(top, pool=())"
+    assert isinstance(oxedi.validate_stack(STACK_5010, ()), Invalid)

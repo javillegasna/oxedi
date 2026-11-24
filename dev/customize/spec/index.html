@@ -16,7 +16,7 @@
         <link rel="prev" href="../../python/pyx12/">
       
       
-        <link rel="next" href="../../duckdb/">
+        <link rel="next" href="../packages/">
       
       
         
@@ -643,6 +643,8 @@
       
         
       
+        
+      
     
     
     
@@ -1167,6 +1169,34 @@
   
 </nav>
       
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../packages/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Packages and layers
+  
+
+    
+  </span>
+  
+  
+
+      </a>
     </li>
   
 
@@ -2272,6 +2302,8 @@
 <p>A JSON spec defines the structure of the 835 and the columns of each table. You can choose a
 version, or adapt the spec to a payer's variations with a patch, without touching the code.
 <code>parse</code>, <code>parse_file</code> and <code>stream</code> all accept <code>spec=</code>.</p>
+<p>The built-in specs are stacks of packages, one per layer. To write a package of your own, check it
+and run its conformance kit, see <a href="../packages/">Packages and layers</a>.</p>
 <h2 id="choose-a-version">Choose a version<a class="headerlink" href="#choose-a-version" title="Permanent link">&para;</a></h2>
 <p>By default oxedi reads the version a file declares (<code>ISA12</code> and <code>GS08</code>) and uses the matching
 built-in spec:</p>
@@ -2308,8 +2340,9 @@ selected from the file's version.</p>
 <ul>
 <li>Objects merge key by key.</li>
 <li>Arrays are replaced whole.</li>
-<li><code>patch</code> accepts a dict or JSON text, and raises <code>oxedi.SpecError</code> when the result is not a
-  valid spec.</li>
+<li><code>patch</code> accepts JSON text or a mapping of JSON values (<code>oxedi.JsonObject</code>). It raises
+  <code>oxedi.SpecError</code> when the result is not a valid spec, and <code>TypeError</code>, naming the place, for a
+  value JSON cannot hold (a set, bytes, NaN, a key that is not <code>str</code>).</li>
 </ul>
 <h2 id="choose-where-a-column-reads">Choose where a column reads<a class="headerlink" href="#choose-where-a-column-reads" title="Permanent link">&para;</a></h2>
 <p>A column reads one element of one segment. You pick the segment in one of two ways:</p>
@@ -2398,7 +2431,8 @@ occurrences sit at their own positions inside that space.</p>
 <p>A patched spec also writes: pass it to <code>oxedi.write(frames, envelope, spec=spec)</code>. See
 <a href="../../python/writing/">Writing</a>.</p>
 <h2 id="spec-keys-reference">Spec keys reference<a class="headerlink" href="#spec-keys-reference" title="Permanent link">&para;</a></h2>
-<p>Every key a spec can hold, with what it means and the Rust code that reads it. A spec has two
+<p>Every key a spec can hold, with what it means and the Rust code that reads it. In a package, the
+layer that may write each key is in <a href="../packages/#who-writes-which-key">Who writes which key</a>. A spec has two
 layers in the core. Loading, in <code>oxedi_core::spec_load</code>, reads the whole spec, its top level
 included, once as its <code>SpecModel</code>, whose parts are the typed <code>*Model</code>s (<code>LoopModel</code>,
 <code>TableModel</code>, <code>SegmentModel</code>, <code>SummaryModel</code>, <code>BalanceModel</code>), each declared in
@@ -2427,7 +2461,7 @@ components are 1-based. The code names differ from the JSON in three places: a t
 <tr>
 <td><code>name</code></td>
 <td>yes</td>
-<td>The spec's name, shown in <code>Spec(name=...)</code>.</td>
+<td>The spec's name, shown in <code>Spec(name=...)</code>. A package does not write it: a stack takes it from its top package's id.</td>
 <td><code>Spec::name</code>, <code>spec_load/build.rs</code></td>
 </tr>
 <tr>
@@ -2652,7 +2686,7 @@ opens on has the lowest <code>pos</code> of its loop.</p>
 <tr>
 <td><code>elements</code></td>
 <td>no</td>
-<td>How the occurrence narrows its segment's elements, by <code>"&lt;element&gt;"</code> or <code>"&lt;element&gt;-&lt;component&gt;"</code>: an entry with any of <code>usage</code> (<code>required</code> or <code>situational</code>), <code>min</code>, <code>max</code> and <code>codes</code>, each replacing the element's for a segment at this occurrence. An entry only narrows: <code>situational</code> is refused on an element that is required, <code>min</code> and <code>max</code> stay inside the element's lengths, and <code>codes</code> is a subset of the element's <code>codes</code> when the element has any (on an element with none, it may hold any codes of the element's type) and fits the lengths that apply. <code>codes</code> is refused at the qualifier's own place.</td>
+<td>How the occurrence narrows its segment's elements, by <code>"&lt;element&gt;"</code> or <code>"&lt;element&gt;-&lt;component&gt;"</code>: an entry with any of <code>usage</code> (<code>required</code> or <code>situational</code>), <code>min</code>, <code>max</code> and <code>codes</code>, each replacing the element's for a segment at this occurrence. An entry only narrows: <code>situational</code> is refused on an element that is required, <code>min</code> and <code>max</code> stay inside the element's lengths, and <code>codes</code> is a subset of the element's <code>codes</code> when the element has any (on an element with none, it may hold any codes of the element's type) and fits the lengths that apply. <code>codes</code>, <code>min</code> and <code>max</code> are refused at the qualifier's own place.</td>
 <td><code>OccurrenceDef::elements</code></td>
 </tr>
 </tbody>
@@ -2979,13 +3013,13 @@ declares:</p>
         
         
           
-          <a href="../../duckdb/" class="md-footer__link md-footer__link--next" aria-label="Next: Overview">
+          <a href="../packages/" class="md-footer__link md-footer__link--next" aria-label="Next: Packages and layers">
             <div class="md-footer__title">
               <span class="md-footer__direction">
                 Next
               </span>
               <div class="md-ellipsis">
-                Overview
+                Packages and layers
               </div>
             </div>
             <div class="md-footer__button md-icon">

@@ -639,6 +639,8 @@
       
         
       
+        
+      
     
     
     
@@ -923,6 +925,34 @@
     
   
     Customizing the spec
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../customize/packages/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Packages and layers
   
 
     
@@ -2007,19 +2037,22 @@ every expected output stays byte for byte.</p>
 <li><strong>Thin bindings</strong> (done). Python, DuckDB and the browser viewer no longer repeat rules that
   belong in the Rust core: converting values before writing, picking the spec version of a file,
   turning diagnostics into rows and choosing a masked or unmasked run each live in the core once.</li>
-<li><strong>One home for X12 values, and a spec the code can build</strong> (in progress). Element types,
-  number and date parsing now live in one place. Next, the spec gets a typed model that code can
-  build and write back as JSON, which generating specs (next section) needs.</li>
-<li><strong>Checker and projector with one state per concern</strong> (after that). The structure checker and
-  the table projector each track loop instances and match segments to occurrences on their own.
-  Sharing that makes a new check, such as hierarchical (HL) parent pointers, a small addition.</li>
+<li><strong>One home for X12 values and a typed spec</strong> (done). Element types, number and date parsing
+  live in one place, and the spec is a typed model code can build and write back as JSON.</li>
+<li><strong>Loop instances owned by the parser</strong> (done). The structure checker and the table projector
+  read the loop instances the parser tracks instead of tracking their own.</li>
+<li><strong>A vocabulary in layers</strong> (done). The 835 is now a stack of packages: an envelope, a
+  dictionary, a transaction set, an implementation guide and views; a guide sets usage, lengths
+  and codes per occurrence. See <a href="../customize/packages/">Packages and layers</a>.</li>
+<li><strong>One description for reading and writing</strong> (next). Reading and writing walk one compiled map
+  of the spec instead of two plans.</li>
 </ul>
 <h2 id="next-specs-for-any-x12-transaction-set">Next: specs for any X12 transaction set<a class="headerlink" href="#next-specs-for-any-x12-transaction-set" title="Permanent link">&para;</a></h2>
 <p>Writing a spec by hand takes hundreds of lines, while the open source
 <a href="https://github.com/azoner/pyx12">pyx12</a> project already maps the 270/271, 276/277, 820, 834, 837
 and 999. The plan:</p>
 <ul>
-<li><code>oxedi.pyx12.spec_from_map(...)</code> turns an installed pyx12 map into an oxedi spec, with
+<li><code>oxedi.pyx12.spec_from_map(...)</code> turns an installed pyx12 map into oxedi packages, with
   automatic tables (one per loop, one per repeating segment) that a merge patch can rename or
   reshape.</li>
 <li>Patient data columns are flagged from the guide, and masking refuses a spec with no flagged
@@ -2028,8 +2061,8 @@ and 999. The plan:</p>
 <li>Proven first on the 835 (the generated spec must match today's), then the 277, the 271 and
   the 837P.</li>
 </ul>
-<p><strong>Open question, opinions welcome:</strong> should element usage, length and codes be defined once per
-segment, as today, or per occurrence, as implementation guides do? Discussed in
+<p><strong>Open question, opinions welcome:</strong> which syntax rules between elements (pairs, conditionals,
+exclusions) the format should express. Discussed in
 <a href="https://github.com/javillegasna/oxedi/issues/130">#130</a>.</p>
 <h2 id="available-now">Available now<a class="headerlink" href="#available-now" title="Permanent link">&para;</a></h2>
 <ul>
@@ -2043,6 +2076,9 @@ segment, as today, or per occurrence, as implementation guides do? Discussed in
 <li><strong>Validate with pyx12</strong> and get its findings in the same shape as oxedi's own. See
   <a href="../python/pyx12/">Validating with pyx12</a>.</li>
 <li><strong>Adapt to your payers</strong> by changing the spec. See <a href="../customize/spec/">The spec</a>.</li>
+<li><strong>Write your own vocabulary as packages</strong> on the built-in layers, check it with
+  <code>oxedi.validate_stack</code> (what it can read, write and mask, and what it changes) and run its
+  conformance kit with <code>oxedi.run_kit</code>. See <a href="../customize/packages/">Packages and layers</a>.</li>
 <li><strong>Try it in your browser.</strong> Drop an 835 on the <a href="https://javillegas.dev/oxedi/viewer/">viewer</a>;
   the file is read in the browser and never uploaded. See <a href="../start/viewer/">Try it in your browser</a>.</li>
 <li><strong>Hide patient data</strong> with keyed tokens and coarser dates, in Python and in the viewer, and in

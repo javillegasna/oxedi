@@ -16,6 +16,8 @@ import polars
 import oxedi
 from oxedi import (
     Batch,
+    Change,
+    ChangeKind,
     Delimiters,
     Diagnostic,
     Document,
@@ -247,7 +249,10 @@ def validated_stack() -> Spec:
         ident: str = report.id
         name: str = report.name
         members: list[str] = report.packages
-        changes: list[str] = report.changes
+        changes: list[oxedi.Change] = report.changes
         s: Spec = report.spec
-        print(can, reasons, capability, ident, name, members, changes, s)
+        kinds: list[ChangeKind] = [change.kind for change in changes]
+        lines: list[tuple[str, str, str]] = [(c.package, c.path, str(c)) for c in changes]
+        first: Change | None = changes[0] if changes else None
+        print(can, reasons, capability, ident, name, members, changes, s, kinds, lines, first)
     return loaded

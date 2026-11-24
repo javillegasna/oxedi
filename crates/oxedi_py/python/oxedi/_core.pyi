@@ -14,6 +14,8 @@ import typing_extensions
 __all__ = [
     "Batch",
     "Capability",
+    "Change",
+    "ChangeKind",
     "Delimiters",
     "Diagnostic",
     "Document",
@@ -79,6 +81,65 @@ class Capability:
         r"""
         Why it cannot, one line each; empty when it can.
         """
+    def __repr__(self) -> builtins.str: ...
+
+@typing.final
+class Change:
+    r"""
+    One difference between a package and the stack it builds on: the package
+    that made it, where, and how.
+    """
+    @property
+    def package(self) -> builtins.str:
+        r"""
+        The id of the package that made the change.
+        """
+    @property
+    def path(self) -> builtins.str:
+        r"""
+        Where, from the spec's root, a dot between the names.
+        """
+    @property
+    def kind(self) -> ChangeKind:
+        r"""
+        How the value changed.
+        """
+    def __eq__(self, other: builtins.object, /) -> builtins.bool: ...
+    def __hash__(self) -> builtins.int: ...
+    def __str__(self) -> builtins.str:
+        r"""
+        The change and its package, as one line.
+        """
+    def __repr__(self) -> builtins.str: ...
+
+@typing.final
+class ChangeKind:
+    r"""
+    How a change left a value, compared with the package it builds on: one
+    member per kind of the core's change.
+    """
+    NARROWED: ChangeKind
+    r"""
+    It allows less than before.
+    """
+    WIDENED: ChangeKind
+    r"""
+    It allows more than before.
+    """
+    CHANGED: ChangeKind
+    r"""
+    It is neither narrower nor wider: a name, a type, a structure.
+    """
+    REMOVED: ChangeKind
+    r"""
+    It is gone.
+    """
+    ADDED: ChangeKind
+    r"""
+    It is new.
+    """
+    def __eq__(self, other: builtins.object, /) -> builtins.bool: ...
+    def __hash__(self) -> builtins.int: ...
     def __repr__(self) -> builtins.str: ...
 
 @typing.final
@@ -712,10 +773,9 @@ class Valid:
         Whether the spec can mask patient data, and why not.
         """
     @property
-    def changes(self) -> builtins.list[builtins.str]:
+    def changes(self) -> builtins.list[Change]:
         r"""
-        What the editions and patches of the stack changed, in stack order,
-        one line each with the package that made it.
+        What the editions and patches of the stack changed, in stack order.
         """
     @property
     def spec(self) -> Spec:

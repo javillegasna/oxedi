@@ -23,3 +23,7 @@ The structure of the 835 and the columns of each table. See [The spec](../../cus
 ::: oxedi.Invalid
 
 ::: oxedi.Capability
+
+::: oxedi.Change
+
+::: oxedi.ChangeKind

@@ -16,6 +16,8 @@ from typing import Optional, Union
 from ._core import (
     Batch,
     Capability,
+    Change,
+    ChangeKind,
     Delimiters,
     Diagnostic,
     Document,
@@ -47,6 +49,8 @@ __version__ = importlib.metadata.version("oxedi")
 __all__ = [
     "Batch",
     "Capability",
+    "Change",
+    "ChangeKind",
     "Delimiters",
     "Diagnostic",
     "Document",

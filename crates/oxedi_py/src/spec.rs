@@ -5,7 +5,9 @@ use std::collections::BTreeMap;
 use std::ops::Deref;
 use std::sync::Arc;
 
-use oxedi_core::{Builtin, LoadedSpec, Segment, Spec, SpecError as CoreSpecError, Version};
+use oxedi_core::{
+    Builtin, LoadedSpec, Segment, Spec, SpecError as CoreSpecError, Validation, Version,
+};
 use pyo3::exceptions::{PyKeyError, PyTypeError, PyValueError};
 use pyo3::prelude::*;
 use pyo3::types::{PyBytes, PyCapsule, PyDict, PyString};
@@ -17,6 +19,7 @@ use crate::arrow;
 use crate::element_source::{self, PyElementSource, PyGroupSource};
 use crate::json_arg::PatchArg;
 use crate::tables::extra;
+use crate::validate::Pool;
 
 native_exception!(
     SpecError,
@@ -65,7 +68,7 @@ impl HeldSpec {
         }
     }
 
-    fn kept(loaded: LoadedSpec) -> HeldSpec {
+    pub(crate) fn kept(loaded: LoadedSpec) -> HeldSpec {
         HeldSpec {
             spec: Arc::clone(&loaded.spec),
             model: ModelOf::Kept(Arc::new(loaded)),
@@ -289,6 +292,25 @@ impl PySpec {
             .map(HeldSpec::kept)
             .map(PySpec::from)
             .map_err(spec_error)
+    }
+
+    /// The spec of the stack whose top package is the text `top`, with the
+    /// package texts of `pool` as its bases; raises `SpecError` with the
+    /// core's message when the stack does not load.
+    #[staticmethod]
+    #[pyo3(signature = (top, pool = Pool::default()), text_signature = "(top, pool=())")]
+    fn from_packages(top: &str, pool: Pool) -> PyResult<PySpec> {
+        match oxedi_core::validate(top, &pool.texts()) {
+            Validation::Yes(valid) => Ok(HeldSpec::kept(valid.loaded).into()),
+            Validation::No(no) => Err(SpecError::new_err(no.to_string())),
+        }
+    }
+
+    /// The package texts the library ships: the 5010 stack, then the 4010
+    /// editions. They are the pool of `Spec.from_packages` and `validate_stack`.
+    #[staticmethod]
+    fn builtin_packages() -> Vec<&'static str> {
+        Builtin::packages().to_vec()
     }
 
     /// A new spec with `patch` merged over this one; `patch` is JSON text or a

@@ -444,7 +444,7 @@ fn every_refusal_names_the_table_the_column_and_the_occurrence() {
         ),
         (
             r#"{"tables":{"heads":{"columns":{"b_name":{"segment":"NM","element":3}}}}}"#,
-            "table \"heads\" column \"b_name\" reads \"NM\" in loop \"head\", which matches 2 of its occurrences (\"nm_a\", \"nm_b\"); name one with \"occurrence\"",
+            "table \"heads\" column \"b_name\" reads \"NM\" in loop \"head\", which matches 2 of its occurrences (\"nm_a\", \"nm_b\")",
         ),
         (
             r#"{"tables":{"heads":{"columns":{"x":{"segment":"NM","where":{"1":"Z"},"element":3}}}}}"#,
@@ -634,7 +634,7 @@ fn an_ambiguous_anchor_segment_is_refused() {
             "names":{"loops":["head"],"segment":"NM","columns":{"kind":{"element":1}}}}}"#
         ),
         vec![
-            "table \"names\" anchor segment reads \"NM\" in loop \"head\", which matches 2 of its occurrences (\"nm_a\", \"nm_b\"); name one with \"occurrence\""
+            "table \"names\" anchor segment reads \"NM\" in loop \"head\", which matches 2 of its occurrences (\"nm_a\", \"nm_b\")"
         ]
     );
 }

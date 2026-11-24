@@ -25,7 +25,7 @@ fn every_piece_says_its_branches_in_full() {
         (Matches(&[]).to_string(), "matches none of its occurrences"),
         (
             Matches(&two).to_string(),
-            "matches 2 of its occurrences (\"a\", \"b\"); name one with \"occurrence\"",
+            "matches 2 of its occurrences (\"a\", \"b\")",
         ),
         (
             reference(Some(7)),

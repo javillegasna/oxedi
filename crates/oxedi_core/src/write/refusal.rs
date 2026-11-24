@@ -307,6 +307,58 @@ impl fmt::Display for Refusal {
     }
 }
 
+impl Refusal {
+    /// What to change in the spec so the refusal goes away, as an imperative
+    /// clause.
+    pub fn remedy(&self) -> &'static str {
+        match self {
+            Refusal::RequiredLoopWithoutSource { .. } => {
+                "anchor a table on the loop or add a column that reads it, or make the loop \
+                 situational in the guide"
+            }
+            Refusal::RequiredOccurrenceWithoutSource { .. } => {
+                "add a column that writes the occurrence, or make it situational in the guide"
+            }
+            Refusal::RequiredElementWithoutSource { .. } => {
+                "add a column that writes the element, give it a single code, or make it \
+                 situational in the guide"
+            }
+            Refusal::AmbiguousSource { column: None, .. } => {
+                "anchor the table on a segment that occurs once in the loop"
+            }
+            Refusal::AmbiguousSource {
+                column: Some(_), ..
+            } => {
+                "name an occurrence the loop has with \"occurrence\", or give the column a \
+                 \"where\" that matches exactly one"
+            }
+            Refusal::PickNotContiguous { .. } => {
+                "renumber the picks of the occurrence's columns from 1 with none missing, or \
+                 keep a lone \"last\""
+            }
+            Refusal::WrittenByAnotherTable { .. } => {
+                "remove the column, or move it to the table that writes the loop, when a table does"
+            }
+            Refusal::DuplicateSource { .. } => "remove one of the two columns",
+            Refusal::EnvelopeColumn { .. } => {
+                "remove the column; the writer takes the envelope's values from the caller's \
+                 envelope"
+            }
+            Refusal::AnchoredByAnotherTable { .. } => {
+                "anchor one of the two tables on a segment of the loop, or remove one of them"
+            }
+            Refusal::SeveralAnchorLoops { .. } => "anchor the table on one loop",
+            Refusal::RepeatWithoutInstances { .. } => {
+                "anchor a table on the loop or add a column that reads it"
+            }
+            Refusal::CodeOutsideList { .. } => {
+                "change the fixed code to one the list allows, or add it to the code list in \
+                 the guide"
+            }
+        }
+    }
+}
+
 /// A spec whose tables cannot be written, with every refusal found.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct PlanError {

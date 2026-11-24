@@ -46,7 +46,7 @@ impl fmt::Display for Matches<'_> {
             [] => f.write_str("matches none of its occurrences"),
             names => write!(
                 f,
-                "matches {} of its occurrences ({}); name one with \"occurrence\"",
+                "matches {} of its occurrences ({})",
                 names.len(),
                 render_names(names)
             ),

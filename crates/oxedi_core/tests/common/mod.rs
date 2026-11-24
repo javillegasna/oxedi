@@ -4,6 +4,8 @@
 
 use std::path::{Path, PathBuf};
 
+use oxedi_core::conformance::{Line, first_difference};
+
 /// The two large samples, whose goldens keep a summary instead of every line.
 pub const SUMMARY_ONLY: &[&str] = &["edi835_test_united.rmt", "edi835_test_versant.RMT"];
 
@@ -189,37 +191,23 @@ pub fn diagnostics_of(
 
 /// Human-readable location of the first difference between two line streams.
 pub fn describe_diff(actual: &str, expected: &str) -> String {
-    let actual_lines: Vec<&str> = actual.lines().collect();
-    let expected_lines: Vec<&str> = expected.lines().collect();
-
-    for (i, (a, e)) in actual_lines.iter().zip(expected_lines.iter()).enumerate() {
-        if a != e {
-            return format!("line {}: actual {:?}, expected {:?}", i + 1, a, e);
-        }
-    }
-
-    match actual_lines.len().cmp(&expected_lines.len()) {
-        std::cmp::Ordering::Greater => {
-            let extra = actual_lines.len() - expected_lines.len();
-            let first_extra = actual_lines[expected_lines.len()];
-            format!(
-                "expected ends at line {}; actual has {} extra line(s), first: {:?}",
-                expected_lines.len(),
-                extra,
-                first_extra
-            )
-        }
-        std::cmp::Ordering::Less => {
-            let extra = expected_lines.len() - actual_lines.len();
-            let first_extra = expected_lines[actual_lines.len()];
-            format!(
-                "actual ends at line {}; expected has {} more line(s), first: {:?}",
-                actual_lines.len(),
-                extra,
-                first_extra
-            )
-        }
-        std::cmp::Ordering::Equal => "no difference".to_string(),
+    let Some(difference) = first_difference(expected, actual) else {
+        return "no difference".to_string();
+    };
+    let line = difference.line;
+    match (difference.expected, difference.actual) {
+        (Line::Text(e), Line::Text(a)) => format!("line {line}: actual {a:?}, expected {e:?}"),
+        (Line::End, Line::Text(a)) => format!(
+            "expected ends at line {}; actual has {} extra line(s), first: {a:?}",
+            line - 1,
+            actual.lines().count() - (line - 1)
+        ),
+        (Line::Text(e), Line::End) => format!(
+            "actual ends at line {}; expected has {} more line(s), first: {e:?}",
+            line - 1,
+            expected.lines().count() - (line - 1)
+        ),
+        (Line::End, Line::End) => "no difference".to_string(),
     }
 }
 

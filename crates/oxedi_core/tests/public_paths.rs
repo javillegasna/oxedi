@@ -141,6 +141,12 @@ mod by_module {
     use oxedi_core::trivia::BYTE_ORDER_MARK;
     use oxedi_core::trivia::LeadingTrivia;
     use oxedi_core::trivia::is_trivia;
+    use oxedi_core::validate::Invalid;
+    use oxedi_core::validate::Member;
+    use oxedi_core::validate::Text;
+    use oxedi_core::validate::Valid;
+    use oxedi_core::validate::Validation;
+    use oxedi_core::validate::validate;
     use oxedi_core::value::ColumnType;
     use oxedi_core::value::ConvertError;
     use oxedi_core::value::DECIMAL_PRECISION;
@@ -199,6 +205,7 @@ use oxedi_core::{Document, DocumentError, Segments, SizeError, Span, Spans};
 use oxedi_core::{Element, Value};
 use oxedi_core::{Event, Instance, InstanceId, LoopEngine, lineage, loop_paths, named_lineage};
 use oxedi_core::{Frame, SegmentEnd, next_frame};
+use oxedi_core::{Invalid, Member, Text, Valid, Validation, validate};
 use oxedi_core::{LoopTree, Node, NodeId, TreeBuilder};
 use oxedi_core::{Output, Processor};
 use oxedi_core::{Segment, SegmentWriteError};
@@ -226,6 +233,7 @@ fn builtin_items() {
     let _: fn() -> &'static [Builtin] = Builtin::all;
     let _: fn() -> &'static [&'static str] = Builtin::packages;
     let _: fn(oxedi_core::spec_load::Role) -> &'static str = oxedi_core::spec_load::Role::word;
+    let _: fn(&str, &[&str]) -> Validation = validate;
     let _: fn() -> &'static Builtin = Builtin::fallback;
     let _: fn(&str, Version) -> Result<&'static Builtin, UnknownVersion> = Builtin::find;
     let _: fn(&str, &str) -> Result<&'static Builtin, UnknownVersion> = Builtin::find_text;

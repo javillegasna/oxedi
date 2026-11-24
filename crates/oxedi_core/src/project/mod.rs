@@ -80,7 +80,7 @@ use crate::engine::{Event, Instance, named_lineage};
 use crate::mask::Mask;
 use crate::segment::Segment;
 use crate::spec::{
-    LoopId, OccurrenceDef, OccurrenceId, Spec, UnknownTable, column_type, table_columns,
+    LoopId, OccurrenceDef, OccurrenceId, Spec, UnknownTable, table_columns,
 };
 use crate::value::ColumnType;
 
@@ -140,11 +140,7 @@ impl<'s> Projector<'s> {
         let mut resets = vec![Vec::new(); loops];
         let mut tables = Vec::with_capacity(spec.tables().len());
         for (index, def) in spec.tables().iter().enumerate() {
-            let kinds: Vec<ColumnType> = def
-                .columns
-                .iter()
-                .map(|(_, source)| column_type(spec, def, source))
-                .collect();
+            let kinds: Vec<ColumnType> = spec.places(index).iter().map(|p| p.kind).collect();
             let columns = table_columns(spec, def);
             for &id in &def.loops {
                 match def.segment {

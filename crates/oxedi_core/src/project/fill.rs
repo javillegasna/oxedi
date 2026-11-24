@@ -5,7 +5,7 @@ use crate::column::{Cell, CellError, RowError, Table};
 use crate::diagnostic::{Diagnostic, Rule};
 use crate::element::Element;
 use crate::segment::Segment;
-use crate::spec::{ColumnSource, LoopId};
+use crate::spec::{ColumnSource, LoopId, Target};
 use crate::value::{ColumnType, Parsed};
 use crate::vocabulary::Pick;
 
@@ -141,20 +141,14 @@ impl<'s> Projector<'s> {
             .extend(def.ancestors.iter().map(|&above| self.open_row(above)));
         row.cells.clear();
         row.bytes.clear();
-        for (column, (_, source)) in def.columns.iter().enumerate() {
-            let kind = self.tables[index]
-                .kinds
-                .get(column)
-                .copied()
-                .unwrap_or(ColumnType::Binary);
-            let at = match source {
-                ColumnSource::Element {
-                    element, component, ..
-                } => Some((*element, *component)),
-                ColumnSource::GroupElement { offset, component } => group
-                    .and_then(|start| start.checked_add(*offset))
-                    .map(|element| (element, *component)),
-                ColumnSource::SegmentIndex { .. } => {
+        for place in spec.places(index) {
+            let kind = place.kind;
+            let at = match place.target {
+                Target::Element { element, component } => Some((element, component)),
+                Target::Group { offset, component } => group
+                    .and_then(|start| start.checked_add(offset))
+                    .map(|element| (element, component)),
+                Target::Index => {
                     row.cells
                         .push(i64::try_from(segment.index).map_or(Slot::Null, Slot::Int));
                     continue;

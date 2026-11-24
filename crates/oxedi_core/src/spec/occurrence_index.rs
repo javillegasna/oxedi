@@ -13,6 +13,11 @@ use std::collections::BTreeMap;
 pub struct OccurrenceId(usize);
 
 impl OccurrenceId {
+    /// The occurrence at 0-based `index` of a loop's occurrences.
+    pub(super) fn at(index: usize) -> Self {
+        OccurrenceId(index)
+    }
+
     /// 0-based index in the loop's [`LoopDef::occurrences`].
     pub fn index(self) -> usize {
         self.0

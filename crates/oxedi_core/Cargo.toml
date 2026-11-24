@@ -47,3 +47,7 @@ harness = false
 [[bench]]
 name = "write"
 harness = false
+
+[[bench]]
+name = "compile"
+harness = false

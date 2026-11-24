@@ -414,7 +414,7 @@ To find where time goes before changing anything, sample it. Unix only; nothing 
 `cargo` and `uv` (`make venv` brings `py-spy`).
 
 ```bash
-make profile BENCH=process               # a core bench: tokenize, engine, check, process or write
+make profile BENCH=process               # a core bench: tokenize, engine, check, process, write or compile
 make profile BENCH=engine SECONDS=20     # longer sampling (default 10 seconds per benchmark)
 make profile-py SCRIPT=crates/oxedi_py/scripts/profile_parse.py ARGS='FILE 300'
 ```

@@ -1,5 +1,7 @@
 import inspect
 import json
+import types
+
 import pytest
 
 import oxedi
@@ -69,13 +71,57 @@ def test_a_patch_must_be_a_dict_or_a_string():
     assert str(info.value) == "Spec.patch takes a dict or a JSON string, not int"
 
 
-def test_a_dict_that_json_cannot_write_raises_type_error():
+def _refused(patch):
     with pytest.raises(TypeError) as info:
-        Spec.builtin().patch({"loops": {1}})
-    assert str(info.value) == (
-        "Spec.patch: the dict cannot be written as JSON: "
-        "Object of type set is not JSON serializable"
+        Spec.builtin().patch(patch)
+    return str(info.value)
+
+
+def test_a_set_in_a_patch_is_refused_naming_its_place():
+    assert _refused({"loops": {1}}) == (
+        "Spec.patch: the value at loops has type set, which is not a JSON value"
     )
+
+
+def test_a_non_string_key_is_refused():
+    assert _refused({"loops": {1: {}}}) == (
+        "Spec.patch: a key at loops has type int; keys must be str"
+    )
+
+
+def test_nan_is_refused():
+    assert _refused({"x": float("nan")}) == (
+        "Spec.patch: the value at x is nan, which JSON cannot hold"
+    )
+
+
+def test_a_huge_int_is_refused():
+    assert _refused({"x": 2**70}) == (
+        "Spec.patch: the value at x is 1180591620717411303424, "
+        "outside the 64-bit integers a spec reads"
+    )
+
+
+def test_bytes_are_refused():
+    assert _refused({"x": [b"a"]}) == (
+        "Spec.patch: the value at x[0] has type bytes, which is not a JSON value"
+    )
+
+
+def test_a_cycle_is_refused():
+    cycle: dict = {}
+    cycle["x"] = cycle
+    assert _refused(cycle) == (
+        "Spec.patch: the value at " + ".".join(["x"] * 128) + " nests deeper than 128 levels "
+        "(a cycle, or deeper than any spec)"
+    )
+
+
+def test_a_tuple_and_a_mapping_proxy_are_json():
+    patched = Spec.builtin().patch(types.MappingProxyType({"name": "t"}))
+    assert repr(patched).startswith("Spec(name='t'")
+    codes = Spec.builtin().patch({"tables": {"claims": {"loops": ("2100",)}}})
+    assert isinstance(codes, Spec)
 
 
 def test_the_spec_repr():

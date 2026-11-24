@@ -39,6 +39,7 @@ from oxedi.pyx12 import validate
 
 def results(data: bytes, path: str) -> list[Result]:
     spec: Spec = Spec.builtin(version=Version.V4010).patch({"name": "x"}).patch('{"name": "y"}')
+    nested: Spec = spec.patch({"name": "x", "summaries": None, "tables": {"claims": {"loops": ("2100",)}}})
     loops: list[str] = Spec.from_json(spec.to_json()).loops()
     assert loops
     source: ElementSource = spec.column_source("services", "procedure_code")

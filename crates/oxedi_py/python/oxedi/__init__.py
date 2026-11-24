@@ -35,6 +35,7 @@ from ._core import (
     parse,
     stream,
 )
+from ._json import JsonObject, JsonValue
 from ._write import WriteError, write
 
 __version__ = importlib.metadata.version("oxedi")
@@ -47,6 +48,8 @@ __all__ = [
     "ElementSource",
     "Envelope",
     "GroupSource",
+    "JsonObject",
+    "JsonValue",
     "Mask",
     "ParseError",
     "Result",

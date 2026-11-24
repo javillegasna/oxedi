@@ -5,6 +5,7 @@ import builtins
 import collections.abc
 import datetime
 import decimal
+from oxedi import _json
 import pandas
 import polars
 import pyarrow
@@ -485,10 +486,11 @@ class Spec:
         The spec described by `json`; raises `SpecError` with the core message
         when it is not valid.
         """
-    def patch(self, patch: builtins.str | builtins.dict[builtins.str, typing.Any]) -> Spec:
+    def patch(self, patch: builtins.str | _json.JsonObject) -> Spec:
         r"""
-        A new spec with `patch` (a dict or JSON text) merged over this one;
-        raises `SpecError` when the result is not valid.
+        A new spec with `patch` merged over this one; `patch` is JSON text or a
+        JSON object (a dict of JSON values); raises `SpecError` when the
+        result is not valid.
         """
     def to_json(self) -> builtins.str:
         r"""

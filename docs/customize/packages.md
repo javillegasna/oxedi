@@ -85,9 +85,9 @@ before it:
 
 | Layer | What it holds |
 |---|---|
-| `envelope` | The complete base of a stack: the interchange, group and transaction loops and the envelope segments, and every key the three layers after it own. |
+| `envelope` | The complete base of a stack: the interchange, group and transaction loops and the envelope segments, and it may write every key the three layers after it own. |
 | `dictionary` | Each segment of a release once: its elements and components, their names, types, scale and lengths. |
-| `transaction-set` | The loops of one transaction set: their parents, triggers and ends, and each occurrence's segment and position. |
+| `transaction-set` | The loops of one transaction set: their parents, triggers, ends and controls, and each occurrence's segment and position. |
 | `guide` | What an implementation guide fixes: usage, maximums, qualifiers, codes and lengths, per occurrence or per segment element; the version; the balancing rules. |
 | `views` | The tables, the summaries and the default table. |
 | `patch` | A change to any key of the layers below. |
@@ -111,7 +111,7 @@ them owns.
 | `segments.<id>.elements.<pos>.composite.<pos>.*` | as an element's key of the same name |
 | `tables`, `summaries`, `default_table` | views |
 
-- The envelope, the base of every stack, also writes every key the dictionary, the transaction set
+- The envelope, the base of every stack, may also write every key the dictionary, the transaction set
   and the guide write. It does not write the views' keys.
 - A patch writes every key, `name` included.
 - The dictionary and the guide both write an element's codes, lengths and usage: the dictionary
@@ -157,7 +157,8 @@ these steps:
 3. Before a package is merged, its keys are checked against the table above. After it is merged,
    the whole spec so far is read strictly. The spec before that package read cleanly, so a
    refusal is that package's, and the error starts `package "<id>": `.
-4. The name is the top package's id's, and the spec is compiled once, at the end.
+4. The name comes from the top package's id unless a patch writes `name`, and the spec is compiled
+   once, at the end.
 
 So the 4010 stack reads, bases first. The last three are editions of the 5010 packages, so their changes are listed:
 
@@ -189,20 +190,21 @@ refused.
 "Stricter" means, per key:
 
 - fewer codes: a list inside the base's list, or a list where the base had none;
-- a larger `min` or a smaller `max`, for elements, loops and occurrences;
+- a larger `min` or a smaller `max` for an element, a component or an occurrence's element entry; a
+  smaller `max` for a loop or an occurrence;
 - `required` where the base had `situational` (an occurrence's element entry without `usage`
   counts as situational);
 - a qualifier's codes inside the base's.
 
 A change of name, type, parent, trigger, end, control, segment or position, of the version, a
-balancing rule, a table or a summary is a change, not a narrowing, and so is any removal.
+balancing rule, a table, a summary, the default table, a qualifier's element or component is a change, not a narrowing, and so is any removal.
 
 The listed changes are `Valid.changes`: each is a `Change` with the package, the path and a
 `ChangeKind` (narrowed, widened, changed, removed or added). A value equal to the base's is no
 change.
 
-A package written on the shipped 5010 views holds `guide` or `views`, which the stack below it
-already holds, so it is an edition, or a patch. The check lists what it changes instead of
+A package built on the shipped 5010 views is always an edition or a patch, since the stack below
+it already holds every layer but `patch`. The check lists what it changes instead of
 refusing a change that is not stricter. Read the list.
 
 ## The format number
@@ -335,14 +337,19 @@ write now.
 | an occurrence's codes outside its element's `codes` | refused: an occurrence only makes its element stricter |
 | your own whole spec, read with `Spec.from_json` | still read by `Spec.from_json` once the two keys above are rewritten; as a package, the spec without `name` under a header with every layer ([above](#your-own-spec-as-a-package)) |
 | your own patch, given to `Spec.patch` | still works; as a package, a `patch` package on `oxedi/views/005010/835/X221A1` |
-| Python `oxedi._core.EDI_835_PARSER_PATCH` | `EDI_835_PARSER_PACKAGE`, loaded with `Spec.from_packages(EDI_835_PARSER_PACKAGE, Spec.builtin_packages())` |
+| Python `oxedi._core.EDI_835_PARSER_PATCH` | `EDI_835_PARSER_PACKAGE`, loaded with `Spec.from_packages(EDI_835_PARSER_PACKAGE, Spec.builtin_packages())`; `oxedi.edi_835_parser.spec()` gives that spec |
 | Python `Spec.patch(dict[str, Any])` | `Spec.patch(str \| JsonObject)`; a value JSON cannot hold raises `TypeError` naming its place |
-| Rust `Spec::BUILTIN_835_JSON` | `Builtin::fallback().model()`, or `Builtin::packages()` for the package texts |
+| Rust `Spec::BUILTIN_835_JSON` (the text) | `Builtin::fallback().model()` gives the model (a `Result<SpecModel, _>`), not the text; or `Builtin::packages()` for the package texts |
 | Rust `Spec::BUILTIN_835_4010_PATCH` | `Builtin::find("835", Version::V4010)?.loaded()` |
 | Rust `Builtin.transaction: &'static str` | a `TransactionSet` (`as_str()`); `Builtin.id` and `Builtin::get(id)` find a built-in by its top package |
 | Rust `OccurrenceDef.codes`, `OccurrenceModel.codes` | `OccurrenceDef.elements` (`ElementEntry`), `OccurrenceModel.elements` (`ElementEntryModel`) |
 | Rust `ElementModel.required: bool` | `ElementModel.usage: Usage` |
-| Rust `OccurrenceError::QualifierCodeOutsideElement` | `OccurrenceError::CodeOutsideElement`, same text |
+| Rust `OccurrenceError::QualifierInCodes` | its `key` is now `elements.<pos>.codes` (was `codes.<pos>`), and its text reads `<key> sits at the qualifier's own place; its codes are the qualifier's "codes"` |
+| load errors that named `codes.<pos>` | they name `elements.<pos>.codes` |
+| an occurrence's own code outside its element's codes | refused at load; before, only a qualifier's codes were checked |
+| `Spec.to_json()`, Rust `LoadedSpec::to_json` | write `usage` and `elements`, the keys the format now uses |
+| a missing-element or length diagnostic | may end with `in occurrence "<name>"` when the occurrence's entry set the rule |
+| Rust `OccurrenceError::QualifierCodeOutsideElement` | `OccurrenceError::CodeOutsideElement`, with a new `key` field (`qualifier.codes` or `elements.<pos>.codes`); a qualifier's text is unchanged |
 
 An old key is refused with the keys that are allowed:
 
@@ -361,11 +368,13 @@ applying patch: spec: at segments.CLP.elements.1: unknown field `required`, expe
 
 - No way to name a shared definition: a value two places hold is written twice. The version's
   codes are written in the guide's `version` and in GS08's codes, and equal element definitions
-  repeat inside the dictionary.
+  repeat inside the dictionary and the envelope (`reference_identification` eight times), equal
+  code lists repeat inside one guide (the PLB composite six times), and the 4010 guide restates per
+  segment the PER codes the 5010 guide sets per occurrence.
 - The 5010 dictionary holds what the 835 uses, not the whole release: some lengths are the
   guide's (BPR11 is 9 to 9 where X12 allows 1 to 50), elements the 835 does not use are absent
   (CUR04 to CUR21, QTY03, part of TS3), and element names are the guide's.
 - Hierarchical-level (HL) parent pointers are not handled. They are planned as an optional key,
   which raises the format number.
-- SQL and the browser viewer use the built-in stacks only; packages load from Python.
+- SQL and the browser viewer use the built-in stacks only; packages load from Python and from the Rust core.
 - A package file with a key written twice is read with the last one.

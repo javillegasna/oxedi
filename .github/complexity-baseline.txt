@@ -45,7 +45,6 @@ crates/oxedi_core/src/spec_load/table_error.rs	fmt	32	0	flat
 crates/oxedi_core/src/value/convert.rs	fmt	10	0	flat
 crates/oxedi_core/src/value/parse.rs	parse_r	12	1
 crates/oxedi_core/src/write/build.rs	loop_table	12	4
-crates/oxedi_core/src/write/build.rs	repeat_table	9	2
 crates/oxedi_core/src/write/emit.rs	instance	12	3
 crates/oxedi_core/src/write/emit.rs	repeat_segments	11	4
 crates/oxedi_core/src/write/envelope.rs	field_value	14	0	flat

@@ -4,8 +4,8 @@
 //! and each element's value come from), `build.rs` (its construction from a
 //! spec, inverting every table column), `place.rs` (the loops written
 //! around the written ones and the position order of segments), `codes.rs`
-//! (the occurrence a column's segment and `where` select, and the refusal of
-//! fixed codes its code lists do not allow), `segments.rs` (the segments the
+//! (the occurrence a column's compiled place lands in, and the refusal of a
+//! fixed qualifier code its code list does not allow), `segments.rs` (the segments the
 //! columns write, by repeat), `required.rs` (what a written loop requires and
 //! the codes that fill it), `refusal.rs` (why a spec cannot be written);
 //! `writer.rs` (the entry points [`write()`] and [`write_with_findings`]),

@@ -1,9 +1,10 @@
 //! The write plan over the built-in specs and over a small spec whose
 //! tables are patched to raise each refusal.
 
-use crate::spec::Spec;
 use crate::spec::test_support::{builtin, loaded, patched};
+use crate::spec::{OccurrencePlace, Reading, Spec};
 use crate::spec_load::Version;
+use crate::write::codes::landing;
 use crate::write::*;
 
 /// `env` is an envelope with a required `head`; `head` holds two NM
@@ -683,5 +684,68 @@ fn refusals_display_their_full_text() {
     assert_eq!(
         anchored.to_string(),
         "table \"adjustments\" anchor segment writes occurrence \"claim_adjustment\" in loop \"2100\" with the fixed code \"XX\" in CAS01, which its code list (\"CO\", \"PR\") does not allow"
+    );
+}
+
+/// The index of the head loop's occurrence `name`.
+fn occurrence_index(spec: &Spec, name: &str) -> usize {
+    let head = spec.get(spec.loop_id("head").unwrap());
+    head.occurrence_named(name).unwrap().index()
+}
+
+#[test]
+fn landing_takes_a_named_or_chosen_occurrence() {
+    let spec = spec("{}");
+    let head = spec.get(spec.loop_id("head").unwrap());
+    let dt = occurrence_index(&spec, "dt");
+    assert!(matches!(
+        head.place_of(b"DT", &[]),
+        OccurrencePlace::Chosen(_)
+    ));
+    assert_eq!(landing(head, head.place_of(b"DT", &[]), b"DT"), Ok(dt));
+    let table = spec
+        .tables()
+        .iter()
+        .position(|t| t.name == "heads")
+        .unwrap();
+    let column = spec.tables()[table]
+        .columns
+        .iter()
+        .position(|(name, _)| name == "first_kind")
+        .unwrap();
+    let Reading::Watch { reads, .. } = &spec.places(table)[column].reading else {
+        panic!("a loop table column watches");
+    };
+    assert!(matches!(reads[0].place, OccurrencePlace::Named(_)));
+    assert_eq!(landing(head, reads[0].place, b"DT"), Ok(dt));
+}
+
+#[test]
+fn landing_lists_every_occurrence_when_the_qualifier_is_free() {
+    let spec = spec("{}");
+    let head = spec.get(spec.loop_id("head").unwrap());
+    assert_eq!(
+        landing(head, head.place_of(b"NM", &[]), b"NM"),
+        Err(vec!["nm_a".to_string(), "nm_b".to_string()])
+    );
+}
+
+#[test]
+fn landing_takes_the_one_qualified_occurrence() {
+    let spec = spec(r#"{"loops":{"head":{"occurrences":{"nm_b":null}}}}"#);
+    let head = spec.get(spec.loop_id("head").unwrap());
+    let nm_a = occurrence_index(&spec, "nm_a");
+    assert_eq!(landing(head, head.place_of(b"NM", &[]), b"NM"), Ok(nm_a));
+}
+
+#[test]
+fn landing_refuses_a_segment_no_occurrence_takes() {
+    let spec = spec("{}");
+    let head = spec.get(spec.loop_id("head").unwrap());
+    let outside = head.place_of(b"NM", &[(1, b"Z".to_vec())]);
+    assert_eq!(landing(head, outside, b"NM"), Err(Vec::new()));
+    assert_eq!(
+        landing(head, head.place_of(b"ZZ", &[]), b"ZZ"),
+        Err(Vec::new())
     );
 }

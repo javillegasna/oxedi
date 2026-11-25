@@ -65,7 +65,9 @@ pub(crate) use elements::{holds_code, rejects_code};
 pub(crate) use id_map::IdMap;
 pub(crate) use occurrence_index::OccurrenceIndex;
 pub(crate) use occurrences::element_def;
-pub(crate) use places::{ColumnPlace, LoopRead, OccurrencePlace, Reading, Relation, Target};
+pub(crate) use places::{
+    ColumnPlace, LoopRead, OccurrencePlace, Reading, Relation, Target, Unplaced,
+};
 pub(crate) use read_index::{ReadIndex, ReadTarget, Watcher};
 pub(crate) use render::{render_selector, render_trigger};
 pub(crate) use rule::ElementRule;

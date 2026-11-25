@@ -4,10 +4,10 @@
 
 use std::collections::BTreeMap;
 
-use crate::spec::{ColumnSource, LoopId, OccurrenceDef, Spec, TableDef};
+use crate::spec::{ColumnSource, LoopId, OccurrenceDef, Spec, TableDef, Target};
 use crate::vocabulary::Pick;
 
-use super::codes::Resolved;
+use super::codes::{Resolved, landing};
 use super::plan::{
     ElementPlan, Instances, LoopPlan, SegmentPlan, SegmentSource, Unwritten, ValueSource, WritePlan,
 };
@@ -316,58 +316,69 @@ impl Builder<'_> {
         let Some(segment) = &table.segment else {
             return;
         };
+        let from = table.repeat.map_or(1, |repeat| repeat.from);
+        let elements: Vec<ElementPlan> = self
+            .spec
+            .places(index)
+            .iter()
+            .enumerate()
+            .filter_map(|(column, place)| written_element(column, place.target, from))
+            .collect();
         for &anchor in &table.loops {
             self.repeats.push((index, anchor));
-            let at = match self.resolve(anchor, segment, &[]) {
-                Resolved::One(at, _) => at,
-                Resolved::Nothing(_) => continue,
-                Resolved::Candidates(candidates) => {
-                    self.refusals.push(Refusal::AmbiguousSource {
-                        table: table.name.clone(),
-                        column: None,
-                        loop_name: self.spec.loop_name(anchor).to_string(),
-                        source: render_source(segment, &[]),
-                        candidates,
-                    });
-                    continue;
-                }
-            };
-            let from = table.repeat.map_or(1, |repeat| repeat.from);
-            let mut elements = Vec::new();
-            for (column, (_, source)) in table.columns.iter().enumerate() {
-                match source {
-                    ColumnSource::Element {
-                        element, component, ..
-                    } => elements.push(ElementPlan {
-                        element: *element,
-                        component: *component,
-                        value: ValueSource::Column { column },
-                    }),
-                    ColumnSource::GroupElement { offset, component } => {
-                        elements.push(ElementPlan {
-                            element: from.saturating_add(*offset),
-                            component: *component,
-                            value: ValueSource::Group {
-                                column,
-                                offset: *offset,
-                            },
-                        });
-                    }
-                    ColumnSource::SegmentIndex { .. } => {}
-                }
-            }
-            let mut plan = SegmentPlan {
-                occurrence: at,
-                source: SegmentSource::Repeat { table: index },
-                elements,
-            };
-            if let Some(occurrence) = self.occurrence(anchor.index(), at) {
-                add_qualifier(&mut plan, occurrence);
-            }
-            self.check_codes(anchor.index(), &plan, index, None);
-            if let Some(loop_plan) = self.loops.get_mut(anchor.index()) {
-                loop_plan.segments.push(plan);
+            let def = self.spec.get(anchor);
+            match landing(def, def.place_of(segment, &[]), segment) {
+                Ok(at) => self.repeat_segment(index, anchor, at, elements.clone()),
+                Err(candidates) => self.refusals.push(Refusal::AmbiguousSource {
+                    table: table.name.clone(),
+                    column: None,
+                    loop_name: def.name.clone(),
+                    source: render_source(segment, &[]),
+                    candidates,
+                }),
             }
         }
+    }
+
+    /// Adds the segment of table `index`'s rows to occurrence `at` of its
+    /// anchor loop, with the qualifier the occurrence fixes.
+    fn repeat_segment(
+        &mut self,
+        index: usize,
+        anchor: LoopId,
+        at: usize,
+        elements: Vec<ElementPlan>,
+    ) {
+        let mut plan = SegmentPlan {
+            occurrence: at,
+            source: SegmentSource::Repeat { table: index },
+            elements,
+        };
+        if let Some(occurrence) = self.occurrence(anchor.index(), at) {
+            add_qualifier(&mut plan, occurrence);
+        }
+        self.check_codes(anchor.index(), &plan, index, None);
+        if let Some(loop_plan) = self.loops.get_mut(anchor.index()) {
+            loop_plan.segments.push(plan);
+        }
+    }
+}
+
+/// The element a column of a table anchored on a segment is written in; the
+/// segment's index is written nowhere. `from` is the 1-based element a
+/// repeat's first group starts at.
+fn written_element(column: usize, target: Target, from: usize) -> Option<ElementPlan> {
+    match target {
+        Target::Element { element, component } => Some(ElementPlan {
+            element,
+            component,
+            value: ValueSource::Column { column },
+        }),
+        Target::Group { offset, component } => Some(ElementPlan {
+            element: from.saturating_add(offset),
+            component,
+            value: ValueSource::Group { column, offset },
+        }),
+        Target::Index => None,
     }
 }

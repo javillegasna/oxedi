@@ -57,11 +57,11 @@ impl<'s> DatumMask<'s> {
     pub(super) fn new(spec: &'s Spec, mask: &'s Mask) -> Self {
         let mut places = Vec::new();
         for table in spec.tables() {
-            for (index, (_, source)) in table.columns.iter().enumerate() {
+            for index in 0..table.columns.len() {
                 let Some(kind) = table.phi(index) else {
                     continue;
                 };
-                for (id, element, component) in spec.positions(table, source) {
+                for (id, element, component) in spec.positions(table, index) {
                     places.push((id, element, component, kind));
                 }
             }

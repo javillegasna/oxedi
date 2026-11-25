@@ -94,15 +94,8 @@ pub struct Projector<'s> {
     spec: &'s Spec,
     separator: u8,
     tables: Vec<TableState>,
-    /// Per loop: the table without `segment` anchored in it.
-    anchored: Vec<Option<usize>>,
     /// Per segment id: what is done with the segment when it is captured.
     plans: Plans<'s>,
-    /// Per loop: the tables anchored on a segment inside it.
-    segment_tables: Vec<Vec<usize>>,
-    /// Per loop: `(table, carried value)` for the values read from that
-    /// loop, which start over when an instance of it opens.
-    resets: Vec<Vec<(usize, usize)>>,
     checked: Vec<Checked>,
     /// The occurrence the segment being checked takes in its loop, when it
     /// narrows any of its elements.
@@ -125,33 +118,23 @@ impl<'s> Projector<'s> {
     /// component separator, which an element read as one text keeps.
     pub fn new(spec: &'s Spec, delimiters: &Delimiters) -> Self {
         let loops = spec.loops().len();
-        let mut anchored = vec![None; loops];
         let mut plans = Plans::default();
         for (id, def) in spec.segments() {
             plans.entry(id, loops).elements = def
                 .elements
                 .iter()
-                .map(|(&position, element)| ElementPlan::new(position, element))
+                .map(|(&position, element)| ElementPlan::new(spec, id, position, element))
                 .collect();
         }
-        let mut segment_tables = vec![Vec::new(); loops];
-        let mut resets = vec![Vec::new(); loops];
         let mut tables = Vec::with_capacity(spec.tables().len());
         for (index, def) in spec.tables().iter().enumerate() {
             let kinds: Vec<ColumnType> = spec.places(index).iter().map(|p| p.kind).collect();
             let columns = table_columns(spec, def);
-            for &id in &def.loops {
-                match def.segment {
-                    Some(_) => segment_tables[id.index()].push(index),
-                    None => anchored[id.index()] = Some(index),
-                }
-            }
             let carried = if def.segment.is_none() {
-                plans.watch_places(spec, index, &mut resets)
+                plans.watch_places(spec, index)
             } else {
                 Vec::new()
             };
-            plans.mark_columns(spec, def);
             tables.push(TableState {
                 kinds,
                 next: 0,
@@ -168,10 +151,7 @@ impl<'s> Projector<'s> {
             spec,
             separator: delimiters.component,
             tables,
-            anchored,
             plans,
-            segment_tables,
-            resets,
             checked: Vec::new(),
             occurrence: None,
             matched: None,

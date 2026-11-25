@@ -104,8 +104,7 @@ impl<'s> Projector<'s> {
     /// Appends the rows of the tables anchored on this segment.
     pub(super) fn segment_rows(&mut self, id: LoopId, segment: &Segment<'_>, joined: &mut Vec<u8>) {
         let spec = self.spec;
-        for slot in 0..self.segment_tables[id.index()].len() {
-            let index = self.segment_tables[id.index()][slot];
+        for &index in spec.reads().segment_tables(id) {
             let def = &spec.tables()[index];
             if !self.tables[index].kept || def.segment.as_deref() != Some(segment.id) {
                 continue;

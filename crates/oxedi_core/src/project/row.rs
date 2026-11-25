@@ -66,7 +66,7 @@ pub(super) struct TableState {
 impl Projector<'_> {
     pub(super) fn opened(&mut self, id: LoopId, trigger: usize) {
         self.reset_carried(id);
-        let Some(index) = self.anchored[id.index()] else {
+        let Some(index) = self.spec.reads().anchored(id) else {
             return;
         };
         let state = &mut self.tables[index];
@@ -100,7 +100,7 @@ impl Projector<'_> {
     }
 
     pub(super) fn closed(&mut self, id: LoopId) {
-        if let Some(index) = self.anchored[id.index()] {
+        if let Some(index) = self.spec.reads().anchored(id) {
             let state = &mut self.tables[index];
             let append_row = state.open && state.kept;
             state.open = false;

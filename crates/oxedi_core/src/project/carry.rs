@@ -58,10 +58,7 @@ impl Carried {
 impl Projector<'_> {
     /// Forgets the values read from loop `id`: an instance of it opens.
     pub(super) fn reset_carried(&mut self, id: LoopId) {
-        let Some(resets) = self.resets.get(id.index()) else {
-            return;
-        };
-        for &(table, at) in resets {
+        for &(table, at) in self.spec.reads().resets(id) {
             if let Some(carried) = self
                 .tables
                 .get_mut(table)

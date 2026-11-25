@@ -1,9 +1,7 @@
 //! The per-segment plans the projector builds once from the spec.
 
 use super::carry::Carried;
-use crate::spec::{
-    ColumnSource, ElementDef, IdMap, OccurrencePlace, Reading, Relation, Spec, TableDef,
-};
+use crate::spec::{ColumnSource, ElementDef, IdMap, OccurrencePlace, Reading, Relation, Spec};
 use crate::value::ColumnType;
 use crate::vocabulary::Pick;
 
@@ -21,12 +19,12 @@ pub(super) struct Leaf<'s> {
 }
 
 impl<'s> Leaf<'s> {
-    fn new(component: Option<usize>, def: &'s ElementDef) -> Self {
+    fn new(component: Option<usize>, def: &'s ElementDef, read: bool) -> Self {
         Self {
             component,
             def,
             kind: ColumnType::of(Some(def.kind)),
-            read: false,
+            read,
         }
     }
 }
@@ -45,13 +43,16 @@ pub(super) struct ElementPlan<'s> {
 }
 
 impl<'s> ElementPlan<'s> {
-    pub(super) fn new(position: usize, def: &'s ElementDef) -> Self {
+    /// The plan of the element at `position` of segment `id`, whose leaves
+    /// are marked read from the spec's index.
+    pub(super) fn new(spec: &Spec, id: &[u8], position: usize, def: &'s ElementDef) -> Self {
+        let read = |component| spec.reads().is_read(id, position, component);
         let leaves = if def.composite.is_empty() {
-            vec![Leaf::new(None, def)]
+            vec![Leaf::new(None, def, read(None))]
         } else {
             def.composite
                 .iter()
-                .map(|(&at, part)| Leaf::new(Some(at), part))
+                .map(|(&at, part)| Leaf::new(Some(at), part, read(Some(at))))
                 .collect()
         };
         Self {
@@ -60,15 +61,6 @@ impl<'s> ElementPlan<'s> {
             composite: def.composite.keys().next_back().copied(),
             leaves,
         }
-    }
-
-    /// Records that a column reads this element (`component` `None`) or one
-    /// of its declared components. A composite read whole marks nothing.
-    fn mark_read(&mut self, component: Option<usize>) {
-        self.leaves
-            .iter_mut()
-            .filter(|leaf| leaf.component == component)
-            .for_each(|leaf| leaf.read = true);
     }
 }
 
@@ -112,37 +104,12 @@ impl<'s> Plans<'s> {
         self.by_id.get(id)
     }
 
-    /// Records that a column reads `element` (or its `component`) of the
-    /// segments with `id`, when the spec defines that element.
-    fn mark_read(&mut self, id: &[u8], element: usize, component: Option<usize>) {
-        self.by_id
-            .get_mut(id)
-            .into_iter()
-            .flat_map(|plan| plan.elements.iter_mut())
-            .filter(|plan| plan.position == element)
-            .for_each(|plan| plan.mark_read(component));
-    }
-
-    /// Marks every element and component some column of `table` can read.
-    pub(super) fn mark_columns(&mut self, spec: &Spec, table: &TableDef) {
-        for (_, source) in &table.columns {
-            for (id, element, component) in spec.positions(table, source) {
-                self.mark_read(id, element, component);
-            }
-        }
-    }
-
     /// Makes every column of table `index` (one without `segment`) watch the
     /// segment id it reads in each loop the spec placed it in. A column that
     /// reads a loop above the anchor gets a carried value, which an instance
-    /// of that loop opening starts over (recorded in `resets`, per loop); the
-    /// carried values are returned in column order.
-    pub(super) fn watch_places(
-        &mut self,
-        spec: &'s Spec,
-        index: usize,
-        resets: &mut [Vec<(usize, usize)>],
-    ) -> Vec<Carried> {
+    /// of that loop opening starts over; the carried values are returned in
+    /// column order.
+    pub(super) fn watch_places(&mut self, spec: &'s Spec, index: usize) -> Vec<Carried> {
         let loops = spec.loops().len();
         let mut carried = Vec::new();
         let columns = &spec.tables()[index].columns;
@@ -155,12 +122,6 @@ impl<'s> Plans<'s> {
             let slot = match relation {
                 Relation::Above { carried: slot } => {
                     carried.push(Carried::new(column));
-                    // An `Above` column reads exactly its one named loop.
-                    for read in reads {
-                        if let Some(reset) = resets.get_mut(read.loop_id.index()) {
-                            reset.push((index, *slot));
-                        }
-                    }
                     Some(*slot)
                 }
                 Relation::Anchor | Relation::Inside => None,

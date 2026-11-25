@@ -749,3 +749,18 @@ fn landing_refuses_a_segment_no_occurrence_takes() {
         Err(Vec::new())
     );
 }
+
+#[test]
+fn a_relation_gives_its_loop_instances() {
+    use crate::spec::Relation;
+    use crate::write::build::instances;
+    assert_eq!(instances(Relation::Anchor, 2), None);
+    assert_eq!(
+        instances(Relation::Inside, 2),
+        Some(Instances::Inside { table: 2 })
+    );
+    assert_eq!(
+        instances(Relation::Above { carried: 0 }, 2),
+        Some(Instances::Groups { table: 2 })
+    );
+}

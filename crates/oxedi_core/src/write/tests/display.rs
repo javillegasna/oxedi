@@ -46,16 +46,6 @@ fn findings_display_their_full_text() {
             "table \"claims\" row 3 column \"claim_id\" writes CLP01 with \"A:B\", which holds the component separator \":\"; a value cannot hold the interchange's delimiters",
         ),
         (
-            Finding::UnwrittenValue {
-                origin: cell(),
-                value: "\"X\"".into(),
-                place: "PER01".into(),
-                code: "BL".into(),
-                codes: vec!["CX".into(), "IC".into()],
-            },
-            "table \"claims\" row 3 column \"claim_id\" holds \"X\", but the column reads PER01 \"BL\", which the element's code list (\"CX\", \"IC\") excludes, so no valid file holds it",
-        ),
-        (
             Finding::MissingParent {
                 table: "services".into(),
                 row: 2,
@@ -119,7 +109,7 @@ fn findings_display_their_full_text() {
         (
             Finding::ReadBack {
                 origin: Some(cell()),
-                diagnostic: Diagnostic::new(
+                diagnostic: Box::new(Diagnostic::new(
                     Rule::UnknownSegment {
                         segment_id: b"ZZ".to_vec(),
                     },
@@ -128,14 +118,14 @@ fn findings_display_their_full_text() {
                     None,
                     Vec::new(),
                     b"ZZ".to_vec(),
-                ),
+                )),
             },
             "table \"claims\" row 3 column \"claim_id\": SNIP 1 · segment \"ZZ\" is not part of the structure: no open loop holds it and it opens no loop · segment #4 · at the root · datum \"ZZ\"",
         ),
         (
             Finding::ReadBack {
                 origin: None,
-                diagnostic: Diagnostic::new(
+                diagnostic: Box::new(Diagnostic::new(
                     Rule::UnknownSegment {
                         segment_id: b"ZZ".to_vec(),
                     },
@@ -144,7 +134,7 @@ fn findings_display_their_full_text() {
                     None,
                     Vec::new(),
                     Vec::new(),
-                ),
+                )),
             },
             "the written file: SNIP 1 · segment \"ZZ\" is not part of the structure: no open loop holds it and it opens no loop · end of stream · at the root · datum \"\"",
         ),

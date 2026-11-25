@@ -11,8 +11,7 @@ use crate::spec::{
 use crate::spec_load::{Builtin, Version};
 use crate::validate::{Validation, validate};
 use crate::vocabulary::Pick;
-use crate::write::build::Builder;
-use crate::write::codes::{Excluded, Resolved, landing};
+use crate::write::codes::landing;
 use crate::write::{SegmentSource, ValueSource, WritePlan};
 
 /// The `edi_835_parser` patch package, whose spec the writer refuses as a whole.
@@ -469,65 +468,4 @@ const COMPAT_REFUSALS: &str = concat!(
 fn the_compat_spec_is_refused_for_the_same_reasons() {
     let error = WritePlan::new(&compat()).unwrap_err();
     assert_eq!(error.to_string(), COMPAT_REFUSALS);
-}
-
-/// The occurrences the codes-aware choice (`resolve`) gives a column.
-fn resolved(builder: &Builder<'_>, spec: &Spec, loop_id: LoopId, name: &str) -> Vec<String> {
-    let (table, column) = name.split_once('.').unwrap_or_default();
-    let def = spec.table(table).unwrap();
-    let (_, source) = def.columns.iter().find(|(c, _)| c == column).unwrap();
-    let (segment, conditions, _, _) = target(def, source);
-    let occurrences = &spec.get(loop_id).occurrences;
-    match builder.resolve(loop_id, segment, conditions) {
-        Resolved::One(at, rest) => {
-            assert!(rest.len() <= conditions.len(), "{name}: {rest:?}");
-            vec![occurrences[at].name.clone()]
-        }
-        Resolved::Nothing(excluded) => {
-            let Excluded { place, code, codes } = excluded;
-            assert!(!place.is_empty() && !code.is_empty() && !codes.is_empty());
-            Vec::new()
-        }
-        Resolved::Candidates(names) => names,
-    }
-}
-
-#[test]
-fn the_places_choose_what_the_codes_chose_but_the_4010_technical_contact() {
-    let five = builtin(Version::V5010);
-    let four = builtin(Version::V4010);
-    let compat = compat();
-    let mut differences = Vec::new();
-    for (label, spec) in [
-        ("5010", &five.spec),
-        ("4010", &four.spec),
-        ("compat", &compat),
-    ] {
-        let builder = Builder::new(spec);
-        for reading in readings(spec) {
-            let def = &spec.tables()[reading.table];
-            let (column, source) = &def.columns[reading.column];
-            let (segment, _, named, _) = target(def, source);
-            if def.segment.is_some() || named.is_some() {
-                continue;
-            }
-            let name = format!("{}.{column}", def.name);
-            let placed = match landing(spec.get(reading.loop_id), reading.place, segment) {
-                Ok(at) => vec![spec.get(reading.loop_id).occurrences[at].name.clone()],
-                Err(names) => names,
-            };
-            if placed != resolved(&builder, spec, reading.loop_id, &name) {
-                differences.push(format!("{label} {name}"));
-            }
-        }
-    }
-    differences.sort();
-    assert_eq!(
-        differences,
-        [
-            "4010 payments.payer_technical_contact_name",
-            "4010 payments.payer_technical_contact_number",
-            "4010 payments.payer_technical_contact_qualifier",
-        ]
-    );
 }

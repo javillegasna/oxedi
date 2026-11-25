@@ -12,7 +12,7 @@ use crate::vocabulary::Pick;
 
 use super::codes::{implied_rest, landing};
 use super::plan::{
-    ElementPlan, Instances, LoopPlan, SegmentPlan, SegmentSource, Unwritten, ValueSource, WritePlan,
+    ElementPlan, Instances, LoopPlan, SegmentPlan, SegmentSource, ValueSource, WritePlan,
 };
 use super::refusal::{PlanError, Refusal, render_source};
 use super::required::add_qualifier;
@@ -47,7 +47,6 @@ pub(super) struct Builder<'s> {
     refused: Vec<usize>,
     /// `(table, anchor loop)` of every table anchored on a segment.
     pub(super) repeats: Vec<(usize, LoopId)>,
-    unwritten: Vec<Unwritten>,
 }
 
 impl WritePlan {
@@ -75,7 +74,6 @@ impl WritePlan {
         if builder.refusals.is_empty() {
             Ok(WritePlan {
                 loops: builder.loops,
-                unwritten: builder.unwritten,
             })
         } else {
             Err(PlanError {
@@ -102,7 +100,6 @@ impl<'s> Builder<'s> {
             refusals: Vec::new(),
             refused: Vec::new(),
             repeats: Vec::new(),
-            unwritten: Vec::new(),
         }
     }
 }

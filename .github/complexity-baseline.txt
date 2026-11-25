@@ -49,7 +49,6 @@ crates/oxedi_core/src/write/emit.rs	repeat_segments	11	4
 crates/oxedi_core/src/write/envelope.rs	field_value	14	0	flat
 crates/oxedi_core/src/write/envelope.rs	name	13	0
 crates/oxedi_core/src/write/finding.rs	fmt	9	0	flat
-crates/oxedi_core/src/write/finding.rs	fmt	8	0	flat
 crates/oxedi_core/src/write/layout.rs	new	12	3
 crates/oxedi_core/src/write/nest.rs	nest	19	5
 crates/oxedi_core/src/write/refusal.rs	fmt	12	0	flat
@@ -86,7 +85,6 @@ crates/oxedi_py/src/import.rs	bytes	13	0
 crates/oxedi_py/src/import.rs	cell	18	1
 crates/oxedi_py/src/import.rs	stream	9	1
 crates/oxedi_py/src/spec.rs	schema	8	1
-crates/oxedi_py/src/write.rs	kind	8	0
 viewer/js/bytes.js	bodyRange	8	1
 viewer/js/bytes.js	elementRange	10	1
 viewer/js/load.js	run	10	2

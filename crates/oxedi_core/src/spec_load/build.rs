@@ -17,7 +17,7 @@ use super::places::place_columns;
 use super::segments::compile_elements;
 use super::summaries::{compile_default_table, compile_summaries};
 use crate::spec::{
-    DeclaredVersion, LoopId, OccurrenceIndex, SegmentDef, Spec, Trigger, render_trigger,
+    DeclaredVersion, LoopId, OccurrenceIndex, ReadIndex, SegmentDef, Spec, Trigger, render_trigger,
 };
 
 /// A spec while it compiles, and the model every step reads.
@@ -30,7 +30,7 @@ struct Build<'m> {
 type Step = fn(&mut Build<'_>) -> Result<(), SpecError>;
 
 /// The compile steps, in the order they run.
-const STEPS: [Step; 12] = [
+const STEPS: [Step; 13] = [
     compile_loop_headers,
     link_loops,
     compile_segment_section,
@@ -40,6 +40,7 @@ const STEPS: [Step; 12] = [
     check_trigger_ambiguity,
     compile_table_section,
     compile_place_section,
+    index_reads,
     compile_balancing_section,
     compile_summary_section,
     compile_default_table_section,
@@ -136,6 +137,7 @@ impl<'m> Build<'m> {
                 segments: BTreeMap::new(),
                 tables: Vec::new(),
                 places: Vec::new(),
+                reads: ReadIndex::default(),
                 balancing: Vec::new(),
                 summaries: Vec::new(),
                 default_table: None,
@@ -236,6 +238,11 @@ fn compile_table_section(build: &mut Build<'_>) -> Result<(), SpecError> {
 
 fn compile_place_section(build: &mut Build<'_>) -> Result<(), SpecError> {
     build.spec.places = place_columns(&build.spec);
+    Ok(())
+}
+
+fn index_reads(build: &mut Build<'_>) -> Result<(), SpecError> {
+    build.spec.reads = ReadIndex::build(&build.spec);
     Ok(())
 }
 

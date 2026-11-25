@@ -17,7 +17,8 @@
 //! (an element, a segment, the automatic column names), `tables` and
 //! `balance_rule` (a balancing rule and its text) hold the definitions;
 //! `occurrence_index` the occurrence a segment takes in a loop; `places` where each
-//! column reads, compiled once with the spec; `id_map` the
+//! column reads, compiled once with the spec; `read_index` the tables, resets
+//! and read elements of each loop and segment id, indexed from the places; `id_map` the
 //! map keyed by segment id; `schema` the columns of each table, known from the
 //! spec alone; `unknown` the errors for a table or a column the spec does not
 //! define; `render` the text of triggers and occurrence selectors in messages;
@@ -34,6 +35,7 @@ mod loops;
 mod occurrence_index;
 mod occurrences;
 mod places;
+mod read_index;
 mod render;
 mod rule;
 mod schema;
@@ -63,6 +65,7 @@ pub(crate) use id_map::IdMap;
 pub(crate) use occurrence_index::OccurrenceIndex;
 pub(crate) use occurrences::element_def;
 pub(crate) use places::{ColumnPlace, LoopRead, OccurrencePlace, Reading, Relation, Target};
+pub(crate) use read_index::ReadIndex;
 pub(crate) use render::{render_selector, render_trigger};
 pub(crate) use rule::ElementRule;
 pub(crate) use schema::column_type;
@@ -84,6 +87,8 @@ pub struct Spec {
     pub(crate) tables: Vec<TableDef>,
     /// Where each column reads, per table, per declared column.
     pub(crate) places: Vec<Vec<ColumnPlace>>,
+    /// What reading a file needs per loop and per segment id.
+    pub(crate) reads: ReadIndex,
     pub(crate) balancing: Vec<BalanceRule>,
     pub(crate) summaries: Vec<(String, Summary)>,
     pub(crate) default_table: Option<String>,

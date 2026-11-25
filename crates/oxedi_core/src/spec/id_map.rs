@@ -44,6 +44,12 @@ impl<V> IdMap<V> {
         }
     }
 
+    /// Calls `visit` on every value.
+    pub(crate) fn for_each_mut(&mut self, mut visit: impl FnMut(&mut V)) {
+        self.short.values_mut().for_each(&mut visit);
+        self.long.values_mut().for_each(visit);
+    }
+
     /// The value of `id`, made with `make` when there is none.
     pub(crate) fn entry_or_insert_with(&mut self, id: &[u8], make: impl FnOnce() -> V) -> &mut V {
         match pack_id(id) {

@@ -47,6 +47,20 @@ pub(crate) enum Reading {
     },
 }
 
+impl Reading {
+    /// The carried slot and the reads of a column of a loop above its
+    /// table's anchor.
+    pub(crate) fn above(&self) -> Option<(usize, &[LoopRead])> {
+        match self {
+            Reading::Watch {
+                relation: Relation::Above { carried },
+                reads,
+            } => Some((*carried, reads)),
+            Reading::Watch { .. } | Reading::Anchor => None,
+        }
+    }
+}
+
 /// Where the loop a column reads sits relative to its table's anchor.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) enum Relation {

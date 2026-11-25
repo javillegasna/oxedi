@@ -282,3 +282,33 @@ fn every_builtin_column_reads_by_its_class() {
         ])
     );
 }
+
+#[test]
+fn the_read_index_knows_each_loops_tables_and_resets() {
+    let five = builtin(Version::V5010);
+    let spec = &five.spec;
+    let id = |name: &str| spec.loop_id(name).unwrap();
+    let index = spec.reads();
+    assert_eq!(index.anchored(id("2100")), Some(1));
+    assert_eq!(index.anchored(id("2110")), Some(4));
+    assert_eq!(index.anchored(id("transaction")), Some(2));
+    assert_eq!(index.anchored(id("2000")), None);
+    assert_eq!(index.segment_tables(id("2100")), [0]);
+    assert_eq!(index.segment_tables(id("2110")), [0]);
+    assert_eq!(index.segment_tables(id("transaction")), [3]);
+    assert_eq!(index.resets(id("2000")), [(1, 0)]);
+    assert_eq!(index.resets(id("2100")), []);
+}
+
+#[test]
+fn the_read_index_marks_what_columns_read() {
+    let five = builtin(Version::V5010);
+    let index = five.spec.reads();
+    assert!(index.is_read(b"SVC", 1, Some(2)));
+    assert!(index.is_read(b"SVC", 1, Some(1)));
+    assert!(!index.is_read(b"SVC", 1, None));
+    assert!(index.is_read(b"CAS", 3, None));
+    assert!(index.is_read(b"CAS", 19, None));
+    assert!(index.is_read(b"LX", 1, None));
+    assert!(!index.is_read(b"TS3", 1, None));
+}

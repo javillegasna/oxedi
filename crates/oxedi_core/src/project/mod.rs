@@ -54,7 +54,7 @@
 //! datums of its diagnostics that come from a place such a column reads; the
 //! module notes of `mask.rs` say how.
 //!
-//! The module is split by responsibility: `plan` holds the per-table plans
+//! The module is split by responsibility: `plan` holds the element checks
 //! built from the spec; `check` the element check and the parsed values it
 //! hands to the columns; `fill` the row filling, the diagnostic helpers and
 //! the text read of an element; `carry` the values read from loops above a
@@ -84,7 +84,7 @@ use crate::value::ColumnType;
 
 use carry::Carried;
 use check::Checked;
-use plan::{ElementPlan, Plans};
+use plan::{ElementCheck, Plans};
 use row::{Row, TableState};
 
 /// Turns the engine's events and the segments they name into table rows and
@@ -123,7 +123,7 @@ impl<'s> Projector<'s> {
             plans.entry(id, loops).elements = def
                 .elements
                 .iter()
-                .map(|(&position, element)| ElementPlan::new(spec, id, position, element))
+                .map(|(&position, element)| ElementCheck::new(spec, id, position, element))
                 .collect();
         }
         let mut tables = Vec::with_capacity(spec.tables().len());

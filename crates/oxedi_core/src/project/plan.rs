@@ -1,4 +1,5 @@
-//! The per-segment plans the projector builds once from the spec.
+//! The element checks the projector builds per run from the spec's segment
+//! definitions, with the read marks of the spec's index.
 
 use super::carry::Carried;
 use crate::spec::{ColumnSource, ElementDef, IdMap, OccurrencePlace, Reading, Relation, Spec};
@@ -7,7 +8,7 @@ use crate::vocabulary::Pick;
 
 /// One value the check visits: a simple element, or one declared component.
 #[derive(Debug, Clone)]
-pub(super) struct Leaf<'s> {
+pub(super) struct LeafCheck<'s> {
     /// 1-based component position; `None` for a simple element.
     pub(super) component: Option<usize>,
     pub(super) def: &'s ElementDef,
@@ -18,7 +19,7 @@ pub(super) struct Leaf<'s> {
     pub(super) read: bool,
 }
 
-impl<'s> Leaf<'s> {
+impl<'s> LeafCheck<'s> {
     fn new(component: Option<usize>, def: &'s ElementDef, read: bool) -> Self {
         Self {
             component,
@@ -31,7 +32,7 @@ impl<'s> Leaf<'s> {
 
 /// One defined element, with what checking it needs worked out once.
 #[derive(Debug, Clone)]
-pub(super) struct ElementPlan<'s> {
+pub(super) struct ElementCheck<'s> {
     pub(super) position: usize,
     pub(super) def: &'s ElementDef,
     /// Highest component position the definition declares; `None` for a
@@ -39,20 +40,20 @@ pub(super) struct ElementPlan<'s> {
     pub(super) composite: Option<usize>,
     /// The element itself when it is simple, else each declared component,
     /// in position order.
-    pub(super) leaves: Vec<Leaf<'s>>,
+    pub(super) leaves: Vec<LeafCheck<'s>>,
 }
 
-impl<'s> ElementPlan<'s> {
-    /// The plan of the element at `position` of segment `id`, whose leaves
+impl<'s> ElementCheck<'s> {
+    /// The check of the element at `position` of segment `id`, whose leaves
     /// are marked read from the spec's index.
     pub(super) fn new(spec: &Spec, id: &[u8], position: usize, def: &'s ElementDef) -> Self {
         let read = |component| spec.reads().is_read(id, position, component);
         let leaves = if def.composite.is_empty() {
-            vec![Leaf::new(None, def, read(None))]
+            vec![LeafCheck::new(None, def, read(None))]
         } else {
             def.composite
                 .iter()
-                .map(|(&at, part)| Leaf::new(Some(at), part, read(Some(at))))
+                .map(|(&at, part)| LeafCheck::new(Some(at), part, read(Some(at))))
                 .collect()
         };
         Self {
@@ -68,7 +69,7 @@ impl<'s> ElementPlan<'s> {
 #[derive(Debug, Clone)]
 pub(super) struct SegmentPlan<'s> {
     /// The defined elements to check, by position.
-    pub(super) elements: Vec<ElementPlan<'s>>,
+    pub(super) elements: Vec<ElementCheck<'s>>,
     /// Per loop: the columns that read this segment when it is captured in
     /// that loop.
     pub(super) watchers: Vec<Vec<Watcher>>,

@@ -37,13 +37,6 @@ impl<V> IdMap<V> {
         }
     }
 
-    pub(crate) fn get_mut(&mut self, id: &[u8]) -> Option<&mut V> {
-        match pack_id(id) {
-            Some(key) => self.short.get_mut(&key),
-            None => self.long.get_mut(id),
-        }
-    }
-
     /// Calls `visit` on every value.
     pub(crate) fn for_each_mut(&mut self, mut visit: impl FnMut(&mut V)) {
         self.short.values_mut().for_each(&mut visit);

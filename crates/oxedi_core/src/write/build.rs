@@ -5,12 +5,12 @@
 use std::collections::BTreeMap;
 
 use crate::spec::{
-    ColumnPlace, ColumnSource, LoopId, LoopRead, OccurrenceDef, OccurrencePlace, Reading, Relation,
-    Spec, TableDef, Target,
+    ColumnPlace, ColumnSource, LoopId, LoopRead, OccurrenceDef, Reading, Relation, Spec, TableDef,
+    Target,
 };
 use crate::vocabulary::Pick;
 
-use super::codes::{Resolved, landing};
+use super::codes::{implied_rest, landing};
 use super::plan::{
     ElementPlan, Instances, LoopPlan, SegmentPlan, SegmentSource, Unwritten, ValueSource, WritePlan,
 };
@@ -260,9 +260,7 @@ impl Builder<'_> {
         write: &ColumnWrite<'_>,
     ) -> Result<(), Refused> {
         let reader = write.read.loop_id;
-        let Some((at, codes)) = self.occurrence_of(index, table, write)? else {
-            return Ok(());
-        };
+        let (at, codes) = self.occurrence_of(table, write)?;
         self.not_the_envelope(table, write, at)?;
         if let Some(kind) = instances(write.relation, index) {
             self.give_instances(reader, kind, index, write.column)?;
@@ -281,31 +279,17 @@ impl Builder<'_> {
     }
 
     /// The occurrence a column writes and the codes left to fix once its
-    /// qualifier is taken out; `None` when the element's own code list
-    /// leaves the column's `where` codes out, which records it as unwritten.
+    /// qualifier is taken out: where the column's compiled place lands.
     fn occurrence_of(
-        &mut self,
-        index: usize,
+        &self,
         table: &TableDef,
         write: &ColumnWrite<'_>,
-    ) -> Result<Option<(usize, Codes)>, Refused> {
+    ) -> Result<(usize, Codes), Refused> {
         let reader = write.read.loop_id;
-        if let OccurrencePlace::Named(occurrence) = write.read.place {
-            return Ok(Some((occurrence.index(), Codes::new())));
-        }
-        match self.resolve(reader, write.segment, write.conditions) {
-            Resolved::One(at, codes) => Ok(Some((at, codes))),
-            Resolved::Nothing(excluded) => {
-                self.unwritten.push(Unwritten {
-                    table: index,
-                    column: write.column,
-                    place: excluded.place,
-                    code: excluded.code,
-                    codes: excluded.codes,
-                });
-                Ok(None)
-            }
-            Resolved::Candidates(candidates) => Err(Box::new(Refusal::AmbiguousSource {
+        let def = self.spec.get(reader);
+        match landing(def, write.read.place, write.segment) {
+            Ok(at) => Ok((at, implied_rest(def, at, write.conditions))),
+            Err(candidates) => Err(Box::new(Refusal::AmbiguousSource {
                 table: table.name.clone(),
                 column: Some(write.name.to_string()),
                 loop_name: self.spec.loop_name(reader).to_string(),

@@ -13,6 +13,13 @@ use crate::message::place;
 
 /// A `where` code the element's own code list excludes.
 #[derive(Debug, Clone, PartialEq, Eq)]
+#[cfg_attr(
+    not(test),
+    expect(
+        dead_code,
+        reason = "the switch test compares the places with the codes-aware choice"
+    )
+)]
 pub(super) struct Excluded {
     /// The element, e.g. `PER01`.
     pub(super) place: String,
@@ -23,6 +30,13 @@ pub(super) struct Excluded {
 }
 
 /// Where a segment and its `where` codes land in a loop.
+#[cfg_attr(
+    not(test),
+    expect(
+        dead_code,
+        reason = "the switch test compares the places with the codes-aware choice"
+    )
+)]
 pub(super) enum Resolved {
     /// One occurrence, with the codes left once its single-code qualifier is
     /// taken out.
@@ -84,6 +98,13 @@ pub(super) fn landing(
     }
 }
 
+#[cfg_attr(
+    not(test),
+    expect(
+        dead_code,
+        reason = "the switch test compares the places with the codes-aware choice"
+    )
+)]
 impl Builder<'_> {
     /// The occurrence of loop `id` that `segment` and `conditions` select.
     ///
@@ -231,7 +252,7 @@ impl Builder<'_> {
 
 /// The conditions left once the occurrence's single-code qualifier is taken
 /// out: that code is written for the qualifier, not by a column.
-fn implied_rest(def: &LoopDef, index: usize, conditions: &[(usize, Vec<u8>)]) -> Codes {
+pub(super) fn implied_rest(def: &LoopDef, index: usize, conditions: &[(usize, Vec<u8>)]) -> Codes {
     let implied = def
         .occurrences
         .get(index)

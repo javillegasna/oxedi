@@ -12,7 +12,7 @@ use crate::spec_load::{Builtin, Version};
 use crate::validate::{Validation, validate};
 use crate::vocabulary::Pick;
 use crate::write::build::Builder;
-use crate::write::codes::Resolved;
+use crate::write::codes::{Excluded, Resolved, landing};
 use crate::write::{SegmentSource, ValueSource, WritePlan};
 
 /// The `edi_835_parser` patch package, whose spec the writer refuses as a whole.
@@ -54,6 +54,8 @@ struct Reading {
     column: usize,
     loop_id: LoopId,
     occurrences: BTreeSet<usize>,
+    /// The compiled place the writer lands the column by.
+    place: OccurrencePlace,
     at: Option<At>,
     nth: Option<usize>,
 }
@@ -179,22 +181,28 @@ fn readings(spec: &Spec) -> Vec<Reading> {
         for (column, place) in spec.places(table).iter().enumerate() {
             let (_, source) = &def.columns[column];
             let (segment, conditions, _, at) = target(def, source);
-            let reads: Vec<(LoopId, Option<usize>, Option<usize>)> = match &place.reading {
-                SpecReading::Anchor => def.loops.iter().map(|&id| (id, None, None)).collect(),
+            let reads: Vec<(LoopId, Option<usize>, Option<usize>, OccurrencePlace)> = match &place
+                .reading
+            {
+                SpecReading::Anchor => def
+                    .loops
+                    .iter()
+                    .map(|&id| (id, None, None, spec.get(id).place_of(segment, &[])))
+                    .collect(),
                 SpecReading::Watch { reads, .. } => {
                     let nth = pick_of(source).map(repeat);
                     reads
                         .iter()
-                        .map(|read| match &read.place {
+                        .map(|read| match read.place {
                             OccurrencePlace::Named(o) | OccurrencePlace::Chosen(o) => {
-                                (read.loop_id, Some(o.index()), nth)
+                                (read.loop_id, Some(o.index()), nth, read.place)
                             }
-                            OccurrencePlace::Unplaced(_) => (read.loop_id, None, nth),
+                            OccurrencePlace::Unplaced(_) => (read.loop_id, None, nth, read.place),
                         })
                         .collect()
                 }
             };
-            for (loop_id, occurrence, nth) in reads {
+            for (loop_id, occurrence, nth, place) in reads {
                 let occurrences = match occurrence {
                     Some(occurrence) => BTreeSet::from([occurrence]),
                     None => engine_occurrences(spec, loop_id, segment, conditions),
@@ -204,6 +212,7 @@ fn readings(spec: &Spec) -> Vec<Reading> {
                     column,
                     loop_id,
                     occurrences,
+                    place,
                     at,
                     nth,
                 });
@@ -298,22 +307,9 @@ fn written_places(spec: &Spec, plan: &WritePlan) -> BTreeSet<Place> {
     places
 }
 
-/// The 4010 payer technical contact: its columns read `PER` with PER01 = BL in
-/// loop 1000A, a code the 4010 list of PER01 (CX) leaves out. The reader fills
-/// them from the loop's one `PER` occurrence; the writer leaves them unwritten.
-/// `(column, element)`, in column order.
-const TECHNICAL_CONTACT_4010: [(&str, usize); 3] = [
-    ("payer_technical_contact_name", 2),
-    ("payer_technical_contact_number", 4),
-    ("payer_technical_contact_qualifier", 3),
-];
-
 #[test]
 fn the_writer_writes_every_column_where_the_reader_reads_it() {
-    for (version, contact) in [
-        (Version::V5010, &[][..]),
-        (Version::V4010, &TECHNICAL_CONTACT_4010[..]),
-    ] {
+    for version in [Version::V5010, Version::V4010] {
         let spec = builtin(version).spec;
         let plan = WritePlan::new(&spec).expect("a built-in writes");
 
@@ -327,23 +323,9 @@ fn the_writer_writes_every_column_where_the_reader_reads_it() {
             .collect();
         assert_eq!(read_columns, declared, "{version:?}: columns read");
         let written = written_places(&spec, &plan);
-        let expected: BTreeSet<Place> = contact
-            .iter()
-            .map(|&(column, element)| Place {
-                table: "payments".to_string(),
-                column: column.to_string(),
-                loop_name: "1000A".to_string(),
-                occurrence: "payer_business_contact_information".to_string(),
-                at: At::Element {
-                    element,
-                    component: None,
-                },
-                nth: Some(1),
-            })
-            .collect();
         assert_eq!(
             read.difference(&written).cloned().collect::<BTreeSet<_>>(),
-            expected,
+            BTreeSet::new(),
             "{version:?}: read and not written"
         );
         assert_eq!(
@@ -351,20 +333,6 @@ fn the_writer_writes_every_column_where_the_reader_reads_it() {
             BTreeSet::new(),
             "{version:?}: written and not read"
         );
-
-        let unwritten: Vec<String> = plan
-            .unwritten
-            .iter()
-            .map(|entry| {
-                let (_, column) = name_of(&spec, entry.table, entry.column);
-                format!("{column} {} {} {:?}", entry.place, entry.code, entry.codes)
-            })
-            .collect();
-        let expected: Vec<String> = contact
-            .iter()
-            .map(|(column, _)| format!("{column} PER01 BL [\"CX\"]"))
-            .collect();
-        assert_eq!(unwritten, expected, "{version:?}: unwritten");
     }
 }
 
@@ -398,44 +366,33 @@ fn declared_columns(spec: &Spec, keep: fn(&ColumnSource) -> bool) -> BTreeSet<(S
         .collect()
 }
 
-/// The occurrences of `loop_id` the write plan places a column in: the one it
-/// resolves to, none when no valid file holds it, every candidate when several
-/// take it.
-fn resolved(
-    spec: &Spec,
-    builder: &Builder<'_>,
-    loop_id: LoopId,
-    segment: &[u8],
-    conditions: &[(usize, Vec<u8>)],
-    named: Option<&str>,
-) -> BTreeSet<usize> {
-    let occurrences = &spec.get(loop_id).occurrences;
-    let position = |name: &str| occurrences.iter().position(|found| found.name == name);
-    match named {
-        Some(name) => position(name).into_iter().collect(),
-        None => match builder.resolve(loop_id, segment, conditions) {
-            Resolved::One(at, _) => BTreeSet::from([at]),
-            Resolved::Nothing(_) => BTreeSet::new(),
-            Resolved::Candidates(found) => found.iter().filter_map(|name| position(name)).collect(),
-        },
+/// The occurrences of `loop_id` the write plan places a column in: the one
+/// it lands in, or every candidate when several take it.
+fn landed(spec: &Spec, loop_id: LoopId, place: OccurrencePlace, segment: &[u8]) -> BTreeSet<usize> {
+    let def = spec.get(loop_id);
+    match landing(def, place, segment) {
+        Ok(at) => BTreeSet::from([at]),
+        Err(names) => names
+            .iter()
+            .filter_map(|name| def.occurrences.iter().position(|found| &found.name == name))
+            .collect(),
     }
 }
 
 #[test]
 fn the_writer_resolves_every_compat_column_where_the_reader_reads_it() {
     let spec = compat();
-    let builder = Builder::new(&spec);
     let mut differences = Vec::new();
     let mut read_columns = BTreeSet::new();
     for reading in readings(&spec) {
         let def = &spec.tables()[reading.table];
         let (column, source) = &def.columns[reading.column];
-        let (segment, conditions, named, _) = target(def, source);
+        let (segment, _, _, _) = target(def, source);
         let reader = names(&spec, reading.loop_id, &reading.occurrences);
         let writer = names(
             &spec,
             reading.loop_id,
-            &resolved(&spec, &builder, reading.loop_id, segment, conditions, named),
+            &landed(&spec, reading.loop_id, reading.place, segment),
         );
         if reader != writer {
             let loop_name = &spec.get(reading.loop_id).name;
@@ -512,4 +469,65 @@ const COMPAT_REFUSALS: &str = concat!(
 fn the_compat_spec_is_refused_for_the_same_reasons() {
     let error = WritePlan::new(&compat()).unwrap_err();
     assert_eq!(error.to_string(), COMPAT_REFUSALS);
+}
+
+/// The occurrences the codes-aware choice (`resolve`) gives a column.
+fn resolved(builder: &Builder<'_>, spec: &Spec, loop_id: LoopId, name: &str) -> Vec<String> {
+    let (table, column) = name.split_once('.').unwrap_or_default();
+    let def = spec.table(table).unwrap();
+    let (_, source) = def.columns.iter().find(|(c, _)| c == column).unwrap();
+    let (segment, conditions, _, _) = target(def, source);
+    let occurrences = &spec.get(loop_id).occurrences;
+    match builder.resolve(loop_id, segment, conditions) {
+        Resolved::One(at, rest) => {
+            assert!(rest.len() <= conditions.len(), "{name}: {rest:?}");
+            vec![occurrences[at].name.clone()]
+        }
+        Resolved::Nothing(excluded) => {
+            let Excluded { place, code, codes } = excluded;
+            assert!(!place.is_empty() && !code.is_empty() && !codes.is_empty());
+            Vec::new()
+        }
+        Resolved::Candidates(names) => names,
+    }
+}
+
+#[test]
+fn the_places_choose_what_the_codes_chose_but_the_4010_technical_contact() {
+    let five = builtin(Version::V5010);
+    let four = builtin(Version::V4010);
+    let compat = compat();
+    let mut differences = Vec::new();
+    for (label, spec) in [
+        ("5010", &five.spec),
+        ("4010", &four.spec),
+        ("compat", &compat),
+    ] {
+        let builder = Builder::new(spec);
+        for reading in readings(spec) {
+            let def = &spec.tables()[reading.table];
+            let (column, source) = &def.columns[reading.column];
+            let (segment, _, named, _) = target(def, source);
+            if def.segment.is_some() || named.is_some() {
+                continue;
+            }
+            let name = format!("{}.{column}", def.name);
+            let placed = match landing(spec.get(reading.loop_id), reading.place, segment) {
+                Ok(at) => vec![spec.get(reading.loop_id).occurrences[at].name.clone()],
+                Err(names) => names,
+            };
+            if placed != resolved(&builder, spec, reading.loop_id, &name) {
+                differences.push(format!("{label} {name}"));
+            }
+        }
+    }
+    differences.sort();
+    assert_eq!(
+        differences,
+        [
+            "4010 payments.payer_technical_contact_name",
+            "4010 payments.payer_technical_contact_number",
+            "4010 payments.payer_technical_contact_qualifier",
+        ]
+    );
 }

@@ -1,7 +1,11 @@
 //! The type and target compiled for each declared column.
 
 use crate::spec::test_support::builtin;
-use crate::spec::{ColumnPlace, OccurrencePlace, Reading, Spec, Target, table_columns};
+use std::collections::BTreeMap;
+
+use crate::spec::{
+    ColumnPlace, ColumnSource, OccurrencePlace, Reading, Relation, Spec, Target, table_columns,
+};
 use crate::spec_load::Version;
 use crate::value::ColumnType;
 
@@ -215,4 +219,66 @@ fn a_column_of_a_table_anchored_on_a_segment_reads_the_anchor() {
     for place in five.spec.places(at) {
         assert_eq!(place.reading, Reading::Anchor);
     }
+}
+
+/// How many columns and reads of `spec` fall in each class.
+fn classes(spec: &Spec) -> BTreeMap<&'static str, usize> {
+    let mut counts = BTreeMap::new();
+    let mut count = |class: &'static str| *counts.entry(class).or_insert(0) += 1;
+    for (table, def) in spec.tables().iter().enumerate() {
+        for (column, place) in spec.places(table).iter().enumerate() {
+            let Reading::Watch { relation, reads } = &place.reading else {
+                count("anchor");
+                continue;
+            };
+            count(match relation {
+                Relation::Anchor => "relation anchor",
+                Relation::Inside => "relation inside",
+                Relation::Above { .. } => "relation above",
+            });
+            let by_where = match &def.columns[column].1 {
+                ColumnSource::Element { conditions, .. }
+                | ColumnSource::SegmentIndex { conditions, .. } => !conditions.is_empty(),
+                ColumnSource::GroupElement { .. } => false,
+            };
+            for read in reads {
+                count(match (&read.place, by_where) {
+                    (OccurrencePlace::Named(_), _) => "named",
+                    (OccurrencePlace::Chosen(_), false) => "chosen by segment",
+                    (OccurrencePlace::Chosen(_), true) => "chosen by where",
+                    (OccurrencePlace::Unplaced(_), _) => "unplaced",
+                });
+            }
+        }
+    }
+    counts
+}
+
+/// The number of columns and reads of each class in each built-in spec; a
+/// change means a column changed class.
+#[test]
+fn every_builtin_column_reads_by_its_class() {
+    let built = [builtin(Version::V5010), builtin(Version::V4010)];
+    let builtin_counts = BTreeMap::from([
+        ("anchor", 9),
+        ("chosen by segment", 26),
+        ("chosen by where", 11),
+        ("named", 24),
+        ("relation above", 1),
+        ("relation anchor", 43),
+        ("relation inside", 17),
+    ]);
+    for loaded in &built {
+        assert_eq!(classes(&loaded.spec), builtin_counts);
+    }
+    assert_eq!(
+        classes(&compat().spec),
+        BTreeMap::from([
+            ("anchor", 36),
+            ("chosen by segment", 43),
+            ("chosen by where", 7),
+            ("relation anchor", 39),
+            ("relation inside", 2),
+        ])
+    );
 }

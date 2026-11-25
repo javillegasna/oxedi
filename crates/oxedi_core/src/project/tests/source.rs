@@ -117,3 +117,29 @@ fn values_read_above_the_anchor_do_not_outlive_finish() {
         "a claim opened without its head in a new stream sees no payer: {claims:?}"
     );
 }
+
+#[test]
+fn a_where_column_skips_a_composite_at_its_condition() {
+    let spec = Spec::from_json(SPEC).unwrap();
+    let (tables, _) = project(
+        &spec,
+        "HD*B1~NM*Q:Z*GAMMA~CL*C1~LN*L1~TR~HD*B2~NM*Q*DELTA~CL*C2~LN*L2~TR~",
+    );
+    assert_eq!(
+        rows(&tables, "lines"),
+        vec![
+            "row | segment | claim | claim_id | claim_ref | code | head_name",
+            "0 | 3 | 0 | C1 | ∅ | L1 | ∅",
+            "1 | 8 | 1 | C2 | ∅ | L2 | DELTA",
+        ],
+        "a composite at the condition's element is no where value"
+    );
+    assert_eq!(
+        rows(&tables, "claims")[1..],
+        [
+            "0 | 2 | C1 | ∅ | GAMMA | GAMMA | ∅ | ∅ | ∅ | ∅",
+            "1 | 7 | C2 | ∅ | DELTA | DELTA | ∅ | ∅ | ∅ | ∅",
+        ],
+        "the composite takes the name occurrence, so payer_first reads it, but holds no where value"
+    );
+}

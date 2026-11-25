@@ -328,8 +328,21 @@ fn two_rows_with_one_row_number_are_a_finding() {
     );
 }
 
+/// The read-back finding of the 4010 technical contact: its `PER` carries
+/// PER01 `BL`, which the 4010 guide's list (`CX`) leaves out.
+fn contact_finding(segment: usize) -> String {
+    format!(
+        "table \"payments\" row 0: SNIP 2 · element PER01 (contact_function_code) is not the one code the spec lists for it (\"CX\") · segment #{segment}, element 1 · at interchange#1/group#1/transaction#1/1000A#1 · datum \"BL\""
+    )
+}
+
+fn written_findings(spec: &Spec, tables: &Tables) -> (Vec<u8>, Vec<String>) {
+    let (bytes, found) = write_with_findings(spec, tables, &envelope()).unwrap();
+    (bytes, found.iter().map(ToString::to_string).collect())
+}
+
 #[test]
-fn a_value_no_valid_file_holds_is_a_finding() {
+fn a_4010_technical_contact_value_is_written_and_read_back() {
     let spec = Spec::builtin_835_4010();
     let tables = parse(&spec, &common::load_sample("edi835_test_davisvision.RMT"));
     let edited = set(
@@ -339,16 +352,14 @@ fn a_value_no_valid_file_holds_is_a_finding() {
         0,
         Cell::Binary(b"DESK"),
     );
-    assert_eq!(
-        findings(write(&spec, &edited, &envelope())),
-        vec![
-            "table \"payments\" row 0 column \"payer_technical_contact_name\" holds \"DESK\", but the column reads PER01 \"BL\", which the element's code list (\"CX\") excludes, so no valid file holds it"
-        ]
-    );
+    let (bytes, found) = written_findings(&spec, &edited);
+    assert!(text(&bytes).contains("~PER*BL*DESK"), "{}", text(&bytes));
+    assert_eq!(found, vec![contact_finding(9)]);
+    assert_eq!(findings(write(&spec, &edited, &envelope())), found);
 }
 
 #[test]
-fn a_4010_payer_technical_contact_read_from_a_file_is_not_written() {
+fn a_4010_payer_technical_contact_read_from_a_file_is_written_back() {
     let spec = Spec::builtin_835_4010();
     let tables = parse(
         &spec,
@@ -363,14 +374,22 @@ fn a_4010_payer_technical_contact_read_from_a_file_is_not_written() {
         let cell = payments.column(column).unwrap().get(0);
         assert_eq!(cell, Some(Cell::Binary(value)), "{column}");
     }
-    assert_eq!(
-        findings(write(&spec, &tables, &envelope())),
-        vec![
-            "table \"payments\" row 0 column \"payer_technical_contact_name\" holds \"EDI SUPPORT\", but the column reads PER01 \"BL\", which the element's code list (\"CX\") excludes, so no valid file holds it",
-            "table \"payments\" row 0 column \"payer_technical_contact_number\" holds \"8005559876\", but the column reads PER01 \"BL\", which the element's code list (\"CX\") excludes, so no valid file holds it",
-            "table \"payments\" row 0 column \"payer_technical_contact_qualifier\" holds \"TE\", but the column reads PER01 \"BL\", which the element's code list (\"CX\") excludes, so no valid file holds it"
-        ]
+    let (bytes, found) = written_findings(&spec, &tables);
+    assert!(
+        text(&bytes).contains("~PER*BL*EDI SUPPORT*TE*8005559876~"),
+        "{}",
+        text(&bytes)
     );
+    assert_eq!(found, vec![contact_finding(10)]);
+}
+
+#[test]
+fn a_4010_row_without_a_technical_contact_writes_no_per_bl() {
+    let spec = Spec::builtin_835_4010();
+    let tables = parse(&spec, &common::load_fixture("balanced_4010_sample.txt"));
+    let (bytes, found) = written_findings(&spec, &tables);
+    assert!(!text(&bytes).contains("PER*BL"), "{}", text(&bytes));
+    assert_eq!(found, Vec::<String>::new());
 }
 
 #[test]

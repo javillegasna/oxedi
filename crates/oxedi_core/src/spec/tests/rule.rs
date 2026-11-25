@@ -71,16 +71,3 @@ fn rejects_follows_the_list_that_applies() {
     assert!(!rule.rejects(b"PR"));
     assert!(!ElementRule::of(rule.def).rejects(b"PE"));
 }
-
-#[test]
-fn own_rejects_asks_the_occurrence_list_only() {
-    let spec = &Spec::builtin_835();
-    let rule = payer_rule(spec);
-    assert!(rule.own_rejects(b"PE"));
-    assert!(!rule.own_rejects(b"PR"));
-    // Without an occurrence list the element's list is not asked.
-    assert!(!ElementRule::of(rule.def).own_rejects(b"ZZ"));
-    let second = spec.element_def(b"N1", 2, None).unwrap();
-    let occurrence = payer_identification(spec);
-    assert!(!ElementRule::at(second, Some(occurrence), 2, None).own_rejects(b"ZZ"));
-}

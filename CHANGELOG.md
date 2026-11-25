@@ -55,6 +55,7 @@ This file covers the Python package; the DuckDB extension has its own changelog 
   wanted segment, outermost first, in one pass that stops at the highest index.
 
 ### Changed
+- Rust: `Finding::ReadBack` holds a `Box<Diagnostic>`.
 - Writing with the 4010 spec writes the payer technical contact (`payments.payer_technical_contact_name`, `_qualifier`, `_number`: `PER` with PER01 `BL` in loop 1000A) where reading takes it from. The 4010 list of PER01 (`CX`) leaves `BL` out, so the written file reads back with that diagnostic as a `ReadBack` finding instead of three `UnwrittenValue` findings.
 - The writer places a column in the occurrence the reader reads it from. A column whose `where` code its element's code list leaves out is written, and reported when the file is read back, instead of being refused or left unwritten; a column whose segment and `where` fit several occurrences told apart by a qualifier it does not fix is refused (`AmbiguousSource`) even when another element's code list would tell them apart.
 - Rust: a spec compiles where each table column reads and the segments that feed it once, when it loads; `Projector::new` no longer works it out per parse (the DuckDB extension makes one per table per file).
@@ -163,6 +164,7 @@ This file covers the Python package; the DuckDB extension has its own changelog 
 - Rust: `SpecError::Schema` is removed; such a fault is `SpecError::Format`.
 
 ### Removed
+- Rust: `write::Unwritten`, `WritePlan::unwritten` and `Finding::UnwrittenValue`, and the Python finding kind `UnwrittenValue`: the writer writes every column where the reader reads it, so no column is left unwritten.
 - Rust: `Spec::BUILTIN_835_JSON` and `Spec::BUILTIN_835_4010_PATCH`; use `Builtin::fallback().model()` or `Builtin::find(..)?.loaded()`.
 - Rust: `Spec::model`, `Spec::from_model` and `SpecError::ModelMismatch`. Read a spec's model with `SpecModel::from_json` or keep it in a `LoadedSpec`, and compile one with `SpecModel::compile` or `LoadedSpec::from_model`.
 

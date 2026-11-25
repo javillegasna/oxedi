@@ -4,8 +4,9 @@
 //! and each element's value come from), `build.rs` (its construction from a
 //! spec, inverting every table column), `place.rs` (the loops written
 //! around the written ones and the position order of segments), `codes.rs`
-//! (the occurrence a column's compiled place lands in, and the refusal of a
-//! fixed qualifier code its code list does not allow), `segments.rs` (the segments the
+//! (the occurrence a column's compiled place lands in, the conditions left
+//! once its qualifier is taken out, and the refusal of a fixed qualifier
+//! code its code list does not allow), `segments.rs` (the segments the
 //! columns write, by repeat), `required.rs` (what a written loop requires and
 //! the codes that fill it), `refusal.rs` (why a spec cannot be written);
 //! `writer.rs` (the entry points [`write()`] and [`write_with_findings`]),
@@ -45,7 +46,7 @@ mod writer;
 pub use envelope::Envelope;
 pub use finding::{Finding, ValueOrigin, WriteError};
 pub use plan::{
-    ElementPlan, Instances, LoopPlan, SegmentPlan, SegmentSource, Unwritten, ValueSource, WritePlan,
+    ElementPlan, Instances, LoopPlan, SegmentPlan, SegmentSource, ValueSource, WritePlan,
 };
 pub use refusal::{PlanError, Refusal};
 pub use writer::{write, write_with_findings};

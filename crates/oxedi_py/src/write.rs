@@ -222,9 +222,9 @@ impl PyWriteFinding {
     /// Where the value at fault comes from.
     fn origin(&self) -> Option<&ValueOrigin> {
         match &self.inner {
-            Finding::DelimiterInValue { origin, .. }
-            | Finding::UnwrittenValue { origin, .. }
-            | Finding::NotWritable { origin, .. } => Some(origin),
+            Finding::DelimiterInValue { origin, .. } | Finding::NotWritable { origin, .. } => {
+                Some(origin)
+            }
             Finding::ReadBack { origin, .. } => origin.as_ref(),
             _ => None,
         }
@@ -239,7 +239,6 @@ impl PyWriteFinding {
     fn kind(&self) -> &'static str {
         match &self.inner {
             Finding::DelimiterInValue { .. } => "DelimiterInValue",
-            Finding::UnwrittenValue { .. } => "UnwrittenValue",
             Finding::MissingParent { .. } => "MissingParent",
             Finding::MismatchedReference { .. } => "MismatchedReference",
             Finding::DuplicateRowNumber { .. } => "DuplicateRowNumber",
@@ -306,7 +305,9 @@ impl PyWriteFinding {
     #[getter]
     fn diagnostic(&self) -> Option<PyDiagnostic> {
         match &self.inner {
-            Finding::ReadBack { diagnostic, .. } => Some(PyDiagnostic::from(diagnostic.clone())),
+            Finding::ReadBack { diagnostic, .. } => {
+                Some(PyDiagnostic::from((**diagnostic).clone()))
+            }
             _ => None,
         }
     }

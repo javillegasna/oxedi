@@ -312,3 +312,58 @@ fn the_read_index_marks_what_columns_read() {
     assert!(index.is_read(b"LX", 1, None));
     assert!(!index.is_read(b"TS3", 1, None));
 }
+
+#[test]
+fn the_read_index_lists_the_columns_each_segment_feeds() {
+    let five = builtin(Version::V5010);
+    let spec = &five.spec;
+    let index = spec.reads();
+    let id = |name: &str| spec.loop_id(name).unwrap();
+    let svc = index.watchers(id("2110"), b"SVC");
+    assert!(svc.iter().all(|watcher| watcher.table == 4));
+    let columns: Vec<usize> = svc.iter().map(|watcher| watcher.column).collect();
+    assert_eq!(columns, [1, 3, 4, 5, 6, 8]);
+    let amt = index.watchers(id("2110"), b"AMT");
+    assert_eq!(amt.len(), 1);
+    assert_eq!(amt[0].column, 0);
+    assert_eq!(amt[0].conditions, [(1, b"B6".to_vec())]);
+    assert!(matches!(amt[0].place, OccurrencePlace::Chosen(o) if o.index() == 7));
+    assert_eq!(
+        format!("{:?}", amt[0].target),
+        "Element { element: 2, component: None }"
+    );
+    assert!(index.watchers(id("2100"), b"SVC").is_empty());
+    let lx = index.watchers(id("2000"), b"LX");
+    assert_eq!(lx.len(), 1);
+    assert_eq!((lx[0].table, lx[0].column), (1, 11));
+    assert_eq!(lx[0].relation, Relation::Above { carried: 0 });
+}
+
+#[test]
+fn a_place_admits_its_occurrence() {
+    let five = builtin(Version::V5010);
+    let spec = &five.spec;
+    let id = spec.loop_id("2110").unwrap();
+    let chosen = spec.reads().watchers(id, b"AMT")[0].place;
+    let seven = match chosen {
+        OccurrencePlace::Chosen(o) => o,
+        other => panic!("not chosen: {other:?}"),
+    };
+    let zero = spec
+        .get(id)
+        .occurrence_named(&spec.get(id).occurrences[0].name);
+    assert!(zero.is_some(), "the loop declares an occurrence 0");
+    assert!(chosen.admits(Some(seven)));
+    assert!(!chosen.admits(zero));
+    assert!(!chosen.admits(None));
+    let loose = Spec::from_json(PLACES).unwrap();
+    let claim = loose.loop_id("claim").unwrap();
+    let other = loose
+        .reads()
+        .watchers(claim, b"DT")
+        .iter()
+        .find(|watcher| matches!(watcher.place, OccurrencePlace::Unplaced(_)))
+        .unwrap();
+    assert!(other.place.admits(None));
+    assert!(other.place.admits(zero));
+}

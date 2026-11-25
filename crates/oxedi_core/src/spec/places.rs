@@ -86,7 +86,7 @@ pub(crate) struct LoopRead {
 }
 
 /// The occurrence a column reads in a loop.
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) enum OccurrencePlace {
     /// The occurrence the column names.
     Named(OccurrenceId),
@@ -94,6 +94,23 @@ pub(crate) enum OccurrencePlace {
     Chosen(OccurrenceId),
     /// No one occurrence: every segment of the id that holds the conditions.
     Unplaced(Unplaced),
+}
+
+impl OccurrencePlace {
+    /// Whether a segment that took `matched` in its loop is one this place
+    /// reads; the column's conditions are tested apart.
+    #[cfg_attr(
+        not(test),
+        expect(dead_code, reason = "the projector reads it in the next change")
+    )]
+    pub(crate) fn admits(self, matched: Option<OccurrenceId>) -> bool {
+        match self {
+            OccurrencePlace::Named(occurrence) | OccurrencePlace::Chosen(occurrence) => {
+                matched == Some(occurrence)
+            }
+            OccurrencePlace::Unplaced(_) => true,
+        }
+    }
 }
 
 /// Why no one occurrence of a loop is the column's.

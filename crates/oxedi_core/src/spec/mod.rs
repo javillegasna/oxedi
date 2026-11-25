@@ -17,8 +17,9 @@
 //! (an element, a segment, the automatic column names), `tables` and
 //! `balance_rule` (a balancing rule and its text) hold the definitions;
 //! `occurrence_index` the occurrence a segment takes in a loop; `places` where each
-//! column reads, compiled once with the spec; `read_index` the tables, resets
-//! and read elements of each loop and segment id, indexed from the places; `id_map` the
+//! column reads, compiled once with the spec; `read_index` the tables, resets,
+//! read elements and watchers (the columns each captured segment feeds) of
+//! each loop and segment id, indexed from the places; `id_map` the
 //! map keyed by segment id; `schema` the columns of each table, known from the
 //! spec alone; `unknown` the errors for a table or a column the spec does not
 //! define; `render` the text of triggers and occurrence selectors in messages;

@@ -115,8 +115,8 @@ impl ReadIndex {
     /// Records every position a column of `table` reads, keeping each id's
     /// positions sorted and without repeats.
     fn add_marks(&mut self, spec: &Spec, table: &TableDef) {
-        for (_, source) in &table.columns {
-            for (id, element, component) in spec.positions(table, source) {
+        for column in 0..table.columns.len() {
+            for (id, element, component) in spec.positions(table, column) {
                 let read = self.read.entry_or_insert_with(id, Vec::new);
                 if let Err(slot) = read.binary_search(&(element, component)) {
                     read.insert(slot, (element, component));

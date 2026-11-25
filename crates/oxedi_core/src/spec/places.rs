@@ -181,44 +181,48 @@ impl Spec {
             .map_or(&[], |def| def.places.as_slice())
     }
 
-    /// The segment id, element and component of every position `source`, a
-    /// column of `table`, can read. A column of a table anchored on a
-    /// segment reads that segment too, and a group column reads its offset
-    /// in every group of the defined elements the segment can hold.
+    /// The segment id, element and component of every position column
+    /// `column` of `table` can read, from its compiled place. A column of a
+    /// table anchored on a segment reads that segment too, and a group column
+    /// reads its offset in every group of the defined elements the segment
+    /// can hold. A column without a place reads nothing.
     pub(crate) fn positions<'t>(
         &'t self,
         table: &'t TableDef,
-        source: &'t ColumnSource,
+        column: usize,
     ) -> Vec<(&'t [u8], usize, Option<usize>)> {
-        let mut positions = Vec::new();
-        match source {
-            ColumnSource::Element {
-                segment,
-                element,
-                component,
-                ..
-            } => {
-                positions.push((segment.as_slice(), *element, *component));
-                if let Some(anchor) = &table.segment {
-                    positions.push((anchor.as_slice(), *element, *component));
-                }
+        let (Some(place), Some((_, source))) =
+            (table.places.get(column), table.columns.get(column))
+        else {
+            return Vec::new();
+        };
+        let anchor = table.segment.as_deref();
+        match (&place.target, source) {
+            (Target::Element { element, component }, ColumnSource::Element { segment, .. }) => {
+                std::iter::once(segment.as_slice())
+                    .chain(anchor)
+                    .map(|id| (id, *element, *component))
+                    .collect()
             }
-            ColumnSource::GroupElement { offset, component } => {
-                let (Some(anchor), Some(repeat)) = (&table.segment, table.repeat) else {
-                    return positions;
+            (Target::Group { offset, component }, _) => {
+                let (Some(anchor), Some(repeat)) = (anchor, table.repeat) else {
+                    return Vec::new();
                 };
-                let defined = self
-                    .segment(anchor)
+                self.segment(anchor)
                     .into_iter()
-                    .flat_map(|def| def.elements.keys().copied());
-                positions.extend(
-                    defined
-                        .filter(|&position| repeat.holds(*offset, position))
-                        .map(|position| (anchor.as_slice(), position, *component)),
-                );
+                    .flat_map(|def| def.elements.keys().copied())
+                    .filter(|&position| repeat.holds(*offset, position))
+                    .map(|position| (anchor, position, *component))
+                    .collect()
             }
-            ColumnSource::SegmentIndex { .. } => {}
+            // A segment-index column reads no element.
+            (Target::Index, _) => Vec::new(),
+            // The place's target is compiled from the source, so an element
+            // target never pairs with another kind of source.
+            (
+                Target::Element { .. },
+                ColumnSource::GroupElement { .. } | ColumnSource::SegmentIndex { .. },
+            ) => Vec::new(),
         }
-        positions
     }
 }

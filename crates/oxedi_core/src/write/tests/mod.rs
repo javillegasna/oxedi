@@ -7,6 +7,7 @@
 
 mod display;
 mod envelope;
+mod layout;
 mod origin;
 mod places;
 mod plan;

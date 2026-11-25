@@ -99,10 +99,6 @@ pub(crate) enum OccurrencePlace {
 impl OccurrencePlace {
     /// Whether a segment that took `matched` in its loop is one this place
     /// reads; the column's conditions are tested apart.
-    #[cfg_attr(
-        not(test),
-        expect(dead_code, reason = "the projector reads it in the next change")
-    )]
     pub(crate) fn admits(self, matched: Option<OccurrenceId>) -> bool {
         match self {
             OccurrencePlace::Named(occurrence) | OccurrencePlace::Chosen(occurrence) => {

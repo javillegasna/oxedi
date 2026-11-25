@@ -20,13 +20,12 @@ fn without_tables(json: &str) -> Spec {
 /// One element's read flag, then its components' as `(position, read)`.
 type Flags = (usize, bool, Vec<(usize, bool)>);
 
-/// The read flags of `id`'s plan, by element position.
+/// The read flags of `id`'s element checks, by element position.
 fn flags(projector: &Projector<'_>, id: &[u8]) -> Vec<Flags> {
     projector
-        .plans
+        .checks
         .get(id)
         .unwrap()
-        .elements
         .iter()
         .map(|plan| {
             let components: Vec<_> = plan

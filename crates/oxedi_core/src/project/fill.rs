@@ -5,98 +5,52 @@ use crate::column::{Cell, CellError, RowError, Table};
 use crate::diagnostic::{Diagnostic, Rule};
 use crate::element::Element;
 use crate::segment::Segment;
-use crate::spec::{ColumnSource, LoopId, Target};
+use crate::spec::{LoopId, OccurrenceId, ReadTarget, Target, Watcher};
 use crate::value::{ColumnType, Parsed};
-use crate::vocabulary::Pick;
 
 use super::Projector;
 use super::check::Checked;
-use super::plan::Watcher;
 use super::row::{Row, Slot};
 
 impl<'s> Projector<'s> {
     /// Fills the columns that read this segment: in the open rows, or in
-    /// the values carried for rows still to open. `watchers` come from the
-    /// plan of the segment's id, so only the occurrence the segment matched
-    /// (or the column's conditions) and the pick are left to check.
+    /// the values carried for rows still to open. `watchers` are the spec's
+    /// list for the segment's id and loop, so only the occurrence the
+    /// segment matched, its conditions and the pick are left to check.
     pub(super) fn fill(
         &mut self,
         watchers: &[Watcher],
         segment: &Segment<'_>,
         joined: &mut Vec<u8>,
     ) {
-        let spec = self.spec;
         for watcher in watchers {
-            let state = &mut self.tables[watcher.table];
-            if !state.collect {
-                continue;
-            }
-            let (slot, seen, bytes) = match watcher.carried {
-                Some(at) => {
-                    let Some(carried) = state.carried.get_mut(at) else {
-                        continue;
-                    };
-                    (&mut carried.slot, &mut carried.seen, &mut carried.bytes)
-                }
-                None => {
-                    let row = &mut state.row;
-                    let (Some(slot), Some(seen), true) = (
-                        row.cells.get_mut(watcher.column),
-                        row.seen.get_mut(watcher.column),
-                        state.open,
-                    ) else {
-                        continue;
-                    };
-                    (slot, seen, &mut row.bytes)
-                }
-            };
-            if watcher.pick == Pick::First && *slot != Slot::Unset {
-                continue;
-            }
-            let Some((_, source)) = spec.tables()[watcher.table].columns.get(watcher.column) else {
+            let Some(mut destination) = self
+                .tables
+                .get_mut(watcher.table)
+                .and_then(|state| state.destination(watcher))
+            else {
                 continue;
             };
-            let (conditions, at) = match source {
-                ColumnSource::Element {
-                    conditions,
-                    element,
-                    component,
-                    ..
-                } => (conditions, Some((*element, *component))),
-                ColumnSource::SegmentIndex { conditions, .. } => (conditions, None),
-                ColumnSource::GroupElement { .. } => continue,
-            };
-            let matches = match watcher.occurrence {
-                Some(wanted) => self.matched == Some(wanted),
-                None => segment.holds(conditions),
-            };
-            if !matches {
+            if !reads(watcher, self.matched, segment) || !destination.takes(watcher.pick) {
                 continue;
             }
-            if let Pick::Nth(nth) = watcher.pick {
-                *seen = seen.saturating_add(1);
-                if *seen != nth {
-                    continue;
-                }
-            }
-            if watcher.carried.is_some() {
-                bytes.clear();
-            }
-            *slot = match at {
-                Some((element, component)) => {
-                    let kind = state
-                        .kinds
-                        .get(watcher.column)
-                        .copied()
-                        .unwrap_or(ColumnType::Binary);
-                    let at = Place {
+            *destination.slot = match watcher.target {
+                ReadTarget::Element { element, component } => {
+                    let at = ReadAt {
                         element,
                         component,
-                        kind,
+                        kind: watcher.kind,
                     };
-                    read(&self.checked, segment, at, self.separator, joined, bytes)
+                    read(
+                        &self.checked,
+                        segment,
+                        at,
+                        self.separator,
+                        joined,
+                        destination.bytes,
+                    )
                 }
-                None => i64::try_from(segment.index).map_or(Slot::Null, Slot::Int),
+                ReadTarget::Index => i64::try_from(segment.index).map_or(Slot::Null, Slot::Int),
             };
         }
     }
@@ -157,7 +111,7 @@ impl<'s> Projector<'s> {
                 Some((element, component)) => read(
                     &self.checked,
                     segment,
-                    Place {
+                    ReadAt {
                         element,
                         component,
                         kind,
@@ -224,6 +178,12 @@ impl<'s> Projector<'s> {
     }
 }
 
+/// Whether `segment`, which took `matched` in its loop, is one `watcher`'s
+/// column reads.
+fn reads(watcher: &Watcher, matched: Option<OccurrenceId>, segment: &Segment<'_>) -> bool {
+    watcher.place.admits(matched) && segment.holds(&watcher.conditions)
+}
+
 /// `true` when an element has a non-empty value or component.
 fn has_content(element: &Element<'_>) -> bool {
     match element {
@@ -253,7 +213,7 @@ pub(super) fn leaf_text<'a>(
 /// `true` when the segment has the element, or the component, a column
 /// reads, even if it is empty. Component 1 of a simple element is the
 /// element itself; no other component of it is present.
-fn is_present(segment: &Segment<'_>, at: Place) -> bool {
+fn is_present(segment: &Segment<'_>, at: ReadAt) -> bool {
     match at.component {
         None => segment.element(at.element).is_some(),
         Some(_) => segment.leaf(at.element, at.component).is_some(),
@@ -262,7 +222,7 @@ fn is_present(segment: &Segment<'_>, at: Place) -> bool {
 
 /// Where a column reads inside a segment, and as what.
 #[derive(Debug, Clone, Copy)]
-struct Place {
+struct ReadAt {
     element: usize,
     component: Option<usize>,
     kind: ColumnType,
@@ -275,7 +235,7 @@ struct Place {
 fn read(
     checked: &[Checked],
     segment: &Segment<'_>,
-    at: Place,
+    at: ReadAt,
     separator: u8,
     joined: &mut Vec<u8>,
     bytes: &mut Vec<u8>,
@@ -308,7 +268,7 @@ fn read(
 /// The slot of an element with no value: a text column tells a present but
 /// empty value (`""`) from an absent one (null); other types have no empty
 /// value.
-fn no_value(segment: &Segment<'_>, at: Place, bytes: &[u8]) -> Slot {
+fn no_value(segment: &Segment<'_>, at: ReadAt, bytes: &[u8]) -> Slot {
     if at.kind == ColumnType::Binary && is_present(segment, at) {
         Slot::Bytes(bytes.len(), bytes.len())
     } else {

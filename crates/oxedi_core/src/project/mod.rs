@@ -80,11 +80,10 @@ use crate::engine::{Event, Instance, named_lineage};
 use crate::mask::Mask;
 use crate::segment::Segment;
 use crate::spec::{LoopId, OccurrenceDef, OccurrenceId, Spec, UnknownTable, table_columns};
-use crate::value::ColumnType;
 
-use carry::Carried;
+use carry::{Carried, carried};
 use check::Checked;
-use plan::{ElementCheck, Plans};
+use plan::{Checks, ElementCheck};
 use row::{Row, TableState};
 
 /// Turns the engine's events and the segments they name into table rows and
@@ -94,15 +93,15 @@ pub struct Projector<'s> {
     spec: &'s Spec,
     separator: u8,
     tables: Vec<TableState>,
-    /// Per segment id: what is done with the segment when it is captured.
-    plans: Plans<'s>,
+    /// Per segment id: the element checks of the segment when it is captured.
+    checks: Checks<'s>,
     checked: Vec<Checked>,
     /// The occurrence the segment being checked takes in its loop, when it
     /// narrows any of its elements.
     occurrence: Option<&'s OccurrenceDef>,
-    /// Index of the occurrence the latest captured segment matched in its
-    /// loop's occurrences.
-    matched: Option<usize>,
+    /// The occurrence the latest captured segment matched in its loop's
+    /// occurrences.
+    matched: Option<OccurrenceId>,
     /// Cells of the row being appended, kept for their allocation.
     cells: Vec<Cell<'static>>,
     joined: Vec<u8>,
@@ -117,26 +116,24 @@ impl<'s> Projector<'s> {
     /// A projector at the root with empty tables. `delimiters` gives the
     /// component separator, which an element read as one text keeps.
     pub fn new(spec: &'s Spec, delimiters: &Delimiters) -> Self {
-        let loops = spec.loops().len();
-        let mut plans = Plans::default();
+        let mut checks = Checks::default();
         for (id, def) in spec.segments() {
-            plans.entry(id, loops).elements = def
+            let elements = def
                 .elements
                 .iter()
                 .map(|(&position, element)| ElementCheck::new(spec, id, position, element))
                 .collect();
+            checks.insert(id, elements);
         }
         let mut tables = Vec::with_capacity(spec.tables().len());
         for (index, def) in spec.tables().iter().enumerate() {
-            let kinds: Vec<ColumnType> = spec.places(index).iter().map(|p| p.kind).collect();
             let columns = table_columns(spec, def);
             let carried = if def.segment.is_none() {
-                plans.watch_places(spec, index)
+                carried(spec.places(index))
             } else {
                 Vec::new()
             };
             tables.push(TableState {
-                kinds,
                 next: 0,
                 open: false,
                 row: Row::default(),
@@ -151,7 +148,7 @@ impl<'s> Projector<'s> {
             spec,
             separator: delimiters.component,
             tables,
-            plans,
+            checks,
             checked: Vec::new(),
             occurrence: None,
             matched: None,
@@ -282,22 +279,19 @@ impl<'s> Projector<'s> {
 
     fn captured(&mut self, id: LoopId, segment: &Segment<'_>, found: Option<OccurrenceId>) {
         let mut joined = std::mem::take(&mut self.joined);
-        let plans = std::mem::take(&mut self.plans);
-        let plan = plans.get(segment.id);
+        let checks = std::mem::take(&mut self.checks);
         let spec = self.spec;
-        self.matched = found.map(OccurrenceId::index);
+        self.matched = found;
         self.occurrence = found
             .map(|found| &spec.get(id).occurrences[found.index()])
             .filter(|occurrence| !occurrence.elements.is_empty());
         self.check(
-            plan.map_or(&[], |plan| &plan.elements),
+            checks.get(segment.id).unwrap_or_default(),
             segment,
             &mut joined,
         );
-        if let Some(watchers) = plan.and_then(|plan| plan.watchers.get(id.index())) {
-            self.fill(watchers, segment, &mut joined);
-        }
-        self.plans = plans;
+        self.fill(spec.reads().watchers(id, segment.id), segment, &mut joined);
+        self.checks = checks;
         self.segment_rows(id, segment, &mut joined);
         self.joined = joined;
     }

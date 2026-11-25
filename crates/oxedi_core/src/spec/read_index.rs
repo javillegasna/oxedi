@@ -194,10 +194,6 @@ impl ReadIndex {
 
     /// The columns the segments with `id` feed when loop `loop_id` captures
     /// them, in table then column order.
-    #[cfg_attr(
-        not(test),
-        expect(dead_code, reason = "the projector reads it in the next change")
-    )]
     pub(crate) fn watchers(&self, loop_id: LoopId, id: &[u8]) -> &[Watcher] {
         self.watchers
             .get(id)

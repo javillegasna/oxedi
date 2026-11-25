@@ -4,7 +4,8 @@
 
 use crate::column::Table;
 use crate::spec::LoopId;
-use crate::value::ColumnType;
+use crate::spec::{Relation, Watcher};
+use crate::vocabulary::Pick;
 
 use super::Projector;
 use super::carry::Carried;
@@ -40,8 +41,6 @@ pub(super) struct Row {
 /// What the projector keeps for one table.
 #[derive(Debug, Clone)]
 pub(super) struct TableState {
-    /// Column types of the declared columns, in order.
-    pub(super) kinds: Vec<ColumnType>,
     /// Number of the next row.
     pub(super) next: usize,
     /// `true` while an instance of an anchor loop is open (tables without
@@ -61,6 +60,77 @@ pub(super) struct TableState {
     /// Whether the table has columns to mask before a row is appended.
     pub(super) masked: bool,
     pub(super) table: Table,
+}
+
+/// Where a column's next value goes: the slot, the count of matches so far
+/// and the bytes a text slot ranges over.
+#[derive(Debug)]
+pub(super) struct Destination<'a> {
+    pub(super) slot: &'a mut Slot,
+    seen: &'a mut usize,
+    pub(super) bytes: &'a mut Vec<u8>,
+    /// Whether the value is carried: a new value replaces its bytes.
+    carried: bool,
+}
+
+impl<'a> Destination<'a> {
+    fn carried(carried: &'a mut Carried) -> Self {
+        Self {
+            slot: &mut carried.slot,
+            seen: &mut carried.seen,
+            bytes: &mut carried.bytes,
+            carried: true,
+        }
+    }
+
+    /// The destination in the open row `row`, when one is open.
+    fn of_row(row: &'a mut Row, column: usize, open: bool) -> Option<Self> {
+        open.then_some(())?;
+        Some(Self {
+            slot: row.cells.get_mut(column)?,
+            seen: row.seen.get_mut(column)?,
+            bytes: &mut row.bytes,
+            carried: false,
+        })
+    }
+
+    /// The destination, unless `pick` takes the first match and it has come.
+    fn unless_picked(self, pick: Pick) -> Option<Self> {
+        (pick != Pick::First || *self.slot == Slot::Unset).then_some(self)
+    }
+
+    /// Whether the segment that matched is the one `pick` takes. An n-th pick
+    /// counts the match; a taken carried value starts over in its bytes.
+    pub(super) fn takes(&mut self, pick: Pick) -> bool {
+        if let Pick::Nth(nth) = pick {
+            *self.seen = self.seen.saturating_add(1);
+            if *self.seen != nth {
+                return false;
+            }
+        }
+        if self.carried {
+            self.bytes.clear();
+        }
+        true
+    }
+}
+
+impl TableState {
+    /// Where `watcher`'s column takes its value in this table: `None` when
+    /// the table does not collect, when the column reads into the open row
+    /// and none is open, or when the first match is picked and has come.
+    pub(super) fn destination(&mut self, watcher: &Watcher) -> Option<Destination<'_>> {
+        if !self.collect {
+            return None;
+        }
+        let destination = match watcher.relation {
+            Relation::Above { carried } => Destination::carried(self.carried.get_mut(carried)?),
+            Relation::Anchor | Relation::Inside => {
+                Destination::of_row(&mut self.row, watcher.column, self.open)?
+            }
+        };
+        destination.unless_picked(watcher.pick)
+    }
 }
 
 impl Projector<'_> {

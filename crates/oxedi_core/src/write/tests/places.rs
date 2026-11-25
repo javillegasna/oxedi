@@ -4,10 +4,10 @@
 use std::collections::{BTreeMap, BTreeSet};
 use std::sync::Arc;
 
-use crate::delimiters::test_support::plain;
-use crate::project::Projector;
 use crate::spec::test_support::{builtin, segs};
-use crate::spec::{ColumnSource, LoopId, Qualifier, Spec, TableDef};
+use crate::spec::{
+    ColumnSource, LoopId, OccurrencePlace, Qualifier, Reading as SpecReading, Spec, TableDef,
+};
 use crate::spec_load::{Builtin, Version};
 use crate::validate::{Validation, validate};
 use crate::vocabulary::Pick;
@@ -163,25 +163,52 @@ fn target<'s>(def: &'s TableDef, source: &'s ColumnSource) -> Target<'s> {
     }
 }
 
-/// Every column the projector reads, with the occurrences it reads it in.
+/// The pick of a column's source; a group column takes none.
+fn pick_of(source: &ColumnSource) -> Option<Pick> {
+    match source {
+        ColumnSource::Element { pick, .. } | ColumnSource::SegmentIndex { pick, .. } => Some(*pick),
+        ColumnSource::GroupElement { .. } => None,
+    }
+}
+
+/// Every column the projector reads, with the occurrences it reads it in,
+/// from the places the spec compiled.
 fn readings(spec: &Spec) -> Vec<Reading> {
     let mut readings = Vec::new();
-    for place in Projector::new(spec, &plain()).read_places() {
-        let def = &spec.tables()[place.table];
-        let (_, source) = &def.columns[place.column];
-        let (segment, conditions, _, at) = target(def, source);
-        let occurrences = match place.occurrence {
-            Some(occurrence) => BTreeSet::from([occurrence]),
-            None => engine_occurrences(spec, place.loop_id, segment, conditions),
-        };
-        readings.push(Reading {
-            table: place.table,
-            column: place.column,
-            loop_id: place.loop_id,
-            occurrences,
-            at,
-            nth: place.pick.map(repeat),
-        });
+    for (table, def) in spec.tables().iter().enumerate() {
+        for (column, place) in spec.places(table).iter().enumerate() {
+            let (_, source) = &def.columns[column];
+            let (segment, conditions, _, at) = target(def, source);
+            let reads: Vec<(LoopId, Option<usize>, Option<usize>)> = match &place.reading {
+                SpecReading::Anchor => def.loops.iter().map(|&id| (id, None, None)).collect(),
+                SpecReading::Watch { reads, .. } => {
+                    let nth = pick_of(source).map(repeat);
+                    reads
+                        .iter()
+                        .map(|read| match &read.place {
+                            OccurrencePlace::Named(o) | OccurrencePlace::Chosen(o) => {
+                                (read.loop_id, Some(o.index()), nth)
+                            }
+                            OccurrencePlace::Unplaced(_) => (read.loop_id, None, nth),
+                        })
+                        .collect()
+                }
+            };
+            for (loop_id, occurrence, nth) in reads {
+                let occurrences = match occurrence {
+                    Some(occurrence) => BTreeSet::from([occurrence]),
+                    None => engine_occurrences(spec, loop_id, segment, conditions),
+                };
+                readings.push(Reading {
+                    table,
+                    column,
+                    loop_id,
+                    occurrences,
+                    at,
+                    nth,
+                });
+            }
+        }
     }
     readings
 }
@@ -429,4 +456,36 @@ fn the_writer_resolves_every_compat_column_where_the_reader_reads_it() {
         declared_columns(&spec, |_| true),
         "columns read"
     );
+}
+
+#[test]
+fn every_chosen_occurrence_is_the_one_the_engine_gives() {
+    let five = builtin(Version::V5010);
+    let four = builtin(Version::V4010);
+    let compat = compat();
+    let mut failures = Vec::new();
+    for spec in [&five.spec, &four.spec, &compat] {
+        for (table, def) in spec.tables().iter().enumerate() {
+            for (column, place) in spec.places(table).iter().enumerate() {
+                let SpecReading::Watch { reads, .. } = &place.reading else {
+                    continue;
+                };
+                let (segment, conditions, _, _) = target(def, &def.columns[column].1);
+                for read in reads {
+                    let OccurrencePlace::Chosen(chosen) = &read.place else {
+                        continue;
+                    };
+                    let given = engine_occurrences(spec, read.loop_id, segment, conditions);
+                    if given != BTreeSet::from([chosen.index()]) {
+                        failures.push((
+                            def.name.clone(),
+                            def.columns[column].0.clone(),
+                            spec.get(read.loop_id).name.clone(),
+                        ));
+                    }
+                }
+            }
+        }
+    }
+    assert_eq!(failures, Vec::new());
 }

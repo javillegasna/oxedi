@@ -51,10 +51,4 @@ impl<V> IdMap<V> {
             None => self.long.entry(id.to_vec()).or_insert_with(make),
         }
     }
-
-    /// Every value, short ids first, each part in key order.
-    #[cfg(test)]
-    pub(crate) fn values(&self) -> impl Iterator<Item = &V> {
-        self.short.values().chain(self.long.values())
-    }
 }

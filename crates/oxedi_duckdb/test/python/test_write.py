@@ -38,8 +38,8 @@ ENVELOPES = {
         ", control_number 7, line_break true, usage_indicator 'T'",
     ),
 }
-ACCEPTED = 10
-REFUSED = 22
+ACCEPTED = 11
+REFUSED = 23
 
 # The (file, version) pairs by outcome, filled in the first time they are needed.
 _outcomes: dict[str, list[tuple[pathlib.Path, str]]] = {}
@@ -92,7 +92,7 @@ def pair_id(pair: tuple[pathlib.Path, str]) -> str:
 
 def test_the_counts_are_pinned() -> None:
     found = outcomes()
-    assert len(INPUTS) == 16
+    assert len(INPUTS) == 17
     assert len(found["accepted"]) == ACCEPTED
     assert len(found["refused"]) == REFUSED
 

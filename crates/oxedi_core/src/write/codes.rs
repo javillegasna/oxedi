@@ -1,8 +1,10 @@
-//! The codes that place a column's segment: the occurrence its segment and
-//! `where` select, and the refusal of a fixed code that a code list of the
-//! written segment does not allow.
+//! The codes that place a column's segment: the occurrence its compiled place
+//! lands in, and the refusal of a fixed qualifier code that the element's
+//! code list does not allow.
 
-use crate::spec::{ElementRule, LoopDef, LoopId, OccurrenceDef, holds_code};
+use crate::spec::{
+    ElementRule, LoopDef, LoopId, OccurrenceDef, OccurrencePlace, Unplaced, holds_code,
+};
 
 use super::build::{Builder, Codes};
 use super::plan::{SegmentPlan, ValueSource};
@@ -47,6 +49,37 @@ impl Lists {
         match self {
             Self::All => rule.rejects(value),
             Self::Own => rule.own_rejects(value),
+        }
+    }
+}
+
+/// The occurrence of `def` a column's compiled `place` writes `segment` in:
+/// the one it names or chose, or the one occurrence of `segment` when the
+/// place cannot tell several apart. The `Err` holds the names of the
+/// occurrences it could be (empty when the loop has none for it).
+pub(super) fn landing(
+    def: &LoopDef,
+    place: OccurrencePlace,
+    segment: &[u8],
+) -> Result<usize, Vec<String>> {
+    match place {
+        OccurrencePlace::Named(occurrence) | OccurrencePlace::Chosen(occurrence) => {
+            Ok(occurrence.index())
+        }
+        OccurrencePlace::Unplaced(Unplaced::QualifierFree) => {
+            let taking: Vec<(usize, &OccurrenceDef)> = def
+                .occurrences
+                .iter()
+                .enumerate()
+                .filter(|(_, occurrence)| occurrence.segment == segment)
+                .collect();
+            match taking.as_slice() {
+                [(at, _)] => Ok(*at),
+                several => Err(several.iter().map(|(_, o)| o.name.clone()).collect()),
+            }
+        }
+        OccurrencePlace::Unplaced(Unplaced::NoOccurrence | Unplaced::NoOccurrenceTakes) => {
+            Err(Vec::new())
         }
     }
 }
@@ -139,10 +172,12 @@ impl Builder<'_> {
             .flatten()
     }
 
-    /// Refuses every fixed code of `plan`, a segment of loop `id` written
-    /// from `table`, that the element rule at its place (the occurrence's own
-    /// list, else the element's) does not allow. `column` names the column
-    /// that carries the segment.
+    /// Refuses the fixed code of `plan`, a segment of loop `id` written from
+    /// `table`, at its occurrence's qualifier place when the element rule
+    /// there (the occurrence's own list, else the element's) does not allow
+    /// it. The codes of a column's `where` are not checked: they are the
+    /// place the column is read from, and reading the file back reports them.
+    /// `column` names the column that carries the segment.
     pub(super) fn check_codes(
         &mut self,
         id: usize,
@@ -157,21 +192,28 @@ impl Builder<'_> {
         let Some(occurrence) = def.occurrences.get(plan.occurrence) else {
             return;
         };
-        for element in &plan.elements {
+        let Some(qualifier) = &occurrence.qualifier else {
+            return;
+        };
+        let Some(definition) =
+            spec.element_def(&occurrence.segment, qualifier.element, qualifier.component)
+        else {
+            return;
+        };
+        let rule = ElementRule::at(
+            definition,
+            Some(occurrence),
+            qualifier.element,
+            qualifier.component,
+        );
+        let fixed = plan
+            .elements
+            .iter()
+            .filter(|e| e.element == qualifier.element && e.component == qualifier.component);
+        for element in fixed {
             let ValueSource::Code(value) = &element.value else {
                 continue;
             };
-            let Some(definition) =
-                spec.element_def(&occurrence.segment, element.element, element.component)
-            else {
-                continue;
-            };
-            let rule = ElementRule::at(
-                definition,
-                Some(occurrence),
-                element.element,
-                element.component,
-            );
             if rule.rejects(value) {
                 self.refusals.push(Refusal::CodeOutsideList {
                     table: self.table_name(table),

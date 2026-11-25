@@ -37,10 +37,10 @@ impl Builder<'_> {
                 .or_insert_with(|| new_segment(at, nth, entry.table, codes, &occurrence));
             self.place_column(id, &occurrence, plan, entry);
         }
-        if let Some(carrier) = entries.first() {
-            for plan in by_nth.values() {
-                self.check_codes(id, plan, carrier.table, Some(carrier.column));
-            }
+        if let Some(carrier) = entries.first()
+            && let Some(plan) = by_nth.values().next()
+        {
+            self.check_codes(id, plan, carrier.table, Some(carrier.column));
         }
         if let Some(plan) = self.loops.get_mut(id) {
             plan.segments.extend(by_nth.into_values());

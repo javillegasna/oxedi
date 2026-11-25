@@ -424,10 +424,6 @@ fn resolved(
 #[test]
 fn the_writer_resolves_every_compat_column_where_the_reader_reads_it() {
     let spec = compat();
-    assert!(
-        WritePlan::new(&spec).is_err(),
-        "the compat spec writes; compare its plan in the_writer_writes_every_column_where_the_reader_reads_it"
-    );
     let builder = Builder::new(&spec);
     let mut differences = Vec::new();
     let mut read_columns = BTreeSet::new();
@@ -488,4 +484,32 @@ fn every_chosen_occurrence_is_the_one_the_engine_gives() {
         }
     }
     assert_eq!(failures, Vec::new());
+}
+
+/// The refusals the compat spec's tables raise, in order.
+const COMPAT_REFUSALS: &str = concat!(
+    "spec \"edi_835_parser\" cannot be written (17 reasons)\n",
+    "1. table \"rows_organizations\" is anchored on 2 loops (\"1000A\", \"1000B\"); a written row opens one loop instance and nothing in the row says which\n",
+    "2. table \"rows_claim_dates\" anchor segment reads \"DTM\" in loop \"2100\", which matches 3 of its occurrences (\"claim_received_date\", \"coverage_expiration_date\", \"statement_from_or_to_date\")\n",
+    "3. table \"rows_claim_entities\" anchor segment reads \"NM1\" in loop \"2100\", which matches 7 of its occurrences (\"corrected_patient_insured_name\", \"corrected_priority_payer_name\", \"crossover_carrier_name\", \"insured_name\", \"other_subscriber_name\", \"patient_name\", \"service_provider_name\")\n",
+    "4. table \"rows_claim_references\" anchor segment reads \"REF\" in loop \"2100\", which matches 2 of its occurrences (\"other_claim_related_identification\", \"rendering_provider_identification\")\n",
+    "5. table \"rows_interchanges\" column \"authorization_information_qualifier\" reads the envelope occurrence \"interchange_control_header\" of loop \"interchange\", which the envelope and the writer's counts give\n",
+    "6. table \"rows_interchanges\" column \"receiver\" reads the envelope occurrence \"interchange_control_header\" of loop \"interchange\", which the envelope and the writer's counts give\n",
+    "7. table \"rows_interchanges\" column \"sender\" reads the envelope occurrence \"interchange_control_header\" of loop \"interchange\", which the envelope and the writer's counts give\n",
+    "8. table \"rows_interchanges\" column \"transmission_date\" reads the envelope occurrence \"interchange_control_header\" of loop \"interchange\", which the envelope and the writer's counts give\n",
+    "9. table \"rows_interchanges\" column \"transmission_time\" reads the envelope occurrence \"interchange_control_header\" of loop \"interchange\", which the envelope and the writer's counts give\n",
+    "10. table \"rows_references\" anchor segment reads \"REF\" in loop \"2110\", which matches 4 of its occurrences (\"healthcare_policy_identification\", \"line_item_control_number\", \"rendering_provider_information\", \"service_identification\")\n",
+    "11. occurrence \"header_number\" (\"LX\") is required in every loop \"2000\", but no column writes it\n",
+    "12. occurrence \"patient_name\" (\"NM1\" where NM101 is \"QC\") is required in every loop \"2100\", but no column writes it\n",
+    "13. loop \"1000A\" (trigger \"N1\" where {1: \"PR\"}) is required in every \"transaction\", but no table is anchored on it and no column reads it\n",
+    "14. loop \"1000B\" (trigger \"N1\" where {1: \"PE\"}) is required in every \"transaction\", but no table is anchored on it and no column reads it\n",
+    "15. occurrence \"reassociation_trace_number\" (\"TRN\") is required in every loop \"transaction\", but no column writes it\n",
+    "16. required element BPR01 (transaction_handling_code) of occurrence \"financial_information\" in loop \"transaction\", written by table \"rows_payments\", has no column and no single code to write\n",
+    "17. required element BPR03 (credit_debit_flag_code) of occurrence \"financial_information\" in loop \"transaction\", written by table \"rows_payments\", has no column and no single code to write",
+);
+
+#[test]
+fn the_compat_spec_is_refused_for_the_same_reasons() {
+    let error = WritePlan::new(&compat()).unwrap_err();
+    assert_eq!(error.to_string(), COMPAT_REFUSALS);
 }

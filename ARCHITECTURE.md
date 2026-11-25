@@ -152,7 +152,7 @@ on it, never the reverse.
 
 | Layer | Module | What it holds |
 |---|---|---|
-| Schema | `spec/` | The compiled spec: `Spec` and its index-based definitions, `LoopDef` (by `LoopId`), `SegmentDef`, `ElementDef`, `OccurrenceDef` (with an `ElementEntry` per narrowed element, its facets `Setting`s), `TableDef` with a `ColumnSource` per column, `BalanceRule`, `Summary` and `DeclaredVersion`; the occurrence a segment takes in a loop (`spec/occurrence_index.rs`); the columns of each table, known from the spec alone (`spec_schema`, `spec/schema.rs`); `UnknownTable` and `UnknownColumn` (`spec/unknown.rs`); the choice of a spec by the version it declares (`Spec::select`, `spec/version.rs`). It keeps no JSON. |
+| Schema | `spec/` | The compiled spec: `Spec` and its index-based definitions, `LoopDef` (by `LoopId`), `SegmentDef`, `ElementDef`, `OccurrenceDef` (with an `ElementEntry` per narrowed element, its facets `Setting`s), `TableDef` with a `ColumnSource` per column, `BalanceRule`, `Summary` and `DeclaredVersion`; the occurrence a segment takes in a loop (`spec/occurrence_index.rs`); the columns of each table, known from the spec alone (`spec_schema`, `spec/schema.rs`); where each column reads, compiled once with the spec (`spec/places.rs`), and what reading a file needs per loop and segment id, indexed from those places (`spec/read_index.rs`); `UnknownTable` and `UnknownColumn` (`spec/unknown.rs`); the choice of a spec by the version it declares (`Spec::select`, `spec/version.rs`). It keeps no JSON. |
 | Loading | `spec_load/` | What turns JSON into a `Spec`: the typed model (`SpecModel` and every `*Model`, `spec_load/model/`) and its strict reader (`spec_load/strict/`), the compile steps, the load errors (`SpecError` and the reasons it holds), `LoadedSpec`, the merge patch, the registry of built-in specs (`Builtin`, `Version`), the package identity and the stack of packages composed into one spec, each package checked to only narrow its bases (`spec_load/package/`), the conformance kit's manifest, read strictly (`spec_load/kit/`) and the spec's closed words (`spec_load/vocabulary.rs`). |
 
 Two modules above `write` read packages for tools: `validate` (`validate::validate`) answers
@@ -188,7 +188,7 @@ Loading goes `SpecModel::from_json` (step 1, `spec_load/model/`) → `SpecModel:
    loops (`build_loops.rs`: keys, parent, trigger, control), the segments (`segments.rs`), the
    occurrences (`build_occurrences.rs`), the occurrence index (the schema's
    `spec/occurrence_index.rs`), the version, trigger ambiguity, the tables (`compile.rs`, with
-   `columns.rs`, `column_occurrence.rs` and `phi.rs`), balancing (`balance.rs`), the summaries and
+   `columns.rs`, `column_occurrence.rs` and `phi.rs`), the place of each column (`places.rs`) and the read index built from the places (`spec/read_index.rs`), balancing (`balance.rs`), the summaries and
    the default table (`summaries.rs`). A step that refuses the model returns a `SpecError` that
    names where in the spec the fault is; the reasons it holds (`ControlError`, `VersionError`,
    `ElementDefError`, `OccurrenceError`, `TableDefError`, `BalanceError`, `SummaryDefError`) are

@@ -4,6 +4,7 @@
 use super::Spec;
 use super::UnknownColumn;
 use super::loops::LoopId;
+use super::places::ColumnPlace;
 use crate::vocabulary::{Phi, Pick};
 
 /// How a table's segment repeats a group of elements: one row per group.
@@ -109,6 +110,9 @@ pub struct TableDef {
     /// The index in `columns` of the column whose value seeds the row's date
     /// shift; read through [`TableDef::phi_seed`].
     pub(crate) phi_seed: Option<usize>,
+    /// Where each column of `columns` reads, parallel to it; read through
+    /// [`Spec::places`].
+    pub(crate) places: Vec<ColumnPlace>,
 }
 
 impl TableDef {

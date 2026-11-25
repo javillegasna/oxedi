@@ -86,8 +86,6 @@ pub struct Spec {
     pub(crate) roots: Vec<LoopId>,
     pub(crate) segments: BTreeMap<Vec<u8>, SegmentDef>,
     pub(crate) tables: Vec<TableDef>,
-    /// Where each column reads, per table, per declared column.
-    pub(crate) places: Vec<Vec<ColumnPlace>>,
     /// What reading a file needs per loop and per segment id.
     pub(crate) reads: ReadIndex,
     pub(crate) balancing: Vec<BalanceRule>,

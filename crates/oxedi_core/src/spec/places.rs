@@ -176,7 +176,9 @@ impl Spec {
     /// The places of the declared columns of table `table` (index into
     /// `tables()`), in column order; empty for an index that is no table.
     pub(crate) fn places(&self, table: usize) -> &[ColumnPlace] {
-        self.places.get(table).map_or(&[], Vec::as_slice)
+        self.tables
+            .get(table)
+            .map_or(&[], |def| def.places.as_slice())
     }
 
     /// The segment id, element and component of every position `source`, a

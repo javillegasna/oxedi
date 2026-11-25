@@ -136,7 +136,6 @@ impl<'m> Build<'m> {
                 roots: Vec::new(),
                 segments: BTreeMap::new(),
                 tables: Vec::new(),
-                places: Vec::new(),
                 reads: ReadIndex::default(),
                 balancing: Vec::new(),
                 summaries: Vec::new(),
@@ -237,7 +236,10 @@ fn compile_table_section(build: &mut Build<'_>) -> Result<(), SpecError> {
 }
 
 fn compile_place_section(build: &mut Build<'_>) -> Result<(), SpecError> {
-    build.spec.places = place_columns(&build.spec);
+    let places = place_columns(&build.spec);
+    for (def, places) in build.spec.tables.iter_mut().zip(places) {
+        def.places = places;
+    }
     Ok(())
 }
 

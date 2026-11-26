@@ -30,6 +30,7 @@ pub const TABLE: &[Row] = &[
             "document",
             "mask",
             "process",
+            "project",
             "segment",
             "spec",
             "spec_load",

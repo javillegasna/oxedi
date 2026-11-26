@@ -257,6 +257,7 @@ mod api_door {
     use oxedi_core::api::SpecChoice;
     use oxedi_core::api::UnknownLevel;
     use oxedi_core::api::builtin;
+    use oxedi_core::api::mask_diagnostics;
     use oxedi_core::api::read;
     use oxedi_core::api::read_tables;
     use oxedi_core::api::read_tree;

@@ -191,8 +191,8 @@ Adjustments that share a `segment` came from the same `PLB`. The writer keeps th
 
 ## diagnostics (DuckDB only)
 
-In DuckDB, `read_835(..., table_name := 'diagnostics')` returns the findings of the parse as a
-sixth table, one row per finding:
+In DuckDB, `read_835(..., table_name := 'diagnostics')` returns the diagnostics of the parse as a
+sixth table, one row per diagnostic:
 
 | Column | Type | Holds |
 |---|---|---|

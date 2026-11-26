@@ -122,7 +122,7 @@ ORDER BY table_name, position;
 
 ## Read the diagnostics
 
-`table_name := 'diagnostics'` returns the findings of the parse, one row each:
+`table_name := 'diagnostics'` returns the diagnostics of the parse, one row each:
 
 ```sql
 SELECT filename, level, kind, datum

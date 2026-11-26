@@ -29,6 +29,9 @@ the few changes the changelog lists.
   when the spec loads, and both reading and writing take it from there.
 - **The envelope as a base package** (done). Which envelope element carries the sender,
   receiver, date and time is data in the envelope package, and the package format is stable.
+- **One shape for every problem** (done). Every error, diagnostic, finding and refusal is written in
+  one place and has the same parts: what kind it is, where it points and its text; the bindings
+  read those parts from the core.
 
 ## Next: specs for any X12 transaction set
 

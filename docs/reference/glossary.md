@@ -162,8 +162,18 @@ a level 3 diagnostic.
 
 ### Diagnostic
 
-One finding about the data of a file: the rule that failed, where, and the value. oxedi returns
+One problem reading found in the data of a file: the rule that failed, where, and the value. oxedi returns
 diagnostics as data instead of raising. See [Diagnostics](../python/diagnostics.md).
+
+### Finding
+
+A problem writing found in the tables or in the file it wrote, or one another validator such as
+pyx12 reported. See [When the writer refuses a file](../python/when-write-refuses.md).
+
+### Refusal
+
+Why a spec cannot be written at all, with what to change; `oxedi.validate_stack` lists them as the
+reasons write is not possible.
 
 ### SNIP level
 

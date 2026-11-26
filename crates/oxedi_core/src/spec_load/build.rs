@@ -322,6 +322,50 @@ impl fmt::Display for VersionError {
     }
 }
 
+/// The values a version lists: those written, else the codes of the declared
+/// element, in the order written.
+fn values_source<'a>(
+    raw: &'a VersionModel,
+    segments: &'a BTreeMap<String, SegmentModel>,
+) -> Result<&'a [String], VersionError> {
+    let codes = segments
+        .get(&raw.segment)
+        .and_then(|segment| segment.elements.get(&raw.element))
+        .and_then(|element| element.codes.as_deref());
+    raw.values
+        .as_deref()
+        .or(codes)
+        .ok_or_else(|| VersionError::NoCodes {
+            segment: raw.segment.clone(),
+            element: raw.element,
+        })
+}
+
+/// The values a version covers, checked: not empty, none empty, none twice.
+fn version_values<'a>(
+    raw: &'a VersionModel,
+    segments: &'a BTreeMap<String, SegmentModel>,
+) -> Result<&'a [String], VersionError> {
+    let values = values_source(raw, segments)?;
+    if values.is_empty() {
+        return Err(VersionError::NoValues);
+    }
+    if let Some(index) = values.iter().position(String::is_empty) {
+        return Err(VersionError::EmptyValue { index });
+    }
+    let mut seen = std::collections::HashMap::with_capacity(values.len());
+    for (second, value) in values.iter().enumerate() {
+        if let Some(first) = seen.insert(value.as_str(), second) {
+            return Err(VersionError::DuplicateValue {
+                value: value.clone(),
+                first,
+                second,
+            });
+        }
+    }
+    Ok(values)
+}
+
 /// Validates a spec's `version`. Values left out are the codes of the declared
 /// element, in the order written.
 fn compile_version(
@@ -338,32 +382,7 @@ fn compile_version(
     if raw.element == 0 {
         return Err(bad(VersionError::ZeroElement));
     }
-    let codes = segments
-        .get(&raw.segment)
-        .and_then(|segment| segment.elements.get(&raw.element))
-        .and_then(|element| element.codes.as_deref());
-    let values = raw.values.as_deref().or(codes).ok_or_else(|| {
-        bad(VersionError::NoCodes {
-            segment: raw.segment.clone(),
-            element: raw.element,
-        })
-    })?;
-    if values.is_empty() {
-        return Err(bad(VersionError::NoValues));
-    }
-    if let Some(index) = values.iter().position(String::is_empty) {
-        return Err(bad(VersionError::EmptyValue { index }));
-    }
-    let mut seen = std::collections::HashMap::with_capacity(values.len());
-    for (second, value) in values.iter().enumerate() {
-        if let Some(first) = seen.insert(value.as_str(), second) {
-            return Err(bad(VersionError::DuplicateValue {
-                value: value.clone(),
-                first,
-                second,
-            }));
-        }
-    }
+    let values = version_values(raw, segments).map_err(bad)?;
     Ok(DeclaredVersion {
         segment: raw.segment.as_bytes().to_vec(),
         element: raw.element,

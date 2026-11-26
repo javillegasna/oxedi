@@ -1,7 +1,7 @@
 //! Envelope control checks: the control number an envelope's trigger carries,
 //! and, at the loop's end segment, its count and the number it repeats.
 //!
-//! The checks are pure functions that return their finding; the checker
+//! The checks are pure functions that return their diagnostic; the checker
 //! reports them in order.
 
 use crate::diagnostic::Rule;
@@ -12,8 +12,8 @@ use crate::value::parse_unsigned;
 
 use super::{Open, StructureChecker};
 
-/// A control finding: the rule, the 1-based element it is about and the datum.
-type Finding = (Rule, usize, Vec<u8>);
+/// A control diagnostic: the rule, the 1-based element it is about and the datum.
+type ControlDiagnostic = (Rule, usize, Vec<u8>);
 
 /// A count written as ASCII digits (leading zeros allowed); `None` for
 /// anything else, including the empty value and a count past `usize`.
@@ -21,8 +21,8 @@ pub(super) fn parse_count(value: &[u8]) -> Option<usize> {
     parse_unsigned(value).and_then(|count| usize::try_from(count).ok())
 }
 
-/// The finding for an element the end segment does not have.
-fn missing_finding(segment: &Segment<'_>, element: usize) -> Finding {
+/// The diagnostic for an element the end segment does not have.
+fn missing_diagnostic(segment: &Segment<'_>, element: usize) -> ControlDiagnostic {
     (
         Rule::ControlElementMissing {
             segment_id: segment.id.to_vec(),
@@ -35,16 +35,16 @@ fn missing_finding(segment: &Segment<'_>, element: usize) -> Finding {
 
 /// What the end segment's count element says against `counted`: missing, or
 /// not the number of what the loop counted.
-fn count_finding(
+fn count_diagnostic(
     control: &Control,
     counted: usize,
     segment: &Segment<'_>,
     separator: u8,
-) -> Option<Finding> {
+) -> Option<ControlDiagnostic> {
     let element = control.count_element;
     let mut joined = Vec::new();
     match segment.text(element, separator, &mut joined) {
-        None => Some(missing_finding(segment, element)),
+        None => Some(missing_diagnostic(segment, element)),
         Some(found) if parse_count(found) != Some(counted) => Some((
             Rule::ControlCountMismatch {
                 segment_id: segment.id.to_vec(),
@@ -61,18 +61,18 @@ fn count_finding(
 
 /// What the end segment's number element says against the number the trigger
 /// carried: missing, or different.
-fn number_finding(
+fn number_diagnostic(
     def: &LoopDef,
     control: &Control,
     opener_value: Vec<u8>,
     opened_at: Option<usize>,
     segment: &Segment<'_>,
     separator: u8,
-) -> Option<Finding> {
+) -> Option<ControlDiagnostic> {
     let element = control.closer_element;
     let mut joined = Vec::new();
     match segment.text(element, separator, &mut joined) {
-        None => Some(missing_finding(segment, element)),
+        None => Some(missing_diagnostic(segment, element)),
         Some(closer_value) if closer_value != opener_value => Some((
             Rule::ControlNumberMismatch {
                 opener: def.trigger.segment.clone(),
@@ -122,7 +122,7 @@ impl StructureChecker<'_> {
         trigger: usize,
         segment: &Segment<'_>,
     ) {
-        let (rule, element, datum) = missing_finding(segment, element);
+        let (rule, element, datum) = missing_diagnostic(segment, element);
         self.report(rule, Some(trigger), Some(element), datum);
     }
 
@@ -171,13 +171,13 @@ impl StructureChecker<'_> {
         // The instance closes right after its end segment, so its control
         // number is no longer needed.
         let opener_value = top.control_number.take();
-        let findings = [
-            count_finding(&control, counted, segment, separator),
+        let reported = [
+            count_diagnostic(&control, counted, segment, separator),
             opener_value.and_then(|opener_value| {
-                number_finding(def, &control, opener_value, opened_at, segment, separator)
+                number_diagnostic(def, &control, opener_value, opened_at, segment, separator)
             }),
         ];
-        for (rule, element, datum) in findings.into_iter().flatten() {
+        for (rule, element, datum) in reported.into_iter().flatten() {
             self.report(rule, Some(segment.index), Some(element), datum);
         }
     }

@@ -41,7 +41,7 @@ impl EnvelopeField {
     ];
 
     /// The word a spec writes for the field, also the name a trace or a
-    /// finding prints.
+    /// diagnostic prints.
     pub fn word(self) -> &'static str {
         match self {
             EnvelopeField::SenderQualifier => "sender_qualifier",

@@ -79,19 +79,20 @@ pub(crate) fn locate<'a>(
     }
 }
 
-/// One finding about the data of a file.
+/// One problem found reading a file's data: the rule, where and the
+/// offending value.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Diagnostic {
     /// What failed.
     pub rule: Rule,
     /// The SNIP level of `rule`.
     pub level: SnipLevel,
-    /// Index of the segment at fault; `None` when the finding is about the
+    /// Index of the segment at fault; `None` when the diagnostic is about the
     /// end of the stream.
     pub segment: Option<usize>,
-    /// 1-based element position inside the segment, when the finding is.
+    /// 1-based element position inside the segment, when the diagnostic is about one.
     pub element: Option<usize>,
-    /// 1-based component position inside the element, when the finding is.
+    /// 1-based component position inside the element, when the diagnostic is about one.
     pub component: Option<usize>,
     /// Open loops at the time, outermost first.
     pub path: Vec<LoopRef>,

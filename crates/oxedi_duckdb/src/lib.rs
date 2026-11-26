@@ -14,8 +14,8 @@
 //! `table_name`, the table is the one the spec declares as its
 //! `default_table`.
 //!
-//! `table_name := 'diagnostics'` returns the core's findings instead, one
-//! row per finding (`level`, `kind`, `rule`, `segment`, `element`,
+//! `table_name := 'diagnostics'` returns the core's diagnostics instead, one
+//! row per diagnostic (`level`, `kind`, `rule`, `segment`, `element`,
 //! `component`, `path`, `datum`, `origin`, `code`). A file that is not an X12
 //! interchange fails the query, unless `ignore_errors := true`: then it adds
 //! one `diagnostics` row whose `rule` is the error's text and no rows to any

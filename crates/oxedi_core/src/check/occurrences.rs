@@ -189,7 +189,7 @@ impl<'s> StructureChecker<'s> {
     /// occurrences), and reports a segment that matches none, an occurrence
     /// past its maximum, and a position out of order. Runs for every
     /// captured segment, so it reads the compact `limits` table and leaves
-    /// the spec to the findings.
+    /// the spec to the diagnostics.
     #[inline]
     pub(super) fn occurrence_captured(
         &mut self,
@@ -419,7 +419,7 @@ pub(super) fn required(spec: &Spec) -> Vec<Vec<usize>> {
         .collect()
 }
 
-/// The order finding for occurrence `index` of loop `id`, which comes after
+/// The order diagnostic for occurrence `index` of loop `id`, which comes after
 /// `after`, the `(loop, occurrence index, position)` seen highest so far.
 fn out_of_order(spec: &Spec, id: LoopId, index: usize, after: Seen) -> Rule {
     let def = spec.get(id);

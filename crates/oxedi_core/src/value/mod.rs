@@ -27,7 +27,7 @@ mod unit;
 
 pub(crate) use calendar::{civil_from_days, year_start};
 pub use calendar::{days_from_civil, seconds_of_day, time_of_day};
-pub use column_type::{ColumnType, DECIMAL_PRECISION};
+pub use column_type::{ColumnType, DECIMAL_PRECISION, FloatForDecimal};
 pub use convert::{
     ConvertError, MAX_SCALE, date_from_midnight, date_from_millis, integer_from_f64,
     integer_from_i128, integer_from_u128, rescale, seconds_from,

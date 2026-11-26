@@ -16,6 +16,11 @@ mod read;
 pub use batches::{Batch, BatchBy, Batches};
 pub use choice::{ChosenSpec, DelimiterChoice, SpecChoice};
 pub use identity::{Identity, builtin};
+
+pub use crate::delimiters::{DelimiterLength, DelimiterRole};
+pub use crate::diagnostic::UnknownLevel;
+pub use crate::document::{Index, SegmentOutOfRange};
+pub use crate::value::FloatForDecimal;
 pub use read::{ReadOptions, Reading, read, read_tables, read_tree};
 
 #[cfg(test)]

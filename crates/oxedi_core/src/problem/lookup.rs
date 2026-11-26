@@ -3,6 +3,7 @@
 use std::fmt;
 
 use super::text::render_names;
+use crate::diagnostic::UnknownLevel;
 use crate::mask::{Mask, MaskError};
 use crate::spec::{BatchLoopError, UnknownColumn, UnknownTable};
 use crate::summary::SummaryError;
@@ -44,6 +45,12 @@ impl fmt::Display for BatchLoopError {
                  batches at; name a loop",
             ),
         }
+    }
+}
+
+impl fmt::Display for UnknownLevel {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "level must be 1, 2 or 3, got {}", self.number)
     }
 }
 

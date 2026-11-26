@@ -4,9 +4,35 @@
 use std::fmt;
 
 use super::text::Counted;
-use crate::delimiters::{HeaderPositions, ISA_ID, IsaError};
-use crate::document::{DocumentError, SizeError};
+use crate::delimiters::{DelimiterLength, HeaderPositions, ISA_ID, IsaError};
+use crate::document::{DocumentError, Index, SegmentOutOfRange, SizeError};
 use crate::segment::SegmentWriteError;
+
+impl fmt::Display for SegmentOutOfRange {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let sign = match self.index {
+            Index::FromStart(index) => index.to_string(),
+            Index::FromEnd(back) => format!("-{back}"),
+        };
+        write!(
+            f,
+            "segment index {sign} is out of range: the document has {}",
+            Counted(self.len, "segment", "segments")
+        )
+    }
+}
+
+impl fmt::Display for DelimiterLength {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(
+            f,
+            "delimiter {} must be exactly one byte, got {}: \"{}\"",
+            self.role.word(),
+            Counted(self.bytes.len(), "byte", "bytes"),
+            self.bytes.escape_ascii()
+        )
+    }
+}
 
 impl fmt::Display for IsaError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {

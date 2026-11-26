@@ -15,7 +15,24 @@ impl SnipLevel {
             SnipLevel::L3 => 3,
         }
     }
+
+    /// The level numbered `number`, the inverse of [`SnipLevel::number`].
+    pub fn from_number(number: i64) -> Result<SnipLevel, UnknownLevel> {
+        [SnipLevel::L1, SnipLevel::L2, SnipLevel::L3]
+            .into_iter()
+            .find(|level| i64::from(level.number()) == number)
+            .ok_or(UnknownLevel { number })
+    }
 }
+
+/// A number that is not a SNIP level.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct UnknownLevel {
+    /// The number given.
+    pub number: i64,
+}
+
+impl std::error::Error for UnknownLevel {}
 
 impl Diagnostic {
     /// Who reported the diagnostic: [`PARSER_ORIGIN`] for the parser's own

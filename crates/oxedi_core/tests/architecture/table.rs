@@ -35,6 +35,7 @@ pub const TABLE: &[Row] = &[
             "spec_load",
             "tokenizer",
             "tree",
+            "value",
         ],
     ),
     row(

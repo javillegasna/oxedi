@@ -14,6 +14,18 @@ use crate::write::{EnvelopeSource, ValueOrigin};
 /// `impl Problem for $ty` with its kind from the listed variants and its place
 /// from `$place`, which reads the problem as `$this`.
 macro_rules! problem {
+    ($ty:ident $this:ident => $place:expr) => {
+        impl Problem for $ty {
+            fn kind(&self) -> &'static str {
+                stringify!($ty)
+            }
+
+            fn place(&self) -> Place<'_> {
+                let $this = self;
+                $place
+            }
+        }
+    };
     ($ty:ident [$($variant:ident),+ $(,)?] $this:ident => $place:expr) => {
         impl Problem for $ty {
             fn kind(&self) -> &'static str {
@@ -31,6 +43,7 @@ macro_rules! problem {
 }
 
 mod case;
+mod checked;
 mod diagnostic;
 mod document;
 mod finding;

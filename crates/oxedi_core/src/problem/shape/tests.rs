@@ -764,3 +764,34 @@ fn a_batch_loop_error_names_its_kind_and_place() {
         assert!(std::error::Error::source(&error).is_none());
     }
 }
+
+#[test]
+fn a_checked_value_error_names_no_place() {
+    use crate::delimiters::{DelimiterLength, DelimiterRole};
+    use crate::diagnostic::UnknownLevel;
+    use crate::document::{Index, SegmentOutOfRange};
+    use crate::value::{ColumnType, FloatForDecimal};
+    let level = UnknownLevel { number: 4 };
+    let index = SegmentOutOfRange {
+        index: Index::FromStart(3),
+        len: 3,
+    };
+    let length = DelimiterLength {
+        role: DelimiterRole::Element,
+        bytes: b"**".to_vec(),
+    };
+    let float = FloatForDecimal {
+        column: ColumnType::Date32,
+    };
+    let checked: [(&dyn Problem, &str); 4] = [
+        (&level, "UnknownLevel"),
+        (&index, "SegmentOutOfRange"),
+        (&length, "DelimiterLength"),
+        (&float, "FloatForDecimal"),
+    ];
+    for (problem, kind) in checked {
+        assert_eq!(problem.kind(), kind);
+        assert_eq!(problem.place(), Place::Nowhere);
+        assert_eq!(problem.record().text, problem.to_string());
+    }
+}

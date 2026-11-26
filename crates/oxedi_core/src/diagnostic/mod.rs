@@ -16,7 +16,7 @@ use std::fmt;
 use crate::document::{Document, Span};
 use crate::message::render_key;
 
-pub use flat::PARSER_ORIGIN;
+pub use flat::{PARSER_ORIGIN, UnknownLevel};
 pub use rule::Rule;
 
 /// The SNIP validation level a rule belongs to.

@@ -1247,3 +1247,16 @@ fn sides_render_as_the_messages_wrote_them() {
         assert_eq!(terms.to_string(), text);
     }
 }
+
+#[test]
+fn a_snip_level_is_read_from_its_number() {
+    for level in [SnipLevel::L1, SnipLevel::L2, SnipLevel::L3] {
+        assert_eq!(SnipLevel::from_number(level.number().into()), Ok(level));
+    }
+    for number in [0, -1, 4] {
+        assert_eq!(SnipLevel::from_number(number), Err(UnknownLevel { number }));
+    }
+    let error = UnknownLevel { number: 4 };
+    assert_eq!(error.to_string(), "level must be 1, 2 or 3, got 4");
+    assert!(std::error::Error::source(&error).is_none());
+}

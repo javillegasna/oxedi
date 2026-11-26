@@ -507,3 +507,29 @@ def test_a_patch_of_a_parsed_spec_keeps_the_given_patch():
     given = Spec.builtin().patch(PATCH)
     result = oxedi.parse(read(LARGEST), spec=given)
     assert "ZZ" in result.spec.patch({"name": "mine"}).loops()
+
+
+@pytest.mark.parametrize("version", [Version.V5010, Version.V4010])
+def test_the_envelope_lists_each_envelope_loop_outermost_first(version):
+    loops = Spec.builtin(version).envelope()
+    assert [
+        (l.name, l.trigger, l.end, l.opener_element, l.closer_element, l.count_element)
+        for l in loops
+    ] == [
+        ("interchange", b"ISA", b"IEA", 13, 2, 1),
+        ("group", b"GS", b"GE", 6, 2, 1),
+        ("transaction", b"ST", b"SE", 2, 2, 1),
+    ]
+
+
+def test_an_envelope_loop_is_a_frozen_value():
+    first = Spec.builtin().envelope()[0]
+    assert repr(first) == (
+        "EnvelopeLoop(name='interchange', trigger=b'ISA', end=b'IEA', "
+        "opener_element=13, closer_element=2, count_element=1)"
+    )
+    assert first == Spec.builtin().envelope()[0]
+    assert hash(first) == hash(Spec.builtin().envelope()[0])
+    with pytest.raises(AttributeError):
+        setattr(first, "name", "x")
+    assert isinstance(first, oxedi.EnvelopeLoop)

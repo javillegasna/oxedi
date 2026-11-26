@@ -23,6 +23,7 @@ __all__ = [
     "EDI_835_PARSER_PACKAGE",
     "ElementSource",
     "Envelope",
+    "EnvelopeLoop",
     "GroupSource",
     "Invalid",
     "KitBroken",
@@ -418,6 +419,49 @@ class Envelope:
     def __repr__(self) -> builtins.str: ...
 
 @typing.final
+class EnvelopeLoop:
+    r"""
+    A loop of the envelope: its end segment checks the loop it closes by a
+    control number and a count.
+    """
+    @property
+    def name(self) -> builtins.str:
+        r"""
+        The loop's name in the spec, such as `"interchange"`.
+        """
+    @property
+    def trigger(self) -> bytes:
+        r"""
+        The id of the segment that opens the loop, such as `b"ISA"`.
+        """
+    @property
+    def end(self) -> bytes:
+        r"""
+        The id of the segment that closes the loop, such as `b"IEA"`.
+        """
+    @property
+    def opener_element(self) -> builtins.int:
+        r"""
+        The 1-based position of the control number in the trigger segment,
+        such as 13 for ISA13.
+        """
+    @property
+    def closer_element(self) -> builtins.int:
+        r"""
+        The 1-based position of the same control number in the end segment,
+        such as 2 for IEA02.
+        """
+    @property
+    def count_element(self) -> builtins.int:
+        r"""
+        The 1-based position of the count in the end segment, such as 1 for
+        IEA01.
+        """
+    def __eq__(self, other: builtins.object, /) -> builtins.bool: ...
+    def __hash__(self) -> builtins.int: ...
+    def __repr__(self) -> builtins.str: ...
+
+@typing.final
 class GroupSource:
     r"""
     Where a table column reads its value in a segment that repeats a group of
@@ -800,6 +844,12 @@ class Spec:
         Every column of table `table` that reads an element of each repeated
         group, by name, in name order; empty for a table without `repeat`.
         Raises `KeyError` for a table the spec does not declare.
+        """
+    def envelope(self) -> builtins.list[EnvelopeLoop]:
+        r"""
+        The envelope loops, outermost first: each loop whose end segment checks
+        it, with its trigger and end segment ids and its control positions.
+        Empty for a spec with none.
         """
     def __repr__(self) -> builtins.str: ...
 

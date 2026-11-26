@@ -17,6 +17,7 @@ use pyo3_stub_gen::{PyStubType, TypeInfo};
 
 use crate::arrow;
 use crate::element_source::{self, PyElementSource, PyGroupSource};
+use crate::envelope_loop::{self, PyEnvelopeLoop};
 use crate::json_arg::PatchArg;
 use crate::tables::extra;
 use crate::validate::Pool;
@@ -420,6 +421,13 @@ impl PySpec {
     /// Raises `KeyError` for a table the spec does not declare.
     fn group_sources(&self, table: &str) -> PyResult<BTreeMap<String, PyGroupSource>> {
         element_source::group_sources(&self.inner, table)
+    }
+
+    /// The envelope loops, outermost first: each loop whose end segment checks
+    /// it, with its trigger and end segment ids and its control positions.
+    /// Empty for a spec with none.
+    fn envelope(&self) -> Vec<PyEnvelopeLoop> {
+        envelope_loop::envelope(&self.inner)
     }
 
     fn __repr__(&self) -> String {

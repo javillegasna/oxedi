@@ -47,6 +47,7 @@ mod arrow;
 mod diagnostic;
 mod document;
 mod element_source;
+mod envelope_loop;
 mod import;
 mod json_arg;
 mod kit;
@@ -81,7 +82,7 @@ fn core_module(m: &Bound<'_, PyModule>) -> PyResult<()> {
 }
 
 /// Every exception, class and function of the module, one registration each.
-fn members() -> [Register; 41] {
+fn members() -> [Register; 42] {
     [
         |m| m.add("ParseError", m.py().get_type::<document::ParseError>()),
         |m| m.add("SpecError", m.py().get_type::<spec::SpecError>()),
@@ -91,6 +92,7 @@ fn members() -> [Register; 41] {
         |m| m.add_class::<document::PySegment>(),
         |m| m.add_class::<element_source::PyElementSource>(),
         |m| m.add_class::<element_source::PyGroupSource>(),
+        |m| m.add_class::<envelope_loop::PyEnvelopeLoop>(),
         |m| m.add_class::<kit::PyKitBroken>(),
         |m| m.add_class::<kit::PyCaseReport>(),
         |m| m.add_class::<kit::PyKitDifference>(),

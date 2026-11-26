@@ -24,6 +24,7 @@ from oxedi import (
     Document,
     ElementSource,
     Envelope,
+    EnvelopeLoop,
     GroupSource,
     Invalid,
     JsonObject,
@@ -76,6 +77,13 @@ def results(data: bytes, path: str) -> list[Result]:
         oxedi.parse_file(path),
         oxedi.parse_file(path, spec=Spec.builtin(), delimiters=Delimiters()),
     ]
+
+
+def envelope_loops() -> None:
+    loops: list[EnvelopeLoop] = Spec.builtin().envelope()
+    trigger: bytes = loops[0].trigger
+    opener: int = loops[0].opener_element
+    print(trigger, opener)
 
 
 def result_fields(result: Result) -> None:

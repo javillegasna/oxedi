@@ -8,6 +8,8 @@ The structure of the 835 and the columns of each table. See [The spec](../../cus
 
 ::: oxedi.GroupSource
 
+::: oxedi.EnvelopeLoop
+
 ::: oxedi.SpecError
 
 ::: oxedi.Version

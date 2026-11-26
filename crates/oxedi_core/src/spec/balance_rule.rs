@@ -1,8 +1,7 @@
-//! Balancing rules as data: a rule, its signed terms, and the text that describes them.
+//! Balancing rules as data: a rule, its signed terms, and the names a message writes for them.
 
 use super::Spec;
 use super::loops::LoopId;
-use crate::message::{place, render_key};
 
 /// A balancing term's `sign`, written `"+"` or `"-"`.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
@@ -45,45 +44,57 @@ pub struct BalanceRule {
     pub scale: u8,
 }
 
-/// What precedes a term, by position (first, later) and sign (added,
-/// subtracted): the first term is bare unless negative.
-const SEPARATORS: [[&str; 2]; 2] = [["", "- "], [" + ", " - "]];
+/// One term of a balancing rule's side with the names a message writes.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct NamedTerm {
+    /// `true` when the term is subtracted.
+    pub negative: bool,
+    /// `true` when the term reads as a sum: it adds several elements, reads a
+    /// loop below the rule's `per`, or reads an occurrence that may appear
+    /// more than once.
+    pub summed: bool,
+    /// The segment id of the occurrence the term reads.
+    pub segment: Vec<u8>,
+    /// 1-based positions of the elements read, in the order written.
+    pub elements: Vec<usize>,
+    /// 1-based component read in each element, when the amounts are components.
+    pub component: Option<usize>,
+    /// The name of the term's loop.
+    pub loop_name: String,
+    /// The name of the term's occurrence.
+    pub occurrence: String,
+}
 
-/// The signed values of one side of a rule, e.g. `sum of CLP04 of 2100
-/// "claim_payment_information" - sum of PLB04, PLB06 of transaction
-/// "provider_adjustment"`. A term reads as a sum when it adds several
-/// elements, reads a loop below `per`, or reads an occurrence that may
-/// appear more than once.
-pub(crate) fn render_terms(spec: &Spec, per: LoopId, terms: &[BalanceTerm]) -> String {
-    let mut out = String::new();
-    for (i, term) in terms.iter().enumerate() {
-        out.push_str(SEPARATORS[usize::from(i > 0)][usize::from(term.negative)]);
-        let def = spec.get(term.loop_id);
-        let (segment, occurrence) = def
-            .occurrences
-            .get(term.occurrence)
-            .map(|occurrence| {
-                (
-                    String::from_utf8_lossy(&occurrence.segment).into_owned(),
-                    occurrence.name.as_str(),
-                )
-            })
-            .unwrap_or_default();
-        let places: Vec<String> = term
-            .elements
+/// One side of a balancing rule, as a message names it. Its `Display` is the
+/// text a message writes.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct Terms(pub Vec<NamedTerm>);
+
+impl Terms {
+    /// The terms of one side of a rule over the loop `per`, with the names
+    /// of their loops and occurrences; `None` when a term names an
+    /// occurrence its loop does not hold. The loader checks every term, so a
+    /// loaded spec always gives `Some`.
+    pub(crate) fn of(spec: &Spec, per: LoopId, terms: &[BalanceTerm]) -> Option<Terms> {
+        terms
             .iter()
-            .map(|&element| place(&segment, element, term.component))
-            .collect();
-        let repeats = term.loop_id != per
-            || def
-                .occurrences
-                .get(term.occurrence)
-                .is_none_or(|occurrence| occurrence.max != Some(1));
-        if places.len() > 1 || repeats {
-            out.push_str("sum of ");
-        }
-        out.push_str(&places.join(", "));
-        out.push_str(&format!(" of {} {occurrence:?}", render_key(&def.name)));
+            .map(|term| named(spec, per, term))
+            .collect::<Option<Vec<_>>>()
+            .map(Terms)
     }
-    out
+}
+
+fn named(spec: &Spec, per: LoopId, term: &BalanceTerm) -> Option<NamedTerm> {
+    let def = spec.get(term.loop_id);
+    let occurrence = def.occurrences.get(term.occurrence)?;
+    let repeats = term.loop_id != per || occurrence.max != Some(1);
+    Some(NamedTerm {
+        negative: term.negative,
+        summed: term.elements.len() > 1 || repeats,
+        segment: occurrence.segment.clone(),
+        elements: term.elements.clone(),
+        component: term.component,
+        loop_name: def.name.clone(),
+        occurrence: occurrence.name.clone(),
+    })
 }

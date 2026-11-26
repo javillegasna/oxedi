@@ -1,6 +1,7 @@
 //! Why an occurrence of a loop was rejected.
 
 use super::segments::ElementDefError;
+use crate::message::ElementRef;
 use crate::value::LengthRange;
 
 /// Why an occurrence was rejected.
@@ -39,7 +40,7 @@ pub enum OccurrenceError {
         /// Where the usage sits: `elements.<key>.usage`.
         key: String,
         /// The element or component, e.g. `NM102`.
-        place: String,
+        place: ElementRef,
     },
     /// An entry's `min` and `max` are not valid lengths.
     BadLengths {
@@ -52,8 +53,9 @@ pub enum OccurrenceError {
     LengthsOutsideElement {
         /// Where the entry sits: `elements.<key>`.
         key: String,
-        /// The element or component, e.g. `NM103`.
-        place: String,
+        /// The element or component, e.g. `NM103`. Boxed so the error stays
+        /// small to return.
+        place: Box<ElementRef>,
         /// The lengths the entry sets, with the element's bounds where it sets none.
         found: LengthRange,
         /// The element's own lengths.
@@ -79,7 +81,7 @@ pub enum OccurrenceError {
         /// The code as written.
         code: String,
         /// The element or component, e.g. `NM101`.
-        place: String,
+        place: ElementRef,
         /// The element's own codes, sorted.
         allowed: Vec<String>,
     },
@@ -98,9 +100,9 @@ pub enum OccurrenceError {
         /// The other occurrence.
         other: String,
         /// The place this occurrence's qualifier reads, e.g. `NM02`.
-        place: String,
+        place: ElementRef,
         /// The place the other's qualifier reads, e.g. `NM01`.
-        other_place: String,
+        other_place: ElementRef,
     },
     /// Another occurrence holds the same segment and both qualifiers accept a code.
     SharedCode {

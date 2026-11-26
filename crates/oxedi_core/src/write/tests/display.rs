@@ -1,8 +1,10 @@
 //! The full text of every finding, origin and write error.
 
+use super::{at, bare};
 use crate::delimiters::IsaError;
 use crate::diagnostic::{Diagnostic, Rule};
 use crate::document::DocumentError;
+use crate::spec::{EnvelopeField, Selector};
 use crate::spec::{UnknownColumn, UnknownTable};
 use crate::value::{ColumnType, ElementTextError};
 use crate::write::*;
@@ -27,7 +29,7 @@ fn origins_name_the_cell_the_row_or_the_envelope_field() {
     };
     assert_eq!(row.to_string(), "table \"claims\" row 3");
     let field = ValueOrigin::Envelope {
-        field: "sender_id".into(),
+        field: EnvelopeSource::Caller(EnvelopeField::SenderId),
     };
     assert_eq!(field.to_string(), "envelope field \"sender_id\"");
 }
@@ -38,7 +40,7 @@ fn findings_display_their_full_text() {
         (
             Finding::DelimiterInValue {
                 origin: cell(),
-                place: "CLP01".into(),
+                place: at(b"CLP", 1),
                 value: b"A:B".to_vec(),
                 delimiter: b':',
                 role: "component separator",
@@ -100,7 +102,7 @@ fn findings_display_their_full_text() {
         (
             Finding::NotWritable {
                 origin: cell(),
-                place: "DTM02".into(),
+                place: at(b"DTM", 2),
                 value: "date32(2147483647)".into(),
                 reason: ElementTextError::YearOutOfRange,
             },
@@ -148,7 +150,7 @@ fn findings_display_their_full_text() {
 fn an_envelope_loop_without_an_occurrence_displays_its_full_text() {
     let refusal = Refusal::EnvelopeWithoutOccurrence {
         loop_name: "interchange".into(),
-        trigger: "\"ISA\" with no conditions".into(),
+        trigger: bare(b"ISA"),
     };
     assert_eq!(
         refusal.to_string(),
@@ -277,4 +279,26 @@ fn errors_that_print_their_inner_error_do_not_chain_to_it() {
     }));
     assert!(unreadable.to_string().contains("found bytes [47 53]"));
     assert!(unreadable.source().is_none());
+}
+
+#[test]
+fn a_repeat_without_a_segment_names_none() {
+    let refusal = |segment| Refusal::RepeatWithoutInstances {
+        table: "t".into(),
+        loop_name: "2100".into(),
+        segment,
+    };
+    assert!(refusal(None).to_string().contains("writes one  per row"));
+    assert!(
+        refusal(Some(b"CAS".to_vec()))
+            .to_string()
+            .contains("writes one \"CAS\" per row")
+    );
+}
+
+#[test]
+fn a_where_source_reads_its_conditions() {
+    let conditioned = Selector::conditioned(b"DTM", &[(1, b"232".to_vec())]);
+    assert_eq!(conditioned.to_string(), "\"DTM\" where {1: \"232\"}");
+    assert_eq!(Selector::conditioned(b"DTM", &[]).to_string(), "\"DTM\"");
 }

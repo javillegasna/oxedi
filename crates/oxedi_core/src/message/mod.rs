@@ -1,33 +1,14 @@
-//! The pieces messages are written from, shared by the diagnostics, the spec
-//! errors, the write findings and the project errors: file bytes quoted on
-//! one line ([`Quoted`]), a key in a rendered path ([`render_key`]), an
-//! element reference ([`ElementRef`], [`place`]), a trigger's conditions
-//! ([`Conditions`]), a list of names ([`render_names`]), a count and its noun
-//! ([`Counted`]) and the longest code list a message spells out
-//! ([`MAX_LISTED_CODES`]).
+//! The pieces messages are written from that are notation, not prose: file
+//! bytes quoted on one line (`Quoted`), a key in a rendered path
+//! (`render_key`) and an element reference (`ElementRef`, the one public
+//! item). The prose helpers (counts, conditions, name lists) are in the
+//! problem module.
 //!
 //! The module depends on nothing else in the crate, so every part of the
 //! crate that writes a message can use it without a cycle.
 
 use std::borrow::Cow;
 use std::fmt;
-
-/// The longest code list a message spells out; a longer list gives its count.
-pub(crate) const MAX_LISTED_CODES: usize = 5;
-
-/// A count and its noun, in the singular for one and the plural otherwise.
-pub(crate) struct Counted(
-    pub(crate) usize,
-    pub(crate) &'static str,
-    pub(crate) &'static str,
-);
-
-impl fmt::Display for Counted {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        let noun = if self.0 == 1 { self.1 } else { self.2 };
-        write!(f, "{} {noun}", self.0)
-    }
-}
 
 /// Bytes from the file, quoted on one line: valid text is escaped as a Rust
 /// string literal is, and each invalid byte is written as `\xNN`.
@@ -66,15 +47,17 @@ pub(crate) fn render_key(key: &str) -> Cow<'_, str> {
 }
 
 /// An element reference in X12 style: `CLP01`, or `SVC01-2` for a component.
-pub(crate) struct ElementRef<'a> {
-    segment_id: &'a [u8],
+/// It owns its segment id (a `Vec<u8>`) or borrows it (any `AsRef<[u8]>`).
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct ElementRef<S = Vec<u8>> {
+    segment_id: S,
     element: usize,
     component: Option<usize>,
 }
 
-impl<'a> ElementRef<'a> {
+impl<S> ElementRef<S> {
     /// A simple element, or a component when `component` is `Some`.
-    pub(crate) fn new(segment_id: &'a [u8], element: usize, component: Option<usize>) -> Self {
+    pub(crate) fn new(segment_id: S, element: usize, component: Option<usize>) -> Self {
         ElementRef {
             segment_id,
             element,
@@ -83,17 +66,32 @@ impl<'a> ElementRef<'a> {
     }
 
     /// A simple element.
-    pub(crate) fn simple(segment_id: &'a [u8], element: usize) -> Self {
+    pub(crate) fn simple(segment_id: S, element: usize) -> Self {
         ElementRef::new(segment_id, element, None)
+    }
+
+    /// The segment id.
+    pub fn segment_id(&self) -> &S {
+        &self.segment_id
+    }
+
+    /// The 1-based element position.
+    pub fn element(&self) -> usize {
+        self.element
+    }
+
+    /// The 1-based component position, when the reference is a component.
+    pub fn component(&self) -> Option<usize> {
+        self.component
     }
 }
 
-impl fmt::Display for ElementRef<'_> {
+impl<S: AsRef<[u8]>> fmt::Display for ElementRef<S> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(
             f,
             "{}{:02}",
-            String::from_utf8_lossy(self.segment_id),
+            String::from_utf8_lossy(self.segment_id.as_ref()),
             self.element
         )?;
         match self.component {
@@ -101,48 +99,6 @@ impl fmt::Display for ElementRef<'_> {
             None => Ok(()),
         }
     }
-}
-
-/// An element reference as text, for a segment held as a string or as bytes.
-pub(crate) fn place(
-    segment: &(impl AsRef<[u8]> + ?Sized),
-    element: usize,
-    component: Option<usize>,
-) -> String {
-    ElementRef::new(segment.as_ref(), element, component).to_string()
-}
-
-/// The conditions of a trigger as ` where {1: "PR", 2: "X"}` (with the
-/// leading space), or nothing when there are none. Values are read lossily.
-pub(crate) struct Conditions<'a, V>(pub(crate) &'a [(usize, V)]);
-
-impl<V: AsRef<[u8]>> fmt::Display for Conditions<'_, V> {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        if self.0.is_empty() {
-            return Ok(());
-        }
-        f.write_str(" where {")?;
-        for (index, (position, value)) in self.0.iter().enumerate() {
-            if index > 0 {
-                f.write_str(", ")?;
-            }
-            write!(
-                f,
-                "{position}: {:?}",
-                String::from_utf8_lossy(value.as_ref())
-            )?;
-        }
-        f.write_str("}")
-    }
-}
-
-/// Names quoted and joined with commas.
-pub(crate) fn render_names<S: AsRef<str>>(names: &[S]) -> String {
-    names
-        .iter()
-        .map(|name| format!("{:?}", name.as_ref()))
-        .collect::<Vec<_>>()
-        .join(", ")
 }
 
 #[cfg(test)]

@@ -4,7 +4,8 @@
 use std::fmt;
 
 use crate::delimiters::{HeaderPositions, ISA_ID};
-use crate::message::{Counted, Quoted};
+use crate::message::Quoted;
+use crate::problem::text::Counted;
 use crate::write::{Finding, ValueOrigin, WriteError};
 
 use super::wording::{Numbered, ReadBackOrigin, Reference};
@@ -16,7 +17,7 @@ impl fmt::Display for ValueOrigin {
                 write!(f, "table {table:?} row {row} column {column:?}")
             }
             ValueOrigin::Row { table, row } => write!(f, "table {table:?} row {row}"),
-            ValueOrigin::Envelope { field } => write!(f, "envelope field {field:?}"),
+            ValueOrigin::Envelope { field } => write!(f, "envelope field {:?}", field.name()),
         }
     }
 }

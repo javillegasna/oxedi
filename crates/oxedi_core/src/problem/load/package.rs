@@ -3,7 +3,7 @@
 
 use std::fmt;
 
-use crate::message::render_names;
+use crate::problem::text::render_names;
 use crate::spec_load::{
     Change, ChangeKind, HeaderError, IdError, KitError, Layer, PackageId, StackError,
     UnknownVersion,

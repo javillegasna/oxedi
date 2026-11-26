@@ -44,9 +44,7 @@ impl Builder<'_> {
                 .spec
                 .tables()
                 .get(table)
-                .and_then(|def| def.segment.as_deref())
-                .map(|segment| format!("{:?}", String::from_utf8_lossy(segment)))
-                .unwrap_or_default();
+                .and_then(|def| def.segment.clone());
             self.refusals.push(Refusal::RepeatWithoutInstances {
                 table: self.table_name(table),
                 loop_name: self.spec.loop_name(anchor).to_string(),

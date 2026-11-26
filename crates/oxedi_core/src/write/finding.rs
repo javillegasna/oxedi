@@ -3,9 +3,11 @@
 
 use crate::diagnostic::Diagnostic;
 use crate::document::DocumentError;
+use crate::message::ElementRef;
 use crate::spec::{UnknownColumn, UnknownTable};
 use crate::value::{ColumnType, ElementTextError};
 
+use super::envelope::Field as EnvelopeSource;
 use super::refusal::PlanError;
 
 /// Where a written value comes from. Rows are 0-based positions in the
@@ -30,8 +32,8 @@ pub enum ValueOrigin {
     },
     /// A field of the envelope.
     Envelope {
-        /// The field, e.g. `sender_id`.
-        field: String,
+        /// The field, which `name()` writes, e.g. `sender_id`.
+        field: EnvelopeSource,
     },
 }
 
@@ -45,7 +47,7 @@ pub enum Finding {
         /// Where the value comes from.
         origin: ValueOrigin,
         /// The element or component it fills, e.g. `NM103` or `SVC01-2`.
-        place: String,
+        place: ElementRef,
         /// The value.
         value: Vec<u8>,
         /// The delimiter byte it holds.
@@ -119,7 +121,7 @@ pub enum Finding {
         /// Where the value comes from.
         origin: ValueOrigin,
         /// The element or component it fills.
-        place: String,
+        place: ElementRef,
         /// The value as text.
         value: String,
         /// Why, e.g. `a date needs a year from 1 to 9999`.

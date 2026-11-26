@@ -8,7 +8,7 @@ use crate::spec::{ElementRule, LoopDef, OccurrenceDef, OccurrencePlace, Unplaced
 use super::build::{Builder, Codes};
 use super::plan::{SegmentPlan, ValueSource};
 use super::refusal::Refusal;
-use crate::message::place;
+use crate::message::ElementRef;
 
 /// The occurrence of `def` a column's compiled `place` writes `segment` in:
 /// the one it names or chose, or the one occurrence of `segment` when the
@@ -90,7 +90,11 @@ impl Builder<'_> {
                     column: column.map(|column| self.column_name(table, column)),
                     loop_name: def.name.clone(),
                     occurrence: occurrence.name.clone(),
-                    place: place(&occurrence.segment, element.element, element.component),
+                    place: ElementRef::new(
+                        occurrence.segment.clone(),
+                        element.element,
+                        element.component,
+                    ),
                     value: String::from_utf8_lossy(value).into_owned(),
                     codes: rule.codes.to_vec(),
                 });

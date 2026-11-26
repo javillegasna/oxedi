@@ -190,13 +190,16 @@ fn triggers_render_with_their_conditions_in_position_order() {
         segment: b"N1".to_vec(),
         conditions: Vec::new(),
     };
-    assert_eq!(render_trigger(&bare), "\"N1\" with no conditions");
+    assert_eq!(
+        Selector::trigger(&bare).to_string(),
+        "\"N1\" with no conditions"
+    );
     let conditioned = Trigger {
         segment: b"N1".to_vec(),
         conditions: vec![(1, b"PR".to_vec()), (3, b"X".to_vec())],
     };
     assert_eq!(
-        render_trigger(&conditioned),
+        Selector::trigger(&conditioned).to_string(),
         "\"N1\" where {1: \"PR\", 3: \"X\"}"
     );
 }

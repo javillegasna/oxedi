@@ -1,14 +1,15 @@
 //! Why a spec cannot be written: the refusals a write plan raises.
 
-use crate::message::Conditions;
+use crate::message::ElementRef;
+use crate::spec::Selector;
 
-/// A segment and its conditions as a message shows them.
-pub(super) fn render_source(segment: &[u8], conditions: &[(usize, Vec<u8>)]) -> String {
-    format!(
-        "{:?}{}",
-        String::from_utf8_lossy(segment),
-        Conditions(conditions)
-    )
+/// What writes the instances of a loop.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum LoopWriter {
+    /// The caller's envelope.
+    Envelope,
+    /// A table, by name.
+    Table(String),
 }
 
 /// One reason a spec's tables cannot be turned back into a file.
@@ -22,7 +23,7 @@ pub enum Refusal {
         /// Its parent loop.
         parent: String,
         /// The loop's trigger as the spec writes it.
-        trigger: String,
+        trigger: Selector,
     },
     /// An occurrence that every instance of a written loop requires has no
     /// column that writes it.
@@ -32,7 +33,7 @@ pub enum Refusal {
         /// The occurrence.
         occurrence: String,
         /// What selects it, e.g. `"PER" where PER01 is "BL"`.
-        selector: String,
+        selector: Selector,
     },
     /// A required element (or component) of an occurrence that a table
     /// writes has no column, and no single code the spec allows for it.
@@ -45,7 +46,7 @@ pub enum Refusal {
         /// The occurrence.
         occurrence: String,
         /// The element or component, e.g. `NM102` or `SVC01-1`.
-        place: String,
+        place: ElementRef,
         /// The element's name in the spec.
         name: String,
     },
@@ -60,7 +61,7 @@ pub enum Refusal {
         /// The loop the column reads.
         loop_name: String,
         /// The segment and conditions, e.g. `"DTM" where {1: "232"}`.
-        source: String,
+        source: Selector,
         /// The occurrences that match; empty when none does.
         candidates: Vec<String>,
     },
@@ -88,8 +89,8 @@ pub enum Refusal {
         column: String,
         /// The loop the column reads.
         loop_name: String,
-        /// What writes the loop: a table's name, or `the envelope`.
-        writer: String,
+        /// What writes the loop.
+        writer: LoopWriter,
     },
     /// Two columns write the same element of the same segment.
     DuplicateSource {
@@ -104,7 +105,7 @@ pub enum Refusal {
         /// The occurrence.
         occurrence: String,
         /// The element or component, e.g. `CLP01`.
-        place: String,
+        place: ElementRef,
     },
     /// A column reads an envelope segment, whose values the caller's
     /// envelope and the writer's counts give.
@@ -124,7 +125,7 @@ pub enum Refusal {
         /// The envelope loop.
         loop_name: String,
         /// The loop's trigger as the spec writes it.
-        trigger: String,
+        trigger: Selector,
     },
     /// A table without a segment is anchored on a loop whose rows another
     /// table already gives.
@@ -151,8 +152,8 @@ pub enum Refusal {
         table: String,
         /// The loop it is anchored on.
         loop_name: String,
-        /// The anchor segment, e.g. `"CAS"`.
-        segment: String,
+        /// The anchor segment, e.g. `CAS`; none for a table without one.
+        segment: Option<Vec<u8>>,
     },
     /// A code the spec fixes for a written segment (a `where` value or the
     /// occurrence's single qualifier code) is outside the code list of the
@@ -168,7 +169,7 @@ pub enum Refusal {
         /// The occurrence.
         occurrence: String,
         /// The element or component, e.g. `PER01`.
-        place: String,
+        place: ElementRef,
         /// The fixed code.
         value: String,
         /// The code list that does not allow it.

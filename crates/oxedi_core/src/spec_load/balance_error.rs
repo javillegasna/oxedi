@@ -1,5 +1,7 @@
 //! Why a balancing rule was rejected.
 
+use crate::message::ElementRef;
+
 /// Why a balancing rule was rejected. Every variant that points inside the
 /// rule names the key it sits at, e.g. `per`, `target[0].loop` or
 /// `sum[1].elements[2]`.
@@ -50,14 +52,14 @@ pub enum BalanceError {
         /// Where the position sits.
         key: String,
         /// The element or component, e.g. `CLP03` or `SVC01-2`.
-        place: String,
+        place: ElementRef,
     },
     /// A value names an element or component that is not a decimal amount.
     NotDecimal {
         /// Where the position sits.
         key: String,
         /// The element or component, e.g. `CLP01`.
-        place: String,
+        place: ElementRef,
         /// Its declared type code, e.g. `AN`.
         found: String,
     },
@@ -68,6 +70,6 @@ pub enum BalanceError {
         /// Where the first mention sits.
         first: String,
         /// The element or component, e.g. `CAS03`.
-        place: String,
+        place: ElementRef,
     },
 }

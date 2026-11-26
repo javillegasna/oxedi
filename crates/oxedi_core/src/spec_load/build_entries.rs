@@ -8,7 +8,7 @@ use super::model::ElementEntryModel;
 use super::occurrence_error::OccurrenceError;
 use super::segments::{check_lengths, compile_codes};
 use super::vocabulary::ElementPosition;
-use crate::message::place;
+use crate::message::ElementRef;
 use crate::spec::{ElementDef, ElementEntry, Qualifier, SegmentDef, Setting, Usage, element_def};
 use crate::value::LengthRange;
 
@@ -70,7 +70,7 @@ pub(super) fn compile_list(
         return Err(OccurrenceError::CodeOutsideElement {
             key,
             code: code.clone(),
-            place: place(segment, element, component),
+            place: ElementRef::new(segment.as_bytes().to_vec(), element, component),
             allowed: def.codes.clone(),
         });
     }
@@ -115,7 +115,7 @@ fn compile_entry(
     let key = format!("elements.{at}");
     let def = find_element(segments, segment, &key, at)?;
     refuse_at_qualifier(&key, at, entry, qualifier, def)?;
-    let place = place(segment, at.element, at.component);
+    let place = ElementRef::new(segment.as_bytes().to_vec(), at.element, at.component);
     let length = entry_length(def, &key, &place, entry)?;
     Ok(ElementEntry {
         required: entry_required(def, &key, &place, entry.usage)?,
@@ -156,7 +156,7 @@ fn refuse_at_qualifier(
 fn entry_required(
     def: &ElementDef,
     key: &str,
-    place: &str,
+    place: &ElementRef,
     usage: Option<Usage>,
 ) -> Result<Setting<bool>, OccurrenceError> {
     match usage {
@@ -164,7 +164,7 @@ fn entry_required(
         Some(Usage::Required) => Ok(Setting::Occurrence(true)),
         Some(Usage::Situational) if def.required => Err(OccurrenceError::UsageLooserThanElement {
             key: format!("{key}.usage"),
-            place: place.to_owned(),
+            place: place.clone(),
         }),
         Some(Usage::Situational) => Ok(Setting::Occurrence(false)),
     }
@@ -175,7 +175,7 @@ fn entry_required(
 fn entry_length(
     def: &ElementDef,
     key: &str,
-    place: &str,
+    place: &ElementRef,
     entry: &ElementEntryModel,
 ) -> Result<Setting<LengthRange>, OccurrenceError> {
     if entry.min.is_none() && entry.max.is_none() {
@@ -189,7 +189,7 @@ fn entry_length(
     if !found.within(def.length) {
         return Err(OccurrenceError::LengthsOutsideElement {
             key: key.to_owned(),
-            place: place.to_owned(),
+            place: Box::new(place.clone()),
             found,
             allowed: def.length,
         });

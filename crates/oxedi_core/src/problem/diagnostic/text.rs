@@ -6,7 +6,8 @@
 use std::fmt;
 
 use crate::diagnostic::{LoopPath, LoopRef};
-use crate::message::{MAX_LISTED_CODES, Quoted};
+use crate::message::Quoted;
+use crate::problem::text::MAX_LISTED_CODES;
 use crate::value::decimal_display;
 
 /// The most segment indexes a balancing message spells out; a longer list

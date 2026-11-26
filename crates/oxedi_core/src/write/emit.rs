@@ -23,7 +23,7 @@ use super::render::Part;
 use super::trace::{Src, Traces};
 use super::walk::Context;
 use crate::delimiters::Syntax;
-use crate::message::place;
+use crate::message::ElementRef;
 
 /// The writer's state while it walks the loops.
 pub(super) struct Emitter<'a> {
@@ -184,9 +184,7 @@ impl Emitter<'_> {
         let syntax = self.header_syntax(&values);
         for value in values {
             if let Some(field) = value.field {
-                let origin = ValueOrigin::Envelope {
-                    field: field.name().to_string(),
-                };
+                let origin = ValueOrigin::Envelope { field };
                 if value.checked {
                     self.check_delimiters(
                         syntax,
@@ -204,7 +202,7 @@ impl Emitter<'_> {
                     };
                     self.findings.push(Finding::NotWritable {
                         origin: origin.clone(),
-                        place: place(&trigger, value.element, None),
+                        place: ElementRef::simple(trigger.clone(), value.element),
                         value: shown,
                         reason,
                     });

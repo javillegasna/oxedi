@@ -2,7 +2,7 @@
 
 use std::fmt;
 
-use crate::message::place;
+use crate::message::ElementRef;
 use crate::spec_load::OccurrenceError;
 
 impl fmt::Display for OccurrenceError {
@@ -21,7 +21,7 @@ impl fmt::Display for OccurrenceError {
             } => write!(
                 f,
                 "{key} names {}, which the \"segments\" section does not define for {segment:?}",
-                place(segment, *element, *component)
+                ElementRef::new(segment, *element, *component)
             ),
             OccurrenceError::EmptyCodes { key } => {
                 write!(f, "{key} is empty; list at least one code")

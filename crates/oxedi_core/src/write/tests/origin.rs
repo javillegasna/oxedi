@@ -45,7 +45,7 @@ fn a_control_number_mismatch_names_the_envelope_field_of_the_closer() {
     assert_eq!(
         origin_of(&diagnostic, &traces(), &names),
         Some(ValueOrigin::Envelope {
-            field: "control_number".to_string()
+            field: Field::ControlNumber
         })
     );
 }

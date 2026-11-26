@@ -42,6 +42,7 @@ mod read_index;
 mod render;
 mod rule;
 mod schema;
+mod selector;
 mod tables;
 #[cfg(test)]
 pub(crate) mod test_support;
@@ -59,6 +60,7 @@ pub use occurrences::{ElementEntry, OccurrenceDef, Qualifier, Setting, Usage};
 pub use schema::{
     ColumnKind, ColumnSchema, TableSchema, require_column, spec_schema, table_columns, table_schema,
 };
+pub use selector::Selector;
 pub use tables::{ColumnSource, Repeat, Summary, TableDef};
 pub use unknown::{UnknownColumn, UnknownTable};
 pub use version::DeclaredVersion;

@@ -15,6 +15,7 @@ mod conformance;
 mod diagnostic;
 mod load;
 mod lookup;
+mod spec;
 mod syntax;
 mod validate;
 mod value;

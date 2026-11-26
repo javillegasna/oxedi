@@ -14,7 +14,7 @@ use crate::spec::{ControlCount, LoopId, Spec};
 use crate::value::{date_display, time_display};
 
 use super::data::Data;
-use super::envelope::{Envelope, EnvelopeValue, Field, control_text, trigger_values};
+use super::envelope::{Envelope, EnvelopeValue, Field, control_text, trigger_rule, trigger_values};
 use super::finding::{Finding, ValueOrigin};
 use super::layout::{Item, Layout};
 use super::nest::Nest;
@@ -177,10 +177,7 @@ impl Emitter<'_> {
         if let Some(counter) = self.counters.get_mut(id.index()) {
             *counter = counter.saturating_add(1);
         }
-        let control = control_text(
-            number,
-            self.spec.element_def(&trigger, rule.opener_element, None),
-        );
+        let control = control_text(number, trigger_rule(self.spec, def, rule.opener_element));
         let depth = self
             .layout
             .depth
@@ -190,7 +187,7 @@ impl Emitter<'_> {
             .unwrap_or(0);
         let values = trigger_values(
             self.spec,
-            &trigger,
+            def,
             depth,
             rule.opener_element,
             &control,

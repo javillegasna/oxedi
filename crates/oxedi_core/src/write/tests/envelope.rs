@@ -1,6 +1,6 @@
 use super::super::envelope::interchange_version;
 use super::super::envelope::trigger_rule;
-use super::super::{Envelope, Finding, WriteError, write, write_with_findings};
+use super::super::{Envelope, Finding, Refusal, WriteError, write, write_with_findings};
 use crate::delimiters::Delimiters;
 use crate::diagnostic::Rule;
 use crate::spec::test_support::{builtin, patched};
@@ -228,6 +228,22 @@ fn a_loop_without_occurrences_reads_the_definition() {
     assert_eq!(rule.codes, ["0", "1"]);
     let rule = trigger_rule(&spec, root, 6).unwrap();
     assert_eq!(rule.length.min, Some(15));
+}
+
+#[test]
+fn an_envelope_loop_without_occurrences_is_refused_by_the_writer() {
+    let spec = patched(
+        &builtin(Version::V5010),
+        r#"{"loops":{"interchange":{"occurrences":{"interchange_control_header":null,"interchange_acknowledgement":null}}}}"#,
+    )
+    .unwrap();
+    let Err(WriteError::Plan(plan)) = write(&spec, &Default::default(), &plain_envelope()) else {
+        panic!("a spec with no ISA occurrence must be refused");
+    };
+    assert!(plan.refusals.contains(&Refusal::EnvelopeWithoutOccurrence {
+        loop_name: "interchange".into(),
+        trigger: "\"ISA\" with no conditions".into(),
+    }));
 }
 
 #[test]

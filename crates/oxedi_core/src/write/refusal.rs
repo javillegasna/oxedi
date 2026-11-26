@@ -122,6 +122,14 @@ pub enum Refusal {
         /// The envelope occurrence.
         occurrence: String,
     },
+    /// An envelope loop declares no occurrence its trigger opens on, so its
+    /// header segment has no place in the file.
+    EnvelopeWithoutOccurrence {
+        /// The envelope loop.
+        loop_name: String,
+        /// The loop's trigger as the spec writes it.
+        trigger: String,
+    },
     /// A table without a segment is anchored on a loop whose rows another
     /// table already gives.
     AnchoredByAnotherTable {
@@ -262,6 +270,11 @@ impl fmt::Display for Refusal {
                 "table {table:?} column {column:?} reads the envelope occurrence {occurrence:?} \
                  of loop {loop_name:?}, which the envelope and the writer's counts give"
             ),
+            Refusal::EnvelopeWithoutOccurrence { loop_name, trigger } => write!(
+                f,
+                "the envelope loop {loop_name:?} declares no occurrence for its trigger {trigger}, \
+                 so its header cannot be placed"
+            ),
             Refusal::AnchoredByAnotherTable {
                 table,
                 loop_name,
@@ -343,6 +356,9 @@ impl Refusal {
             Refusal::EnvelopeColumn { .. } => {
                 "remove the column; the writer takes the envelope's values from the caller's \
                  envelope"
+            }
+            Refusal::EnvelopeWithoutOccurrence { .. } => {
+                "declare the occurrence the loop's trigger opens on"
             }
             Refusal::AnchoredByAnotherTable { .. } => {
                 "anchor one of the two tables on a segment of the loop, or remove one of them"

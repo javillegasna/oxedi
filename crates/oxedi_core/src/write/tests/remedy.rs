@@ -102,6 +102,13 @@ fn every_refusal_says_what_to_do() {
              envelope",
         ),
         (
+            Refusal::EnvelopeWithoutOccurrence {
+                loop_name: s("interchange"),
+                trigger: s("\"ISA\" with no conditions"),
+            },
+            "declare the occurrence the loop's trigger opens on",
+        ),
+        (
             Refusal::AnchoredByAnotherTable {
                 table: s("t"),
                 loop_name: s("2100"),
@@ -138,10 +145,10 @@ fn every_refusal_says_what_to_do() {
              guide",
         ),
     ];
-    assert_eq!(cases.len(), 13);
+    assert_eq!(cases.len(), 14);
     for (refusal, expected) in &cases {
         assert_eq!(refusal.remedy(), *expected, "{refusal}");
     }
     let distinct: HashSet<&str> = cases.iter().map(|(refusal, _)| refusal.remedy()).collect();
-    assert_eq!(distinct.len(), 13);
+    assert_eq!(distinct.len(), 14);
 }

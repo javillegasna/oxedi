@@ -145,6 +145,18 @@ fn findings_display_their_full_text() {
 }
 
 #[test]
+fn an_envelope_loop_without_an_occurrence_displays_its_full_text() {
+    let refusal = Refusal::EnvelopeWithoutOccurrence {
+        loop_name: "interchange".into(),
+        trigger: "\"ISA\" with no conditions".into(),
+    };
+    assert_eq!(
+        refusal.to_string(),
+        "the envelope loop \"interchange\" declares no occurrence for its trigger \"ISA\" with no conditions, so its header cannot be placed"
+    );
+}
+
+#[test]
 fn write_errors_display_their_full_text() {
     let plan = PlanError {
         spec: "s".into(),

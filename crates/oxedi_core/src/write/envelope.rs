@@ -280,13 +280,6 @@ pub(super) fn for_spec(envelope: &Envelope, carries_repetition: bool) -> Cow<'_,
     Cow::Owned(owned)
 }
 
-/// The occurrence of `def` its trigger opens on, whose entries narrow the
-/// rules of the trigger's elements.
-fn trigger_entry(def: &LoopDef) -> Option<&OccurrenceDef> {
-    def.trigger_occurrence()
-        .and_then(|at| def.occurrences.get(at))
-}
-
 /// The rule of `element` of `def`'s trigger segment at the occurrence the
 /// trigger opens on; `None` when the spec does not define the element.
 pub(super) fn trigger_rule<'s>(
@@ -297,7 +290,7 @@ pub(super) fn trigger_rule<'s>(
     let element_def = spec.element_def(&def.trigger.segment, element, None)?;
     Some(ElementRule::at(
         element_def,
-        trigger_entry(def),
+        def.trigger_entry(),
         element,
         None,
     ))
@@ -364,7 +357,7 @@ impl<'a> Header<'a> {
         Header {
             spec,
             trigger: &def.trigger.segment,
-            occurrence: trigger_entry(def),
+            occurrence: def.trigger_entry(),
             depth,
             opener_element,
             control,

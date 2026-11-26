@@ -134,4 +134,5 @@ with its `PER*CX*CLAIMS DEPT*TE*8005551234` replaced by `PER*BL*EDI SUPPORT*TE*8
 
 It has 61 segments. The one diagnostic is PER01 `BL`, which the 4010 list of that element (`CX`)
 leaves out. The reader still fills the three payer technical contact columns of `payments` from
-that `PER`, and the writer does not write them.
+that `PER`, and the writer writes them back there, so the written file reads back with the same
+diagnostic (a strict write refuses it with that one finding).

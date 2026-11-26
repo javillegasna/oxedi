@@ -36,13 +36,13 @@ so a token can be reproduced from the key. Two consequences follow:
 
 An empty value stays empty, and a missing value stays null.
 
-The diagnostics are masked too. The value a finding quotes is masked when it comes from `DTM02`,
+The diagnostics are masked too. The value a diagnostic quotes is masked when it comes from `DTM02`,
 `REF02`, `NM1` elements 3, 4 and 9, `CLP01`, `CLP07` or the reference of a `PLB` adjustment
 (the second component of each adjustment identifier, read into
 `provider_adjustments.reference_id`). This covers every segment of those types,
-so it also hides the value of a finding about the payer, the payee or a provider, such as one
-about a `DTM*405` date or a payer `REF02`. Amounts a finding quotes stay as they are.
-A `LengthOutOfRange` finding still states the length of the original value. With
+so it also hides the value of a diagnostic about the payer, the payee or a provider, such as one
+about a `DTM*405` date or a payer `REF02`. Amounts a diagnostic quotes stay as they are.
+A `LengthOutOfRange` diagnostic still states the length of the original value. With
 `dates="shift"`, a date inside a diagnostic is reduced to its year.
 
 ## Choose what happens to dates

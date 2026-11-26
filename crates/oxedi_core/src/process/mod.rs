@@ -97,7 +97,7 @@ impl<'s> Processor<'s> {
             .events
             .extend_from_slice(self.engine.feed(segment));
         // The events carry the occurrence each captured segment matched, so
-        // the two consumers are independent; the checker's findings come
+        // the two consumers are independent; the checker's diagnostics come
         // first.
         let events = &self.output.events;
         self.projector.on(segment, events, self.engine.path());

@@ -77,7 +77,7 @@ def test_csv_neutralizes_formulas_and_keeps_negative_amounts(viewer, tmp_path):
 def test_dropped_file_with_diagnostics_links_to_text(viewer):
     path = SAMPLES / "edi835_test_file.RMT"
     expected = oxedi.parse(path.read_bytes()).diagnostics
-    assert expected, "the sample must have findings for this test"
+    assert expected, "the sample must have diagnostics for this test"
     first = expected[0]
 
     viewer.open()

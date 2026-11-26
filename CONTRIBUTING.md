@@ -76,7 +76,9 @@ def all() -> builtins.list[Version]: ...
 ```
 
 **Errors explain themselves.** Every error and diagnostic names the rule that failed, where it
-failed and the offending value. "Where" is the loop and key as written for a spec, and the
+failed and the offending value. The layers raise the values; the text is written only in
+`crates/oxedi_core/src/problem/`, one file per family, and the architecture test refuses an
+`impl Display` of a problem anywhere else. "Where" is the loop and key as written for a spec, and the
 segment index, byte range, element and component position and loop path for a file. Each
 variant has one test of its full `Display` text. `Display` reads well on its own and prints any
 inner error in full. `source()` returns the inner error only when `Display` does not print it,
@@ -144,14 +146,15 @@ and a table row are 0-based. A new field says which in its doc comment. From
 `crates/oxedi_core/src/diagnostic/mod.rs`:
 
 ```rust
-/// 1-based element position inside the segment, when the finding is.
+/// 1-based element position inside the segment, when the diagnostic is about one.
 pub element: Option<usize>,
 ```
 
 **One name per concept.** A binding type that mirrors a core type is `Py<Core>` in Python
 (`PyDiagnostic`) and `<Core>View` in the viewer (`DiagnosticView`, `DelimitersView`). Do not
-reuse a core type's name for a different shape. In prose, a "diagnostic" is a reading result and
-a "finding" is a writing or external-validator result.
+reuse a core type's name for a different shape. In prose, a "diagnostic" is a reading result, a "finding" a writing or
+external-validator result and a "refusal" why a spec cannot be written; "problem" names any of
+them (`Problem`).
 
 **A rename moves the map too.** A change that renames a public core item or moves a module
 updates [ARCHITECTURE.md](ARCHITECTURE.md) and `crates/oxedi_core/tests/public_paths.rs` (which

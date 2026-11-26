@@ -7,7 +7,7 @@
 
 use std::fmt;
 
-use crate::diagnostic::{LoopRef, Rule, SnipLevel};
+use crate::diagnostic::{Diagnostic, LoopRef, Rule, SnipLevel};
 use crate::spec_load::PackageId;
 use crate::write::{EnvelopeSource, ValueOrigin};
 
@@ -176,6 +176,8 @@ pub enum Detail<'a> {
     Finding {
         /// Where the value comes from, when the finding is about a value.
         origin: Option<&'a ValueOrigin>,
+        /// The diagnostic of reading the written file back, for a read-back finding.
+        diagnostic: Option<&'a Diagnostic>,
     },
     /// Nothing more.
     Plain,

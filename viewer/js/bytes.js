@@ -46,7 +46,7 @@ export function splitRange(bytes, start, end, separator) {
 /**
  * Byte range of an element (1-based; 0 is the segment id) and, when given, of
  * one of its components (1-based). An element with repetitions is cut at the
- * repetition separator first and the first repetition is used (a finding
+ * repetition separator first and the first repetition is used (a diagnostic
  * carries no repetition index), so a component never spans the separator.
  * Null when the segment has no such part.
  */

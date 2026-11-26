@@ -133,6 +133,47 @@ are returned. Findings from the writer itself (a value holding a delimiter, a br
 reference) come before the read-back ones; the read-back is skipped when a value holds a
 delimiter, because the file then splits where the data does not.
 
+### Problems: text in one place, one shape
+
+```mermaid
+flowchart LR
+  subgraph Layers["Layers raise data"]
+    r["reading<br/>Diagnostic"]
+    w["writing<br/>Finding · Refusal · WriteError"]
+    l["loading and tools<br/>SpecError · KitError · …"]
+  end
+  subgraph P["problem/"]
+    t["text: every Display and remedy"]
+    s["shape: Problem<br/>kind · place · detail · record"]
+  end
+  subgraph B["Bindings"]
+    py["Python"]
+    dk["DuckDB"]
+    wa["viewer"]
+  end
+  r --> P
+  w --> P
+  l --> P
+  s --> py
+  s --> dk
+  s --> wa
+  classDef s fill:#cfe8ff,stroke:#1d4ed8,color:#111
+  class t,s s
+```
+
+The layers raise typed values (the rule, the place, the offending value) and never prose.
+`problem/` (`problem/mod.rs` lists its files) writes every `Display` and `Refusal::remedy`.
+`problem/shape/` gives each of the ten families (`Diagnostic`, `Finding`, `Refusal`,
+`WriteError`, `SpecError`, `DocumentError`, `KitError`, `SummaryError`, `MaskError`,
+`CaseFault`) the trait `Problem`: `kind` (the variant's name, a stable word), `place` (`Place`:
+a file position, a spec entry (`SpecPlace`), a cell, an envelope field, a package, a kit, or
+nowhere), `detail` (`Detail`: a diagnostic's level, rule, datum, origin and code; a finding's
+value origin and read-back diagnostic) and `record()` (`ProblemRecord`).
+
+The bindings read `kind`, `place` and `detail` instead of matching a family's variants, and
+the architecture test refuses an `impl Display` outside `problem/` that is not listed as
+notation.
+
 ## From the spec JSON to code
 
 The spec files are packages under `crates/oxedi_core/specs/`, each at the path of its id: a header
@@ -246,6 +287,7 @@ Every key is listed in [the spec keys reference](docs/customize/spec.md#spec-key
 | Add a value type | `ElementType` in `value/element_type.rs`; `ColumnType` in `value/column_type.rs`; `ColumnData` and `render` in `column/mod.rs`; a parser in `value/parse.rs`; its text, displayed and as an element, in `value/format.rs` | Core writer in `write/render.rs` and `write/data.rs`; DuckDB `types/`, `scan/write.rs` and `copy/`; Python `arrow.rs`, `import.rs` and `native.rs` |
 | Refuse a spec the writer cannot write | `write/refusal.rs` (`Refusal`, `LoopWriter`), its text and `remedy` in `problem/write/refusal.rs` | Raise it where the plan is built (`write/build.rs`, `write/codes.rs`, `write/place.rs`, `write/required.rs` for the three `Required*WithoutSource`, `write/segments.rs` for `DuplicateSource` and `PickNotContiguous`); `Display` test in `write/tests/display.rs` |
 | Give a new problem family its shape | `problem/shape/` (`Problem`, `Place`, `Detail`, `ProblemRecord`; one file per family) | Implement `Problem` for the family in its own file: `kind` is the variant's name, `place` the most specific place its fields name. |
+| Change a message's wording | its family's file in `problem/` (`diagnostic/`, `write/`, `load/`, `syntax.rs`, `value.rs`, `lookup.rs`, `validate.rs`, `conformance.rs`) | its full-text `Display` test; a line in `CHANGELOG.md`, since a text is a break |
 | Report a new problem in written tables | `write/finding.rs` (`Finding`), its text in `problem/write/finding.rs` | Raise it where the writer meets it (`write/nest.rs` for references, `write/emit.rs` and `write/cells.rs` while writing); test in `tests/write_findings.rs` |
 | Change patient-data masking | `mask/` (tokens, dates), `vocabulary/` (`Phi`, `DateMode`), `project/mask.rs` (columns and datums) | `spec_load/phi.rs` for the flags; `tests/mask.rs` |
 | Add or change a Python attribute | the file in `crates/oxedi_py/src/` with `#[pyclass(name = "X")]` (files are by topic: `Result` is in `parse.rs`), plus `python/oxedi/` when a Python wrapper is involved | `make stubs`, `make stubtest`, a test in `crates/oxedi_py/tests/` |
@@ -271,14 +313,14 @@ The same concept, named in each binding. The Rust files are under `crates/oxedi_
 | Table schema (`spec_schema`, `spec/schema.rs`) | `Spec.schema()` | `oxedi_schema()` (`oxedi_schema/`) | — |
 | Loops and their triggers (`Spec::loops`, `LoopDef::trigger`) | `Spec.loops()`, `Spec.trigger_segment(name)`, `Spec.tables()` (`spec.rs`), `Spec.envelope()` → `EnvelopeLoop` (`envelope_loop.rs`) | — | — |
 | Column source (`TableDef::column`, `ColumnSource`, `Repeat::holds`) | `Spec.column_source(table, column)` → `ElementSource`; `Spec.element_sources(table)`, `Spec.group_sources(table)` → `GroupSource` (`element_source.rs`) | — | — |
-| Diagnostics (`Diagnostic`) | `Result.diagnostics`, `Diagnostic.kind`, `.rule`, `.datum` (`diagnostic.rs`, reading `Diagnostic::flat`) | `table_name := 'diagnostics'` (`diagnostics/`) | `View.diagnostics` (`DiagnosticView`) |
+| Diagnostics (`Diagnostic`) | `Result.diagnostics`, `Diagnostic.kind`, `.rule`, `.datum` (`diagnostic.rs`) | `table_name := 'diagnostics'` (`diagnostics/`, reading `Problem`) | `View.diagnostics` (`DiagnosticView`, from `Problem::record`) |
 | Segments (`Document`, `Segment`) | `Result.document[i]`, `Segment.element(position, component)`, `Segment.has(...)` over `Segment::component` (`document.rs`) | — | `View.segments` (`SegmentView`) |
 | Summaries (`summarize`, `Spec::summaries`) | `Result.summary(name)` (`native.rs`) | — | — |
 | Delimiters (`Delimiters`) | `Delimiters` | — | `View.delimiters` (`DelimitersView`) |
 | Loop tree (`LoopTree`) | — | — | `View.nodes` (`NodeView`) |
 | Mask patient data (`Mask`) | `oxedi.Mask(key, dates='year')` (`mask.rs`) | `mask_key :=`, `mask_dates :=` (`options/`) | the page's mask switch (`mask_key`) |
 | Write (`write::write`) | `oxedi.write(tables, envelope)` (`write.rs`, `import.rs`, `python/oxedi/_write.py`) | `COPY … TO 'out.835' (FORMAT edi835, …)` (`copy/`) | — |
-| Writer findings (`Finding`) | `WriteFinding`, `WriteError` | the `COPY` fails with the findings | — |
+| Writer findings (`Finding`) | `WriteFinding`, `WriteError` (`write.rs`, reading `Problem`) | the `COPY` fails with the findings | — |
 
 Every binding delegates to the core. The only logic a binding owns is converting values (to
 Arrow, DuckDB types or JSON) and reporting errors in its own terms.
@@ -354,7 +396,7 @@ Internal words used in the code. X12 and payment terms for users are in
 | anchor | The loop or loops (JSON `tables.*.loops`) or the segment (JSON `segment`) a table takes one row per. | `project/`, `spec/tables.rs` |
 | ref / reference column | The column a child row uses to point at its parent table's row. | `spec/tables.rs` |
 | table / column / cell | Arrow-shaped output (`Table`, `ColumnData`, `Bitmap`); a cell is one value. | `column/` |
-| diagnostic | A reading problem as data: `rule`, SNIP `level`, `segment`, `element`, `component`, `path`, `datum`; `Diagnostic::flat` gives them as one flat record (`FlatDiagnostic`). | `diagnostic/` |
+| diagnostic | A reading problem as data: `rule`, SNIP `level`, `segment`, `element`, `component`, `path`, `datum`; a binding reads them through `Problem` (`place`, `detail`). | `diagnostic/` |
 | rule | The check that failed, with the values its message needs (`Rule`). | `diagnostic/rule.rs` |
 | SNIP level | The industry level of a check; oxedi reports 1 (integrity: envelopes, structure), 2 (requirements: elements) and 3 (balancing). `SnipLevel`. | `diagnostic/` |
 | datum | The offending value exactly as written in the file. | `Diagnostic::datum` |
@@ -366,6 +408,8 @@ Internal words used in the code. X12 and payment terms for users are in
 | PHI / mask / phi seed | Patient-data columns flagged in the spec (`Phi`); a keyed digest replaces them; the seed column keys the date shift. User docs say "patient data". | `vocabulary/` (`Phi`), `mask/`, `spec_load/phi.rs`, `project/mask.rs` |
 | write plan | Where each written loop instance and element value comes from; built from the columns' places at the start of each write. | `write/plan.rs`, `write/build.rs` |
 | problem | What every error, diagnostic, finding or refusal is: a `kind`, a `place` and a text, and for some families a `detail`, read as one `ProblemRecord` (`Problem`). | `problem/shape/` |
+| problem place | Where a problem points (`Place`): a file position, a spec entry (`SpecPlace`), a cell, an envelope field, a package, a kit, or nowhere. | `problem/shape/` |
+| problem record | A problem's kind, place, text and detail together (`ProblemRecord`); what a binding reads. | `problem/shape/` |
 | refusal | Why a **spec** cannot be written (`Refusal`, collected in `PlanError`). | `write/refusal.rs` |
 | finding | Something wrong in the **tables or the written file** (`Finding`); strict writing turns findings into `WriteError::Findings`. In prose, "diagnostic" is a reading result and "finding" a writing or external-validator result. | `write/finding.rs` |
 | value origin | The cell, row or envelope field a written value came from (`ValueOrigin`). | `write/finding.rs` |

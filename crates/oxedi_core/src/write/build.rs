@@ -45,8 +45,8 @@ pub(super) struct Builder<'s> {
     pub(super) refusals: Vec<Refusal>,
     /// Tables refused for their anchor: their columns are not placed.
     refused: Vec<usize>,
-    /// `(table, anchor loop)` of every table anchored on a segment.
-    pub(super) repeats: Vec<(usize, LoopId)>,
+    /// `(table, anchor loop, segment)` of every table anchored on a segment.
+    pub(super) repeats: Vec<(usize, LoopId, Vec<u8>)>,
 }
 
 impl WritePlan {
@@ -336,7 +336,7 @@ impl Builder<'_> {
             .filter_map(|(column, place)| written_element(column, place.target, from))
             .collect();
         for &anchor in &table.loops {
-            self.repeats.push((index, anchor));
+            self.repeats.push((index, anchor, segment.clone()));
             let def = self.spec.get(anchor);
             match landing(def, def.place_of(segment, &[]), segment) {
                 Ok(at) => self.repeat_segment(index, anchor, at, elements.clone()),

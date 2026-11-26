@@ -2,6 +2,7 @@
 //! owning loop instance, the loop tree, the projected tables as text and
 //! the diagnostics with their location.
 
+use oxedi_core::problem::{Detail, Place, Problem, ProblemRecord};
 use oxedi_core::{
     Builtin, Cell, DateMode, Diagnostic, Document, Event, LoopTree, Mask, NodeId, Processor, Spec,
     Tables,
@@ -29,7 +30,7 @@ pub struct View {
     pub nodes: Vec<NodeView>,
     /// The spec's tables, ordered by name.
     pub tables: Vec<TableView>,
-    /// Every finding, in the order the core reports them.
+    /// Every diagnostic, in the order the core reports them.
     pub diagnostics: Vec<DiagnosticView>,
 }
 
@@ -99,19 +100,19 @@ pub struct ColumnView {
     pub values: Vec<Option<String>>,
 }
 
-/// One finding with its full text and where it points.
+/// One diagnostic with its full text and where it points.
 #[derive(Debug, Serialize)]
 pub struct DiagnosticView {
-    /// The finding's full text: rule, location and offending datum.
+    /// The diagnostic's full text: rule, location and offending datum.
     pub text: String,
     /// `SNIP 1`, `SNIP 2` or `SNIP 3`.
     pub level: String,
     /// 0-based index into `View::segments` of the segment at fault; `None`
     /// at the end of the stream.
     pub segment: Option<usize>,
-    /// 1-based element position, when the finding has one.
+    /// 1-based element position, when the diagnostic has one.
     pub element: Option<usize>,
-    /// 1-based component position, when the finding has one.
+    /// 1-based component position, when the diagnostic has one.
     pub component: Option<usize>,
     /// Open loops, outermost first, as `(name, ordinal)`.
     pub path: Vec<(String, usize)>,
@@ -158,7 +159,10 @@ fn view_with(bytes: &[u8], mask: Option<&Mask>) -> Result<View, String> {
         segments: segments(&document, &owners),
         nodes: nodes(spec, &tree),
         tables: tables_view(&tables),
-        diagnostics: diagnostics.iter().map(diagnostic).collect(),
+        diagnostics: diagnostics
+            .iter()
+            .map(diagnostic)
+            .collect::<Result<_, _>>()?,
     })
 }
 
@@ -316,17 +320,39 @@ fn tables_view(tables: &Tables) -> Vec<TableView> {
         .collect()
 }
 
-fn diagnostic(diagnostic: &Diagnostic) -> DiagnosticView {
-    DiagnosticView {
-        text: diagnostic.to_string(),
-        level: diagnostic.level.to_string(),
-        segment: diagnostic.segment,
-        element: diagnostic.element,
-        component: diagnostic.component,
-        path: diagnostic
-            .path
+/// One diagnostic as the page reads it, from its record: the file place and
+/// the reading detail. Any other place or detail is not a diagnostic of a
+/// file.
+fn diagnostic(diagnostic: &Diagnostic) -> Result<DiagnosticView, String> {
+    let ProblemRecord {
+        kind,
+        place,
+        text,
+        detail,
+    } = diagnostic.record();
+    let (
+        Place::File {
+            segment,
+            element,
+            component,
+            path,
+        },
+        Detail::Diagnostic { level, .. },
+    ) = (place, detail)
+    else {
+        return Err(format!(
+            "internal error: the problem {kind} is not a diagnostic of a file"
+        ));
+    };
+    Ok(DiagnosticView {
+        text,
+        level: level.to_string(),
+        segment,
+        element,
+        component,
+        path: path
             .iter()
             .map(|loop_ref| (loop_ref.name.clone(), loop_ref.ordinal))
             .collect(),
-    }
+    })
 }

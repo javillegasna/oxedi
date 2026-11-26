@@ -1,5 +1,5 @@
-//! A diagnostic as flat fields, the shape every binding's table or class
-//! of diagnostics shares.
+//! A diagnostic's own values as plain ones: the level as a number, who
+//! reported it, its code and its path text.
 
 use super::{Diagnostic, LoopPath, Rule, SnipLevel};
 
@@ -15,49 +15,6 @@ impl SnipLevel {
             SnipLevel::L3 => 3,
         }
     }
-}
-
-/// A diagnostic as ten flat fields, borrowed from it; the columns a table of
-/// diagnostics has, in [`FlatDiagnostic::FIELDS`] order.
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub struct FlatDiagnostic<'a> {
-    /// The SNIP level: 1, 2 or 3.
-    pub level: u8,
-    /// The name of the rule's variant.
-    pub kind: &'static str,
-    /// The rule as a sentence with its values.
-    pub rule: String,
-    /// 0-based index of the segment at fault; `None` at the end of the stream.
-    pub segment: Option<usize>,
-    /// 1-based element position, when the diagnostic has one.
-    pub element: Option<usize>,
-    /// 1-based component position, when the diagnostic has one.
-    pub component: Option<usize>,
-    /// The open loops joined by `/`, e.g. `2000#1/2100#3`; empty at the root.
-    pub path: String,
-    /// The offending value as it appears in the file.
-    pub datum: &'a [u8],
-    /// [`PARSER_ORIGIN`] for the parser's own rules, the validator's name for
-    /// an external diagnostic.
-    pub origin: &'a str,
-    /// The external validator's own code, when it gives one.
-    pub code: Option<&'a str>,
-}
-
-impl FlatDiagnostic<'_> {
-    /// The field names, in the order of the struct.
-    pub const FIELDS: [&'static str; 10] = [
-        "level",
-        "kind",
-        "rule",
-        "segment",
-        "element",
-        "component",
-        "path",
-        "datum",
-        "origin",
-        "code",
-    ];
 }
 
 impl Diagnostic {
@@ -82,21 +39,5 @@ impl Diagnostic {
     /// empty at the root.
     pub fn path_text(&self) -> String {
         LoopPath(&self.path).to_string()
-    }
-
-    /// The diagnostic as flat fields.
-    pub fn flat(&self) -> FlatDiagnostic<'_> {
-        FlatDiagnostic {
-            level: self.level.number(),
-            kind: self.rule.kind(),
-            rule: self.rule.to_string(),
-            segment: self.segment,
-            element: self.element,
-            component: self.component,
-            path: self.path_text(),
-            datum: &self.datum,
-            origin: self.origin(),
-            code: self.code(),
-        }
     }
 }

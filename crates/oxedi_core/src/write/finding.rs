@@ -185,6 +185,17 @@ pub enum WriteError {
     Findings(Vec<Finding>),
 }
 
+impl WriteError {
+    /// The findings that refused the tables; empty unless the error is
+    /// [`WriteError::Findings`].
+    pub fn findings(&self) -> &[Finding] {
+        match self {
+            WriteError::Findings(findings) => findings,
+            _ => &[],
+        }
+    }
+}
+
 impl std::error::Error for WriteError {
     fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
         // `Plan` and `Unreadable` print their inner error in full, so the

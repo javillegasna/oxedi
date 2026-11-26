@@ -93,7 +93,8 @@ fn a_finding_points_at_its_value_or_the_file() {
     assert_eq!(
         found.detail(),
         Detail::Finding {
-            origin: Some(&cell())
+            origin: Some(&cell()),
+            diagnostic: None
         }
     );
     let read_back = Finding::ReadBack {
@@ -101,6 +102,13 @@ fn a_finding_points_at_its_value_or_the_file() {
         diagnostic: Box::new(unknown_segment()),
     };
     assert_eq!(read_back.place(), unknown_segment().place());
+    assert_eq!(
+        read_back.detail(),
+        Detail::Finding {
+            origin: None,
+            diagnostic: Some(&unknown_segment())
+        }
+    );
     let duplicate = Finding::DuplicateRowNumber {
         table: "t".into(),
         row: 4,
@@ -115,7 +123,41 @@ fn a_finding_points_at_its_value_or_the_file() {
             column: None
         }
     );
-    assert_eq!(duplicate.detail(), Detail::Finding { origin: None });
+    assert_eq!(
+        duplicate.detail(),
+        Detail::Finding {
+            origin: None,
+            diagnostic: None
+        }
+    );
+}
+
+#[test]
+fn a_write_error_gives_its_findings() {
+    assert_eq!(
+        WriteError::Findings(vec![delimiter(cell())]).findings(),
+        [delimiter(cell())]
+    );
+    let other = WriteError::SameDelimiter {
+        first: "element separator",
+        second: "repetition separator",
+        byte: b'^',
+    };
+    assert!(other.findings().is_empty());
+}
+
+#[test]
+fn a_case_fault_names_its_file() {
+    let faults = [
+        CaseFault::MissingFile { path: "a".into() },
+        CaseFault::NotText { path: "b".into() },
+        CaseFault::NotADocument {
+            path: "c".into(),
+            reason: DocumentError::Size(SizeError { len: 1 }),
+        },
+    ];
+    let paths: Vec<&str> = faults.iter().map(CaseFault::path).collect();
+    assert_eq!(paths, ["a", "b", "c"]);
 }
 
 #[test]
@@ -418,7 +460,7 @@ fn refusal_kinds() {
         Refusal::RepeatWithoutInstances {
             table: s("t"),
             loop_name: s("l"),
-            segment: None,
+            segment: b"S".to_vec(),
         },
         Refusal::CodeOutsideList {
             table: s("t"),

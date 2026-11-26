@@ -32,7 +32,7 @@ impl Builder<'_> {
     /// Refuses a table anchored on a segment of a loop that nothing gives
     /// instances to: its segments would have no instance to go in.
     pub(super) fn repeats_placed(&mut self) {
-        for (table, anchor) in std::mem::take(&mut self.repeats) {
+        for (table, anchor, segment) in std::mem::take(&mut self.repeats) {
             let absent = self
                 .loops
                 .get(anchor.index())
@@ -40,11 +40,6 @@ impl Builder<'_> {
             if !absent {
                 continue;
             }
-            let segment = self
-                .spec
-                .tables()
-                .get(table)
-                .and_then(|def| def.segment.clone());
             self.refusals.push(Refusal::RepeatWithoutInstances {
                 table: self.table_name(table),
                 loop_name: self.spec.loop_name(anchor).to_string(),

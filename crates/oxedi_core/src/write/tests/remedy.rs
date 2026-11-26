@@ -132,7 +132,7 @@ fn every_refusal_says_what_to_do() {
             Refusal::RepeatWithoutInstances {
                 table: s("t"),
                 loop_name: s("2100"),
-                segment: Some(b"CAS".to_vec()),
+                segment: b"CAS".to_vec(),
             },
             "anchor a table on the loop or add a column that reads it",
         ),

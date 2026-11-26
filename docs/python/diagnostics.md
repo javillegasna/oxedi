@@ -38,14 +38,14 @@ A diagnostic names the rule that failed, where it failed and the offending value
 - `kind`: the name of the rule that failed, for example `RequiredElementMissing`.
 - `rule`: the rule as a sentence with its values.
 - `segment`: the index of the segment at fault, or `None` at the end of the file.
-- `element` and `component`: the 1-based position inside the segment, when the finding has one.
+- `element` and `component`: the 1-based position inside the segment, when the diagnostic has one.
 - `path`: the loops open at that segment, outermost first, joined by `/`. It is empty at the
   root. `2110#4` is the fourth service line of the file.
 - `datum`: the offending value as it appears in the file (bytes).
 - `origin` and `code`: who reported it. That is `"oxedi"`, or `"pyx12"` with pyx12's own code
   (see [Validating with pyx12](pyx12.md)).
 
-Filter on `kind` to pick one sort of finding:
+Filter on `kind` to pick one sort of diagnostic:
 
 ```python
 bad_dates = [d for d in result.diagnostics if d.kind == "TypeMismatch"]
@@ -105,14 +105,14 @@ The bytes include the line break before the segment, which belongs to it.
     | `BalanceMismatch` | The amounts of a balancing rule do not add up in one loop. |
     | `External` | A finding of another validator, such as pyx12. |
 
-## What to do about a finding
+## What to do about a diagnostic
 
 A diagnostic describes the file, not a failure of the parse. You decide what to do with it:
 
-- Keep the tables and log the findings, for example to review them later.
+- Keep the tables and log the diagnostics, for example to review them later.
 - Stop the file and send it back to its sender. [oxedi in a pipeline](../recipes/pipelines.md)
   shows a step that does this.
-- Count findings across many files in SQL with
+- Count diagnostics across many files in SQL with
   `read_835(..., table_name := 'diagnostics')`. See
   [a Parquet lakehouse](../recipes/lakehouse.md#use-diagnostics-as-a-quality-gate).
 

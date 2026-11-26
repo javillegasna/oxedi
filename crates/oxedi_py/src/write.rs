@@ -7,7 +7,8 @@
 
 use std::sync::Arc;
 
-use oxedi_core::write::{Envelope, Finding, ValueOrigin, WriteError, write_with_findings};
+use oxedi_core::problem::{Detail, Place, Problem};
+use oxedi_core::write::{Envelope, Finding, WriteError, write_with_findings};
 use oxedi_core::{Builtin, Spec, Tables};
 use pyo3::prelude::*;
 use pyo3::types::{PyBytes, PyList, PyMapping, PyTuple};
@@ -218,85 +219,47 @@ pub struct PyWriteFinding {
     inner: Finding,
 }
 
-impl PyWriteFinding {
-    /// Where the value at fault comes from.
-    fn origin(&self) -> Option<&ValueOrigin> {
-        match &self.inner {
-            Finding::DelimiterInValue { origin, .. } | Finding::NotWritable { origin, .. } => {
-                Some(origin)
-            }
-            Finding::ReadBack { origin, .. } => origin.as_ref(),
-            _ => None,
-        }
-    }
-}
-
 #[gen_stub_pymethods]
 #[pymethods]
 impl PyWriteFinding {
     /// The kind of finding, e.g. `MissingParent` or `ReadBack`.
     #[getter]
     fn kind(&self) -> &'static str {
-        match &self.inner {
-            Finding::DelimiterInValue { .. } => "DelimiterInValue",
-            Finding::MissingParent { .. } => "MissingParent",
-            Finding::MismatchedReference { .. } => "MismatchedReference",
-            Finding::DuplicateRowNumber { .. } => "DuplicateRowNumber",
-            Finding::OutOfOrder { .. } => "OutOfOrder",
-            Finding::NotWritable { .. } => "NotWritable",
-            Finding::ReadBack { .. } => "ReadBack",
-        }
+        self.inner.kind()
     }
 
     /// The table at fault, when a table is.
     #[getter]
     fn table(&self) -> Option<&str> {
-        match &self.inner {
-            Finding::MissingParent { table, .. }
-            | Finding::MismatchedReference { table, .. }
-            | Finding::DuplicateRowNumber { table, .. }
-            | Finding::OutOfOrder { table, .. } => Some(table),
-            _ => match self.origin()? {
-                ValueOrigin::Cell { table, .. } | ValueOrigin::Row { table, .. } => Some(table),
-                ValueOrigin::Envelope { .. } => None,
-            },
+        match self.inner.place() {
+            Place::Cell { table, .. } => Some(table),
+            _ => None,
         }
     }
 
     /// The row at fault (its position in the table), when a row is.
     #[getter]
     fn row(&self) -> Option<usize> {
-        match &self.inner {
-            Finding::MissingParent { row, .. }
-            | Finding::MismatchedReference { row, .. }
-            | Finding::DuplicateRowNumber { row, .. }
-            | Finding::OutOfOrder { row, .. } => Some(*row),
-            _ => match self.origin()? {
-                ValueOrigin::Cell { row, .. } | ValueOrigin::Row { row, .. } => Some(*row),
-                ValueOrigin::Envelope { .. } => None,
-            },
+        match self.inner.place() {
+            Place::Cell { row, .. } => row,
+            _ => None,
         }
     }
 
     /// The column at fault, when a column is.
     #[getter]
     fn column(&self) -> Option<&str> {
-        match &self.inner {
-            Finding::MissingParent { column, .. }
-            | Finding::MismatchedReference { column, .. }
-            | Finding::OutOfOrder { column, .. } => Some(column),
-            _ => match self.origin()? {
-                ValueOrigin::Cell { column, .. } => Some(column),
-                _ => None,
-            },
+        match self.inner.place() {
+            Place::Cell { column, .. } => column,
+            _ => None,
         }
     }
 
     /// The envelope field at fault, when one is.
     #[getter]
     fn field(&self) -> Option<&str> {
-        match self.origin()? {
-            ValueOrigin::Envelope { field } => Some(field.name()),
+        match self.inner.place() {
+            Place::Envelope { field } => Some(field.name()),
             _ => None,
         }
     }
@@ -304,10 +267,8 @@ impl PyWriteFinding {
     /// The diagnostic of reading the written file back, for a `ReadBack`.
     #[getter]
     fn diagnostic(&self) -> Option<PyDiagnostic> {
-        match &self.inner {
-            Finding::ReadBack { diagnostic, .. } => {
-                Some(PyDiagnostic::from((**diagnostic).clone()))
-            }
+        match self.inner.detail() {
+            Detail::Finding { diagnostic, .. } => diagnostic.map(|d| PyDiagnostic::from(d.clone())),
             _ => None,
         }
     }
@@ -401,10 +362,7 @@ fn finish<'py>(
     allow_findings: bool,
 ) -> PyResult<Bound<'py, PyTuple>> {
     let (bytes, findings) = written.map_err(|error| {
-        let findings = match &error {
-            WriteError::Findings(findings) => findings.clone(),
-            _ => Vec::new(),
-        };
+        let findings = error.findings().to_vec();
         refuse(py, error.to_string(), findings)
     })?;
     if !allow_findings && !findings.is_empty() {

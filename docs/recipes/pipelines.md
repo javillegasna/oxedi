@@ -11,15 +11,15 @@ from pathlib import Path
 
 
 def process(data: bytes, out_dir: Path, name: str) -> list:
-    """Parse one file; write its tables as Parquet; return its findings."""
+    """Parse one file; write its tables as Parquet; return its problems."""
     try:
         result = oxedi.parse(data)
     except oxedi.ParseError as error:  # not an 835 at all
         return [str(error)]
 
-    findings = [str(d) for d in result.diagnostics]
-    if findings:
-        return findings  # leave the file for a person; write nothing
+    problems = [str(d) for d in result.diagnostics]
+    if problems:
+        return problems  # leave the file for a person; write nothing
 
     out_dir.mkdir(parents=True, exist_ok=True)
     for table in result.tables.keys():
@@ -64,7 +64,7 @@ def load_remittance(path: str) -> list:
 
 ## Dagster
 
-An asset with the findings as metadata. Not executed here, because it needs
+An asset with the problems as metadata. Not executed here, because it needs
 Dagster:
 
 <!-- docs-test: skip needs Dagster; the step it calls runs above -->
@@ -77,14 +77,14 @@ class RemitConfig(Config):
 @asset
 def remittance_tables(context, config: RemitConfig):
     path = config.path
-    findings = process(Path(path).read_bytes(), Path("/data/out"), Path(path).stem)
-    return Output(None, metadata={"findings": len(findings)})
+    problems = process(Path(path).read_bytes(), Path("/data/out"), Path(path).stem)
+    return Output(None, metadata={"problems": len(problems)})
 ```
 
 ## Kafka
 
 Treat each message as one file: call `process` on the message value and send a message with
-findings to a dead-letter topic when the list is not empty. Commit the offset only after the
+problems to a dead-letter topic when the list is not empty. Commit the offset only after the
 output is written, so a crash re-processes the message rather than losing it. `oxedi.stream(data)` yields one
 transaction at a time when a single message is large.
 

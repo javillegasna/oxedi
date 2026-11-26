@@ -282,18 +282,13 @@ fn errors_that_print_their_inner_error_do_not_chain_to_it() {
 }
 
 #[test]
-fn a_repeat_without_a_segment_names_none() {
-    let refusal = |segment| Refusal::RepeatWithoutInstances {
+fn a_repeat_names_its_anchor_segment() {
+    let refusal = Refusal::RepeatWithoutInstances {
         table: "t".into(),
         loop_name: "2100".into(),
-        segment,
+        segment: b"CAS".to_vec(),
     };
-    assert!(refusal(None).to_string().contains("writes one  per row"));
-    assert!(
-        refusal(Some(b"CAS".to_vec()))
-            .to_string()
-            .contains("writes one \"CAS\" per row")
-    );
+    assert!(refusal.to_string().contains("writes one \"CAS\" per row"));
 }
 
 #[test]

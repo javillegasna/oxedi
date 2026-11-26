@@ -310,7 +310,7 @@ impl Rule {
     }
 
     /// The name of the rule's variant, e.g. `RequiredElementMissing`, so a
-    /// caller can filter findings without parsing messages.
+    /// caller can filter diagnostics without parsing messages.
     pub fn kind(&self) -> &'static str {
         match self {
             Rule::ByteOrderMark => "ByteOrderMark",

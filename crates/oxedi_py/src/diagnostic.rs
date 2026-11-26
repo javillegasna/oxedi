@@ -1,5 +1,7 @@
-//! `Diagnostic`: one finding about a file's data, as Python attributes.
+//! `Diagnostic`: a reading diagnostic as Python attributes, and the adapters
+//! that build and mask an external validator's findings.
 
+use oxedi_core::problem::Problem;
 use oxedi_core::{Diagnostic, LoopRef, Projector, Rule, SnipLevel};
 use pyo3::exceptions::PyValueError;
 use pyo3::prelude::*;
@@ -12,7 +14,8 @@ use crate::document::PyDocument;
 use crate::mask::PyMask;
 use crate::spec::PySpec;
 
-/// One finding about the data of a file. A value, never raised.
+/// One diagnostic about the data of a file: the rule that failed, where and
+/// the value. A value, never raised.
 #[gen_stub_pyclass(module = "oxedi._core")]
 #[pyclass(name = "Diagnostic", module = "oxedi", frozen)]
 pub struct PyDiagnostic {
@@ -55,7 +58,7 @@ impl PyDiagnostic {
     /// The name of the rule that failed, e.g. `RequiredElementMissing`.
     #[getter]
     fn kind(&self) -> &'static str {
-        self.inner.rule.kind()
+        Problem::kind(&self.inner)
     }
 
     /// The rule that failed, as a sentence with its values.

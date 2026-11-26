@@ -25,7 +25,7 @@ mod by_module {
     use oxedi_core::delimiters::Delimiters;
     use oxedi_core::delimiters::IsaError;
     use oxedi_core::diagnostic::Diagnostic;
-    use oxedi_core::diagnostic::FlatDiagnostic;
+    use oxedi_core::diagnostic::LoopPath;
     use oxedi_core::diagnostic::LoopRef;
     use oxedi_core::diagnostic::PARSER_ORIGIN;
     use oxedi_core::diagnostic::Rule;
@@ -231,7 +231,9 @@ mod by_module {
     use oxedi_core::write::write_with_findings;
 }
 
+use oxedi_core::conformance::CaseFault;
 use oxedi_core::spec_load::SpecModel;
+use oxedi_core::write::{Finding, WriteError};
 // Root re-exports from lib.rs
 use oxedi_core::ConvertError;
 use oxedi_core::ElementRef;
@@ -258,7 +260,7 @@ use oxedi_core::{
 use oxedi_core::{ColumnSchema, TableSchema, spec_schema};
 use oxedi_core::{DateMode, Mask, MaskError, Phi};
 use oxedi_core::{Delimiters, IsaError};
-use oxedi_core::{Diagnostic, FlatDiagnostic, LoopRef, PARSER_ORIGIN, Rule, SnipLevel};
+use oxedi_core::{Diagnostic, LoopRef, PARSER_ORIGIN, Rule, SnipLevel};
 use oxedi_core::{Document, DocumentError, Segments, SizeError, Span, Spans};
 use oxedi_core::{Element, Value};
 use oxedi_core::{Event, Instance, InstanceId, LoopEngine, lineage, loop_paths, named_lineage};
@@ -330,7 +332,7 @@ fn loaded_items() {
 // Associated items the bindings read their defaults, names and units from,
 // named so the build fails if one disappears.
 #[allow(dead_code)]
-fn binding_items(diagnostic: &Diagnostic) {
+fn binding_items() {
     use oxedi_core::DateMode;
     use oxedi_core::value::TimeUnit;
     use oxedi_core::write::Envelope;
@@ -338,8 +340,6 @@ fn binding_items(diagnostic: &Diagnostic) {
     let _: &str = Envelope::DEFAULT_QUALIFIER;
     let _: &str = Envelope::DEFAULT_USAGE_INDICATOR;
     let _: u64 = Envelope::DEFAULT_CONTROL_NUMBER;
-    let _: [&str; 10] = FlatDiagnostic::FIELDS;
-    let _: FlatDiagnostic<'_> = diagnostic.flat();
     let _: for<'a> fn(&'a Diagnostic) -> &'a str = Diagnostic::origin;
     let _: for<'a> fn(&'a Diagnostic) -> Option<&'a str> = Diagnostic::code;
     let _: fn(&Diagnostic) -> String = Diagnostic::path_text;
@@ -356,5 +356,8 @@ fn binding_items(diagnostic: &Diagnostic) {
     let _: usize = IsaError::ISA_LEN;
     let _: fn(&IsaError) -> usize = IsaError::skipped;
     let _: for<'a> fn(&'a IsaError, &'a [u8]) -> &'a [u8] = IsaError::datum;
+    let _: for<'a> fn(&'a DocumentError, &'a [u8]) -> &'a [u8] = DocumentError::datum;
+    let _: for<'a> fn(&'a WriteError) -> &'a [Finding] = WriteError::findings;
+    let _: for<'a> fn(&'a CaseFault) -> &'a str = CaseFault::path;
     let _: for<'a> fn(&'a Segment<'static>, usize, usize) -> Option<&'a [u8]> = Segment::component;
 }

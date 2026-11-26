@@ -2065,17 +2065,17 @@ reports, see <a href="../diagnostics/" id="diagnostics">Diagnostics</a>.</p>
 
 <span class="n">result</span> <span class="o">=</span> <span class="n">oxedi</span><span class="o">.</span><span class="n">parse_file</span><span class="p">(</span><span class="s2">"remittance.835"</span><span class="p">)</span>   <span class="c1"># or oxedi.parse(data) from bytes</span>
 
-<span class="nb">print</span><span class="p">(</span><span class="n">result</span><span class="o">.</span><span class="n">count_claims</span><span class="p">(),</span> <span class="n">result</span><span class="o">.</span><span class="n">sum_payments</span><span class="p">())</span>  <span class="c1"># sum_payments() is a Decimal</span>
-<span class="nb">print</span><span class="p">(</span><span class="n">result</span><span class="o">.</span><span class="n">payer</span><span class="p">[</span><span class="s2">"name"</span><span class="p">],</span> <span class="n">result</span><span class="o">.</span><span class="n">payee</span><span class="p">[</span><span class="s2">"name"</span><span class="p">])</span>
+<span class="nb">print</span><span class="p">(</span><span class="n">result</span><span class="o">.</span><span class="n">summary</span><span class="p">(</span><span class="s2">"count_claims"</span><span class="p">),</span> <span class="n">result</span><span class="o">.</span><span class="n">summary</span><span class="p">(</span><span class="s2">"sum_payments"</span><span class="p">))</span>  <span class="c1"># a sum is a Decimal</span>
+<span class="nb">print</span><span class="p">(</span><span class="n">result</span><span class="o">.</span><span class="n">summary</span><span class="p">(</span><span class="s2">"payer"</span><span class="p">)[</span><span class="s2">"name"</span><span class="p">],</span> <span class="n">result</span><span class="o">.</span><span class="n">summary</span><span class="p">(</span><span class="s2">"payee"</span><span class="p">)[</span><span class="s2">"name"</span><span class="p">])</span>
 </code></pre></div>
 <div class="highlight"><pre><span></span><code>4 690.00
 ACME HEALTH PLAN SUNRISE CLINIC
 </code></pre></div>
-<p><code>result.payer</code> and <code>result.payee</code> are dicts of text values: <code>name</code>, <code>identification_code</code>,
+<p><code>result.summary("payer")</code> and <code>result.summary("payee")</code> are dicts of text values: <code>name</code>, <code>identification_code</code>,
 <code>address</code>, <code>city</code>, <code>state</code> and <code>zip_code</code>.</p>
 <div class="admonition note">
 <p class="admonition-title">Files with more than one payment</p>
-<p><code>result.payer</code> and <code>result.payee</code> are <code>None</code> when the file has no such party. They raise
+<p><code>summary("payer")</code> and <code>summary("payee")</code> are <code>None</code> when the file has no such party. They raise
 <code>ValueError</code> when <code>payments</code> has more than one row. Read the <code>payer_*</code> and <code>payee_*</code>
 columns of <code>payments</code> instead.</p>
 </div>

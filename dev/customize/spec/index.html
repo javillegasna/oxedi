@@ -2318,7 +2318,7 @@ built-in spec:</p>
 <span class="n">data</span> <span class="o">=</span> <span class="n">Path</span><span class="p">(</span><span class="s2">"remittance-4010.835"</span><span class="p">)</span><span class="o">.</span><span class="n">read_bytes</span><span class="p">()</span>
 <span class="n">spec</span> <span class="o">=</span> <span class="n">oxedi</span><span class="o">.</span><span class="n">Spec</span><span class="o">.</span><span class="n">builtin</span><span class="p">(</span><span class="n">version</span><span class="o">=</span><span class="n">oxedi</span><span class="o">.</span><span class="n">Version</span><span class="o">.</span><span class="n">V4010</span><span class="p">)</span>
 <span class="n">result</span> <span class="o">=</span> <span class="n">oxedi</span><span class="o">.</span><span class="n">parse</span><span class="p">(</span><span class="n">data</span><span class="p">,</span> <span class="n">spec</span><span class="o">=</span><span class="n">spec</span><span class="p">)</span>
-<span class="nb">print</span><span class="p">(</span><span class="n">result</span><span class="o">.</span><span class="n">spec</span><span class="p">,</span> <span class="n">result</span><span class="o">.</span><span class="n">count_claims</span><span class="p">())</span>
+<span class="nb">print</span><span class="p">(</span><span class="n">result</span><span class="o">.</span><span class="n">spec</span><span class="p">,</span> <span class="n">result</span><span class="o">.</span><span class="n">summary</span><span class="p">(</span><span class="s2">"count_claims"</span><span class="p">))</span>
 </code></pre></div>
 <div class="highlight"><pre><span></span><code>Spec(name='835', loops=8, tables=5) 4
 </code></pre></div>
@@ -2920,7 +2920,7 @@ that reads a decimal <code>R</code> element; null cells are skipped) or <code>ro
 table's one row). Every table and column a summary names must be declared in <code>tables</code>, so a
 patch that removes one must also remove the summary (with <code>null</code>), or it fails to load with
 an error that names the summary. <code>default_table</code> names one of the tables. The built-in 835
-declares:</p>
+declares (in Python, <code>Result.summary(name)</code> reads each: a <code>distinct</code> count compares values as text, so <code>0123</code> and <code>123</code> count as two):</p>
 <div class="highlight"><pre><span></span><code><span class="nt">"summaries"</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
 <span class="w">  </span><span class="nt">"count_claims"</span><span class="p">:</span><span class="w">   </span><span class="p">{</span><span class="nt">"count"</span><span class="p">:</span><span class="w">    </span><span class="p">{</span><span class="nt">"table"</span><span class="p">:</span><span class="w"> </span><span class="s2">"claims"</span><span class="p">}},</span>
 <span class="w">  </span><span class="nt">"count_patients"</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="nt">"distinct"</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="nt">"table"</span><span class="p">:</span><span class="w"> </span><span class="s2">"claims"</span><span class="p">,</span><span class="w"> </span><span class="nt">"column"</span><span class="p">:</span><span class="w"> </span><span class="s2">"patient_id"</span><span class="p">}},</span>

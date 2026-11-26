@@ -1699,54 +1699,10 @@
 </li>
         
           <li class="md-nav__item">
-  <a href="#oxedi.Result.payer" class="md-nav__link">
+  <a href="#oxedi.Result.summary" class="md-nav__link">
     <span class="md-ellipsis">
       
-        payer
-      
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#oxedi.Result.payee" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        payee
-      
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#oxedi.Result.count_claims" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        count_claims
-      
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#oxedi.Result.count_patients" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        count_patients
-      
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#oxedi.Result.sum_payments" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        sum_payments
+        summary
       
     </span>
   </a>
@@ -2684,54 +2640,10 @@
 </li>
         
           <li class="md-nav__item">
-  <a href="#oxedi.Result.payer" class="md-nav__link">
+  <a href="#oxedi.Result.summary" class="md-nav__link">
     <span class="md-ellipsis">
       
-        payer
-      
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#oxedi.Result.payee" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        payee
-      
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#oxedi.Result.count_claims" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        count_claims
-      
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#oxedi.Result.count_patients" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        count_patients
-      
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#oxedi.Result.sum_payments" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        sum_payments
+        summary
       
     </span>
   </a>
@@ -3581,121 +3493,38 @@ selected from the file's version.</p>
 
 </div>
 
-<div class="doc doc-object doc-attribute">
-
-
-
-<h3 id="oxedi.Result.payer" class="doc doc-heading">
-            <span class="doc doc-object-name doc-attribute-name">payer</span>
-
-
-  <span class="doc doc-labels">
-      <small class="doc doc-label doc-label-property"><code>property</code></small>
-  </span>
-
-<a href="#oxedi.Result.payer" class="headerlink" title="Permanent link">&para;</a></h3>
-<div class="doc-signature highlight"><pre><span></span><code><span class="n">payer</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">str</span> <span class="o">|</span> <span class="kc">None</span><span class="p">]</span> <span class="o">|</span> <span class="kc">None</span>
-</code></pre></div>
-
-    <div class="doc doc-contents ">
-
-        <p>The summary <code>payer</code> the spec declares (for the built-in 835: the
-payer organization of the one transaction), or <code>None</code> when the file
-has none.</p>
-
-    </div>
-
-</div>
-
-<div class="doc doc-object doc-attribute">
-
-
-
-<h3 id="oxedi.Result.payee" class="doc doc-heading">
-            <span class="doc doc-object-name doc-attribute-name">payee</span>
-
-
-  <span class="doc doc-labels">
-      <small class="doc doc-label doc-label-property"><code>property</code></small>
-  </span>
-
-<a href="#oxedi.Result.payee" class="headerlink" title="Permanent link">&para;</a></h3>
-<div class="doc-signature highlight"><pre><span></span><code><span class="n">payee</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">str</span> <span class="o">|</span> <span class="kc">None</span><span class="p">]</span> <span class="o">|</span> <span class="kc">None</span>
-</code></pre></div>
-
-    <div class="doc doc-contents ">
-
-        <p>The summary <code>payee</code> the spec declares (for the built-in 835: the
-payee organization of the one transaction), or <code>None</code> when the file
-has none.</p>
-
-    </div>
-
-</div>
-
 
 
 
 <div class="doc doc-object doc-function">
 
 
-<h3 id="oxedi.Result.count_claims" class="doc doc-heading">
-            <span class="doc doc-object-name doc-function-name">count_claims</span>
+<h3 id="oxedi.Result.summary" class="doc doc-heading">
+            <span class="doc doc-object-name doc-function-name">summary</span>
 
 
-<a href="#oxedi.Result.count_claims" class="headerlink" title="Permanent link">&para;</a></h3>
-<div class="doc-signature highlight"><pre><span></span><code><span class="nf">count_claims</span><span class="p">()</span> <span class="o">-&gt;</span> <span class="n">builtins</span><span class="o">.</span><span class="n">int</span>
+<a href="#oxedi.Result.summary" class="headerlink" title="Permanent link">&para;</a></h3>
+<div class="doc-signature highlight"><pre><span></span><code><span class="nf">summary</span><span class="p">(</span>
+    <span class="n">name</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="p">(</span>
+    <span class="n">builtins</span><span class="o">.</span><span class="n">int</span>
+    <span class="o">|</span> <span class="n">decimal</span><span class="o">.</span><span class="n">Decimal</span>
+    <span class="o">|</span> <span class="n">builtins</span><span class="o">.</span><span class="n">dict</span><span class="p">[</span><span class="n">builtins</span><span class="o">.</span><span class="n">str</span><span class="p">,</span> <span class="n">builtins</span><span class="o">.</span><span class="n">str</span> <span class="o">|</span> <span class="kc">None</span><span class="p">]</span>
+    <span class="o">|</span> <span class="kc">None</span>
+<span class="p">)</span>
 </code></pre></div>
 
     <div class="doc doc-contents ">
 
-        <p>The summary <code>count_claims</code> the spec declares (for the built-in 835:
-the number of claims).</p>
-
-
-    </div>
-
-</div>
-
-<div class="doc doc-object doc-function">
-
-
-<h3 id="oxedi.Result.count_patients" class="doc doc-heading">
-            <span class="doc doc-object-name doc-function-name">count_patients</span>
-
-
-<a href="#oxedi.Result.count_patients" class="headerlink" title="Permanent link">&para;</a></h3>
-<div class="doc-signature highlight"><pre><span></span><code><span class="nf">count_patients</span><span class="p">()</span> <span class="o">-&gt;</span> <span class="n">builtins</span><span class="o">.</span><span class="n">int</span>
-</code></pre></div>
-
-    <div class="doc doc-contents ">
-
-        <p>The summary <code>count_patients</code> the spec declares (for the built-in 835:
-the distinct patient ids of the claims). Values are compared as text:
-<code>0123</code> and <code>123</code> are two patients, where edi-835-parser reads both as
-the number 123 and counts one.</p>
-
-
-    </div>
-
-</div>
-
-<div class="doc doc-object doc-function">
-
-
-<h3 id="oxedi.Result.sum_payments" class="doc doc-heading">
-            <span class="doc doc-object-name doc-function-name">sum_payments</span>
-
-
-<a href="#oxedi.Result.sum_payments" class="headerlink" title="Permanent link">&para;</a></h3>
-<div class="doc-signature highlight"><pre><span></span><code><span class="nf">sum_payments</span><span class="p">()</span> <span class="o">-&gt;</span> <span class="n">decimal</span><span class="o">.</span><span class="n">Decimal</span>
-</code></pre></div>
-
-    <div class="doc doc-contents ">
-
-        <p>The summary <code>sum_payments</code> the spec declares (for the built-in 835:
-the sum of the transactions' total payment amounts), as a <code>Decimal</code>
-at the column's scale.</p>
+        <p>The summary <code>name</code> the spec declares, as the value of its kind: an
+<code>int</code> for a <code>count</code> or <code>distinct</code> summary (a <code>distinct</code> one compares
+values as text, so <code>0123</code> and <code>123</code> are two), a <code>Decimal</code> at the
+column's scale for a <code>sum</code>, a dict of a row's fields for a <code>row</code>, or
+<code>None</code> for a <code>row</code> the file holds nothing of. Raises <code>KeyError</code> for a
+summary the spec does not declare or a table or column it lacks,
+<code>TypeError</code> for a <code>sum</code> over a column that is not decimal, and
+<code>ValueError</code> for a <code>row</code> over a table without exactly one row or a sum
+that overflows.</p>
 
 
     </div>

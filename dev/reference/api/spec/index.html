@@ -1770,6 +1770,17 @@
   
 </li>
         
+          <li class="md-nav__item">
+  <a href="#oxedi.Spec.envelope" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        envelope
+      
+    </span>
+  </a>
+  
+</li>
+        
       </ul>
     </nav>
   
@@ -1886,6 +1897,89 @@
     <span class="md-ellipsis">
       
         holds
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#oxedi.EnvelopeLoop" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        EnvelopeLoop
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="EnvelopeLoop">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#oxedi.EnvelopeLoop.name" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        name
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#oxedi.EnvelopeLoop.trigger" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        trigger
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#oxedi.EnvelopeLoop.end" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        end
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#oxedi.EnvelopeLoop.opener_element" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        opener_element
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#oxedi.EnvelopeLoop.closer_element" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        closer_element
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#oxedi.EnvelopeLoop.count_element" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        count_element
       
     </span>
   </a>
@@ -3082,6 +3176,17 @@
   
 </li>
         
+          <li class="md-nav__item">
+  <a href="#oxedi.Spec.envelope" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        envelope
+      
+    </span>
+  </a>
+  
+</li>
+        
       </ul>
     </nav>
   
@@ -3198,6 +3303,89 @@
     <span class="md-ellipsis">
       
         holds
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#oxedi.EnvelopeLoop" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        EnvelopeLoop
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="EnvelopeLoop">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#oxedi.EnvelopeLoop.name" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        name
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#oxedi.EnvelopeLoop.trigger" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        trigger
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#oxedi.EnvelopeLoop.end" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        end
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#oxedi.EnvelopeLoop.opener_element" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        opener_element
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#oxedi.EnvelopeLoop.closer_element" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        closer_element
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#oxedi.EnvelopeLoop.count_element" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        count_element
       
     </span>
   </a>
@@ -4302,6 +4490,28 @@ Raises <code>KeyError</code> for a table the spec does not declare.</p>
 
 </div>
 
+<div class="doc doc-object doc-function">
+
+
+<h3 id="oxedi.Spec.envelope" class="doc doc-heading">
+            <span class="doc doc-object-name doc-function-name">envelope</span>
+
+
+<a href="#oxedi.Spec.envelope" class="headerlink" title="Permanent link">&para;</a></h3>
+<div class="doc-signature highlight"><pre><span></span><code><span class="nf">envelope</span><span class="p">()</span> <span class="o">-&gt;</span> <span class="n">builtins</span><span class="o">.</span><span class="n">list</span><span class="p">[</span><span class="n">EnvelopeLoop</span><span class="p">]</span>
+</code></pre></div>
+
+    <div class="doc doc-contents ">
+
+        <p>The envelope loops, outermost first: each loop whose end segment checks
+it, with its trigger and end segment ids and its control positions.
+Empty for a spec with none.</p>
+
+
+    </div>
+
+</div>
+
 
 
   </div>
@@ -4593,6 +4803,200 @@ element in some group.</p>
     </div>
 
 </div>
+
+
+
+  </div>
+
+    </div>
+
+</div>
+
+<div class="doc doc-object doc-class">
+
+
+
+<h2 id="oxedi.EnvelopeLoop" class="doc doc-heading">
+            <span class="doc doc-object-name doc-class-name">EnvelopeLoop</span>
+
+
+<a href="#oxedi.EnvelopeLoop" class="headerlink" title="Permanent link">&para;</a></h2>
+
+
+    <div class="doc doc-contents first">
+
+
+
+        <p>A loop of the envelope: its end segment checks the loop it closes by a
+control number and a count.</p>
+
+
+
+
+
+
+
+
+
+
+
+<div class="doc doc-children">
+
+
+
+
+
+
+
+<div class="doc doc-object doc-attribute">
+
+
+
+<h3 id="oxedi.EnvelopeLoop.name" class="doc doc-heading">
+            <span class="doc doc-object-name doc-attribute-name">name</span>
+
+
+  <span class="doc doc-labels">
+      <small class="doc doc-label doc-label-property"><code>property</code></small>
+  </span>
+
+<a href="#oxedi.EnvelopeLoop.name" class="headerlink" title="Permanent link">&para;</a></h3>
+<div class="doc-signature highlight"><pre><span></span><code><span class="n">name</span><span class="p">:</span> <span class="nb">str</span>
+</code></pre></div>
+
+    <div class="doc doc-contents ">
+
+        <p>The loop's name in the spec, such as <code>"interchange"</code>.</p>
+
+    </div>
+
+</div>
+
+<div class="doc doc-object doc-attribute">
+
+
+
+<h3 id="oxedi.EnvelopeLoop.trigger" class="doc doc-heading">
+            <span class="doc doc-object-name doc-attribute-name">trigger</span>
+
+
+  <span class="doc doc-labels">
+      <small class="doc doc-label doc-label-property"><code>property</code></small>
+  </span>
+
+<a href="#oxedi.EnvelopeLoop.trigger" class="headerlink" title="Permanent link">&para;</a></h3>
+<div class="doc-signature highlight"><pre><span></span><code><span class="n">trigger</span><span class="p">:</span> <span class="nb">bytes</span>
+</code></pre></div>
+
+    <div class="doc doc-contents ">
+
+        <p>The id of the segment that opens the loop, such as <code>b"ISA"</code>.</p>
+
+    </div>
+
+</div>
+
+<div class="doc doc-object doc-attribute">
+
+
+
+<h3 id="oxedi.EnvelopeLoop.end" class="doc doc-heading">
+            <span class="doc doc-object-name doc-attribute-name">end</span>
+
+
+  <span class="doc doc-labels">
+      <small class="doc doc-label doc-label-property"><code>property</code></small>
+  </span>
+
+<a href="#oxedi.EnvelopeLoop.end" class="headerlink" title="Permanent link">&para;</a></h3>
+<div class="doc-signature highlight"><pre><span></span><code><span class="n">end</span><span class="p">:</span> <span class="nb">bytes</span>
+</code></pre></div>
+
+    <div class="doc doc-contents ">
+
+        <p>The id of the segment that closes the loop, such as <code>b"IEA"</code>.</p>
+
+    </div>
+
+</div>
+
+<div class="doc doc-object doc-attribute">
+
+
+
+<h3 id="oxedi.EnvelopeLoop.opener_element" class="doc doc-heading">
+            <span class="doc doc-object-name doc-attribute-name">opener_element</span>
+
+
+  <span class="doc doc-labels">
+      <small class="doc doc-label doc-label-property"><code>property</code></small>
+  </span>
+
+<a href="#oxedi.EnvelopeLoop.opener_element" class="headerlink" title="Permanent link">&para;</a></h3>
+<div class="doc-signature highlight"><pre><span></span><code><span class="n">opener_element</span><span class="p">:</span> <span class="nb">int</span>
+</code></pre></div>
+
+    <div class="doc doc-contents ">
+
+        <p>The 1-based position of the control number in the trigger segment,
+such as 13 for ISA13.</p>
+
+    </div>
+
+</div>
+
+<div class="doc doc-object doc-attribute">
+
+
+
+<h3 id="oxedi.EnvelopeLoop.closer_element" class="doc doc-heading">
+            <span class="doc doc-object-name doc-attribute-name">closer_element</span>
+
+
+  <span class="doc doc-labels">
+      <small class="doc doc-label doc-label-property"><code>property</code></small>
+  </span>
+
+<a href="#oxedi.EnvelopeLoop.closer_element" class="headerlink" title="Permanent link">&para;</a></h3>
+<div class="doc-signature highlight"><pre><span></span><code><span class="n">closer_element</span><span class="p">:</span> <span class="nb">int</span>
+</code></pre></div>
+
+    <div class="doc doc-contents ">
+
+        <p>The 1-based position of the same control number in the end segment,
+such as 2 for IEA02.</p>
+
+    </div>
+
+</div>
+
+<div class="doc doc-object doc-attribute">
+
+
+
+<h3 id="oxedi.EnvelopeLoop.count_element" class="doc doc-heading">
+            <span class="doc doc-object-name doc-attribute-name">count_element</span>
+
+
+  <span class="doc doc-labels">
+      <small class="doc doc-label doc-label-property"><code>property</code></small>
+  </span>
+
+<a href="#oxedi.EnvelopeLoop.count_element" class="headerlink" title="Permanent link">&para;</a></h3>
+<div class="doc-signature highlight"><pre><span></span><code><span class="n">count_element</span><span class="p">:</span> <span class="nb">int</span>
+</code></pre></div>
+
+    <div class="doc doc-contents ">
+
+        <p>The 1-based position of the count in the end segment, such as 1 for
+IEA01.</p>
+
+    </div>
+
+</div>
+
+
+
 
 
 

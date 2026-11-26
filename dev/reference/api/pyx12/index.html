@@ -2011,9 +2011,9 @@ transaction findings are level 1, segment and element findings level 2.
 (<code>None</code> when pyx12 names none), and <code>document[d.segment].span</code> gives
 its byte range. An interchange, group or transaction finding about a
 trailer (a count or a control number that does not match) lands on the
-trailer segment at the element holding that value; one about a
-duplicate or missing control structure lands on the header, at its
-control number when that is the offending value. <code>datum</code> is the value
+trailer segment at the element the spec's envelope loop names for that
+value; one about a duplicate or missing control structure lands on the
+header, at its control number when that is the offending value. <code>datum</code> is the value
 pyx12 reports, or else the bytes of the element in the file, or the
 segment id for a finding with no element. Findings come in
 segment order. <code>path</code> names the loops open at that segment, as in the

@@ -2162,19 +2162,19 @@ layer keeps the library's reading (no <code>interchange</code> for such a file).
 </tr>
 <tr>
 <td><code>.count_claims()</code></td>
-<td><code>result.count_claims()</code></td>
+<td><code>result.summary("count_claims")</code></td>
 </tr>
 <tr>
 <td><code>.count_patients()</code></td>
-<td><code>result.count_patients()</code> (a null id is not a patient. Ids are text, so <code>0123</code> and <code>123</code> are different patients, unlike edi-835-parser)</td>
+<td><code>result.summary("count_patients")</code> (a null id is not a patient. Ids are text, so <code>0123</code> and <code>123</code> are different patients, unlike edi-835-parser)</td>
 </tr>
 <tr>
 <td><code>.sum_payments()</code> (float)</td>
-<td><code>result.sum_payments()</code> (<code>Decimal</code>)</td>
+<td><code>result.summary("sum_payments")</code> (<code>Decimal</code>)</td>
 </tr>
 <tr>
 <td><code>transaction_set.payer</code> / <code>.payee</code></td>
-<td><code>result.payer</code> / <code>result.payee</code> (dict of text values: <code>name</code>, <code>identification_code</code>, <code>address</code>, <code>city</code>, <code>state</code>, <code>zip_code</code>. <code>ValueError</code> when <code>payments</code> has more than one row)</td>
+<td><code>result.summary("payer")</code> / <code>result.summary("payee")</code> (dict of text values: <code>name</code>, <code>identification_code</code>, <code>address</code>, <code>city</code>, <code>state</code>, <code>zip_code</code>. <code>ValueError</code> when <code>payments</code> has more than one row)</td>
 </tr>
 <tr>
 <td>none</td>

@@ -2002,15 +2002,15 @@ directory:</p>
 <span class="n">result</span> <span class="o">=</span> <span class="n">oxedi</span><span class="o">.</span><span class="n">parse_file</span><span class="p">(</span><span class="s2">"remittance.835"</span><span class="p">)</span>
 
 <span class="nb">print</span><span class="p">(</span><span class="n">result</span><span class="p">)</span>
-<span class="nb">print</span><span class="p">(</span><span class="n">result</span><span class="o">.</span><span class="n">count_claims</span><span class="p">(),</span> <span class="n">result</span><span class="o">.</span><span class="n">sum_payments</span><span class="p">())</span>
-<span class="nb">print</span><span class="p">(</span><span class="n">result</span><span class="o">.</span><span class="n">payer</span><span class="p">[</span><span class="s2">"name"</span><span class="p">],</span> <span class="s2">"paid"</span><span class="p">,</span> <span class="n">result</span><span class="o">.</span><span class="n">payee</span><span class="p">[</span><span class="s2">"name"</span><span class="p">])</span>
+<span class="nb">print</span><span class="p">(</span><span class="n">result</span><span class="o">.</span><span class="n">summary</span><span class="p">(</span><span class="s2">"count_claims"</span><span class="p">),</span> <span class="n">result</span><span class="o">.</span><span class="n">summary</span><span class="p">(</span><span class="s2">"sum_payments"</span><span class="p">))</span>
+<span class="nb">print</span><span class="p">(</span><span class="n">result</span><span class="o">.</span><span class="n">summary</span><span class="p">(</span><span class="s2">"payer"</span><span class="p">)[</span><span class="s2">"name"</span><span class="p">],</span> <span class="s2">"paid"</span><span class="p">,</span> <span class="n">result</span><span class="o">.</span><span class="n">summary</span><span class="p">(</span><span class="s2">"payee"</span><span class="p">)[</span><span class="s2">"name"</span><span class="p">])</span>
 </code></pre></div>
 <div class="highlight"><pre><span></span><code>Result(segments=63, tables=5, diagnostics=0)
 4 690.00
 ACME HEALTH PLAN paid SUNRISE CLINIC
 </code></pre></div>
 <p>The file has 63 segments, the lines of an 835. oxedi read them into five tables and found no
-problems. <code>sum_payments()</code> is a <code>Decimal</code>, so money is exact.</p>
+problems. <code>summary("sum_payments")</code> is a <code>Decimal</code>, so money is exact.</p>
 <h2 id="look-at-the-claims">Look at the claims<a class="headerlink" href="#look-at-the-claims" title="Permanent link">&para;</a></h2>
 <p>The five tables are ready to use:</p>
 <div class="highlight"><pre><span></span><code><span class="nb">print</span><span class="p">(</span><span class="n">result</span><span class="o">.</span><span class="n">tables</span><span class="p">)</span>

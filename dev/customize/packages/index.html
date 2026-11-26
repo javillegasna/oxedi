@@ -2722,7 +2722,7 @@ write now.</p>
 </tr>
 <tr>
 <td><code>crates/oxedi_core/specs/edi_835_parser.json</code>, a patch</td>
-<td>the same file, now the patch package <code>edi-835-parser/patch/005010/835/X221A1</code></td>
+<td><code>crates/oxedi_py/python/oxedi/edi_835_parser/edi_835_parser.json</code>, now the patch package <code>edi-835-parser/patch/005010/835/X221A1</code></td>
 </tr>
 <tr>
 <td>an element's <code>"required": true</code></td>
@@ -2746,7 +2746,7 @@ write now.</p>
 </tr>
 <tr>
 <td>Python <code>oxedi._core.EDI_835_PARSER_PATCH</code></td>
-<td><code>EDI_835_PARSER_PACKAGE</code>, loaded with <code>Spec.from_packages(EDI_835_PARSER_PACKAGE, Spec.builtin_packages())</code>; <code>oxedi.edi_835_parser.spec()</code> gives that spec</td>
+<td>the package data of <code>oxedi.edi_835_parser</code>, read with <code>importlib.resources.files("oxedi.edi_835_parser")</code>; <code>oxedi.edi_835_parser.spec()</code> loads it over <code>Spec.builtin_packages()</code></td>
 </tr>
 <tr>
 <td>Python <code>Spec.patch(dict[str, Any])</code></td>

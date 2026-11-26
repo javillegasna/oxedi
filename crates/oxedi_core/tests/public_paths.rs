@@ -232,6 +232,17 @@ mod by_module {
 }
 
 use oxedi_core::conformance::CaseFault;
+// The door a binding uses.
+mod api_door {
+    use oxedi_core::api::ChosenSpec;
+    use oxedi_core::api::DelimiterChoice;
+    use oxedi_core::api::ReadOptions;
+    use oxedi_core::api::Reading;
+    use oxedi_core::api::SpecChoice;
+    use oxedi_core::api::read;
+    use oxedi_core::api::read_tables;
+}
+
 use oxedi_core::spec_load::SpecModel;
 use oxedi_core::write::{Finding, WriteError};
 // Root re-exports from lib.rs

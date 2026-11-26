@@ -22,6 +22,21 @@ pub const fn row(module: &'static str, uses: &'static [&'static str]) -> Row {
 
 pub const TABLE: &[Row] = &[
     row(
+        "api",
+        &[
+            "column",
+            "delimiters",
+            "diagnostic",
+            "document",
+            "mask",
+            "process",
+            "segment",
+            "spec",
+            "spec_load",
+            "tokenizer",
+        ],
+    ),
+    row(
         "check",
         &[
             "delimiters",

@@ -6,7 +6,6 @@
     "bases": ["oxedi/views/005010/835/X221A1", "oxedi/dictionary/004010"]
   },
   "spec": {
-  "version": {"values": ["004010X091A1", "004010X091", "004010"]},
   "loops": {
     "1000A": {
       "occurrences": {

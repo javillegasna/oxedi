@@ -453,7 +453,6 @@ const GUIDE_CHANGES: &[(&str, &str)] = &[
         "loops.2110.occurrences.service_supplemental_quantity.elements.1.codes",
         "widened",
     ),
-    ("version", "changed"),
 ];
 
 fn word(kind: &ChangeKind) -> &'static str {
@@ -497,8 +496,8 @@ fn the_4010_editions_list_their_changes() {
     assert_eq!(listed, expected);
     assert_eq!(
         expected.len(),
-        81,
-        "the three editions list 81 changes in all"
+        80,
+        "the three editions list 80 changes in all"
     );
     let isa = composed
         .changes

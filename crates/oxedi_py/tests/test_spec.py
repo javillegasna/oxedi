@@ -197,8 +197,11 @@ def test_the_edi_835_parser_patch_loads_with_its_tables():
 def test_the_builtins_by_version():
     five, four = Spec.builtin(version="5010"), Spec.builtin(version="4010")
     assert five.to_json() == Spec.builtin().to_json()
-    assert json.loads(four.to_json())["version"]["values"][0] == "004010X091A1"
-    assert json.loads(five.to_json())["version"]["values"] == ["005010X221A1"]
+    assert json.loads(four.to_json())["version"] == {"segment": "GS", "element": 8}
+    four_codes = json.loads(four.to_json())["segments"]["GS"]["elements"]["8"]["codes"]
+    assert four_codes[0] == "004010X091A1"
+    five_codes = json.loads(five.to_json())["segments"]["GS"]["elements"]["8"]["codes"]
+    assert five_codes == ["005010X221A1"]
 
 
 def test_a_version_names_its_release():

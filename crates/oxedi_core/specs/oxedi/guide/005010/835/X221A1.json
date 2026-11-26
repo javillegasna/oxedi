@@ -1,12 +1,12 @@
 {
   "package": {
-    "format": 1,
+    "format": 2,
     "id": "oxedi/guide/005010/835/X221A1",
     "layers": ["guide"],
     "bases": ["oxedi/transaction-set/005010/835"]
   },
   "spec": {
-  "version": {"segment": "GS", "element": 8, "values": ["005010X221A1"]},
+  "version": {"segment": "GS", "element": 8},
   "loops": {
     "transaction": {
       "occurrences": {

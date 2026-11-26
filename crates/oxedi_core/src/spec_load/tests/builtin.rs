@@ -44,6 +44,26 @@ fn select_reads_the_declared_version() {
 }
 
 #[test]
+fn the_4010_builtin_is_chosen_by_each_of_its_codes() {
+    let isa = |version: &str, code: &str| {
+        format!(
+            "ISA*00*          *00*          *ZZ*A              *ZZ*B              *200101*1200*^*{version}*000000001*0*P*:~GS*HP*A*B*20200101*1200*1*X*{code}~"
+        )
+    };
+    for code in ["004010X091A1", "004010X091", "004010"] {
+        assert_eq!(selected(isa("00401", code).as_bytes()), Version::V4010);
+    }
+    assert_eq!(
+        selected(isa("00501", "005010X221A1").as_bytes()),
+        Version::V5010
+    );
+    assert_eq!(
+        selected(isa("00401", "004010X092").as_bytes()),
+        Builtin::fallback().version
+    );
+}
+
+#[test]
 fn unknown_version_display_lists_the_known() {
     let error = Builtin::find_text("835", "3070").unwrap_err();
     assert_eq!(

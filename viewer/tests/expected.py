@@ -8,7 +8,7 @@ Runs in an environment with `oxedi` and `pyarrow` (the docs environment,
 
 - `file`: the input's path relative to the repository root;
 - for a file `oxedi.parse` rejects, `error`: the exception's text;
-- otherwise `spec_version` (the first version the chosen spec declares),
+- otherwise `spec_version` (the first version the chosen spec covers),
   `segments` (the document's segment count), `tables` (table name → column
   name → each cell as the core renders it, `null` for a null; columns in
   order), `masked_tables` and `masked_diagnostics` (the same read with
@@ -75,6 +75,19 @@ def tables_of(result: oxedi.Result, relative: str) -> dict[str, dict[str, list[s
     return tables
 
 
+def version_list(model: dict) -> list[str | None]:
+    """The compiled version list of a spec's canonical JSON: the declared
+    `values`, else the codes of the element the version names, in written
+    order; `[None]` when the spec declares no version."""
+    declared = model.get("version")
+    if not declared:
+        return [None]
+    if declared.get("values"):
+        return list(declared["values"])
+    element = model["segments"][declared["segment"]]["elements"][str(declared["element"])]
+    return list(element["codes"])
+
+
 def expected(path: pathlib.Path) -> dict[str, object]:
     relative = path.relative_to(ROOT).as_posix()
     try:
@@ -82,8 +95,7 @@ def expected(path: pathlib.Path) -> dict[str, object]:
     except ValueError as err:
         return {"file": relative, "error": str(err)}
     masked = oxedi.parse(path.read_bytes(), mask=oxedi.Mask(MASK_KEY))
-    declared = json.loads(result.spec.to_json()).get("version") or {}
-    values = declared.get("values") or [None]
+    values = version_list(json.loads(result.spec.to_json()))
     return {
         "file": relative,
         "spec_version": values[0],

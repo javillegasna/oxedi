@@ -802,10 +802,3 @@ fn require_table_returns_the_table_or_the_error() {
     assert_eq!(error.name, "nope");
     assert_eq!(error.tables, spec.table_names());
 }
-
-#[test]
-fn declared_occurrences_are_listed_or_none_is_said() {
-    assert_eq!(Declared(&[]).to_string(), "it declares none");
-    let known = ["a".to_string(), "b".to_string()];
-    assert_eq!(Declared(&known).to_string(), "it declares \"a\", \"b\"");
-}

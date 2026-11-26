@@ -167,50 +167,6 @@ pub enum ControlError {
     },
 }
 
-impl fmt::Display for ControlError {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match self {
-            ControlError::ZeroPosition { key } => {
-                write!(f, "{key:?} must be a 1-based element position; found 0")
-            }
-            ControlError::NoEnd => write!(f, "the loop has no \"end\" segment to check"),
-            ControlError::FieldOnOpener { element, field } => write!(
-                f,
-                "\"fields\" puts {:?} on element {element}, which holds the control number (\"opener_element\"); move the field to another element",
-                field.word()
-            ),
-            ControlError::FieldOnHeaderPlace {
-                element,
-                place,
-                field,
-                segment,
-            } => write!(
-                f,
-                "\"fields\" puts {:?} on element {element} of the top loop's trigger {segment:?}, the place of the {place}, which the syntax layer owns; move the field to another element",
-                field.word()
-            ),
-            ControlError::FieldNotOnTrigger {
-                element,
-                field,
-                segment,
-            } => write!(
-                f,
-                "\"fields\" puts {:?} on element {element}, which the trigger segment {segment:?} does not define; define the element in \"segments\" or move the field",
-                field.word()
-            ),
-            ControlError::FieldTwice {
-                field,
-                first,
-                second,
-            } => write!(
-                f,
-                "\"fields\" puts {:?} on elements {first} and {second}; a field goes on one element",
-                field.word()
-            ),
-        }
-    }
-}
-
 /// Validates a loop's `control`; `has_end` says whether the loop declares an end segment.
 fn compile_control(raw: &ControlModel, has_end: bool) -> Result<Control, ControlError> {
     if !has_end {

@@ -312,18 +312,4 @@ impl UnknownVersion {
     }
 }
 
-impl fmt::Display for UnknownVersion {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "unknown version {:?}; ", self.version)?;
-        if self.known.is_empty() {
-            return write!(
-                f,
-                "no built-in spec covers transaction {:?}",
-                self.transaction
-            );
-        }
-        write!(f, "version must be one of {}", render_names(&self.known))
-    }
-}
-
 impl std::error::Error for UnknownVersion {}

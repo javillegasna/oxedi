@@ -47,18 +47,3 @@ pub enum ChangeKind {
         after: String,
     },
 }
-
-impl fmt::Display for Change {
-    /// `path: before becomes after`, `path is removed` or `path is added: after`.
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match &self.kind {
-            ChangeKind::Narrowed { before, after }
-            | ChangeKind::Widened { before, after }
-            | ChangeKind::Changed { before, after } => {
-                write!(f, "{}: {before} becomes {after}", self.path)
-            }
-            ChangeKind::Removed => write!(f, "{} is removed", self.path),
-            ChangeKind::Added { after } => write!(f, "{} is added: {after}", self.path),
-        }
-    }
-}

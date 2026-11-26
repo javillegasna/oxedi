@@ -1,3 +1,14 @@
+//! The text of where a value came from, of the findings about written tables
+//! and of the errors that stop a write.
+
+use std::fmt;
+
+use crate::delimiters::HeaderPositions;
+use crate::message::{Counted, Quoted};
+use crate::write::{Finding, ValueOrigin, WriteError};
+
+use super::wording::{Numbered, ReadBackOrigin, Reference};
+
 impl fmt::Display for ValueOrigin {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {

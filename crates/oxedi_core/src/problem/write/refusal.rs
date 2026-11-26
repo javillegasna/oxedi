@@ -1,3 +1,12 @@
+//! The text of why a spec cannot be written, and what to change about it.
+
+use std::fmt;
+
+use crate::message::{Counted, render_names};
+use crate::write::{PlanError, Refusal};
+
+use super::wording::{Matches, Numbered, Source, WrittenBy};
+
 impl fmt::Display for Refusal {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {

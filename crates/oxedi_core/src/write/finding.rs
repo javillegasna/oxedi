@@ -1,17 +1,12 @@
 //! What keeps tables from becoming a valid file: the findings about their
 //! data, where each value came from, and the errors that stop a write.
 
-use std::fmt;
-
-use crate::delimiters::HeaderPositions;
 use crate::diagnostic::Diagnostic;
 use crate::document::DocumentError;
-use crate::message::{Counted, Quoted};
 use crate::spec::{UnknownColumn, UnknownTable};
 use crate::value::{ColumnType, ElementTextError};
 
 use super::refusal::PlanError;
-use super::wording::{Numbered, ReadBackOrigin, Reference};
 
 /// Where a written value comes from. Rows are 0-based positions in the
 /// table as given.

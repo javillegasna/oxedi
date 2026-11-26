@@ -18,8 +18,8 @@
 //! (the parts of the segment being written),
 //! `render.rs` (values as text and segments as bytes), `trace.rs` (where
 //! each written element came from), `finding.rs` (the findings and the write
-//! error), `wording.rs` (the pieces those messages are written from) and
-//! `tests/`.
+//! error, without their text) and `tests/`. The text of the refusals,
+//! findings and errors is in `problem/write/`.
 
 mod build;
 mod cells;
@@ -40,7 +40,6 @@ mod segments;
 mod tests;
 mod trace;
 mod walk;
-mod wording;
 mod writer;
 
 pub use envelope::Envelope;

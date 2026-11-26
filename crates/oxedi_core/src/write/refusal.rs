@@ -1,10 +1,6 @@
 //! Why a spec cannot be written: the refusals a write plan raises.
 
-use std::fmt;
-
-use crate::message::{Conditions, Counted, render_names};
-
-use super::wording::{Matches, Numbered, Source, WrittenBy};
+use crate::message::Conditions;
 
 /// A segment and its conditions as a message shows them.
 pub(super) fn render_source(segment: &[u8], conditions: &[(usize, Vec<u8>)]) -> String {

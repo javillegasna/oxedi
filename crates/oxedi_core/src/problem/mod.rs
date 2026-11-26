@@ -4,6 +4,8 @@
 //! offending value); this module writes their `Display` and remedies, so a
 //! wording changes in one folder and no layer holds prose.
 //!
-//! The folder holds: `diagnostic/` (the text of a diagnostic and its rules).
+//! The folder holds: `diagnostic/` (the text of a diagnostic and its rules) and
+//! `write/` (the text of the writer's refusals, findings and errors).
 
 mod diagnostic;
+mod write;

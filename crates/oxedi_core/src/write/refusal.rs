@@ -152,8 +152,8 @@ pub enum Refusal {
         table: String,
         /// The loop it is anchored on.
         loop_name: String,
-        /// The anchor segment, e.g. `CAS`; none for a table without one.
-        segment: Option<Vec<u8>>,
+        /// The anchor segment, e.g. `CAS`.
+        segment: Vec<u8>,
     },
     /// A code the spec fixes for a written segment (a `where` value or the
     /// occurrence's single qualifier code) is outside the code list of the

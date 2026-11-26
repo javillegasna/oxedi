@@ -61,7 +61,7 @@ before you publish a batch. `ignore_errors := true` turns a file that is not an 
 row, so one bad file does not stop the run.
 
 ```sql
-SELECT filename, level, rule, count(*) AS findings
+SELECT filename, level, rule, count(*) AS diagnostics
 FROM read_835('remits/*.835', table_name := 'diagnostics', filename := true, ignore_errors := true)
 GROUP BY ALL
 ORDER BY filename, level;
@@ -104,7 +104,7 @@ FROM read_835('{{ var("remits_glob", "remits/*.835") }}', table_name := 'claims'
 ```
 
 A dbt singular test fails when it returns rows, so a test that selects the diagnostics fails
-the build on any finding:
+the build on any diagnostic:
 
 <!-- docs-test: skip dbt renders {{ var(...) }}; the equivalent SQL below runs -->
 ```sql

@@ -1,7 +1,7 @@
 use oxedi_core::diagnostic::{LoopRef, Rule, SnipLevel};
 use oxedi_core::{Cell, Diagnostic, Document};
 
-use super::{COLUMNS, of_findings, of_unparsable, types};
+use super::{COLUMNS, of_diagnostics, of_unparsable, types};
 use crate::error::ReadError;
 use crate::types::SqlType;
 
@@ -26,7 +26,7 @@ fn only_datum_follows_binary() {
 }
 
 #[test]
-fn of_findings_writes_each_column_from_the_shape() {
+fn of_diagnostics_writes_each_column_from_the_shape() {
     let path = vec![
         LoopRef {
             name: "1000A".into(),
@@ -57,7 +57,7 @@ fn of_findings_writes_each_column_from_the_shape() {
             Vec::new(),
         ),
     ];
-    let Ok(table) = of_findings(&diagnostics) else {
+    let Ok(table) = of_diagnostics(&diagnostics) else {
         panic!("every diagnostic is of a file");
     };
     assert_eq!(table.len(), 2);

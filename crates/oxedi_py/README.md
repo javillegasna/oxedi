@@ -79,7 +79,7 @@ raises `oxedi.WriteError` and writes nothing.
 ```sql
 FROM read_835('remits/*.835', table_name := 'services', filename := true);
 
--- the findings of the parse, one row each
+-- the diagnostics of the parse, one row each
 FROM read_835('remits/*.835', table_name := 'diagnostics', ignore_errors := true);
 ```
 

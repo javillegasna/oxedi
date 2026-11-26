@@ -138,7 +138,7 @@ impl Scan {
 
 /// Reads and parses one file, checks that its spec projects the bound table
 /// with the bound columns, and fills that table only (or collects its
-/// findings, for `diagnostics`).
+/// diagnostics, for `diagnostics`).
 fn load(bound: &Bound, file: &str) -> Result<Table, ReadError> {
     let bytes = bound.file_system.read_all(file)?;
     let document = match Document::parse(bytes.as_slice()) {
@@ -148,9 +148,9 @@ fn load(bound: &Bound, file: &str) -> Result<Table, ReadError> {
     let builtin = builtin_of(bound, file, &document)?;
     if bound.diagnostics {
         // Every table is filled: a text value too large to store is a
-        // finding of the table that would hold it.
-        let (_tables, findings) = Processor::run(builtin.spec(), &document, bound.mask.as_ref());
-        return diagnostics::of_findings(&findings);
+        // diagnostic of the table that would hold it.
+        let (_tables, found) = Processor::run(builtin.spec(), &document, bound.mask.as_ref());
+        return diagnostics::of_diagnostics(&found);
     }
     check_schema(bound, file, builtin)?;
     project(builtin, &document, &bound.table, file, bound.mask.as_ref())

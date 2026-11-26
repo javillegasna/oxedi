@@ -163,7 +163,7 @@ print(segment.raw)
 b'\nCLP*CLM1002*7*700*400*0*12*PCN1002*11*1~'
 ```
 
-[Diagnostics](../python/diagnostics.md) lists every kind of finding and what to do about it.
+[Diagnostics](../python/diagnostics.md) lists every kind of diagnostic and what to do about it.
 
 ## Write the file back
 

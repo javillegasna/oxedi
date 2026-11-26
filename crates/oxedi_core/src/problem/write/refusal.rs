@@ -124,10 +124,10 @@ impl fmt::Display for Refusal {
                 segment,
             } => write!(
                 f,
-                "table {table:?} writes one {} per row in loop {loop_name:?}, but no \
+                "table {table:?} writes one {:?} per row in loop {loop_name:?}, but no \
                  table is anchored on that loop and no column reads it, so the segments have no \
                  instance to go in",
-                AnchorSegment(segment.as_deref())
+                String::from_utf8_lossy(segment)
             ),
             Refusal::CodeOutsideList {
                 table,
@@ -221,18 +221,6 @@ impl fmt::Display for LoopWriter {
         match self {
             LoopWriter::Envelope => f.write_str("the envelope"),
             LoopWriter::Table(name) => write!(f, "table {name:?}"),
-        }
-    }
-}
-
-/// The anchor segment of a table, quoted; nothing when the table has none.
-struct AnchorSegment<'a>(Option<&'a [u8]>);
-
-impl fmt::Display for AnchorSegment<'_> {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match self.0 {
-            Some(segment) => write!(f, "{:?}", String::from_utf8_lossy(segment)),
-            None => Ok(()),
         }
     }
 }

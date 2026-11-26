@@ -16,11 +16,11 @@
 //! datum becomes its token, a `date` datum that is a valid date becomes the
 //! masked date written `CCYYMMDD` (the year, as no row is at hand to seed a
 //! shift), and one that is not becomes its token. An element read whole
-//! covers its components, and a finding about a whole element covers the
+//! covers its components, and a diagnostic about a whole element covers the
 //! components read from it. Places are matched by segment id alone, so the
 //! same element of a segment in another loop, or with another qualifier, is
 //! masked too. The segment id is the one the rule names, or the segment being
-//! fed when the diagnostic is about it; a balancing finding names an earlier
+//! fed when the diagnostic is about it; a balancing diagnostic names an earlier
 //! segment, but its datum is an `R` amount, which no flagged column reads.
 //! Findings another validator raised about a document are matched the same
 //! way, by the segment their index names in it. The message of such a finding

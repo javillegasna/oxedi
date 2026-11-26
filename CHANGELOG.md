@@ -63,6 +63,9 @@ This file covers the Python package; the DuckDB extension has its own changelog 
 - Rust: `write::LoopWriter` (`Envelope`, `Table`): what writes the instances of a loop. `Selector` gains `Where`, a column's segment and its `where` values.
 
 ### Changed
+- The viewer's Diagnostics tab says "No diagnostics" when a file, or a level, has none (it said "No findings").
+- Rust: `Refusal::RepeatWithoutInstances.segment` is a `Vec<u8>`: only a table anchored on a segment is refused this way, so the segment is always there.
+- The error for `phi` on an envelope control element says "diagnostics about envelope controls" (it said "findings").
 - Rust: `problem::Detail::Finding` also holds `diagnostic`, the diagnostic of a read-back finding.
 - Rust: `Rule::ImplicitLoop::expected_trigger`, `Rule::RequiredLoopMissing::expected_trigger`, the `selector` of `Rule::RequiredOccurrenceMissing` and `Rule::OccurrenceOverMax`, and the `trigger` of `SpecError::UnmatchedTrigger` and `SpecError::TriggerQualifierWider` are `Selector` values, not text; `to_string()` gives the same text.
 - Rust: `Rule::BalanceMismatch::target` and `sum` are `Terms`, and the `place` of `OccurrenceError::{UsageLooserThanElement, LengthsOutsideElement, CodeOutsideElement, QualifierPlaces}` and `BalanceError::{UndefinedElement, NotDecimal, RepeatedValue}`, and the `other_place` of `OccurrenceError::QualifierPlaces`, are `ElementRef` values, not text; `to_string()` gives the same text.

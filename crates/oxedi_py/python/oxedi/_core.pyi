@@ -217,7 +217,8 @@ class Delimiters:
 @typing.final
 class Diagnostic:
     r"""
-    One finding about the data of a file. A value, never raised.
+    One diagnostic about the data of a file: the rule that failed, where and
+    the value. A value, never raised.
     """
     @property
     def level(self) -> builtins.int:

@@ -30,7 +30,7 @@ pub struct View {
     pub nodes: Vec<NodeView>,
     /// The spec's tables, ordered by name.
     pub tables: Vec<TableView>,
-    /// Every finding, in the order the core reports them.
+    /// Every diagnostic, in the order the core reports them.
     pub diagnostics: Vec<DiagnosticView>,
 }
 

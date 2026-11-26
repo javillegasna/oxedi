@@ -17,7 +17,7 @@ for batch in oxedi.stream(Path("big.835").read_bytes()):
 Batch(tables=Tables(adjustments: 15 rows, claims: 4 rows, payments: 1 rows, provider_adjustments: 3 rows, services: 4 rows), diagnostics=0)
 ```
 
-- Each batch holds the tables and diagnostics of one transaction: the rows and findings since
+- Each batch holds the tables and diagnostics of one transaction: the rows and diagnostics since
   the previous batch.
 - The example file has one transaction, so it gives one batch.
 - `stream` accepts `spec=` like `parse`.

@@ -80,7 +80,7 @@ fn push(table: &mut Table, cells: &[Cell<'_>]) -> Result<(), ReadError> {
 /// The table of a parsed file's diagnostics, in stream order. A problem that
 /// is not a diagnostic of a file cannot come from the reader, and is an
 /// internal error naming the table.
-pub fn of_findings(diagnostics: &[Diagnostic]) -> Result<Table, ReadError> {
+pub fn of_diagnostics(diagnostics: &[Diagnostic]) -> Result<Table, ReadError> {
     let mut table = empty();
     for diagnostic in diagnostics {
         let (

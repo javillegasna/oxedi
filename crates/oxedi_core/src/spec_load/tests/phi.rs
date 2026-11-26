@@ -221,7 +221,7 @@ fn a_control_element_error_is_displayed_in_full() {
     let error = control_spec("ST", 2).unwrap_err();
     assert_eq!(
         error.to_string(),
-        "table \"t\" column \"ctl\": \"phi\" cannot flag ST02: it is an envelope control number or count; findings about envelope controls quote it unmasked, so it cannot be flagged; remove \"phi\" from this column"
+        "table \"t\" column \"ctl\": \"phi\" cannot flag ST02: it is an envelope control number or count; diagnostics about envelope controls quote it unmasked, so it cannot be flagged; remove \"phi\" from this column"
     );
 }
 

@@ -111,6 +111,17 @@ ElementSource(segment=b'CLP', element=1, component=None)
     is open. A loop above the anchor offers the segments its enclosing instance read before the
     row's instance opened.
 
+??? note "Details: which segments a segment column reads"
+    When the spec loads, oxedi works out the one occurrence of the reading loop that a column's
+    `segment` and `where` choose: the occurrence whose qualifier the `where` fixes, or the
+    segment's only occurrence when it has no qualifier. The column reads only the segments the
+    parser placed in that occurrence that hold the `where` conditions, and the writer writes the
+    value there. When no one occurrence fits (the `where` does not fix the qualifier, or fixes it
+    to a code no occurrence lists), the column reads every segment of that id that holds the
+    conditions. The writer writes such a column only when the `where` leaves the qualifier free
+    and the loop has one occurrence of the segment; otherwise it refuses the spec, naming the
+    occurrences it could be (none when no occurrence takes the code).
+
 ## Flag patient data
 
 Which columns [hide patient data](../python/without-patient-data.md) when you pass a mask is
@@ -166,7 +177,7 @@ occurrence of the loop has a higher `pos`.
 ## Write with a custom spec
 
 A patched spec also writes: pass it to `oxedi.write(frames, envelope, spec=spec)`. See
-[Writing](../python/writing.md).
+[Writing](../python/writing.md). Each column is written where it is read.
 
 ## Spec keys reference
 

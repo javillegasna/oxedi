@@ -19,6 +19,9 @@ mod lookup;
 mod shape;
 mod spec;
 mod syntax;
+mod text;
+#[cfg(test)]
+mod tests;
 mod validate;
 mod value;
 mod write;

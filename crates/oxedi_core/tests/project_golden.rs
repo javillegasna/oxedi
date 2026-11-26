@@ -4,8 +4,9 @@
 //! two large samples keep a row count per table. Every file keeps its whole
 //! diagnostic list, one `Display` line each. Regenerate with
 //! `UPDATE_GOLDEN=1 cargo test --test project_golden`, inspect the diff,
-//! commit. The tables of the `edi_835_parser.json` patch have their own
-//! goldens in `tests/golden/project/edi_835_parser/`, in the same two formats.
+//! commit. The tables of the compat patch package (`edi_835_parser.json`, data of
+//! `oxedi.edi_835_parser`) have their own goldens in
+//! `tests/golden/project/edi_835_parser/`, in the same two formats.
 //! The masked tables and diagnostics of every file, under a fixed key with
 //! dates reduced to their year, have theirs in `tests/golden/project/masked/`,
 //! with one run of `balanced_5010_sample.txt` with dates shifted.

@@ -17,7 +17,7 @@ from edi_835_parser.segments import organization as library_organization  # noqa
 import oxedi  # noqa: E402
 from oxedi import ParseError  # noqa: E402
 from oxedi import edi_835_parser as compat  # noqa: E402
-from oxedi._core import EDI_835_PARSER_PACKAGE  # noqa: E402
+from oxedi.edi_835_parser._patch import PACKAGE  # noqa: E402
 from oxedi.edi_835_parser import _codes, _convert, _frame, _patch, _tables, _unpad, _views  # noqa: E402
 from oxedi.edi_835_parser._convert import ENCODING  # noqa: E402
 from oxedi.edi_835_parser._patch import spec  # noqa: E402
@@ -305,7 +305,7 @@ def test_a_written_empty_cell_and_an_absent_one_differ_without_the_document(tmp_
 
 
 def test_every_compat_column_reads_the_place_its_patch_names():
-    patch = json.loads(EDI_835_PARSER_PACKAGE)["spec"]
+    patch = json.loads(PACKAGE)["spec"]
     compat_spec = spec()
     checked = 0
     for name, config in patch["tables"].items():

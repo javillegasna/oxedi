@@ -20,7 +20,6 @@ __all__ = [
     "Delimiters",
     "Diagnostic",
     "Document",
-    "EDI_835_PARSER_PACKAGE",
     "ElementSource",
     "Envelope",
     "EnvelopeLoop",
@@ -57,7 +56,6 @@ __all__ = [
     "validate_stack",
 ]
 
-EDI_835_PARSER_PACKAGE: builtins.str
 @typing.final
 class Batch:
     r"""

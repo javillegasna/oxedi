@@ -37,7 +37,8 @@ pub(in crate::spec_load) fn shipped() -> Vec<Package> {
 }
 
 /// The compat patch package, as shipped.
-pub(in crate::spec_load) const COMPAT: &str = include_str!("../../../specs/edi_835_parser.json");
+pub(in crate::spec_load) const COMPAT: &str =
+    include_str!("../../../../oxedi_py/python/oxedi/edi_835_parser/edi_835_parser.json");
 
 /// The compat patch composed over the shipped stack and compiled.
 pub(in crate::spec_load) fn compat() -> LoadedSpec {

@@ -1,5 +1,6 @@
-//! The compiled form of each built-in spec and of the `edi_835_parser.json`
-//! patch, compared against committed golden files in `tests/golden/spec/`:
+//! The compiled form of each built-in spec and of the compat patch package
+//! (`edi_835_parser.json`, data of `oxedi.edi_835_parser`), compared against
+//! committed golden files in `tests/golden/spec/`:
 //! version, default table, roots, loops, segments, tables, balancing rules
 //! and summaries, one `Debug` line each. The source JSON is deliberately not
 //! printed, so the files pin what the spec compiles to, whatever loader built

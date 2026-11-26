@@ -67,7 +67,7 @@ fn resolve(path: &str) -> PathBuf {
 }
 
 /// The compat patch package, which sits on the shipped stack and is not part of it.
-const COMPAT: &str = include_str!("../specs/edi_835_parser.json");
+const COMPAT: &str = include_str!("../../oxedi_py/python/oxedi/edi_835_parser/edi_835_parser.json");
 
 /// The validated stack whose top package is `id`: a shipped package, or the
 /// compat patch, over the shipped texts.

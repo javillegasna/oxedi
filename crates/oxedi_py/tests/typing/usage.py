@@ -24,6 +24,7 @@ from oxedi import (
     Document,
     ElementSource,
     Envelope,
+    EnvelopeLoop,
     GroupSource,
     Invalid,
     JsonObject,
@@ -78,16 +79,19 @@ def results(data: bytes, path: str) -> list[Result]:
     ]
 
 
+def envelope_loops() -> None:
+    loops: list[EnvelopeLoop] = Spec.builtin().envelope()
+    trigger: bytes = loops[0].trigger
+    opener: int = loops[0].opener_element
+    print(trigger, opener)
+
+
 def result_fields(result: Result) -> None:
     document: Document = result.document
     tables: Tables = result.tables
     diagnostics: list[Diagnostic] = result.diagnostics
-    claims: int = result.count_claims()
-    patients: int = result.count_patients()
-    total: decimal.Decimal = result.sum_payments()
-    payer: dict[str, str | None] | None = result.payer
-    payee: dict[str, str | None] | None = result.payee
-    print(document, tables, diagnostics, claims, patients, total, payer, payee, repr(result))
+    claims: int | decimal.Decimal | dict[str, str | None] | None = result.summary("count_claims")
+    print(document, tables, diagnostics, claims, repr(result))
 
 
 def documents(document: Document) -> bytes:

@@ -15,8 +15,8 @@ from ._unpad import unpad
 
 @functools.cache
 def interchange_trigger() -> bytes:
-    """The segment id that opens an interchange, as the compat spec compiles it."""
-    return spec().trigger_segment("interchange")
+    """The segment id that opens the compat spec's outermost envelope loop (an interchange)."""
+    return spec().envelope()[0].trigger
 
 
 def position(table: str, column: str) -> Tuple[int, Optional[int]]:

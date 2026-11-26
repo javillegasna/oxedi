@@ -20,9 +20,9 @@ __all__ = [
     "Delimiters",
     "Diagnostic",
     "Document",
-    "EDI_835_PARSER_PACKAGE",
     "ElementSource",
     "Envelope",
+    "EnvelopeLoop",
     "GroupSource",
     "Invalid",
     "KitBroken",
@@ -56,7 +56,6 @@ __all__ = [
     "validate_stack",
 ]
 
-EDI_835_PARSER_PACKAGE: builtins.str
 @typing.final
 class Batch:
     r"""
@@ -418,6 +417,49 @@ class Envelope:
     def __repr__(self) -> builtins.str: ...
 
 @typing.final
+class EnvelopeLoop:
+    r"""
+    A loop of the envelope: its end segment checks the loop it closes by a
+    control number and a count.
+    """
+    @property
+    def name(self) -> builtins.str:
+        r"""
+        The loop's name in the spec, such as `"interchange"`.
+        """
+    @property
+    def trigger(self) -> bytes:
+        r"""
+        The id of the segment that opens the loop, such as `b"ISA"`.
+        """
+    @property
+    def end(self) -> bytes:
+        r"""
+        The id of the segment that closes the loop, such as `b"IEA"`.
+        """
+    @property
+    def opener_element(self) -> builtins.int:
+        r"""
+        The 1-based position of the control number in the trigger segment,
+        such as 13 for ISA13.
+        """
+    @property
+    def closer_element(self) -> builtins.int:
+        r"""
+        The 1-based position of the same control number in the end segment,
+        such as 2 for IEA02.
+        """
+    @property
+    def count_element(self) -> builtins.int:
+        r"""
+        The 1-based position of the count in the end segment, such as 1 for
+        IEA01.
+        """
+    def __eq__(self, other: builtins.object, /) -> builtins.bool: ...
+    def __hash__(self) -> builtins.int: ...
+    def __repr__(self) -> builtins.str: ...
+
+@typing.final
 class GroupSource:
     r"""
     Where a table column reads its value in a segment that repeats a group of
@@ -631,37 +673,17 @@ class Result:
         r"""
         Every diagnostic, in stream order.
         """
-    @property
-    def payer(self) -> builtins.dict[builtins.str, builtins.str | None] | None:
+    def summary(self, name: builtins.str) -> builtins.int | decimal.Decimal | builtins.dict[builtins.str, builtins.str | None] | None:
         r"""
-        The summary `payer` the spec declares (for the built-in 835: the
-        payer organization of the one transaction), or `None` when the file
-        has none.
-        """
-    @property
-    def payee(self) -> builtins.dict[builtins.str, builtins.str | None] | None:
-        r"""
-        The summary `payee` the spec declares (for the built-in 835: the
-        payee organization of the one transaction), or `None` when the file
-        has none.
-        """
-    def count_claims(self) -> builtins.int:
-        r"""
-        The summary `count_claims` the spec declares (for the built-in 835:
-        the number of claims).
-        """
-    def count_patients(self) -> builtins.int:
-        r"""
-        The summary `count_patients` the spec declares (for the built-in 835:
-        the distinct patient ids of the claims). Values are compared as text:
-        `0123` and `123` are two patients, where edi-835-parser reads both as
-        the number 123 and counts one.
-        """
-    def sum_payments(self) -> decimal.Decimal:
-        r"""
-        The summary `sum_payments` the spec declares (for the built-in 835:
-        the sum of the transactions' total payment amounts), as a `Decimal`
-        at the column's scale.
+        The summary `name` the spec declares, as the value of its kind: an
+        `int` for a `count` or `distinct` summary (a `distinct` one compares
+        values as text, so `0123` and `123` are two), a `Decimal` at the
+        column's scale for a `sum`, a dict of a row's fields for a `row`, or
+        `None` for a `row` the file holds nothing of. Raises `KeyError` for a
+        summary the spec does not declare or a table or column it lacks,
+        `TypeError` for a `sum` over a column that is not decimal, and
+        `ValueError` for a `row` over a table without exactly one row or a sum
+        that overflows.
         """
     def __repr__(self) -> builtins.str: ...
 
@@ -800,6 +822,12 @@ class Spec:
         Every column of table `table` that reads an element of each repeated
         group, by name, in name order; empty for a table without `repeat`.
         Raises `KeyError` for a table the spec does not declare.
+        """
+    def envelope(self) -> builtins.list[EnvelopeLoop]:
+        r"""
+        The envelope loops, outermost first: each loop whose end segment checks
+        it, with its trigger and end segment ids and its control positions.
+        Empty for a spec with none.
         """
     def __repr__(self) -> builtins.str: ...
 

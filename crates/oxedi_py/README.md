@@ -41,8 +41,8 @@ import oxedi
 result = oxedi.parse_file("remittance.835")      # or oxedi.parse(data) from bytes
 
 claims = result.tables["claims"].to_polars()     # or .to_pandas()
-print(result.count_claims(), result.sum_payments())  # sum_payments() is a Decimal
-print(result.payer["name"], result.payee["name"])
+print(result.summary("count_claims"), result.summary("sum_payments"))  # a sum is a Decimal
+print(result.summary("payer")["name"], result.summary("payee")["name"])
 
 for diagnostic in result.diagnostics:            # problems come back as data
     print(diagnostic)

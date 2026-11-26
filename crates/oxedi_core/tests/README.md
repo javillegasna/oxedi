@@ -34,9 +34,9 @@ produced, and on a produced one that is missing.
 | Directory | Written by | Content |
 |-----------|------------|---------|
 | `golden/*.events.txt`, `*.summary.txt` | `engine_golden` | Engine events per file. Small files keep every event; the two large samples (`SUMMARY_ONLY` in `common/mod.rs`) keep a count summary. |
-| `golden/spec/` | `spec_golden` | The compiled definitions of each built-in spec and of the `specs/edi_835_parser.json` patch package (loops, segments, tables with each column's place, balancing, summaries, version, default table), one Debug line each. |
+| `golden/spec/` | `spec_golden` | The compiled definitions of each built-in spec and of the compat patch package (`edi_835_parser.json`, data of `oxedi.edi_835_parser`) (loops, segments, tables with each column's place, balancing, summaries, version, default table), one Debug line each. |
 | `golden/project/` | `project_golden` | Tables (`*.tables.txt`, or `*.tables.summary.txt` for the large samples) and diagnostics (`*.diagnostics.txt`) under the built-in spec. |
-| `golden/project/edi_835_parser/` | `project_golden` | The same tables under the `specs/edi_835_parser.json` patch package. |
+| `golden/project/edi_835_parser/` | `project_golden` | The same tables under the compat patch package (`edi_835_parser.json`, data of `oxedi.edi_835_parser`). |
 | `golden/project/masked/` | `project_golden` | The same, masked with a fixed key and dates reduced to the year; one file also with shifted dates. |
 | `crates/oxedi_py/tests/golden/pyx12/` | `test_pyx12_golden.py` (pytest) | What `oxedi.pyx12.validate` finds in each file but the ISA-less fragment: level, X12 code, segment, element, component, datum and message, in the order `validate` returns them. |
 
@@ -70,7 +70,7 @@ the ISA-less fragment and every sample.
 | `engine_custom_spec` | A patch captures a segment the built-in spec does not know, and a proprietary loop opens, with no code. | Two fixtures (`trizetto_sample.rmt`, `multi_claim_sample.txt`) |
 | `check_envelope` | The known envelope anomalies, rendered in full, and nothing else. | All files |
 | `spec_selection` | Each file gets the built-in spec of the version its group header declares; the 5010 spec when it declares none the specs know. Also pins the 4010 codes and structure and the `PLB` reason-code checks. | Every fixture and sample except the ISA-less fragment |
-| `spec_golden` | The compiled form of the 5010 and 4010 built-ins and of the `specs/edi_835_parser.json` patch package, whatever loader builds it. | The three specs, `golden/spec/` |
+| `spec_golden` | The compiled form of the 5010 and 4010 built-ins and of the compat patch package (`edi_835_parser.json`, data of `oxedi.edi_835_parser`), whatever loader builds it. | The three specs, `golden/spec/` |
 
 ### Tables: events become rows
 

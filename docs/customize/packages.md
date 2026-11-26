@@ -387,13 +387,13 @@ write now.
 |---|---|
 | `crates/oxedi_core/specs/835.json`, the whole 5010 spec | five packages under `crates/oxedi_core/specs/oxedi/`, one per layer (the ids above) |
 | `crates/oxedi_core/specs/835.4010.json`, a patch of it | three editions: `oxedi/envelope/004010`, `oxedi/dictionary/004010`, `oxedi/guide/004010/835/X091A1` |
-| `crates/oxedi_core/specs/edi_835_parser.json`, a patch | the same file, now the patch package `edi-835-parser/patch/005010/835/X221A1` |
+| `crates/oxedi_core/specs/edi_835_parser.json`, a patch | `crates/oxedi_py/python/oxedi/edi_835_parser/edi_835_parser.json`, now the patch package `edi-835-parser/patch/005010/835/X221A1` |
 | an element's `"required": true` | `"usage": "required"`; drop `"required": false` (`situational` is the default). `required` is refused, true or false |
 | an occurrence's `"codes": {"1": ["PR"]}` | `"elements": {"1": {"codes": ["PR"]}}`; the entry may also set `usage`, `min` and `max` |
 | an occurrence's codes outside its element's `codes` | refused: an occurrence only makes its element stricter |
 | your own whole spec, read with `Spec.from_json` | still read by `Spec.from_json` once the two keys above are rewritten; as a package, the spec without `name` under a header with every layer ([above](#your-own-spec-as-a-package)) |
 | your own patch, given to `Spec.patch` | still works; as a package, a `patch` package on `oxedi/views/005010/835/X221A1` |
-| Python `oxedi._core.EDI_835_PARSER_PATCH` | `EDI_835_PARSER_PACKAGE`, loaded with `Spec.from_packages(EDI_835_PARSER_PACKAGE, Spec.builtin_packages())`; `oxedi.edi_835_parser.spec()` gives that spec |
+| Python `oxedi._core.EDI_835_PARSER_PATCH` | the package data of `oxedi.edi_835_parser`, read with `importlib.resources.files("oxedi.edi_835_parser")`; `oxedi.edi_835_parser.spec()` loads it over `Spec.builtin_packages()` |
 | Python `Spec.patch(dict[str, Any])` | `Spec.patch(str \| JsonObject)`; a value JSON cannot hold raises `TypeError` naming its place |
 | Rust `Spec::BUILTIN_835_JSON` (the text) | `Builtin::fallback().model()` gives the model (a `Result<SpecModel, _>`), not the text; or `Builtin::packages()` for the package texts |
 | Rust `Spec::BUILTIN_835_4010_PATCH` | `Builtin::find("835", Version::V4010)?.loaded()` |

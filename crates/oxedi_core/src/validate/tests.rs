@@ -240,7 +240,7 @@ fn a_capability_that_can_has_no_reasons() {
 
 #[test]
 fn every_builtin_says_yes_with_its_capabilities() {
-    let compat = include_str!("../../specs/edi_835_parser.json");
+    let compat = include_str!("../../../oxedi_py/python/oxedi/edi_835_parser/edi_835_parser.json");
     for top in [shipped()[4], shipped()[7]] {
         let valid = yes(validate(top, shipped()));
         assert!(valid.write.can() && valid.mask.can(), "{}", valid.id());

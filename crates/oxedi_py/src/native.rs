@@ -1,22 +1,22 @@
-//! The summaries a spec declares, read for the `Result` methods of the same
-//! name: the core computes them, this module turns the value and the errors
-//! into Python's.
+//! The summaries a spec declares, read for `Result.summary`: the core
+//! computes them, this module turns the value and the errors into Python's.
 
 use oxedi_core::value::decimal_display;
 use oxedi_core::{SummaryError, SummaryValue, summarize};
 use pyo3::exceptions::{PyKeyError, PyTypeError, PyValueError};
 use pyo3::prelude::*;
+use pyo3::types::PyDict;
 
 use crate::tables::PyTables;
 
 /// The fields of a row summary by name, each the cell's text or `None` for
 /// a null cell; `None` as a whole when every field is null.
-pub type Row = Option<Vec<(String, Option<String>)>>;
+type Row = Option<Vec<(String, Option<String>)>>;
 
-/// The summary named like `method`, computed over the tables.
-fn summary(tables: &PyTables, method: &str) -> PyResult<SummaryValue> {
-    summarize(tables.spec(), method, tables.tables()).map_err(|error| {
-        let text = format!("Result.{method}: {error}");
+/// The summary `name`, computed over the tables.
+fn summary(tables: &PyTables, name: &str) -> PyResult<SummaryValue> {
+    summarize(tables.spec(), name, tables.tables()).map_err(|error| {
+        let text = format!("Result.summary({name:?}): {error}");
         match error {
             SummaryError::Undeclared { .. }
             | SummaryError::MissingTable { .. }
@@ -29,44 +29,37 @@ fn summary(tables: &PyTables, method: &str) -> PyResult<SummaryValue> {
     })
 }
 
-/// What a summary value is, in the words of the method that reads it.
-fn kind(value: &SummaryValue) -> &'static str {
-    match value {
-        SummaryValue::Count(_) => "a count",
-        SummaryValue::Decimal { .. } => "a decimal",
-        SummaryValue::Row(_) => "a row",
-    }
+/// A `count` or `distinct` summary as an `int`.
+fn count_value(py: Python<'_>, count: usize) -> PyResult<Bound<'_, PyAny>> {
+    Ok(count.into_pyobject(py)?.into_any())
 }
 
-/// The `TypeError` of a method that reads a summary as `wanted` when the
-/// spec declares another kind.
-fn other_kind(method: &str, wanted: &str, found: &SummaryValue) -> PyErr {
-    PyTypeError::new_err(format!(
-        "Result.{method} reads the summary \"{method}\" as {wanted}; the spec declares {}",
-        kind(found)
-    ))
+/// A `sum` summary as a `decimal.Decimal` at its column's scale.
+fn decimal<'py>(py: Python<'py>, value: i128, scale: u8) -> PyResult<Bound<'py, PyAny>> {
+    py.import("decimal")?
+        .getattr("Decimal")?
+        .call1((decimal_display(value, scale),))
 }
 
-/// A `count` or `distinct` summary.
-pub fn count(tables: &PyTables, method: &str) -> PyResult<usize> {
-    match summary(tables, method)? {
-        SummaryValue::Count(count) => Ok(count),
-        other => Err(other_kind(method, "a count", &other)),
-    }
+/// A `row` summary as a dict of its fields in the order the spec writes them,
+/// or `None` for a row the file holds nothing of.
+fn row<'py>(py: Python<'py>, fields: Row) -> PyResult<Bound<'py, PyAny>> {
+    let Some(fields) = fields else {
+        return Ok(py.None().into_bound(py));
+    };
+    let dict = PyDict::new(py);
+    fields
+        .into_iter()
+        .try_for_each(|(field, cell)| dict.set_item(field, cell))?;
+    Ok(dict.into_any())
 }
 
-/// A `sum` summary as fixed-point text at its column's scale.
-pub fn decimal(tables: &PyTables, method: &str) -> PyResult<String> {
-    match summary(tables, method)? {
-        SummaryValue::Decimal { value, scale } => Ok(decimal_display(value, scale)),
-        other => Err(other_kind(method, "a decimal", &other)),
-    }
-}
-
-/// A `row` summary.
-pub fn row(tables: &PyTables, method: &str) -> PyResult<Row> {
-    match summary(tables, method)? {
-        SummaryValue::Row(fields) => Ok(fields),
-        other => Err(other_kind(method, "a row", &other)),
+/// The summary `name` as the Python value of the kind the spec declares: an
+/// `int` for a count, a `Decimal` for a sum, a dict or `None` for a row.
+pub fn value<'py>(py: Python<'py>, tables: &PyTables, name: &str) -> PyResult<Bound<'py, PyAny>> {
+    match summary(tables, name)? {
+        SummaryValue::Count(count) => count_value(py, count),
+        SummaryValue::Decimal { value, scale } => decimal(py, value, scale),
+        SummaryValue::Row(fields) => row(py, fields),
     }
 }

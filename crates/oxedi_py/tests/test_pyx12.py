@@ -236,7 +236,7 @@ def test_validate_does_not_project(monkeypatch):
 def test_an_error_tree_pyx12_shape_change_becomes_one_failure(monkeypatch):
     import oxedi.pyx12._validate as module
 
-    def reshaped(handler):
+    def reshaped(report, envelope):
         raise KeyError("errors")
 
     monkeypatch.setattr(module, "collect", reshaped)
@@ -358,7 +358,7 @@ def test_a_masked_failure_keeps_the_exception_type_and_drops_its_text(monkeypatc
 def test_a_masked_error_tree_failure_keeps_the_exception_type_and_drops_its_text(monkeypatch):
     import oxedi.pyx12._validate as module
 
-    def reshaped(handler):
+    def reshaped(report, envelope):
         raise ValueError("SECRETNAME")
 
     monkeypatch.setattr(module, "collect", reshaped)

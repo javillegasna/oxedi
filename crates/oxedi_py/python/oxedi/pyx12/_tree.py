@@ -7,9 +7,13 @@ its segment errors and its element errors.
 
 from __future__ import annotations
 
+from collections.abc import Callable, Sequence
 from dataclasses import dataclass
 from enum import Enum
+from operator import attrgetter
 from typing import Optional, Union
+
+from .. import EnvelopeLoop
 
 from ._report import ElementNode, Error, Group, Interchange, Report, SegmentNode, Transaction
 
@@ -30,25 +34,45 @@ class Place(Enum):
 HEADER = Place.HEADER
 TRAILER = Place.TRAILER
 
+
+class Role(Enum):
+    """The control value of an envelope an envelope finding is about."""
+
+    CONTROL_NUMBER = "control_number"
+    COUNT = "count"
+
+
+CONTROL_NUMBER = Role.CONTROL_NUMBER
+COUNT = Role.COUNT
+
 # Where each interchange (ISA), group (GS) and transaction set (ST) error of
 # pyx12 lands, by pyx12's node and error code: on the envelope's header or
-# trailer segment, and at the element holding the offending value when one
-# does. A trailer finding of an envelope with no trailer stays on its header.
-# Codes not listed land on the header with no element.
-PLACES: dict[tuple[str, str], tuple[Place, Optional[int]]] = {
-    ("ISA", "001"): (TRAILER, 2),  # trailer control number differs from the header's
-    ("ISA", "021"): (TRAILER, 1),  # group count is wrong
-    ("ISA", "023"): (HEADER, 13),  # trailer missing
+# trailer segment, and the control value of the envelope the finding is about,
+# when it is about one. ``None`` names no element. A trailer finding of an
+# envelope with no trailer stays on its header. Codes not listed land on the
+# header with no element.
+PLACES: dict[tuple[str, str], tuple[Place, Optional[Role]]] = {
+    ("ISA", "001"): (TRAILER, CONTROL_NUMBER),  # trailer control number differs from the header's
+    ("ISA", "021"): (TRAILER, COUNT),  # group count is wrong
+    ("ISA", "023"): (HEADER, CONTROL_NUMBER),  # trailer missing
     ("ISA", "024"): (TRAILER, None),  # a group inside is not terminated
-    ("ISA", "025"): (HEADER, 13),  # control number not unique
+    ("ISA", "025"): (HEADER, CONTROL_NUMBER),  # control number not unique
     ("GS", "3"): (TRAILER, None),  # a transaction set inside is not terminated, or no trailer
-    ("GS", "4"): (TRAILER, 2),  # trailer control number differs from the header's
-    ("GS", "5"): (TRAILER, 1),  # transaction set count is wrong
-    ("GS", "6"): (HEADER, 6),  # control number not unique
-    ("ST", "2"): (HEADER, 2),  # trailer missing
-    ("ST", "3"): (TRAILER, 2),  # trailer control number differs from the header's
-    ("ST", "4"): (TRAILER, 1),  # segment count is wrong
-    ("ST", "23"): (HEADER, 2),  # control number not unique
+    ("GS", "4"): (TRAILER, CONTROL_NUMBER),  # trailer control number differs from the header's
+    ("GS", "5"): (TRAILER, COUNT),  # transaction set count is wrong
+    ("GS", "6"): (HEADER, CONTROL_NUMBER),  # control number not unique
+    ("ST", "2"): (HEADER, CONTROL_NUMBER),  # trailer missing
+    ("ST", "3"): (TRAILER, CONTROL_NUMBER),  # trailer control number differs from the header's
+    ("ST", "4"): (TRAILER, COUNT),  # segment count is wrong
+    ("ST", "23"): (HEADER, CONTROL_NUMBER),  # control number not unique
+}
+
+# The element of an envelope loop each place and role point at, as the spec
+# states it. A pair not listed names no element.
+_ELEMENT: dict[tuple[Place, Role], Callable[[EnvelopeLoop], int]] = {
+    (HEADER, CONTROL_NUMBER): attrgetter("opener_element"),
+    (TRAILER, CONTROL_NUMBER): attrgetter("closer_element"),
+    (TRAILER, COUNT): attrgetter("count_element"),
 }
 
 # pyx12 writes one segment error of this name per segment with errors. It
@@ -59,10 +83,6 @@ PLACES: dict[tuple[str, str], tuple[Place, Optional[int]]] = {
 # its code, 8).
 ROLLUP = "SEG_8_has_data_element_errors"
 ROLLUP_TEXT = "Segment has data element errors"
-
-# The trailer segment id that closes each envelope.
-_TRAILERS = {"ISA": b"IEA", "GS": b"GE", "ST": b"SE"}
-
 
 @dataclass(frozen=True)
 class Envelope:
@@ -104,11 +124,22 @@ def _text(e: Error) -> str:
 _Node = Union[Interchange, Group, Transaction]
 
 
-def _envelope(kind: str, node: _Node) -> list[Finding]:
+def _envelope(
+    kind: str, node: _Node, loops: dict[bytes, EnvelopeLoop]
+) -> list[Finding]:
+    """The findings of an interchange, group or transaction node. A node whose
+    segment opens no envelope loop of the spec stays where pyx12 puts it, with
+    no element."""
+    loop = loops.get(kind.encode("ascii"))
     found: list[Finding] = []
     for e in node.errors:
-        place, position = PLACES.get((kind, e.code), (HEADER, None))
-        envelope = Envelope(kind.encode("ascii"), _TRAILERS[kind], place)
+        place, role = PLACES.get((kind, e.code), (HEADER, None))
+        envelope: Optional[Envelope] = None
+        position: Optional[int] = None
+        if loop is not None:
+            envelope = Envelope(loop.trigger, loop.end, place)
+            read = _ELEMENT.get((place, role)) if role is not None else None
+            position = read(loop) if read is not None else None
         found.append(
             Finding(ENVELOPE_LEVEL, e.code, _text(e), node.line, element=position, envelope=envelope)
         )
@@ -132,15 +163,17 @@ def _segment(seg: SegmentNode) -> list[Finding]:
     return found
 
 
-def collect(report: Report) -> list[Finding]:
+def collect(report: Report, envelope: Sequence[EnvelopeLoop]) -> list[Finding]:
     """Every error of ``report``, in document order: an envelope's own
-    errors, then those of its children."""
+    errors, then those of its children. ``envelope`` is the spec's envelope
+    loops, which say where each envelope's control values sit."""
+    loops = {loop.trigger: loop for loop in envelope}
     found: list[Finding] = []
     for isa in report.interchanges:
-        found += _envelope("ISA", isa)
+        found += _envelope("ISA", isa, loops)
         for gs in isa.groups:
-            found += _envelope("GS", gs)
+            found += _envelope("GS", gs, loops)
             for st in gs.transactions:
-                found += _envelope("ST", st)
+                found += _envelope("ST", st, loops)
                 found += [f for seg in st.segments for f in _segment(seg)]
     return found

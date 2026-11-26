@@ -2,8 +2,11 @@
 
 import json
 
+from types import SimpleNamespace
+
 import pytest
 
+from oxedi import Spec
 from oxedi.pyx12._report import (
     ElementNode,
     Error,
@@ -15,7 +18,9 @@ from oxedi.pyx12._report import (
     Transaction,
     parse_report,
 )
-from oxedi.pyx12._tree import collect
+from oxedi.pyx12._tree import Place, collect
+
+ENVELOPE = Spec.builtin().envelope()
 
 
 def report(**overrides):
@@ -123,13 +128,13 @@ def segment_report(segment_errors, elements=(), line=16):
 def test_the_rollup_of_element_errors_is_not_a_finding():
     rollup = Error("8", "SEG_8_has_data_element_errors", "Segment has data element errors", None)
     element = ElementNode(2, None, (Error("7", "ELE_7_invalid_code", "(NP) is not a valid code", "NP"),))
-    found = collect(segment_report([rollup], [element]))
+    found = collect(segment_report([rollup], [element]), ENVELOPE)
     assert [(f.level, f.code, f.line, f.element) for f in found] == [(2, "7", 16, 2)]
 
 
 def test_a_segment_error_with_code_8_that_is_not_the_rollup_is_kept():
     error = Error("8", "SEG_8_trailing_terminators", "trailing terminators", None)
-    (finding,) = collect(segment_report([error]))
+    (finding,) = collect(segment_report([error]), ENVELOPE)
     assert finding.code == "8"
     assert finding.text == "trailing terminators (SEG_8_trailing_terminators)"
 
@@ -140,7 +145,7 @@ def folded_error():
 
 
 def test_a_folded_segment_error_is_kept():
-    (finding,) = collect(segment_report([folded_error()], line=4))
+    (finding,) = collect(segment_report([folded_error()], line=4), ENVELOPE)
     assert (finding.level, finding.code, finding.line, finding.element) == (2, "8", 4, None)
     assert finding.value == "Y"
     assert finding.text.endswith("(SEG_8_has_data_element_errors)")
@@ -148,18 +153,51 @@ def test_a_folded_segment_error_is_kept():
 
 def test_a_folded_segment_error_is_kept_next_to_element_errors():
     element = ElementNode(2, None, (Error("7", "ELE_7_invalid_code", "(NP) is not a valid code", "NP"),))
-    found = collect(segment_report([folded_error()], [element], line=4))
+    found = collect(segment_report([folded_error()], [element], line=4), ENVELOPE)
     assert [(f.code, f.element) for f in found] == [("8", None), ("7", 2)]
 
 
 def test_a_legacy_code_adds_no_name_to_the_message():
     element = ElementNode(1, None, (Error("6", "6", "bad char", "x"),))
-    (finding,) = collect(segment_report([], [element]))
+    (finding,) = collect(segment_report([], [element]), ENVELOPE)
     assert finding.text == "bad char"
 
 
 def test_an_envelope_error_names_pyx12s_code_too():
     error = Error("024", "ISA_024_invalid_content", "unterminated group", None)
-    (finding,) = collect(Report((Interchange(1, (error,), ()),)))
+    (finding,) = collect(Report((Interchange(1, (error,), ()),)), ENVELOPE)
     assert finding.text == "unterminated group (ISA_024_invalid_content)"
     assert finding.element is None
+
+
+def test_an_envelope_finding_takes_its_element_from_the_envelope_loop():
+    loops = [
+        SimpleNamespace(
+            name="transaction", trigger=b"ST", end=b"SE",
+            opener_element=4, closer_element=7, count_element=5,
+        )
+    ]
+    errors = (
+        Error("23", "ST_23", "dup", None),
+        Error("3", "SE_3", "differs", None),
+        Error("4", "SE_4", "count", None),
+        Error("99", "X", "other", None),
+    )
+    report = Report((Interchange(1, (), (Group(2, (), (Transaction(3, errors, ()),)),)),))
+    assert [
+        (f.element, f.envelope.place, f.envelope.header, f.envelope.trailer)
+        for f in collect(report, loops)
+    ] == [
+        (4, Place.HEADER, b"ST", b"SE"),
+        (7, Place.TRAILER, b"ST", b"SE"),
+        (5, Place.TRAILER, b"ST", b"SE"),
+        (None, Place.HEADER, b"ST", b"SE"),
+    ]
+
+
+def test_an_envelope_the_spec_has_no_loop_for_leaves_its_findings_unplaced():
+    loops = [loop for loop in ENVELOPE if loop.trigger != b"GS"]
+    error = Error("4", "GS_4", "differs", None)
+    report = Report((Interchange(1, (), (Group(2, (error,), ()),)),))
+    (finding,) = collect(report, loops)
+    assert (finding.level, finding.line, finding.element, finding.envelope) == (1, 2, None, None)

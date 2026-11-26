@@ -15,7 +15,8 @@ use crate::write::codes::landing;
 use crate::write::{SegmentSource, ValueSource, WritePlan};
 
 /// The `edi_835_parser` patch package, whose spec the writer refuses as a whole.
-const COMPAT: &str = include_str!("../../../specs/edi_835_parser.json");
+const COMPAT: &str =
+    include_str!("../../../../oxedi_py/python/oxedi/edi_835_parser/edi_835_parser.json");
 
 /// What of a segment a place reads or writes.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]

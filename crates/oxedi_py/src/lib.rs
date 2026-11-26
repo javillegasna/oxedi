@@ -6,9 +6,7 @@
 //! findings to Python attributes (modules `diagnostic` and `write`), and the
 //! loops open at each segment, read from the core's loop engine for adapters
 //! to external validators (module `parse`).
-//! Parsing, streaming and exporting run with the GIL released. It also carries
-//! the text of the core's `edi_835_parser.json` patch package, so the Python layer
-//! that reproduces edi-835-parser loads the same file the core's goldens test.
+//! Parsing, streaming and exporting run with the GIL released.
 //! Every class, function and exception is also described for the stub
 //! generator; the `stub_gen` binary writes the descriptions as
 //! `python/oxedi/_core.pyi`. stubtest is what guards completeness: a
@@ -47,6 +45,7 @@ mod arrow;
 mod diagnostic;
 mod document;
 mod element_source;
+mod envelope_loop;
 mod import;
 mod json_arg;
 mod kit;
@@ -60,12 +59,6 @@ mod tables;
 mod validate;
 mod write;
 
-/// The name of the module attribute holding the text of `edi_835_parser.json`, a
-/// patch package over the shipped stack.
-const EDI_835_PARSER_PACKAGE: &str = "EDI_835_PARSER_PACKAGE";
-
-pyo3_stub_gen::module_variable!("oxedi._core", EDI_835_PARSER_PACKAGE, String);
-
 /// Registers one member of the module.
 type Register = fn(&Bound<'_, PyModule>) -> PyResult<()>;
 
@@ -73,15 +66,11 @@ type Register = fn(&Bound<'_, PyModule>) -> PyResult<()>;
 #[pymodule]
 #[pyo3(name = "_core")]
 fn core_module(m: &Bound<'_, PyModule>) -> PyResult<()> {
-    members().into_iter().try_for_each(|add| add(m))?;
-    m.add(
-        EDI_835_PARSER_PACKAGE,
-        include_str!("../../oxedi_core/specs/edi_835_parser.json"),
-    )
+    members().into_iter().try_for_each(|add| add(m))
 }
 
 /// Every exception, class and function of the module, one registration each.
-fn members() -> [Register; 41] {
+fn members() -> [Register; 42] {
     [
         |m| m.add("ParseError", m.py().get_type::<document::ParseError>()),
         |m| m.add("SpecError", m.py().get_type::<spec::SpecError>()),
@@ -91,6 +80,7 @@ fn members() -> [Register; 41] {
         |m| m.add_class::<document::PySegment>(),
         |m| m.add_class::<element_source::PyElementSource>(),
         |m| m.add_class::<element_source::PyGroupSource>(),
+        |m| m.add_class::<envelope_loop::PyEnvelopeLoop>(),
         |m| m.add_class::<kit::PyKitBroken>(),
         |m| m.add_class::<kit::PyCaseReport>(),
         |m| m.add_class::<kit::PyKitDifference>(),

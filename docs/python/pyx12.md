@@ -59,7 +59,7 @@ A pyx12 finding has:
 ## Where a finding points
 
 - A count or control number that does not match lands on the trailer segment, at the element
-  holding it, with that value as `datum`.
+  holding it (the element the spec's envelope loop names), with that value as `datum`.
 - A duplicate or missing control structure lands on the header, at the control number when
   that is the offending value.
 - When pyx12 gives no value, `datum` is the element's bytes, or the segment id for a finding

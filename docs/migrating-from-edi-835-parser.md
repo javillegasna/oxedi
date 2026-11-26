@@ -84,10 +84,10 @@ The native API needs no pandas:
 |---|---|
 | `parse(path)` | `oxedi.parse_file(path)` returning a `Result` |
 | `.to_dataframe()` | `result.tables["services"].to_polars()` / `.to_pandas()` (`pip install "oxedi[polars]"` or `"oxedi[pandas]"`), joined to `claims` on `claim` and to `payments` on `payment` |
-| `.count_claims()` | `result.count_claims()` |
-| `.count_patients()` | `result.count_patients()` (a null id is not a patient. Ids are text, so `0123` and `123` are different patients, unlike edi-835-parser) |
-| `.sum_payments()` (float) | `result.sum_payments()` (`Decimal`) |
-| `transaction_set.payer` / `.payee` | `result.payer` / `result.payee` (dict of text values: `name`, `identification_code`, `address`, `city`, `state`, `zip_code`. `ValueError` when `payments` has more than one row) |
+| `.count_claims()` | `result.summary("count_claims")` |
+| `.count_patients()` | `result.summary("count_patients")` (a null id is not a patient. Ids are text, so `0123` and `123` are different patients, unlike edi-835-parser) |
+| `.sum_payments()` (float) | `result.summary("sum_payments")` (`Decimal`) |
+| `transaction_set.payer` / `.payee` | `result.summary("payer")` / `result.summary("payee")` (dict of text values: `name`, `identification_code`, `address`, `city`, `state`, `zip_code`. `ValueError` when `payments` has more than one row) |
 | none | SQL: `duckdb.sql("select ... from claims")` with `claims = result.tables["claims"]` |
 
 ## Extras and pandas

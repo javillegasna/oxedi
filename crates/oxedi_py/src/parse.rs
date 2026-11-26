@@ -6,7 +6,7 @@ use oxedi_core::{Delimiters, Document, Mask, Processor, engine};
 use pyo3::buffer::PyBuffer;
 use pyo3::exceptions::{PyTypeError, PyValueError};
 use pyo3::prelude::*;
-use pyo3::types::{PyDict, PyList, PyString};
+use pyo3::types::{PyList, PyString};
 use pyo3_stub_gen::derive::{gen_stub_pyclass, gen_stub_pyfunction, gen_stub_pymethods};
 
 use crate::diagnostic;
@@ -93,45 +93,18 @@ impl PyParseResult {
         self.diagnostics.clone_ref(py)
     }
 
-    /// The summary `count_claims` the spec declares (for the built-in 835:
-    /// the number of claims).
-    fn count_claims(&self, py: Python<'_>) -> PyResult<usize> {
-        native::count(self.tables.bind(py).get(), "count_claims")
-    }
-
-    /// The summary `count_patients` the spec declares (for the built-in 835:
-    /// the distinct patient ids of the claims). Values are compared as text:
-    /// `0123` and `123` are two patients, where edi-835-parser reads both as
-    /// the number 123 and counts one.
-    fn count_patients(&self, py: Python<'_>) -> PyResult<usize> {
-        native::count(self.tables.bind(py).get(), "count_patients")
-    }
-
-    /// The summary `sum_payments` the spec declares (for the built-in 835:
-    /// the sum of the transactions' total payment amounts), as a `Decimal`
-    /// at the column's scale.
-    #[gen_stub(override_return_type(type_repr = "decimal.Decimal", imports = ("decimal",)))]
-    fn sum_payments<'py>(&self, py: Python<'py>) -> PyResult<Bound<'py, PyAny>> {
-        let sum = native::decimal(self.tables.bind(py).get(), "sum_payments")?;
-        py.import("decimal")?.getattr("Decimal")?.call1((sum,))
-    }
-
-    /// The summary `payer` the spec declares (for the built-in 835: the
-    /// payer organization of the one transaction), or `None` when the file
-    /// has none.
-    #[getter]
-    #[gen_stub(override_return_type(type_repr = "builtins.dict[builtins.str, builtins.str | None] | None", imports = ("builtins",)))]
-    fn payer<'py>(&self, py: Python<'py>) -> PyResult<Option<Bound<'py, PyDict>>> {
-        row_dict(py, native::row(self.tables.bind(py).get(), "payer")?)
-    }
-
-    /// The summary `payee` the spec declares (for the built-in 835: the
-    /// payee organization of the one transaction), or `None` when the file
-    /// has none.
-    #[getter]
-    #[gen_stub(override_return_type(type_repr = "builtins.dict[builtins.str, builtins.str | None] | None", imports = ("builtins",)))]
-    fn payee<'py>(&self, py: Python<'py>) -> PyResult<Option<Bound<'py, PyDict>>> {
-        row_dict(py, native::row(self.tables.bind(py).get(), "payee")?)
+    /// The summary `name` the spec declares, as the value of its kind: an
+    /// `int` for a `count` or `distinct` summary (a `distinct` one compares
+    /// values as text, so `0123` and `123` are two), a `Decimal` at the
+    /// column's scale for a `sum`, a dict of a row's fields for a `row`, or
+    /// `None` for a `row` the file holds nothing of. Raises `KeyError` for a
+    /// summary the spec does not declare or a table or column it lacks,
+    /// `TypeError` for a `sum` over a column that is not decimal, and
+    /// `ValueError` for a `row` over a table without exactly one row or a sum
+    /// that overflows.
+    #[gen_stub(override_return_type(type_repr = "builtins.int | decimal.Decimal | builtins.dict[builtins.str, builtins.str | None] | None", imports = ("builtins", "decimal")))]
+    fn summary<'py>(&self, py: Python<'py>, name: &str) -> PyResult<Bound<'py, PyAny>> {
+        native::value(py, self.tables.bind(py).get(), name)
     }
 
     fn __repr__(&self, py: Python<'_>) -> String {
@@ -142,18 +115,6 @@ impl PyParseResult {
             self.diagnostics.bind(py).len()
         )
     }
-}
-
-/// A row summary as a dict of its fields, in the order the spec writes them.
-fn row_dict<'py>(py: Python<'py>, row: native::Row) -> PyResult<Option<Bound<'py, PyDict>>> {
-    let Some(fields) = row else {
-        return Ok(None);
-    };
-    let dict = PyDict::new(py);
-    for (name, value) in fields {
-        dict.set_item(name, value)?;
-    }
-    Ok(Some(dict))
 }
 
 /// Parses a whole file: indexes every segment, runs the loop engine, the

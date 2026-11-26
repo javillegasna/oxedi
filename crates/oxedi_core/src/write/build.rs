@@ -6,7 +6,7 @@ use std::collections::BTreeMap;
 
 use crate::spec::{
     ColumnPlace, ColumnSource, LoopId, LoopRead, OccurrenceDef, Reading, Relation, Spec, TableDef,
-    Target,
+    Target, render_trigger,
 };
 use crate::vocabulary::Pick;
 
@@ -145,12 +145,16 @@ impl Builder<'_> {
                 continue;
             };
             plan.instances = Instances::Envelope;
-            if let Some(occurrence) = def.trigger_occurrence() {
-                plan.segments.push(SegmentPlan {
+            match def.trigger_occurrence() {
+                Some(occurrence) => plan.segments.push(SegmentPlan {
                     occurrence,
                     source: SegmentSource::Envelope,
                     elements: Vec::new(),
-                });
+                }),
+                None => self.refusals.push(Refusal::EnvelopeWithoutOccurrence {
+                    loop_name: def.name.clone(),
+                    trigger: render_trigger(&def.trigger),
+                }),
             }
         }
     }

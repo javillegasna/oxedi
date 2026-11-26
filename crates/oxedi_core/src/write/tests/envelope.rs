@@ -1,5 +1,6 @@
 use super::super::envelope::interchange_version;
-use super::super::{Envelope, Finding, WriteError, write, write_with_findings};
+use super::super::envelope::trigger_rule;
+use super::super::{Envelope, Finding, Refusal, WriteError, write, write_with_findings};
 use crate::delimiters::Delimiters;
 use crate::diagnostic::Rule;
 use crate::spec::test_support::{builtin, patched};
@@ -120,11 +121,17 @@ fn a_below_00402_spec_with_a_code_writes_the_code_over_the_envelope_separator() 
     assert!(String::from_utf8_lossy(&bytes).contains("*U*00401*"));
 }
 
-/// The ISA12 text of the interchange header `spec` writes for `input`.
-fn written_isa12(spec: &Spec, input: &[u8], envelope: &Envelope) -> Vec<u8> {
-    let bytes = written(spec, input, envelope).unwrap();
-    let isa = bytes.split(|&byte| byte == b'~').next().unwrap();
-    isa.split(|&byte| byte == b'*').nth(12).unwrap().to_vec()
+/// Element `element` of the first `segment` in `bytes`, with `~` and `*`.
+fn written_element(bytes: &[u8], segment: &[u8], element: usize) -> Vec<u8> {
+    let found = bytes
+        .split(|&byte| byte == b'~')
+        .find(|text| text.split(|&byte| byte == b'*').next() == Some(segment))
+        .unwrap();
+    found
+        .split(|&byte| byte == b'*')
+        .nth(element)
+        .unwrap()
+        .to_vec()
 }
 
 #[test]
@@ -153,6 +160,105 @@ fn the_interchange_version_is_the_value_the_header_writes() {
     ];
     for (spec, input, expected) in cases {
         assert_eq!(interchange_version(&spec, &envelope), expected);
-        assert_eq!(written_isa12(&spec, input, &envelope), expected);
+        let bytes = written(&spec, input, &envelope).unwrap();
+        assert_eq!(written_element(&bytes, b"ISA", 12), expected);
+    }
+}
+
+fn plain_envelope() -> Envelope {
+    envelope_with(Delimiters::new(b'*', b':', b'~').with_repetition(b'^'))
+}
+
+#[test]
+fn a_narrowed_trigger_occurrence_code_is_written() {
+    let spec = patched(
+        &builtin(Version::V5010),
+        r#"{"loops":{"interchange":{"occurrences":{"interchange_control_header":{"elements":{"14":{"codes":["1"]}}}}}}}"#,
+    )
+    .unwrap();
+    let bytes = written(&spec, BALANCED_5010, &plain_envelope()).unwrap();
+    assert_eq!(written_element(&bytes, b"ISA", 14), b"1");
+}
+
+#[test]
+fn the_trigger_occurrence_sets_the_written_widths() {
+    let cases: [(&str, &[u8], usize, &[u8]); 3] = [
+        (
+            r#"{"loops":{"group":{"occurrences":{"functional_group_header":{"elements":{"2":{"min":10,"max":10}}}}}}}"#,
+            b"GS",
+            2,
+            b"SENDER    ",
+        ),
+        (
+            r#"{"segments":{"GS":{"elements":{"4":{"min":6}}}},"loops":{"group":{"occurrences":{"functional_group_header":{"elements":{"4":{"max":6}}}}}}}"#,
+            b"GS",
+            4,
+            b"240101",
+        ),
+        (
+            r#"{"loops":{"transaction":{"occurrences":{"transaction_set_header":{"elements":{"2":{"min":6}}}}}}}"#,
+            b"ST",
+            2,
+            b"000001",
+        ),
+    ];
+    for (patch, segment, element, expected) in cases {
+        let spec = patched(&builtin(Version::V5010), patch).unwrap();
+        let document = Document::parse(BALANCED_5010).unwrap();
+        let (tables, _) = Processor::run(&spec, &document, None);
+        let (bytes, _) = write_with_findings(&spec, &tables, &plain_envelope()).unwrap();
+        assert_eq!(written_element(&bytes, segment, element), expected);
+        if segment == b"ST" {
+            assert_eq!(written_element(&bytes, b"SE", 2), expected);
+        }
+    }
+}
+
+#[test]
+fn a_loop_without_occurrences_reads_the_definition() {
+    let loaded = builtin(Version::V5010);
+    let spec = patched(
+        &loaded,
+        r#"{"loops":{"interchange":{"occurrences":{"interchange_control_header":null,"interchange_acknowledgement":null}}}}"#,
+    )
+    .unwrap();
+    let root = spec.get(spec.roots()[0]);
+    assert!(root.occurrences.is_empty());
+    let rule = trigger_rule(&spec, root, 14).unwrap();
+    assert_eq!(rule.codes, ["0", "1"]);
+    let rule = trigger_rule(&spec, root, 6).unwrap();
+    assert_eq!(rule.length.min, Some(15));
+}
+
+#[test]
+fn an_envelope_loop_without_occurrences_is_refused_by_the_writer() {
+    let spec = patched(
+        &builtin(Version::V5010),
+        r#"{"loops":{"interchange":{"occurrences":{"interchange_control_header":null,"interchange_acknowledgement":null}}}}"#,
+    )
+    .unwrap();
+    let Err(WriteError::Plan(plan)) = write(&spec, &Default::default(), &plain_envelope()) else {
+        panic!("a spec with no ISA occurrence must be refused");
+    };
+    assert!(plan.refusals.contains(&Refusal::EnvelopeWithoutOccurrence {
+        loop_name: "interchange".into(),
+        trigger: "\"ISA\" with no conditions".into(),
+    }));
+}
+
+#[test]
+fn every_builtin_envelope_trigger_reads_its_definition_at_the_trigger_occurrence() {
+    for version in [Version::V5010, Version::V4010] {
+        let loaded = builtin(version);
+        let spec = &*loaded.spec;
+        for def in spec.loops().iter().filter(|def| def.control.is_some()) {
+            let segment = spec.segment(&def.trigger.segment).unwrap();
+            for (&position, element) in &segment.elements {
+                let rule = trigger_rule(spec, def, position).unwrap();
+                assert_eq!(rule.codes, element.codes.as_slice(), "{:?}", def.trigger);
+                assert_eq!(rule.length, element.length, "{:?}", def.trigger);
+                assert_eq!(rule.required, element.required, "{:?}", def.trigger);
+            }
+        }
     }
 }

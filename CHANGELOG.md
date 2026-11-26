@@ -55,6 +55,8 @@ This file covers the Python package; the DuckDB extension has its own changelog 
   wanted segment, outermost first, in one pass that stops at the highest index.
 
 ### Changed
+- The table writer takes an envelope element's default code and its widths (padding, date and time, control number) from the element's rule at the occurrence its loop's trigger opens on, so a guide or patch that narrows `interchange_control_header`, `functional_group_header` or `transaction_set_header` is written as narrowed. The built-in specs write the same bytes.
+- Rust: a spec whose envelope loop declares no occurrence its trigger opens on is refused by the writer with `Refusal::EnvelopeWithoutOccurrence`; it used to write a file without that header.
 - A spec's `version` may leave out `values`: the spec then covers the codes of the element it names, in the order written; with no codes there, loading fails with `VersionError::NoCodes`. The built-in guides write their versions once, in GS08's codes, so a built-in's `Spec.to_json()` has `version` without `values`, and the 4010 stack lists 80 changes (its `version` is no longer one).
 - The package format is 2. A reader takes formats 1 and 2; the shipped 5010 guide is written in format 2, so an older oxedi refuses it with `package format 2 is newer than 1, …`.
 - Rust: `Finding::ReadBack` holds a `Box<Diagnostic>`.

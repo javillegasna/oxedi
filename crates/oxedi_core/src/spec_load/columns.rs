@@ -285,13 +285,6 @@ fn reading_loop(
     Ok((!anchors.contains(&id)).then_some(id))
 }
 
-/// The occurrence a loop's trigger opens on, if the loop declares one.
-fn trigger_occurrence(spec: &Spec, id: LoopId) -> Option<&OccurrenceDef> {
-    let def = spec.get(id);
-    def.trigger_occurrence()
-        .and_then(|index| def.occurrences.get(index))
-}
-
 /// Rejects a source in loop `id` above an anchor whose segments all come
 /// after the position where the anchor opens: they arrive once the anchor's
 /// rows are appended, so the column would never fill. Positions compare
@@ -338,12 +331,12 @@ fn check_reached(spec: &Spec, anchors: &[LoopId], read: &Read) -> Result<(), Tab
 /// The position of `anchor`'s trigger occurrence when every loop from
 /// `above` down to `anchor` shares one position space; `None` otherwise.
 fn shared_trigger_pos(spec: &Spec, above: LoopId, anchor: LoopId) -> Option<usize> {
-    let anchor_pos = trigger_occurrence(spec, anchor)?.pos;
+    let anchor_pos = spec.get(anchor).trigger_entry()?.pos;
     let mut child = anchor;
     let mut child_pos = anchor_pos;
     while child != above {
         let parent = spec.get(child).parent?;
-        let parent_pos = trigger_occurrence(spec, parent)?.pos;
+        let parent_pos = spec.get(parent).trigger_entry()?.pos;
         if child_pos <= parent_pos {
             return None;
         }

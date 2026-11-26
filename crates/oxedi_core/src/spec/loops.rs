@@ -98,6 +98,12 @@ impl LoopDef {
             .position(|occurrence| occurrence.opens_on(&self.trigger))
     }
 
+    /// The occurrence the loop's trigger opens on, if the loop declares one.
+    pub(crate) fn trigger_entry(&self) -> Option<&OccurrenceDef> {
+        self.trigger_occurrence()
+            .and_then(|at| self.occurrences.get(at))
+    }
+
     /// `true` when the loop holds `id` (as a listed segment or as its end).
     pub fn accepts(&self, id: &[u8]) -> bool {
         self.segments.iter().any(|segment| segment == id) || self.end.as_deref() == Some(id)

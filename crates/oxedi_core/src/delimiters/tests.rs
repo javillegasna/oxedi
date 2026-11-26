@@ -383,3 +383,15 @@ fn segment_end_carries_the_terminator_and_the_release_byte() {
         SegmentEnd::new(b'~', Some(b'?'))
     );
 }
+
+#[test]
+fn the_header_positions_are_isa11_isa12_isa16() {
+    assert_eq!(
+        HeaderPositions::ISA,
+        HeaderPositions {
+            repetition: 11,
+            version: 12,
+            component: 16
+        }
+    );
+}

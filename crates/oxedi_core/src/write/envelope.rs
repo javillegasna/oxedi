@@ -5,14 +5,15 @@
 //! The envelope loops are the spec's loops with a `control`, outermost
 //! first: an interchange, a functional group and a transaction set, the X12
 //! envelope. Each element of an envelope trigger takes its value from the
-//! first of the sources `Header::source` lists that applies. An element that
-//! allows a fixed width only is padded to it: numbers with leading zeros,
-//! text with trailing spaces.
+//! first of the sources `Header::source` lists that applies. The codes and
+//! widths come from the element's rule at the occurrence the loop's trigger
+//! opens on. An element whose rule allows a fixed width only is padded to it:
+//! numbers with leading zeros, text with trailing spaces.
 
 use std::borrow::Cow;
 
-use crate::delimiters::Delimiters;
-use crate::spec::{ElementDef, Spec};
+use crate::delimiters::{Delimiters, HeaderPositions};
+use crate::spec::{ElementDef, ElementRule, LoopDef, OccurrenceDef, Spec};
 use crate::value::{ElementTextError, ElementType};
 
 use super::finding::WriteError;
@@ -161,9 +162,9 @@ const LAYOUT: [&[(usize, Field)]; 3] = [
         (8, Field::ReceiverId),
         (9, Field::Date),
         (10, Field::Time),
-        (11, Field::Repetition),
+        (HeaderPositions::ISA.repetition, Field::Repetition),
         (15, Field::UsageIndicator),
-        (16, Field::Component),
+        (HeaderPositions::ISA.component, Field::Component),
     ],
     &[
         (2, Field::ApplicationSender),
@@ -233,10 +234,6 @@ pub(super) fn delimiters(
     Ok(all)
 }
 
-/// The element of the interchange header that holds its version, which a
-/// reader compares to decide whether ISA11 is a repetition separator.
-const VERSION_ELEMENT: usize = 12;
-
 /// Depth of the interchange among the envelope loops: it is the root
 /// envelope loop, and a loop's depth is the number of envelope loops above it.
 const INTERCHANGE_DEPTH: usize = 0;
@@ -253,21 +250,20 @@ pub(super) fn interchange_version(spec: &Spec, envelope: &Envelope) -> Vec<u8> {
     else {
         return Vec::new();
     };
-    let trigger = root.trigger.segment.as_slice();
     let number = control_text(
         envelope.control_number,
-        spec.element_def(trigger, control.opener_element, None),
+        trigger_rule(spec, root, control.opener_element),
     );
-    let header = Header {
+    let header = Header::new(
         spec,
-        trigger,
-        depth: INTERCHANGE_DEPTH,
-        opener_element: control.opener_element,
-        control: &number,
+        root,
+        INTERCHANGE_DEPTH,
+        control.opener_element,
+        &number,
         envelope,
-    };
-    spec.element_def(trigger, VERSION_ELEMENT, None)
-        .and_then(|def| header.value(VERSION_ELEMENT, def))
+    );
+    spec.element_def(&root.trigger.segment, HeaderPositions::ISA.version, None)
+        .and_then(|def| header.value(HeaderPositions::ISA.version, def))
         .map(|value| value.bytes)
         .unwrap_or_default()
 }
@@ -284,27 +280,36 @@ pub(super) fn for_spec(envelope: &Envelope, carries_repetition: bool) -> Cow<'_,
     Cow::Owned(owned)
 }
 
+/// The rule of `element` of `def`'s trigger segment at the occurrence the
+/// trigger opens on; `None` when the spec does not define the element.
+pub(super) fn trigger_rule<'s>(
+    spec: &'s Spec,
+    def: &'s LoopDef,
+    element: usize,
+) -> Option<ElementRule<'s>> {
+    let element_def = spec.element_def(&def.trigger.segment, element, None)?;
+    Some(ElementRule::at(
+        element_def,
+        def.trigger_entry(),
+        element,
+        None,
+    ))
+}
+
 /// The values of an envelope loop's trigger segment, at `depth` among the
 /// envelope loops, with `control` the instance's control number.
 pub(super) fn trigger_values(
     spec: &Spec,
-    trigger: &[u8],
+    def: &LoopDef,
     depth: usize,
     opener_element: usize,
     control: &[u8],
     envelope: &Envelope,
 ) -> Vec<EnvelopeValue> {
-    let Some(segment) = spec.segment(trigger) else {
+    let Some(segment) = spec.segment(&def.trigger.segment) else {
         return Vec::new();
     };
-    let header = Header {
-        spec,
-        trigger,
-        depth,
-        opener_element,
-        control,
-        envelope,
-    };
+    let header = Header::new(spec, def, depth, opener_element, control, envelope);
     segment
         .elements
         .iter()
@@ -320,7 +325,7 @@ enum Source<'a> {
     Field(Field),
     /// The spec's declared version, when it sits on that segment and element.
     Version(&'a [u8]),
-    /// The first code the spec lists for the element.
+    /// The first code the element's rule at the trigger occurrence allows.
     Code(&'a str),
     /// Nothing: the element is written empty.
     Nothing,
@@ -331,6 +336,8 @@ enum Source<'a> {
 struct Header<'a> {
     spec: &'a Spec,
     trigger: &'a [u8],
+    /// The occurrence the trigger opens on, whose entries narrow the rules.
+    occurrence: Option<&'a OccurrenceDef>,
     depth: usize,
     opener_element: usize,
     control: &'a [u8],
@@ -338,10 +345,35 @@ struct Header<'a> {
 }
 
 impl<'a> Header<'a> {
+    /// The header of `def`'s trigger, at `depth` among the envelope loops.
+    fn new(
+        spec: &'a Spec,
+        def: &'a LoopDef,
+        depth: usize,
+        opener_element: usize,
+        control: &'a [u8],
+        envelope: &'a Envelope,
+    ) -> Self {
+        Header {
+            spec,
+            trigger: &def.trigger.segment,
+            occurrence: def.trigger_entry(),
+            depth,
+            opener_element,
+            control,
+            envelope,
+        }
+    }
+
+    /// The rule of `position` at the trigger occurrence.
+    fn rule(&self, position: usize, def: &'a ElementDef) -> ElementRule<'a> {
+        ElementRule::at(def, self.occurrence, position, None)
+    }
+
     /// The source of the value of `position`, in order: the control number,
-    /// the caller's field, the declared version, the element's first code,
-    /// nothing.
-    fn source(&self, position: usize, def: &'a ElementDef) -> Source<'a> {
+    /// the caller's field, the declared version, the first code its rule
+    /// allows, nothing.
+    fn source(&self, position: usize, rule: &ElementRule<'a>) -> Source<'a> {
         if position == self.opener_element {
             return Source::Control;
         }
@@ -351,8 +383,7 @@ impl<'a> Header<'a> {
         if let Some(version) = self.declared_version(position) {
             return Source::Version(version);
         }
-        // TODO: ask the element rule of the trigger occurrence once the envelope roles are data
-        def.codes
+        rule.codes
             .first()
             .map_or(Source::Nothing, |code| Source::Code(code))
     }
@@ -374,20 +405,21 @@ impl<'a> Header<'a> {
         sits_here.then(|| version.values.first().map_or(&[][..], Vec::as_slice))
     }
 
-    /// The value of `position`, padded to its element's width, or `None`
-    /// when its caller's field has nothing to write there.
+    /// The value of `position`, padded to the width its rule allows, or
+    /// `None` when its caller's field has nothing to write there.
     fn value(&self, position: usize, def: &'a ElementDef) -> Option<EnvelopeValue> {
-        let mut value = match self.source(position, def) {
+        let rule = self.rule(position, def);
+        let mut value = match self.source(position, &rule) {
             Source::Control => {
                 EnvelopeValue::plain(position, self.control, Some(Field::ControlNumber))
             }
-            Source::Field(field) => EnvelopeValue::of_field(position, field, def, self.envelope)?,
+            Source::Field(field) => EnvelopeValue::of_field(position, field, &rule, self.envelope)?,
             Source::Version(bytes) => EnvelopeValue::plain(position, bytes, Some(Field::Version)),
             Source::Code(code) => EnvelopeValue::plain(position, code.as_bytes(), None),
             Source::Nothing => EnvelopeValue::plain(position, &[], None),
         };
         if value.refused.is_none() {
-            value.bytes = pad(value.bytes, def);
+            value.bytes = pad(value.bytes, &rule);
         }
         Some(value)
     }
@@ -411,11 +443,11 @@ impl EnvelopeValue {
     fn of_field(
         element: usize,
         field: Field,
-        def: &ElementDef,
+        rule: &ElementRule<'_>,
         envelope: &Envelope,
     ) -> Option<EnvelopeValue> {
         let plain = EnvelopeValue::plain(element, &[], Some(field));
-        Some(match field_value(field, def, envelope)? {
+        Some(match field_value(field, rule, envelope)? {
             Ok((bytes, checked)) => EnvelopeValue {
                 bytes,
                 checked,
@@ -434,7 +466,7 @@ impl EnvelopeValue {
 /// reason when the field has no text the element can hold.
 fn field_value(
     field: Field,
-    def: &ElementDef,
+    rule: &ElementRule<'_>,
     envelope: &Envelope,
 ) -> Option<Result<(Vec<u8>, bool), ElementTextError>> {
     let text = |value: &str| Some(Ok((value.as_bytes().to_vec(), true)));
@@ -456,10 +488,10 @@ fn field_value(
                 .as_deref()
                 .unwrap_or(envelope.receiver_id.trim_end()),
         ),
-        Field::Date => Some(envelope_date(envelope.date, def.length.max).map(|text| (text, true))),
-        Field::Time => Some(envelope_time(envelope.time, def.length.max).map(|text| (text, true))),
+        Field::Date => Some(envelope_date(envelope.date, rule.length.max).map(|text| (text, true))),
+        Field::Time => Some(envelope_time(envelope.time, rule.length.max).map(|text| (text, true))),
         Field::UsageIndicator => text(&envelope.usage_indicator),
-        Field::Repetition => match (delimiters.repetition, def.codes.first()) {
+        Field::Repetition => match (delimiters.repetition, rule.codes.first()) {
             (Some(byte), _) => Some(Ok((vec![byte], false))),
             (None, Some(code)) => Some(Ok((code.as_bytes().to_vec(), true))),
             (None, None) => None,
@@ -469,14 +501,14 @@ fn field_value(
     }
 }
 
-/// Pads a value to its element's width when the element allows one width
-/// only, or when it is a number shorter than its minimum.
-pub(super) fn pad(mut bytes: Vec<u8>, def: &ElementDef) -> Vec<u8> {
-    let Some(min) = def.length.min else {
+/// Pads a value to the width its rule allows when the rule allows one width
+/// only, or when the element is a number shorter than its minimum.
+pub(super) fn pad(mut bytes: Vec<u8>, rule: &ElementRule<'_>) -> Vec<u8> {
+    let Some(min) = rule.length.min else {
         return bytes;
     };
-    let numeric = matches!(def.kind, ElementType::N(_));
-    let fixed = def.length.max == Some(min);
+    let numeric = matches!(rule.def.kind, ElementType::N(_));
+    let fixed = rule.length.max == Some(min);
     if bytes.len() >= min || !(numeric || fixed) {
         return bytes;
     }
@@ -492,10 +524,10 @@ pub(super) fn pad(mut bytes: Vec<u8>, def: &ElementDef) -> Vec<u8> {
 }
 
 /// A control number as its element writes it: digits padded with leading
-/// zeros to the element's minimum.
-pub(super) fn control_text(number: u64, def: Option<&ElementDef>) -> Vec<u8> {
+/// zeros to the minimum its rule allows.
+pub(super) fn control_text(number: u64, rule: Option<ElementRule<'_>>) -> Vec<u8> {
     let digits = number.to_string().into_bytes();
-    let min = def.and_then(|def| def.length.min).unwrap_or(0);
+    let min = rule.and_then(|rule| rule.length.min).unwrap_or(0);
     if digits.len() >= min {
         return digits;
     }

@@ -64,8 +64,7 @@ impl Layout {
             for &child in &def.children {
                 let child_def = spec.get(child);
                 let at = child_def
-                    .trigger_occurrence()
-                    .and_then(|at| child_def.occurrences.get(at))
+                    .trigger_entry()
                     .map(|o| o.pos)
                     .filter(|&at| own.is_some_and(|own| at > own))
                     .unwrap_or(usize::MAX);

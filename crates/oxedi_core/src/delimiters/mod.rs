@@ -6,6 +6,8 @@
 //! after `ISA` is #1; ISA16 (the component separator) is the single byte after
 //! separator #16, and the segment terminator is the byte after that.
 //!
+//! `header` holds the element positions of the ISA that carry the delimiters
+//! and the version, and the version from which ISA11 is a repetition separator.
 //! `syntax` holds the `Syntax` value, the bytes a segment is written with.
 //! `test_support` (test builds only) holds the helpers the unit tests of the
 //! modules that read segments share: the plain `*`, `:`, `~` dialect and the
@@ -17,8 +19,10 @@ use crate::frame::SegmentEnd;
 use crate::message::Counted;
 use crate::trivia::LeadingTrivia;
 
+mod header;
 mod syntax;
 
+pub(crate) use header::{HeaderPositions, version_carries_repetition};
 pub(crate) use syntax::Syntax;
 
 /// The five delimiters of an interchange. Only `release` is never read from the
@@ -192,17 +196,9 @@ impl fmt::Display for Skipped {
     }
 }
 
-/// Number of element separators in an ISA segment (ISA01 through ISA16).
-const ISA_SEPARATORS: usize = 16;
-/// First interchange version in which ISA11 is a repetition separator.
-const FIRST_VERSION_WITH_REPETITION: &[u8] = b"00402";
-
-/// `true` when an interchange of `version` (ISA12) uses ISA11 as the
-/// repetition separator. The comparison is on bytes, so a version that is not
-/// a five-digit number is ordered as its bytes are.
-pub(crate) fn version_carries_repetition(version: &[u8]) -> bool {
-    version >= FIRST_VERSION_WITH_REPETITION
-}
+/// Number of element separators in an ISA segment: one before each element
+/// (ISA01 through ISA16), ISA16 being the byte after the last.
+const ISA_SEPARATORS: usize = HeaderPositions::ISA.component;
 
 /// The positions of the 16 element separators of an ISA segment, found once,
 /// so each field is read from them instead of being searched again, with the
@@ -316,8 +312,10 @@ impl Delimiters {
             byte_order_mark: false,
             whitespace: 0,
         })?;
-        let repetition = match isa.field(11) {
-            [byte] if version_carries_repetition(isa.field(12)) => Some(*byte),
+        let repetition = match isa.field(HeaderPositions::ISA.repetition) {
+            [byte] if version_carries_repetition(isa.field(HeaderPositions::ISA.version)) => {
+                Some(*byte)
+            }
             _ => None,
         };
 

@@ -2,6 +2,7 @@
 
 use std::fmt;
 
+use super::Mask;
 use crate::vocabulary::{DateMode, words_text};
 
 /// Why a mask or a date mode could not be built.
@@ -25,7 +26,7 @@ impl fmt::Display for MaskError {
             MaskError::ShortKey { length } => write!(
                 f,
                 "the mask key must be at least {} bytes long; got {length}",
-                super::Mask::MIN_KEY
+                Mask::MIN_KEY
             ),
             MaskError::UnknownDateMode { given } => write!(
                 f,

@@ -3,6 +3,7 @@
 use std::fmt;
 
 use super::diff::{Line, LineDifference};
+use crate::delimiters::ISA_ID;
 use crate::document::DocumentError;
 use crate::spec_load::{KitOutput, PackageId};
 use crate::vocabulary::Vocabulary;
@@ -113,7 +114,7 @@ impl fmt::Display for CaseFault {
             ),
             CaseFault::NotADocument { path, reason } => write!(
                 f,
-                "{path:?} is not an X12 document: {reason}; give a file that opens with ISA"
+                "{path:?} is not an X12 document: {reason}; give a file that opens with {ISA_ID}"
             ),
         }
     }

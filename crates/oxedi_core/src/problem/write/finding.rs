@@ -3,7 +3,7 @@
 
 use std::fmt;
 
-use crate::delimiters::HeaderPositions;
+use crate::delimiters::{HeaderPositions, ISA_ID};
 use crate::message::{Counted, Quoted};
 use crate::write::{Finding, ValueOrigin, WriteError};
 
@@ -132,7 +132,7 @@ impl fmt::Display for WriteError {
             ),
             WriteError::NoRepetition { version } => write!(
                 f,
-                "the interchange version {} (ISA{}) carries a repetition separator in ISA{}, but \
+                "the interchange version {} ({ISA_ID}{}) carries a repetition separator in {ISA_ID}{}, but \
                  the envelope field \"delimiters.repetition\" is not set; set it to the separator \
                  to write",
                 Quoted(version),

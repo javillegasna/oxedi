@@ -163,7 +163,9 @@ impl Valid {
     pub fn members(&self) -> impl Iterator<Item = &Member> {
         self.bases.iter().chain(std::iter::once(&self.top))
     }
+}
 
+impl Valid {
     /// One line per change, in stack order: the change and the package that
     /// made it.
     pub fn change_lines(&self) -> Vec<String> {

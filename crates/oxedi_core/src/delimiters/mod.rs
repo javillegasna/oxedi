@@ -22,7 +22,7 @@ use crate::trivia::LeadingTrivia;
 mod header;
 mod syntax;
 
-pub(crate) use header::{HeaderPositions, version_carries_repetition};
+pub(crate) use header::{HeaderPositions, ISA_ID, version_carries_repetition};
 pub(crate) use syntax::Syntax;
 
 /// The five delimiters of an interchange. Only `release` is never read from the
@@ -118,54 +118,25 @@ impl fmt::Display for IsaError {
                 found,
                 byte_order_mark,
                 whitespace,
-            } => {
-                let skipped = Skipped {
-                    byte_order_mark: *byte_order_mark,
-                    whitespace: *whitespace,
-                };
-                write!(f, "input does not start with an ISA segment (")?;
-                if found.is_empty() {
-                    if skipped.is_empty() {
-                        return write!(f, "input is empty)");
-                    }
-                    return write!(f, "input holds only {skipped})");
+            } => write!(
+                f,
+                "input does not start with an {ISA_ID} segment ({})",
+                NotIsaDetail {
+                    found,
+                    skipped: Skipped::of(*byte_order_mark, *whitespace),
                 }
-                write!(f, "found bytes [")?;
-                for (i, byte) in found.iter().enumerate() {
-                    if i > 0 {
-                        write!(f, " ")?;
-                    }
-                    write!(f, "{byte:02x}")?;
-                }
-                write!(f, "]")?;
-                if !skipped.is_empty() {
-                    write!(f, " after skipping {skipped}")?;
-                }
-                write!(f, ")")
-            }
+            ),
             IsaError::Truncated {
                 len,
                 separators_found,
                 byte_order_mark,
                 whitespace,
-            } => {
-                let skipped = Skipped {
-                    byte_order_mark: *byte_order_mark,
-                    whitespace: *whitespace,
-                };
-                write!(f, "ISA segment truncated after {len} bytes")?;
-                if !skipped.is_empty() {
-                    write!(f, " (counted after skipping {skipped})")?;
-                }
-                if *separators_found >= ISA_SEPARATORS {
-                    write!(f, ": ISA16 or the terminator is missing")
-                } else {
-                    write!(
-                        f,
-                        ": found {separators_found} of {ISA_SEPARATORS} element separators"
-                    )
-                }
-            }
+            } => write!(
+                f,
+                "{ISA_ID} segment truncated after {len} bytes{}: {}",
+                CountedAfter(Skipped::of(*byte_order_mark, *whitespace)),
+                Missing(*separators_found)
+            ),
         }
     }
 }
@@ -180,6 +151,13 @@ struct Skipped {
 }
 
 impl Skipped {
+    const fn of(byte_order_mark: bool, whitespace: usize) -> Skipped {
+        Skipped {
+            byte_order_mark,
+            whitespace,
+        }
+    }
+
     const fn is_empty(&self) -> bool {
         !self.byte_order_mark && self.whitespace == 0
     }
@@ -192,6 +170,67 @@ impl fmt::Display for Skipped {
             (true, 0) => write!(f, "a UTF-8 byte order mark"),
             (true, _) => write!(f, "a UTF-8 byte order mark and {whitespace} of whitespace"),
             (false, _) => write!(f, "{whitespace} of whitespace"),
+        }
+    }
+}
+
+/// The bytes found instead of the ISA, as hex digits: `found bytes [ef bb bf]`.
+struct Found<'a>(&'a [u8]);
+
+impl fmt::Display for Found<'_> {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "found bytes [")?;
+        for (i, byte) in self.0.iter().enumerate() {
+            if i > 0 {
+                write!(f, " ")?;
+            }
+            write!(f, "{byte:02x}")?;
+        }
+        write!(f, "]")
+    }
+}
+
+/// What a missing ISA is told with: what was found instead, and what was
+/// skipped before it.
+struct NotIsaDetail<'a> {
+    found: &'a [u8],
+    skipped: Skipped,
+}
+
+impl fmt::Display for NotIsaDetail<'_> {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match (self.found.is_empty(), self.skipped.is_empty()) {
+            (true, true) => write!(f, "input is empty"),
+            (true, false) => write!(f, "input holds only {}", self.skipped),
+            (false, true) => write!(f, "{}", Found(self.found)),
+            (false, false) => write!(f, "{} after skipping {}", Found(self.found), self.skipped),
+        }
+    }
+}
+
+/// The bytes skipped before the count of a truncated ISA, or nothing when none
+/// was skipped.
+struct CountedAfter(Skipped);
+
+impl fmt::Display for CountedAfter {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        if self.0.is_empty() {
+            return Ok(());
+        }
+        write!(f, " (counted after skipping {})", self.0)
+    }
+}
+
+/// What a truncated ISA lacks, from the element separators found in it.
+struct Missing(usize);
+
+impl fmt::Display for Missing {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let component = HeaderPositions::ISA.component;
+        if self.0 >= component {
+            write!(f, "{ISA_ID}{component} or the terminator is missing")
+        } else {
+            write!(f, "found {} of {component} element separators", self.0)
         }
     }
 }
@@ -298,7 +337,7 @@ impl Delimiters {
     ///
     /// Bytes after the ISA terminator are ignored. `release` is always `None`.
     pub fn from_isa(input: &[u8]) -> Result<Self, IsaError> {
-        if !input.starts_with(b"ISA") {
+        if !input.starts_with(ISA_ID.as_bytes()) {
             let found = input.iter().take(IsaError::FOUND_LEN).copied().collect();
             return Err(IsaError::NotIsa {
                 found,

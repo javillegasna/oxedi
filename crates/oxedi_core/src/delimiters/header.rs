@@ -15,6 +15,9 @@ pub(crate) struct HeaderPositions {
     pub(crate) component: usize,
 }
 
+/// The segment id of the interchange header.
+pub(crate) const ISA_ID: &str = "ISA";
+
 impl HeaderPositions {
     /// The positions in an ISA segment.
     pub(crate) const ISA: HeaderPositions = HeaderPositions {

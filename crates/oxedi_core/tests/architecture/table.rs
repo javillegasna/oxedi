@@ -38,6 +38,7 @@ pub const TABLE: &[Row] = &[
         "conformance",
         &[
             "column",
+            "delimiters",
             "diagnostic",
             "document",
             "process",

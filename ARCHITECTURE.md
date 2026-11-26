@@ -70,7 +70,10 @@ flowchart LR
    - `Projector` (`project/`) reads the occurrence of the captured segment from the event and the
      loop path of its diagnostics from `named_lineage` over the engine's open path, checks
      every element the spec defines (`project/check.rs`: required, type, length, code list,
-     components) and fills the spec's tables (`project/fill.rs`).
+     components) and fills the spec's tables (`project/fill.rs`) through the spec's read index
+     (`spec/read_index.rs`): per segment id and loop, the columns the captured segment feeds, each
+     with its place, conditions and pick, and the elements some column reads, so an element no
+     column reads is checked but not kept.
    - `StructureChecker` (`check/`) reports unknown segments, implicit and unterminated loops,
      envelope counts and control numbers (`check/control.rs`), the loop path of its diagnostics
      from `named_lineage` over the engine's open path, occurrence counts and order
@@ -99,10 +102,12 @@ by the transaction set and version that identity names.
 
 `write::write_with_findings` (`write/writer.rs`) runs two phases.
 
-- **Compile the plan.** `WritePlan::new` (`write/build.rs`) inverts every table column into
-  "where does this element's value come from". The plan depends only on the spec, but it is
-  built at the start of each call. A spec that cannot be written is refused with a `PlanError`
-  holding every `Refusal` (`write/refusal.rs`).
+- **Compile the plan.** `WritePlan::new` (`write/build.rs`) builds the plan from each column's
+  place (`spec/places.rs`), the place the reader reads: the occurrence a column lands in
+  (`write/codes.rs`), the loop it reads and how that loop gets its instances. The places are
+  compiled once with the spec; the plan itself is built from them at the start of each call. A
+  spec that cannot be written is refused with a `PlanError` holding every `Refusal`
+  (`write/refusal.rs`).
 - **Write the tables.**
   1. `bind` (`write/data.rs`) matches the caller's tables and columns to the spec's; a table the
      spec does not define comes from `Spec::require_table` as `UnknownTable`, and a column it does
@@ -228,10 +233,11 @@ Every key is listed in [the spec keys reference](docs/customize/spec.md#spec-key
 | Change how a message names an element, a set of conditions or a list of names, or quotes file bytes or a key | `message/mod.rs` | `message/tests.rs`; the `Display` tests of the messages that use it |
 | Add a diagnostic rule | `diagnostic/rule.rs` (`Rule` variant, `level`, `kind`, and `segment_id` when the rule is about one segment's elements, so its datum can be masked) and `diagnostic/display.rs` (message, written over the pieces of `diagnostic/text.rs` and `message/`) | Raise it in `check/` (structure) or `project/check.rs` (elements); a full-text `Display` test in `diagnostic/tests.rs` |
 | Change an element check | `project/check.rs` | `cargo test -p oxedi_core --lib project::`, then both golden suites |
+| Change where a column reads or is written | `spec_load/places.rs` (`place_columns`: target, type, loops, occurrence) and `LoopDef::place_of` in `spec/places.rs` | `spec/read_index.rs` for what reading needs per segment; `write/build.rs` and `write/codes.rs` for writing; `spec_load/tests/places.rs` and `write/tests/places.rs` (`the_writer_writes_every_column_where_the_reader_reads_it`); `UPDATE_GOLDEN=1 cargo test -p oxedi_core --test spec_golden`, then read the diff |
 | Change how loops are recognized | `engine/mod.rs` | `cargo test -p oxedi_core --test engine_golden` and `--test engine_invariants` |
 | Change what a caller's value may become on write (integers, decimals, dates, times) | `value/convert.rs` (`ConvertError`), `value/unit.rs` (`TimeUnit`), `value/calendar.rs` | Bindings call it and add no rule of their own; test in `value/tests/` |
 | Add a value type | `ElementType` in `value/element_type.rs`; `ColumnType` in `value/column_type.rs`; `ColumnData` and `render` in `column/mod.rs`; a parser in `value/parse.rs`; its text, displayed and as an element, in `value/format.rs` | Core writer in `write/render.rs` and `write/data.rs`; DuckDB `types/`, `scan/write.rs` and `copy/`; Python `arrow.rs`, `import.rs` and `native.rs` |
-| Refuse a spec the writer cannot write | `write/refusal.rs` (`Refusal`) | Raise it in the compile pass that finds it; `Display` test in `write/tests/display.rs` |
+| Refuse a spec the writer cannot write | `write/refusal.rs` (`Refusal`) | Raise it where the plan is built (`write/build.rs`, `write/codes.rs`, `write/place.rs`, `write/required.rs` for the three `Required*WithoutSource`, `write/segments.rs` for `DuplicateSource` and `PickNotContiguous`); `Display` test in `write/tests/display.rs` |
 | Report a new problem in written tables | `write/finding.rs` (`Finding`) | Raise it where the writer meets it (`write/nest.rs` for references, `write/emit.rs` and `write/cells.rs` while writing); test in `tests/write_findings.rs` |
 | Change patient-data masking | `mask/` (tokens, dates), `vocabulary/` (`Phi`, `DateMode`), `project/mask.rs` (columns and datums) | `spec_load/phi.rs` for the flags; `tests/mask.rs` |
 | Add or change a Python attribute | the file in `crates/oxedi_py/src/` with `#[pyclass(name = "X")]` (files are by topic: `Result` is in `parse.rs`), plus `python/oxedi/` when a Python wrapper is involved | `make stubs`, `make stubtest`, a test in `crates/oxedi_py/tests/` |
@@ -332,7 +338,9 @@ Internal words used in the code. X12 and payment terms for users are in
 | implicit loop | A loop opened without its trigger, to hold a descendant. | `Rule::ImplicitLoop` |
 | loop tree | The tree of loop instances built from events; node 0 is the root. | `tree/` |
 | instance / ordinal | One occurrence of a loop in the file, numbered by the engine in opening order (`InstanceId`) / its 1-based number among the occurrences of that loop (`ordinal_in_stream`, the `2` of `2100#2`). | `engine/` (`Instance`), `LoopRef` |
-| projection / projector | Filling the spec's tables from the event stream, with element checks. | `project/` |
+| projection / projector | Filling the spec's tables from the event stream through the read index, with element checks. | `project/` |
+| place | Where one declared column reads, compiled once with the spec (`ColumnPlace`): its target, type, the loops it reads and in each the occurrence (`OccurrencePlace`: named, chosen by its segment and where, or unplaced with the reason). The reader reads it and the writer writes it. | `spec/places.rs`, `spec_load/places.rs` |
+| read index | Per loop and segment id, what reading a file needs from the places: the tables a loop anchors, the values that start over, the elements some column reads and the columns each captured segment feeds (`Watcher`). | `spec/read_index.rs` |
 | anchor | The loop or loops (JSON `tables.*.loops`) or the segment (JSON `segment`) a table takes one row per. | `project/`, `spec/tables.rs` |
 | ref / reference column | The column a child row uses to point at its parent table's row. | `spec/tables.rs` |
 | table / column / cell | Arrow-shaped output (`Table`, `ColumnData`, `Bitmap`); a cell is one value. | `column/` |
@@ -346,7 +354,7 @@ Internal words used in the code. X12 and payment terms for users are in
 | vocabulary | The closed words a typed value is written as (`Vocabulary`), one table each; `Phi`, `DateMode` and `Pick` live with the trait. | `vocabulary/`, `spec_load/vocabulary.rs` |
 | summary | A named figure the spec declares over its tables (a count, a distinct count, a sum, the fields of one row); `summarize` computes it. | `spec_load/summaries.rs`, `summary/` |
 | PHI / mask / phi seed | Patient-data columns flagged in the spec (`Phi`); a keyed digest replaces them; the seed column keys the date shift. User docs say "patient data". | `vocabulary/` (`Phi`), `mask/`, `spec_load/phi.rs`, `project/mask.rs` |
-| write plan | Where each written loop instance and element value comes from; depends only on the spec, built at the start of each write. | `write/plan.rs`, `write/build.rs` |
+| write plan | Where each written loop instance and element value comes from; built from the columns' places at the start of each write. | `write/plan.rs`, `write/build.rs` |
 | refusal | Why a **spec** cannot be written (`Refusal`, collected in `PlanError`). | `write/refusal.rs` |
 | finding | Something wrong in the **tables or the written file** (`Finding`); strict writing turns findings into `WriteError::Findings`. In prose, "diagnostic" is a reading result and "finding" a writing or external-validator result. | `write/finding.rs` |
 | value origin | The cell, row or envelope field a written value came from (`ValueOrigin`). | `write/finding.rs` |

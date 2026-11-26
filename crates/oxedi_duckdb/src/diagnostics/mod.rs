@@ -1,8 +1,10 @@
-//! The `diagnostics` table: one row per finding of the core about a file,
-//! with the attributes of the Python `Diagnostic`, and one row per file that
-//! could not be parsed when `ignore_errors` is on.
+//! The `diagnostics` table: one row per diagnostic the core reports about a
+//! file, with the attributes of the Python `Diagnostic`, and one row per file
+//! that could not be parsed when `ignore_errors` is on.
 
-use oxedi_core::{Cell, ColumnType, Diagnostic, DocumentError, FlatDiagnostic, Table};
+use oxedi_core::diagnostic::LoopPath;
+use oxedi_core::problem::{Detail, Place, Problem};
+use oxedi_core::{Cell, ColumnType, Diagnostic, Table};
 
 use crate::error::ReadError;
 use crate::types::SqlType;
@@ -16,38 +18,35 @@ const READER_ORIGIN: &str = "read_835";
 /// The kind of the row of a file that could not be parsed.
 const UNPARSABLE_KIND: &str = "NotAnInterchange";
 
-/// Each column's core type and whether its text is always valid UTF-8 (so a
-/// VARCHAR even with `binary := true`), in the order of
-/// `FlatDiagnostic::FIELDS`.
-const COLUMNS: [(ColumnType, bool); 10] = [
-    (ColumnType::Int64 { scale: 0 }, false),
-    (ColumnType::Binary, true),
-    (ColumnType::Binary, true),
-    (ColumnType::Int64 { scale: 0 }, false),
-    (ColumnType::Int64 { scale: 0 }, false),
-    (ColumnType::Int64 { scale: 0 }, false),
-    (ColumnType::Binary, true),
-    (ColumnType::Binary, false),
-    (ColumnType::Binary, true),
-    (ColumnType::Binary, true),
+/// Each column's name, core type and whether its text is always valid UTF-8
+/// (so a VARCHAR even with `binary := true`).
+const COLUMNS: [(&str, ColumnType, bool); 10] = [
+    ("level", ColumnType::Int64 { scale: 0 }, false),
+    ("kind", ColumnType::Binary, true),
+    ("rule", ColumnType::Binary, true),
+    ("segment", ColumnType::Int64 { scale: 0 }, false),
+    ("element", ColumnType::Int64 { scale: 0 }, false),
+    ("component", ColumnType::Int64 { scale: 0 }, false),
+    ("path", ColumnType::Binary, true),
+    ("datum", ColumnType::Binary, false),
+    ("origin", ColumnType::Binary, true),
+    ("code", ColumnType::Binary, true),
 ];
 
 /// The table's columns: name and core type.
 pub fn columns() -> Vec<(String, ColumnType)> {
-    FlatDiagnostic::FIELDS
+    COLUMNS
         .iter()
-        .zip(COLUMNS)
-        .map(|(name, (kind, _))| ((*name).to_owned(), kind))
+        .map(|(name, kind, _)| ((*name).to_owned(), *kind))
         .collect()
 }
 
 /// The DuckDB type of each column: `datum` follows `binary`, the other text
 /// columns are always VARCHAR.
 pub fn types(binary: bool) -> Result<Vec<SqlType>, ReadError> {
-    FlatDiagnostic::FIELDS
+    COLUMNS
         .iter()
-        .zip(COLUMNS)
-        .map(|(name, (kind, text))| {
+        .map(|&(name, kind, text)| {
             if text {
                 Ok(SqlType::Varchar)
             } else {
@@ -78,38 +77,52 @@ fn push(table: &mut Table, cells: &[Cell<'_>]) -> Result<(), ReadError> {
     })
 }
 
-/// The table of a parsed file's findings, in stream order.
+/// The table of a parsed file's diagnostics, in stream order. A problem that
+/// is not a diagnostic of a file cannot come from the reader, and is an
+/// internal error naming the table.
 pub fn of_findings(diagnostics: &[Diagnostic]) -> Result<Table, ReadError> {
     let mut table = empty();
     for diagnostic in diagnostics {
-        let flat = diagnostic.flat();
+        let (
+            Place::File {
+                segment,
+                element,
+                component,
+                path,
+            },
+            Detail::Diagnostic {
+                level,
+                rule,
+                datum,
+                origin,
+                code,
+            },
+        ) = (diagnostic.place(), diagnostic.detail())
+        else {
+            return Err(ReadError::Internal {
+                message: format!(
+                    "table {TABLE:?}: the problem {} is not a diagnostic of a file",
+                    diagnostic.kind()
+                ),
+            });
+        };
         push(
             &mut table,
             &[
-                Cell::Int64(i64::from(flat.level)),
-                Cell::Binary(flat.kind.as_bytes()),
-                Cell::Binary(flat.rule.as_bytes()),
-                position(flat.segment),
-                position(flat.element),
-                position(flat.component),
-                Cell::Binary(flat.path.as_bytes()),
-                Cell::Binary(flat.datum),
-                Cell::Binary(flat.origin.as_bytes()),
-                flat.code
-                    .map_or(Cell::Null, |code| Cell::Binary(code.as_bytes())),
+                Cell::Int64(i64::from(level.number())),
+                Cell::Binary(diagnostic.kind().as_bytes()),
+                Cell::Binary(rule.to_string().as_bytes()),
+                position(segment),
+                position(element),
+                position(component),
+                Cell::Binary(LoopPath(path).to_string().as_bytes()),
+                Cell::Binary(datum),
+                Cell::Binary(origin.as_bytes()),
+                code.map_or(Cell::Null, |code| Cell::Binary(code.as_bytes())),
             ],
         )?;
     }
     Ok(table)
-}
-
-/// The bytes a parse error is about: the bytes found instead of `ISA`, the
-/// start of a truncated ISA, or nothing for a file too long to index.
-pub fn datum<'a>(error: &'a DocumentError, bytes: &'a [u8]) -> &'a [u8] {
-    match error {
-        DocumentError::Isa(error) => error.datum(bytes),
-        DocumentError::Size(_) => &[],
-    }
 }
 
 /// The one-row table of a file that could not be parsed: level 1, kind

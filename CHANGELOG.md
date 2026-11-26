@@ -59,7 +59,7 @@ This file covers the Python package; the DuckDB extension has its own changelog 
 - Rust: `spec::Terms` and `spec::NamedTerm`: one side of a balancing rule with the names a message writes; `Display` is the text. `message::ElementRef` (also at the root): an element reference such as `CLP01`, owning its segment id.
 - Rust: `problem::Problem`, the shape every problem has (`kind`, `place`, `detail`, and `record` with the text), with `Place` and `SpecPlace` (where it points), `Detail` (what its family carries) and `ProblemRecord`; every problem family implements `Problem`: `Diagnostic`, `Finding`, `WriteError`, `Refusal`, `DocumentError`, `SpecError`, `KitError`, `SummaryError`, `MaskError` and `CaseFault`. `Place`, `Problem` and `ProblemRecord` are also at the root.
 - Rust: `write::EnvelopeSource` (`Caller`, `ControlNumber`, `Repetition`, `Component`, `Version`), what an envelope element's value comes from; `name()` writes it as a finding does.
-- Rust: `WriteError::findings()` and `CaseFault::path()`.
+- Rust: `WriteError::findings()`, `CaseFault::path()` and `DocumentError::datum()`; `diagnostic::LoopPath` is public.
 - Rust: `write::LoopWriter` (`Envelope`, `Table`): what writes the instances of a loop. `Selector` gains `Where`, a column's segment and its `where` values.
 
 ### Changed
@@ -187,6 +187,7 @@ This file covers the Python package; the DuckDB extension has its own changelog 
 - Rust: `SpecError::Schema` is removed; such a fault is `SpecError::Format`.
 
 ### Removed
+- Rust: `FlatDiagnostic` and `Diagnostic::flat`; read a diagnostic through `Problem` (`kind`, `place`, `detail`).
 - Rust: `write::Unwritten`, `WritePlan::unwritten` and `Finding::UnwrittenValue`, and the Python finding kind `UnwrittenValue`: the writer writes every column where the reader reads it, so no column is left unwritten.
 - Rust: `Spec::BUILTIN_835_JSON` and `Spec::BUILTIN_835_4010_PATCH`; use `Builtin::fallback().model()` or `Builtin::find(..)?.loaded()`.
 - Rust: `Spec::model`, `Spec::from_model` and `SpecError::ModelMismatch`. Read a spec's model with `SpecModel::from_json` or keep it in a `LoadedSpec`, and compile one with `SpecModel::compile` or `LoadedSpec::from_model`.

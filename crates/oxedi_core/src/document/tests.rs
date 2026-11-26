@@ -328,3 +328,13 @@ fn raw_and_segment_id_equal_the_parsed_segment_without_parsing_it() {
     assert_eq!(doc.raw(doc.len()), None);
     assert_eq!(doc.segment_id(doc.len()), None);
 }
+
+#[test]
+fn a_document_error_names_the_bytes_it_is_about() {
+    let Err(error) = Document::parse(&b"hello"[..]) else {
+        panic!("the input has no ISA");
+    };
+    assert_eq!(error.datum(b"hello"), b"hello");
+    let size = DocumentError::Size(SizeError { len: usize::MAX });
+    assert_eq!(size.datum(b"ISA"), b"");
+}

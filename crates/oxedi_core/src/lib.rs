@@ -71,7 +71,7 @@ pub mod write;
 pub use check::StructureChecker;
 pub use column::{Bitmap, Cell, CellError, Column, ColumnData, RowError, Table, Tables};
 pub use delimiters::{Delimiters, IsaError};
-pub use diagnostic::{Diagnostic, FlatDiagnostic, LoopRef, PARSER_ORIGIN, Rule, SnipLevel};
+pub use diagnostic::{Diagnostic, LoopRef, PARSER_ORIGIN, Rule, SnipLevel};
 pub use document::{Document, DocumentError, Segments, SizeError, Span, Spans};
 pub use element::{Element, Value};
 pub use engine::{Event, Instance, InstanceId, LoopEngine, lineage, loop_paths, named_lineage};

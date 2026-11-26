@@ -168,7 +168,7 @@ fn unparsable(
     if bound.ignore_errors && !bound.diagnostics {
         return Ok(Table::new(bound.table.clone(), bound.columns.clone()));
     }
-    let datum = diagnostics::datum(&source, bytes).to_vec();
+    let datum = source.datum(bytes).to_vec();
     let error = ReadError::Parse {
         file: file.to_owned(),
         source,

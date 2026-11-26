@@ -1,4 +1,4 @@
-//! Findings about a file's data, each one readable on its own.
+//! Diagnostics about a file's data, each one readable on its own.
 //!
 //! A diagnostic names the rule that failed, where it failed (segment index,
 //! element and component position, and the open loops with the ordinal of
@@ -7,7 +7,7 @@
 //! the spec or the document that produced it.
 //!
 //! The folder holds: this file (the loop and diagnostic types, the SNIP
-//! levels), `flat.rs` (the flat record of a diagnostic), `rule.rs` (the rules,
+//! levels), `flat.rs` (a diagnostic's own values as plain ones), `rule.rs` (the rules,
 //! their levels and variant names) and `tests.rs`. The message text is in
 //! `problem/diagnostic/`.
 
@@ -16,7 +16,7 @@ use std::fmt;
 use crate::document::{Document, Span};
 use crate::message::render_key;
 
-pub use flat::{FlatDiagnostic, PARSER_ORIGIN};
+pub use flat::PARSER_ORIGIN;
 pub use rule::Rule;
 
 /// The SNIP validation level a rule belongs to.
@@ -48,7 +48,7 @@ impl fmt::Display for LoopRef {
 
 /// Open loops written outermost first, joined by `/` (`2000#1/2100#3`); empty
 /// for no loop.
-pub(crate) struct LoopPath<'a>(pub(crate) &'a [LoopRef]);
+pub struct LoopPath<'a>(pub &'a [LoopRef]);
 
 impl fmt::Display for LoopPath<'_> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {

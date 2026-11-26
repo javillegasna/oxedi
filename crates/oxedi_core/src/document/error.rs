@@ -36,6 +36,18 @@ pub enum DocumentError {
     Size(SizeError),
 }
 
+impl DocumentError {
+    /// The bytes the error is about in `input`, the bytes it was read from:
+    /// [`IsaError::datum`] for an ISA error, nothing for an input too long to
+    /// index.
+    pub fn datum<'a>(&'a self, input: &'a [u8]) -> &'a [u8] {
+        match self {
+            DocumentError::Isa(error) => error.datum(input),
+            DocumentError::Size(_) => &[],
+        }
+    }
+}
+
 impl std::error::Error for DocumentError {
     fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
         // Both variants print their inner error in full, so the chain stops

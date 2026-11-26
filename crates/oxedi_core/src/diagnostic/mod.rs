@@ -53,6 +53,22 @@ impl fmt::Display for LoopRef {
     }
 }
 
+/// Open loops written outermost first, joined by `/` (`2000#1/2100#3`); empty
+/// for no loop.
+pub(crate) struct LoopPath<'a>(pub(crate) &'a [LoopRef]);
+
+impl fmt::Display for LoopPath<'_> {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        for (i, open) in self.0.iter().enumerate() {
+            if i > 0 {
+                f.write_str("/")?;
+            }
+            write!(f, "{open}")?;
+        }
+        Ok(())
+    }
+}
+
 /// Writes `path` (loop name and 1-based ordinal, outermost first) on every
 /// diagnostic of the slice.
 pub(crate) fn locate<'a>(
@@ -120,28 +136,19 @@ impl Diagnostic {
 
 impl fmt::Display for Diagnostic {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "{} · {} · ", self.level, self.rule)?;
-        match self.segment {
-            Some(segment) => write!(f, "segment #{segment}")?,
-            None => write!(f, "end of stream")?,
-        }
-        if let Some(element) = self.element {
-            write!(f, ", element {element}")?;
-            if let Some(component) = self.component {
-                write!(f, ", component {component}")?;
-            }
-        }
-        write!(f, " · at ")?;
-        if self.path.is_empty() {
-            write!(f, "the root")?;
-        }
-        for (i, open) in self.path.iter().enumerate() {
-            if i > 0 {
-                write!(f, "/")?;
-            }
-            write!(f, "{open}")?;
-        }
-        write!(f, " · datum {}", Quoted(&self.datum))
+        let location = Location {
+            segment: self.segment,
+            element: self.element,
+            component: self.component,
+        };
+        write!(
+            f,
+            "{} · {} · {location} · at {} · datum {}",
+            self.level,
+            self.rule,
+            Within(&self.path),
+            Quoted(&self.datum)
+        )
     }
 }
 
@@ -149,6 +156,8 @@ mod display;
 mod flat;
 mod rule;
 mod text;
+
+use text::{Location, Within};
 
 #[cfg(test)]
 mod tests;

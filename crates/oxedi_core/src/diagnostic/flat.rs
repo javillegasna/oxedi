@@ -1,9 +1,7 @@
 //! A diagnostic as flat fields, the shape every binding's table or class
 //! of diagnostics shares.
 
-use std::fmt::Write;
-
-use super::{Diagnostic, Rule, SnipLevel};
+use super::{Diagnostic, LoopPath, Rule, SnipLevel};
 
 /// Who reports the parser's own diagnostics.
 pub const PARSER_ORIGIN: &str = "oxedi";
@@ -83,13 +81,7 @@ impl Diagnostic {
     /// The open loops joined by `/`, outermost first, e.g. `2000#1/2100#3`;
     /// empty at the root.
     pub fn path_text(&self) -> String {
-        let mut text = String::new();
-        for (i, open) in self.path.iter().enumerate() {
-            let separator = if i == 0 { "" } else { "/" };
-            // Writing to a `String` cannot fail.
-            let _ = write!(text, "{separator}{open}");
-        }
-        text
+        LoopPath(&self.path).to_string()
     }
 
     /// The diagnostic as flat fields.

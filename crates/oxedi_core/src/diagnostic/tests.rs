@@ -1045,6 +1045,24 @@ fn path_text_joins_the_open_loops() {
 }
 
 #[test]
+fn a_component_without_an_element_writes_no_position() {
+    let diagnostic = Diagnostic::new(
+        Rule::UnknownSegment {
+            segment_id: b"XX".to_vec(),
+        },
+        Some(3),
+        None,
+        Some(2),
+        vec![],
+        b"XX".to_vec(),
+    );
+    assert_eq!(
+        diagnostic.to_string(),
+        "SNIP 1 · segment \"XX\" is not part of the structure: no open loop holds it and it opens no loop · segment #3 · at the root · datum \"XX\""
+    );
+}
+
+#[test]
 fn code_and_occurrence_lists_are_spelled_out_up_to_the_limit() {
     let code_rule = |count| Rule::CodeNotInList {
         segment_id: b"SVC".to_vec(),

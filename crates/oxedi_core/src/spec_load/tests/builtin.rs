@@ -129,10 +129,7 @@ fn each_builtin_spec_is_compiled_from_its_model() {
         assert_eq!(compiled.tables(), builtin.spec.tables());
     }
     let four = Builtin::find("835", Version::V4010).unwrap();
-    assert_eq!(
-        four.model().unwrap().version.as_ref().unwrap().values[0],
-        "004010X091A1"
-    );
+    assert_eq!(four.spec.version().unwrap().values[0], b"004010X091A1");
 }
 
 #[test]

@@ -1,4 +1,4 @@
-// The Diagnostics tab: findings grouped by level, each linked to its segment.
+// The Diagnostics tab: diagnostics grouped by level, each linked to its segment.
 
 import { el } from './dom.js';
 
@@ -43,11 +43,11 @@ export function createDiagnostics(root, { onJump }) {
     body.textContent = '';
     const shown = diagnostics.filter((d) => level === 'all' || d.level === level);
     if (diagnostics.length === 0) {
-      body.append(el('p', 'muted', 'No findings: the file passes every check this spec runs.'));
+      body.append(el('p', 'muted', 'No diagnostics: the file passes every check this spec runs.'));
       return;
     }
     if (shown.length === 0) {
-      body.append(el('p', 'muted', 'No findings at this level.'));
+      body.append(el('p', 'muted', 'No diagnostics at this level.'));
       return;
     }
     const list = el('ul', 'diag-list');

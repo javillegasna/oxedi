@@ -2031,8 +2031,8 @@ to build, test and send a change.</p>
 <h2 id="working-on-now-a-solid-base-for-more-transaction-sets">Working on now: a solid base for more transaction sets<a class="headerlink" href="#working-on-now-a-solid-base-for-more-transaction-sets" title="Permanent link">&para;</a></h2>
 <p>oxedi reads and writes the 835, and its structure already comes from a spec that is plain data.
 Before adding other X12 transaction sets, the code underneath is being simplified so that a new
-transaction set is a new spec, not new code. None of this changes what oxedi reads or writes:
-every expected output stays byte for byte.</p>
+transaction set is a new spec, not new code. Expected outputs stay byte for byte, except
+the few changes the changelog lists.</p>
 <ul>
 <li><strong>Thin bindings</strong> (done). Python, DuckDB and the browser viewer no longer repeat rules that
   belong in the Rust core: converting values before writing, picking the spec version of a file,
@@ -2044,8 +2044,8 @@ every expected output stays byte for byte.</p>
 <li><strong>A vocabulary in layers</strong> (done). The 835 is now a stack of packages: an envelope, a
   dictionary, a transaction set, an implementation guide and views; a guide sets usage, lengths
   and codes per occurrence. See <a href="../customize/packages/">Packages and layers</a>.</li>
-<li><strong>One description for reading and writing</strong> (next). Reading and writing walk one compiled map
-  of the spec instead of two plans.</li>
+<li><strong>One description for reading and writing</strong> (done). Each column's place is worked out once,
+  when the spec loads, and both reading and writing take it from there.</li>
 </ul>
 <h2 id="next-specs-for-any-x12-transaction-set">Next: specs for any X12 transaction set<a class="headerlink" href="#next-specs-for-any-x12-transaction-set" title="Permanent link">&para;</a></h2>
 <p>Writing a spec by hand takes hundreds of lines, while the open source

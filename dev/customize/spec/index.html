@@ -2386,6 +2386,18 @@ match, counting from 1. It chooses among the segments read while the row's loop 
 is open. A loop above the anchor offers the segments its enclosing instance read before the
 row's instance opened.</p>
 </details>
+<details class="note">
+<summary>Details: which segments a segment column reads</summary>
+<p>When the spec loads, oxedi works out the one occurrence of the reading loop that a column's
+<code>segment</code> and <code>where</code> choose: the occurrence whose qualifier the <code>where</code> fixes, or the
+segment's only occurrence when it has no qualifier. The column reads only the segments the
+parser placed in that occurrence that hold the <code>where</code> conditions, and the writer writes the
+value there. When no one occurrence fits (the <code>where</code> does not fix the qualifier, or fixes it
+to a code no occurrence lists), the column reads every segment of that id that holds the
+conditions. The writer writes such a column only when the <code>where</code> leaves the qualifier free
+and the loop has one occurrence of the segment; otherwise it refuses the spec, naming the
+occurrences it could be (none when no occurrence takes the code).</p>
+</details>
 <h2 id="flag-patient-data">Flag patient data<a class="headerlink" href="#flag-patient-data" title="Permanent link">&para;</a></h2>
 <p>Which columns <a href="../../python/without-patient-data/">hide patient data</a> when you pass a mask is
 part of the spec. A column carries a <code>phi</code> key with one of three words:</p>
@@ -2429,7 +2441,7 @@ occurrences sit at their own positions inside that space.</p>
 </details>
 <h2 id="write-with-a-custom-spec">Write with a custom spec<a class="headerlink" href="#write-with-a-custom-spec" title="Permanent link">&para;</a></h2>
 <p>A patched spec also writes: pass it to <code>oxedi.write(frames, envelope, spec=spec)</code>. See
-<a href="../../python/writing/">Writing</a>.</p>
+<a href="../../python/writing/">Writing</a>. Each column is written where it is read.</p>
 <h2 id="spec-keys-reference">Spec keys reference<a class="headerlink" href="#spec-keys-reference" title="Permanent link">&para;</a></h2>
 <p>Every key a spec can hold, with what it means and the Rust code that reads it. In a package, the
 layer that may write each key is in <a href="../packages/#who-writes-which-key">Who writes which key</a>. A spec has two
@@ -2530,12 +2542,12 @@ components are 1-based. The code names differ from the JSON in three places: a t
 </tr>
 <tr>
 <td><code>values</code></td>
-<td>The values of that element the spec covers.</td>
+<td>The values of that element the spec covers. When left out, the codes of that element in <code>segments</code>, in the order written.</td>
 <td><code>DeclaredVersion::values</code></td>
 </tr>
 </tbody>
 </table>
-<p>All three are required. The first segment with that id decides.</p>
+<p><code>segment</code> and <code>element</code> are required. The first segment with that id decides.</p>
 <h3 id="loopsname"><code>loops.&lt;name&gt;</code><a class="headerlink" href="#loopsname" title="Permanent link">&para;</a></h3>
 <table>
 <thead>

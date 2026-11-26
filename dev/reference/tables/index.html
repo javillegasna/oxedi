@@ -2488,7 +2488,9 @@ payee loop <code>1000B</code>.</p>
 <div class="admonition note">
 <p class="admonition-title">4010 files</p>
 <p>The 4010 spec has no payer technical contact (<code>PER*BL</code>), so on 4010 files the
-<code>payer_technical_contact_*</code> columns are usually null.</p>
+<code>payer_technical_contact_*</code> columns are usually null. A 4010 file that carries one is read
+with a diagnostic on PER01, and writing writes it back; <code>oxedi.write</code> then refuses with that
+finding unless <code>allow_findings=True</code>.</p>
 </div>
 <h2 id="claims">claims<a class="headerlink" href="#claims" title="Permanent link">&para;</a></h2>
 <p>One row per claim (<code>CLP</code>, loop <code>2100</code>).</p>

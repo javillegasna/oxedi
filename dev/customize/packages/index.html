@@ -2201,12 +2201,12 @@ the spec format, only those its layers own. Nothing else is allowed, and <code>s
 This is the header of the shipped 5010 guide:</p>
 <div class="highlight"><pre><span></span><code><span class="p">{</span>
 <span class="w">  </span><span class="nt">"package"</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
-<span class="w">    </span><span class="nt">"format"</span><span class="p">:</span><span class="w"> </span><span class="mi">1</span><span class="p">,</span>
+<span class="w">    </span><span class="nt">"format"</span><span class="p">:</span><span class="w"> </span><span class="mi">2</span><span class="p">,</span>
 <span class="w">    </span><span class="nt">"id"</span><span class="p">:</span><span class="w"> </span><span class="s2">"oxedi/guide/005010/835/X221A1"</span><span class="p">,</span>
 <span class="w">    </span><span class="nt">"layers"</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="s2">"guide"</span><span class="p">],</span>
 <span class="w">    </span><span class="nt">"bases"</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="s2">"oxedi/transaction-set/005010/835"</span><span class="p">]</span>
 <span class="w">  </span><span class="p">},</span>
-<span class="w">  </span><span class="nt">"spec"</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="nt">"version"</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="nt">"segment"</span><span class="p">:</span><span class="w"> </span><span class="s2">"GS"</span><span class="p">,</span><span class="w"> </span><span class="nt">"element"</span><span class="p">:</span><span class="w"> </span><span class="mi">8</span><span class="p">,</span><span class="w"> </span><span class="nt">"values"</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="s2">"005010X221A1"</span><span class="p">]},</span><span class="w"> </span><span class="nt">"loops"</span><span class="p">:</span><span class="w"> </span><span class="p">{}}</span>
+<span class="w">  </span><span class="nt">"spec"</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="nt">"version"</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="nt">"segment"</span><span class="p">:</span><span class="w"> </span><span class="s2">"GS"</span><span class="p">,</span><span class="w"> </span><span class="nt">"element"</span><span class="p">:</span><span class="w"> </span><span class="mi">8</span><span class="p">},</span><span class="w"> </span><span class="nt">"loops"</span><span class="p">:</span><span class="w"> </span><span class="p">{}}</span>
 <span class="p">}</span>
 </code></pre></div>
 <p>The real file holds the guide's loops, segments and balancing rules in <code>spec</code> too. The header has
@@ -2530,11 +2530,12 @@ it already holds every layer but <code>patch</code>. The check lists what it cha
 refusing a change that is not stricter. Read the list.</p>
 <h2 id="the-format-number">The format number<a class="headerlink" href="#the-format-number" title="Permanent link">&para;</a></h2>
 <ul>
-<li>This version of oxedi reads format 1, its newest. A reader reads its own number and every lower
-  one.</li>
+<li>This version of oxedi reads format 2, its newest. A reader reads its own number and every lower
+  one. Format 2 lets a spec's <code>version</code> leave out <code>values</code>; packages that write <code>values</code> read in
+  both.</li>
 <li>A package with a higher number is refused before any other key is read, so a newer key never
-  shows up as unknown. The error names both numbers: <code>package format 2 is newer than 1, the newest
-  format this reader takes; read the package with a newer oxedi, or write it in format 1</code>.</li>
+  shows up as unknown. The error names both numbers: <code>package format 3 is newer than 2, the newest
+  format this reader takes; read the package with a newer oxedi, or write it in format 2</code>.</li>
 <li>Every key the format does not have is refused. When oxedi adds an optional key, the number goes
   up by one: packages that do not use the key keep loading, and one that uses it says the new
   number, so an older oxedi refuses it with that text instead of reading it wrongly.</li>
@@ -2725,8 +2726,7 @@ write now.</p>
 </code></pre></div>
 <h2 id="not-in-the-format-yet">Not in the format yet<a class="headerlink" href="#not-in-the-format-yet" title="Permanent link">&para;</a></h2>
 <ul>
-<li>No way to name a shared definition: a value two places hold is written twice. The version's
-  codes are written in the guide's <code>version</code> and in GS08's codes, and equal element definitions
+<li>No way to name a shared definition: a value two places hold is written twice. Equal element definitions
   repeat inside the dictionary and the envelope (<code>reference_identification</code> eight times), equal
   code lists repeat inside one guide (the <abbr title="Provider adjustment segment">PLB</abbr> composite six times), and the 4010 guide restates per
   segment the <abbr title="Contact information segment">PER</abbr> codes the 5010 guide sets per occurrence.</li>

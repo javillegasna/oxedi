@@ -8,7 +8,7 @@ from collections.abc import Sequence
 from dataclasses import dataclass
 from typing import BinaryIO, Optional, Union
 
-from .. import Diagnostic, Document, Mask, Segment, Spec
+from .. import Diagnostic, Document, EnvelopeLoop, Mask, Segment, Spec
 from .._core import _external_diagnostic, _loop_paths, _mask_findings, _parse_document
 from ._pyx12 import Run, import_pyx12, refusal, run
 from ._report import parse_report
@@ -290,9 +290,9 @@ def validate(
     (``None`` when pyx12 names none), and ``document[d.segment].span`` gives
     its byte range. An interchange, group or transaction finding about a
     trailer (a count or a control number that does not match) lands on the
-    trailer segment at the element holding that value; one about a
-    duplicate or missing control structure lands on the header, at its
-    control number when that is the offending value. ``datum`` is the value
+    trailer segment at the element the spec's envelope loop names for that
+    value; one about a duplicate or missing control structure lands on the
+    header, at its control number when that is the offending value. ``datum`` is the value
     pyx12 reports, or else the bytes of the element in the file, or the
     segment id for a finding with no element. Findings come in
     segment order. ``path`` names the loops open at that segment, as in the
@@ -353,7 +353,9 @@ def validate(
     import_pyx12()
     data = _read(source)
     document, used, base = _parse_document(data, spec)
-    findings, own = _findings(data, document, used, base, masked=mask is not None)
+    findings, own = _findings(
+        data, document, used, base, used.envelope(), masked=mask is not None
+    )
     if mask is None:
         return findings
     return _mask_findings(findings, document, mask, used, own)
@@ -379,18 +381,24 @@ def _problem(run: Run, masked: bool) -> Optional[str]:
     return None
 
 
-def _collected(run: Run, masked: bool) -> tuple[list[Finding], Optional[str]]:
+def _collected(
+    run: Run, masked: bool, envelope: Sequence[EnvelopeLoop]
+) -> tuple[list[Finding], Optional[str]]:
     """The findings of pyx12's error report, or why it could not be read;
     ``_problem`` has already turned a run with no report into a failure."""
     try:
         assert run.report is not None
-        return collect(parse_report(run.report)), None
+        return collect(parse_report(run.report), envelope), None
     except Exception as err:  # pyx12's report is not ours: report it, do not raise
         return [], f"its error tree could not be read ({_reason(err, masked)})"
 
 
 def _drafts(
-    text: str, positions: _Positions, document: Document, masked: bool
+    text: str,
+    positions: _Positions,
+    document: Document,
+    envelope: Sequence[EnvelopeLoop],
+    masked: bool,
 ) -> list[Draft]:
     """The findings of a run of pyx12 on ``text``; when it could not finish
     or its report could not be read, the one failure finding that says so.
@@ -401,7 +409,7 @@ def _drafts(
     reason = _problem(result, masked)
     found: list[Finding] = []
     if reason is None:
-        found, reason = _collected(result, masked)
+        found, reason = _collected(result, masked, envelope)
     if reason is not None:
         return [_failure(reason, result.track, positions, document)]
     if _refused(result, found):
@@ -410,7 +418,12 @@ def _drafts(
 
 
 def _findings(
-    data: bytes, document: Document, spec: Spec, base: int, masked: bool
+    data: bytes,
+    document: Document,
+    spec: Spec,
+    base: int,
+    envelope: Sequence[EnvelopeLoop],
+    masked: bool,
 ) -> tuple[list[Diagnostic], list[bool]]:
     """pyx12's findings about ``data``, whose ISA starts at byte ``base``
     and whose document and spec are given, and for each whether its message
@@ -418,4 +431,4 @@ def _findings(
     text of pyx12's exception."""
     text = data[base:].decode("latin-1")
     positions = _Positions.build(document, base, text)
-    return _finish(document, spec, _drafts(text, positions, document, masked))
+    return _finish(document, spec, _drafts(text, positions, document, envelope, masked))

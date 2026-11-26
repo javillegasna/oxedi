@@ -1,9 +1,5 @@
 //! The errors for a table or a column the spec does not define.
 
-use std::fmt;
-
-use crate::message::render_names;
-
 /// A table name that the spec does not define.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct UnknownTable {

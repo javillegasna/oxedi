@@ -1,7 +1,5 @@
 //! Why a buffer could not become a [`Document`](super::Document).
 
-use std::fmt;
-
 use crate::delimiters::IsaError;
 
 /// The input is too long to index: segment offsets are stored as `u32`, so a

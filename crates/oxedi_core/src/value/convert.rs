@@ -2,7 +2,6 @@
 //! type. Each one either keeps the value exactly or says why it cannot.
 
 use super::TimeUnit;
-use std::fmt;
 
 /// The largest decimal scale a spec's `R` element takes;
 /// `ElementType::MAX_SCALE` is this value. An `R` value is held as an `i128`

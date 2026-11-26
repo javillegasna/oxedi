@@ -1,3 +1,12 @@
+//! The text of what a validation says about a stack of packages.
+
+use std::fmt;
+
+use crate::message::Counted;
+use crate::validate::{
+    CannotWrite, Capability, Invalid, NoPatientData, Reasons, Text, Valid, Validation,
+};
+
 impl Reasons for CannotWrite {
     /// The one reason when there is no table, else each refusal and what to
     /// change to remove it.

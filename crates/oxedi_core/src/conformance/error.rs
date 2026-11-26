@@ -1,7 +1,5 @@
 //! Why a kit does not run on a stack.
 
-use std::fmt;
-
 use crate::spec_load::PackageId;
 
 /// The kit checks another package than the stack's top.

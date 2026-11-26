@@ -1,3 +1,11 @@
+//! The text of a conformance kit's report and of a kit run against the wrong stack.
+
+use std::fmt;
+
+use crate::conformance::{CaseFault, CaseReport, Difference, KitReport, Line, Outcome, WrongStack};
+use crate::delimiters::ISA_ID;
+use crate::vocabulary::Vocabulary;
+
 impl fmt::Display for KitReport {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         let passing = self

@@ -1,10 +1,5 @@
 //! The error of building a [`Mask`](super::Mask) or reading a date mode.
 
-use std::fmt;
-
-use super::Mask;
-use crate::vocabulary::{DateMode, words_text};
-
 /// Why a mask or a date mode could not be built.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum MaskError {

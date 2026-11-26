@@ -1,8 +1,5 @@
-//! The answer of [`validate`](super::validate) and the text it prints.
+//! The answer of [`validate`](super::validate).
 
-use std::fmt;
-
-use crate::message::Counted;
 use crate::spec_load::{Change, LoadedSpec, PackageId, Role, SpecError};
 use crate::write::PlanError;
 

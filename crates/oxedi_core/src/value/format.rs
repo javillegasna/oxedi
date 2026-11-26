@@ -2,7 +2,6 @@
 //! and messages show (`12.50`, `2024-02-29`, `01:01:01`) and the element form
 //! an X12 element holds (`12.5`, `20240229`, `010101`).
 
-use std::fmt;
 use std::iter;
 
 use super::ColumnType;

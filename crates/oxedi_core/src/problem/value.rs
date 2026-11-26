@@ -1,3 +1,11 @@
+//! The text of a value that cannot be converted, typed, put in a column or put in a
+//! table row.
+
+use std::fmt;
+
+use crate::column::{CellError, RowError};
+use crate::value::{ConvertError, ElementTextError, TypeCodeError};
+
 impl fmt::Display for ConvertError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {

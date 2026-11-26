@@ -1,12 +1,8 @@
-//! What running a kit reports, per case, and the text it prints.
+//! What running a kit reports, per case.
 
-use std::fmt;
-
-use super::diff::{Line, LineDifference};
-use crate::delimiters::ISA_ID;
+use super::diff::LineDifference;
 use crate::document::DocumentError;
 use crate::spec_load::{KitOutput, PackageId};
-use crate::vocabulary::Vocabulary;
 
 /// The result of running a kit: one report per case, in name order.
 #[derive(Debug, Clone, PartialEq, Eq)]

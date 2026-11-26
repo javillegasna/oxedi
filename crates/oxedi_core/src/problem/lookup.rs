@@ -1,3 +1,13 @@
+//! The text of a table, column, mask or summary that cannot be found or built.
+
+use std::fmt;
+
+use crate::mask::{Mask, MaskError};
+use crate::message::render_names;
+use crate::spec::{UnknownColumn, UnknownTable};
+use crate::summary::SummaryError;
+use crate::vocabulary::{DateMode, words_text};
+
 impl fmt::Display for UnknownTable {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(

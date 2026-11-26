@@ -4,7 +4,6 @@
 //! position in the stream so that every later layer can point back at the
 //! exact input it came from.
 
-use std::fmt;
 use std::io;
 
 use crate::delimiters::{Delimiters, Syntax};

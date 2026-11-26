@@ -3,8 +3,8 @@
 //!
 //! `mod.rs` the entry point, [`validate`], which runs the checks the loader
 //! already has and decides nothing itself; `report` the typed answer
-//! ([`Validation`]), what it holds, the capabilities it reports and the text it
-//! prints; `tests` its tests.
+//! ([`Validation`]), what it holds and the capabilities it reports; `tests` its
+//! tests. The text it prints is in `problem/validate.rs`.
 //!
 //! The module is for tools that check packages. The browser module and the
 //! built-in specs' run-time path never name it.

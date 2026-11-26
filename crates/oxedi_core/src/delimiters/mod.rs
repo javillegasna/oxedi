@@ -13,10 +13,7 @@
 //! modules that read segments share: the plain `*`, `:`, `~` dialect and the
 //! concatenation of every segment's `raw` bytes.
 
-use std::fmt;
-
 use crate::frame::SegmentEnd;
-use crate::message::Counted;
 use crate::trivia::LeadingTrivia;
 
 mod header;

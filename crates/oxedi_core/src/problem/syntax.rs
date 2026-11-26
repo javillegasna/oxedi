@@ -1,3 +1,13 @@
+//! The text of the interchange header's problems, of a document that cannot be
+//! parsed and of a segment that cannot be written.
+
+use std::fmt;
+
+use crate::delimiters::{HeaderPositions, ISA_ID, IsaError};
+use crate::document::{DocumentError, SizeError};
+use crate::message::Counted;
+use crate::segment::SegmentWriteError;
+
 impl fmt::Display for IsaError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {

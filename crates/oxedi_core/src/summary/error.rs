@@ -1,7 +1,5 @@
 //! Why a summary cannot be computed over a set of tables.
 
-use std::fmt;
-
 use crate::value::ColumnType;
 
 /// Why [`summarize`](super::summarize) cannot compute a summary.

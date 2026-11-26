@@ -12,8 +12,6 @@
 //! row appends. This file holds the column types, the bitmap, the cells and
 //! the column buffers.
 
-use std::fmt;
-
 use crate::message::Quoted;
 use crate::value::{ColumnType, date_display, decimal_display, time_display};
 

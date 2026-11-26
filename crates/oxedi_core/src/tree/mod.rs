@@ -19,6 +19,9 @@ use crate::spec::{LoopId, Spec};
 pub struct NodeId(usize);
 
 impl NodeId {
+    /// The virtual root, the first node of every tree.
+    const ROOT: NodeId = NodeId(0);
+
     /// Position of the node in [`LoopTree::nodes`].
     pub fn index(self) -> usize {
         self.0
@@ -36,6 +39,9 @@ pub struct Node {
     /// node, the trigger of the descendant that needed it); `None` only for
     /// the root.
     pub opened_by: Option<usize>,
+    /// 1-based position among the instances of its loop in the stream, as a
+    /// diagnostic's path counts it; `None` only for the root.
+    pub ordinal: Option<usize>,
     /// The enclosing node, or `None` for the root.
     pub parent: Option<NodeId>,
     /// Nested instances, in stream order.
@@ -52,6 +58,9 @@ pub struct Node {
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct LoopTree {
     nodes: Vec<Node>,
+    /// The node each segment was first reported in, up to the last segment
+    /// any event named.
+    owners: Vec<NodeId>,
 }
 
 /// Folds engine events into a [`LoopTree`] as the caller receives them.
@@ -63,6 +72,10 @@ pub struct TreeBuilder {
     tree: LoopTree,
     /// The node of each opened instance, indexed by [`InstanceId::index`].
     by_instance: Vec<Option<NodeId>>,
+    /// The innermost open node.
+    current: NodeId,
+    /// The node each segment was first reported in, `None` while unreported.
+    owners: Vec<Option<NodeId>>,
 }
 
 impl TreeBuilder {
@@ -74,7 +87,12 @@ impl TreeBuilder {
     }
 
     /// The tree of everything folded so far.
-    pub fn finish(self) -> LoopTree {
+    pub fn finish(mut self) -> LoopTree {
+        self.tree.owners = self
+            .owners
+            .into_iter()
+            .map(|owner| owner.unwrap_or(NodeId::ROOT))
+            .collect();
         self.tree
     }
 
@@ -83,7 +101,7 @@ impl TreeBuilder {
         id.and_then(|id| self.by_instance.get(id.index()))
             .copied()
             .flatten()
-            .unwrap_or(NodeId(0))
+            .unwrap_or(NodeId::ROOT)
     }
 
     /// Records `node` as the node of instance `id`, replacing an older entry.
@@ -92,6 +110,15 @@ impl TreeBuilder {
             self.by_instance.resize(id.index() + 1, None);
         }
         self.by_instance[id.index()] = Some(node);
+    }
+
+    /// Records `node` as the owner of `segment` unless an earlier event
+    /// already named one.
+    fn own(&mut self, segment: usize, node: NodeId) {
+        if self.owners.len() <= segment {
+            self.owners.resize(segment + 1, None);
+        }
+        self.owners[segment].get_or_insert(node);
     }
 
     fn apply(&mut self, event: Event) {
@@ -107,6 +134,7 @@ impl TreeBuilder {
                     loop_id: Some(instance.loop_id),
                     implicit,
                     opened_by: Some(segment),
+                    ordinal: Some(instance.ordinal_in_stream),
                     parent: Some(parent),
                     children: Vec::new(),
                     segments: Vec::new(),
@@ -114,18 +142,25 @@ impl TreeBuilder {
                 });
                 self.tree.nodes[parent.0].children.push(node);
                 self.bind(instance.id, node);
+                self.current = node;
             }
             Event::Captured {
                 instance, segment, ..
             } => {
                 let node = self.node_of(Some(instance.id));
                 self.tree.nodes[node.0].segments.push(segment);
+                self.own(segment, node);
             }
             Event::Unmatched { segment, within } => {
                 let node = self.node_of(within.map(|instance| instance.id));
                 self.tree.nodes[node.0].unmatched.push(segment);
+                self.own(segment, node);
             }
-            Event::LoopClosed { .. } | Event::Empty { .. } => {}
+            Event::LoopClosed { instance } => {
+                let closed = self.node_of(Some(instance.id));
+                self.current = self.tree.nodes[closed.0].parent.unwrap_or(NodeId::ROOT);
+            }
+            Event::Empty { segment } => self.own(segment, self.current),
         }
     }
 }
@@ -136,8 +171,11 @@ impl LoopTree {
         TreeBuilder {
             tree: LoopTree {
                 nodes: vec![Node::root()],
+                owners: Vec::new(),
             },
             by_instance: Vec::new(),
+            current: NodeId::ROOT,
+            owners: Vec::new(),
         }
     }
 
@@ -154,12 +192,20 @@ impl LoopTree {
 
     /// The virtual root.
     pub fn root(&self) -> NodeId {
-        NodeId(0)
+        NodeId::ROOT
     }
 
     /// A node by id.
     pub fn node(&self, id: NodeId) -> &Node {
         &self.nodes[id.0]
+    }
+
+    /// The node the segment was first reported in: the instance that holds
+    /// it, the one it fell in unmatched, or for a segment with no content the
+    /// innermost one open; the root for a segment no event named. For a tree
+    /// of several streams, the first stream's.
+    pub fn owner(&self, segment: usize) -> NodeId {
+        self.owners.get(segment).copied().unwrap_or(NodeId::ROOT)
     }
 
     /// Every node, root first, in creation (stream) order.
@@ -188,6 +234,7 @@ impl Node {
             loop_id: None,
             implicit: false,
             opened_by: None,
+            ordinal: None,
             parent: None,
             children: Vec::new(),
             segments: Vec::new(),

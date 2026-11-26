@@ -92,7 +92,7 @@ the ISA-less fragment and every sample.
 
 | Suite | Pins | Data |
 |-------|------|------|
-| `api_door` | The api's reads equal the stages they run: the defaults, a given spec, a mask, given delimiters and the named tables. | All files |
+| `api_door` | The api's reads equal the stages they run: the defaults, a given spec, a mask, given delimiters, the named tables, the batches and the tree; the tree's owners and ordinals equal the viewer's. | All files |
 
 ### Guards: the test setup itself
 

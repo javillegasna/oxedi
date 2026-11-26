@@ -240,9 +240,11 @@ mod api_door {
     use oxedi_core::api::Batches;
     use oxedi_core::api::ChosenSpec;
     use oxedi_core::api::DelimiterChoice;
+    use oxedi_core::api::Identity;
     use oxedi_core::api::ReadOptions;
     use oxedi_core::api::Reading;
     use oxedi_core::api::SpecChoice;
+    use oxedi_core::api::builtin;
     use oxedi_core::api::read;
     use oxedi_core::api::read_tables;
     use oxedi_core::api::read_tree;

@@ -9,7 +9,9 @@ use oxedi_core::api::{
     BatchBy, Batches, ChosenSpec, DelimiterChoice, ReadOptions, SpecChoice, read, read_tables,
     read_tree,
 };
-use oxedi_core::{Builtin, DateMode, Document, LoopTree, Mask, Processor, Spec, Tokenizer};
+use oxedi_core::{
+    Builtin, DateMode, Document, Event, LoopEngine, LoopTree, Mask, Processor, Spec, Tokenizer,
+};
 
 type Options<'m> = ReadOptions<'m, Arc<Spec>>;
 
@@ -86,6 +88,67 @@ fn read_tables_fills_only_the_named_table() {
             .name,
         "nope"
     );
+}
+
+/// The node of each segment as the viewer finds it: a stack of open node
+/// numbers (the root 0, then each loop opened in order), the owner being the
+/// stack's top when the segment's first event arrives.
+fn owners_by_stack(spec: &Spec, document: &Document<'_>) -> Vec<usize> {
+    let mut engine = LoopEngine::new(spec);
+    let (mut open, mut next) = (vec![0usize], 1usize);
+    let mut owner = vec![None; document.len()];
+    let mut fold = |events: &[Event]| {
+        for event in events {
+            match *event {
+                Event::LoopOpened { .. } => {
+                    open.push(next);
+                    next += 1;
+                }
+                Event::LoopClosed { .. } if open.len() > 1 => {
+                    open.pop();
+                }
+                Event::Captured { segment, .. }
+                | Event::Unmatched { segment, .. }
+                | Event::Empty { segment } => {
+                    owner[segment].get_or_insert(open[open.len() - 1]);
+                }
+                Event::LoopClosed { .. } => {}
+            }
+        }
+    };
+    for segment in document.segments() {
+        fold(engine.feed(&segment));
+    }
+    fold(engine.finish());
+    owner.into_iter().map(|node| node.unwrap_or(0)).collect()
+}
+
+#[test]
+fn every_segment_has_the_node_the_viewer_finds() {
+    for (name, bytes, delimiters) in all_files() {
+        let document = Document::with_delimiters(bytes.as_slice(), delimiters).unwrap();
+        let spec = &Builtin::select(document.segments()).spec;
+        let tree = LoopTree::build(spec, document.segments());
+        let found: Vec<usize> = (0..document.len()).map(|i| tree.owner(i).index()).collect();
+        assert_eq!(found, owners_by_stack(spec, &document), "{name}");
+    }
+}
+
+#[test]
+fn every_node_has_the_viewers_ordinal() {
+    for (name, bytes, delimiters) in all_files() {
+        let document = Document::with_delimiters(bytes.as_slice(), delimiters).unwrap();
+        let spec = &Builtin::select(document.segments()).spec;
+        let tree = LoopTree::build(spec, document.segments());
+        let mut seen = vec![0usize; spec.loops().len()];
+        for node in tree.nodes() {
+            let expected = node.loop_id.map(|id| {
+                seen[id.index()] += 1;
+                seen[id.index()]
+            });
+            assert_eq!(node.ordinal, expected, "{name}");
+        }
+    }
 }
 
 #[test]

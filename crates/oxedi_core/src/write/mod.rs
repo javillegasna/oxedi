@@ -47,5 +47,5 @@ pub use finding::{Finding, ValueOrigin, WriteError};
 pub use plan::{
     ElementPlan, Instances, LoopPlan, SegmentPlan, SegmentSource, ValueSource, WritePlan,
 };
-pub use refusal::{PlanError, Refusal};
+pub use refusal::{LoopWriter, PlanError, Refusal};
 pub use writer::{write, write_with_findings};

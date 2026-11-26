@@ -16,8 +16,15 @@ use super::places::place_columns;
 use super::segments::compile_elements;
 use super::summaries::{compile_default_table, compile_summaries};
 use crate::spec::{
-    DeclaredVersion, LoopId, OccurrenceIndex, ReadIndex, SegmentDef, Spec, Trigger, render_trigger,
+    DeclaredVersion, LoopId, OccurrenceIndex, ReadIndex, SegmentDef, Selector, Spec, Trigger,
 };
+
+/// The trigger's message text, for the overlapping-triggers error, which holds
+/// it as text.
+// TODO: hold the two triggers as `Selector` values once `check_ambiguity` is restructured.
+fn render_trigger(trigger: &Trigger) -> String {
+    Selector::trigger(trigger).to_string()
+}
 
 /// A spec while it compiles, and the model every step reads.
 struct Build<'m> {

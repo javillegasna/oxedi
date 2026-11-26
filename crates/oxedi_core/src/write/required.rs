@@ -2,14 +2,12 @@
 //! elements, the single codes that fill an element no column writes, and the
 //! refusals for the rest.
 
-use crate::spec::{
-    ElementRule, LoopDef, OccurrenceDef, SegmentDef, Spec, Usage, render_selector, render_trigger,
-};
+use crate::spec::{ElementRule, LoopDef, OccurrenceDef, SegmentDef, Selector, Spec, Usage};
 
 use super::build::Builder;
 use super::plan::{ElementPlan, Instances, Place, SegmentPlan, ValueSource};
 use super::refusal::Refusal;
-use crate::message::place;
+use crate::message::ElementRef;
 
 impl Builder<'_> {
     /// Refuses what a written loop requires and nothing writes: a child
@@ -51,7 +49,7 @@ impl Builder<'_> {
             .map(|child| Refusal::RequiredLoopWithoutSource {
                 loop_name: child.name.clone(),
                 parent: def.name.clone(),
-                trigger: render_trigger(&child.trigger),
+                trigger: Selector::trigger(&child.trigger),
             })
     }
 
@@ -70,7 +68,7 @@ impl Builder<'_> {
             .map(|(_, occurrence)| Refusal::RequiredOccurrenceWithoutSource {
                 loop_name: def.name.clone(),
                 occurrence: occurrence.name.clone(),
-                selector: render_selector(occurrence),
+                selector: Selector::occurrence(occurrence),
             })
     }
 
@@ -95,7 +93,7 @@ impl Builder<'_> {
                     table: Some(table.clone()),
                     loop_name: def.name.clone(),
                     occurrence: occurrence.name.clone(),
-                    place: place(&occurrence.segment, element, component),
+                    place: ElementRef::new(occurrence.segment.clone(), element, component),
                     name,
                 },
             ));

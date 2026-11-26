@@ -120,15 +120,6 @@ impl<S: AsRef<[u8]>> fmt::Display for ElementRef<S> {
     }
 }
 
-/// An element reference as text, for a segment held as a string or as bytes.
-pub(crate) fn place(
-    segment: &(impl AsRef<[u8]> + ?Sized),
-    element: usize,
-    component: Option<usize>,
-) -> String {
-    ElementRef::new(segment.as_ref(), element, component).to_string()
-}
-
 /// The conditions of a trigger as ` where {1: "PR", 2: "X"}` (with the
 /// leading space), or nothing when there are none. Values are read lossily.
 pub(crate) struct Conditions<'a, V>(pub(crate) &'a [(usize, V)]);

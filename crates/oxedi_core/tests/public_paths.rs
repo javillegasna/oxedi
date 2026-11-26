@@ -212,6 +212,7 @@ mod by_module {
     use oxedi_core::write::Finding;
     use oxedi_core::write::Instances;
     use oxedi_core::write::LoopPlan;
+    use oxedi_core::write::LoopWriter;
     use oxedi_core::write::PlanError;
     use oxedi_core::write::Refusal;
     use oxedi_core::write::SegmentPlan;

@@ -240,7 +240,7 @@ fn an_envelope_loop_without_occurrences_is_refused_by_the_writer() {
     };
     assert!(plan.refusals.contains(&Refusal::EnvelopeWithoutOccurrence {
         loop_name: "interchange".into(),
-        trigger: "\"ISA\" with no conditions".into(),
+        trigger: super::bare(b"ISA"),
     }));
 }
 

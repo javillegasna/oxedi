@@ -5,8 +5,6 @@ fn element_ref_names_an_element_and_a_component() {
     assert_eq!(ElementRef::simple(b"CLP", 2).to_string(), "CLP02");
     assert_eq!(ElementRef::new(b"SVC", 1, Some(2)).to_string(), "SVC01-2");
     assert_eq!(ElementRef::simple(b"N1", 10).to_string(), "N110");
-    assert_eq!(place("CLP", 2, None), "CLP02");
-    assert_eq!(place(&b"SVC"[..], 1, Some(2)), "SVC01-2");
 }
 
 #[test]

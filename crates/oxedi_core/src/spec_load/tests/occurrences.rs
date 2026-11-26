@@ -487,7 +487,7 @@ fn a_selector_names_the_segment_and_its_qualifier_codes() {
     let head = spec.get(spec.loop_id("head").unwrap());
     let selector = |name: &str| {
         let occurrence = head.occurrences.iter().find(|o| o.name == name).unwrap();
-        render_selector(occurrence)
+        Selector::occurrence(occurrence).to_string()
     };
     assert_eq!(selector("note"), "\"NT\"");
     assert_eq!(selector("patient"), "\"NM\" where NM01 is \"QC\"");
@@ -499,7 +499,7 @@ fn a_selector_names_the_segment_and_its_qualifier_codes() {
         codes: (0..6).map(|code| code.to_string()).collect(),
     });
     assert_eq!(
-        render_selector(&wide),
+        Selector::occurrence(&wide).to_string(),
         "\"HD\" where HD01 is one of 6 codes"
     );
 }

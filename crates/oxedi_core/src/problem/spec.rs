@@ -15,6 +15,15 @@ impl fmt::Display for Selector {
                 }
                 write!(f, "{segment:?}{}", Conditions(&trigger.conditions))
             }
+            Selector::Where {
+                segment,
+                conditions,
+            } => write!(
+                f,
+                "{:?}{}",
+                String::from_utf8_lossy(segment),
+                Conditions(conditions)
+            ),
             Selector::Occurrence {
                 segment,
                 qualifier: None,

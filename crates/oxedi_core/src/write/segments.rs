@@ -10,7 +10,7 @@ use super::build::{Builder, Codes, Entry};
 use super::plan::{ElementPlan, Place, SegmentPlan, SegmentSource, ValueSource};
 use super::refusal::Refusal;
 use super::required::add_qualifier;
-use crate::message::place as place_name;
+use crate::message::ElementRef;
 
 impl Builder<'_> {
     /// Turns the grouped column values into segments: one per repeat the
@@ -74,7 +74,7 @@ impl Builder<'_> {
                 other: self.column_name(entry.table, other),
                 loop_name: self.loop_name(id),
                 occurrence: occurrence.name.clone(),
-                place: place_name(&occurrence.segment, entry.element, entry.component),
+                place: ElementRef::new(occurrence.segment.clone(), entry.element, entry.component),
             });
             return;
         }

@@ -75,6 +75,7 @@ mod by_module {
     use oxedi_core::spec::Repeat;
     use oxedi_core::spec::SEGMENT_COLUMN;
     use oxedi_core::spec::SegmentDef;
+    use oxedi_core::spec::Selector;
     use oxedi_core::spec::Setting;
     use oxedi_core::spec::Sign;
     use oxedi_core::spec::Spec;
@@ -229,8 +230,8 @@ use oxedi_core::Tokenizer;
 use oxedi_core::{
     AnchorChains, AnchorPositions, Builtin, ColumnSource, Control, ControlCount, ControlError,
     DeclaredVersion, ElementDef, ElementDefError, ElementType, EnvelopeField, EnvelopeFields,
-    LoadedSpec, LoopDef, LoopId, LoopSegments, OccurrenceId, Pick, Repeat, SegmentDef, Spec,
-    SpecError, TableDef, TableDefError, Trigger, UnknownColumn, UnknownTable, UnknownVersion,
+    LoadedSpec, LoopDef, LoopId, LoopSegments, OccurrenceId, Pick, Repeat, SegmentDef, Selector,
+    Spec, SpecError, TableDef, TableDefError, Trigger, UnknownColumn, UnknownTable, UnknownVersion,
     Version, VersionError, merge_patch,
 };
 use oxedi_core::{

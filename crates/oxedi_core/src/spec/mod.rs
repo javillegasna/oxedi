@@ -23,7 +23,7 @@
 //! each loop and segment id, indexed from the places; `id_map` the
 //! map keyed by segment id; `schema` the columns of each table, known from the
 //! spec alone; `unknown` the errors for a table or a column the spec does not
-//! define; `render` the text of triggers and occurrence selectors in messages;
+//! define; `selector` what selects a loop or an occurrence, as a message names it, and `render` its text for the layers that hold a message as a string;
 //! `rule` what an element allows where a segment is read or written;
 //! `version` the version a compiled spec declares and the choice of a spec by
 //! it; `test_support` (test builds only) the small specs and helpers the tests

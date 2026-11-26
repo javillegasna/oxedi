@@ -83,7 +83,8 @@ pub use segment::{Segment, SegmentWriteError};
 pub use spec::{
     BalanceRule, BalanceTerm, ColumnSchema, ColumnSource, Control, ControlCount, DeclaredVersion,
     ElementDef, EnvelopeField, EnvelopeFields, LoopDef, LoopId, OccurrenceId, Repeat, SegmentDef,
-    Spec, Summary, TableDef, TableSchema, Trigger, UnknownColumn, UnknownTable, spec_schema,
+    Selector, Spec, Summary, TableDef, TableSchema, Trigger, UnknownColumn, UnknownTable,
+    spec_schema,
 };
 pub use spec_load::{
     AnchorChains, AnchorPositions, BalanceError, Builtin, ControlError, ElementDefError, Kit,

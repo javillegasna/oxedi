@@ -12,7 +12,7 @@ use super::model::{OccurrenceModel, QualifierModel};
 use super::occurrence_error::OccurrenceError;
 use super::vocabulary::ElementPosition;
 use crate::message::{place, render_key};
-use crate::spec::{OccurrenceDef, Qualifier, SegmentDef, Trigger, render_trigger};
+use crate::spec::{OccurrenceDef, Qualifier, SegmentDef, Selector, Trigger};
 
 /// Checks the occurrence a loop's trigger opens on, when the loop declares
 /// occurrences: there is one, its qualifier selects no code the trigger's
@@ -28,7 +28,7 @@ pub(super) fn check_trigger(
     let Some(first) = occurrences.iter().find(|o| o.opens_on(trigger)) else {
         return Err(SpecError::UnmatchedTrigger {
             loop_name: loop_name.to_string(),
-            trigger: render_trigger(trigger),
+            trigger: Selector::trigger(trigger),
             segment_held: occurrences.iter().any(|o| o.segment == trigger.segment),
         });
     };
@@ -46,7 +46,7 @@ pub(super) fn check_trigger(
             return Err(SpecError::TriggerQualifierWider {
                 loop_name: loop_name.to_string(),
                 occurrence: first.name.clone(),
-                trigger: render_trigger(trigger),
+                trigger: Box::new(Selector::trigger(trigger)),
                 code: code.clone(),
             });
         }

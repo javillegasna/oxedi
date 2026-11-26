@@ -9,6 +9,7 @@ use super::package::{HeaderError, PackageId, StackError};
 use super::segments::ElementDefError;
 use super::summary_error::SummaryDefError;
 use super::table_error::TableDefError;
+use crate::spec::Selector;
 
 /// Why a spec could not be loaded. Each variant names where in the spec the fault is.
 #[derive(Debug)]
@@ -139,7 +140,7 @@ pub enum SpecError {
         /// The loop.
         loop_name: String,
         /// The trigger, e.g. `"N1" where {1: "PR"}`.
-        trigger: String,
+        trigger: Selector,
         /// Whether some occurrence holds the trigger's segment, with a
         /// qualifier the trigger's conditions do not select.
         segment_held: bool,
@@ -152,8 +153,9 @@ pub enum SpecError {
         loop_name: String,
         /// The trigger's occurrence.
         occurrence: String,
-        /// The trigger, e.g. `"N1" where {1: "PR"}`.
-        trigger: String,
+        /// The trigger, e.g. `"N1" where {1: "PR"}`. Boxed so the error stays
+        /// small to return.
+        trigger: Box<Selector>,
         /// The first code the trigger does not select.
         code: String,
     },

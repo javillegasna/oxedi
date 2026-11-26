@@ -1,10 +1,9 @@
-//! What selects a loop, an occurrence or a column's segment, as a message
-//! names it.
+//! What selects a loop or an occurrence, as a message names it.
 
 use super::loops::Trigger;
 use super::occurrences::{OccurrenceDef, Qualifier};
 
-/// What selects a loop, an occurrence or a column's segment, as a message
+/// What selects a loop or an occurrence, as a message
 /// names it. Its `Display` is the text a message writes.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Selector {

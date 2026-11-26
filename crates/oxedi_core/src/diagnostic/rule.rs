@@ -1,5 +1,6 @@
 //! The rules a diagnostic reports, their SNIP levels and variant names.
 
+use crate::spec::Selector;
 use crate::value::{ElementType, LengthRange};
 
 use super::SnipLevel;
@@ -22,7 +23,7 @@ pub enum Rule {
         loop_name: String,
         /// The loop's own trigger as the spec writes it, e.g.
         /// `"GS" with no conditions` or `"N1" where {1: "PR"}`.
-        expected_trigger: String,
+        expected_trigger: Selector,
         /// Id of the segment whose loop needed it.
         caused_by: Vec<u8>,
     },
@@ -163,7 +164,7 @@ pub enum Rule {
         occurrence: String,
         /// The segment and qualifier that select it, e.g.
         /// `"PER" where PER01 is "BL"`.
-        selector: String,
+        selector: Selector,
     },
     /// An occurrence repeats more times in one loop instance than its maximum.
     OccurrenceOverMax {
@@ -172,7 +173,7 @@ pub enum Rule {
         /// The occurrence's name.
         occurrence: String,
         /// The segment and qualifier that select it.
-        selector: String,
+        selector: Selector,
         /// The maximum the spec declares.
         max: usize,
         /// Times the occurrence has appeared in the instance, this one included.
@@ -226,7 +227,7 @@ pub enum Rule {
         /// The required child loop.
         child: String,
         /// The child's trigger as the spec writes it.
-        expected_trigger: String,
+        expected_trigger: Selector,
     },
     /// The amounts of a balancing rule do not add up in one loop instance.
     BalanceMismatch {

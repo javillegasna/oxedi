@@ -1,7 +1,29 @@
 use super::*;
 use crate::Delimiters;
 use crate::message::Quoted;
+use crate::spec::{Qualifier, Selector, Trigger};
 use crate::value::{ElementType, LengthRange};
+
+fn trigger(segment: &[u8], conditions: &[(usize, &[u8])]) -> Selector {
+    Selector::Trigger(Trigger {
+        segment: segment.to_vec(),
+        conditions: conditions
+            .iter()
+            .map(|&(position, value)| (position, value.to_vec()))
+            .collect(),
+    })
+}
+
+fn occurrence(segment: &[u8], qualifier: Option<(usize, &[&str])>) -> Selector {
+    Selector::Occurrence {
+        segment: segment.to_vec(),
+        qualifier: qualifier.map(|(element, codes)| Qualifier {
+            element,
+            component: None,
+            codes: codes.iter().map(|code| code.to_string()).collect(),
+        }),
+    }
+}
 
 fn path(loops: &[(&str, usize)]) -> Vec<LoopRef> {
     loops
@@ -24,7 +46,7 @@ fn every_rule_names_its_variant() {
         (
             Rule::ImplicitLoop {
                 loop_name: "group".into(),
-                expected_trigger: "\"GS\" with no conditions".into(),
+                expected_trigger: trigger(b"GS", &[]),
                 caused_by: b"ST".to_vec(),
             },
             "ImplicitLoop",
@@ -134,7 +156,7 @@ fn every_rule_names_its_variant() {
                 loop_name: "l".into(),
                 opened_at: None,
                 occurrence: "o".into(),
-                selector: "\"N3\"".into(),
+                selector: occurrence(b"N3", None),
             },
             "RequiredOccurrenceMissing",
         ),
@@ -142,7 +164,7 @@ fn every_rule_names_its_variant() {
             Rule::OccurrenceOverMax {
                 loop_name: "l".into(),
                 occurrence: "o".into(),
-                selector: "\"N3\"".into(),
+                selector: occurrence(b"N3", None),
                 max: 1,
                 count: 2,
             },
@@ -183,7 +205,7 @@ fn every_rule_names_its_variant() {
                 loop_name: "l".into(),
                 opened_at: None,
                 child: "c".into(),
-                expected_trigger: "\"N1\" with no conditions".into(),
+                expected_trigger: trigger(b"N1", &[]),
             },
             "RequiredLoopMissing",
         ),
@@ -284,7 +306,7 @@ fn implicit_loop_displays_the_loop_and_the_segment_that_needed_it() {
     let diagnostic = Diagnostic::new(
         Rule::ImplicitLoop {
             loop_name: "group".into(),
-            expected_trigger: "\"GS\" with no conditions".into(),
+            expected_trigger: trigger(b"GS", &[]),
             caused_by: b"ST".to_vec(),
         },
         Some(0),
@@ -638,7 +660,7 @@ fn required_occurrence_missing_displays_the_loop_its_opener_and_the_occurrence()
         loop_name: "1000A".into(),
         opened_at,
         occurrence: "payer_technical_contact_information".into(),
-        selector: "\"PER\" where PER01 is \"BL\"".into(),
+        selector: occurrence(b"PER", Some((1, &["BL"]))),
     };
     let diagnostic = Diagnostic::new(
         rule(Some(5)),
@@ -670,7 +692,7 @@ fn occurrence_over_max_displays_the_occurrence_the_count_and_the_maximum() {
         Rule::OccurrenceOverMax {
             loop_name: "2100".into(),
             occurrence: "other_claim_related_identification".into(),
-            selector: "\"REF\" where REF01 is one of 14 codes".into(),
+            selector: occurrence(b"REF", Some((1, &["A"; 14]))),
             max: 5,
             count: 6,
         },
@@ -772,7 +794,7 @@ fn required_loop_missing_displays_the_loop_its_opener_and_the_child() {
         loop_name: "transaction".into(),
         opened_at,
         child: "1000A".into(),
-        expected_trigger: "\"N1\" where {1: \"PR\"}".into(),
+        expected_trigger: trigger(b"N1", &[(1, b"PR")]),
     };
     let diagnostic = Diagnostic::new(
         rule(Some(2)),
@@ -1173,5 +1195,29 @@ fn locate_writes_the_path_on_every_diagnostic() {
     locate(&mut found, [("A", 1), ("B", 2)].into_iter());
     for diagnostic in &found {
         assert_eq!(diagnostic.path, path(&[("A", 1), ("B", 2)]));
+    }
+}
+
+#[test]
+fn selectors_render_as_the_messages_wrote_them() {
+    let rendered = [
+        (trigger(b"GS", &[]), "\"GS\" with no conditions"),
+        (trigger(b"N1", &[(1, b"PR")]), "\"N1\" where {1: \"PR\"}"),
+        (occurrence(b"N3", None), "\"N3\""),
+        (
+            occurrence(b"PER", Some((1, &["BL"]))),
+            "\"PER\" where PER01 is \"BL\"",
+        ),
+        (
+            occurrence(b"REF", Some((1, &["A"; 14]))),
+            "\"REF\" where REF01 is one of 14 codes",
+        ),
+        (
+            occurrence(b"DTM", Some((1, &["232", "233"]))),
+            "\"DTM\" where DTM01 is one of \"232\", \"233\"",
+        ),
+    ];
+    for (selector, text) in rendered {
+        assert_eq!(selector.to_string(), text);
     }
 }

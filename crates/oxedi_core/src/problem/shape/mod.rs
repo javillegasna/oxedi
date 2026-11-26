@@ -11,10 +11,31 @@ use crate::diagnostic::{LoopRef, Rule, SnipLevel};
 use crate::spec_load::PackageId;
 use crate::write::{EnvelopeSource, ValueOrigin};
 
+/// `impl Problem for $ty` with its kind from the listed variants and its place
+/// from `$place`, which reads the problem as `$this`.
+macro_rules! problem {
+    ($ty:ident [$($variant:ident),+ $(,)?] $this:ident => $place:expr) => {
+        impl Problem for $ty {
+            fn kind(&self) -> &'static str {
+                match self {
+                    $($ty::$variant { .. } => stringify!($variant),)+
+                }
+            }
+
+            fn place(&self) -> Place<'_> {
+                let $this = self;
+                $place
+            }
+        }
+    };
+}
+
 mod diagnostic;
+mod document;
 mod finding;
 #[cfg(test)]
 mod tests;
+mod write_error;
 
 /// A problem a layer raises: it has a text (`Display`), a kind, a place and,
 /// for some families, a detail.

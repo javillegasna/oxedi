@@ -1,8 +1,11 @@
 use super::*;
+use crate::delimiters::IsaError;
 use crate::diagnostic::{Diagnostic, PARSER_ORIGIN};
+use crate::document::{DocumentError, SizeError};
 use crate::message::ElementRef;
 use crate::value::ElementTextError;
 use crate::write::Finding;
+use crate::write::{PlanError, WriteError};
 
 fn unknown_segment() -> Diagnostic {
     Diagnostic::new(
@@ -32,6 +35,14 @@ fn delimiter(origin: ValueOrigin) -> Finding {
         value: b"A:B".to_vec(),
         delimiter: b':',
         role: "component separator",
+    }
+}
+
+fn not_isa() -> IsaError {
+    IsaError::NotIsa {
+        found: Vec::new(),
+        byte_order_mark: false,
+        whitespace: 0,
     }
 }
 
@@ -157,4 +168,115 @@ fn finding_kinds_are_the_variant_names() {
             "ReadBack"
         ]
     );
+}
+
+#[test]
+fn write_error_places() {
+    let plan = WriteError::Plan(PlanError {
+        spec: "s".into(),
+        refusals: Vec::new(),
+    });
+    assert_eq!((plan.kind(), plan.place()), ("Plan", Place::Nowhere));
+    let type_error = WriteError::ColumnType {
+        table: "t".into(),
+        column: "c".into(),
+        expected: crate::value::ColumnType::Date32,
+        found: crate::value::ColumnType::Time32,
+    };
+    assert_eq!(
+        (type_error.kind(), type_error.place()),
+        (
+            "ColumnType",
+            Place::Cell {
+                table: "t",
+                row: None,
+                column: Some("c")
+            }
+        )
+    );
+    let unreadable = WriteError::Unreadable(DocumentError::Isa(not_isa()));
+    assert_eq!(unreadable.kind(), "Unreadable");
+    assert_eq!(unreadable.place(), DocumentError::Isa(not_isa()).place());
+}
+
+#[test]
+fn document_error_places() {
+    let isa = DocumentError::Isa(not_isa());
+    assert_eq!(
+        (isa.kind(), isa.place()),
+        (
+            "Isa",
+            Place::File {
+                segment: Some(0),
+                element: None,
+                component: None,
+                path: &[]
+            }
+        )
+    );
+    let size = DocumentError::Size(SizeError { len: 1 });
+    assert_eq!((size.kind(), size.place()), ("Size", Place::Nowhere));
+}
+
+#[test]
+fn write_error_kinds() {
+    let errors = [
+        WriteError::Plan(PlanError {
+            spec: "s".into(),
+            refusals: Vec::new(),
+        }),
+        WriteError::UnknownTable(crate::spec::UnknownTable {
+            name: "t".into(),
+            tables: Vec::new(),
+        }),
+        WriteError::UnknownColumn(crate::spec::UnknownColumn {
+            table: "t".into(),
+            column: "c".into(),
+            columns: Vec::new(),
+        }),
+        WriteError::ColumnType {
+            table: "t".into(),
+            column: "c".into(),
+            expected: crate::value::ColumnType::Date32,
+            found: crate::value::ColumnType::Time32,
+        },
+        WriteError::SameDelimiter {
+            first: "a",
+            second: "b",
+            byte: b'*',
+        },
+        WriteError::DelimiterNotAllowed {
+            role: "a",
+            byte: b'*',
+        },
+        WriteError::NoRepetition {
+            version: Vec::new(),
+        },
+        WriteError::Unreadable(DocumentError::Size(SizeError { len: 1 })),
+        WriteError::Findings(Vec::new()),
+    ];
+    let kinds: Vec<&str> = errors.iter().map(Problem::kind).collect();
+    assert_eq!(
+        kinds,
+        [
+            "Plan",
+            "UnknownTable",
+            "UnknownColumn",
+            "ColumnType",
+            "SameDelimiter",
+            "DelimiterNotAllowed",
+            "NoRepetition",
+            "Unreadable",
+            "Findings"
+        ]
+    );
+}
+
+#[test]
+fn document_error_kinds() {
+    let kinds = [
+        DocumentError::Isa(not_isa()).kind(),
+        DocumentError::Size(SizeError { len: 1 }).kind(),
+    ];
+    assert_eq!(kinds, ["Isa", "Size"]);
 }

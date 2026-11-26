@@ -182,6 +182,8 @@ The file as oxedi holds it, indexed into segments and kept byte for byte.
 
 What the writer needs besides the tables: sender, receiver, date, time and control number. In
 Python it is `oxedi.Envelope`. See [Writing](../python/writing.md#fill-in-the-envelope).
+The spec's envelope package says which element of `ISA` and `GS` carries each
+([Packages and layers](../customize/packages.md#the-envelope-package)).
 
 ### Lossless
 

@@ -8,6 +8,8 @@
 //!
 //! `header` holds the element positions of the ISA that carry the delimiters
 //! and the version, and the version from which ISA11 is a repetition separator.
+//! `role` holds the five delimiters by role and the check that a given text is
+//! one byte.
 //! `syntax` holds the `Syntax` value, the bytes a segment is written with.
 //! `test_support` (test builds only) holds the helpers the unit tests of the
 //! modules that read segments share: the plain `*`, `:`, `~` dialect and the
@@ -17,7 +19,10 @@ use crate::frame::SegmentEnd;
 use crate::trivia::LeadingTrivia;
 
 mod header;
+mod role;
 mod syntax;
+
+pub use role::{DelimiterLength, DelimiterRole};
 
 pub(crate) use header::{HeaderPositions, ISA_ID, version_carries_repetition};
 pub(crate) use syntax::Syntax;

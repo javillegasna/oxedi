@@ -19,7 +19,7 @@ use crate::segment::Segment;
 
 mod error;
 
-pub use error::{DocumentError, SizeError};
+pub use error::{DocumentError, Index, SegmentOutOfRange, SizeError};
 
 /// Where one segment lives inside [`Document::as_bytes`].
 ///
@@ -129,6 +129,17 @@ impl<'a> Document<'a> {
     /// One span per segment, in order.
     pub fn spans(&self) -> Spans<'_, 'a> {
         Spans { doc: self, next: 0 }
+    }
+
+    /// The 0-based position `index` names, or the error when the document has
+    /// no such segment.
+    pub fn resolve(&self, index: Index) -> Result<usize, SegmentOutOfRange> {
+        let len = self.len();
+        let at = match index {
+            Index::FromStart(position) => Some(position).filter(|position| *position < len),
+            Index::FromEnd(back) => len.checked_sub(back.get()),
+        };
+        at.ok_or(SegmentOutOfRange { index, len })
     }
 
     /// Number of segments, including empty and trivia-only ones.

@@ -1,5 +1,7 @@
 //! Why a buffer could not become a [`Document`](super::Document).
 
+use std::num::NonZeroUsize;
+
 use crate::delimiters::IsaError;
 
 /// The input is too long to index: segment offsets are stored as `u32`, so a
@@ -26,6 +28,26 @@ impl SizeError {
 }
 
 impl std::error::Error for SizeError {}
+
+/// Where to count a segment from.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Index {
+    /// 0-based position from the first segment.
+    FromStart(usize),
+    /// 1-based position from the last segment: 1 is the last.
+    FromEnd(NonZeroUsize),
+}
+
+/// A segment index past the ends of the document.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct SegmentOutOfRange {
+    /// The index asked for.
+    pub index: Index,
+    /// The number of segments the document has.
+    pub len: usize,
+}
+
+impl std::error::Error for SegmentOutOfRange {}
 
 /// Why [`Document::parse`](super::Document::parse) failed.
 #[derive(Debug, Clone, PartialEq, Eq)]

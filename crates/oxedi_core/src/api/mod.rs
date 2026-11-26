@@ -1,0 +1,30 @@
+//! The door a binding uses: the reads and lookups with their options and
+//! defaults as typed values, and the types they take and give. A binding
+//! imports from here only; the stage modules are for the core's tests,
+//! benches and Rust tools.
+//!
+//! The folder holds: `choice.rs` (which spec and delimiters a read uses),
+//! `read.rs` (the reads over a whole file), `batches.rs` (a stream cut into
+//! batches), `identity.rs` (the built-in a transaction set and a version
+//! name), `mask.rs` (masking an external validator's diagnostics) and
+//! `tests/`.
+
+mod batches;
+mod choice;
+mod identity;
+mod mask;
+mod read;
+
+pub use batches::{Batch, BatchBy, Batches};
+pub use choice::{ChosenSpec, DelimiterChoice, SpecChoice};
+pub use identity::{Identity, builtin};
+pub use mask::mask_diagnostics;
+
+pub use crate::delimiters::{DelimiterLength, DelimiterRole};
+pub use crate::diagnostic::UnknownLevel;
+pub use crate::document::{Index, SegmentOutOfRange};
+pub use crate::value::FloatForDecimal;
+pub use read::{ReadOptions, Reading, read, read_tables, read_tree};
+
+#[cfg(test)]
+mod tests;

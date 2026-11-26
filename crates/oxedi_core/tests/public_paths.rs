@@ -22,6 +22,8 @@ mod by_module {
     use oxedi_core::conformance::first_difference;
     use oxedi_core::conformance::render;
     use oxedi_core::conformance::run_kit;
+    use oxedi_core::delimiters::DelimiterLength;
+    use oxedi_core::delimiters::DelimiterRole;
     use oxedi_core::delimiters::Delimiters;
     use oxedi_core::delimiters::IsaError;
     use oxedi_core::diagnostic::Diagnostic;
@@ -30,8 +32,11 @@ mod by_module {
     use oxedi_core::diagnostic::PARSER_ORIGIN;
     use oxedi_core::diagnostic::Rule;
     use oxedi_core::diagnostic::SnipLevel;
+    use oxedi_core::diagnostic::UnknownLevel;
     use oxedi_core::document::Document;
     use oxedi_core::document::DocumentError;
+    use oxedi_core::document::Index;
+    use oxedi_core::document::SegmentOutOfRange;
     use oxedi_core::document::Segments;
     use oxedi_core::document::SizeError;
     use oxedi_core::document::Span;
@@ -65,6 +70,7 @@ mod by_module {
     use oxedi_core::project::Projector;
     use oxedi_core::segment::Segment;
     use oxedi_core::segment::SegmentWriteError;
+    use oxedi_core::spec::BatchLoopError;
     use oxedi_core::spec::ColumnSchema;
     use oxedi_core::spec::ColumnSource;
     use oxedi_core::spec::Control;
@@ -184,6 +190,7 @@ mod by_module {
     use oxedi_core::value::DECIMAL_PRECISION;
     use oxedi_core::value::ElementTextError;
     use oxedi_core::value::ElementType;
+    use oxedi_core::value::FloatForDecimal;
     use oxedi_core::value::LengthRange;
     use oxedi_core::value::MAX_SCALE;
     use oxedi_core::value::Parsed;
@@ -232,6 +239,30 @@ mod by_module {
 }
 
 use oxedi_core::conformance::CaseFault;
+// The door a binding uses.
+mod api_door {
+    use oxedi_core::api::Batch;
+    use oxedi_core::api::BatchBy;
+    use oxedi_core::api::Batches;
+    use oxedi_core::api::ChosenSpec;
+    use oxedi_core::api::DelimiterChoice;
+    use oxedi_core::api::DelimiterLength;
+    use oxedi_core::api::DelimiterRole;
+    use oxedi_core::api::FloatForDecimal;
+    use oxedi_core::api::Identity;
+    use oxedi_core::api::Index;
+    use oxedi_core::api::ReadOptions;
+    use oxedi_core::api::Reading;
+    use oxedi_core::api::SegmentOutOfRange;
+    use oxedi_core::api::SpecChoice;
+    use oxedi_core::api::UnknownLevel;
+    use oxedi_core::api::builtin;
+    use oxedi_core::api::mask_diagnostics;
+    use oxedi_core::api::read;
+    use oxedi_core::api::read_tables;
+    use oxedi_core::api::read_tree;
+}
+
 use oxedi_core::spec_load::SpecModel;
 use oxedi_core::write::{Finding, WriteError};
 // Root re-exports from lib.rs

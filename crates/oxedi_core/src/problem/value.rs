@@ -4,7 +4,17 @@
 use std::fmt;
 
 use crate::column::{CellError, RowError};
-use crate::value::{ConvertError, ElementTextError, TypeCodeError};
+use crate::value::{ConvertError, ElementTextError, FloatForDecimal, TypeCodeError};
+
+impl fmt::Display for FloatForDecimal {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(
+            f,
+            "a float may not hold the spec's {} values exactly; give decimal values",
+            self.column
+        )
+    }
+}
 
 impl fmt::Display for ConvertError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {

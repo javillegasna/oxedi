@@ -55,3 +55,25 @@ fn decimal_scale_of_each_column_type() {
     assert_eq!(ColumnType::Date32.decimal_scale(), None);
     assert_eq!(ColumnType::Time32.decimal_scale(), None);
 }
+
+#[test]
+fn only_a_decimal_column_refuses_a_float() {
+    let decimal = ColumnType::Decimal128 {
+        precision: 18,
+        scale: 2,
+    };
+    let error = decimal.takes_float().unwrap_err();
+    assert_eq!(
+        error.to_string(),
+        "a float may not hold the spec's decimal128(18, 2) values exactly; give decimal values"
+    );
+    assert!(std::error::Error::source(&error).is_none());
+    for column in [
+        ColumnType::Int64 { scale: 0 },
+        ColumnType::Binary,
+        ColumnType::Date32,
+        ColumnType::Time32,
+    ] {
+        assert_eq!(column.takes_float(), Ok(()));
+    }
+}

@@ -404,3 +404,23 @@ fn the_header_positions_are_isa11_isa12_isa16() {
         }
     );
 }
+
+#[test]
+fn a_delimiter_is_one_byte() {
+    assert_eq!(Delimiters::byte(DelimiterRole::Segment, b"~"), Ok(b'~'));
+    let two = Delimiters::byte(DelimiterRole::Element, b"**").unwrap_err();
+    assert_eq!(
+        two.to_string(),
+        r#"delimiter element must be exactly one byte, got 2 bytes: "**""#
+    );
+    let none = Delimiters::byte(DelimiterRole::Release, b"").unwrap_err();
+    assert_eq!(
+        none.to_string(),
+        r#"delimiter release must be exactly one byte, got 0 bytes: """#
+    );
+    assert!(std::error::Error::source(&none).is_none());
+    assert_eq!(
+        DelimiterRole::ALL.map(DelimiterRole::word),
+        ["element", "component", "segment", "repetition", "release"]
+    );
+}

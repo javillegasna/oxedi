@@ -273,3 +273,25 @@ fn a_segment_goes_to_the_instance_it_names_not_the_last_one_opened() {
     let b_node = tree.node(a_node.children[0]);
     assert!(b_node.segments.is_empty() && b_node.unmatched.is_empty());
 }
+
+#[test]
+fn an_empty_segment_belongs_to_the_innermost_open_node() {
+    let (spec, tree) = tree(b"AA~BB~\n~AE~");
+    let owner = tree.node(tree.owner(2));
+    assert_eq!(owner.loop_id, spec.loop_id("B"));
+}
+
+#[test]
+fn a_segment_no_event_named_is_the_roots() {
+    let (_, tree) = tree(b"AA~");
+    assert_eq!(tree.owner(10_000), tree.root());
+}
+
+#[test]
+fn each_node_counts_its_loops_instances() {
+    let (spec, tree) = tree(b"AA~AE~AA~AE~");
+    let a = spec.loop_id("A").unwrap();
+    let ordinals: Vec<_> = tree.nodes_of(a).map(|n| tree.node(n).ordinal).collect();
+    assert_eq!(ordinals, vec![Some(1), Some(2)]);
+    assert_eq!(tree.node(tree.root()).ordinal, None);
+}

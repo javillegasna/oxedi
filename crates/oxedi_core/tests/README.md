@@ -88,6 +88,12 @@ the ISA-less fragment and every sample.
 | `write_findings` | The envelope written, how values become elements, and every finding and error with its full text. | Two fixtures and one sample |
 | `roundtrip_props` | Write then tokenize is the identity on `(id, elements)`; on real files the writer reproduces each segment's bytes. | Random input and the four enveloped original fixtures |
 
+### The api door: the reads a binding uses
+
+| Suite | Pins | Data |
+|-------|------|------|
+| `api_door` | The api's reads equal the stages they run: the defaults, a given spec, a mask, given delimiters, the named tables, the batches and the tree; the tree's owners and ordinals equal the viewer's. | All files |
+
 ### Guards: the test setup itself
 
 | Suite | Pins |

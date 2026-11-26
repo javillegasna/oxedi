@@ -30,7 +30,25 @@ pub enum ColumnType {
     Time32,
 }
 
+/// A float given for a column of exact decimal values.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct FloatForDecimal {
+    /// The column's type.
+    pub column: ColumnType,
+}
+
+impl std::error::Error for FloatForDecimal {}
+
 impl ColumnType {
+    /// `Ok` when a float may fill a column of this type; a decimal column is
+    /// exact, so a float is refused.
+    pub fn takes_float(self) -> Result<(), FloatForDecimal> {
+        match self {
+            ColumnType::Decimal128 { .. } => Err(FloatForDecimal { column: self }),
+            _ => Ok(()),
+        }
+    }
+
     /// The column type that holds values of an element type; an element
     /// with no definition is held as raw bytes.
     pub fn of(kind: Option<ElementType>) -> ColumnType {

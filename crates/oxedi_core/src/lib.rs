@@ -45,6 +45,7 @@
 //! The structure is data: no code in this crate is specific to the 835 beyond
 //! the built-in spec it loads.
 
+pub mod api;
 pub mod check;
 pub mod column;
 pub mod conformance;

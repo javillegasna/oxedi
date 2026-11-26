@@ -2173,13 +2173,13 @@ so a token can be reproduced from the key. Two consequences follow:</p>
 <li>Without the key the original cannot be recovered from a token.</li>
 </ul>
 <p>An empty value stays empty, and a missing value stays null.</p>
-<p>The diagnostics are masked too. The value a finding quotes is masked when it comes from <code>DTM02</code>,
+<p>The diagnostics are masked too. The value a diagnostic quotes is masked when it comes from <code>DTM02</code>,
 <code>REF02</code>, <code>NM1</code> elements 3, 4 and 9, <code>CLP01</code>, <code>CLP07</code> or the reference of a <code>PLB</code> adjustment
 (the second component of each adjustment identifier, read into
 <code>provider_adjustments.reference_id</code>). This covers every segment of those types,
-so it also hides the value of a finding about the payer, the payee or a provider, such as one
-about a <code>DTM*405</code> date or a payer <code>REF02</code>. Amounts a finding quotes stay as they are.
-A <code>LengthOutOfRange</code> finding still states the length of the original value. With
+so it also hides the value of a diagnostic about the payer, the payee or a provider, such as one
+about a <code>DTM*405</code> date or a payer <code>REF02</code>. Amounts a diagnostic quotes stay as they are.
+A <code>LengthOutOfRange</code> diagnostic still states the length of the original value. With
 <code>dates="shift"</code>, a date inside a diagnostic is reduced to its year.</p>
 <h2 id="choose-what-happens-to-dates">Choose what happens to dates<a class="headerlink" href="#choose-what-happens-to-dates" title="Permanent link">&para;</a></h2>
 <table>

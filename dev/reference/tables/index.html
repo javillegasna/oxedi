@@ -2811,8 +2811,8 @@ and fiscal period: an identifier and an amount each. Each becomes its own row.</
 <p>Adjustments that share a <code>segment</code> came from the same <code>PLB</code>. The writer keeps them together, as
 <a href="../../python/own-tables/">Writing from your own tables</a> explains.</p>
 <h2 id="diagnostics-duckdb-only">diagnostics (DuckDB only)<a class="headerlink" href="#diagnostics-duckdb-only" title="Permanent link">&para;</a></h2>
-<p>In DuckDB, <code>read_835(..., table_name := 'diagnostics')</code> returns the findings of the parse as a
-sixth table, one row per finding:</p>
+<p>In DuckDB, <code>read_835(..., table_name := 'diagnostics')</code> returns the diagnostics of the parse as a
+sixth table, one row per diagnostic:</p>
 <table>
 <thead>
 <tr>

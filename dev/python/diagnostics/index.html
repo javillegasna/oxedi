@@ -860,10 +860,10 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#what-to-do-about-a-finding" class="md-nav__link">
+  <a href="#what-to-do-about-a-diagnostic" class="md-nav__link">
     <span class="md-ellipsis">
       
-        What to do about a finding
+        What to do about a diagnostic
       
     </span>
   </a>
@@ -2014,10 +2014,10 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#what-to-do-about-a-finding" class="md-nav__link">
+  <a href="#what-to-do-about-a-diagnostic" class="md-nav__link">
     <span class="md-ellipsis">
       
-        What to do about a finding
+        What to do about a diagnostic
       
     </span>
   </a>
@@ -2076,14 +2076,14 @@ SNIP 3 · balancing rule "claim_balance" fails in loop "2100" opened at segment 
 <li><code>kind</code>: the name of the rule that failed, for example <code>RequiredElementMissing</code>.</li>
 <li><code>rule</code>: the rule as a sentence with its values.</li>
 <li><code>segment</code>: the index of the segment at fault, or <code>None</code> at the end of the file.</li>
-<li><code>element</code> and <code>component</code>: the 1-based position inside the segment, when the finding has one.</li>
+<li><code>element</code> and <code>component</code>: the 1-based position inside the segment, when the diagnostic has one.</li>
 <li><code>path</code>: the loops open at that segment, outermost first, joined by <code>/</code>. It is empty at the
   root. <code>2110#4</code> is the fourth service line of the file.</li>
 <li><code>datum</code>: the offending value as it appears in the file (bytes).</li>
 <li><code>origin</code> and <code>code</code>: who reported it. That is <code>"oxedi"</code>, or <code>"pyx12"</code> with pyx12's own code
   (see <a href="../pyx12/">Validating with pyx12</a>).</li>
 </ul>
-<p>Filter on <code>kind</code> to pick one sort of finding:</p>
+<p>Filter on <code>kind</code> to pick one sort of diagnostic:</p>
 <div class="highlight"><pre><span></span><code><span class="n">bad_dates</span> <span class="o">=</span> <span class="p">[</span><span class="n">d</span> <span class="k">for</span> <span class="n">d</span> <span class="ow">in</span> <span class="n">result</span><span class="o">.</span><span class="n">diagnostics</span> <span class="k">if</span> <span class="n">d</span><span class="o">.</span><span class="n">kind</span> <span class="o">==</span> <span class="s2">"TypeMismatch"</span><span class="p">]</span>
 <span class="nb">print</span><span class="p">(</span><span class="n">bad_dates</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">segment</span><span class="p">,</span> <span class="n">bad_dates</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">element</span><span class="p">,</span> <span class="n">bad_dates</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">datum</span><span class="p">)</span>
 </code></pre></div>
@@ -2222,13 +2222,13 @@ and <code>.span</code> its byte range in your file:</p>
 </tbody>
 </table>
 </details>
-<h2 id="what-to-do-about-a-finding">What to do about a finding<a class="headerlink" href="#what-to-do-about-a-finding" title="Permanent link">&para;</a></h2>
+<h2 id="what-to-do-about-a-diagnostic">What to do about a diagnostic<a class="headerlink" href="#what-to-do-about-a-diagnostic" title="Permanent link">&para;</a></h2>
 <p>A diagnostic describes the file, not a failure of the parse. You decide what to do with it:</p>
 <ul>
-<li>Keep the tables and log the findings, for example to review them later.</li>
+<li>Keep the tables and log the diagnostics, for example to review them later.</li>
 <li>Stop the file and send it back to its sender. <a href="../../recipes/pipelines/">oxedi in a pipeline</a>
   shows a step that does this.</li>
-<li>Count findings across many files in SQL with
+<li>Count diagnostics across many files in SQL with
   <code>read_835(..., table_name := 'diagnostics')</code>. See
   <a href="../../recipes/lakehouse/#use-diagnostics-as-a-quality-gate">a Parquet lakehouse</a>.</li>
 </ul>

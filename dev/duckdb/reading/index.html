@@ -2246,7 +2246,7 @@ ones <code>DESCRIBE</code> gives for <code>read_835</code> with the same <code>v
 </code></pre></div>
 <p><code>diagnostics</code> is listed because <code>read_835</code> returns it; <code>COPY</code> does not take it.</p>
 <h2 id="read-the-diagnostics">Read the diagnostics<a class="headerlink" href="#read-the-diagnostics" title="Permanent link">&para;</a></h2>
-<p><code>table_name := 'diagnostics'</code> returns the findings of the parse, one row each:</p>
+<p><code>table_name := 'diagnostics'</code> returns the diagnostics of the parse, one row each:</p>
 <div class="highlight"><pre><span></span><code><span class="k">SELECT</span><span class="w"> </span><span class="n">filename</span><span class="p">,</span><span class="w"> </span><span class="k">level</span><span class="p">,</span><span class="w"> </span><span class="n">kind</span><span class="p">,</span><span class="w"> </span><span class="n">datum</span>
 <span class="k">FROM</span><span class="w"> </span><span class="n">read_835</span><span class="p">(</span><span class="s1">'remits/*.835'</span><span class="p">,</span><span class="w"> </span><span class="k">table_name</span><span class="w"> </span><span class="p">:</span><span class="o">=</span><span class="w"> </span><span class="s1">'diagnostics'</span><span class="p">,</span><span class="w"> </span><span class="n">filename</span><span class="w"> </span><span class="p">:</span><span class="o">=</span><span class="w"> </span><span class="k">true</span><span class="p">,</span><span class="w"> </span><span class="n">ignore_errors</span><span class="w"> </span><span class="p">:</span><span class="o">=</span><span class="w"> </span><span class="k">true</span><span class="p">);</span>
 </code></pre></div>

@@ -2075,15 +2075,15 @@ bytes, look at the diagnostics, keep or reject, and write the result out.</p>
 
 
 <span class="k">def</span><span class="w"> </span><span class="nf">process</span><span class="p">(</span><span class="n">data</span><span class="p">:</span> <span class="nb">bytes</span><span class="p">,</span> <span class="n">out_dir</span><span class="p">:</span> <span class="n">Path</span><span class="p">,</span> <span class="n">name</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">list</span><span class="p">:</span>
-<span class="w">    </span><span class="sd">"""Parse one file; write its tables as Parquet; return its findings."""</span>
+<span class="w">    </span><span class="sd">"""Parse one file; write its tables as Parquet; return its problems."""</span>
     <span class="k">try</span><span class="p">:</span>
         <span class="n">result</span> <span class="o">=</span> <span class="n">oxedi</span><span class="o">.</span><span class="n">parse</span><span class="p">(</span><span class="n">data</span><span class="p">)</span>
     <span class="k">except</span> <span class="n">oxedi</span><span class="o">.</span><span class="n">ParseError</span> <span class="k">as</span> <span class="n">error</span><span class="p">:</span>  <span class="c1"># not an 835 at all</span>
         <span class="k">return</span> <span class="p">[</span><span class="nb">str</span><span class="p">(</span><span class="n">error</span><span class="p">)]</span>
 
-    <span class="n">findings</span> <span class="o">=</span> <span class="p">[</span><span class="nb">str</span><span class="p">(</span><span class="n">d</span><span class="p">)</span> <span class="k">for</span> <span class="n">d</span> <span class="ow">in</span> <span class="n">result</span><span class="o">.</span><span class="n">diagnostics</span><span class="p">]</span>
-    <span class="k">if</span> <span class="n">findings</span><span class="p">:</span>
-        <span class="k">return</span> <span class="n">findings</span>  <span class="c1"># leave the file for a person; write nothing</span>
+    <span class="n">problems</span> <span class="o">=</span> <span class="p">[</span><span class="nb">str</span><span class="p">(</span><span class="n">d</span><span class="p">)</span> <span class="k">for</span> <span class="n">d</span> <span class="ow">in</span> <span class="n">result</span><span class="o">.</span><span class="n">diagnostics</span><span class="p">]</span>
+    <span class="k">if</span> <span class="n">problems</span><span class="p">:</span>
+        <span class="k">return</span> <span class="n">problems</span>  <span class="c1"># leave the file for a person; write nothing</span>
 
     <span class="n">out_dir</span><span class="o">.</span><span class="n">mkdir</span><span class="p">(</span><span class="n">parents</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">exist_ok</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
     <span class="k">for</span> <span class="n">table</span> <span class="ow">in</span> <span class="n">result</span><span class="o">.</span><span class="n">tables</span><span class="o">.</span><span class="n">keys</span><span class="p">():</span>
@@ -2116,7 +2116,7 @@ needs an Airflow installation:</p>
     <span class="k">return</span> <span class="n">process</span><span class="p">(</span><span class="n">Path</span><span class="p">(</span><span class="n">path</span><span class="p">)</span><span class="o">.</span><span class="n">read_bytes</span><span class="p">(),</span> <span class="n">Path</span><span class="p">(</span><span class="s2">"/data/out"</span><span class="p">),</span> <span class="n">Path</span><span class="p">(</span><span class="n">path</span><span class="p">)</span><span class="o">.</span><span class="n">stem</span><span class="p">)</span>
 </code></pre></div>
 <h2 id="dagster">Dagster<a class="headerlink" href="#dagster" title="Permanent link">&para;</a></h2>
-<p>An asset with the findings as metadata. Not executed here, because it needs
+<p>An asset with the problems as metadata. Not executed here, because it needs
 Dagster:</p>
 <!-- docs-test: skip needs Dagster; the step it calls runs above -->
 <div class="highlight"><pre><span></span><code><span class="kn">from</span><span class="w"> </span><span class="nn">dagster</span><span class="w"> </span><span class="kn">import</span> <span class="n">Config</span><span class="p">,</span> <span class="n">Output</span><span class="p">,</span> <span class="n">asset</span>
@@ -2127,12 +2127,12 @@ Dagster:</p>
 <span class="nd">@asset</span>
 <span class="k">def</span><span class="w"> </span><span class="nf">remittance_tables</span><span class="p">(</span><span class="n">context</span><span class="p">,</span> <span class="n">config</span><span class="p">:</span> <span class="n">RemitConfig</span><span class="p">):</span>
     <span class="n">path</span> <span class="o">=</span> <span class="n">config</span><span class="o">.</span><span class="n">path</span>
-    <span class="n">findings</span> <span class="o">=</span> <span class="n">process</span><span class="p">(</span><span class="n">Path</span><span class="p">(</span><span class="n">path</span><span class="p">)</span><span class="o">.</span><span class="n">read_bytes</span><span class="p">(),</span> <span class="n">Path</span><span class="p">(</span><span class="s2">"/data/out"</span><span class="p">),</span> <span class="n">Path</span><span class="p">(</span><span class="n">path</span><span class="p">)</span><span class="o">.</span><span class="n">stem</span><span class="p">)</span>
-    <span class="k">return</span> <span class="n">Output</span><span class="p">(</span><span class="kc">None</span><span class="p">,</span> <span class="n">metadata</span><span class="o">=</span><span class="p">{</span><span class="s2">"findings"</span><span class="p">:</span> <span class="nb">len</span><span class="p">(</span><span class="n">findings</span><span class="p">)})</span>
+    <span class="n">problems</span> <span class="o">=</span> <span class="n">process</span><span class="p">(</span><span class="n">Path</span><span class="p">(</span><span class="n">path</span><span class="p">)</span><span class="o">.</span><span class="n">read_bytes</span><span class="p">(),</span> <span class="n">Path</span><span class="p">(</span><span class="s2">"/data/out"</span><span class="p">),</span> <span class="n">Path</span><span class="p">(</span><span class="n">path</span><span class="p">)</span><span class="o">.</span><span class="n">stem</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">Output</span><span class="p">(</span><span class="kc">None</span><span class="p">,</span> <span class="n">metadata</span><span class="o">=</span><span class="p">{</span><span class="s2">"problems"</span><span class="p">:</span> <span class="nb">len</span><span class="p">(</span><span class="n">problems</span><span class="p">)})</span>
 </code></pre></div>
 <h2 id="kafka">Kafka<a class="headerlink" href="#kafka" title="Permanent link">&para;</a></h2>
 <p>Treat each message as one file: call <code>process</code> on the message value and send a message with
-findings to a dead-letter topic when the list is not empty. Commit the offset only after the
+problems to a dead-letter topic when the list is not empty. Commit the offset only after the
 output is written, so a crash re-processes the message rather than losing it. <code>oxedi.stream(data)</code> yields one
 transaction at a time when a single message is large.</p>
 <h2 id="alongside-sql">Alongside SQL<a class="headerlink" href="#alongside-sql" title="Permanent link">&para;</a></h2>

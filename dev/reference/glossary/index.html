@@ -1804,6 +1804,28 @@
 </li>
         
           <li class="md-nav__item">
+  <a href="#finding" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Finding
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#refusal" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Refusal
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
   <a href="#snip-level" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -2686,6 +2708,28 @@
 </li>
         
           <li class="md-nav__item">
+  <a href="#finding" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Finding
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#refusal" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Refusal
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
   <a href="#snip-level" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -2868,8 +2912,14 @@ lines. <code>BPR02</code> equals the claims' payments minus the provider adjustm
 a level 3 diagnostic.</p>
 <h2 id="reading-and-validating">Reading and validating<a class="headerlink" href="#reading-and-validating" title="Permanent link">&para;</a></h2>
 <h3 id="diagnostic">Diagnostic<a class="headerlink" href="#diagnostic" title="Permanent link">&para;</a></h3>
-<p>One finding about the data of a file: the rule that failed, where, and the value. oxedi returns
+<p>One problem reading found in the data of a file: the rule that failed, where, and the value. oxedi returns
 diagnostics as data instead of raising. See <a href="../../python/diagnostics/">Diagnostics</a>.</p>
+<h3 id="finding">Finding<a class="headerlink" href="#finding" title="Permanent link">&para;</a></h3>
+<p>A problem writing found in the tables or in the file it wrote, or one another validator such as
+pyx12 reported. See <a href="../../python/when-write-refuses/">When the writer refuses a file</a>.</p>
+<h3 id="refusal">Refusal<a class="headerlink" href="#refusal" title="Permanent link">&para;</a></h3>
+<p>Why a spec cannot be written at all, with what to change; <code>oxedi.validate_stack</code> lists them as the
+reasons write is not possible.</p>
 <h3 id="snip-level"><abbr title="Validation level (1, 2 or 3) of a rule, reported as the level of a diagnostic">SNIP</abbr> level<a class="headerlink" href="#snip-level" title="Permanent link">&para;</a></h3>
 <p>The level a validation rule belongs to. oxedi reports three:</p>
 <ul>

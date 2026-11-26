@@ -2099,7 +2099,7 @@ segment itself, index the document with the diagnostic's segment:</p>
 </code></pre></div>
 <div class="highlight"><pre><span></span><code>b'\nCLP*CLM1002*7*700*400*0*12*PCN1002*11*1~'
 </code></pre></div>
-<p><a href="../python/diagnostics/">Diagnostics</a> lists every kind of finding and what to do about it.</p>
+<p><a href="../python/diagnostics/">Diagnostics</a> lists every kind of diagnostic and what to do about it.</p>
 <h2 id="write-the-file-back">Write the file back<a class="headerlink" href="#write-the-file-back" title="Permanent link">&para;</a></h2>
 <p>oxedi keeps every byte of the file, so the document writes it back unchanged:</p>
 <div class="highlight"><pre><span></span><code><span class="k">assert</span> <span class="n">result</span><span class="o">.</span><span class="n">document</span><span class="o">.</span><span class="n">write</span><span class="p">()</span> <span class="o">==</span> <span class="n">data</span>

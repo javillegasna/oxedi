@@ -8,10 +8,12 @@ mod files;
 mod scan;
 mod scan_cases;
 mod table;
+mod text;
+mod text_cases;
 mod violations;
 mod violations_cases;
 
-use table::{EXCEPTIONS, TABLE};
+use table::{EXCEPTIONS, NOTATION, RENDERERS, TABLE};
 use violations::violations;
 
 #[test]
@@ -32,5 +34,21 @@ fn every_exception_says_why() {
             e.from,
             e.to
         );
+    }
+}
+
+#[test]
+fn problem_text_is_written_only_in_problem() {
+    let src = std::path::Path::new(concat!(env!("CARGO_MANIFEST_DIR"), "/src"));
+    let (displays, renderers) = text::text_finds(src);
+    let found = text::text_violations(displays, renderers, NOTATION, RENDERERS);
+    let lines: Vec<String> = found.iter().map(ToString::to_string).collect();
+    assert!(found.is_empty(), "\n{}\n", lines.join("\n"));
+}
+
+#[test]
+fn every_listed_name_says_why() {
+    for l in NOTATION.iter().chain(RENDERERS) {
+        assert!(!l.reason.is_empty(), "{} has no reason", l.name);
     }
 }

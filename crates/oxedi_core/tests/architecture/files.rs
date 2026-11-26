@@ -89,7 +89,7 @@ pub fn core_uses(src: &Path) -> Vec<Use> {
     found
 }
 
-fn collect_rs(root: &Path, dir: &Path, out: &mut Vec<PathBuf>) {
+pub fn collect_rs(root: &Path, dir: &Path, out: &mut Vec<PathBuf>) {
     for path in entries(dir) {
         if path.is_dir() {
             collect_rs(root, &path, out);

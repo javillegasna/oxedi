@@ -294,6 +294,7 @@ The full list, with an example of each, is in
   data in `src/`. Indexing with ids the code itself created (`LoopId`, `NodeId`) is fine.
 - **Errors explain themselves.** Every error and diagnostic names the rule that failed, where
   it failed and the offending value, and its full `Display` text is tested.
+- **A problem's text is written only in `problem/`.** The layers raise typed values; an `impl Display` or a `render_*` function outside `problem/` fails the architecture test unless it is listed as notation, with its reason, in `tests/architecture/table.rs`.
 - **The structure is data.** No code in the core is specific to the 835, and the Rust
   bindings and the viewer name no 835 segment; the spec JSON holds the structure.
 - **The core stays sans-IO.** No file, network, thread or runtime in `oxedi_core`, and no new

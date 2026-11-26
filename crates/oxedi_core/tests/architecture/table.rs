@@ -144,6 +144,68 @@ pub const TABLE: &[Row] = &[
 
 pub const EXCEPTIONS: &[Exception] = &[];
 
+pub struct Listed {
+    pub file: &'static str,
+    pub name: &'static str,
+    pub reason: &'static str,
+}
+
+const fn listed(file: &'static str, name: &'static str, reason: &'static str) -> Listed {
+    Listed { file, name, reason }
+}
+
+pub const NOTATION: &[Listed] = &[
+    listed("value/length.rs", "LengthRange", "a range as `min..max`"),
+    listed("value/column_type.rs", "ColumnType", "a column's type name"),
+    listed("value/element_type.rs", "ElementType", "`AN`, `N2`, `R`"),
+    listed("spec/schema.rs", "ColumnKind", "a column's kind name"),
+    listed("diagnostic/mod.rs", "LoopRef", "a loop instance, `2000#1`"),
+    listed("diagnostic/mod.rs", "LoopPath", "open loops joined by `/`"),
+    listed("spec_load/vocabulary.rs", "ElementPosition", "`1`, `1-2`"),
+    listed("spec_load/package/id.rs", "Release", "a package id part"),
+    listed(
+        "spec_load/package/id.rs",
+        "TransactionSet",
+        "a package id part",
+    ),
+    listed("spec_load/package/id.rs", "Guide", "a package id part"),
+    listed(
+        "spec_load/package/id.rs",
+        "PackageId",
+        "a package id's text",
+    ),
+    listed("spec_load/package/layer.rs", "Layer", "a layer's name"),
+    listed(
+        "spec_load/package/layer.rs",
+        "Layers",
+        "a list of layer names",
+    ),
+    listed("column/table.rs", "Table", "a table's own display"),
+    listed("column/table.rs", "Tables", "tables' own display"),
+    listed("vocabulary/pick.rs", "Pick", "`first`, `2`, `last`"),
+    listed("message/mod.rs", "Quoted", "file bytes on one line"),
+    listed("message/mod.rs", "ElementRef", "an element, `CLP01`"),
+];
+
+pub const RENDERERS: &[Listed] = &[
+    listed("message/mod.rs", "render_key", "a key as a path writes it"),
+    listed(
+        "spec_load/model/mod.rs",
+        "render_path",
+        "a key path, like render_key",
+    ),
+    listed(
+        "column/table.rs",
+        "render_row",
+        "a row as the table displays it",
+    ),
+    listed(
+        "spec_load/build.rs",
+        "render_trigger",
+        "check_ambiguity holds triggers as text",
+    ),
+];
+
 /// An item on a type, by the module whose files write it.
 pub struct Shortcut {
     /// The call as written: the type, `::` and the item.

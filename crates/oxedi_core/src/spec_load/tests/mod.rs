@@ -12,6 +12,7 @@ mod model;
 mod occurrences;
 mod patch;
 mod phi;
+mod places;
 mod round_trip;
 mod segments;
 mod shape;

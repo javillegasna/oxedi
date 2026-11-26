@@ -4,6 +4,7 @@
 
 use super::*;
 use crate::engine::InstanceId;
+use crate::value::ColumnType;
 use crate::{LoopEngine, Tokenizer};
 use proptest::prelude::*;
 

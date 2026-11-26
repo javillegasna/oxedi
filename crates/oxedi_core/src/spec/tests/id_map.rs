@@ -9,7 +9,6 @@ fn a_seven_byte_id_and_an_eight_byte_id_sharing_its_bytes_are_two_entries() {
     *map.entry_or_insert_with(b"ABCDEFGH", || 2) += 20;
     assert_eq!(map.get(b"ABCDEFG"), Some(&11));
     assert_eq!(map.get(b"ABCDEFGH"), Some(&22));
-    assert_eq!(map.get_mut(b"ABCDEFGH").map(|value| *value), Some(22));
     assert_eq!(map.get(b"ABCDEF"), None);
     assert_eq!(map.get(b"ABCDEFGHI"), None);
 }

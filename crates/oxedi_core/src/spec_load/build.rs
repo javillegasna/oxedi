@@ -13,10 +13,11 @@ use super::build_occurrences::{check_trigger, compile_occurrences};
 use super::compile::compile_tables;
 use super::error::SpecError;
 use super::model::{SegmentModel, SpecModel, VersionModel};
+use super::places::place_columns;
 use super::segments::compile_elements;
 use super::summaries::{compile_default_table, compile_summaries};
 use crate::spec::{
-    DeclaredVersion, LoopId, OccurrenceIndex, SegmentDef, Spec, Trigger, render_trigger,
+    DeclaredVersion, LoopId, OccurrenceIndex, ReadIndex, SegmentDef, Spec, Trigger, render_trigger,
 };
 
 /// A spec while it compiles, and the model every step reads.
@@ -29,7 +30,7 @@ struct Build<'m> {
 type Step = fn(&mut Build<'_>) -> Result<(), SpecError>;
 
 /// The compile steps, in the order they run.
-const STEPS: [Step; 11] = [
+const STEPS: [Step; 13] = [
     compile_loop_headers,
     link_loops,
     compile_segment_section,
@@ -38,6 +39,8 @@ const STEPS: [Step; 11] = [
     compile_version_section,
     check_trigger_ambiguity,
     compile_table_section,
+    compile_place_section,
+    index_reads,
     compile_balancing_section,
     compile_summary_section,
     compile_default_table_section,
@@ -133,6 +136,8 @@ impl<'m> Build<'m> {
                 roots: Vec::new(),
                 segments: BTreeMap::new(),
                 tables: Vec::new(),
+                places: Vec::new(),
+                reads: ReadIndex::default(),
                 balancing: Vec::new(),
                 summaries: Vec::new(),
                 default_table: None,
@@ -228,6 +233,16 @@ fn check_trigger_ambiguity(build: &mut Build<'_>) -> Result<(), SpecError> {
 fn compile_table_section(build: &mut Build<'_>) -> Result<(), SpecError> {
     let spec = &build.spec;
     build.spec.tables = compile_tables(spec, &build.model.tables)?;
+    Ok(())
+}
+
+fn compile_place_section(build: &mut Build<'_>) -> Result<(), SpecError> {
+    build.spec.places = place_columns(&build.spec);
+    Ok(())
+}
+
+fn index_reads(build: &mut Build<'_>) -> Result<(), SpecError> {
+    build.spec.reads = ReadIndex::build(&build.spec);
     Ok(())
 }
 

@@ -54,7 +54,7 @@
 //! datums of its diagnostics that come from a place such a column reads; the
 //! module notes of `mask.rs` say how.
 //!
-//! The module is split by responsibility: `plan` holds the per-table plans
+//! The module is split by responsibility: `plan` holds the element checks
 //! built from the spec; `check` the element check and the parsed values it
 //! hands to the columns; `fill` the row filling, the diagnostic helpers and
 //! the text read of an element; `carry` the values read from loops above a
@@ -79,14 +79,11 @@ use crate::diagnostic::{Diagnostic, locate};
 use crate::engine::{Event, Instance, named_lineage};
 use crate::mask::Mask;
 use crate::segment::Segment;
-use crate::spec::{
-    LoopId, OccurrenceDef, OccurrenceId, Spec, UnknownTable, column_type, table_columns,
-};
-use crate::value::ColumnType;
+use crate::spec::{LoopId, OccurrenceDef, OccurrenceId, Spec, UnknownTable, table_columns};
 
-use carry::Carried;
+use carry::{Carried, carried};
 use check::Checked;
-use plan::{ElementPlan, Plans};
+use plan::{Checks, ElementCheck};
 use row::{Row, TableState};
 
 /// Turns the engine's events and the segments they name into table rows and
@@ -96,22 +93,15 @@ pub struct Projector<'s> {
     spec: &'s Spec,
     separator: u8,
     tables: Vec<TableState>,
-    /// Per loop: the table without `segment` anchored in it.
-    anchored: Vec<Option<usize>>,
-    /// Per segment id: what is done with the segment when it is captured.
-    plans: Plans<'s>,
-    /// Per loop: the tables anchored on a segment inside it.
-    segment_tables: Vec<Vec<usize>>,
-    /// Per loop: `(table, carried value)` for the values read from that
-    /// loop, which start over when an instance of it opens.
-    resets: Vec<Vec<(usize, usize)>>,
+    /// Per segment id: the element checks of the segment when it is captured.
+    checks: Checks<'s>,
     checked: Vec<Checked>,
     /// The occurrence the segment being checked takes in its loop, when it
     /// narrows any of its elements.
     occurrence: Option<&'s OccurrenceDef>,
-    /// Index of the occurrence the latest captured segment matched in its
-    /// loop's occurrences.
-    matched: Option<usize>,
+    /// The occurrence the latest captured segment matched in its loop's
+    /// occurrences.
+    matched: Option<OccurrenceId>,
     /// Cells of the row being appended, kept for their allocation.
     cells: Vec<Cell<'static>>,
     joined: Vec<u8>,
@@ -126,40 +116,24 @@ impl<'s> Projector<'s> {
     /// A projector at the root with empty tables. `delimiters` gives the
     /// component separator, which an element read as one text keeps.
     pub fn new(spec: &'s Spec, delimiters: &Delimiters) -> Self {
-        let loops = spec.loops().len();
-        let mut anchored = vec![None; loops];
-        let mut plans = Plans::default();
+        let mut checks = Checks::default();
         for (id, def) in spec.segments() {
-            plans.entry(id, loops).elements = def
+            let elements = def
                 .elements
                 .iter()
-                .map(|(&position, element)| ElementPlan::new(position, element))
+                .map(|(&position, element)| ElementCheck::new(spec, id, position, element))
                 .collect();
+            checks.insert(id, elements);
         }
-        let mut segment_tables = vec![Vec::new(); loops];
-        let mut resets = vec![Vec::new(); loops];
         let mut tables = Vec::with_capacity(spec.tables().len());
         for (index, def) in spec.tables().iter().enumerate() {
-            let kinds: Vec<ColumnType> = def
-                .columns
-                .iter()
-                .map(|(_, source)| column_type(spec, def, source))
-                .collect();
             let columns = table_columns(spec, def);
-            for &id in &def.loops {
-                match def.segment {
-                    Some(_) => segment_tables[id.index()].push(index),
-                    None => anchored[id.index()] = Some(index),
-                }
-            }
             let carried = if def.segment.is_none() {
-                plans.watch_columns(spec, index, &mut resets)
+                carried(spec.places(index))
             } else {
                 Vec::new()
             };
-            plans.mark_columns(def);
             tables.push(TableState {
-                kinds,
                 next: 0,
                 open: false,
                 row: Row::default(),
@@ -174,10 +148,7 @@ impl<'s> Projector<'s> {
             spec,
             separator: delimiters.component,
             tables,
-            anchored,
-            plans,
-            segment_tables,
-            resets,
+            checks,
             checked: Vec::new(),
             occurrence: None,
             matched: None,
@@ -308,22 +279,19 @@ impl<'s> Projector<'s> {
 
     fn captured(&mut self, id: LoopId, segment: &Segment<'_>, found: Option<OccurrenceId>) {
         let mut joined = std::mem::take(&mut self.joined);
-        let plans = std::mem::take(&mut self.plans);
-        let plan = plans.get(segment.id);
+        let checks = std::mem::take(&mut self.checks);
         let spec = self.spec;
-        self.matched = found.map(OccurrenceId::index);
+        self.matched = found;
         self.occurrence = found
             .map(|found| &spec.get(id).occurrences[found.index()])
             .filter(|occurrence| !occurrence.elements.is_empty());
         self.check(
-            plan.map_or(&[], |plan| &plan.elements),
+            checks.get(segment.id).unwrap_or_default(),
             segment,
             &mut joined,
         );
-        if let Some(watchers) = plan.and_then(|plan| plan.watchers.get(id.index())) {
-            self.fill(watchers, segment, &mut joined);
-        }
-        self.plans = plans;
+        self.fill(spec.reads().watchers(id, segment.id), segment, &mut joined);
+        self.checks = checks;
         self.segment_rows(id, segment, &mut joined);
         self.joined = joined;
     }

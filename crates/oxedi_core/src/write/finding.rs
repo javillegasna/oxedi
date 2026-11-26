@@ -5,7 +5,7 @@ use std::fmt;
 
 use crate::diagnostic::Diagnostic;
 use crate::document::DocumentError;
-use crate::message::{Counted, Quoted, render_names};
+use crate::message::{Counted, Quoted};
 use crate::spec::{UnknownColumn, UnknownTable};
 use crate::value::{ColumnType, ElementTextError};
 
@@ -68,19 +68,6 @@ pub enum Finding {
         delimiter: u8,
         /// What the delimiter separates, e.g. `element separator`.
         role: &'static str,
-    },
-    /// A column that no valid file of the spec fills holds a value.
-    UnwrittenValue {
-        /// Where the value comes from.
-        origin: ValueOrigin,
-        /// The value as text.
-        value: String,
-        /// The element whose code list excludes the column's `where` code.
-        place: String,
-        /// The excluded code.
-        code: String,
-        /// The element's code list.
-        codes: Vec<String>,
     },
     /// A row's reference to the table above it is null or names no row of
     /// that table, so the row has no place in the file.
@@ -160,7 +147,7 @@ pub enum Finding {
         /// Where the value or row at fault comes from.
         origin: Option<ValueOrigin>,
         /// The diagnostic about the written file.
-        diagnostic: Diagnostic,
+        diagnostic: Box<Diagnostic>,
     },
 }
 
@@ -179,18 +166,6 @@ impl fmt::Display for Finding {
                  hold the interchange's delimiters",
                 Quoted(value),
                 Quoted(&[*delimiter])
-            ),
-            Finding::UnwrittenValue {
-                origin,
-                value,
-                place,
-                code,
-                codes,
-            } => write!(
-                f,
-                "{origin} holds {value}, but the column reads {place} {code:?}, which the \
-                 element's code list ({}) excludes, so no valid file holds it",
-                render_names(codes)
             ),
             Finding::MissingParent {
                 table,

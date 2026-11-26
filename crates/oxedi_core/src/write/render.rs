@@ -8,7 +8,7 @@
 use std::io::Write as _;
 use std::ops::Range;
 
-use crate::column::{Cell, ColumnData};
+use crate::column::Cell;
 use crate::delimiters::Syntax;
 use crate::segment::{SegmentOutput, SegmentSerializer, Trailing};
 use crate::value::{
@@ -70,14 +70,6 @@ pub(super) fn cell_text(
         }
     };
     written.map(|()| true)
-}
-
-/// A cell's value as a message shows it.
-pub(super) fn cell_display(data: &ColumnData, row: usize) -> String {
-    match data.get(row) {
-        Some(Cell::Binary(bytes)) => format!("{:?}", String::from_utf8_lossy(bytes)),
-        _ => data.render(row).unwrap_or_default(),
-    }
 }
 
 /// One element or component of a segment being built: its place and the

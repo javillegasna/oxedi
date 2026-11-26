@@ -7,7 +7,7 @@
 //! read is skipped when a value holds a delimiter, because the file then
 //! splits where the data does not.
 
-use crate::column::{Cell, Tables};
+use crate::column::Tables;
 use crate::delimiters::version_carries_repetition;
 use crate::diagnostic::{Diagnostic, Rule};
 use crate::document::Document;
@@ -21,7 +21,6 @@ use super::finding::{Finding, ValueOrigin, WriteError};
 use super::layout::Layout;
 use super::nest::nest;
 use super::plan::WritePlan;
-use super::render::cell_display;
 use super::trace::Traces;
 
 /// Writes `tables` as one interchange of `spec`, or returns every finding
@@ -65,7 +64,6 @@ pub fn write_with_findings(
     let envelope = &*effective;
     let delimiters = delimiters(envelope, carries.then_some(version.as_slice()))?;
     let mut findings = Vec::new();
-    unwritten(spec, &plan, &data, &mut findings);
     let nest = nest(spec, &plan, &data, &mut findings);
     let layout = Layout::new(spec, &plan);
     let mut emitter = Emitter {
@@ -109,40 +107,6 @@ pub fn write_with_findings(
     Ok((out, findings))
 }
 
-/// Reports every value in a column that no valid file fills.
-fn unwritten(spec: &Spec, plan: &WritePlan, data: &[Data<'_>], findings: &mut Vec<Finding>) {
-    for reason in &plan.unwritten {
-        let Some(table) = data.get(reason.table) else {
-            continue;
-        };
-        let Some(column) = table.column(reason.column) else {
-            continue;
-        };
-        let name = spec
-            .tables()
-            .get(reason.table)
-            .and_then(|def| def.columns.get(reason.column))
-            .map(|(name, _)| name.clone())
-            .unwrap_or_default();
-        for row in 0..table.rows {
-            if column.get(row).is_none_or(|cell| cell == Cell::Null) {
-                continue;
-            }
-            findings.push(Finding::UnwrittenValue {
-                origin: ValueOrigin::Cell {
-                    table: table.name.clone(),
-                    row,
-                    column: name.clone(),
-                },
-                value: cell_display(column, row),
-                place: reason.place.clone(),
-                code: reason.code.clone(),
-                codes: reason.codes.clone(),
-            });
-        }
-    }
-}
-
 /// Reads the written file back and reports its diagnostics.
 fn read_back(
     spec: &Spec,
@@ -172,7 +136,10 @@ fn read_back(
     };
     for diagnostic in diagnostics {
         let origin = origin_of(&diagnostic, traces, &names);
-        findings.push(Finding::ReadBack { origin, diagnostic });
+        findings.push(Finding::ReadBack {
+            origin,
+            diagnostic: Box::new(diagnostic),
+        });
     }
     Ok(())
 }

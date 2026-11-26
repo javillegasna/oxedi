@@ -3,9 +3,9 @@
 //! the columns that tell one grouped instance from the next, the depth of
 //! each envelope loop and how many element groups a repeat segment holds.
 
-use crate::spec::{LoopId, Spec};
+use crate::spec::{LoopId, Spec, TableDef};
 
-use super::plan::{Instances, SegmentSource, ValueSource, WritePlan};
+use super::plan::{Instances, SegmentPlan, SegmentSource, ValueSource, WritePlan};
 
 /// One thing a loop instance writes, in order.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -46,19 +46,7 @@ impl Layout {
             capacity: spec
                 .tables()
                 .iter()
-                .map(|table| {
-                    let (Some(segment), Some(repeat)) = (&table.segment, table.repeat) else {
-                        return 1;
-                    };
-                    let last = spec
-                        .segment(segment)
-                        .and_then(|def| def.elements.keys().next_back().copied())
-                        .unwrap_or(repeat.from);
-                    match last.checked_sub(repeat.from) {
-                        Some(span) if repeat.step > 0 => span / repeat.step + 1,
-                        _ => 1,
-                    }
-                })
+                .map(|table| table_capacity(spec, table))
                 .collect(),
         };
         for (index, def) in spec.loops().iter().enumerate() {
@@ -88,19 +76,14 @@ impl Layout {
                 .order
                 .push(items.into_iter().map(|(_, _, item)| item).collect());
             let trigger = def.trigger_occurrence();
-            let mut seen = false;
-            layout.forced.push(
-                segments
-                    .iter()
-                    .map(|segment| {
-                        let opens = Some(segment.occurrence) == trigger
-                            && matches!(segment.source, SegmentSource::Row { .. });
-                        let first = opens && !seen;
-                        seen |= opens;
-                        first
-                    })
-                    .collect(),
-            );
+            let opens = |segment: &SegmentPlan| {
+                Some(segment.occurrence) == trigger
+                    && matches!(segment.source, SegmentSource::Row { .. })
+            };
+            let first = segments.iter().position(opens);
+            layout
+                .forced
+                .push((0..segments.len()).map(|i| Some(i) == first).collect());
             let grouped = match plan.loops.get(index).map(|plan| plan.instances) {
                 Some(Instances::Groups { table }) => Some(table),
                 _ => None,
@@ -119,18 +102,28 @@ impl Layout {
                     .collect(),
             );
             let depth = def.control.map(|_| {
-                let mut depth = 0;
-                let mut above = def.parent;
-                while let Some(id) = above {
-                    if spec.get(id).control.is_some() {
-                        depth += 1;
-                    }
-                    above = spec.get(id).parent;
-                }
-                depth
+                spec.ancestors(LoopId(index))
+                    .into_iter()
+                    .filter(|&id| spec.get(id).control.is_some())
+                    .count()
             });
             layout.depth.push(depth);
         }
         layout
     }
+}
+
+/// How many element groups one segment of `table` holds: 1 for a table
+/// without a repeat, else the groups up to the last element its anchor
+/// segment defines.
+fn table_capacity(spec: &Spec, table: &TableDef) -> usize {
+    let Some(repeat) = table.repeat else {
+        return 1;
+    };
+    let last = table
+        .segment
+        .as_deref()
+        .and_then(|segment| spec.segment(segment))
+        .and_then(|def| def.elements.keys().next_back().copied());
+    repeat.capacity(last)
 }

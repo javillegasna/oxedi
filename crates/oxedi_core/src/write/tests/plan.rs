@@ -1,9 +1,10 @@
 //! The write plan over the built-in specs and over a small spec whose
 //! tables are patched to raise each refusal.
 
-use crate::spec::Spec;
 use crate::spec::test_support::{builtin, loaded, patched};
+use crate::spec::{OccurrencePlace, Reading, Spec};
 use crate::spec_load::Version;
+use crate::write::codes::landing;
 use crate::write::*;
 
 /// `env` is an envelope with a required `head`; `head` holds two NM
@@ -74,15 +75,12 @@ fn loop_plan<'p>(spec: &Spec, plan: &'p WritePlan, name: &str) -> &'p LoopPlan {
 
 #[test]
 fn both_built_in_specs_can_be_written() {
-    // 4010 has no PER*BL: its technical contact columns write nothing.
-    let contact: &[&str] = &[
-        "payer_technical_contact_name",
-        "payer_technical_contact_number",
-        "payer_technical_contact_qualifier",
-    ];
-    for (spec, expected) in [
-        (Spec::builtin_835(), &[][..]),
-        (Spec::builtin_835_4010(), contact),
+    for (spec, occurrence) in [
+        (Spec::builtin_835(), "payer_technical_contact_information"),
+        (
+            Spec::builtin_835_4010(),
+            "payer_business_contact_information",
+        ),
     ] {
         let plan = WritePlan::new(&spec).unwrap();
         let claims = spec
@@ -98,54 +96,68 @@ fn both_built_in_specs_can_be_written() {
             loop_plan(&spec, &plan, "interchange").instances,
             Instances::Envelope
         );
-        let unwritten: Vec<&str> = plan
-            .unwritten
+        let payer = spec.loop_id("1000A").unwrap();
+        let occurrences = &spec.get(payer).occurrences;
+        let payments = &spec.table("payments").unwrap().columns;
+        let written: Vec<(&str, usize)> = loop_plan(&spec, &plan, "1000A")
+            .segments
             .iter()
-            .map(|u| spec.tables()[u.table].columns[u.column].0.as_str())
+            .filter(|s| occurrences[s.occurrence].name == occurrence)
+            .flat_map(|s| &s.elements)
+            .filter_map(|e| match e.value {
+                ValueSource::Column { column } => Some((payments[column].0.as_str(), e.element)),
+                _ => None,
+            })
+            .filter(|(name, _)| name.starts_with("payer_technical_contact_"))
             .collect();
-        assert_eq!(unwritten, expected);
-        for u in &plan.unwritten {
-            assert_eq!((u.place.as_str(), u.code.as_str()), ("PER01", "BL"));
-            assert_eq!(u.codes, vec!["CX".to_string()]);
-        }
+        assert_eq!(
+            written,
+            [
+                ("payer_technical_contact_name", 2),
+                ("payer_technical_contact_qualifier", 3),
+                ("payer_technical_contact_number", 4)
+            ]
+        );
     }
 }
 
 #[test]
-fn a_where_code_the_segment_excludes_writes_nothing() {
+fn a_where_code_the_segment_excludes_is_written_where_it_is_read() {
     let spec = spec(
         r#"{"segments":{"DT":{"elements":{"1":{"codes":["S","X"]}}}},
         "tables":{"heads":{"columns":{"q_date":{"segment":"DT","where":{"1":"Q"},"element":2}}}}}"#,
     );
     let plan = WritePlan::new(&spec).unwrap();
-    let unwritten = &plan.unwritten[0];
-    let heads = &spec.tables()[unwritten.table];
-    assert_eq!(plan.unwritten.len(), 1);
-    assert_eq!(heads.columns[unwritten.column].0, "q_date");
-    assert_eq!(
-        (unwritten.place.as_str(), unwritten.code.as_str()),
-        ("DT01", "Q")
-    );
-    assert_eq!(unwritten.codes, vec!["S".to_string(), "X".to_string()]);
+    assert_eq!(dt_elements(&spec, &plan, "q_date"), ["=Q", "q_date"]);
 }
 
 #[test]
-fn a_where_code_outside_the_occurrence_list_selects_nothing() {
-    // X is in the element's list but not in the occurrence's own list, so
-    // the rule at that place refuses it; with the element lists left out no
-    // occurrence takes it either, so it is not an excluded code.
-    let found = refusals(
+fn a_where_code_outside_the_occurrence_list_is_written_in_that_occurrence() {
+    let spec = spec(
         r#"{"segments":{"DT":{"elements":{"1":{"codes":["S","X"]}}}},
         "loops":{"head":{"occurrences":{"dt":{"elements":{"1":{"codes":["S"]}}}}}},
         "tables":{"heads":{"columns":{"x_date":{"segment":"DT","where":{"1":"X"},"element":2}}}}}"#,
     );
-    assert!(found.iter().any(|text| text
-        == r#"table "heads" column "x_date" reads "DT" where {1: "X"} in loop "head", which matches none of its occurrences"#));
-    assert!(
-        found
-            .iter()
-            .all(|text| !text.contains("with the fixed code"))
-    );
+    let plan = WritePlan::new(&spec).unwrap();
+    assert_eq!(dt_elements(&spec, &plan, "x_date"), ["=X", "x_date"]);
+}
+
+/// The elements of the segment of loop `head` that carries `heads` column
+/// `column`: a fixed code as `=<code>`, a column by its name.
+fn dt_elements(spec: &Spec, plan: &WritePlan, column: &str) -> Vec<String> {
+    let heads = &spec.table("heads").unwrap().columns;
+    let head = spec.loop_id("head").unwrap();
+    let name = |e: &ElementPlan| match &e.value {
+        ValueSource::Code(code) => format!("={}", String::from_utf8_lossy(code)),
+        ValueSource::Column { column } => heads[*column].0.clone(),
+        ValueSource::Group { .. } => String::new(),
+    };
+    let segment = plan.loops[head.index()]
+        .segments
+        .iter()
+        .find(|s| s.elements.iter().any(|e| name(e) == column))
+        .unwrap();
+    segment.elements.iter().map(name).collect()
 }
 
 #[test]
@@ -233,13 +245,25 @@ fn the_envelope_segment_is_found_by_the_loop_trigger() {
     // trigger wherever it is.
     let moved = |patch: &str| {
         let mut spec = spec(patch);
-        let (_, loops) = spec.parts_mut();
+        let (tables, loops) = spec.parts_mut();
         let env = loops.iter_mut().find(|l| l.name == "env").unwrap();
         let mut other = env.occurrences[0].clone();
         other.name = "ex".into();
         other.segment = b"EX".to_vec();
         other.usage = crate::spec::Usage::Situational;
         env.occurrences.insert(0, other);
+        // The compiled places name occurrences by index: point every read of
+        // the loop at the new index of `EV`.
+        let ev = env.place_of(b"EV", &[]);
+        let env_id = loops.iter().position(|l| l.name == "env").unwrap();
+        for place in tables.iter_mut().flat_map(|t| t.places.iter_mut()) {
+            if let Reading::Watch { reads, .. } = &mut place.reading {
+                reads
+                    .iter_mut()
+                    .filter(|read| read.loop_id.index() == env_id)
+                    .for_each(|read| read.place = ev);
+            }
+        }
         spec
     };
     let plain = moved("{}");
@@ -683,5 +707,83 @@ fn refusals_display_their_full_text() {
     assert_eq!(
         anchored.to_string(),
         "table \"adjustments\" anchor segment writes occurrence \"claim_adjustment\" in loop \"2100\" with the fixed code \"XX\" in CAS01, which its code list (\"CO\", \"PR\") does not allow"
+    );
+}
+
+/// The index of the head loop's occurrence `name`.
+fn occurrence_index(spec: &Spec, name: &str) -> usize {
+    let head = spec.get(spec.loop_id("head").unwrap());
+    head.occurrence_named(name).unwrap().index()
+}
+
+#[test]
+fn landing_takes_a_named_or_chosen_occurrence() {
+    let spec = spec("{}");
+    let head = spec.get(spec.loop_id("head").unwrap());
+    let dt = occurrence_index(&spec, "dt");
+    assert!(matches!(
+        head.place_of(b"DT", &[]),
+        OccurrencePlace::Chosen(_)
+    ));
+    assert_eq!(landing(head, head.place_of(b"DT", &[]), b"DT"), Ok(dt));
+    let table = spec
+        .tables()
+        .iter()
+        .position(|t| t.name == "heads")
+        .unwrap();
+    let column = spec.tables()[table]
+        .columns
+        .iter()
+        .position(|(name, _)| name == "first_kind")
+        .unwrap();
+    let Reading::Watch { reads, .. } = &spec.places(table)[column].reading else {
+        panic!("a loop table column watches");
+    };
+    assert!(matches!(reads[0].place, OccurrencePlace::Named(_)));
+    assert_eq!(landing(head, reads[0].place, b"DT"), Ok(dt));
+}
+
+#[test]
+fn landing_lists_every_occurrence_when_the_qualifier_is_free() {
+    let spec = spec("{}");
+    let head = spec.get(spec.loop_id("head").unwrap());
+    assert_eq!(
+        landing(head, head.place_of(b"NM", &[]), b"NM"),
+        Err(vec!["nm_a".to_string(), "nm_b".to_string()])
+    );
+}
+
+#[test]
+fn landing_takes_the_one_qualified_occurrence() {
+    let spec = spec(r#"{"loops":{"head":{"occurrences":{"nm_b":null}}}}"#);
+    let head = spec.get(spec.loop_id("head").unwrap());
+    let nm_a = occurrence_index(&spec, "nm_a");
+    assert_eq!(landing(head, head.place_of(b"NM", &[]), b"NM"), Ok(nm_a));
+}
+
+#[test]
+fn landing_refuses_a_segment_no_occurrence_takes() {
+    let spec = spec("{}");
+    let head = spec.get(spec.loop_id("head").unwrap());
+    let outside = head.place_of(b"NM", &[(1, b"Z".to_vec())]);
+    assert_eq!(landing(head, outside, b"NM"), Err(Vec::new()));
+    assert_eq!(
+        landing(head, head.place_of(b"ZZ", &[]), b"ZZ"),
+        Err(Vec::new())
+    );
+}
+
+#[test]
+fn a_relation_gives_its_loop_instances() {
+    use crate::spec::Relation;
+    use crate::write::build::instances;
+    assert_eq!(instances(Relation::Anchor, 2), None);
+    assert_eq!(
+        instances(Relation::Inside, 2),
+        Some(Instances::Inside { table: 2 })
+    );
+    assert_eq!(
+        instances(Relation::Above { carried: 0 }, 2),
+        Some(Instances::Groups { table: 2 })
     );
 }

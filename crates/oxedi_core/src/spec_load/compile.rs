@@ -67,6 +67,7 @@ impl<'a> TableBuild<'a> {
             ancestors: Vec::new(),
             phi: Vec::new(),
             phi_seed: None,
+            places: Vec::new(),
         };
         TableBuild {
             spec,

@@ -40,7 +40,6 @@ use crate::value::{civil_from_days, year_start};
 use crate::vocabulary::{DateMode, Phi};
 
 use super::Projector;
-use super::plan::Plans;
 use super::quote::unquoted;
 use super::row::{Row, Slot};
 
@@ -53,16 +52,16 @@ pub(super) struct DatumMask<'s> {
 }
 
 impl<'s> DatumMask<'s> {
-    /// The places every flagged column of `spec` reads, as the projector's
-    /// plans resolve them.
-    pub(super) fn new(spec: &'s Spec, plans: &Plans<'_>, mask: &'s Mask) -> Self {
+    /// The positions every flagged column of `spec` reads, as the spec
+    /// resolves them.
+    pub(super) fn new(spec: &'s Spec, mask: &'s Mask) -> Self {
         let mut places = Vec::new();
         for table in spec.tables() {
-            for (index, (_, source)) in table.columns.iter().enumerate() {
+            for index in 0..table.columns.len() {
                 let Some(kind) = table.phi(index) else {
                     continue;
                 };
-                for (id, element, component) in plans.positions(table, source) {
+                for (id, element, component) in spec.positions(table, index) {
                     places.push((id, element, component, kind));
                 }
             }
@@ -175,7 +174,7 @@ impl<'s> Projector<'s> {
                 state.collect = true;
             }
         }
-        self.datums = Some(DatumMask::new(spec, &self.plans, mask));
+        self.datums = Some(DatumMask::new(spec, mask));
         self.mask = Some(mask);
         self
     }

@@ -10,7 +10,7 @@ use crate::value::{ColumnType, Parsed};
 
 use super::Projector;
 use super::fill::leaf_text;
-use super::plan::{ElementPlan, Leaf};
+use super::plan::{ElementCheck, LeafCheck};
 
 /// One defined element (or component) of the current segment, checked.
 #[derive(Debug, Clone, Copy)]
@@ -28,20 +28,20 @@ impl<'s> Projector<'s> {
     /// parsed values of the ones a column reads.
     pub(super) fn check(
         &mut self,
-        elements: &[ElementPlan<'_>],
+        elements: &[ElementCheck<'_>],
         segment: &Segment<'_>,
         joined: &mut Vec<u8>,
     ) {
         self.checked.clear();
-        for plan in elements {
-            if plan
+        for check in elements {
+            if check
                 .composite
-                .is_some_and(|declared| !self.composite_holds(plan, declared, segment))
+                .is_some_and(|declared| !self.composite_holds(check, declared, segment))
             {
                 continue;
             }
-            for leaf in &plan.leaves {
-                self.check_leaf(plan.position, leaf, segment, joined);
+            for leaf in &check.leaves {
+                self.check_leaf(check.position, leaf, segment, joined);
             }
         }
     }
@@ -51,21 +51,21 @@ impl<'s> Projector<'s> {
     /// declared are reported.
     fn composite_holds(
         &mut self,
-        plan: &ElementPlan<'_>,
+        check: &ElementCheck<'_>,
         declared: usize,
         segment: &Segment<'_>,
     ) -> bool {
-        let position = plan.position;
+        let position = check.position;
         let parts = composite_parts(segment, position);
         if parts.iter().all(|part| part.is_empty()) {
-            let rule = ElementRule::at(plan.def, self.occurrence, position, None);
+            let rule = ElementRule::at(check.def, self.occurrence, position, None);
             if rule.required {
                 self.report(
                     Rule::RequiredElementMissing {
                         segment_id: segment.id.to_vec(),
                         element: position,
                         component: None,
-                        name: plan.def.name.clone(),
+                        name: check.def.name.clone(),
                         occurrence: rule.required_of.map(str::to_owned),
                     },
                     segment.index,
@@ -82,7 +82,7 @@ impl<'s> Projector<'s> {
                 Rule::CompositeShape {
                     segment_id: segment.id.to_vec(),
                     element: position,
-                    name: plan.def.name.clone(),
+                    name: check.def.name.clone(),
                     declared,
                     found: parts.len(),
                 },
@@ -99,7 +99,7 @@ impl<'s> Projector<'s> {
     fn check_leaf(
         &mut self,
         position: usize,
-        leaf: &Leaf<'_>,
+        leaf: &LeafCheck<'_>,
         segment: &Segment<'_>,
         joined: &mut Vec<u8>,
     ) {

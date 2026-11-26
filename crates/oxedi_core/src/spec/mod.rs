@@ -16,7 +16,10 @@
 //! The schema is split by responsibility: `loops`, `occurrences`, `elements`
 //! (an element, a segment, the automatic column names), `tables` and
 //! `balance_rule` (a balancing rule and its text) hold the definitions;
-//! `occurrence_index` the occurrence a segment takes in a loop; `id_map` the
+//! `occurrence_index` the occurrence a segment takes in a loop; `places` where each
+//! column reads, compiled once with the spec; `read_index` the tables, resets,
+//! read elements and watchers (the columns each captured segment feeds) of
+//! each loop and segment id, indexed from the places; `id_map` the
 //! map keyed by segment id; `schema` the columns of each table, known from the
 //! spec alone; `unknown` the errors for a table or a column the spec does not
 //! define; `render` the text of triggers and occurrence selectors in messages;
@@ -32,6 +35,8 @@ mod id_map;
 mod loops;
 mod occurrence_index;
 mod occurrences;
+mod places;
+mod read_index;
 mod render;
 mod rule;
 mod schema;
@@ -60,6 +65,10 @@ pub(crate) use elements::{holds_code, rejects_code};
 pub(crate) use id_map::IdMap;
 pub(crate) use occurrence_index::OccurrenceIndex;
 pub(crate) use occurrences::element_def;
+pub(crate) use places::{
+    ColumnPlace, LoopRead, OccurrencePlace, Reading, Relation, Target, Unplaced,
+};
+pub(crate) use read_index::{ReadIndex, ReadTarget, Watcher};
 pub(crate) use render::{render_selector, render_trigger};
 pub(crate) use rule::ElementRule;
 pub(crate) use schema::column_type;
@@ -79,6 +88,8 @@ pub struct Spec {
     pub(crate) roots: Vec<LoopId>,
     pub(crate) segments: BTreeMap<Vec<u8>, SegmentDef>,
     pub(crate) tables: Vec<TableDef>,
+    /// What reading a file needs per loop and per segment id.
+    pub(crate) reads: ReadIndex,
     pub(crate) balancing: Vec<BalanceRule>,
     pub(crate) summaries: Vec<(String, Summary)>,
     pub(crate) default_table: Option<String>,
@@ -162,8 +173,9 @@ impl Spec {
     /// The tables and loops, editable past the loader's checks, to build
     /// specs the loader refuses. It edits the loader's output without
     /// updating anything derived from it (loop children and segment lists,
-    /// table parents and ancestors, the occurrence order): use it only for
-    /// write plan tests, which read the edited parts directly.
+    /// table parents and ancestors, the occurrence order, the compiled column
+    /// places): use it only for write plan tests, which read the edited parts
+    /// directly.
     #[cfg(test)]
     pub(crate) fn parts_mut(&mut self) -> (&mut Vec<TableDef>, &mut Vec<LoopDef>) {
         (&mut self.tables, &mut self.loops)

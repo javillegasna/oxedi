@@ -4,6 +4,7 @@
 use super::Spec;
 use super::UnknownColumn;
 use super::loops::LoopId;
+use super::places::ColumnPlace;
 use crate::vocabulary::{Phi, Pick};
 
 /// How a table's segment repeats a group of elements: one row per group.
@@ -24,6 +25,17 @@ impl Repeat {
             .checked_add(offset)
             .and_then(|first| position.checked_sub(first))
             .is_some_and(|gap| gap.checked_rem(self.step).unwrap_or(gap) == 0)
+    }
+
+    /// How many groups fit when the segment defines 1-based elements up to
+    /// `last`: `(last - from) / step + 1`. A segment holds at least its first
+    /// group (further rows go into further segments), so the count is 1 when
+    /// no element is defined at or after `from` (`last` is `None` or before
+    /// it).
+    pub(crate) fn capacity(&self, last: Option<usize>) -> usize {
+        last.and_then(|last| last.checked_sub(self.from))
+            .and_then(|span| span.checked_div(self.step))
+            .map_or(1, |groups| groups.saturating_add(1))
     }
 }
 
@@ -109,6 +121,9 @@ pub struct TableDef {
     /// The index in `columns` of the column whose value seeds the row's date
     /// shift; read through [`TableDef::phi_seed`].
     pub(crate) phi_seed: Option<usize>,
+    /// Where each column of `columns` reads, parallel to it; read through
+    /// [`Spec::places`].
+    pub(crate) places: Vec<ColumnPlace>,
 }
 
 impl TableDef {

@@ -26,3 +26,12 @@ fn a_repeat_holds_its_offset_in_every_group_from_the_first() {
         .holds(1, 5)
     );
 }
+
+#[test]
+fn a_repeat_holds_the_groups_up_to_its_last_element() {
+    let repeat = Repeat { from: 2, step: 3 };
+    assert_eq!(repeat.capacity(Some(19)), 6);
+    assert_eq!(repeat.capacity(Some(2)), 1);
+    assert_eq!(repeat.capacity(Some(1)), 1);
+    assert_eq!(repeat.capacity(None), 1);
+}

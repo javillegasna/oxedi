@@ -19,11 +19,12 @@
 //! `balance` that of the balancing rules, `summaries` that of the summaries and
 //! the default table, `compile` that of the tables, `columns` that of one
 //! table column and `column_occurrence` the reading of the occurrence a column
-//! names; `phi` the check of the columns
-//! flagged as patient data and of the seed column; `error` the load error and
-//! `error_text` its `source` and the parts of its text built from lists;
-//! `occurrence_error`, `table_error`, `balance_error` and `summary_error` why
-//! an occurrence, a table, a balancing rule or a summary is rejected, and
+//! names; `places` the type, target and the loops and occurrences each column reads; `phi` the check of the
+//! columns flagged as patient data and of the seed column; `error` the load
+//! error and `error_text` its `source` and the parts of its text built from
+//! lists; `occurrence_error`, `table_error`, `balance_error` and
+//! `summary_error` why an occurrence, a table, a balancing rule or a summary
+//! is rejected, and
 //! `table_chain` the table chains and declared occurrences a table error
 //! quotes; `loaded` the spec as a loader keeps it, its model beside its
 //! compiled form; `patch` the merge patch; `builtin` the registry of shipped
@@ -52,6 +53,7 @@ mod occurrence_error;
 mod package;
 mod patch;
 mod phi;
+mod places;
 mod segments;
 mod strict;
 mod summaries;

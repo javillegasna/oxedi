@@ -4,7 +4,7 @@
 
 use super::Projector;
 use super::row::{Row, Slot};
-use crate::spec::LoopId;
+use crate::spec::{ColumnPlace, LoopId};
 
 /// The value a column that reads a loop above its table's anchor holds,
 /// with the bytes of a text value and the count of matches so far.
@@ -55,13 +55,21 @@ impl Carried {
     }
 }
 
+/// The carried values of a table, one per column that reads a loop above its
+/// anchor, in the order of the carried slots the spec assigned.
+pub(super) fn carried(places: &[ColumnPlace]) -> Vec<Carried> {
+    let slot_of = |place: &ColumnPlace| place.reading.above().map(|(slot, _)| slot);
+    let count = places.iter().filter_map(slot_of).count();
+    (0..count)
+        .filter_map(|slot| places.iter().position(|place| slot_of(place) == Some(slot)))
+        .map(Carried::new)
+        .collect()
+}
+
 impl Projector<'_> {
     /// Forgets the values read from loop `id`: an instance of it opens.
     pub(super) fn reset_carried(&mut self, id: LoopId) {
-        let Some(resets) = self.resets.get(id.index()) else {
-            return;
-        };
-        for &(table, at) in resets {
+        for &(table, at) in self.spec.reads().resets(id) {
             if let Some(carried) = self
                 .tables
                 .get_mut(table)

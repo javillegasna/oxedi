@@ -2,19 +2,44 @@
 
 use std::collections::BTreeMap;
 
-/// A map from segment id to `V`. Ids that [`pack_id`] can pack are keyed by
-/// their packed bytes.
+/// A map from segment id to `V`: the ids map to slots of `values`, so the
+/// map code is shared by every `V`.
 #[derive(Debug, Clone)]
 pub(crate) struct IdMap<V> {
-    short: BTreeMap<u64, V>,
-    long: BTreeMap<Vec<u8>, V>,
+    slots: IdSlots,
+    values: Vec<V>,
+}
+
+/// The slot of each id. Ids that [`pack_id`] can pack are keyed by their
+/// packed bytes.
+#[derive(Debug, Clone, Default)]
+struct IdSlots {
+    short: BTreeMap<u64, usize>,
+    long: BTreeMap<Vec<u8>, usize>,
+}
+
+impl IdSlots {
+    fn get(&self, id: &[u8]) -> Option<usize> {
+        match pack_id(id) {
+            Some(key) => self.short.get(&key).copied(),
+            None => self.long.get(id).copied(),
+        }
+    }
+
+    /// The slot of `id`, which is `next` when `id` had none.
+    fn slot_or(&mut self, id: &[u8], next: usize) -> usize {
+        match pack_id(id) {
+            Some(key) => *self.short.entry(key).or_insert(next),
+            None => *self.long.entry(id.to_vec()).or_insert(next),
+        }
+    }
 }
 
 impl<V> Default for IdMap<V> {
     fn default() -> Self {
         IdMap {
-            short: BTreeMap::new(),
-            long: BTreeMap::new(),
+            slots: IdSlots::default(),
+            values: Vec::new(),
         }
     }
 }
@@ -31,30 +56,17 @@ pub(crate) fn pack_id(id: &[u8]) -> Option<u64> {
 
 impl<V> IdMap<V> {
     pub(crate) fn get(&self, id: &[u8]) -> Option<&V> {
-        match pack_id(id) {
-            Some(key) => self.short.get(&key),
-            None => self.long.get(id),
-        }
-    }
-
-    pub(crate) fn get_mut(&mut self, id: &[u8]) -> Option<&mut V> {
-        match pack_id(id) {
-            Some(key) => self.short.get_mut(&key),
-            None => self.long.get_mut(id),
-        }
+        self.slots.get(id).and_then(|slot| self.values.get(slot))
     }
 
     /// The value of `id`, made with `make` when there is none.
     pub(crate) fn entry_or_insert_with(&mut self, id: &[u8], make: impl FnOnce() -> V) -> &mut V {
-        match pack_id(id) {
-            Some(key) => self.short.entry(key).or_insert_with(make),
-            None => self.long.entry(id.to_vec()).or_insert_with(make),
+        let next = self.values.len();
+        let slot = self.slots.slot_or(id, next);
+        if slot == next {
+            self.values.push(make());
         }
-    }
-
-    /// Every value, short ids first, each part in key order.
-    #[cfg(test)]
-    pub(crate) fn values(&self) -> impl Iterator<Item = &V> {
-        self.short.values().chain(self.long.values())
+        // `slot` is `next`, just pushed, or a slot an earlier call pushed.
+        &mut self.values[slot]
     }
 }

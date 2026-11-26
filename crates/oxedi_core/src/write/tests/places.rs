@@ -4,15 +4,14 @@
 use std::collections::{BTreeMap, BTreeSet};
 use std::sync::Arc;
 
-use crate::delimiters::test_support::plain;
-use crate::project::Projector;
 use crate::spec::test_support::{builtin, segs};
-use crate::spec::{ColumnSource, LoopId, Qualifier, Spec, TableDef};
+use crate::spec::{
+    ColumnSource, LoopId, OccurrencePlace, Qualifier, Reading as SpecReading, Spec, TableDef,
+};
 use crate::spec_load::{Builtin, Version};
 use crate::validate::{Validation, validate};
 use crate::vocabulary::Pick;
-use crate::write::build::Builder;
-use crate::write::codes::Resolved;
+use crate::write::codes::landing;
 use crate::write::{SegmentSource, ValueSource, WritePlan};
 
 /// The `edi_835_parser` patch package, whose spec the writer refuses as a whole.
@@ -54,6 +53,8 @@ struct Reading {
     column: usize,
     loop_id: LoopId,
     occurrences: BTreeSet<usize>,
+    /// The compiled place the writer lands the column by.
+    place: OccurrencePlace,
     at: Option<At>,
     nth: Option<usize>,
 }
@@ -163,25 +164,59 @@ fn target<'s>(def: &'s TableDef, source: &'s ColumnSource) -> Target<'s> {
     }
 }
 
-/// Every column the projector reads, with the occurrences it reads it in.
+/// The pick of a column's source; a group column takes none.
+fn pick_of(source: &ColumnSource) -> Option<Pick> {
+    match source {
+        ColumnSource::Element { pick, .. } | ColumnSource::SegmentIndex { pick, .. } => Some(*pick),
+        ColumnSource::GroupElement { .. } => None,
+    }
+}
+
+/// Every column the projector reads, with the occurrences it reads it in,
+/// from the places the spec compiled.
 fn readings(spec: &Spec) -> Vec<Reading> {
     let mut readings = Vec::new();
-    for place in Projector::new(spec, &plain()).read_places() {
-        let def = &spec.tables()[place.table];
-        let (_, source) = &def.columns[place.column];
-        let (segment, conditions, _, at) = target(def, source);
-        let occurrences = match place.occurrence {
-            Some(occurrence) => BTreeSet::from([occurrence]),
-            None => engine_occurrences(spec, place.loop_id, segment, conditions),
-        };
-        readings.push(Reading {
-            table: place.table,
-            column: place.column,
-            loop_id: place.loop_id,
-            occurrences,
-            at,
-            nth: place.pick.map(repeat),
-        });
+    for (table, def) in spec.tables().iter().enumerate() {
+        for (column, place) in spec.places(table).iter().enumerate() {
+            let (_, source) = &def.columns[column];
+            let (segment, conditions, _, at) = target(def, source);
+            let reads: Vec<(LoopId, Option<usize>, Option<usize>, OccurrencePlace)> = match &place
+                .reading
+            {
+                SpecReading::Anchor => def
+                    .loops
+                    .iter()
+                    .map(|&id| (id, None, None, spec.get(id).place_of(segment, &[])))
+                    .collect(),
+                SpecReading::Watch { reads, .. } => {
+                    let nth = pick_of(source).map(repeat);
+                    reads
+                        .iter()
+                        .map(|read| match read.place {
+                            OccurrencePlace::Named(o) | OccurrencePlace::Chosen(o) => {
+                                (read.loop_id, Some(o.index()), nth, read.place)
+                            }
+                            OccurrencePlace::Unplaced(_) => (read.loop_id, None, nth, read.place),
+                        })
+                        .collect()
+                }
+            };
+            for (loop_id, occurrence, nth, place) in reads {
+                let occurrences = match occurrence {
+                    Some(occurrence) => BTreeSet::from([occurrence]),
+                    None => engine_occurrences(spec, loop_id, segment, conditions),
+                };
+                readings.push(Reading {
+                    table,
+                    column,
+                    loop_id,
+                    occurrences,
+                    place,
+                    at,
+                    nth,
+                });
+            }
+        }
     }
     readings
 }
@@ -271,22 +306,9 @@ fn written_places(spec: &Spec, plan: &WritePlan) -> BTreeSet<Place> {
     places
 }
 
-/// The 4010 payer technical contact: its columns read `PER` with PER01 = BL in
-/// loop 1000A, a code the 4010 list of PER01 (CX) leaves out. The reader fills
-/// them from the loop's one `PER` occurrence; the writer leaves them unwritten.
-/// `(column, element)`, in column order.
-const TECHNICAL_CONTACT_4010: [(&str, usize); 3] = [
-    ("payer_technical_contact_name", 2),
-    ("payer_technical_contact_number", 4),
-    ("payer_technical_contact_qualifier", 3),
-];
-
 #[test]
 fn the_writer_writes_every_column_where_the_reader_reads_it() {
-    for (version, contact) in [
-        (Version::V5010, &[][..]),
-        (Version::V4010, &TECHNICAL_CONTACT_4010[..]),
-    ] {
+    for version in [Version::V5010, Version::V4010] {
         let spec = builtin(version).spec;
         let plan = WritePlan::new(&spec).expect("a built-in writes");
 
@@ -300,23 +322,9 @@ fn the_writer_writes_every_column_where_the_reader_reads_it() {
             .collect();
         assert_eq!(read_columns, declared, "{version:?}: columns read");
         let written = written_places(&spec, &plan);
-        let expected: BTreeSet<Place> = contact
-            .iter()
-            .map(|&(column, element)| Place {
-                table: "payments".to_string(),
-                column: column.to_string(),
-                loop_name: "1000A".to_string(),
-                occurrence: "payer_business_contact_information".to_string(),
-                at: At::Element {
-                    element,
-                    component: None,
-                },
-                nth: Some(1),
-            })
-            .collect();
         assert_eq!(
             read.difference(&written).cloned().collect::<BTreeSet<_>>(),
-            expected,
+            BTreeSet::new(),
             "{version:?}: read and not written"
         );
         assert_eq!(
@@ -324,20 +332,6 @@ fn the_writer_writes_every_column_where_the_reader_reads_it() {
             BTreeSet::new(),
             "{version:?}: written and not read"
         );
-
-        let unwritten: Vec<String> = plan
-            .unwritten
-            .iter()
-            .map(|entry| {
-                let (_, column) = name_of(&spec, entry.table, entry.column);
-                format!("{column} {} {} {:?}", entry.place, entry.code, entry.codes)
-            })
-            .collect();
-        let expected: Vec<String> = contact
-            .iter()
-            .map(|(column, _)| format!("{column} PER01 BL [\"CX\"]"))
-            .collect();
-        assert_eq!(unwritten, expected, "{version:?}: unwritten");
     }
 }
 
@@ -371,48 +365,33 @@ fn declared_columns(spec: &Spec, keep: fn(&ColumnSource) -> bool) -> BTreeSet<(S
         .collect()
 }
 
-/// The occurrences of `loop_id` the write plan places a column in: the one it
-/// resolves to, none when no valid file holds it, every candidate when several
-/// take it.
-fn resolved(
-    spec: &Spec,
-    builder: &Builder<'_>,
-    loop_id: LoopId,
-    segment: &[u8],
-    conditions: &[(usize, Vec<u8>)],
-    named: Option<&str>,
-) -> BTreeSet<usize> {
-    let occurrences = &spec.get(loop_id).occurrences;
-    let position = |name: &str| occurrences.iter().position(|found| found.name == name);
-    match named {
-        Some(name) => position(name).into_iter().collect(),
-        None => match builder.resolve(loop_id, segment, conditions) {
-            Resolved::One(at, _) => BTreeSet::from([at]),
-            Resolved::Nothing(_) => BTreeSet::new(),
-            Resolved::Candidates(found) => found.iter().filter_map(|name| position(name)).collect(),
-        },
+/// The occurrences of `loop_id` the write plan places a column in: the one
+/// it lands in, or every candidate when several take it.
+fn landed(spec: &Spec, loop_id: LoopId, place: OccurrencePlace, segment: &[u8]) -> BTreeSet<usize> {
+    let def = spec.get(loop_id);
+    match landing(def, place, segment) {
+        Ok(at) => BTreeSet::from([at]),
+        Err(names) => names
+            .iter()
+            .filter_map(|name| def.occurrences.iter().position(|found| &found.name == name))
+            .collect(),
     }
 }
 
 #[test]
 fn the_writer_resolves_every_compat_column_where_the_reader_reads_it() {
     let spec = compat();
-    assert!(
-        WritePlan::new(&spec).is_err(),
-        "the compat spec writes; compare its plan in the_writer_writes_every_column_where_the_reader_reads_it"
-    );
-    let builder = Builder::new(&spec);
     let mut differences = Vec::new();
     let mut read_columns = BTreeSet::new();
     for reading in readings(&spec) {
         let def = &spec.tables()[reading.table];
         let (column, source) = &def.columns[reading.column];
-        let (segment, conditions, named, _) = target(def, source);
+        let (segment, _, _, _) = target(def, source);
         let reader = names(&spec, reading.loop_id, &reading.occurrences);
         let writer = names(
             &spec,
             reading.loop_id,
-            &resolved(&spec, &builder, reading.loop_id, segment, conditions, named),
+            &landed(&spec, reading.loop_id, reading.place, segment),
         );
         if reader != writer {
             let loop_name = &spec.get(reading.loop_id).name;
@@ -429,4 +408,64 @@ fn the_writer_resolves_every_compat_column_where_the_reader_reads_it() {
         declared_columns(&spec, |_| true),
         "columns read"
     );
+}
+
+#[test]
+fn every_chosen_occurrence_is_the_one_the_engine_gives() {
+    let five = builtin(Version::V5010);
+    let four = builtin(Version::V4010);
+    let compat = compat();
+    let mut failures = Vec::new();
+    for spec in [&five.spec, &four.spec, &compat] {
+        for (table, def) in spec.tables().iter().enumerate() {
+            for (column, place) in spec.places(table).iter().enumerate() {
+                let SpecReading::Watch { reads, .. } = &place.reading else {
+                    continue;
+                };
+                let (segment, conditions, _, _) = target(def, &def.columns[column].1);
+                for read in reads {
+                    let OccurrencePlace::Chosen(chosen) = &read.place else {
+                        continue;
+                    };
+                    let given = engine_occurrences(spec, read.loop_id, segment, conditions);
+                    if given != BTreeSet::from([chosen.index()]) {
+                        failures.push((
+                            def.name.clone(),
+                            def.columns[column].0.clone(),
+                            spec.get(read.loop_id).name.clone(),
+                        ));
+                    }
+                }
+            }
+        }
+    }
+    assert_eq!(failures, Vec::new());
+}
+
+/// The refusals the compat spec's tables raise, in order.
+const COMPAT_REFUSALS: &str = concat!(
+    "spec \"edi_835_parser\" cannot be written (17 reasons)\n",
+    "1. table \"rows_organizations\" is anchored on 2 loops (\"1000A\", \"1000B\"); a written row opens one loop instance and nothing in the row says which\n",
+    "2. table \"rows_claim_dates\" anchor segment reads \"DTM\" in loop \"2100\", which matches 3 of its occurrences (\"claim_received_date\", \"coverage_expiration_date\", \"statement_from_or_to_date\")\n",
+    "3. table \"rows_claim_entities\" anchor segment reads \"NM1\" in loop \"2100\", which matches 7 of its occurrences (\"corrected_patient_insured_name\", \"corrected_priority_payer_name\", \"crossover_carrier_name\", \"insured_name\", \"other_subscriber_name\", \"patient_name\", \"service_provider_name\")\n",
+    "4. table \"rows_claim_references\" anchor segment reads \"REF\" in loop \"2100\", which matches 2 of its occurrences (\"other_claim_related_identification\", \"rendering_provider_identification\")\n",
+    "5. table \"rows_interchanges\" column \"authorization_information_qualifier\" reads the envelope occurrence \"interchange_control_header\" of loop \"interchange\", which the envelope and the writer's counts give\n",
+    "6. table \"rows_interchanges\" column \"receiver\" reads the envelope occurrence \"interchange_control_header\" of loop \"interchange\", which the envelope and the writer's counts give\n",
+    "7. table \"rows_interchanges\" column \"sender\" reads the envelope occurrence \"interchange_control_header\" of loop \"interchange\", which the envelope and the writer's counts give\n",
+    "8. table \"rows_interchanges\" column \"transmission_date\" reads the envelope occurrence \"interchange_control_header\" of loop \"interchange\", which the envelope and the writer's counts give\n",
+    "9. table \"rows_interchanges\" column \"transmission_time\" reads the envelope occurrence \"interchange_control_header\" of loop \"interchange\", which the envelope and the writer's counts give\n",
+    "10. table \"rows_references\" anchor segment reads \"REF\" in loop \"2110\", which matches 4 of its occurrences (\"healthcare_policy_identification\", \"line_item_control_number\", \"rendering_provider_information\", \"service_identification\")\n",
+    "11. occurrence \"header_number\" (\"LX\") is required in every loop \"2000\", but no column writes it\n",
+    "12. occurrence \"patient_name\" (\"NM1\" where NM101 is \"QC\") is required in every loop \"2100\", but no column writes it\n",
+    "13. loop \"1000A\" (trigger \"N1\" where {1: \"PR\"}) is required in every \"transaction\", but no table is anchored on it and no column reads it\n",
+    "14. loop \"1000B\" (trigger \"N1\" where {1: \"PE\"}) is required in every \"transaction\", but no table is anchored on it and no column reads it\n",
+    "15. occurrence \"reassociation_trace_number\" (\"TRN\") is required in every loop \"transaction\", but no column writes it\n",
+    "16. required element BPR01 (transaction_handling_code) of occurrence \"financial_information\" in loop \"transaction\", written by table \"rows_payments\", has no column and no single code to write\n",
+    "17. required element BPR03 (credit_debit_flag_code) of occurrence \"financial_information\" in loop \"transaction\", written by table \"rows_payments\", has no column and no single code to write",
+);
+
+#[test]
+fn the_compat_spec_is_refused_for_the_same_reasons() {
+    let error = WritePlan::new(&compat()).unwrap_err();
+    assert_eq!(error.to_string(), COMPAT_REFUSALS);
 }

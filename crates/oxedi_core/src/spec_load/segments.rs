@@ -1,7 +1,6 @@
 //! Segment and element definitions, and the compilation of a segment's elements.
 
 use std::collections::BTreeMap;
-use std::fmt;
 
 use super::error::SpecError;
 use super::model::ElementModel;

@@ -5,7 +5,6 @@
 //! it built.
 
 use std::collections::BTreeMap;
-use std::fmt;
 
 use super::balance::compile_balancing;
 use super::build_loops::{check_control_fields, check_cycles, compile_loop, held_segments};

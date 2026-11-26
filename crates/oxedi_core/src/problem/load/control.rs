@@ -1,3 +1,9 @@
+//! The text of a loop's `control` and of a spec's `version` that were rejected.
+
+use std::fmt;
+
+use crate::spec_load::{ControlError, VersionError};
+
 impl fmt::Display for ControlError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {

@@ -1,7 +1,5 @@
 //! Why a balancing rule was rejected.
 
-use std::fmt;
-
 /// Why a balancing rule was rejected. Every variant that points inside the
 /// rule names the key it sits at, e.g. `per`, `target[0].loop` or
 /// `sum[1].elements[2]`.

@@ -1,7 +1,5 @@
 //! One difference between a spec model and the one a package builds on.
 
-use std::fmt;
-
 use super::id::PackageId;
 
 /// One difference between the model before a package and the model after it.

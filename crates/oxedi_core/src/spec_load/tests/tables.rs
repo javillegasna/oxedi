@@ -2,7 +2,6 @@
 
 use super::{TABLED, assert_model_faults, table_error};
 use crate::spec::*;
-use crate::spec_load::table_chain::Declared;
 use crate::spec_load::*;
 use crate::vocabulary::Pick;
 

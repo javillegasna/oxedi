@@ -57,7 +57,15 @@ pub const TABLE: &[Row] = &[
     row("message", &[]),
     row(
         "problem",
-        &["delimiters", "diagnostic", "message", "value", "write"],
+        &[
+            "delimiters",
+            "diagnostic",
+            "message",
+            "spec_load",
+            "value",
+            "vocabulary",
+            "write",
+        ],
     ),
     row(
         "process",

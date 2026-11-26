@@ -1,7 +1,5 @@
 //! Why a summary of the spec is rejected.
 
-use std::fmt;
-
 /// Why a summary is rejected. `key` is where inside the summary the fault
 /// is, as written, e.g. `sum.column` or `row.fields[2].name` (0-based index).
 #[derive(Debug, Clone, PartialEq, Eq)]

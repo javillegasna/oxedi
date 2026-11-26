@@ -1,3 +1,10 @@
+//! The text of an element definition that was rejected.
+
+use std::fmt;
+
+use crate::spec_load::ElementDefError;
+use crate::value::ElementType;
+
 impl fmt::Display for ElementDefError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {

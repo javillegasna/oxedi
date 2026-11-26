@@ -1,3 +1,15 @@
+//! The text of a package id, header, stack, change or kit that was refused, and of
+//! a version no built-in covers.
+
+use std::fmt;
+
+use crate::message::render_names;
+use crate::spec_load::{
+    Change, ChangeKind, HeaderError, IdError, KitError, Layer, PackageId, StackError,
+    UnknownVersion,
+};
+use crate::vocabulary::words_text;
+
 impl fmt::Display for IdError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {

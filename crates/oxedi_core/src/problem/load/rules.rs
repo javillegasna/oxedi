@@ -1,3 +1,9 @@
+//! The text of a balancing rule or a summary that was rejected.
+
+use std::fmt;
+
+use crate::spec_load::{BalanceError, SummaryDefError};
+
 impl fmt::Display for BalanceError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {

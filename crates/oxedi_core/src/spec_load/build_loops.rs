@@ -3,7 +3,6 @@
 //! over every loop, and the segments its occurrences hold.
 
 use std::collections::{BTreeMap, BTreeSet};
-use std::fmt;
 
 use super::error::SpecError;
 use super::model::{ControlModel, LoopModel};

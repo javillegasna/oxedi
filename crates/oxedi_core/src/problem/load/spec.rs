@@ -1,3 +1,10 @@
+//! The text of a spec that did not load: the error that wraps every other.
+
+use std::fmt;
+
+use super::text::{Under, write_ambiguous, write_cycle};
+use crate::spec_load::SpecError;
+
 impl fmt::Display for SpecError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {

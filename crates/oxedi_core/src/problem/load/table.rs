@@ -1,3 +1,11 @@
+//! The text of a table definition that was rejected.
+
+use std::fmt;
+
+use super::table_chain::{Declared, render_chain};
+use crate::message::ElementRef;
+use crate::spec_load::TableDefError;
+
 impl fmt::Display for TableDefError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {

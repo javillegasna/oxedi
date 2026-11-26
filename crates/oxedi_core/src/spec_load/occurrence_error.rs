@@ -1,9 +1,6 @@
 //! Why an occurrence of a loop was rejected.
 
-use std::fmt;
-
 use super::segments::ElementDefError;
-use crate::message::place;
 use crate::value::LengthRange;
 
 /// Why an occurrence was rejected.

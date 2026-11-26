@@ -8,7 +8,6 @@ use serde_json::{Value, json};
 use super::model::SpecModel;
 use super::package::{PackageId, Release, TransactionSet};
 use super::{LoadedSpec, SpecError, merge_patch};
-use crate::message::render_names;
 use crate::segment::Segment;
 use crate::spec::{Spec, chosen};
 

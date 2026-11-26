@@ -1,9 +1,5 @@
 //! Why a table definition is rejected, with the context its message needs.
 
-use std::fmt;
-
-use super::table_chain::{Declared, render_chain};
-use crate::message::ElementRef;
 use crate::spec::ColumnKind;
 use crate::vocabulary::Pick;
 

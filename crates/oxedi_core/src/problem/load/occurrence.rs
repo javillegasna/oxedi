@@ -1,3 +1,10 @@
+//! The text of an occurrence that was rejected.
+
+use std::fmt;
+
+use crate::message::place;
+use crate::spec_load::OccurrenceError;
+
 impl fmt::Display for OccurrenceError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {

@@ -1,7 +1,5 @@
 //! Why a kit manifest is refused once its keys read.
 
-use std::fmt;
-
 /// Why a kit manifest is refused.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum KitError {

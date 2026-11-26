@@ -1,11 +1,8 @@
 //! Why a package's identity, header or stack is rejected.
 
-use std::fmt;
-
 use super::change::Change;
 use super::id::{IdPart, PackageId};
 use super::layer::{Layer, Layers};
-use crate::vocabulary::words_text;
 
 /// Why an id does not read.
 #[derive(Debug, Clone, PartialEq, Eq)]

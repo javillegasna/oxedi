@@ -1,9 +1,7 @@
-//! The load error's place in an error chain, and the parts of its text that
-//! are built from lists.
+//! The parts of the load error's text that are built from lists.
 
 use std::fmt;
 
-use super::error::SpecError;
 use crate::message::Conditions;
 
 /// The parent of sibling loops as a message names it: quoted, or `the root`.

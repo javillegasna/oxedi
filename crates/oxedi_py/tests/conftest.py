@@ -30,6 +30,7 @@ FIXTURES = [
     "edge_cases_4010_sample.txt",
     "masked_findings_5010_sample.txt",
     "masked_findings_4010_sample.txt",
+    "payer_technical_contact_4010_sample.txt",
 ]
 SAMPLES = [
     "edi835_test_davisvision.RMT",

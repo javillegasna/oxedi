@@ -48,6 +48,7 @@ pub const FIXTURES: &[&str] = &[
     "edge_cases_4010_sample.txt",
     "masked_findings_5010_sample.txt",
     "masked_findings_4010_sample.txt",
+    "payer_technical_contact_4010_sample.txt",
 ];
 
 /// The synthetic fixture with no ISA, which takes the delimiters from the caller.

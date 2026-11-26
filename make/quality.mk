@@ -27,7 +27,7 @@ tools/profile/py_spy_record.sh $(VENV)/bin/py-spy $(1) $(PY_PROFILE_DIR)/$(2) $(
 endef
 
 profile: ## profile a core bench under a sampler: BENCH=process [SECONDS=10]; writes flamegraph.svg and top.txt under target/criterion/
-	@test -n "$(BENCH)" || { echo "usage: make profile BENCH=<tokenize|engine|check|process|write> [SECONDS=10]"; exit 1; }
+	@test -n "$(BENCH)" || { echo "usage: make profile BENCH=<tokenize|engine|check|process|write|compile> [SECONDS=10]"; exit 1; }
 	@stamp=$$(mktemp) && trap 'rm -f "$$stamp"' EXIT && \
 	  cargo bench --locked -p oxedi_core --bench $(BENCH) -- --profile-time $(SECONDS) && \
 	  written=$$(find target/criterion -path '*/profile/*' -newer "$$stamp" -type f | sort) && \

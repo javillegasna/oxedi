@@ -1,0 +1,1 @@
+SNIP 2 · element PER01 (contact_function_code) is not the one code the spec lists for it ("CX") · segment #10, element 1 · at interchange#1/group#1/transaction#1/1000A#1 · datum "BL"

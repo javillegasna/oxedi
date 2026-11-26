@@ -52,6 +52,12 @@
         "tables": "../golden/project/edi_835_parser/multi_claim_sample.txt.tables.txt"
       }
     },
+    "payer_technical_contact_4010_sample": {
+      "input": "../fixtures/payer_technical_contact_4010_sample.txt",
+      "expect": {
+        "tables": "../golden/project/edi_835_parser/payer_technical_contact_4010_sample.txt.tables.txt"
+      }
+    },
     "trizetto_sample": {
       "input": "../fixtures/trizetto_sample.rmt",
       "expect": {

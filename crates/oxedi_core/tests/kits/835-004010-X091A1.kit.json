@@ -32,6 +32,13 @@
         "diagnostics": "../golden/project/multi_claim_sample.txt.diagnostics.txt"
       }
     },
+    "payer_technical_contact_4010_sample": {
+      "input": "../fixtures/payer_technical_contact_4010_sample.txt",
+      "expect": {
+        "tables": "../golden/project/payer_technical_contact_4010_sample.txt.tables.txt",
+        "diagnostics": "../golden/project/payer_technical_contact_4010_sample.txt.diagnostics.txt"
+      }
+    },
     "trizetto_sample": {
       "input": "../fixtures/trizetto_sample.rmt",
       "expect": {

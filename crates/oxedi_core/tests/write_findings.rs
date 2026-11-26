@@ -348,6 +348,32 @@ fn a_value_no_valid_file_holds_is_a_finding() {
 }
 
 #[test]
+fn a_4010_payer_technical_contact_read_from_a_file_is_not_written() {
+    let spec = Spec::builtin_835_4010();
+    let tables = parse(
+        &spec,
+        &common::load_fixture("payer_technical_contact_4010_sample.txt"),
+    );
+    let payments = tables.get("payments").unwrap();
+    for (column, value) in [
+        ("payer_technical_contact_name", &b"EDI SUPPORT"[..]),
+        ("payer_technical_contact_qualifier", &b"TE"[..]),
+        ("payer_technical_contact_number", &b"8005559876"[..]),
+    ] {
+        let cell = payments.column(column).unwrap().get(0);
+        assert_eq!(cell, Some(Cell::Binary(value)), "{column}");
+    }
+    assert_eq!(
+        findings(write(&spec, &tables, &envelope())),
+        vec![
+            "table \"payments\" row 0 column \"payer_technical_contact_name\" holds \"EDI SUPPORT\", but the column reads PER01 \"BL\", which the element's code list (\"CX\") excludes, so no valid file holds it",
+            "table \"payments\" row 0 column \"payer_technical_contact_number\" holds \"8005559876\", but the column reads PER01 \"BL\", which the element's code list (\"CX\") excludes, so no valid file holds it",
+            "table \"payments\" row 0 column \"payer_technical_contact_qualifier\" holds \"TE\", but the column reads PER01 \"BL\", which the element's code list (\"CX\") excludes, so no valid file holds it"
+        ]
+    );
+}
+
+#[test]
 fn a_date_without_a_four_digit_year_is_not_writable() {
     let (spec, tables) = emedny();
     let edited = set(

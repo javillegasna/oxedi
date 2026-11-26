@@ -85,7 +85,7 @@ the ISA-less fragment and every sample.
 | Suite | Pins | Data |
 |-------|------|------|
 | `write_roundtrip` | Parse, write, parse again: the tables match and the written file reads without a diagnostic. Files that do not read clean or do not balance are refused when written strictly. | All files |
-| `write_findings` | The envelope written, how values become elements, and every finding and error with its full text. | One fixture and one sample |
+| `write_findings` | The envelope written, how values become elements, and every finding and error with its full text. | Two fixtures and one sample |
 | `roundtrip_props` | Write then tokenize is the identity on `(id, elements)`; on real files the writer reproduces each segment's bytes. | Random input and the four enveloped original fixtures |
 
 ### Guards: the test setup itself

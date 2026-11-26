@@ -36,6 +36,7 @@ REFUSED = [
     "edi835_test_not_available_claim_id.RMT",
     "masked_findings_5010_sample.txt",
     "masked_findings_4010_sample.txt",
+    "payer_technical_contact_4010_sample.txt",
 ]
 
 # The excerpts: only their payment's balance fails, so every other cell

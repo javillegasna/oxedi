@@ -1,0 +1,11 @@
+[
+ {
+  "level": 2,
+  "code": "1",
+  "segment": 10,
+  "element": null,
+  "component": null,
+  "datum": "PER",
+  "rule": "Segment PER*BL not found.  Started at /ISA_LOOP/GS_LOOP/ST_LOOP/HEADER/1000A/N4 (SEG_1_segment_not_found) (reported by pyx12, code 1)"
+ }
+]

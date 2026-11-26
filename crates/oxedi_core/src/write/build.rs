@@ -48,21 +48,7 @@ impl WritePlan {
     /// Compiles the plan that writes `spec`'s tables back into a file, or
     /// every reason the spec's tables cannot make a valid one.
     pub fn new(spec: &Spec) -> Result<WritePlan, PlanError> {
-        let mut builder = Builder {
-            spec,
-            loops: vec![
-                LoopPlan {
-                    instances: Instances::Absent,
-                    segments: Vec::new(),
-                };
-                spec.loops().len()
-            ],
-            groups: Groups::new(),
-            refusals: Vec::new(),
-            refused: Vec::new(),
-            repeats: Vec::new(),
-            unwritten: Vec::new(),
-        };
+        let mut builder = Builder::new(spec);
         builder.envelope();
         for (index, table) in spec.tables().iter().enumerate() {
             if table.segment.is_none() {
@@ -90,6 +76,27 @@ impl WritePlan {
                 spec: spec.name().to_string(),
                 refusals: builder.refusals,
             })
+        }
+    }
+}
+
+impl<'s> Builder<'s> {
+    /// A builder with every loop absent and nothing placed or refused yet.
+    pub(super) fn new(spec: &'s Spec) -> Self {
+        Builder {
+            spec,
+            loops: vec![
+                LoopPlan {
+                    instances: Instances::Absent,
+                    segments: Vec::new(),
+                };
+                spec.loops().len()
+            ],
+            groups: Groups::new(),
+            refusals: Vec::new(),
+            refused: Vec::new(),
+            repeats: Vec::new(),
+            unwritten: Vec::new(),
         }
     }
 }

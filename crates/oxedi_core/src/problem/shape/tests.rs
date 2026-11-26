@@ -3,6 +3,7 @@ use crate::delimiters::IsaError;
 use crate::diagnostic::{Diagnostic, PARSER_ORIGIN};
 use crate::document::{DocumentError, SizeError};
 use crate::message::ElementRef;
+use crate::spec_load::{KitError, PackageId, SpecError, TableDefError};
 use crate::value::ElementTextError;
 use crate::write::Finding;
 use crate::write::{LoopWriter, PlanError, Refusal, WriteError};
@@ -443,6 +444,120 @@ fn refusal_kinds() {
             "SeveralAnchorLoops",
             "RepeatWithoutInstances",
             "CodeOutsideList"
+        ]
+    );
+}
+
+#[test]
+fn spec_error_places() {
+    let format = SpecError::Format {
+        path: "loops.a".into(),
+        source: serde_json::from_str::<u8>("x").unwrap_err(),
+    };
+    assert_eq!(
+        (format.kind(), format.place()),
+        ("Format", Place::Spec(SpecPlace::Path("loops.a")))
+    );
+    let occurrence = SpecError::BadOccurrence {
+        loop_name: "2100".into(),
+        occurrence: "x".into(),
+        reason: Box::new(crate::spec_load::OccurrenceError::EmptyName),
+    };
+    assert_eq!(
+        occurrence.place(),
+        Place::Spec(SpecPlace::Loop {
+            name: "2100",
+            occurrence: Some("x")
+        })
+    );
+    let patch = SpecError::Patch {
+        source: Box::new(SpecError::BadTable {
+            table: "t".into(),
+            column: Some("c".into()),
+            reason: TableDefError::NoLoops,
+        }),
+    };
+    assert_eq!(
+        (patch.kind(), patch.place()),
+        ("Patch", table("t", Some("c")))
+    );
+    let empty = |loop_name: Option<&str>| SpecError::EmptySegmentId {
+        loop_name: loop_name.map(String::from),
+        key: "loops.a.trigger.segment".into(),
+    };
+    for error in [empty(Some("a")), empty(None)] {
+        assert_eq!(
+            (error.kind(), error.place()),
+            (
+                "EmptySegmentId",
+                Place::Spec(SpecPlace::Path("loops.a.trigger.segment"))
+            )
+        );
+    }
+    let cycle = SpecError::Cycle {
+        members: Vec::new(),
+    };
+    assert_eq!(cycle.place(), Place::Spec(SpecPlace::Whole));
+    let id = PackageId::parse("x/dictionary/006020").unwrap();
+    let package = SpecError::Package {
+        id: Box::new(id.clone()),
+        source: Box::new(SpecError::NoLoops {
+            spec_name: "s".into(),
+        }),
+    };
+    assert_eq!(package.place(), Place::Package { id: &id });
+}
+
+#[test]
+fn kit_places() {
+    let repeated = KitError::RepeatedCase { case: "a".into() };
+    assert_eq!(
+        (repeated.kind(), repeated.place()),
+        (
+            "RepeatedCase",
+            Place::Kit {
+                case: Some("a"),
+                file: None
+            }
+        )
+    );
+}
+
+#[test]
+fn spec_error_kinds_name_their_variants() {
+    let kinds = [
+        SpecError::NoLoops {
+            spec_name: "s".into(),
+        },
+        SpecError::UnknownParent {
+            loop_name: "l".into(),
+            parent: "p".into(),
+        },
+        SpecError::Cycle {
+            members: Vec::new(),
+        },
+        SpecError::ZeroLoopMax {
+            loop_name: "l".into(),
+        },
+        SpecError::UnknownDefaultTable {
+            table: "t".into(),
+            known: Vec::new(),
+        },
+        SpecError::EndIsTrigger {
+            loop_name: "l".into(),
+            segment: "S".into(),
+        },
+    ]
+    .map(|e| e.kind());
+    assert_eq!(
+        kinds,
+        [
+            "NoLoops",
+            "UnknownParent",
+            "Cycle",
+            "ZeroLoopMax",
+            "UnknownDefaultTable",
+            "EndIsTrigger"
         ]
     );
 }

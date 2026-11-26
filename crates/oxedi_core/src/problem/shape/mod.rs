@@ -33,7 +33,9 @@ macro_rules! problem {
 mod diagnostic;
 mod document;
 mod finding;
+mod kit;
 mod refusal;
+mod spec;
 #[cfg(test)]
 mod tests;
 mod write_error;

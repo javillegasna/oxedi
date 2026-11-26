@@ -5,7 +5,7 @@
 
 use std::fmt;
 
-use super::{LoopPath, LoopRef};
+use crate::diagnostic::{LoopPath, LoopRef};
 use crate::message::{MAX_LISTED_CODES, Quoted};
 use crate::value::decimal_display;
 

@@ -53,6 +53,7 @@ pub mod engine;
 pub mod frame;
 pub mod mask;
 mod message;
+mod problem;
 pub mod process;
 pub mod project;
 pub mod segment;

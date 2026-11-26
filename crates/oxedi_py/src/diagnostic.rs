@@ -1,5 +1,6 @@
 //! `Diagnostic`: one finding about a file's data, as Python attributes.
 
+use oxedi_core::problem::Problem;
 use oxedi_core::{Diagnostic, LoopRef, Projector, Rule, SnipLevel};
 use pyo3::exceptions::PyValueError;
 use pyo3::prelude::*;
@@ -55,7 +56,7 @@ impl PyDiagnostic {
     /// The name of the rule that failed, e.g. `RequiredElementMissing`.
     #[getter]
     fn kind(&self) -> &'static str {
-        self.inner.rule.kind()
+        Problem::kind(&self.inner)
     }
 
     /// The rule that failed, as a sentence with its values.

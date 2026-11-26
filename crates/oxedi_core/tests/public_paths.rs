@@ -231,7 +231,9 @@ mod by_module {
     use oxedi_core::write::write_with_findings;
 }
 
+use oxedi_core::conformance::CaseFault;
 use oxedi_core::spec_load::SpecModel;
+use oxedi_core::write::{Finding, WriteError};
 // Root re-exports from lib.rs
 use oxedi_core::ConvertError;
 use oxedi_core::ElementRef;
@@ -356,5 +358,7 @@ fn binding_items(diagnostic: &Diagnostic) {
     let _: usize = IsaError::ISA_LEN;
     let _: fn(&IsaError) -> usize = IsaError::skipped;
     let _: for<'a> fn(&'a IsaError, &'a [u8]) -> &'a [u8] = IsaError::datum;
+    let _: for<'a> fn(&'a WriteError) -> &'a [Finding] = WriteError::findings;
+    let _: for<'a> fn(&'a CaseFault) -> &'a str = CaseFault::path;
     let _: for<'a> fn(&'a Segment<'static>, usize, usize) -> Option<&'a [u8]> = Segment::component;
 }

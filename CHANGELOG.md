@@ -59,9 +59,11 @@ This file covers the Python package; the DuckDB extension has its own changelog 
 - Rust: `spec::Terms` and `spec::NamedTerm`: one side of a balancing rule with the names a message writes; `Display` is the text. `message::ElementRef` (also at the root): an element reference such as `CLP01`, owning its segment id.
 - Rust: `problem::Problem`, the shape every problem has (`kind`, `place`, `detail`, and `record` with the text), with `Place` and `SpecPlace` (where it points), `Detail` (what its family carries) and `ProblemRecord`; every problem family implements `Problem`: `Diagnostic`, `Finding`, `WriteError`, `Refusal`, `DocumentError`, `SpecError`, `KitError`, `SummaryError`, `MaskError` and `CaseFault`. `Place`, `Problem` and `ProblemRecord` are also at the root.
 - Rust: `write::EnvelopeSource` (`Caller`, `ControlNumber`, `Repetition`, `Component`, `Version`), what an envelope element's value comes from; `name()` writes it as a finding does.
+- Rust: `WriteError::findings()` and `CaseFault::path()`.
 - Rust: `write::LoopWriter` (`Envelope`, `Table`): what writes the instances of a loop. `Selector` gains `Where`, a column's segment and its `where` values.
 
 ### Changed
+- Rust: `problem::Detail::Finding` also holds `diagnostic`, the diagnostic of a read-back finding.
 - Rust: `Rule::ImplicitLoop::expected_trigger`, `Rule::RequiredLoopMissing::expected_trigger`, the `selector` of `Rule::RequiredOccurrenceMissing` and `Rule::OccurrenceOverMax`, and the `trigger` of `SpecError::UnmatchedTrigger` and `SpecError::TriggerQualifierWider` are `Selector` values, not text; `to_string()` gives the same text.
 - Rust: `Rule::BalanceMismatch::target` and `sum` are `Terms`, and the `place` of `OccurrenceError::{UsageLooserThanElement, LengthsOutsideElement, CodeOutsideElement, QualifierPlaces}` and `BalanceError::{UndefinedElement, NotDecimal, RepeatedValue}`, and the `other_place` of `OccurrenceError::QualifierPlaces`, are `ElementRef` values, not text; `to_string()` gives the same text.
 - Rust: in `Refusal`, `trigger`, `selector` and `source` are `Selector` values, `place` an `ElementRef`, `writer` a `LoopWriter`, and `RepeatWithoutInstances::segment` an `Option<Vec<u8>>` (none when the table has no anchor segment); in `Finding`, `place` is an `ElementRef`. `to_string()` gives the same text.

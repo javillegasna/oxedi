@@ -51,15 +51,16 @@ impl Problem for Finding {
     }
 
     fn detail(&self) -> Detail<'_> {
-        Detail::Finding {
-            origin: match self {
-                Finding::DelimiterInValue { origin, .. } | Finding::NotWritable { origin, .. } => {
-                    Some(origin)
-                }
-                Finding::ReadBack { origin, .. } => origin.as_ref(),
-                _ => None,
-            },
-        }
+        let (origin, diagnostic) = match self {
+            Finding::DelimiterInValue { origin, .. } | Finding::NotWritable { origin, .. } => {
+                (Some(origin), None)
+            }
+            Finding::ReadBack {
+                origin, diagnostic, ..
+            } => (origin.as_ref(), Some(&**diagnostic)),
+            _ => (None, None),
+        };
+        Detail::Finding { origin, diagnostic }
     }
 }
 

@@ -66,6 +66,16 @@ pub enum CaseFault {
     },
 }
 
+impl CaseFault {
+    /// The file the fault names, as the kit writes its path.
+    pub fn path(&self) -> &str {
+        let (CaseFault::MissingFile { path }
+        | CaseFault::NotText { path }
+        | CaseFault::NotADocument { path, .. }) = self;
+        path
+    }
+}
+
 /// An expected output that differs from the run's.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Difference {

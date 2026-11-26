@@ -271,7 +271,7 @@ The same concept, named in each binding. The Rust files are under `crates/oxedi_
 | Table schema (`spec_schema`, `spec/schema.rs`) | `Spec.schema()` | `oxedi_schema()` (`oxedi_schema/`) | — |
 | Loops and their triggers (`Spec::loops`, `LoopDef::trigger`) | `Spec.loops()`, `Spec.trigger_segment(name)`, `Spec.tables()` (`spec.rs`), `Spec.envelope()` → `EnvelopeLoop` (`envelope_loop.rs`) | — | — |
 | Column source (`TableDef::column`, `ColumnSource`, `Repeat::holds`) | `Spec.column_source(table, column)` → `ElementSource`; `Spec.element_sources(table)`, `Spec.group_sources(table)` → `GroupSource` (`element_source.rs`) | — | — |
-| Diagnostics (`Diagnostic`) | `Result.diagnostics`, `Diagnostic.kind`, `.rule`, `.datum` (`diagnostic.rs`, reading `Diagnostic::flat`) | `table_name := 'diagnostics'` (`diagnostics/`) | `View.diagnostics` (`DiagnosticView`) |
+| Diagnostics (`Diagnostic`) | `Result.diagnostics`, `Diagnostic.kind`, `.rule`, `.datum` (`diagnostic.rs`; `WriteFinding` reads `Problem`) | `table_name := 'diagnostics'` (`diagnostics/`) | `View.diagnostics` (`DiagnosticView`, from `Problem::record`) |
 | Segments (`Document`, `Segment`) | `Result.document[i]`, `Segment.element(position, component)`, `Segment.has(...)` over `Segment::component` (`document.rs`) | — | `View.segments` (`SegmentView`) |
 | Summaries (`summarize`, `Spec::summaries`) | `Result.summary(name)` (`native.rs`) | — | — |
 | Delimiters (`Delimiters`) | `Delimiters` | — | `View.delimiters` (`DelimitersView`) |

@@ -238,11 +238,8 @@ pub struct PyKitBroken {
 
 impl From<&CaseFault> for PyKitBroken {
     fn from(fault: &CaseFault) -> PyKitBroken {
-        let (CaseFault::MissingFile { path }
-        | CaseFault::NotText { path }
-        | CaseFault::NotADocument { path, .. }) = fault;
         PyKitBroken {
-            path: path.clone(),
+            path: fault.path().to_owned(),
             message: fault.to_string(),
         }
     }

@@ -175,6 +175,37 @@ fn tables_and_diagnostics_match_the_core() {
 }
 
 #[test]
+fn diagnostic_views_hold_each_level_and_place() {
+    let (mut with_path, mut with_element) = (false, false);
+    for path in corpus() {
+        let Some(bytes) = parsable(&path) else {
+            continue;
+        };
+        let view = view(&bytes).expect("view");
+        let document = Document::parse(&bytes[..]).expect("parse");
+        let (_, diagnostics) = Processor::run(select(&document), &document, None);
+        assert_eq!(view.diagnostics.len(), diagnostics.len(), "{path:?}");
+        for (mine, core) in view.diagnostics.iter().zip(&diagnostics) {
+            assert_eq!(mine.level, core.level.to_string(), "{path:?}");
+            assert_eq!(
+                (mine.segment, mine.element, mine.component),
+                (core.segment, core.element, core.component),
+                "{path:?}"
+            );
+            let core_path: Vec<(String, usize)> = core
+                .path
+                .iter()
+                .map(|l| (l.name.clone(), l.ordinal))
+                .collect();
+            assert_eq!(mine.path, core_path, "{path:?}");
+            with_path |= !mine.path.is_empty();
+            with_element |= mine.element.is_some();
+        }
+    }
+    assert!(with_path && with_element);
+}
+
+#[test]
 fn a_4010_file_uses_the_4010_spec() {
     let path = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
         .join("../oxedi_core/tests/fixtures/balanced_4010_sample.txt");

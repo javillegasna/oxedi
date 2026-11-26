@@ -2153,6 +2153,10 @@ way reads back only when the reader is given the same release character:
 <li>The fixed-width <code>ISA</code>.</li>
 <li>The control numbers that must match: <code>ISA13</code>/<code>IEA02</code>, <code>GS06</code>/<code>GE02</code>, <code>ST02</code>/<code>SE02</code>.</li>
 <li>The counts: <code>SE01</code>, <code>GE01</code>, <code>IEA01</code>.</li>
+<li>Where each envelope value goes: each envelope loop's <code>control.fields</code> in the spec
+  (<a href="../../customize/packages/#the-envelope-package">The envelope package</a>).</li>
+<li>Every other envelope element: the first code its rule allows, padded to its fixed width (numbers with leading zeros)
+  (for example ISA14 <code>0</code>).</li>
 </ul>
 <h2 id="write-from-sql">Write from SQL<a class="headerlink" href="#write-from-sql" title="Permanent link">&para;</a></h2>
 <p>The DuckDB extension writes the same file from SQL with <code>COPY</code>. For the same tables and

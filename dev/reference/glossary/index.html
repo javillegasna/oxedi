@@ -2882,7 +2882,9 @@ diagnostics as data instead of raising. See <a href="../../python/diagnostics/">
 <code>result.document.write()</code> returns the file unchanged.</p>
 <h3 id="envelope">Envelope<a class="headerlink" href="#envelope" title="Permanent link">&para;</a></h3>
 <p>What the writer needs besides the tables: sender, receiver, date, time and control number. In
-Python it is <code>oxedi.Envelope</code>. See <a href="../../python/writing/#fill-in-the-envelope">Writing</a>.</p>
+Python it is <code>oxedi.Envelope</code>. See <a href="../../python/writing/#fill-in-the-envelope">Writing</a>.
+The spec's envelope package says which element of <code>ISA</code> and <code>GS</code> carries each
+(<a href="../../customize/packages/#the-envelope-package">Packages and layers</a>).</p>
 <h3 id="lossless">Lossless<a class="headerlink" href="#lossless" title="Permanent link">&para;</a></h3>
 <p>Nothing in the file is dropped or changed. Unknown segments stay in the document, and a file
 writes back exactly as it was read.</p>

@@ -2625,7 +2625,7 @@ components are 1-based. The code names differ from the JSON in three places: a t
 </tr>
 </tbody>
 </table>
-<p><code>control</code>, all four keys required (this is how <code>ST</code>/<code>SE</code>, <code>GS</code>/<code>GE</code> and <code>ISA</code>/<code>IEA</code> are checked):</p>
+<p><code>control</code>, four required keys and one optional (this is how <code>ST</code>/<code>SE</code>, <code>GS</code>/<code>GE</code> and <code>ISA</code>/<code>IEA</code> are checked):</p>
 <table>
 <thead>
 <tr>
@@ -2649,6 +2649,10 @@ components are 1-based. The code names differ from the JSON in three places: a t
 <tr>
 <td><code>count</code></td>
 <td>What the count counts: <code>segments</code> (trigger to end, both included) or <code>children</code> (child loop instances).</td>
+</tr>
+<tr>
+<td><code>fields</code></td>
+<td>Optional. The caller's field each element of the trigger carries, <code>{"&lt;position&gt;": "&lt;field&gt;"}</code>: <code>sender_qualifier</code>, <code>sender_id</code>, <code>receiver_qualifier</code>, <code>receiver_id</code>, <code>application_sender</code>, <code>application_receiver</code>, <code>date</code>, <code>time</code> or <code>usage_indicator</code>. Not on <code>opener_element</code>, one element per field, on an element the trigger segment defines, and not on ISA11, ISA12 or ISA16 of the top loop, which the syntax layer owns (the repetition separator, the version and the component separator).</td>
 </tr>
 </tbody>
 </table>

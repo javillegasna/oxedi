@@ -1084,6 +1084,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#the-envelope-package" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        The envelope package
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#the-format-number" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -2114,6 +2125,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#the-envelope-package" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        The envelope package
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#the-format-number" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -2345,7 +2367,7 @@ before it:</p>
 <tbody>
 <tr>
 <td><code>envelope</code></td>
-<td>The complete base of a stack: the interchange, group and transaction loops and the envelope segments, and it may write every key the three layers after it own.</td>
+<td>The complete base of a stack: the interchange, group and transaction loops and the envelope segments, with each loop's control and the caller's fields its trigger carries (see <a href="#the-envelope-package">The envelope package</a>); it may write every key the three layers after it own.</td>
 </tr>
 <tr>
 <td><code>dictionary</code></td>
@@ -2528,20 +2550,80 @@ change.</p>
 <p>A package built on the shipped 5010 views is always an edition or a patch, since the stack below
 it already holds every layer but <code>patch</code>. The check lists what it changes instead of
 refusing a change that is not stricter. Read the list.</p>
+<h2 id="the-envelope-package">The envelope package<a class="headerlink" href="#the-envelope-package" title="Permanent link">&para;</a></h2>
+<p>The envelope package <code>oxedi/envelope/005010</code> states the envelope as data. The 4010 edition
+inherits its loops' <code>control</code> and changes only ISA11, ISA12 and ST03.</p>
+<table>
+<thead>
+<tr>
+<th>Who knows it</th>
+<th>What</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>The envelope package</td>
+<td>The interchange, group and transaction loops, their triggers and ends, the places of the control number (<code>opener_element</code>, <code>closer_element</code>), the counts, and each loop's <code>control.fields</code>: which element of the trigger carries which field of the caller's <code>oxedi.Envelope</code> (see <a href="../spec/#loopsname"><code>control</code></a>). In 5010, <code>interchange</code> places ISA05 to ISA10 and ISA15, <code>group</code> places GS02 to GS05 and <code>transaction</code> places none.</td>
+</tr>
+<tr>
+<td>The syntax</td>
+<td><abbr title="Interchange control header segment">ISA</abbr>'s fixed width and its delimiters: the element separator after <code>ISA</code>, the repetition separator in ISA11 from version <code>00402</code>, the version in ISA12 and the component separator in ISA16. They are read before any spec is chosen, so no package moves them, and they are not fields.</td>
+</tr>
+<tr>
+<td>Each element's rule</td>
+<td>An envelope element that no field and no table gives is written as the first code its rule allows in the occurrence the loop's trigger opens on, padded to its fixed width (numbers with leading zeros). A guide or patch that narrows that element is written as narrowed.</td>
+</tr>
+</tbody>
+</table>
+<p>The writer refuses a spec whose envelope loop declares no occurrence for its trigger, and
+<code>oxedi.validate_stack</code> reports it among the reasons the stack cannot write:</p>
+<div class="highlight"><pre><span></span><code>the envelope loop "interchange" declares no occurrence for its trigger "ISA" with no conditions, so its header cannot be placed
+</code></pre></div>
+<p>A spec whose envelope loops state no <code>fields</code> writes those elements empty, and reading the file
+back reports each required one. The key table (<a href="#from-the-old-keys-to-the-new">From the old keys to the new</a>)
+lists the key.</p>
+<p>A patch package moves the group's application codes between GS02 and GS03, and the written <abbr title="Functional group header segment">GS</abbr>
+line shows it:</p>
+<div class="highlight"><pre><span></span><code><span class="kn">import</span><span class="w"> </span><span class="nn">datetime</span>
+
+<span class="n">swap</span> <span class="o">=</span> <span class="n">json</span><span class="o">.</span><span class="n">dumps</span><span class="p">({</span>
+    <span class="s2">"package"</span><span class="p">:</span> <span class="p">{</span><span class="s2">"format"</span><span class="p">:</span> <span class="mi">3</span><span class="p">,</span> <span class="s2">"id"</span><span class="p">:</span> <span class="s2">"acme/patch/005010/835/X221A1"</span><span class="p">,</span> <span class="s2">"layers"</span><span class="p">:</span> <span class="p">[</span><span class="s2">"patch"</span><span class="p">],</span>
+                <span class="s2">"bases"</span><span class="p">:</span> <span class="p">[</span><span class="s2">"oxedi/views/005010/835/X221A1"</span><span class="p">]},</span>
+    <span class="s2">"spec"</span><span class="p">:</span> <span class="p">{</span><span class="s2">"loops"</span><span class="p">:</span> <span class="p">{</span><span class="s2">"group"</span><span class="p">:</span> <span class="p">{</span><span class="s2">"control"</span><span class="p">:</span> <span class="p">{</span><span class="s2">"fields"</span><span class="p">:</span> <span class="p">{</span>
+        <span class="s2">"2"</span><span class="p">:</span> <span class="s2">"application_receiver"</span><span class="p">,</span> <span class="s2">"3"</span><span class="p">:</span> <span class="s2">"application_sender"</span><span class="p">}}}}},</span>
+<span class="p">})</span>
+<span class="n">swapped</span> <span class="o">=</span> <span class="n">oxedi</span><span class="o">.</span><span class="n">Spec</span><span class="o">.</span><span class="n">from_packages</span><span class="p">(</span><span class="n">swap</span><span class="p">,</span> <span class="n">packages</span><span class="p">)</span>
+<span class="n">frames</span> <span class="o">=</span> <span class="n">oxedi</span><span class="o">.</span><span class="n">parse_file</span><span class="p">(</span><span class="s2">"remittance.835"</span><span class="p">)</span><span class="o">.</span><span class="n">tables</span><span class="o">.</span><span class="n">to_polars</span><span class="p">()</span>
+<span class="n">envelope</span> <span class="o">=</span> <span class="n">oxedi</span><span class="o">.</span><span class="n">Envelope</span><span class="p">(</span>
+    <span class="n">sender_id</span><span class="o">=</span><span class="s2">"ACMEPAYER"</span><span class="p">,</span>
+    <span class="n">receiver_id</span><span class="o">=</span><span class="s2">"SUNRISECLINIC"</span><span class="p">,</span>
+    <span class="n">application_sender</span><span class="o">=</span><span class="s2">"SENDERAPP"</span><span class="p">,</span>
+    <span class="n">application_receiver</span><span class="o">=</span><span class="s2">"RECEIVERAPP"</span><span class="p">,</span>
+    <span class="n">date</span><span class="o">=</span><span class="n">datetime</span><span class="o">.</span><span class="n">date</span><span class="p">(</span><span class="mi">2024</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">10</span><span class="p">),</span>
+    <span class="n">time</span><span class="o">=</span><span class="n">datetime</span><span class="o">.</span><span class="n">time</span><span class="p">(</span><span class="mi">9</span><span class="p">,</span> <span class="mi">0</span><span class="p">),</span>
+    <span class="n">line_break</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+<span class="p">)</span>
+<span class="n">data</span> <span class="o">=</span> <span class="n">oxedi</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="n">frames</span><span class="p">,</span> <span class="n">envelope</span><span class="p">,</span> <span class="n">spec</span><span class="o">=</span><span class="n">swapped</span><span class="p">)</span><span class="o">.</span><span class="n">decode</span><span class="p">()</span>
+<span class="n">gs</span> <span class="o">=</span> <span class="n">data</span><span class="o">.</span><span class="n">splitlines</span><span class="p">()[</span><span class="mi">1</span><span class="p">]</span>
+<span class="k">assert</span> <span class="n">gs</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="s2">"*"</span><span class="p">)[</span><span class="mi">2</span><span class="p">:</span><span class="mi">4</span><span class="p">]</span> <span class="o">==</span> <span class="p">[</span><span class="s2">"RECEIVERAPP"</span><span class="p">,</span> <span class="s2">"SENDERAPP"</span><span class="p">]</span>
+<span class="nb">print</span><span class="p">(</span><span class="n">gs</span><span class="p">)</span>
+</code></pre></div>
+<div class="highlight"><pre><span></span><code>GS*HP*RECEIVERAPP*SENDERAPP*20240110*0900*1*X*005010X221A1~
+</code></pre></div>
 <h2 id="the-format-number">The format number<a class="headerlink" href="#the-format-number" title="Permanent link">&para;</a></h2>
 <ul>
-<li>This version of oxedi reads format 2, its newest. A reader reads its own number and every lower
+<li>This version of oxedi reads format 3, its newest. A reader reads its own number and every lower
   one. Format 2 lets a spec's <code>version</code> leave out <code>values</code>; packages that write <code>values</code> read in
-  both.</li>
+  both. Format 3 lets an envelope loop's <code>control</code> state <code>fields</code>.</li>
 <li>A package with a higher number is refused before any other key is read, so a newer key never
-  shows up as unknown. The error names both numbers: <code>package format 3 is newer than 2, the newest
-  format this reader takes; read the package with a newer oxedi, or write it in format 2</code>.</li>
+  shows up as unknown. The error names both numbers: <code>package format 4 is newer than 3, the newest
+  format this reader takes; read the package with a newer oxedi, or write it in format 3</code>.</li>
 <li>Every key the format does not have is refused. When oxedi adds an optional key, the number goes
   up by one: packages that do not use the key keep loading, and one that uses it says the new
   number, so an older oxedi refuses it with that text instead of reading it wrongly.</li>
 <li>A kit manifest has its own format number, under the same rule.</li>
-<li>The format is a draft: it can still change until the envelope becomes a base package with its
-  own rules (a later step of the roadmap).</li>
+<li>The format is stable from format 3: a later oxedi reads every package of format 1 to 3 as this
+  one does, and a new key comes only as an optional key under a higher number.</li>
 </ul>
 <h2 id="check-a-stack-and-run-its-kit">Check a stack and run its kit<a class="headerlink" href="#check-a-stack-and-run-its-kit" title="Permanent link">&para;</a></h2>
 <p>A spec is a stack of packages: the shipped 5010 packages and, on top, any package of yours. <code>oxedi.validate_stack</code> answers whether a stack loads and what it can do; <code>oxedi.Spec.builtin_packages()</code> lists the shipped texts. The answer is a <code>Valid</code> or an <code>Invalid</code>, and printing either gives the core's text.</p>
@@ -2588,7 +2670,7 @@ write it.</p>
 <div class="highlight"><pre><span></span><code><span class="n">spec</span> <span class="o">=</span> <span class="n">json</span><span class="o">.</span><span class="n">loads</span><span class="p">(</span><span class="n">oxedi</span><span class="o">.</span><span class="n">Spec</span><span class="o">.</span><span class="n">builtin</span><span class="p">()</span><span class="o">.</span><span class="n">to_json</span><span class="p">())</span>
 <span class="k">del</span> <span class="n">spec</span><span class="p">[</span><span class="s2">"name"</span><span class="p">]</span>
 <span class="n">whole</span> <span class="o">=</span> <span class="n">json</span><span class="o">.</span><span class="n">dumps</span><span class="p">({</span>
-    <span class="s2">"package"</span><span class="p">:</span> <span class="p">{</span><span class="s2">"format"</span><span class="p">:</span> <span class="mi">1</span><span class="p">,</span> <span class="s2">"id"</span><span class="p">:</span> <span class="s2">"acme/views/005010/835/X221A1"</span><span class="p">,</span>
+    <span class="s2">"package"</span><span class="p">:</span> <span class="p">{</span><span class="s2">"format"</span><span class="p">:</span> <span class="mi">3</span><span class="p">,</span> <span class="s2">"id"</span><span class="p">:</span> <span class="s2">"acme/views/005010/835/X221A1"</span><span class="p">,</span>
                 <span class="s2">"layers"</span><span class="p">:</span> <span class="p">[</span><span class="s2">"envelope"</span><span class="p">,</span> <span class="s2">"dictionary"</span><span class="p">,</span> <span class="s2">"transaction-set"</span><span class="p">,</span> <span class="s2">"guide"</span><span class="p">,</span> <span class="s2">"views"</span><span class="p">],</span>
                 <span class="s2">"bases"</span><span class="p">:</span> <span class="p">[]},</span>
     <span class="s2">"spec"</span><span class="p">:</span> <span class="n">spec</span><span class="p">,</span>
@@ -2713,6 +2795,10 @@ write now.</p>
 <tr>
 <td>Rust <code>OccurrenceError::QualifierCodeOutsideElement</code></td>
 <td><code>OccurrenceError::CodeOutsideElement</code>, with a new <code>key</code> field (<code>qualifier.codes</code> or <code>elements.&lt;pos&gt;.codes</code>); a qualifier's text is unchanged</td>
+</tr>
+<tr>
+<td>an envelope loop's sender, receiver, date and time placed by oxedi</td>
+<td>the loop's <code>"control": {"fields": {"&lt;element&gt;": "&lt;field&gt;"}}</code>, as <code>oxedi/envelope/005010</code> writes them</td>
 </tr>
 </tbody>
 </table>

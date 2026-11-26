@@ -2046,6 +2046,8 @@ the few changes the changelog lists.</p>
   and codes per occurrence. See <a href="../customize/packages/">Packages and layers</a>.</li>
 <li><strong>One description for reading and writing</strong> (done). Each column's place is worked out once,
   when the spec loads, and both reading and writing take it from there.</li>
+<li><strong>The envelope as a base package</strong> (done). Which envelope element carries the sender,
+  receiver, date and time is data in the envelope package, and the package format is stable.</li>
 </ul>
 <h2 id="next-specs-for-any-x12-transaction-set">Next: specs for any X12 transaction set<a class="headerlink" href="#next-specs-for-any-x12-transaction-set" title="Permanent link">&para;</a></h2>
 <p>Writing a spec by hand takes hundreds of lines, while the open source
@@ -2076,7 +2078,7 @@ exclusions) the format should express. Discussed in
 <li><strong>Validate with pyx12</strong> and get its findings in the same shape as oxedi's own. See
   <a href="../python/pyx12/">Validating with pyx12</a>.</li>
 <li><strong>Adapt to your payers</strong> by changing the spec. See <a href="../customize/spec/">The spec</a>.</li>
-<li><strong>Write your own vocabulary as packages</strong> on the built-in layers, check it with
+<li><strong>Write your own vocabulary as packages</strong>, in a stable format, on the built-in layers, check it with
   <code>oxedi.validate_stack</code> (what it can read, write and mask, and what it changes) and run its
   conformance kit with <code>oxedi.run_kit</code>. See <a href="../customize/packages/">Packages and layers</a>.</li>
 <li><strong>Try it in your browser.</strong> Drop an 835 on the <a href="https://javillegas.dev/oxedi/viewer/">viewer</a>;

@@ -16,12 +16,12 @@ This is the header of the shipped 5010 guide:
 ```json
 {
   "package": {
-    "format": 1,
+    "format": 2,
     "id": "oxedi/guide/005010/835/X221A1",
     "layers": ["guide"],
     "bases": ["oxedi/transaction-set/005010/835"]
   },
-  "spec": {"version": {"segment": "GS", "element": 8, "values": ["005010X221A1"]}, "loops": {}}
+  "spec": {"version": {"segment": "GS", "element": 8}, "loops": {}}
 }
 ```
 
@@ -209,11 +209,12 @@ refusing a change that is not stricter. Read the list.
 
 ## The format number
 
-- This version of oxedi reads format 1, its newest. A reader reads its own number and every lower
-  one.
+- This version of oxedi reads format 2, its newest. A reader reads its own number and every lower
+  one. Format 2 lets a spec's `version` leave out `values`; packages that write `values` read in
+  both.
 - A package with a higher number is refused before any other key is read, so a newer key never
-  shows up as unknown. The error names both numbers: `package format 2 is newer than 1, the newest
-  format this reader takes; read the package with a newer oxedi, or write it in format 1`.
+  shows up as unknown. The error names both numbers: `package format 3 is newer than 2, the newest
+  format this reader takes; read the package with a newer oxedi, or write it in format 2`.
 - Every key the format does not have is refused. When oxedi adds an optional key, the number goes
   up by one: packages that do not use the key keep loading, and one that uses it says the new
   number, so an older oxedi refuses it with that text instead of reading it wrongly.
@@ -366,8 +367,7 @@ applying patch: spec: at segments.CLP.elements.1: unknown field `required`, expe
 
 ## Not in the format yet
 
-- No way to name a shared definition: a value two places hold is written twice. The version's
-  codes are written in the guide's `version` and in GS08's codes, and equal element definitions
+- No way to name a shared definition: a value two places hold is written twice. Equal element definitions
   repeat inside the dictionary and the envelope (`reference_identification` eight times), equal
   code lists repeat inside one guide (the PLB composite six times), and the 4010 guide restates per
   segment the PER codes the 5010 guide sets per occurrence.

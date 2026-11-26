@@ -139,7 +139,7 @@ The spec files are packages under `crates/oxedi_core/specs/`, each at the path o
 | `oxedi/views/005010/835/X221A1.json` | The tables, the summaries and the default table, on the guide; the top of the 5010 stack. | `Builtin` (`spec_load/builtin.rs`) |
 | `oxedi/envelope/004010.json` | ISA11 type and codes, ISA12 codes, ST03 removed; an edition of the envelope. | `Builtin` (`spec_load/builtin.rs`) |
 | `oxedi/dictionary/004010.json` | The segments and elements 4010 removes or adds; an edition of the dictionary. | `Builtin` (`spec_load/builtin.rs`) |
-| `oxedi/guide/004010/835/X091A1.json` | The X091A1 guide, an edition of X221A1 (layers transaction-set and guide): occurrences, usage, codes and the version. | `Builtin` (`spec_load/builtin.rs`): the stack of the packages, composed |
+| `oxedi/guide/004010/835/X091A1.json` | The X091A1 guide, an edition of X221A1 (layers transaction-set and guide): occurrences, usage and codes; its versions are GS08's codes, and it inherits the version's place from X221A1. | `Builtin` (`spec_load/builtin.rs`): the stack of the packages, composed |
 | `edi_835_parser.json` | A patch package (`edi-835-parser/patch/005010/835/X221A1`) on the 5010 views, with the tables of the `edi-835-parser` compatibility layer; it renames the spec. Its kit is `tests/kits/edi-835-parser-835-005010-X221A1.kit.json`. | `crates/oxedi_py/src/lib.rs`, pinned by `tests/project_golden.rs` |
 
 The built-in kits are under `tests/kits/`, one per stack top and one for the compat package: they

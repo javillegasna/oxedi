@@ -206,9 +206,9 @@ components are 1-based. The code names differ from the JSON in three places: a t
 |-----|---------|------|
 | `segment` | Id of the segment that carries the version, for example `GS`. | `DeclaredVersion::segment` |
 | `element` | Position of the element that holds it, for example `8`. | `DeclaredVersion::element` |
-| `values` | The values of that element the spec covers. | `DeclaredVersion::values` |
+| `values` | The values of that element the spec covers. When left out, the codes of that element in `segments`, in the order written. | `DeclaredVersion::values` |
 
-All three are required. The first segment with that id decides.
+`segment` and `element` are required. The first segment with that id decides.
 
 ### `loops.<name>`
 

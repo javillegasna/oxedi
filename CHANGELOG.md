@@ -55,6 +55,8 @@ This file covers the Python package; the DuckDB extension has its own changelog 
   wanted segment, outermost first, in one pass that stops at the highest index.
 
 ### Changed
+- A spec's `version` may leave out `values`: the spec then covers the codes of the element it names, in the order written; with no codes there, loading fails with `VersionError::NoCodes`. The built-in guides write their versions once, in GS08's codes, so a built-in's `Spec.to_json()` has `version` without `values`, and the 4010 stack lists 80 changes (its `version` is no longer one).
+- The package format is 2. A reader takes formats 1 and 2; the shipped 5010 guide is written in format 2, so an older oxedi refuses it with `package format 2 is newer than 1, …`.
 - Rust: `Finding::ReadBack` holds a `Box<Diagnostic>`.
 - Writing with the 4010 spec writes the payer technical contact (`payments.payer_technical_contact_name`, `_qualifier`, `_number`: `PER` with PER01 `BL` in loop 1000A) where reading takes it from. The 4010 list of PER01 (`CX`) leaves `BL` out, so the written file reads back with that diagnostic as a `ReadBack` finding instead of three `UnwrittenValue` findings.
 - The writer places a column in the occurrence the reader reads it from. A column whose `where` code its element's code list leaves out is written, and reported when the file is read back, instead of being refused or left unwritten; a column whose segment and `where` fit several occurrences told apart by a qualifier it does not fix is refused (`AmbiguousSource`) even when another element's code list would tell them apart.

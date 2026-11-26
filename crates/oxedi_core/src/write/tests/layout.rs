@@ -5,7 +5,7 @@ use crate::write::layout::Layout;
 use crate::write::*;
 
 /// The layout both built-in specs make: the same loops, plan segments and
-/// tables, so the same order, forced openers, group columns, depths and
+/// tables, so the same order, forced openers, group columns and
 /// capacities.
 const BUILT_IN_LAYOUT: &str = "Layout { order: [\
 [Segment(0), Segment(1), Segment(2), Segment(3)], \
@@ -20,7 +20,6 @@ forced: [[true, false, false, false], [true, false, false], [true], \
 [true, false, false, false, false, false, false, false], [true, false, false, false, false], \
 [false], [false], [false, false, false, false, false, false]], \
 group_columns: [[], [], [11], [], [], [], [], []], \
-depth: [None, None, None, None, None, Some(1), Some(0), Some(2)], \
 capacity: [6, 1, 1, 6, 1] }";
 
 #[test]

@@ -13,7 +13,9 @@
 use std::borrow::Cow;
 
 use crate::delimiters::{Delimiters, HeaderPositions};
-use crate::spec::{ElementDef, ElementRule, LoopDef, OccurrenceDef, Spec};
+use crate::spec::{
+    ElementDef, ElementRule, EnvelopeField, EnvelopeFields, LoopDef, OccurrenceDef, Spec,
+};
 use crate::value::{ElementTextError, ElementType};
 
 use super::finding::WriteError;
@@ -111,18 +113,11 @@ impl Envelope {
     }
 }
 
-/// A caller's field, by the name a finding gives it.
+/// What an envelope element's value comes from, by the name a finding gives it.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(super) enum Field {
-    SenderQualifier,
-    SenderId,
-    ReceiverQualifier,
-    ReceiverId,
-    ApplicationSender,
-    ApplicationReceiver,
-    Date,
-    Time,
-    UsageIndicator,
+    /// A caller's field the loop's `control.fields` puts on the element.
+    Caller(EnvelopeField),
     ControlNumber,
     Repetition,
     Component,
@@ -132,15 +127,7 @@ pub(super) enum Field {
 impl Field {
     pub(super) fn name(self) -> &'static str {
         match self {
-            Field::SenderQualifier => "sender_qualifier",
-            Field::SenderId => "sender_id",
-            Field::ReceiverQualifier => "receiver_qualifier",
-            Field::ReceiverId => "receiver_id",
-            Field::ApplicationSender => "application_sender",
-            Field::ApplicationReceiver => "application_receiver",
-            Field::Date => "date",
-            Field::Time => "time",
-            Field::UsageIndicator => "usage_indicator",
+            Field::Caller(field) => field.word(),
             Field::ControlNumber => "control_number",
             Field::Repetition => "delimiters.repetition",
             Field::Component => "delimiters.component",
@@ -149,30 +136,12 @@ impl Field {
     }
 }
 
-/// The caller's fields in the X12 envelope layout, by depth among the
-/// envelope loops (interchange, functional group, transaction set) and
-/// element position. The transaction set header takes none: its optional
-/// implementation convention reference is not written, since nothing in the
-/// tables or the envelope carries it.
-const LAYOUT: [&[(usize, Field)]; 3] = [
-    &[
-        (5, Field::SenderQualifier),
-        (6, Field::SenderId),
-        (7, Field::ReceiverQualifier),
-        (8, Field::ReceiverId),
-        (9, Field::Date),
-        (10, Field::Time),
-        (HeaderPositions::ISA.repetition, Field::Repetition),
-        (15, Field::UsageIndicator),
-        (HeaderPositions::ISA.component, Field::Component),
-    ],
-    &[
-        (2, Field::ApplicationSender),
-        (3, Field::ApplicationReceiver),
-        (4, Field::Date),
-        (5, Field::Time),
-    ],
-    &[],
+/// The delimiter places of the interchange header, which the syntax layer owns
+/// and the top envelope loop's trigger holds; a caller's field never takes
+/// them.
+const HEADER_DELIMITERS: [(usize, Field); 2] = [
+    (HeaderPositions::ISA.repetition, Field::Repetition),
+    (HeaderPositions::ISA.component, Field::Component),
 ];
 
 /// The role of each delimiter, as messages name it.
@@ -234,10 +203,6 @@ pub(super) fn delimiters(
     Ok(all)
 }
 
-/// Depth of the interchange among the envelope loops: it is the root
-/// envelope loop, and a loop's depth is the number of envelope loops above it.
-const INTERCHANGE_DEPTH: usize = 0;
-
 /// The bytes the writer puts in the interchange header's version element
 /// (ISA12), found the way the header writes every element, or nothing when
 /// the spec has no envelope loop or its header has no such element.
@@ -254,14 +219,7 @@ pub(super) fn interchange_version(spec: &Spec, envelope: &Envelope) -> Vec<u8> {
         envelope.control_number,
         trigger_rule(spec, root, control.opener_element),
     );
-    let header = Header::new(
-        spec,
-        root,
-        INTERCHANGE_DEPTH,
-        control.opener_element,
-        &number,
-        envelope,
-    );
+    let header = Header::new(spec, root, &number, envelope);
     spec.element_def(&root.trigger.segment, HeaderPositions::ISA.version, None)
         .and_then(|def| header.value(HeaderPositions::ISA.version, def))
         .map(|value| value.bytes)
@@ -296,20 +254,18 @@ pub(super) fn trigger_rule<'s>(
     ))
 }
 
-/// The values of an envelope loop's trigger segment, at `depth` among the
-/// envelope loops, with `control` the instance's control number.
+/// The values of an envelope loop's trigger segment, with `control` the
+/// instance's control number.
 pub(super) fn trigger_values(
     spec: &Spec,
     def: &LoopDef,
-    depth: usize,
-    opener_element: usize,
     control: &[u8],
     envelope: &Envelope,
 ) -> Vec<EnvelopeValue> {
     let Some(segment) = spec.segment(&def.trigger.segment) else {
         return Vec::new();
     };
-    let header = Header::new(spec, def, depth, opener_element, control, envelope);
+    let header = Header::new(spec, def, control, envelope);
     segment
         .elements
         .iter()
@@ -321,7 +277,8 @@ pub(super) fn trigger_values(
 enum Source<'a> {
     /// The control number the loop's `control` places on the opener element.
     Control,
-    /// The caller's field for that element in the X12 envelope layout.
+    /// The caller's field the loop's `control.fields`, or the header's
+    /// delimiter places, put on that element.
     Field(Field),
     /// The spec's declared version, when it sits on that segment and element.
     Version(&'a [u8]),
@@ -338,28 +295,29 @@ struct Header<'a> {
     trigger: &'a [u8],
     /// The occurrence the trigger opens on, whose entries narrow the rules.
     occurrence: Option<&'a OccurrenceDef>,
-    depth: usize,
-    opener_element: usize,
+    /// The element that holds the control number, when the loop has a `control`.
+    opener: Option<usize>,
+    /// The caller's fields the loop's `control` places.
+    fields: EnvelopeFields,
+    /// Whether the trigger sits on a top loop and so holds the delimiter places.
+    holds_delimiters: bool,
     control: &'a [u8],
     envelope: &'a Envelope,
 }
 
 impl<'a> Header<'a> {
-    /// The header of `def`'s trigger, at `depth` among the envelope loops.
-    fn new(
-        spec: &'a Spec,
-        def: &'a LoopDef,
-        depth: usize,
-        opener_element: usize,
-        control: &'a [u8],
-        envelope: &'a Envelope,
-    ) -> Self {
+    /// The header of `def`'s trigger.
+    fn new(spec: &'a Spec, def: &'a LoopDef, control: &'a [u8], envelope: &'a Envelope) -> Self {
         Header {
             spec,
             trigger: &def.trigger.segment,
             occurrence: def.trigger_entry(),
-            depth,
-            opener_element,
+            opener: def.control.map(|control| control.opener_element),
+            fields: def
+                .control
+                .map(|control| control.fields)
+                .unwrap_or_default(),
+            holds_delimiters: def.parent.is_none(),
             control,
             envelope,
         }
@@ -374,7 +332,7 @@ impl<'a> Header<'a> {
     /// the caller's field, the declared version, the first code its rule
     /// allows, nothing.
     fn source(&self, position: usize, rule: &ElementRule<'a>) -> Source<'a> {
-        if position == self.opener_element {
+        if self.opener == Some(position) {
             return Source::Control;
         }
         if let Some(field) = self.field(position) {
@@ -388,13 +346,15 @@ impl<'a> Header<'a> {
             .map_or(Source::Nothing, |code| Source::Code(code))
     }
 
-    /// The caller's field the X12 envelope layout puts on `position`.
+    /// What the loop puts on `position`: a delimiter place of the header, else
+    /// the caller's field its `control.fields` names.
     fn field(&self, position: usize) -> Option<Field> {
-        let layout = LAYOUT.get(self.depth).copied().unwrap_or_default();
-        layout
+        let delimiter = HEADER_DELIMITERS
             .iter()
-            .find(|(at, _)| *at == position)
+            .find(|(at, _)| self.holds_delimiters && *at == position);
+        delimiter
             .map(|(_, field)| *field)
+            .or_else(|| self.fields.at(position).map(Field::Caller))
     }
 
     /// The spec's declared version, when it sits on this segment and
@@ -472,25 +432,29 @@ fn field_value(
     let text = |value: &str| Some(Ok((value.as_bytes().to_vec(), true)));
     let delimiters = &envelope.delimiters;
     match field {
-        Field::SenderQualifier => text(&envelope.sender_qualifier),
-        Field::SenderId => text(&envelope.sender_id),
-        Field::ReceiverQualifier => text(&envelope.receiver_qualifier),
-        Field::ReceiverId => text(&envelope.receiver_id),
-        Field::ApplicationSender => text(
+        Field::Caller(EnvelopeField::SenderQualifier) => text(&envelope.sender_qualifier),
+        Field::Caller(EnvelopeField::SenderId) => text(&envelope.sender_id),
+        Field::Caller(EnvelopeField::ReceiverQualifier) => text(&envelope.receiver_qualifier),
+        Field::Caller(EnvelopeField::ReceiverId) => text(&envelope.receiver_id),
+        Field::Caller(EnvelopeField::ApplicationSender) => text(
             envelope
                 .application_sender
                 .as_deref()
                 .unwrap_or(envelope.sender_id.trim_end()),
         ),
-        Field::ApplicationReceiver => text(
+        Field::Caller(EnvelopeField::ApplicationReceiver) => text(
             envelope
                 .application_receiver
                 .as_deref()
                 .unwrap_or(envelope.receiver_id.trim_end()),
         ),
-        Field::Date => Some(envelope_date(envelope.date, rule.length.max).map(|text| (text, true))),
-        Field::Time => Some(envelope_time(envelope.time, rule.length.max).map(|text| (text, true))),
-        Field::UsageIndicator => text(&envelope.usage_indicator),
+        Field::Caller(EnvelopeField::Date) => {
+            Some(envelope_date(envelope.date, rule.length.max).map(|text| (text, true)))
+        }
+        Field::Caller(EnvelopeField::Time) => {
+            Some(envelope_time(envelope.time, rule.length.max).map(|text| (text, true)))
+        }
+        Field::Caller(EnvelopeField::UsageIndicator) => text(&envelope.usage_indicator),
         Field::Repetition => match (delimiters.repetition, rule.codes.first()) {
             (Some(byte), _) => Some(Ok((vec![byte], false))),
             (None, Some(code)) => Some(Ok((code.as_bytes().to_vec(), true))),

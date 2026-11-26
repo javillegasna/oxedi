@@ -1,7 +1,7 @@
 //! What the emitter works out once per spec: the order of each loop's
 //! segments and child loops, which segments are written even without data,
-//! the columns that tell one grouped instance from the next, the depth of
-//! each envelope loop and how many element groups a repeat segment holds.
+//! the columns that tell one grouped instance from the next and how many
+//! element groups a repeat segment holds.
 
 use crate::spec::{LoopId, Spec, TableDef};
 
@@ -29,8 +29,6 @@ pub(super) struct Layout {
     /// By loop given instances by groups of rows: the columns whose values
     /// tell one group from the next.
     pub(super) group_columns: Vec<Vec<usize>>,
-    /// By loop: its depth among the envelope loops, for one with a `control`.
-    pub(super) depth: Vec<Option<usize>>,
     /// By table: how many element groups one of its segments holds (1 for a
     /// table without a repeat).
     pub(super) capacity: Vec<usize>,
@@ -42,7 +40,6 @@ impl Layout {
             order: Vec::with_capacity(spec.loops().len()),
             forced: Vec::with_capacity(spec.loops().len()),
             group_columns: Vec::with_capacity(spec.loops().len()),
-            depth: Vec::with_capacity(spec.loops().len()),
             capacity: spec
                 .tables()
                 .iter()
@@ -100,13 +97,6 @@ impl Layout {
                     })
                     .collect(),
             );
-            let depth = def.control.map(|_| {
-                spec.ancestors(LoopId(index))
-                    .into_iter()
-                    .filter(|&id| spec.get(id).control.is_some())
-                    .count()
-            });
-            layout.depth.push(depth);
         }
         layout
     }

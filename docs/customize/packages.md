@@ -351,6 +351,7 @@ write now.
 | `Spec.to_json()`, Rust `LoadedSpec::to_json` | write `usage` and `elements`, the keys the format now uses |
 | a missing-element or length diagnostic | may end with `in occurrence "<name>"` when the occurrence's entry set the rule |
 | Rust `OccurrenceError::QualifierCodeOutsideElement` | `OccurrenceError::CodeOutsideElement`, with a new `key` field (`qualifier.codes` or `elements.<pos>.codes`); a qualifier's text is unchanged |
+| an envelope loop's sender, receiver, date and time placed by oxedi | the loop's `"control": {"fields": {"<element>": "<field>"}}`, as `oxedi/envelope/005010` writes them |
 
 An old key is refused with the keys that are allowed:
 

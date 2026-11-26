@@ -2,7 +2,7 @@
 
 use std::fmt;
 
-use crate::message::Conditions;
+use crate::problem::text::Conditions;
 
 /// The parent of sibling loops as a message names it: quoted, or `the root`.
 pub(super) struct Under<'a>(pub(super) Option<&'a str>);

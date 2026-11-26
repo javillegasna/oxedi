@@ -3,9 +3,9 @@
 
 use std::fmt;
 
+use super::text::Counted;
 use crate::delimiters::{HeaderPositions, ISA_ID, IsaError};
 use crate::document::{DocumentError, SizeError};
-use crate::message::Counted;
 use crate::segment::SegmentWriteError;
 
 impl fmt::Display for IsaError {

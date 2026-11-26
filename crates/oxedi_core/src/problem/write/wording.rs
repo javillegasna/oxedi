@@ -6,7 +6,7 @@
 
 use std::fmt;
 
-use crate::message::render_names;
+use crate::problem::text::render_names;
 
 use crate::write::ValueOrigin;
 

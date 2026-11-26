@@ -2,7 +2,7 @@
 
 use std::fmt;
 
-use crate::message::{Counted, render_names};
+use crate::problem::text::{Counted, render_names};
 use crate::write::{LoopWriter, PlanError, Refusal};
 
 use super::wording::{Matches, Numbered, Source, WrittenBy};

@@ -2,7 +2,7 @@
 
 use std::fmt;
 
-use crate::message::Counted;
+use super::text::Counted;
 use crate::validate::{
     CannotWrite, Capability, Invalid, NoPatientData, Reasons, Text, Valid, Validation,
 };

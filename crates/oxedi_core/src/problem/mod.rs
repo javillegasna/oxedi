@@ -10,7 +10,7 @@
 //! `load/` (the text of the problems a spec, a package or a kit raises),
 //! `syntax.rs` (the interchange header, a document, a segment), `value.rs`
 //! (conversions, cells and rows), `lookup.rs` (tables, columns, masks and
-//! summaries), and `validate.rs` and `conformance.rs` (what the tools answer).
+//! summaries), `text.rs` (the pieces the texts are written from), and `validate.rs` and `conformance.rs` (what the tools answer).
 
 mod conformance;
 mod diagnostic;
@@ -19,9 +19,9 @@ mod lookup;
 mod shape;
 mod spec;
 mod syntax;
-mod text;
 #[cfg(test)]
 mod tests;
+mod text;
 mod validate;
 mod value;
 mod write;

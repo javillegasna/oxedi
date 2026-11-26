@@ -2,7 +2,8 @@
 
 use std::fmt;
 
-use crate::message::{Conditions, ElementRef, MAX_LISTED_CODES, render_key, render_names};
+use super::text::{Conditions, MAX_LISTED_CODES, render_names};
+use crate::message::{ElementRef, render_key};
 use crate::spec::{NamedTerm, Selector, Terms};
 
 impl fmt::Display for Selector {

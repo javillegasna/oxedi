@@ -4,7 +4,8 @@
 use std::fmt;
 
 use crate::delimiters::{HeaderPositions, ISA_ID};
-use crate::message::{Counted, Quoted};
+use crate::message::Quoted;
+use crate::problem::text::Counted;
 use crate::write::{Finding, ValueOrigin, WriteError};
 
 use super::wording::{Numbered, ReadBackOrigin, Reference};

@@ -1,10 +1,8 @@
-//! The pieces messages are written from, shared by the diagnostics, the spec
-//! errors, the write findings and the project errors: file bytes quoted on
-//! one line (`Quoted`), a key in a rendered path (`render_key`), an element
-//! reference (`ElementRef`, the one public item), a trigger's conditions
-//! (`Conditions`), a list of names (`render_names`), a count and its noun
-//! (`Counted`) and the longest code list a message spells out
-//! (`MAX_LISTED_CODES`).
+//! The pieces messages are written from that are notation, not prose: file
+//! bytes quoted on one line (`Quoted`), a key in a rendered path
+//! (`render_key`) and an element reference (`ElementRef`, the one public
+//! item). The prose helpers (counts, conditions, name lists) are in the
+//! problem module.
 //!
 //! The module depends on nothing else in the crate, so every part of the
 //! crate that writes a message can use it without a cycle.

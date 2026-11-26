@@ -1,7 +1,7 @@
 //! The text of the writer's message pieces.
 
 use super::wording::{Matches, Numbered, ReadBackOrigin, Reference, Source, WrittenBy};
-use crate::message::Counted;
+use crate::problem::text::Counted;
 use crate::write::ValueOrigin;
 
 #[test]

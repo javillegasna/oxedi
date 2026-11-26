@@ -26,6 +26,7 @@ fn a_package_reads_its_header_and_keeps_its_spec() {
 
 #[test]
 fn every_format_up_to_the_readers_reads() {
+    assert_eq!(PackageHeader::FORMAT, 3);
     for n in 1..=PackageHeader::FORMAT {
         let header = HEADER.replace("\"format\":1", &format!("\"format\":{n}"));
         assert!(Package::from_json(&package_text(&header, "{}")).is_ok());
@@ -34,20 +35,20 @@ fn every_format_up_to_the_readers_reads() {
 
 #[test]
 fn a_newer_format_is_refused_naming_both_before_its_keys() {
-    let header = r#"{"format":3,"id":"test/envelope/005010","layers":["envelope"],"bases":[],"hierarchy":{}}"#;
+    let header = r#"{"format":4,"id":"test/envelope/005010","layers":["envelope"],"bases":[],"hierarchy":{}}"#;
     let err = read_err(&package_text(header, "{}"));
     assert!(matches!(
         err,
         SpecError::BadHeader {
             reason: HeaderError::FormatTooNew {
-                found: 3,
-                reader: 2
+                found: 4,
+                reader: 3
             }
         }
     ));
     assert_eq!(
         err.to_string(),
-        "the package header is invalid: package format 3 is newer than 2, the newest format this reader takes; read the package with a newer oxedi, or write it in format 2"
+        "the package header is invalid: package format 4 is newer than 3, the newest format this reader takes; read the package with a newer oxedi, or write it in format 3"
     );
 }
 

@@ -6,7 +6,7 @@ use serde::Deserializer;
 
 use super::declare::spec_object;
 use super::{positions, present};
-use crate::spec::{ControlCount, Usage};
+use crate::spec::{ControlCount, EnvelopeField, Usage};
 use crate::spec_load::ElementPosition;
 
 spec_object! {
@@ -102,4 +102,14 @@ spec_object! {
     count_element: usize, required;
     /// What the count counts.
     count: ControlCount, required;
+    /// The caller's field each element of the trigger carries, by 1-based
+    /// element position.
+    #[serde(deserialize_with = "control_fields")]
+    fields: BTreeMap<usize, EnvelopeField>, default;
+}
+
+fn control_fields<'de, D: Deserializer<'de>>(
+    deserializer: D,
+) -> Result<BTreeMap<usize, EnvelopeField>, D::Error> {
+    positions(deserializer, "control \"fields\"")
 }

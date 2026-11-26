@@ -209,12 +209,12 @@ refusing a change that is not stricter. Read the list.
 
 ## The format number
 
-- This version of oxedi reads format 2, its newest. A reader reads its own number and every lower
+- This version of oxedi reads format 3, its newest. A reader reads its own number and every lower
   one. Format 2 lets a spec's `version` leave out `values`; packages that write `values` read in
-  both.
+  both. Format 3 lets an envelope loop's `control` state `fields`.
 - A package with a higher number is refused before any other key is read, so a newer key never
-  shows up as unknown. The error names both numbers: `package format 3 is newer than 2, the newest
-  format this reader takes; read the package with a newer oxedi, or write it in format 2`.
+  shows up as unknown. The error names both numbers: `package format 4 is newer than 3, the newest
+  format this reader takes; read the package with a newer oxedi, or write it in format 3`.
 - Every key the format does not have is refused. When oxedi adds an optional key, the number goes
   up by one: packages that do not use the key keep loading, and one that uses it says the new
   number, so an older oxedi refuses it with that text instead of reading it wrongly.

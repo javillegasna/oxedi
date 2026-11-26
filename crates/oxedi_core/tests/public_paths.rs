@@ -66,6 +66,8 @@ mod by_module {
     use oxedi_core::spec::DeclaredVersion;
     use oxedi_core::spec::ElementDef;
     use oxedi_core::spec::ElementEntry;
+    use oxedi_core::spec::EnvelopeField;
+    use oxedi_core::spec::EnvelopeFields;
     use oxedi_core::spec::LoopDef;
     use oxedi_core::spec::LoopId;
     use oxedi_core::spec::OccurrenceId;
@@ -226,9 +228,10 @@ use oxedi_core::StructureChecker;
 use oxedi_core::Tokenizer;
 use oxedi_core::{
     AnchorChains, AnchorPositions, Builtin, ColumnSource, Control, ControlCount, ControlError,
-    DeclaredVersion, ElementDef, ElementDefError, ElementType, LoadedSpec, LoopDef, LoopId,
-    LoopSegments, OccurrenceId, Pick, Repeat, SegmentDef, Spec, SpecError, TableDef, TableDefError,
-    Trigger, UnknownColumn, UnknownTable, UnknownVersion, Version, VersionError, merge_patch,
+    DeclaredVersion, ElementDef, ElementDefError, ElementType, EnvelopeField, EnvelopeFields,
+    LoadedSpec, LoopDef, LoopId, LoopSegments, OccurrenceId, Pick, Repeat, SegmentDef, Spec,
+    SpecError, TableDef, TableDefError, Trigger, UnknownColumn, UnknownTable, UnknownVersion,
+    Version, VersionError, merge_patch,
 };
 use oxedi_core::{
     Bitmap, Cell, CellError, Column, ColumnData, ColumnType, RowError, Table, Tables,

@@ -8,7 +8,7 @@ use serde::de::{self, Deserialize, Deserializer};
 use serde::ser::{Serialize, Serializer};
 
 use super::segments::parse_position;
-use crate::spec::{ControlCount, Sign, Usage};
+use crate::spec::{ControlCount, EnvelopeField, Sign, Usage};
 use crate::vocabulary::{Vocabulary, serde_by_word};
 
 impl Vocabulary for Usage {
@@ -47,7 +47,16 @@ impl Vocabulary for Sign {
     }
 }
 
-serde_by_word!(Usage, ControlCount, Sign);
+impl Vocabulary for EnvelopeField {
+    const KEY: &'static str = "field";
+    const ALL: &'static [EnvelopeField] = &EnvelopeField::ALL;
+
+    fn word(self) -> &'static str {
+        EnvelopeField::word(self)
+    }
+}
+
+serde_by_word!(Usage, ControlCount, Sign, EnvelopeField);
 
 /// The position an `elements` key names: an element and maybe one of its
 /// components, written `<element>` or `<element>-<component>`.

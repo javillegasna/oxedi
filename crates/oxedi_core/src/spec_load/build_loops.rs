@@ -7,7 +7,7 @@ use std::fmt;
 
 use super::error::SpecError;
 use super::model::{ControlModel, LoopModel};
-use crate::spec::{Control, LoopDef, LoopId, Trigger};
+use crate::spec::{Control, EnvelopeField, EnvelopeFields, LoopDef, LoopId, Trigger};
 
 /// A check of a loop's own keys: the error when the loop breaks it.
 type HeaderRule = fn(&str, &LoopModel) -> Option<SpecError>;
@@ -128,6 +128,22 @@ pub enum ControlError {
     },
     /// The loop has no `end` segment to carry the count and control number.
     NoEnd,
+    /// A field sits on the element that holds the control number.
+    FieldOnOpener {
+        /// The 1-based element, the opener's.
+        element: usize,
+        /// The field the spec puts there.
+        field: EnvelopeField,
+    },
+    /// One field sits on two elements.
+    FieldTwice {
+        /// The field written twice.
+        field: EnvelopeField,
+        /// The lower element.
+        first: usize,
+        /// The higher element.
+        second: usize,
+    },
 }
 
 impl fmt::Display for ControlError {
@@ -137,6 +153,20 @@ impl fmt::Display for ControlError {
                 write!(f, "{key:?} must be a 1-based element position; found 0")
             }
             ControlError::NoEnd => write!(f, "the loop has no \"end\" segment to check"),
+            ControlError::FieldOnOpener { element, field } => write!(
+                f,
+                "\"fields\" puts {:?} on element {element}, which holds the control number (\"opener_element\"); move the field to another element",
+                field.word()
+            ),
+            ControlError::FieldTwice {
+                field,
+                first,
+                second,
+            } => write!(
+                f,
+                "\"fields\" puts {:?} on elements {first} and {second}; a field goes on one element",
+                field.word()
+            ),
         }
     }
 }
@@ -159,7 +189,27 @@ fn compile_control(raw: &ControlModel, has_end: bool) -> Result<Control, Control
         closer_element: raw.closer_element,
         count_element: raw.count_element,
         count: raw.count,
+        fields: compile_fields(raw)?,
     })
+}
+
+// The fields by element, in ascending element order, each on one element and
+// none on the one that holds the control number.
+fn compile_fields(raw: &ControlModel) -> Result<EnvelopeFields, ControlError> {
+    raw.fields
+        .iter()
+        .try_fold(EnvelopeFields::default(), |placed, (&element, &field)| {
+            if element == raw.opener_element {
+                return Err(ControlError::FieldOnOpener { element, field });
+            }
+            placed
+                .place(element, field)
+                .map_err(|first| ControlError::FieldTwice {
+                    field,
+                    first,
+                    second: element,
+                })
+        })
 }
 
 /// Fails with the first parent cycle found, walking from each loop in spec

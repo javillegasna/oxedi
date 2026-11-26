@@ -58,7 +58,7 @@ fn an_unknown_key_is_rejected_with_its_key_path() {
             loop_json(
                 r#"{"trigger":{"segment":"HD"},"end":"TR","control":{"opener_element":2,"closer_element":2,"count_element":1,"count":"segments","extra":0}}"#,
             ),
-            "spec: at loops.env.control.extra: unknown field `extra`, expected one of `opener_element`, `closer_element`, `count_element`, `count`",
+            "spec: at loops.env.control.extra: unknown field `extra`, expected one of `opener_element`, `closer_element`, `count_element`, `count`, `fields`",
         ),
     ];
     for (json, expected) in cases {

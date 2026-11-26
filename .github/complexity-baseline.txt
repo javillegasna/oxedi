@@ -34,6 +34,7 @@ crates/oxedi_core/src/project/mask.rs	masked_datum	11	1
 crates/oxedi_core/src/project/mask.rs	seed	8	1
 crates/oxedi_core/src/project/mask.rs	values	9	3
 crates/oxedi_core/src/project/quote.rs	unquoted	11	4
+crates/oxedi_core/src/spec/envelope_fields.rs	word	9	0	flat
 crates/oxedi_core/src/spec_load/balance_error.rs	fmt	9	0	flat
 crates/oxedi_core/src/spec_load/build.rs	check_ambiguity	10	4
 crates/oxedi_core/src/spec_load/compile.rs	link_tables	17	4

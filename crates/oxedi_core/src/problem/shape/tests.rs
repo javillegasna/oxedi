@@ -5,7 +5,7 @@ use crate::document::{DocumentError, SizeError};
 use crate::message::ElementRef;
 use crate::value::ElementTextError;
 use crate::write::Finding;
-use crate::write::{PlanError, WriteError};
+use crate::write::{LoopWriter, PlanError, Refusal, WriteError};
 
 fn unknown_segment() -> Diagnostic {
     Diagnostic::new(
@@ -44,6 +44,10 @@ fn not_isa() -> IsaError {
         byte_order_mark: false,
         whitespace: 0,
     }
+}
+
+fn table<'a>(name: &'a str, column: Option<&'a str>) -> Place<'a> {
+    Place::Spec(SpecPlace::Table { name, column })
 }
 
 #[test]
@@ -279,4 +283,166 @@ fn document_error_kinds() {
         DocumentError::Size(SizeError { len: 1 }).kind(),
     ];
     assert_eq!(kinds, ["Isa", "Size"]);
+}
+
+#[test]
+fn refusal_places() {
+    let duplicate = Refusal::DuplicateSource {
+        table: "t".into(),
+        column: "c".into(),
+        other: "o".into(),
+        loop_name: "2100".into(),
+        occurrence: "x".into(),
+        place: ElementRef::simple(b"CLP".to_vec(), 1),
+    };
+    assert_eq!(
+        (duplicate.kind(), duplicate.place()),
+        ("DuplicateSource", table("t", Some("c")))
+    );
+    let element = |table: Option<&str>| Refusal::RequiredElementWithoutSource {
+        table: table.map(String::from),
+        loop_name: "2100".into(),
+        occurrence: "x".into(),
+        place: ElementRef::simple(b"CLP".to_vec(), 1),
+        name: "n".into(),
+    };
+    assert_eq!(element(Some("t")).place(), table("t", None));
+    assert_eq!(
+        element(None).place(),
+        Place::Spec(SpecPlace::Loop {
+            name: "2100",
+            occurrence: Some("x")
+        })
+    );
+    let loop_ = Refusal::RequiredLoopWithoutSource {
+        loop_name: "2100".into(),
+        parent: "2000".into(),
+        trigger: crate::spec::Selector::Occurrence {
+            segment: b"NM1".to_vec(),
+            qualifier: None,
+        },
+    };
+    assert_eq!(
+        loop_.place(),
+        Place::Spec(SpecPlace::Loop {
+            name: "2100",
+            occurrence: None
+        })
+    );
+    let written = Refusal::WrittenByAnotherTable {
+        table: "t".into(),
+        column: "c".into(),
+        loop_name: "l".into(),
+        writer: LoopWriter::Envelope,
+    };
+    assert_eq!(written.kind(), "WrittenByAnotherTable");
+}
+
+#[test]
+fn refusal_kinds() {
+    let s = |text: &str| text.to_string();
+    let trigger = crate::spec::Selector::Occurrence {
+        segment: b"NM1".to_vec(),
+        qualifier: None,
+    };
+    let place = || ElementRef::simple(b"CLP".to_vec(), 1);
+    let refusals = [
+        Refusal::RequiredLoopWithoutSource {
+            loop_name: s("l"),
+            parent: s("p"),
+            trigger: trigger.clone(),
+        },
+        Refusal::RequiredOccurrenceWithoutSource {
+            loop_name: s("l"),
+            occurrence: s("o"),
+            selector: trigger.clone(),
+        },
+        Refusal::RequiredElementWithoutSource {
+            table: None,
+            loop_name: s("l"),
+            occurrence: s("o"),
+            place: place(),
+            name: s("n"),
+        },
+        Refusal::AmbiguousSource {
+            table: s("t"),
+            column: None,
+            loop_name: s("l"),
+            source: trigger.clone(),
+            candidates: Vec::new(),
+        },
+        Refusal::PickNotContiguous {
+            table: s("t"),
+            column: s("c"),
+            loop_name: s("l"),
+            occurrence: s("o"),
+            picks: Vec::new(),
+        },
+        Refusal::WrittenByAnotherTable {
+            table: s("t"),
+            column: s("c"),
+            loop_name: s("l"),
+            writer: LoopWriter::Envelope,
+        },
+        Refusal::DuplicateSource {
+            table: s("t"),
+            column: s("c"),
+            other: s("o"),
+            loop_name: s("l"),
+            occurrence: s("o"),
+            place: place(),
+        },
+        Refusal::EnvelopeColumn {
+            table: s("t"),
+            column: s("c"),
+            loop_name: s("l"),
+            occurrence: s("o"),
+        },
+        Refusal::EnvelopeWithoutOccurrence {
+            loop_name: s("l"),
+            trigger,
+        },
+        Refusal::AnchoredByAnotherTable {
+            table: s("t"),
+            loop_name: s("l"),
+            other: s("o"),
+        },
+        Refusal::SeveralAnchorLoops {
+            table: s("t"),
+            loops: Vec::new(),
+        },
+        Refusal::RepeatWithoutInstances {
+            table: s("t"),
+            loop_name: s("l"),
+            segment: None,
+        },
+        Refusal::CodeOutsideList {
+            table: s("t"),
+            column: None,
+            loop_name: s("l"),
+            occurrence: s("o"),
+            place: place(),
+            value: s("v"),
+            codes: Vec::new(),
+        },
+    ];
+    let kinds: Vec<&str> = refusals.iter().map(Problem::kind).collect();
+    assert_eq!(
+        kinds,
+        [
+            "RequiredLoopWithoutSource",
+            "RequiredOccurrenceWithoutSource",
+            "RequiredElementWithoutSource",
+            "AmbiguousSource",
+            "PickNotContiguous",
+            "WrittenByAnotherTable",
+            "DuplicateSource",
+            "EnvelopeColumn",
+            "EnvelopeWithoutOccurrence",
+            "AnchoredByAnotherTable",
+            "SeveralAnchorLoops",
+            "RepeatWithoutInstances",
+            "CodeOutsideList"
+        ]
+    );
 }

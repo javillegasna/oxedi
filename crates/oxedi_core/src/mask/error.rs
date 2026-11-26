@@ -20,21 +20,4 @@ pub enum MaskError {
     },
 }
 
-impl fmt::Display for MaskError {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match self {
-            MaskError::ShortKey { length } => write!(
-                f,
-                "the mask key must be at least {} bytes long; got {length}",
-                Mask::MIN_KEY
-            ),
-            MaskError::UnknownDateMode { given } => write!(
-                f,
-                "the mask date mode must be {}; got {given:?}",
-                words_text::<DateMode>()
-            ),
-        }
-    }
-}
-
 impl std::error::Error for MaskError {}

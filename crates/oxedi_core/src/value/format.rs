@@ -192,26 +192,4 @@ pub enum ElementTextError {
     },
 }
 
-impl fmt::Display for ElementTextError {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match self {
-            ElementTextError::YearOutOfRange => {
-                write!(f, "a date needs a year from 1 to 9999")
-            }
-            ElementTextError::TwoDigitYear { year } => write!(
-                f,
-                "the element holds a two-digit year, read as 1950 to 2049; the year is {year}"
-            ),
-            ElementTextError::TimeOutsideDay => write!(f, "a time must fall within one day"),
-            ElementTextError::SecondsNotHeld => {
-                write!(f, "the element holds hours and minutes only")
-            }
-            ElementTextError::NoDecimalScale { kind } => write!(
-                f,
-                "a decimal needs the scale of a decimal128 column; the column is {kind}"
-            ),
-        }
-    }
-}
-
 impl std::error::Error for ElementTextError {}

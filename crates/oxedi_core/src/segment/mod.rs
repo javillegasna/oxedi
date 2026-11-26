@@ -160,31 +160,6 @@ pub enum SegmentWriteError {
     },
 }
 
-impl fmt::Display for SegmentWriteError {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match self {
-            SegmentWriteError::Io(e) => write!(f, "write failed: {e}"),
-            SegmentWriteError::DelimiterInValue {
-                byte,
-                element,
-                component,
-            } => {
-                match (element, component) {
-                    (0, _) => write!(f, "segment id")?,
-                    (element, None) => write!(f, "element {element}")?,
-                    (element, Some(component)) => {
-                        write!(f, "element {element} component {component}")?;
-                    }
-                }
-                write!(
-                    f,
-                    " contains delimiter byte 0x{byte:02X} and no release byte is configured"
-                )
-            }
-        }
-    }
-}
-
 impl std::error::Error for SegmentWriteError {
     fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
         // `Io` prints the I/O error in full, so the chain stops here

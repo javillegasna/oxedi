@@ -250,39 +250,6 @@ pub enum CellError {
     },
 }
 
-impl fmt::Display for CellError {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match self {
-            CellError::TypeMismatch {
-                column,
-                cell,
-                value,
-            } => {
-                write!(
-                    f,
-                    "{} {column} column cannot hold {} {cell} value ({value})",
-                    article(&column.to_string()),
-                    article(cell)
-                )
-            }
-            CellError::BinaryOverflow { bytes } => write!(
-                f,
-                "a binary column holds at most {} bytes; this value would bring it to {bytes}",
-                i32::MAX
-            ),
-        }
-    }
-}
-
-/// `an` before a word that starts with a vowel, `a` otherwise.
-fn article(word: &str) -> &'static str {
-    if word.starts_with(['a', 'e', 'i', 'o', 'u']) {
-        "an"
-    } else {
-        "a"
-    }
-}
-
 impl std::error::Error for CellError {}
 
 /// One typed column and the validity of each of its rows.

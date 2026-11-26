@@ -269,7 +269,7 @@ The same concept, named in each binding. The Rust files are under `crates/oxedi_
 | Check a stack, run a kit (`validate::validate`, `conformance::run_kit`) | `oxedi.validate_stack(top, pool)` → `Valid` or `Invalid` (`validate.rs`); `oxedi.run_kit`, `oxedi.kit_files` (`kit.rs`) | — | — |
 | Tables (`Tables`, `Table`) | `Result.tables`, `Table.to_polars()` (`tables.rs`, `arrow.rs`) | the rows of `table_name` (`scan/`, `types/`) | `View.tables` (`TableView`, `ColumnView`) |
 | Table schema (`spec_schema`, `spec/schema.rs`) | `Spec.schema()` | `oxedi_schema()` (`oxedi_schema/`) | — |
-| Loops and their triggers (`Spec::loops`, `LoopDef::trigger`) | `Spec.loops()`, `Spec.trigger_segment(name)`, `Spec.tables()` (`spec.rs`) | — | — |
+| Loops and their triggers (`Spec::loops`, `LoopDef::trigger`) | `Spec.loops()`, `Spec.trigger_segment(name)`, `Spec.tables()` (`spec.rs`), `Spec.envelope()` → `EnvelopeLoop` (`envelope_loop.rs`) | — | — |
 | Column source (`TableDef::column`, `ColumnSource`, `Repeat::holds`) | `Spec.column_source(table, column)` → `ElementSource`; `Spec.element_sources(table)`, `Spec.group_sources(table)` → `GroupSource` (`element_source.rs`) | — | — |
 | Diagnostics (`Diagnostic`) | `Result.diagnostics`, `Diagnostic.kind`, `.rule`, `.datum` (`diagnostic.rs`, reading `Diagnostic::flat`) | `table_name := 'diagnostics'` (`diagnostics/`) | `View.diagnostics` (`DiagnosticView`) |
 | Segments (`Document`, `Segment`) | `Result.document[i]`, `Segment.element(position, component)`, `Segment.has(...)` over `Segment::component` (`document.rs`) | — | `View.segments` (`SegmentView`) |

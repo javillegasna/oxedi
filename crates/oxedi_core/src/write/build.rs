@@ -5,8 +5,8 @@
 use std::collections::BTreeMap;
 
 use crate::spec::{
-    ColumnPlace, ColumnSource, LoopId, LoopRead, OccurrenceDef, Reading, Relation, Spec, TableDef,
-    Target, render_trigger,
+    ColumnPlace, ColumnSource, LoopId, LoopRead, OccurrenceDef, Reading, Relation, Selector, Spec,
+    TableDef, Target,
 };
 use crate::vocabulary::Pick;
 
@@ -14,7 +14,7 @@ use super::codes::{implied_rest, landing};
 use super::plan::{
     ElementPlan, Instances, LoopPlan, SegmentPlan, SegmentSource, ValueSource, WritePlan,
 };
-use super::refusal::{PlanError, Refusal, render_source};
+use super::refusal::{LoopWriter, PlanError, Refusal};
 use super::required::add_qualifier;
 
 /// A refusal carried as the `Err` of a check, boxed to keep the `Result` small.
@@ -153,7 +153,7 @@ impl Builder<'_> {
                 }),
                 None => self.refusals.push(Refusal::EnvelopeWithoutOccurrence {
                     loop_name: def.name.clone(),
-                    trigger: render_trigger(&def.trigger),
+                    trigger: Selector::trigger(&def.trigger),
                 }),
             }
         }
@@ -179,12 +179,10 @@ impl Builder<'_> {
                 return Ok(());
             }
             current if current == kind => return Ok(()),
-            Instances::Envelope => "the envelope".to_string(),
+            Instances::Envelope => LoopWriter::Envelope,
             Instances::Rows { table: other }
             | Instances::Inside { table: other }
-            | Instances::Groups { table: other } => {
-                format!("table {:?}", self.table_name(other))
-            }
+            | Instances::Groups { table: other } => LoopWriter::Table(self.table_name(other)),
             Instances::Implied => return Ok(()),
         };
         Err(Box::new(Refusal::WrittenByAnotherTable {
@@ -294,7 +292,7 @@ impl Builder<'_> {
                 table: table.name.clone(),
                 column: Some(write.name.to_string()),
                 loop_name: self.spec.loop_name(reader).to_string(),
-                source: render_source(write.segment, write.conditions),
+                source: Selector::conditioned(write.segment, write.conditions),
                 candidates,
             })),
         }
@@ -346,7 +344,7 @@ impl Builder<'_> {
                     table: table.name.clone(),
                     column: None,
                     loop_name: def.name.clone(),
-                    source: render_source(segment, &[]),
+                    source: Selector::conditioned(segment, &[]),
                     candidates,
                 }),
             }

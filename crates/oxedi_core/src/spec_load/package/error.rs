@@ -1,11 +1,8 @@
 //! Why a package's identity, header or stack is rejected.
 
-use std::fmt;
-
 use super::change::Change;
 use super::id::{IdPart, PackageId};
 use super::layer::{Layer, Layers};
-use crate::vocabulary::words_text;
 
 /// Why an id does not read.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -35,27 +32,6 @@ pub enum IdError {
     },
 }
 
-impl fmt::Display for IdError {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match self {
-            IdError::Parts { id, form } => {
-                write!(f, "package id \"{id}\" is not written {form}")
-            }
-            IdError::Layer { id, layer } => write!(
-                f,
-                "package id \"{id}\": layer \"{layer}\" must be {}",
-                words_text::<Layer>()
-            ),
-            IdError::Part { id, part, text } => write!(
-                f,
-                "package id \"{id}\": {} \"{text}\" must be {}",
-                part.name(),
-                part.rule()
-            ),
-        }
-    }
-}
-
 impl std::error::Error for IdError {}
 
 /// Why a package header is refused once its keys read.
@@ -82,29 +58,6 @@ pub enum HeaderError {
         /// The base listed twice, boxed to keep the error small.
         base: Box<PackageId>,
     },
-}
-
-impl fmt::Display for HeaderError {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match self {
-            HeaderError::FormatTooNew { found, reader } => write!(
-                f,
-                "package format {found} is newer than {reader}, the newest format this reader \
-                 takes; read the package with a newer oxedi, or write it in format {reader}"
-            ),
-            HeaderError::IdLayerNotTop { id, top } => write!(
-                f,
-                "package \"{id}\" names layer \"{}\" in its id, but the top layer \"layers\" \
-                 lists is \"{top}\"; the id names the package's top layer",
-                id.layer()
-            ),
-            HeaderError::RepeatedBase { package, base } => write!(
-                f,
-                "package \"{package}\" lists base \"{base}\" more than once in \"bases\"; \
-                 list each base once"
-            ),
-        }
-    }
 }
 
 impl std::error::Error for HeaderError {}
@@ -162,74 +115,6 @@ pub enum StackError {
         /// What widened and the package that did it, boxed to keep the error small.
         change: Box<Change>,
     },
-}
-
-impl fmt::Display for StackError {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match self {
-            StackError::UnknownBase { package, base } => write!(
-                f,
-                "package \"{package}\" builds on \"{base}\", which is not among the packages \
-                 given; give that package too, or remove it from \"bases\""
-            ),
-            StackError::DuplicatePackage { id } => write!(
-                f,
-                "two of the packages given are named \"{id}\"; give each package once"
-            ),
-            StackError::LayerOrder {
-                package,
-                lowest,
-                base,
-                base_top,
-            } => write!(
-                f,
-                "package \"{package}\" holds layer \"{lowest}\", which does not come after \
-                 layer \"{base_top}\" of its base \"{base}\"; a package builds only on lower \
-                 layers, unless it is an edition (it holds a layer its base holds) or a patch"
-            ),
-            StackError::KeyNotOwned {
-                package,
-                path,
-                owners,
-                layers,
-            } => {
-                let owners: Vec<String> = owners
-                    .iter()
-                    .map(|owner| format!("{:?}", owner.word()))
-                    .collect();
-                write!(
-                    f,
-                    "package \"{package}\" holds {path}, a key of layer {}, but its layers are \
-                     {layers}; move the key to a package of that layer, or list the layer in \
-                     \"layers\"",
-                    owners.join(" or ")
-                )
-            }
-            StackError::NameFromIdentity { package } => write!(
-                f,
-                "package \"{package}\" holds \"name\"; a stack takes its name from its top \
-                 package's id and only a patch may change it, so remove the key"
-            ),
-            StackError::Widens { change } => write!(
-                f,
-                "package \"{}\" does not only narrow what its bases allow: {change}; a package only narrows \
-                 its bases, unless it is an edition (it holds a layer its base holds) or a patch",
-                change.package
-            ),
-            StackError::BaseCycle { members } => {
-                let circle: Vec<&str> = members
-                    .iter()
-                    .chain(members.first())
-                    .map(PackageId::as_str)
-                    .collect();
-                write!(
-                    f,
-                    "packages form a base cycle: {}; a package cannot build on itself",
-                    circle.join(" -> ")
-                )
-            }
-        }
-    }
 }
 
 impl std::error::Error for StackError {}

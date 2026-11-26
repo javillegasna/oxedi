@@ -2,6 +2,7 @@
 //! text of every error.
 
 use super::assert_model_faults;
+use crate::message::ElementRef;
 use crate::spec::test_support::{builtin, patched};
 use crate::spec::*;
 use crate::spec_load::*;
@@ -265,14 +266,14 @@ fn balance_errors_display_their_full_text() {
         (
             BalanceError::UndefinedElement {
                 key: "sum[0].elements[0]".into(),
-                place: "SVC01-2".into(),
+                place: ElementRef::new(b"SVC".to_vec(), 1, Some(2)),
             },
             "sum[0].elements[0] names SVC01-2, which the \"segments\" section does not define",
         ),
         (
             BalanceError::NotDecimal {
                 key: "sum[0].elements[0]".into(),
-                place: "CLP01".into(),
+                place: ElementRef::new(b"CLP".to_vec(), 1, None),
                 found: "AN".into(),
             },
             "sum[0].elements[0] names CLP01, of type AN; a balancing value must be of type R",
@@ -281,7 +282,7 @@ fn balance_errors_display_their_full_text() {
             BalanceError::RepeatedValue {
                 key: "sum[1].elements[0]".into(),
                 first: "sum[0].elements[0]".into(),
-                place: "CAS03".into(),
+                place: ElementRef::new(b"CAS".to_vec(), 3, None),
             },
             "sum[1].elements[0] counts CAS03 of the same occurrence that sum[0].elements[0] already counts",
         ),

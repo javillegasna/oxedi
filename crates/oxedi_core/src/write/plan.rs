@@ -58,6 +58,16 @@ pub enum SegmentSource {
     },
 }
 
+impl SegmentSource {
+    /// The table that fills the segment; none for an envelope segment.
+    pub(super) fn table(&self) -> Option<usize> {
+        match self {
+            SegmentSource::Envelope => None,
+            SegmentSource::Row { table, .. } | SegmentSource::Repeat { table } => Some(*table),
+        }
+    }
+}
+
 /// Where one element (or component) value comes from.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum ValueSource {
@@ -93,18 +103,18 @@ pub struct ElementPlan {
 
 /// Where a value lands in a segment: an element, or one component of it.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub(super) struct Place {
+pub(super) struct Spot {
     /// 1-based element position.
     pub(super) element: usize,
     /// 1-based component position, for one component of a composite.
     pub(super) component: Option<usize>,
 }
 
-impl Place {
+impl Spot {
     /// Whether both places write the same bytes of a segment: the same
     /// element, and either one is the whole element or both are the same
     /// component.
-    pub(super) fn overlaps(self, other: Place) -> bool {
+    pub(super) fn overlaps(self, other: Spot) -> bool {
         self.element == other.element
             && (self.component.is_none()
                 || other.component.is_none()
@@ -114,8 +124,8 @@ impl Place {
 
 impl ElementPlan {
     /// The element or component this plan writes.
-    pub(super) fn place(&self) -> Place {
-        Place {
+    pub(super) fn place(&self) -> Spot {
+        Spot {
             element: self.element,
             component: self.component,
         }

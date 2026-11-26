@@ -7,7 +7,7 @@
 use crate::diagnostic::Rule;
 use crate::engine::Instance;
 use crate::segment::Segment;
-use crate::spec::{Control, ControlCount, LoopDef, LoopId, render_trigger};
+use crate::spec::{Control, ControlCount, LoopDef, LoopId, Selector};
 use crate::value::parse_unsigned;
 
 use super::{Open, StructureChecker};
@@ -134,7 +134,7 @@ impl StructureChecker<'_> {
         self.report(
             Rule::ImplicitLoop {
                 loop_name: def.name.clone(),
-                expected_trigger: render_trigger(&def.trigger),
+                expected_trigger: Selector::trigger(&def.trigger),
                 caused_by: segment.id.to_vec(),
             },
             Some(trigger),

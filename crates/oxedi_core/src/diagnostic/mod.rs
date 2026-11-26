@@ -7,15 +7,14 @@
 //! the spec or the document that produced it.
 //!
 //! The folder holds: this file (the loop and diagnostic types, the SNIP
-//! levels), `flat.rs` (the flat record of a
-//! diagnostic), `rule.rs` (the rules, their levels
-//! and variant names), `display.rs` (the message text of each rule), `text.rs`
-//! (the pieces those messages are written from) and `tests.rs`.
+//! levels), `flat.rs` (the flat record of a diagnostic), `rule.rs` (the rules,
+//! their levels and variant names) and `tests.rs`. The message text is in
+//! `problem/diagnostic/`.
 
 use std::fmt;
 
 use crate::document::{Document, Span};
-use crate::message::{Quoted, render_key};
+use crate::message::render_key;
 
 pub use flat::{FlatDiagnostic, PARSER_ORIGIN};
 pub use rule::Rule;
@@ -31,12 +30,6 @@ pub enum SnipLevel {
     L3,
 }
 
-impl fmt::Display for SnipLevel {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "SNIP {}", self.number())
-    }
-}
-
 /// One open loop instance: the loop's name and the 1-based ordinal of the
 /// instance among every instance of that loop in the stream.
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
@@ -50,6 +43,22 @@ pub struct LoopRef {
 impl fmt::Display for LoopRef {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(f, "{}#{}", render_key(&self.name), self.ordinal)
+    }
+}
+
+/// Open loops written outermost first, joined by `/` (`2000#1/2100#3`); empty
+/// for no loop.
+pub(crate) struct LoopPath<'a>(pub(crate) &'a [LoopRef]);
+
+impl fmt::Display for LoopPath<'_> {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        for (i, open) in self.0.iter().enumerate() {
+            if i > 0 {
+                f.write_str("/")?;
+            }
+            write!(f, "{open}")?;
+        }
+        Ok(())
     }
 }
 
@@ -118,37 +127,8 @@ impl Diagnostic {
     }
 }
 
-impl fmt::Display for Diagnostic {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "{} · {} · ", self.level, self.rule)?;
-        match self.segment {
-            Some(segment) => write!(f, "segment #{segment}")?,
-            None => write!(f, "end of stream")?,
-        }
-        if let Some(element) = self.element {
-            write!(f, ", element {element}")?;
-            if let Some(component) = self.component {
-                write!(f, ", component {component}")?;
-            }
-        }
-        write!(f, " · at ")?;
-        if self.path.is_empty() {
-            write!(f, "the root")?;
-        }
-        for (i, open) in self.path.iter().enumerate() {
-            if i > 0 {
-                write!(f, "/")?;
-            }
-            write!(f, "{open}")?;
-        }
-        write!(f, " · datum {}", Quoted(&self.datum))
-    }
-}
-
-mod display;
 mod flat;
 mod rule;
-mod text;
 
 #[cfg(test)]
 mod tests;

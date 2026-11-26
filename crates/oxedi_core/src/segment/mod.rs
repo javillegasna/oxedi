@@ -4,7 +4,6 @@
 //! position in the stream so that every later layer can point back at the
 //! exact input it came from.
 
-use std::fmt;
 use std::io;
 
 use crate::delimiters::{Delimiters, Syntax};
@@ -158,31 +157,6 @@ pub enum SegmentWriteError {
         /// 1-based component position when the element is a composite.
         component: Option<usize>,
     },
-}
-
-impl fmt::Display for SegmentWriteError {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match self {
-            SegmentWriteError::Io(e) => write!(f, "write failed: {e}"),
-            SegmentWriteError::DelimiterInValue {
-                byte,
-                element,
-                component,
-            } => {
-                match (element, component) {
-                    (0, _) => write!(f, "segment id")?,
-                    (element, None) => write!(f, "element {element}")?,
-                    (element, Some(component)) => {
-                        write!(f, "element {element} component {component}")?;
-                    }
-                }
-                write!(
-                    f,
-                    " contains delimiter byte 0x{byte:02X} and no release byte is configured"
-                )
-            }
-        }
-    }
 }
 
 impl std::error::Error for SegmentWriteError {

@@ -2,7 +2,9 @@
 
 use std::collections::HashSet;
 
-use crate::write::Refusal;
+use super::{at, bare};
+use crate::spec::Selector;
+use crate::write::{LoopWriter, Refusal};
 
 fn s(text: &str) -> String {
     text.to_string()
@@ -15,7 +17,7 @@ fn every_refusal_says_what_to_do() {
             Refusal::RequiredLoopWithoutSource {
                 loop_name: s("2100"),
                 parent: s("2000"),
-                trigger: s("\"NM1\""),
+                trigger: bare(b"NM1"),
             },
             "anchor a table on the loop or add a column that reads it, or make the loop \
              situational in the guide",
@@ -24,7 +26,10 @@ fn every_refusal_says_what_to_do() {
             Refusal::RequiredOccurrenceWithoutSource {
                 loop_name: s("2100"),
                 occurrence: s("PER"),
-                selector: s("\"PER\""),
+                selector: Selector::Occurrence {
+                    segment: b"PER".to_vec(),
+                    qualifier: None,
+                },
             },
             "add a column that writes the occurrence, or make it situational in the guide",
         ),
@@ -33,7 +38,7 @@ fn every_refusal_says_what_to_do() {
                 table: None,
                 loop_name: s("2100"),
                 occurrence: s("NM1"),
-                place: s("NM102"),
+                place: at(b"NM1", 2),
                 name: s("Entity Type"),
             },
             "add a column that writes the element, give it a single code, or make it \
@@ -44,7 +49,7 @@ fn every_refusal_says_what_to_do() {
                 table: s("t"),
                 column: None,
                 loop_name: s("2100"),
-                source: s("\"DTM\""),
+                source: Selector::conditioned(b"DTM", &[]),
                 candidates: vec![],
             },
             "anchor the table on a segment that occurs once in the loop",
@@ -54,7 +59,7 @@ fn every_refusal_says_what_to_do() {
                 table: s("t"),
                 column: Some(s("c")),
                 loop_name: s("2100"),
-                source: s("\"DTM\""),
+                source: Selector::conditioned(b"DTM", &[]),
                 candidates: vec![],
             },
             "name an occurrence the loop has with \"occurrence\", or give the column a \
@@ -76,7 +81,7 @@ fn every_refusal_says_what_to_do() {
                 table: s("t"),
                 column: s("c"),
                 loop_name: s("2100"),
-                writer: s("table \"u\""),
+                writer: LoopWriter::Table(s("u")),
             },
             "remove the column, or move it to the table that writes the loop, when a table does",
         ),
@@ -87,7 +92,7 @@ fn every_refusal_says_what_to_do() {
                 other: s("d"),
                 loop_name: s("2100"),
                 occurrence: s("CLP"),
-                place: s("CLP01"),
+                place: at(b"CLP", 1),
             },
             "remove one of the two columns",
         ),
@@ -104,7 +109,7 @@ fn every_refusal_says_what_to_do() {
         (
             Refusal::EnvelopeWithoutOccurrence {
                 loop_name: s("interchange"),
-                trigger: s("\"ISA\" with no conditions"),
+                trigger: bare(b"ISA"),
             },
             "declare the occurrence the loop's trigger opens on",
         ),
@@ -127,7 +132,7 @@ fn every_refusal_says_what_to_do() {
             Refusal::RepeatWithoutInstances {
                 table: s("t"),
                 loop_name: s("2100"),
-                segment: s("\"CAS\""),
+                segment: Some(b"CAS".to_vec()),
             },
             "anchor a table on the loop or add a column that reads it",
         ),
@@ -137,7 +142,7 @@ fn every_refusal_says_what_to_do() {
                 column: None,
                 loop_name: s("2100"),
                 occurrence: s("PER"),
-                place: s("PER01"),
+                place: at(b"PER", 1),
                 value: s("ZZ"),
                 codes: vec![s("BL")],
             },

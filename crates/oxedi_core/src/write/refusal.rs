@@ -1,18 +1,15 @@
 //! Why a spec cannot be written: the refusals a write plan raises.
 
-use std::fmt;
+use crate::message::ElementRef;
+use crate::spec::Selector;
 
-use crate::message::{Conditions, Counted, render_names};
-
-use super::wording::{Matches, Numbered, Source, WrittenBy};
-
-/// A segment and its conditions as a message shows them.
-pub(super) fn render_source(segment: &[u8], conditions: &[(usize, Vec<u8>)]) -> String {
-    format!(
-        "{:?}{}",
-        String::from_utf8_lossy(segment),
-        Conditions(conditions)
-    )
+/// What writes the instances of a loop.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum LoopWriter {
+    /// The caller's envelope.
+    Envelope,
+    /// A table, by name.
+    Table(String),
 }
 
 /// One reason a spec's tables cannot be turned back into a file.
@@ -26,7 +23,7 @@ pub enum Refusal {
         /// Its parent loop.
         parent: String,
         /// The loop's trigger as the spec writes it.
-        trigger: String,
+        trigger: Selector,
     },
     /// An occurrence that every instance of a written loop requires has no
     /// column that writes it.
@@ -36,7 +33,7 @@ pub enum Refusal {
         /// The occurrence.
         occurrence: String,
         /// What selects it, e.g. `"PER" where PER01 is "BL"`.
-        selector: String,
+        selector: Selector,
     },
     /// A required element (or component) of an occurrence that a table
     /// writes has no column, and no single code the spec allows for it.
@@ -49,7 +46,7 @@ pub enum Refusal {
         /// The occurrence.
         occurrence: String,
         /// The element or component, e.g. `NM102` or `SVC01-1`.
-        place: String,
+        place: ElementRef,
         /// The element's name in the spec.
         name: String,
     },
@@ -64,7 +61,7 @@ pub enum Refusal {
         /// The loop the column reads.
         loop_name: String,
         /// The segment and conditions, e.g. `"DTM" where {1: "232"}`.
-        source: String,
+        source: Selector,
         /// The occurrences that match; empty when none does.
         candidates: Vec<String>,
     },
@@ -92,8 +89,8 @@ pub enum Refusal {
         column: String,
         /// The loop the column reads.
         loop_name: String,
-        /// What writes the loop: a table's name, or `the envelope`.
-        writer: String,
+        /// What writes the loop.
+        writer: LoopWriter,
     },
     /// Two columns write the same element of the same segment.
     DuplicateSource {
@@ -108,7 +105,7 @@ pub enum Refusal {
         /// The occurrence.
         occurrence: String,
         /// The element or component, e.g. `CLP01`.
-        place: String,
+        place: ElementRef,
     },
     /// A column reads an envelope segment, whose values the caller's
     /// envelope and the writer's counts give.
@@ -128,7 +125,7 @@ pub enum Refusal {
         /// The envelope loop.
         loop_name: String,
         /// The loop's trigger as the spec writes it.
-        trigger: String,
+        trigger: Selector,
     },
     /// A table without a segment is anchored on a loop whose rows another
     /// table already gives.
@@ -155,8 +152,8 @@ pub enum Refusal {
         table: String,
         /// The loop it is anchored on.
         loop_name: String,
-        /// The anchor segment, e.g. `"CAS"`.
-        segment: String,
+        /// The anchor segment, e.g. `CAS`; none for a table without one.
+        segment: Option<Vec<u8>>,
     },
     /// A code the spec fixes for a written segment (a `where` value or the
     /// occurrence's single qualifier code) is outside the code list of the
@@ -172,207 +169,12 @@ pub enum Refusal {
         /// The occurrence.
         occurrence: String,
         /// The element or component, e.g. `PER01`.
-        place: String,
+        place: ElementRef,
         /// The fixed code.
         value: String,
         /// The code list that does not allow it.
         codes: Vec<String>,
     },
-}
-
-impl fmt::Display for Refusal {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match self {
-            Refusal::RequiredLoopWithoutSource {
-                loop_name,
-                parent,
-                trigger,
-            } => write!(
-                f,
-                "loop {loop_name:?} (trigger {trigger}) is required in every {parent:?}, but no \
-                 table is anchored on it and no column reads it"
-            ),
-            Refusal::RequiredOccurrenceWithoutSource {
-                loop_name,
-                occurrence,
-                selector,
-            } => write!(
-                f,
-                "occurrence {occurrence:?} ({selector}) is required in every loop \
-                 {loop_name:?}, but no column writes it"
-            ),
-            Refusal::RequiredElementWithoutSource {
-                table,
-                loop_name,
-                occurrence,
-                place,
-                name,
-            } => write!(
-                f,
-                "required element {place} ({name}) of occurrence {occurrence:?} in loop \
-                 {loop_name:?}{} has no column and no single code to write",
-                WrittenBy(table.as_deref())
-            ),
-            Refusal::AmbiguousSource {
-                table,
-                column,
-                loop_name,
-                source,
-                candidates,
-            } => write!(
-                f,
-                "{} reads {source} in loop {loop_name:?}, which {}",
-                Source(table, column.as_deref()),
-                Matches(candidates)
-            ),
-            Refusal::PickNotContiguous {
-                table,
-                column,
-                loop_name,
-                occurrence,
-                picks,
-            } => write!(
-                f,
-                "table {table:?} column {column:?} picks occurrence {occurrence:?} of loop \
-                 {loop_name:?} out of series (picks {}); the picks of one occurrence must run \
-                 from 1 with none missing, or be a lone \"last\"",
-                picks.join(", ")
-            ),
-            Refusal::WrittenByAnotherTable {
-                table,
-                column,
-                loop_name,
-                writer,
-            } => write!(
-                f,
-                "table {table:?} column {column:?} reads loop {loop_name:?}, whose instances \
-                 {writer} writes"
-            ),
-            Refusal::DuplicateSource {
-                table,
-                column,
-                other,
-                loop_name,
-                occurrence,
-                place,
-            } => write!(
-                f,
-                "table {table:?} column {column:?} writes {place} of occurrence {occurrence:?} \
-                 in loop {loop_name:?}, which column {other:?} already writes"
-            ),
-            Refusal::EnvelopeColumn {
-                table,
-                column,
-                loop_name,
-                occurrence,
-            } => write!(
-                f,
-                "table {table:?} column {column:?} reads the envelope occurrence {occurrence:?} \
-                 of loop {loop_name:?}, which the envelope and the writer's counts give"
-            ),
-            Refusal::EnvelopeWithoutOccurrence { loop_name, trigger } => write!(
-                f,
-                "the envelope loop {loop_name:?} declares no occurrence for its trigger {trigger}, \
-                 so its header cannot be placed"
-            ),
-            Refusal::AnchoredByAnotherTable {
-                table,
-                loop_name,
-                other,
-            } => write!(
-                f,
-                "table {table:?} is anchored on loop {loop_name:?}, whose rows table {other:?} \
-                 already gives; a loop takes its rows from one table"
-            ),
-            Refusal::SeveralAnchorLoops { table, loops } => write!(
-                f,
-                "table {table:?} is anchored on {} loops ({}); a written row opens one loop \
-                 instance and nothing in the row says which",
-                loops.len(),
-                render_names(loops)
-            ),
-            Refusal::RepeatWithoutInstances {
-                table,
-                loop_name,
-                segment,
-            } => write!(
-                f,
-                "table {table:?} writes one {segment} per row in loop {loop_name:?}, but no \
-                 table is anchored on that loop and no column reads it, so the segments have no \
-                 instance to go in"
-            ),
-            Refusal::CodeOutsideList {
-                table,
-                column,
-                loop_name,
-                occurrence,
-                place,
-                value,
-                codes,
-            } => write!(
-                f,
-                "{} writes occurrence {occurrence:?} in loop {loop_name:?} with the fixed code \
-                 {value:?} in {place}, which its code list ({}) does not allow",
-                Source(table, column.as_deref()),
-                render_names(codes)
-            ),
-        }
-    }
-}
-
-impl Refusal {
-    /// What to change in the spec so the refusal goes away, as an imperative
-    /// clause.
-    pub fn remedy(&self) -> &'static str {
-        match self {
-            Refusal::RequiredLoopWithoutSource { .. } => {
-                "anchor a table on the loop or add a column that reads it, or make the loop \
-                 situational in the guide"
-            }
-            Refusal::RequiredOccurrenceWithoutSource { .. } => {
-                "add a column that writes the occurrence, or make it situational in the guide"
-            }
-            Refusal::RequiredElementWithoutSource { .. } => {
-                "add a column that writes the element, give it a single code, or make it \
-                 situational in the guide"
-            }
-            Refusal::AmbiguousSource { column: None, .. } => {
-                "anchor the table on a segment that occurs once in the loop"
-            }
-            Refusal::AmbiguousSource {
-                column: Some(_), ..
-            } => {
-                "name an occurrence the loop has with \"occurrence\", or give the column a \
-                 \"where\" that matches exactly one"
-            }
-            Refusal::PickNotContiguous { .. } => {
-                "renumber the picks of the occurrence's columns from 1 with none missing, or \
-                 keep a lone \"last\""
-            }
-            Refusal::WrittenByAnotherTable { .. } => {
-                "remove the column, or move it to the table that writes the loop, when a table does"
-            }
-            Refusal::DuplicateSource { .. } => "remove one of the two columns",
-            Refusal::EnvelopeColumn { .. } => {
-                "remove the column; the writer takes the envelope's values from the caller's \
-                 envelope"
-            }
-            Refusal::EnvelopeWithoutOccurrence { .. } => {
-                "declare the occurrence the loop's trigger opens on"
-            }
-            Refusal::AnchoredByAnotherTable { .. } => {
-                "anchor one of the two tables on a segment of the loop, or remove one of them"
-            }
-            Refusal::SeveralAnchorLoops { .. } => "anchor the table on one loop",
-            Refusal::RepeatWithoutInstances { .. } => {
-                "anchor a table on the loop or add a column that reads it"
-            }
-            Refusal::CodeOutsideList { .. } => {
-                "change the fixed code to one the list allows, or add it to the code list in \
-                 the guide"
-            }
-        }
-    }
 }
 
 /// A spec whose tables cannot be written, with every refusal found.
@@ -382,18 +184,6 @@ pub struct PlanError {
     pub spec: String,
     /// Every reason, in the order the plan found them.
     pub refusals: Vec<Refusal>,
-}
-
-impl fmt::Display for PlanError {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(
-            f,
-            "spec {:?} cannot be written ({}){}",
-            self.spec,
-            Counted(self.refusals.len(), "reason", "reasons"),
-            Numbered(&self.refusals)
-        )
-    }
 }
 
 impl std::error::Error for PlanError {}

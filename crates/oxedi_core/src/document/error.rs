@@ -1,7 +1,5 @@
 //! Why a buffer could not become a [`Document`](super::Document).
 
-use std::fmt;
-
 use crate::delimiters::IsaError;
 
 /// The input is too long to index: segment offsets are stored as `u32`, so a
@@ -27,18 +25,6 @@ impl SizeError {
     }
 }
 
-impl fmt::Display for SizeError {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(
-            f,
-            "input of {} bytes exceeds the document size limit of {} bytes \
-             (segment offsets are stored as 32-bit integers)",
-            self.len,
-            Self::LIMIT
-        )
-    }
-}
-
 impl std::error::Error for SizeError {}
 
 /// Why [`Document::parse`](super::Document::parse) failed.
@@ -48,15 +34,6 @@ pub enum DocumentError {
     Isa(IsaError),
     /// The input is longer than a document can index.
     Size(SizeError),
-}
-
-impl fmt::Display for DocumentError {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match self {
-            DocumentError::Isa(e) => write!(f, "{e}"),
-            DocumentError::Size(e) => write!(f, "{e}"),
-        }
-    }
 }
 
 impl std::error::Error for DocumentError {

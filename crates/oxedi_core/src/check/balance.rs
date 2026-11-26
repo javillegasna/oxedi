@@ -23,7 +23,7 @@
 
 use crate::diagnostic::Rule;
 use crate::segment::Segment;
-use crate::spec::{ElementRule, LoopId, Spec, render_terms};
+use crate::spec::{ElementRule, LoopId, Spec, Terms};
 use crate::value::parse_r;
 
 use super::StructureChecker;
@@ -263,12 +263,18 @@ impl<'s> StructureChecker<'s> {
         let Some((segment, element, component, datum)) = pending.anchor else {
             return;
         };
+        let (Some(target), Some(sum)) = (
+            Terms::of(spec, rule.per, &rule.target),
+            Terms::of(spec, rule.per, &rule.sum),
+        ) else {
+            return;
+        };
         let finding = Rule::BalanceMismatch {
             rule: rule.name.clone(),
             loop_name: spec.loop_name(rule.per).to_string(),
             opened_at,
-            target: render_terms(spec, rule.per, &rule.target),
-            sum: render_terms(spec, rule.per, &rule.sum),
+            target,
+            sum,
             expected: pending.target,
             computed: pending.sum,
             scale: rule.scale,

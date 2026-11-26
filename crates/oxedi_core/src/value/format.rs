@@ -2,7 +2,6 @@
 //! and messages show (`12.50`, `2024-02-29`, `01:01:01`) and the element form
 //! an X12 element holds (`12.5`, `20240229`, `010101`).
 
-use std::fmt;
 use std::iter;
 
 use super::ColumnType;
@@ -190,28 +189,6 @@ pub enum ElementTextError {
         /// The column's type.
         kind: ColumnType,
     },
-}
-
-impl fmt::Display for ElementTextError {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match self {
-            ElementTextError::YearOutOfRange => {
-                write!(f, "a date needs a year from 1 to 9999")
-            }
-            ElementTextError::TwoDigitYear { year } => write!(
-                f,
-                "the element holds a two-digit year, read as 1950 to 2049; the year is {year}"
-            ),
-            ElementTextError::TimeOutsideDay => write!(f, "a time must fall within one day"),
-            ElementTextError::SecondsNotHeld => {
-                write!(f, "the element holds hours and minutes only")
-            }
-            ElementTextError::NoDecimalScale { kind } => write!(
-                f,
-                "a decimal needs the scale of a decimal128 column; the column is {kind}"
-            ),
-        }
-    }
 }
 
 impl std::error::Error for ElementTextError {}

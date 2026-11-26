@@ -41,20 +41,6 @@ pub enum TypeCodeError {
     },
 }
 
-impl fmt::Display for TypeCodeError {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match self {
-            TypeCodeError::UnknownType { found } => write!(
-                f,
-                "type {found:?} is not one of AN, ID, N0 to N9, R, DT, TM"
-            ),
-            TypeCodeError::ScaleWithoutR { kind } => {
-                write!(f, "\"scale\" applies only to type R; found type {kind:?}")
-            }
-        }
-    }
-}
-
 impl std::error::Error for TypeCodeError {}
 
 impl ElementType {

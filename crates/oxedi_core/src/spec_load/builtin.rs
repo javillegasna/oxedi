@@ -8,7 +8,6 @@ use serde_json::{Value, json};
 use super::model::SpecModel;
 use super::package::{PackageId, Release, TransactionSet};
 use super::{LoadedSpec, SpecError, merge_patch};
-use crate::message::render_names;
 use crate::segment::Segment;
 use crate::spec::{Spec, chosen};
 
@@ -309,20 +308,6 @@ impl UnknownVersion {
                 .map(Version::text)
                 .collect(),
         }
-    }
-}
-
-impl fmt::Display for UnknownVersion {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "unknown version {:?}; ", self.version)?;
-        if self.known.is_empty() {
-            return write!(
-                f,
-                "no built-in spec covers transaction {:?}",
-                self.transaction
-            );
-        }
-        write!(f, "version must be one of {}", render_names(&self.known))
     }
 }
 

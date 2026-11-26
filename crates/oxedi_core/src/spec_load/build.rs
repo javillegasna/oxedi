@@ -5,7 +5,6 @@
 //! it built.
 
 use std::collections::BTreeMap;
-use std::fmt;
 
 use super::balance::compile_balancing;
 use super::build_loops::{check_control_fields, check_cycles, compile_loop, held_segments};
@@ -17,8 +16,15 @@ use super::places::place_columns;
 use super::segments::compile_elements;
 use super::summaries::{compile_default_table, compile_summaries};
 use crate::spec::{
-    DeclaredVersion, LoopId, OccurrenceIndex, ReadIndex, SegmentDef, Spec, Trigger, render_trigger,
+    DeclaredVersion, LoopId, OccurrenceIndex, ReadIndex, SegmentDef, Selector, Spec, Trigger,
 };
+
+/// The trigger's message text, for the overlapping-triggers error, which holds
+/// it as text.
+// TODO: hold the two triggers as `Selector` values once `check_ambiguity` is restructured.
+fn render_trigger(trigger: &Trigger) -> String {
+    Selector::trigger(trigger).to_string()
+}
 
 /// A spec while it compiles, and the model every step reads.
 struct Build<'m> {
@@ -300,31 +306,6 @@ pub enum VersionError {
         /// 0-based index of its repeat.
         second: usize,
     },
-}
-
-impl fmt::Display for VersionError {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match self {
-            VersionError::ZeroElement => write!(f, "\"element\" is 0; positions are 1-based"),
-            VersionError::NoValues => write!(
-                f,
-                "\"values\" is empty; list at least one value the element may hold"
-            ),
-            VersionError::NoCodes { segment, element } => write!(
-                f,
-                "\"values\" is absent and element {element} of segment {segment:?} is not defined or lists no codes to take them from; write \"values\", or give segments.{segment}.elements.{element} its \"codes\""
-            ),
-            VersionError::EmptyValue { index } => write!(f, "\"values[{index}]\" is empty"),
-            VersionError::DuplicateValue {
-                value,
-                first,
-                second,
-            } => write!(
-                f,
-                "value {value:?} is listed twice, at values[{first}] and values[{second}]"
-            ),
-        }
-    }
 }
 
 /// The values a version lists: those written, else the codes of the declared

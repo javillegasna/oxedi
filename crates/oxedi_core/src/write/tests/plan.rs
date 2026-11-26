@@ -669,7 +669,7 @@ fn refusals_display_their_full_text() {
         table: None,
         loop_name: "2000".into(),
         occurrence: "header_number".into(),
-        place: "LX01".into(),
+        place: super::at(b"LX", 1),
         name: "assigned_number".into(),
     };
     assert_eq!(
@@ -680,7 +680,7 @@ fn refusals_display_their_full_text() {
         table: "claims".into(),
         column: "isa".into(),
         loop_name: "interchange".into(),
-        writer: "the envelope".into(),
+        writer: LoopWriter::Envelope,
     };
     assert_eq!(
         written.to_string(),
@@ -700,7 +700,7 @@ fn refusals_display_their_full_text() {
         column: None,
         loop_name: "2100".into(),
         occurrence: "claim_adjustment".into(),
-        place: "CAS01".into(),
+        place: super::at(b"CAS", 1),
         value: "XX".into(),
         codes: vec!["CO".into(), "PR".into()],
     };

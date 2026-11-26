@@ -19,7 +19,7 @@
 use crate::diagnostic::Rule;
 use crate::engine::Instance;
 use crate::segment::Segment;
-use crate::spec::{LoopId, Spec, Usage, render_selector, render_trigger};
+use crate::spec::{LoopId, Selector, Spec, Usage};
 
 use super::StructureChecker;
 
@@ -255,7 +255,7 @@ impl<'s> StructureChecker<'s> {
         let rule = Rule::OccurrenceOverMax {
             loop_name: def.name.clone(),
             occurrence: occurrence.name.clone(),
-            selector: render_selector(occurrence),
+            selector: Selector::occurrence(occurrence),
             max,
             count,
         };
@@ -354,7 +354,7 @@ impl<'s> StructureChecker<'s> {
                 loop_name: def.name.clone(),
                 opened_at,
                 occurrence: occurrence.name.clone(),
-                selector: render_selector(occurrence),
+                selector: Selector::occurrence(occurrence),
             });
         let loops = def
             .children
@@ -366,7 +366,7 @@ impl<'s> StructureChecker<'s> {
                 loop_name: def.name.clone(),
                 opened_at,
                 child: child.name.clone(),
-                expected_trigger: render_trigger(&child.trigger),
+                expected_trigger: Selector::trigger(&child.trigger),
             });
         let rules: Vec<Rule> = occurrences.chain(loops).collect();
         for rule in rules {

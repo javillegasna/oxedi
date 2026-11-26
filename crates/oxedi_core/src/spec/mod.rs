@@ -23,7 +23,7 @@
 //! each loop and segment id, indexed from the places; `id_map` the
 //! map keyed by segment id; `schema` the columns of each table, known from the
 //! spec alone; `unknown` the errors for a table or a column the spec does not
-//! define; `render` the text of triggers and occurrence selectors in messages;
+//! define; `selector` what selects a loop, an occurrence or a column's segment, as a message names it;
 //! `rule` what an element allows where a segment is read or written;
 //! `version` the version a compiled spec declares and the choice of a spec by
 //! it; `test_support` (test builds only) the small specs and helpers the tests
@@ -39,9 +39,9 @@ mod occurrence_index;
 mod occurrences;
 mod places;
 mod read_index;
-mod render;
 mod rule;
 mod schema;
+mod selector;
 mod tables;
 #[cfg(test)]
 pub(crate) mod test_support;
@@ -50,7 +50,7 @@ mod tests;
 mod unknown;
 mod version;
 
-pub use balance_rule::{BalanceRule, BalanceTerm, Sign};
+pub use balance_rule::{BalanceRule, BalanceTerm, NamedTerm, Sign, Terms};
 pub use elements::{ElementDef, ROW_COLUMN, SEGMENT_COLUMN, SegmentDef};
 pub use envelope_fields::{EnvelopeField, EnvelopeFields};
 pub use loops::{Control, ControlCount, LoopDef, LoopId, Trigger};
@@ -59,11 +59,11 @@ pub use occurrences::{ElementEntry, OccurrenceDef, Qualifier, Setting, Usage};
 pub use schema::{
     ColumnKind, ColumnSchema, TableSchema, require_column, spec_schema, table_columns, table_schema,
 };
+pub use selector::Selector;
 pub use tables::{ColumnSource, Repeat, Summary, TableDef};
 pub use unknown::{UnknownColumn, UnknownTable};
 pub use version::DeclaredVersion;
 
-pub(crate) use balance_rule::render_terms;
 pub(crate) use elements::{holds_code, rejects_code};
 pub(crate) use id_map::IdMap;
 pub(crate) use occurrence_index::OccurrenceIndex;
@@ -72,7 +72,6 @@ pub(crate) use places::{
     ColumnPlace, LoopRead, OccurrencePlace, Reading, Relation, Target, Unplaced,
 };
 pub(crate) use read_index::{ReadIndex, ReadTarget, Watcher};
-pub(crate) use render::{render_selector, render_trigger};
 pub(crate) use rule::ElementRule;
 pub(crate) use schema::column_type;
 pub(crate) use version::chosen;

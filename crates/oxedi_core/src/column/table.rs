@@ -28,26 +28,6 @@ pub enum RowError {
     },
 }
 
-impl fmt::Display for RowError {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match self {
-            RowError::Arity {
-                table,
-                expected,
-                found,
-            } => write!(
-                f,
-                "table {table:?} has {expected} columns; the row has {found} cells"
-            ),
-            RowError::Cell {
-                table,
-                column,
-                source,
-            } => write!(f, "table {table:?} column {column:?}: {source}"),
-        }
-    }
-}
-
 impl std::error::Error for RowError {
     fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
         match self {

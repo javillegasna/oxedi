@@ -6,9 +6,9 @@
 
 use std::fmt;
 
-use crate::message::render_names;
+use crate::problem::text::render_names;
 
-use super::finding::ValueOrigin;
+use crate::write::ValueOrigin;
 
 /// Where a table reads, as the table and its column, or its anchor segment
 /// when the column is `None`.

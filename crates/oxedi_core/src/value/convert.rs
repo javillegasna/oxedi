@@ -2,7 +2,6 @@
 //! type. Each one either keeps the value exactly or says why it cannot.
 
 use super::TimeUnit;
-use std::fmt;
 
 /// The largest decimal scale a spec's `R` element takes;
 /// `ElementType::MAX_SCALE` is this value. An `R` value is held as an `i128`
@@ -33,30 +32,6 @@ pub enum ConvertError {
     OutOfRange { value: i64 },
     /// A time that is not a whole number of seconds.
     NotWholeSecond { value: i64 },
-}
-
-impl fmt::Display for ConvertError {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match self {
-            Self::TooWide { value } => write!(f, "{value} does not fit a 64-bit integer"),
-            Self::TooWideUnsigned { value } => write!(f, "{value} does not fit a 64-bit integer"),
-            Self::NotWhole { value } => write!(f, "{value} is not a whole number"),
-            Self::ScaleOverflow { value, from, scale } => {
-                write!(f, "{value} at scale {from} overflows scale {scale}")
-            }
-            Self::TooManyDecimals { value, from, scale } => write!(
-                f,
-                "{value} at scale {from} has more decimals than the column's scale {scale}"
-            ),
-            Self::NotMidnight { value } => {
-                write!(f, "timestamp {value} is not at midnight; give dates")
-            }
-            Self::NotWholeDay { millis } => write!(f, "{millis} ms is not a whole day"),
-            Self::DayOutOfRange { millis } => write!(f, "{millis} ms is out of range"),
-            Self::OutOfRange { value } => write!(f, "{value} is out of range"),
-            Self::NotWholeSecond { value } => write!(f, "{value} is not a whole second"),
-        }
-    }
 }
 
 impl std::error::Error for ConvertError {}

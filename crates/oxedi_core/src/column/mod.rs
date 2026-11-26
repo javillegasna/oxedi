@@ -12,8 +12,6 @@
 //! row appends. This file holds the column types, the bitmap, the cells and
 //! the column buffers.
 
-use std::fmt;
-
 use crate::message::Quoted;
 use crate::value::{ColumnType, date_display, decimal_display, time_display};
 
@@ -248,39 +246,6 @@ pub enum CellError {
         /// The column's byte length the value would have produced.
         bytes: usize,
     },
-}
-
-impl fmt::Display for CellError {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match self {
-            CellError::TypeMismatch {
-                column,
-                cell,
-                value,
-            } => {
-                write!(
-                    f,
-                    "{} {column} column cannot hold {} {cell} value ({value})",
-                    article(&column.to_string()),
-                    article(cell)
-                )
-            }
-            CellError::BinaryOverflow { bytes } => write!(
-                f,
-                "a binary column holds at most {} bytes; this value would bring it to {bytes}",
-                i32::MAX
-            ),
-        }
-    }
-}
-
-/// `an` before a word that starts with a vowel, `a` otherwise.
-fn article(word: &str) -> &'static str {
-    if word.starts_with(['a', 'e', 'i', 'o', 'u']) {
-        "an"
-    } else {
-        "a"
-    }
 }
 
 impl std::error::Error for CellError {}

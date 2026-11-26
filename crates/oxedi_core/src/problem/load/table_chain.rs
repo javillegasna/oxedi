@@ -3,7 +3,8 @@
 use std::borrow::Cow;
 use std::fmt;
 
-use crate::message::{render_key, render_names};
+use crate::message::render_key;
+use crate::problem::text::render_names;
 
 /// Table names outermost first, joined by `/`; `no table` when there are none.
 pub(super) fn render_chain(chain: &[String]) -> String {

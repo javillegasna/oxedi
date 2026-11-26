@@ -1,6 +1,6 @@
 //! Why a balancing rule was rejected.
 
-use std::fmt;
+use crate::message::ElementRef;
 
 /// Why a balancing rule was rejected. Every variant that points inside the
 /// rule names the key it sits at, e.g. `per`, `target[0].loop` or
@@ -52,14 +52,14 @@ pub enum BalanceError {
         /// Where the position sits.
         key: String,
         /// The element or component, e.g. `CLP03` or `SVC01-2`.
-        place: String,
+        place: ElementRef,
     },
     /// A value names an element or component that is not a decimal amount.
     NotDecimal {
         /// Where the position sits.
         key: String,
         /// The element or component, e.g. `CLP01`.
-        place: String,
+        place: ElementRef,
         /// Its declared type code, e.g. `AN`.
         found: String,
     },
@@ -70,55 +70,6 @@ pub enum BalanceError {
         /// Where the first mention sits.
         first: String,
         /// The element or component, e.g. `CAS03`.
-        place: String,
+        place: ElementRef,
     },
-}
-
-impl fmt::Display for BalanceError {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match self {
-            BalanceError::EmptyName => write!(f, "the rule name is empty"),
-            BalanceError::UnknownLoop { key, name } => {
-                write!(
-                    f,
-                    "{key} names loop {name:?}, which the spec does not declare"
-                )
-            }
-            BalanceError::NoTerms { key } => {
-                write!(f, "{key} is empty; list at least one value")
-            }
-            BalanceError::LoopOutsidePer {
-                key,
-                loop_name,
-                per,
-            } => write!(
-                f,
-                "{key} reads loop {loop_name:?}, which is neither the rule's \"per\" loop \
-                 {per:?} nor a loop below it"
-            ),
-            BalanceError::UnknownOccurrence {
-                key,
-                loop_name,
-                occurrence,
-            } => write!(
-                f,
-                "{key} names occurrence {occurrence:?}, which loop {loop_name:?} does not declare"
-            ),
-            BalanceError::NoElements { key } => {
-                write!(f, "{key} is empty; list at least one element position")
-            }
-            BalanceError::UndefinedElement { key, place } => write!(
-                f,
-                "{key} names {place}, which the \"segments\" section does not define"
-            ),
-            BalanceError::NotDecimal { key, place, found } => write!(
-                f,
-                "{key} names {place}, of type {found}; a balancing value must be of type R"
-            ),
-            BalanceError::RepeatedValue { key, first, place } => write!(
-                f,
-                "{key} counts {place} of the same occurrence that {first} already counts"
-            ),
-        }
-    }
 }

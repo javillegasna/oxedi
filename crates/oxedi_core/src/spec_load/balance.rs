@@ -14,7 +14,7 @@ use std::collections::BTreeMap;
 use super::balance_error::BalanceError;
 use super::error::SpecError;
 use super::model::{BalanceModel, TermModel};
-use crate::message::place;
+use crate::message::ElementRef;
 use crate::spec::{BalanceRule, BalanceTerm, ElementDef, LoopId, Sign, Spec, element_def};
 use crate::value::ElementType;
 
@@ -120,7 +120,7 @@ impl<'s> RuleTerms<'s> {
         }
         for (j, &element) in term.elements.iter().enumerate() {
             let key = format!("{at}.elements[{j}]");
-            let place = place(segment, element, term.component);
+            let place = ElementRef::new(segment.to_vec(), element, term.component);
             let found = element_def(&self.spec.segments, segment, element, term.component);
             self.scale = self.scale.max(decimal_scale(found, &key, &place)?);
             let address = (term.loop_id, term.occurrence, element, term.component);
@@ -186,11 +186,15 @@ fn term_loop(
 
 /// The scale of an element a term reads, named `place` at `key`: the element
 /// must be defined and be a simple `R` element or an `R` component.
-fn decimal_scale(def: Option<&ElementDef>, key: &str, place: &str) -> Result<u8, BalanceError> {
+fn decimal_scale(
+    def: Option<&ElementDef>,
+    key: &str,
+    place: &ElementRef,
+) -> Result<u8, BalanceError> {
     match def {
         None => Err(BalanceError::UndefinedElement {
             key: key.to_string(),
-            place: place.to_string(),
+            place: place.clone(),
         }),
         Some(ElementDef {
             kind: ElementType::R { scale },
@@ -199,7 +203,7 @@ fn decimal_scale(def: Option<&ElementDef>, key: &str, place: &str) -> Result<u8,
         }) if composite.is_empty() => Ok(*scale),
         Some(def) => Err(BalanceError::NotDecimal {
             key: key.to_string(),
-            place: place.to_string(),
+            place: place.clone(),
             found: def.kind.code(),
         }),
     }

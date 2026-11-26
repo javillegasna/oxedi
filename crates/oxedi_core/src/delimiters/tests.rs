@@ -131,6 +131,15 @@ fn builders_set_optional_delimiters() {
 }
 
 #[test]
+fn fifteen_separators_say_how_many_were_found() {
+    let error = Delimiters::from_isa(b"ISA***************").unwrap_err();
+    assert_eq!(
+        error.to_string(),
+        "ISA segment truncated after 18 bytes: found 15 of 16 element separators"
+    );
+}
+
+#[test]
 fn not_isa_displays_the_leading_bytes_in_hex() {
     assert_eq!(
         IsaError::NotIsa {

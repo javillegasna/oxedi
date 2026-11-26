@@ -9,7 +9,8 @@ use super::emit::Emitter;
 use super::finding::{Finding, ValueOrigin};
 use super::render::{Part, cell_text, write_segment};
 use super::trace::Src;
-use crate::message::place;
+use crate::message::ElementRef;
+use crate::value::ElementTextError;
 
 /// `true` when a value holding the delimiter `byte` is a finding under
 /// `syntax`: the value is written as it is, or the byte is not one a release
@@ -74,12 +75,8 @@ impl Emitter<'_> {
             Ok(false) => None,
             Err(reason) => {
                 self.texts.truncate(start);
-                self.findings.push(Finding::NotWritable {
-                    origin: origin(),
-                    place: place(segment, element, component),
-                    value: data.render(row).unwrap_or_default(),
-                    reason,
-                });
+                let value = data.render(row).unwrap_or_default();
+                self.report_unwritable(origin(), segment, (element, component), value, reason);
                 None
             }
         };
@@ -108,7 +105,26 @@ impl Emitter<'_> {
         });
     }
 
+    /// Reports a cell with no text its element can hold.
+    #[cold]
+    fn report_unwritable(
+        &mut self,
+        origin: ValueOrigin,
+        segment: &[u8],
+        (element, component): (usize, Option<usize>),
+        value: String,
+        reason: ElementTextError,
+    ) {
+        self.findings.push(Finding::NotWritable {
+            origin,
+            place: ElementRef::new(segment.to_vec(), element, component),
+            value,
+            reason,
+        });
+    }
+
     /// Reports a value that holds a delimiter that `syntax` does not escape.
+    #[cold]
     pub(super) fn check_delimiters(
         &mut self,
         syntax: Syntax,
@@ -122,7 +138,7 @@ impl Emitter<'_> {
             if bytes.contains(&delimiter) && reported(syntax, delimiter) {
                 self.findings.push(Finding::DelimiterInValue {
                     origin: origin.clone(),
-                    place: place(segment, element, component),
+                    place: ElementRef::new(segment.to_vec(), element, component),
                     value: bytes.to_vec(),
                     delimiter,
                     role,

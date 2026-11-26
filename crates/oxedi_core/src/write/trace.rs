@@ -4,7 +4,7 @@
 
 use super::envelope::Field;
 use super::finding::ValueOrigin;
-use super::plan::Place;
+use super::plan::Spot;
 
 /// The source of one written element.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -29,8 +29,8 @@ struct Entry {
 
 impl Entry {
     /// The element or component this entry writes.
-    fn place(&self) -> Place {
-        Place {
+    fn place(&self) -> Spot {
+        Spot {
             element: self.element,
             component: self.component,
         }
@@ -85,7 +85,7 @@ impl Traces {
             .map_or(self.entries.len(), |(next, _)| *next);
         let entries = self.entries.get(start..end).unwrap_or_default();
         let found = element.and_then(|element| {
-            let asked = Place { element, component };
+            let asked = Spot { element, component };
             entries.iter().find(|entry| entry.place().overlaps(asked))
         });
         match found.map(|entry| entry.src) {
@@ -94,9 +94,7 @@ impl Traces {
                 row,
                 column: names(table, Some(column)),
             }),
-            Some(Src::Field(field)) => Some(ValueOrigin::Envelope {
-                field: field.name().to_string(),
-            }),
+            Some(Src::Field(field)) => Some(ValueOrigin::Envelope { field }),
             None => row.map(|(table, row)| ValueOrigin::Row {
                 table: names(table, None),
                 row,

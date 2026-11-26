@@ -4,8 +4,8 @@
 //! `diff` the first line where two texts differ; `run` the runner over bytes;
 //! `render` the text of an output, which the runner compares and a golden
 //! holds; `error` why a kit does not run on a stack; `report` what it reports
-//! and the text it prints; `tests` their tests. The module is for tools that
-//! check specs: the browser module never names it.
+//! (its text is in `problem/conformance.rs`); `tests` their tests. The module
+//! is for tools that check specs: the browser module never names it.
 
 mod diff;
 mod error;

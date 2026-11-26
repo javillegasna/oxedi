@@ -5,7 +5,9 @@
 
 use std::fmt;
 
-use crate::message::{MAX_LISTED_CODES, Quoted};
+use crate::diagnostic::{LoopPath, LoopRef};
+use crate::message::Quoted;
+use crate::problem::text::MAX_LISTED_CODES;
 use crate::value::decimal_display;
 
 /// The most segment indexes a balancing message spells out; a longer list
@@ -176,6 +178,44 @@ impl fmt::Display for Reporter<'_> {
         match self.code {
             Some(code) => write!(f, "(reported by {}, code {code})", self.origin),
             None => write!(f, "(reported by {})", self.origin),
+        }
+    }
+}
+
+/// Where a diagnostic points in the stream: `segment #3`, then the element
+/// when known, and its component when both are known; `end of stream` names no
+/// segment. A component alone writes no position.
+pub(super) struct Location {
+    pub(super) segment: Option<usize>,
+    pub(super) element: Option<usize>,
+    pub(super) component: Option<usize>,
+}
+
+impl fmt::Display for Location {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self.segment {
+            Some(segment) => write!(f, "segment #{segment}")?,
+            None => write!(f, "end of stream")?,
+        }
+        match (self.element, self.component) {
+            (Some(element), Some(component)) => {
+                write!(f, ", element {element}, component {component}")
+            }
+            (Some(element), None) => write!(f, ", element {element}"),
+            (None, _) => Ok(()),
+        }
+    }
+}
+
+/// The open loops a diagnostic sits in: `the root` when none is open.
+pub(super) struct Within<'a>(pub(super) &'a [LoopRef]);
+
+impl fmt::Display for Within<'_> {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        if self.0.is_empty() {
+            f.write_str("the root")
+        } else {
+            write!(f, "{}", LoopPath(self.0))
         }
     }
 }

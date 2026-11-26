@@ -1,11 +1,8 @@
-//! What running a kit reports, per case, and the text it prints.
+//! What running a kit reports, per case.
 
-use std::fmt;
-
-use super::diff::{Line, LineDifference};
+use super::diff::LineDifference;
 use crate::document::DocumentError;
 use crate::spec_load::{KitOutput, PackageId};
-use crate::vocabulary::Vocabulary;
 
 /// The result of running a kit: one report per case, in name order.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -25,23 +22,6 @@ impl KitReport {
     }
 }
 
-impl fmt::Display for KitReport {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        let passing = self
-            .cases
-            .iter()
-            .filter(|case| case.outcome == Outcome::Passed)
-            .count();
-        write!(
-            f,
-            "kit \"{}\": {passing} of {} cases pass",
-            self.package,
-            self.cases.len()
-        )?;
-        self.cases.iter().try_for_each(|case| write!(f, "\n{case}"))
-    }
-}
-
 /// What running one case gave.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct CaseReport {
@@ -49,20 +29,6 @@ pub struct CaseReport {
     pub name: String,
     /// How the case ended.
     pub outcome: Outcome,
-}
-
-impl fmt::Display for CaseReport {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "case {:?}: ", self.name)?;
-        match &self.outcome {
-            Outcome::Passed => write!(f, "passes"),
-            Outcome::Broken(fault) => write!(f, "cannot run: {fault}"),
-            Outcome::Differs(differences) => {
-                let texts: Vec<String> = differences.iter().map(Difference::to_string).collect();
-                write!(f, "differs: {}", texts.join("; "))
-            }
-        }
-    }
 }
 
 /// How a case ended.
@@ -100,25 +66,6 @@ pub enum CaseFault {
     },
 }
 
-impl fmt::Display for CaseFault {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match self {
-            CaseFault::MissingFile { path } => write!(
-                f,
-                "the kit names {path:?}, which was not given; give the file to the runner"
-            ),
-            CaseFault::NotText { path } => write!(
-                f,
-                "{path:?} is not UTF-8 text; an expected output is a text file"
-            ),
-            CaseFault::NotADocument { path, reason } => write!(
-                f,
-                "{path:?} is not an X12 document: {reason}; give a file that opens with ISA"
-            ),
-        }
-    }
-}
-
 /// An expected output that differs from the run's.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Difference {
@@ -128,30 +75,4 @@ pub struct Difference {
     pub file: String,
     /// Where the texts first differ.
     pub at: LineDifference,
-}
-
-impl fmt::Display for Difference {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(
-            f,
-            "{} ({}) line {}: expected {}, found {}",
-            self.output.word(),
-            self.file,
-            self.at.line,
-            Shown(&self.at.expected),
-            Shown(&self.at.actual)
-        )
-    }
-}
-
-/// A line as a message quotes it, or `the end`.
-struct Shown<'a>(&'a Line);
-
-impl fmt::Display for Shown<'_> {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match self.0 {
-            Line::Text(text) => write!(f, "{text:?}"),
-            Line::End => write!(f, "the end"),
-        }
-    }
 }

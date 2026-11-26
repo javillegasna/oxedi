@@ -13,16 +13,13 @@
 //! modules that read segments share: the plain `*`, `:`, `~` dialect and the
 //! concatenation of every segment's `raw` bytes.
 
-use std::fmt;
-
 use crate::frame::SegmentEnd;
-use crate::message::Counted;
 use crate::trivia::LeadingTrivia;
 
 mod header;
 mod syntax;
 
-pub(crate) use header::{HeaderPositions, version_carries_repetition};
+pub(crate) use header::{HeaderPositions, ISA_ID, version_carries_repetition};
 pub(crate) use syntax::Syntax;
 
 /// The five delimiters of an interchange. Only `release` is never read from the
@@ -111,90 +108,7 @@ impl IsaError {
     }
 }
 
-impl fmt::Display for IsaError {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match self {
-            IsaError::NotIsa {
-                found,
-                byte_order_mark,
-                whitespace,
-            } => {
-                let skipped = Skipped {
-                    byte_order_mark: *byte_order_mark,
-                    whitespace: *whitespace,
-                };
-                write!(f, "input does not start with an ISA segment (")?;
-                if found.is_empty() {
-                    if skipped.is_empty() {
-                        return write!(f, "input is empty)");
-                    }
-                    return write!(f, "input holds only {skipped})");
-                }
-                write!(f, "found bytes [")?;
-                for (i, byte) in found.iter().enumerate() {
-                    if i > 0 {
-                        write!(f, " ")?;
-                    }
-                    write!(f, "{byte:02x}")?;
-                }
-                write!(f, "]")?;
-                if !skipped.is_empty() {
-                    write!(f, " after skipping {skipped}")?;
-                }
-                write!(f, ")")
-            }
-            IsaError::Truncated {
-                len,
-                separators_found,
-                byte_order_mark,
-                whitespace,
-            } => {
-                let skipped = Skipped {
-                    byte_order_mark: *byte_order_mark,
-                    whitespace: *whitespace,
-                };
-                write!(f, "ISA segment truncated after {len} bytes")?;
-                if !skipped.is_empty() {
-                    write!(f, " (counted after skipping {skipped})")?;
-                }
-                if *separators_found >= ISA_SEPARATORS {
-                    write!(f, ": ISA16 or the terminator is missing")
-                } else {
-                    write!(
-                        f,
-                        ": found {separators_found} of {ISA_SEPARATORS} element separators"
-                    )
-                }
-            }
-        }
-    }
-}
-
 impl std::error::Error for IsaError {}
-
-/// The leading bytes skipped before looking for the ISA, as written in
-/// [`IsaError::NotIsa`] and [`IsaError::Truncated`] messages.
-struct Skipped {
-    byte_order_mark: bool,
-    whitespace: usize,
-}
-
-impl Skipped {
-    const fn is_empty(&self) -> bool {
-        !self.byte_order_mark && self.whitespace == 0
-    }
-}
-
-impl fmt::Display for Skipped {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        let whitespace = Counted(self.whitespace, "byte", "bytes");
-        match (self.byte_order_mark, self.whitespace) {
-            (true, 0) => write!(f, "a UTF-8 byte order mark"),
-            (true, _) => write!(f, "a UTF-8 byte order mark and {whitespace} of whitespace"),
-            (false, _) => write!(f, "{whitespace} of whitespace"),
-        }
-    }
-}
 
 /// Number of element separators in an ISA segment: one before each element
 /// (ISA01 through ISA16), ISA16 being the byte after the last.
@@ -298,7 +212,7 @@ impl Delimiters {
     ///
     /// Bytes after the ISA terminator are ignored. `release` is always `None`.
     pub fn from_isa(input: &[u8]) -> Result<Self, IsaError> {
-        if !input.starts_with(b"ISA") {
+        if !input.starts_with(ISA_ID.as_bytes()) {
             let found = input.iter().take(IsaError::FOUND_LEN).copied().collect();
             return Err(IsaError::NotIsa {
                 found,

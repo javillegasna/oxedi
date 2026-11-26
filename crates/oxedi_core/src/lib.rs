@@ -28,10 +28,10 @@
 //!   the spec alone, without a file. [`summarize`] computes the summaries
 //!   the spec declares (counts, sums, the fields of one row) over them.
 //! - [`write::write()`] turns tables with a spec's schema back into an
-//!   interchange: the spec's projection inverted, the loop tree rebuilt from
-//!   the tables' references, the envelope's counts and control numbers
-//!   computed, and the written file read back so every finding names the
-//!   cell it comes from.
+//!   interchange: each column written where the reader reads it, from the places
+//!   compiled with the spec, the loop tree rebuilt from the tables'
+//!   references, the envelope's counts and control numbers computed, and the
+//!   written file read back so every finding names the cell it comes from.
 //! - [`Processor`] feeds one segment at a time to the engine, the checker and
 //!   the projector; [`Processor::run`] does it over a whole [`Document`].
 //! - [`validate::validate`] answers whether a stack of package texts loads and

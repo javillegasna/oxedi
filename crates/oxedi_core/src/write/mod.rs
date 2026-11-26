@@ -1,8 +1,8 @@
 //! Writing a spec's tables back into a file.
 //!
 //! The folder holds: `plan.rs` (the write plan: where each loop's instances
-//! and each element's value come from), `build.rs` (its construction from a
-//! spec, inverting every table column), `place.rs` (the loops written
+//! and each element's value come from), `build.rs` (its construction from the
+//! columns' compiled places), `place.rs` (the loops written
 //! around the written ones and the position order of segments), `codes.rs`
 //! (the occurrence a column's compiled place lands in, the conditions left
 //! once its qualifier is taken out, and the refusal of a fixed qualifier

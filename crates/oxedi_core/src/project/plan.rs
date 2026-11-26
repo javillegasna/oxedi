@@ -1,4 +1,4 @@
-//! The element checks the projector builds per run from the spec's segment
+//! The element checks each projector builds once from the spec's segment
 //! definitions, with the read marks of the spec's index.
 
 use crate::spec::{ElementDef, IdMap, Spec};

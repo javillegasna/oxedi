@@ -4,6 +4,7 @@ use std::error::Error;
 
 use super::{package_of, shipped};
 use crate::Document;
+use crate::spec_load::model::SpecModel;
 use crate::spec_load::package::Stack;
 use crate::spec_load::{Builtin, Package, PackageId, UnknownVersion, Version};
 
@@ -179,6 +180,10 @@ fn the_lean_read_equals_the_checked_composition() {
             checked.model.to_json().unwrap()
         );
         assert_eq!(builtin.json().unwrap(), checked.value);
+        // Strictness is kept for the shipped texts: the strict reader takes
+        // every merged built-in with no fault.
+        let strict = SpecModel::from_value(&builtin.json().unwrap()).unwrap();
+        assert_eq!(strict, checked.model);
     }
 }
 

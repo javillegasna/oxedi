@@ -22,7 +22,7 @@ wasm: ## build the viewer's WebAssembly module into viewer/pkg
 	@v=$$(wasm-bindgen --version 2>/dev/null | cut -d' ' -f2); \
 	  test "$$v" = "$(WASM_BINDGEN_VERSION)" || { echo "wasm: wasm-bindgen $(WASM_BINDGEN_VERSION) is required (Cargo.lock) but found '$${v:-none}'; install it with: cargo install wasm-bindgen-cli --version $(WASM_BINDGEN_VERSION) --locked"; exit 1; }
 	@command -v wasm-opt >/dev/null || { echo "wasm: wasm-opt not found; install binaryen (https://github.com/WebAssembly/binaryen/releases) and put wasm-opt on PATH"; exit 1; }
-	CARGO_PROFILE_RELEASE_OPT_LEVEL=s CARGO_PROFILE_RELEASE_LTO=true \
+	CARGO_PROFILE_RELEASE_OPT_LEVEL=z CARGO_PROFILE_RELEASE_LTO=true \
 	  CARGO_PROFILE_RELEASE_CODEGEN_UNITS=1 CARGO_PROFILE_RELEASE_PANIC=abort \
 	  cargo build -p oxedi_wasm --release --locked --target $(WASM_TARGET)
 	mkdir -p $(VIEWER_PKG) && find $(VIEWER_PKG) -mindepth 1 -delete

@@ -182,8 +182,13 @@ fn shipped_fault(reason: impl fmt::Display) -> SpecError {
     }
 }
 
+// The built-in's model, read without the strict reader: the shipped texts are
+// proved to load through it (`spec_load::tests::builtin`), so the browser module
+// carries no path-tracking reader. A spec a caller gives keeps the strict read.
 fn composed(chain: &[&str], name: &str) -> Result<SpecModel, SpecError> {
-    merged(chain, name).and_then(|value| SpecModel::from_value(&value))
+    merged(chain, name).and_then(|value| {
+        <SpecModel as serde::Deserialize>::deserialize(&value).map_err(SpecError::Json)
+    })
 }
 
 // The identity the last package of `chain` declares.
@@ -207,10 +212,14 @@ fn load() -> Vec<Builtin> {
             let version = Version::of_release(id.release()).expect(KEYS);
             let spec = composed(chain, id.spec_name())
                 .and_then(|model| model.compile())
-                .expect(
-                    "a built-in spec is valid; \
-                     spec_load::tests::builtin::each_builtin_spec_is_compiled_from_its_model checks it",
-                );
+                .unwrap_or_else(|_| {
+                    // A static text: formatting the error would link its `Debug`
+                    // into every build.
+                    panic!(
+                        "a built-in spec is valid; \
+                         spec_load::tests::builtin::each_builtin_spec_is_compiled_from_its_model checks it"
+                    )
+                });
             Builtin {
                 id,
                 transaction,

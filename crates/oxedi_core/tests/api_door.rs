@@ -5,8 +5,11 @@ mod common;
 use std::sync::Arc;
 
 use common::{NO_ISA_FIXTURE, all_files, load_fixture};
-use oxedi_core::api::{ChosenSpec, DelimiterChoice, ReadOptions, SpecChoice, read, read_tables};
-use oxedi_core::{Builtin, DateMode, Document, Mask, Processor, Spec};
+use oxedi_core::api::{
+    BatchBy, Batches, ChosenSpec, DelimiterChoice, ReadOptions, SpecChoice, read, read_tables,
+    read_tree,
+};
+use oxedi_core::{Builtin, DateMode, Document, LoopTree, Mask, Processor, Spec, Tokenizer};
 
 type Options<'m> = ReadOptions<'m, Arc<Spec>>;
 
@@ -83,4 +86,55 @@ fn read_tables_fills_only_the_named_table() {
             .name,
         "nope"
     );
+}
+
+#[test]
+fn batches_together_are_one_run() {
+    for (name, bytes, _) in all_files().into_iter().filter(|f| f.0 != NO_ISA_FIXTURE) {
+        let document = Document::parse(bytes.as_slice()).unwrap();
+        let spec = &Builtin::select(document.segments()).spec;
+        let (tables, diagnostics) = Processor::run(spec, &document, None);
+        let segments = Tokenizer::new(&bytes).unwrap();
+        let batches: Vec<_> = Batches::new(spec, segments, &BatchBy::default(), None)
+            .unwrap()
+            .collect();
+        let found: Vec<_> = batches.iter().flat_map(|b| b.diagnostics.clone()).collect();
+        assert_eq!(found, diagnostics, "{name}");
+        for table in tables.iter() {
+            let rows: usize = batches
+                .iter()
+                .map(|b| b.tables.get(table.name()).map_or(0, |t| t.len()))
+                .sum();
+            assert_eq!(rows, table.len(), "{name}: {}", table.name());
+        }
+        assert!(
+            !batches.iter().any(|b| b.is_empty()),
+            "{name}: an empty batch"
+        );
+    }
+}
+
+#[test]
+fn batches_by_the_interchange_are_one() {
+    let bytes = load_fixture("emedny_sample.txt");
+    let spec = &Builtin::fallback().spec;
+    let by = BatchBy::Loop("interchange".into());
+    let segments = Tokenizer::new(&bytes).unwrap();
+    assert_eq!(Batches::new(spec, segments, &by, None).unwrap().count(), 1);
+}
+
+#[test]
+fn read_tree_is_read_and_the_built_tree() {
+    for (name, bytes, _) in all_files().into_iter().filter(|f| f.0 != NO_ISA_FIXTURE) {
+        let read_only = read(bytes.as_slice(), Options::default()).unwrap();
+        let (reading, tree) = read_tree(bytes.as_slice(), Options::default()).unwrap();
+        assert_eq!(reading.tables, read_only.tables, "{name}");
+        assert_eq!(reading.diagnostics, read_only.diagnostics, "{name}");
+        let spec = reading.spec.spec();
+        assert_eq!(
+            tree,
+            LoopTree::build(spec, reading.document.segments()),
+            "{name}"
+        );
+    }
 }

@@ -10,7 +10,9 @@ use crate::diagnostic::Diagnostic;
 use crate::document::{Document, DocumentError};
 use crate::mask::Mask;
 use crate::process::Processor;
+use crate::segment::Segment;
 use crate::spec::{Spec, UnknownTable};
+use crate::tree::LoopTree;
 
 /// What a read takes besides the bytes.
 #[derive(Debug, Clone)]
@@ -73,4 +75,46 @@ pub fn read_tables(
     mask: Option<&Mask>,
 ) -> Result<Tables, UnknownTable> {
     Processor::run_tables(spec, document, names, mask)
+}
+
+/// [`read`], and the loop tree of the file. The tables and diagnostics are
+/// those of [`read`].
+pub fn read_tree<'a, G: Deref<Target = Spec>>(
+    bytes: impl Into<Cow<'a, [u8]>>,
+    options: ReadOptions<'_, G>,
+) -> Result<(Reading<'a, G>, LoopTree), DocumentError> {
+    let document = options.delimiters.document(bytes)?;
+    let spec = options.spec.choose(document.segments());
+    let (tables, diagnostics, tree) = fold_tree(spec.spec(), &document, options.mask);
+    let reading = Reading {
+        document,
+        spec,
+        tables,
+        diagnostics,
+    };
+    Ok((reading, tree))
+}
+
+/// One pass: every segment goes to the processor and its events to the tree.
+fn fold_tree(
+    spec: &Spec,
+    document: &Document<'_>,
+    mask: Option<&Mask>,
+) -> (Tables, Vec<Diagnostic>, LoopTree) {
+    let mut processor = Processor::new(spec, document.delimiters()).with_mask(mask);
+    let mut builder = LoopTree::builder();
+    let mut diagnostics = Vec::new();
+    // One segment buffer for the whole pass, as `Processor::run` keeps.
+    let mut segment = Segment::empty();
+    let mut index = 0;
+    while document.segment_into(index, &mut segment) {
+        let output = processor.feed(&segment);
+        builder.on(output.events());
+        diagnostics.extend_from_slice(output.diagnostics());
+        index += 1;
+    }
+    let output = processor.finish();
+    builder.on(output.events());
+    diagnostics.extend_from_slice(output.diagnostics());
+    (processor.take_tables(), diagnostics, builder.finish())
 }

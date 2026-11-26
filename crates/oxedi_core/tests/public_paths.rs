@@ -65,6 +65,7 @@ mod by_module {
     use oxedi_core::project::Projector;
     use oxedi_core::segment::Segment;
     use oxedi_core::segment::SegmentWriteError;
+    use oxedi_core::spec::BatchLoopError;
     use oxedi_core::spec::ColumnSchema;
     use oxedi_core::spec::ColumnSource;
     use oxedi_core::spec::Control;
@@ -234,6 +235,9 @@ mod by_module {
 use oxedi_core::conformance::CaseFault;
 // The door a binding uses.
 mod api_door {
+    use oxedi_core::api::Batch;
+    use oxedi_core::api::BatchBy;
+    use oxedi_core::api::Batches;
     use oxedi_core::api::ChosenSpec;
     use oxedi_core::api::DelimiterChoice;
     use oxedi_core::api::ReadOptions;
@@ -241,6 +245,7 @@ mod api_door {
     use oxedi_core::api::SpecChoice;
     use oxedi_core::api::read;
     use oxedi_core::api::read_tables;
+    use oxedi_core::api::read_tree;
 }
 
 use oxedi_core::spec_load::SpecModel;

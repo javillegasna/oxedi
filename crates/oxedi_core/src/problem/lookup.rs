@@ -4,7 +4,7 @@ use std::fmt;
 
 use super::text::render_names;
 use crate::mask::{Mask, MaskError};
-use crate::spec::{UnknownColumn, UnknownTable};
+use crate::spec::{BatchLoopError, UnknownColumn, UnknownTable};
 use crate::summary::SummaryError;
 use crate::vocabulary::{DateMode, words_text};
 
@@ -28,6 +28,22 @@ impl fmt::Display for UnknownColumn {
             self.column,
             render_names(&self.columns)
         )
+    }
+}
+
+impl fmt::Display for BatchLoopError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            BatchLoopError::Unknown { by, loops } => write!(
+                f,
+                "by {by:?}: the spec has no such loop; its loops are {}",
+                loops.join(", ")
+            ),
+            BatchLoopError::NoEnvelope => f.write_str(
+                "the spec has no envelope loop (a loop whose end segment checks it) to cut \
+                 batches at; name a loop",
+            ),
+        }
     }
 }
 

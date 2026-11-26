@@ -61,7 +61,7 @@ pub use schema::{
 };
 pub use selector::Selector;
 pub use tables::{ColumnSource, Repeat, Summary, TableDef};
-pub use unknown::{UnknownColumn, UnknownTable};
+pub use unknown::{BatchLoopError, UnknownColumn, UnknownTable};
 pub use version::DeclaredVersion;
 
 pub(crate) use elements::{holds_code, rejects_code};

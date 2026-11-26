@@ -747,3 +747,20 @@ fn small_family_kinds() {
         ]
     );
 }
+
+#[test]
+fn a_batch_loop_error_names_its_kind_and_place() {
+    use crate::spec::BatchLoopError;
+    let unknown = BatchLoopError::Unknown {
+        by: "x".into(),
+        loops: vec!["a".into()],
+    };
+    for (error, kind) in [
+        (unknown, "Unknown"),
+        (BatchLoopError::NoEnvelope, "NoEnvelope"),
+    ] {
+        assert_eq!(error.kind(), kind);
+        assert_eq!(error.place(), Place::Spec(SpecPlace::Whole));
+        assert!(std::error::Error::source(&error).is_none());
+    }
+}

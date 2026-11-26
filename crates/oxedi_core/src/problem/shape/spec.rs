@@ -1,6 +1,7 @@
 //! The shape of a spec error.
 
 use super::{Place, Problem, SpecPlace};
+use crate::spec::BatchLoopError;
 use crate::spec_load::SpecError;
 
 problem!(SpecError [Json, Patch, UnknownParent, Cycle, NoLoops, EmptySegmentId, EndIsTrigger, Format, BadElementDef, BadTable, BadHeader, BadKit, Package, Stack, BadVersion, BadControl, BadOccurrence, BadBalance, UnmatchedTrigger, TriggerQualifierWider, TriggerNotFirst, ZeroLoopMax, AmbiguousTrigger, OverlappingTriggers, BadSummary, UnknownDefaultTable] this => {
@@ -60,3 +61,5 @@ problem!(SpecError [Json, Patch, UnknownParent, Cycle, NoLoops, EmptySegmentId, 
             }
         }
 });
+
+problem!(BatchLoopError [Unknown, NoEnvelope] _this => Place::Spec(SpecPlace::Whole));

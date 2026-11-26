@@ -52,7 +52,7 @@ pub mod element;
 pub mod engine;
 pub mod frame;
 pub mod mask;
-mod message;
+pub mod message;
 mod problem;
 pub mod process;
 pub mod project;
@@ -77,13 +77,14 @@ pub use element::{Element, Value};
 pub use engine::{Event, Instance, InstanceId, LoopEngine, lineage, loop_paths, named_lineage};
 pub use frame::{Frame, SegmentEnd, next_frame};
 pub use mask::{Mask, MaskError};
+pub use message::ElementRef;
 pub use process::{Output, Processor};
 pub use project::Projector;
 pub use segment::{Segment, SegmentWriteError};
 pub use spec::{
     BalanceRule, BalanceTerm, ColumnSchema, ColumnSource, Control, ControlCount, DeclaredVersion,
     ElementDef, EnvelopeField, EnvelopeFields, LoopDef, LoopId, OccurrenceId, Repeat, SegmentDef,
-    Selector, Spec, Summary, TableDef, TableSchema, Trigger, UnknownColumn, UnknownTable,
+    Selector, Spec, Summary, TableDef, TableSchema, Terms, Trigger, UnknownColumn, UnknownTable,
     spec_schema,
 };
 pub use spec_load::{

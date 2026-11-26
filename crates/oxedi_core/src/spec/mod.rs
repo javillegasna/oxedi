@@ -51,7 +51,7 @@ mod tests;
 mod unknown;
 mod version;
 
-pub use balance_rule::{BalanceRule, BalanceTerm, Sign};
+pub use balance_rule::{BalanceRule, BalanceTerm, NamedTerm, Sign, Terms};
 pub use elements::{ElementDef, ROW_COLUMN, SEGMENT_COLUMN, SegmentDef};
 pub use envelope_fields::{EnvelopeField, EnvelopeFields};
 pub use loops::{Control, ControlCount, LoopDef, LoopId, Trigger};

@@ -1,10 +1,10 @@
 //! The pieces messages are written from, shared by the diagnostics, the spec
 //! errors, the write findings and the project errors: file bytes quoted on
-//! one line ([`Quoted`]), a key in a rendered path ([`render_key`]), an
-//! element reference ([`ElementRef`], [`place`]), a trigger's conditions
-//! ([`Conditions`]), a list of names ([`render_names`]), a count and its noun
-//! ([`Counted`]) and the longest code list a message spells out
-//! ([`MAX_LISTED_CODES`]).
+//! one line (`Quoted`), a key in a rendered path (`render_key`), an element
+//! reference (`ElementRef`, the one public item), a trigger's conditions
+//! (`Conditions`), a list of names (`render_names`), a count and its noun
+//! (`Counted`) and the longest code list a message spells out
+//! (`MAX_LISTED_CODES`).
 //!
 //! The module depends on nothing else in the crate, so every part of the
 //! crate that writes a message can use it without a cycle.
@@ -66,15 +66,17 @@ pub(crate) fn render_key(key: &str) -> Cow<'_, str> {
 }
 
 /// An element reference in X12 style: `CLP01`, or `SVC01-2` for a component.
-pub(crate) struct ElementRef<'a> {
-    segment_id: &'a [u8],
+/// It owns its segment id (a `Vec<u8>`) or borrows it (any `AsRef<[u8]>`).
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct ElementRef<S = Vec<u8>> {
+    segment_id: S,
     element: usize,
     component: Option<usize>,
 }
 
-impl<'a> ElementRef<'a> {
+impl<S> ElementRef<S> {
     /// A simple element, or a component when `component` is `Some`.
-    pub(crate) fn new(segment_id: &'a [u8], element: usize, component: Option<usize>) -> Self {
+    pub(crate) fn new(segment_id: S, element: usize, component: Option<usize>) -> Self {
         ElementRef {
             segment_id,
             element,
@@ -83,17 +85,17 @@ impl<'a> ElementRef<'a> {
     }
 
     /// A simple element.
-    pub(crate) fn simple(segment_id: &'a [u8], element: usize) -> Self {
+    pub(crate) fn simple(segment_id: S, element: usize) -> Self {
         ElementRef::new(segment_id, element, None)
     }
 }
 
-impl fmt::Display for ElementRef<'_> {
+impl<S: AsRef<[u8]>> fmt::Display for ElementRef<S> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(
             f,
             "{}{:02}",
-            String::from_utf8_lossy(self.segment_id),
+            String::from_utf8_lossy(self.segment_id.as_ref()),
             self.element
         )?;
         match self.component {

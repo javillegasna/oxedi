@@ -201,6 +201,21 @@ mod by_module {
     use oxedi_core::vocabulary::DateMode;
     use oxedi_core::vocabulary::Phi;
     use oxedi_core::vocabulary::Pick;
+    use oxedi_core::write::ElementPlan;
+    use oxedi_core::write::Envelope;
+    use oxedi_core::write::Finding;
+    use oxedi_core::write::Instances;
+    use oxedi_core::write::LoopPlan;
+    use oxedi_core::write::PlanError;
+    use oxedi_core::write::Refusal;
+    use oxedi_core::write::SegmentPlan;
+    use oxedi_core::write::SegmentSource;
+    use oxedi_core::write::ValueOrigin;
+    use oxedi_core::write::ValueSource;
+    use oxedi_core::write::WriteError;
+    use oxedi_core::write::WritePlan;
+    use oxedi_core::write::write;
+    use oxedi_core::write::write_with_findings;
 }
 
 use oxedi_core::spec_load::SpecModel;
@@ -232,6 +247,7 @@ use oxedi_core::{Event, Instance, InstanceId, LoopEngine, lineage, loop_paths, n
 use oxedi_core::{Frame, SegmentEnd, next_frame};
 use oxedi_core::{LoopTree, Node, NodeId, TreeBuilder};
 use oxedi_core::{Output, Processor};
+use oxedi_core::{PlanError, Refusal, WritePlan};
 use oxedi_core::{Segment, SegmentWriteError};
 use oxedi_core::{Summary, SummaryDefError, SummaryError, SummaryValue, summarize};
 use oxedi_core::{parse_dt, parse_n, parse_r, parse_tm};

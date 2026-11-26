@@ -40,6 +40,44 @@ fn a_declared_version_loads_and_survives_a_patch() {
     );
 }
 
+fn gs08_with_codes(version: &str) -> String {
+    format!(
+        r#"{{"name":"t","loops":{{"a":{{"trigger":{{"segment":"GS"}}}}}},"segments":{{"GS":{{"elements":{{"8":{{"name":"v","type":"AN","codes":["B","A","C"]}}}}}}}},"version":{version}}}"#
+    )
+}
+
+#[test]
+fn left_out_values_are_the_elements_codes_in_written_order() {
+    let codes = vec![b"B".to_vec(), b"A".to_vec(), b"C".to_vec()];
+    let taken = loaded(&gs08_with_codes(r#"{"segment":"GS","element":8}"#));
+    assert_eq!(taken.spec.version().unwrap().values, codes);
+    let written = loaded(&gs08_with_codes(
+        r#"{"segment":"GS","element":8,"values":["X"]}"#,
+    ));
+    assert_eq!(written.spec.version().unwrap().values, vec![b"X".to_vec()]);
+    let spec = patched(&written, r#"{"version":{"values":null}}"#).unwrap();
+    assert_eq!(spec.version().unwrap().values, codes);
+    let kept = patched(&written, r#"{"version":{"element":8}}"#).unwrap();
+    assert_eq!(kept.version().unwrap().values, vec![b"X".to_vec()]);
+}
+
+#[test]
+fn a_declared_element_without_codes_names_the_missing_codes() {
+    let err = Spec::from_json(
+        r#"{"name":"t","loops":{"a":{"trigger":{"segment":"GS"}}},"segments":{"GS":{"elements":{"8":{"name":"v","type":"AN"}}}},"version":{"segment":"GS","element":8}}"#,
+    )
+    .unwrap_err();
+    assert!(
+        matches!(
+            &err,
+            SpecError::BadVersion {
+                reason: VersionError::NoCodes { .. }
+            }
+        ),
+        "{err:?}"
+    );
+}
+
 #[test]
 fn every_version_fault_is_named() {
     let err = version_error(r#"{"segment":"","element":8,"values":["X"]}"#);
@@ -76,6 +114,14 @@ fn every_version_fault_is_named() {
             },
             "the spec's \"version\" is invalid: value \"004010\" is listed twice, at values[0] and values[2]",
         ),
+        (
+            r#"{"segment":"GS","element":8}"#,
+            VersionError::NoCodes {
+                segment: "GS".into(),
+                element: 8,
+            },
+            "the spec's \"version\" is invalid: \"values\" is absent and element 8 of segment \"GS\" is not defined or lists no codes to take them from; write \"values\", or give segments.GS.elements.8 its \"codes\"",
+        ),
     ];
     for (version, expected_reason, expected_text) in cases {
         let err = version_error(version);
@@ -96,8 +142,8 @@ fn a_version_the_model_refuses_fails_at_its_path() {
             "spec: at version: invalid type: string \"GS08\", expected a version object",
         ),
         (
-            r#"{"segment":"GS","element":8}"#,
-            "spec: at version: missing field `values`",
+            r#"{"segment":"GS","element":8,"values":null}"#,
+            "spec: at version.values: invalid type: null, expected a sequence",
         ),
         (
             r#"{"segment":"GS","element":8,"values":["X"],"value":"X"}"#,

@@ -109,7 +109,9 @@ payee loop `1000B`.
 
 !!! note "4010 files"
     The 4010 spec has no payer technical contact (`PER*BL`), so on 4010 files the
-    `payer_technical_contact_*` columns are usually null.
+    `payer_technical_contact_*` columns are usually null. A 4010 file that carries one is read
+    with a diagnostic on PER01, and writing writes it back; `oxedi.write` then refuses with that
+    finding unless `allow_findings=True`.
 
 ## claims
 

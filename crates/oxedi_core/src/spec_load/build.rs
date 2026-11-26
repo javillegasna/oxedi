@@ -220,7 +220,7 @@ fn compile_version_section(build: &mut Build<'_>) -> Result<(), SpecError> {
         .model
         .version
         .as_ref()
-        .map(compile_version)
+        .map(|raw| compile_version(raw, &build.model.segments))
         .transpose()?;
     Ok(())
 }
@@ -274,6 +274,13 @@ pub enum VersionError {
     ZeroElement,
     /// `values` is an empty list.
     NoValues,
+    /// `values` is left out and the declared element lists no codes.
+    NoCodes {
+        /// The segment the version declares.
+        segment: String,
+        /// The 1-based element the version declares.
+        element: usize,
+    },
     /// A value is the empty string.
     EmptyValue {
         /// The value's 0-based index in `values` as written.
@@ -298,6 +305,10 @@ impl fmt::Display for VersionError {
                 f,
                 "\"values\" is empty; list at least one value the element may hold"
             ),
+            VersionError::NoCodes { segment, element } => write!(
+                f,
+                "\"values\" is absent and element {element} of segment {segment:?} is not defined or lists no codes to take them from; write \"values\", or give segments.{segment}.elements.{element} its \"codes\""
+            ),
             VersionError::EmptyValue { index } => write!(f, "\"values[{index}]\" is empty"),
             VersionError::DuplicateValue {
                 value,
@@ -311,8 +322,56 @@ impl fmt::Display for VersionError {
     }
 }
 
-/// Validates a spec's `version`.
-fn compile_version(raw: &VersionModel) -> Result<DeclaredVersion, SpecError> {
+/// The values a version lists: those written, else the codes of the declared
+/// element, in the order written.
+fn values_source<'a>(
+    raw: &'a VersionModel,
+    segments: &'a BTreeMap<String, SegmentModel>,
+) -> Result<&'a [String], VersionError> {
+    let codes = segments
+        .get(&raw.segment)
+        .and_then(|segment| segment.elements.get(&raw.element))
+        .and_then(|element| element.codes.as_deref());
+    raw.values
+        .as_deref()
+        .or(codes)
+        .ok_or_else(|| VersionError::NoCodes {
+            segment: raw.segment.clone(),
+            element: raw.element,
+        })
+}
+
+/// The values a version covers, checked: not empty, none empty, none twice.
+fn version_values<'a>(
+    raw: &'a VersionModel,
+    segments: &'a BTreeMap<String, SegmentModel>,
+) -> Result<&'a [String], VersionError> {
+    let values = values_source(raw, segments)?;
+    if values.is_empty() {
+        return Err(VersionError::NoValues);
+    }
+    if let Some(index) = values.iter().position(String::is_empty) {
+        return Err(VersionError::EmptyValue { index });
+    }
+    let mut seen = std::collections::HashMap::with_capacity(values.len());
+    for (second, value) in values.iter().enumerate() {
+        if let Some(first) = seen.insert(value.as_str(), second) {
+            return Err(VersionError::DuplicateValue {
+                value: value.clone(),
+                first,
+                second,
+            });
+        }
+    }
+    Ok(values)
+}
+
+/// Validates a spec's `version`. Values left out are the codes of the declared
+/// element, in the order written.
+fn compile_version(
+    raw: &VersionModel,
+    segments: &BTreeMap<String, SegmentModel>,
+) -> Result<DeclaredVersion, SpecError> {
     if raw.segment.is_empty() {
         return Err(SpecError::EmptySegmentId {
             loop_name: None,
@@ -323,25 +382,10 @@ fn compile_version(raw: &VersionModel) -> Result<DeclaredVersion, SpecError> {
     if raw.element == 0 {
         return Err(bad(VersionError::ZeroElement));
     }
-    if raw.values.is_empty() {
-        return Err(bad(VersionError::NoValues));
-    }
-    if let Some(index) = raw.values.iter().position(String::is_empty) {
-        return Err(bad(VersionError::EmptyValue { index }));
-    }
-    let mut seen = std::collections::HashMap::with_capacity(raw.values.len());
-    for (second, value) in raw.values.iter().enumerate() {
-        if let Some(first) = seen.insert(value.as_str(), second) {
-            return Err(bad(VersionError::DuplicateValue {
-                value: value.clone(),
-                first,
-                second,
-            }));
-        }
-    }
+    let values = version_values(raw, segments).map_err(bad)?;
     Ok(DeclaredVersion {
         segment: raw.segment.as_bytes().to_vec(),
         element: raw.element,
-        values: raw.values.iter().map(|v| v.as_bytes().to_vec()).collect(),
+        values: values.iter().map(|v| v.as_bytes().to_vec()).collect(),
     })
 }

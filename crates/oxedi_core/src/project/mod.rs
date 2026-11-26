@@ -3,8 +3,9 @@
 //! The projector follows the loops the engine opens and closes and fills the
 //! tables of the spec. A table without a `segment` gets one row per instance
 //! of its anchor loops: the row number is taken when the instance opens, each
-//! column fills from the captured segment its pick chooses among those that
-//! match its source (the first by default; see [`crate::vocabulary::Pick`]) while
+//! column fills from the captured segment its pick chooses among those of the
+//! occurrence its place reads that hold its conditions (the first by default;
+//! see [`crate::vocabulary::Pick`]) while
 //! the instance is open, and the row is appended when the instance closes. A
 //! column that reads a loop above the anchor keeps the value it picks from
 //! the enclosing instance of that loop, which starts over when an instance

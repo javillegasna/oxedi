@@ -34,7 +34,7 @@ produced, and on a produced one that is missing.
 | Directory | Written by | Content |
 |-----------|------------|---------|
 | `golden/*.events.txt`, `*.summary.txt` | `engine_golden` | Engine events per file. Small files keep every event; the two large samples (`SUMMARY_ONLY` in `common/mod.rs`) keep a count summary. |
-| `golden/spec/` | `spec_golden` | The compiled definitions of each built-in spec and of the `specs/edi_835_parser.json` patch package (loops, segments, tables, balancing, summaries, version, default table), one Debug line each. |
+| `golden/spec/` | `spec_golden` | The compiled definitions of each built-in spec and of the `specs/edi_835_parser.json` patch package (loops, segments, tables with each column's place, balancing, summaries, version, default table), one Debug line each. |
 | `golden/project/` | `project_golden` | Tables (`*.tables.txt`, or `*.tables.summary.txt` for the large samples) and diagnostics (`*.diagnostics.txt`) under the built-in spec. |
 | `golden/project/edi_835_parser/` | `project_golden` | The same tables under the `specs/edi_835_parser.json` patch package. |
 | `golden/project/masked/` | `project_golden` | The same, masked with a fixed key and dates reduced to the year; one file also with shifted dates. |

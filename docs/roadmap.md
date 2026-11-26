@@ -12,8 +12,8 @@ to build, test and send a change.
 
 oxedi reads and writes the 835, and its structure already comes from a spec that is plain data.
 Before adding other X12 transaction sets, the code underneath is being simplified so that a new
-transaction set is a new spec, not new code. None of this changes what oxedi reads or writes:
-every expected output stays byte for byte.
+transaction set is a new spec, not new code. Expected outputs stay byte for byte, except
+the few changes the changelog lists.
 
 - **Thin bindings** (done). Python, DuckDB and the browser viewer no longer repeat rules that
   belong in the Rust core: converting values before writing, picking the spec version of a file,
@@ -25,8 +25,8 @@ every expected output stays byte for byte.
 - **A vocabulary in layers** (done). The 835 is now a stack of packages: an envelope, a
   dictionary, a transaction set, an implementation guide and views; a guide sets usage, lengths
   and codes per occurrence. See [Packages and layers](customize/packages.md).
-- **One description for reading and writing** (next). Reading and writing walk one compiled map
-  of the spec instead of two plans.
+- **One description for reading and writing** (done). Each column's place is worked out once,
+  when the spec loads, and both reading and writing take it from there.
 
 ## Next: specs for any X12 transaction set
 

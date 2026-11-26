@@ -16,8 +16,10 @@ spec_object! {
     segment: String, required;
     /// 1-based element position of the declaration.
     element: usize, required;
-    /// The values the spec accepts.
-    values: Vec<String>, required;
+    /// The values the spec covers; when left out, the codes of element
+    /// `element` of `segments.<segment>`, in the order written.
+    #[serde(default, deserialize_with = "present")]
+    values: Option<Vec<String>>, optional;
 }
 
 /// A summary over the rows of a table, written `{"count": {"table": ...}}`.

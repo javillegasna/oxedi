@@ -60,10 +60,10 @@ def test_the_5010_stack_is_valid():
     assert report.spec.tables() == Spec.builtin().tables()
 
 
-def test_the_4010_stack_lists_81_changes():
+def test_the_4010_stack_lists_80_changes():
     report = oxedi.validate_stack(STACK_4010, PACKAGES)
     assert isinstance(report, Valid)
-    assert len(report.changes) == 81
+    assert len(report.changes) == 80
     first = report.changes[0]
     assert isinstance(first, Change)
     assert first.package == "oxedi/envelope/004010"
@@ -83,7 +83,7 @@ def test_the_4010_stack_lists_81_changes():
         ChangeKind.REMOVED: 24,
         ChangeKind.NARROWED: 13,
         ChangeKind.ADDED: 12,
-        ChangeKind.CHANGED: 2,
+        ChangeKind.CHANGED: 1,
     }
 
 

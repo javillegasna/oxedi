@@ -34,20 +34,20 @@ fn every_format_up_to_the_readers_reads() {
 
 #[test]
 fn a_newer_format_is_refused_naming_both_before_its_keys() {
-    let header = r#"{"format":2,"id":"test/envelope/005010","layers":["envelope"],"bases":[],"hierarchy":{}}"#;
+    let header = r#"{"format":3,"id":"test/envelope/005010","layers":["envelope"],"bases":[],"hierarchy":{}}"#;
     let err = read_err(&package_text(header, "{}"));
     assert!(matches!(
         err,
         SpecError::BadHeader {
             reason: HeaderError::FormatTooNew {
-                found: 2,
-                reader: 1
+                found: 3,
+                reader: 2
             }
         }
     ));
     assert_eq!(
         err.to_string(),
-        "the package header is invalid: package format 2 is newer than 1, the newest format this reader takes; read the package with a newer oxedi, or write it in format 1"
+        "the package header is invalid: package format 3 is newer than 2, the newest format this reader takes; read the package with a newer oxedi, or write it in format 2"
     );
 }
 

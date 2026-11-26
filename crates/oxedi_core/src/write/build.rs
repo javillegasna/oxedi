@@ -1,5 +1,5 @@
-//! Construction of a [`WritePlan`] from a spec: the inversion of every
-//! table column, the loops each table gives instances to, and the checks
+//! Construction of a [`WritePlan`] from a spec: every table
+//! column written at its compiled place, the loops each table gives instances to, and the checks
 //! that refuse a spec whose tables cannot make a valid file.
 
 use std::collections::BTreeMap;

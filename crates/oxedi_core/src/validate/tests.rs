@@ -59,7 +59,7 @@ fn the_4010_stack_says_yes_and_lists_its_changes() {
     assert_eq!(valid.members().count(), 8);
     let last = Some(valid.top.id.as_str());
     assert_eq!(last, Some("oxedi/guide/004010/835/X091A1"));
-    assert_eq!(valid.changes.len(), 81);
+    assert_eq!(valid.changes.len(), 80);
     assert!(
         valid.change_lines()[0].ends_with("(package \"oxedi/envelope/004010\")"),
         "{}",
@@ -69,7 +69,7 @@ fn the_4010_stack_says_yes_and_lists_its_changes() {
     assert!(
         text.starts_with("yes: stack \"oxedi/guide/004010/835/X091A1\" loads as spec \"835\"\n")
     );
-    assert!(text.contains("\nchanges (81):\n1. "), "{text}");
+    assert!(text.contains("\nchanges (80):\n1. "), "{text}");
 }
 
 #[test]
@@ -106,13 +106,13 @@ fn a_top_that_is_not_json_says_no() {
 
 #[test]
 fn a_pool_text_with_a_newer_format_says_no_naming_it() {
-    let newer = shipped()[1].replacen("\"format\": 1", "\"format\": 2", 1);
+    let newer = shipped()[1].replacen("\"format\": 1", "\"format\": 3", 1);
     let invalid = no(validate(shipped()[4], &[shipped()[0], &newer]));
     assert_eq!(
         invalid.to_string(),
         "no: package 2 of the pool does not read: the package header is invalid: package \
-         format 2 is newer than 1, the newest format this reader takes; read the package with \
-         a newer oxedi, or write it in format 1"
+         format 3 is newer than 2, the newest format this reader takes; read the package with \
+         a newer oxedi, or write it in format 2"
     );
 }
 

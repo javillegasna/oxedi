@@ -106,10 +106,7 @@ pub const TABLE: &[Row] = &[
         ],
     ),
     row("segment", &["delimiters", "element", "frame"]),
-    row(
-        "spec",
-        &["element", "message", "segment", "value", "vocabulary"],
-    ),
+    row("spec", &["element", "segment", "value", "vocabulary"]),
     row(
         "spec_load",
         &[

@@ -11,7 +11,7 @@ use super::error::SpecError;
 use super::model::{OccurrenceModel, QualifierModel};
 use super::occurrence_error::OccurrenceError;
 use super::vocabulary::ElementPosition;
-use crate::message::{place, render_key};
+use crate::message::{ElementRef, render_key};
 use crate::spec::{OccurrenceDef, Qualifier, SegmentDef, Selector, Trigger};
 
 /// Checks the occurrence a loop's trigger opens on, when the loop declares
@@ -103,8 +103,8 @@ impl<'o> SegmentSeen<'o> {
         if (a.element, a.component) != (b.element, b.component) {
             return Err(OccurrenceError::QualifierPlaces {
                 other: self.first.name.clone(),
-                place: place(&segment, b.element, b.component),
-                other_place: place(&segment, a.element, a.component),
+                place: ElementRef::new(occurrence.segment.clone(), b.element, b.component),
+                other_place: ElementRef::new(occurrence.segment.clone(), a.element, a.component),
             });
         }
         for code in &b.codes {

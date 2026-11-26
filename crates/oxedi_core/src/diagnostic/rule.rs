@@ -1,6 +1,6 @@
 //! The rules a diagnostic reports, their SNIP levels and variant names.
 
-use crate::spec::Selector;
+use crate::spec::{Selector, Terms};
 use crate::value::{ElementType, LengthRange};
 
 use super::SnipLevel;
@@ -239,9 +239,9 @@ pub enum Rule {
         /// instance opened implicitly.
         opened_at: Option<usize>,
         /// The rule's target values as the spec declares them.
-        target: String,
+        target: Terms,
         /// The rule's summed values as the spec declares them.
-        sum: String,
+        sum: Terms,
         /// The target's amount, scaled by `10^scale`.
         expected: i128,
         /// The sum's amount, scaled by `10^scale`.

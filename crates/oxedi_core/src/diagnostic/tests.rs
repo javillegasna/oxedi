@@ -1,7 +1,7 @@
 use super::*;
 use crate::Delimiters;
 use crate::message::Quoted;
-use crate::spec::{Qualifier, Selector, Trigger};
+use crate::spec::{NamedTerm, Qualifier, Selector, Terms, Trigger};
 use crate::value::{ElementType, LengthRange};
 
 fn trigger(segment: &[u8], conditions: &[(usize, &[u8])]) -> Selector {
@@ -22,6 +22,25 @@ fn occurrence(segment: &[u8], qualifier: Option<(usize, &[&str])>) -> Selector {
             component: None,
             codes: codes.iter().map(|code| code.to_string()).collect(),
         }),
+    }
+}
+
+fn term(
+    negative: bool,
+    summed: bool,
+    segment: &[u8],
+    elements: &[usize],
+    loop_name: &str,
+    occurrence: &str,
+) -> NamedTerm {
+    NamedTerm {
+        negative,
+        summed,
+        segment: segment.to_vec(),
+        elements: elements.to_vec(),
+        component: None,
+        loop_name: loop_name.to_string(),
+        occurrence: occurrence.to_string(),
     }
 }
 
@@ -214,8 +233,8 @@ fn every_rule_names_its_variant() {
                 rule: "r".into(),
                 loop_name: "l".into(),
                 opened_at: None,
-                target: "t".into(),
-                sum: "s".into(),
+                target: Terms(Vec::new()),
+                sum: Terms(Vec::new()),
                 expected: 0,
                 computed: 1,
                 scale: 2,
@@ -817,18 +836,40 @@ fn required_loop_missing_displays_the_loop_its_opener_and_the_child() {
 
 #[test]
 fn balance_mismatch_displays_the_rule_both_amounts_and_the_segments_read() {
-    let rule = |opened_at, segments| {
-        Rule::BalanceMismatch {
+    let rule = |opened_at, segments| Rule::BalanceMismatch {
         rule: "claim_balance".into(),
         loop_name: "2100".into(),
         opened_at,
-        target: "CLP03 of 2100 \"claim_payment_information\" - CLP04 of 2100 \"claim_payment_information\"".into(),
-        sum: "sum of CAS03, CAS06 of 2100 \"claim_adjustment\"".into(),
+        target: Terms(vec![
+            term(
+                false,
+                false,
+                b"CLP",
+                &[3],
+                "2100",
+                "claim_payment_information",
+            ),
+            term(
+                true,
+                false,
+                b"CLP",
+                &[4],
+                "2100",
+                "claim_payment_information",
+            ),
+        ]),
+        sum: Terms(vec![term(
+            false,
+            true,
+            b"CAS",
+            &[3, 6],
+            "2100",
+            "claim_adjustment",
+        )]),
         expected: 30000,
         computed: -1250,
         scale: 2,
         segments,
-    }
     };
     let diagnostic = Diagnostic::new(
         rule(Some(16), vec![16, 17]),
@@ -1133,14 +1174,14 @@ fn a_balance_lists_ten_segments_then_counts_the_rest() {
         rule: "r".into(),
         loop_name: "2100".into(),
         opened_at: Some(1),
-        target: "CLP03".into(),
-        sum: "CAS03".into(),
+        target: Terms(vec![term(false, false, b"CLP", &[3], "2100", "c")]),
+        sum: Terms(vec![term(false, false, b"CAS", &[3], "2100", "a")]),
         expected: 5,
         computed: 0,
         scale: 2,
         segments: (1..=count).collect(),
     };
-    let head = "balancing rule \"r\" fails in loop \"2100\" opened at segment #1: CLP03 is 0.05, but CAS03 adds up to 0.00 (off by 0.05); read from segments ";
+    let head = "balancing rule \"r\" fails in loop \"2100\" opened at segment #1: CLP03 of 2100 \"c\" is 0.05, but CAS03 of 2100 \"a\" adds up to 0.00 (off by 0.05); read from segments ";
     assert_eq!(
         rule(9).to_string(),
         format!("{head}#1, #2, #3, #4, #5, #6, #7, #8, #9")
@@ -1161,8 +1202,8 @@ fn a_balance_whose_difference_overflows_leaves_it_out() {
         rule: "r".into(),
         loop_name: "2100".into(),
         opened_at: None,
-        target: "CLP03".into(),
-        sum: "CAS03".into(),
+        target: Terms(vec![term(false, false, b"CLP", &[3], "2100", "c")]),
+        sum: Terms(vec![term(false, false, b"CAS", &[3], "2100", "a")]),
         expected: i128::MIN,
         computed: 1,
         scale: 0,
@@ -1171,7 +1212,7 @@ fn a_balance_whose_difference_overflows_leaves_it_out() {
     assert_eq!(
         rule.to_string(),
         format!(
-            "balancing rule \"r\" fails in loop \"2100\" opened implicitly: CLP03 is {}, but CAS03 adds up to 1; read from segments #3",
+            "balancing rule \"r\" fails in loop \"2100\" opened implicitly: CLP03 of 2100 \"c\" is {}, but CAS03 of 2100 \"a\" adds up to 1; read from segments #3",
             i128::MIN
         )
     );
@@ -1219,5 +1260,37 @@ fn selectors_render_as_the_messages_wrote_them() {
     ];
     for (selector, text) in rendered {
         assert_eq!(selector.to_string(), text);
+    }
+}
+
+#[test]
+fn sides_render_as_the_messages_wrote_them() {
+    let claim = "claim_payment_information";
+    let rendered = [
+        (
+            Terms(vec![
+                term(false, false, b"CLP", &[3], "2100", claim),
+                term(true, false, b"CLP", &[4], "2100", claim),
+            ]),
+            "CLP03 of 2100 \"claim_payment_information\" - CLP04 of 2100 \"claim_payment_information\"",
+        ),
+        (
+            Terms(vec![term(
+                false,
+                true,
+                b"CAS",
+                &[3, 6],
+                "2100",
+                "claim_adjustment",
+            )]),
+            "sum of CAS03, CAS06 of 2100 \"claim_adjustment\"",
+        ),
+        (
+            Terms(vec![term(true, false, b"CLP", &[3], "2100", claim)]),
+            "- CLP03 of 2100 \"claim_payment_information\"",
+        ),
+    ];
+    for (terms, text) in rendered {
+        assert_eq!(terms.to_string(), text);
     }
 }

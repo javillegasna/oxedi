@@ -88,6 +88,21 @@ impl<S> ElementRef<S> {
     pub(crate) fn simple(segment_id: S, element: usize) -> Self {
         ElementRef::new(segment_id, element, None)
     }
+
+    /// The segment id.
+    pub fn segment_id(&self) -> &S {
+        &self.segment_id
+    }
+
+    /// The 1-based element position.
+    pub fn element(&self) -> usize {
+        self.element
+    }
+
+    /// The 1-based component position, when the reference is a component.
+    pub fn component(&self) -> Option<usize> {
+        self.component
+    }
 }
 
 impl<S: AsRef<[u8]>> fmt::Display for ElementRef<S> {

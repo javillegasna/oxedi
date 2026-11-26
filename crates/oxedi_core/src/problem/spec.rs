@@ -88,39 +88,3 @@ impl fmt::Display for NamedTerm {
         )
     }
 }
-
-#[cfg(test)]
-mod proof {
-    use super::*;
-    use crate::spec::{Spec, render_terms};
-    use crate::spec_load::Builtin;
-    use crate::validate::{Validation, validate};
-
-    #[test]
-    fn sides_render_as_render_terms() {
-        let compat = match validate(
-            include_str!("../../specs/edi_835_parser.json"),
-            Builtin::packages(),
-        ) {
-            Validation::Yes(valid) => valid.loaded.spec,
-            Validation::No(invalid) => panic!("{invalid}"),
-        };
-        let specs = [
-            Spec::builtin_835(),
-            Spec::builtin_835_4010(),
-            (*compat).clone(),
-        ];
-        let (mut negative, mut summed) = (false, false);
-        for spec in &specs {
-            for rule in spec.balancing() {
-                for side in [&rule.target, &rule.sum] {
-                    let terms = Terms::of(spec, rule.per, side);
-                    negative |= terms.0.iter().any(|term| term.negative);
-                    summed |= terms.0.iter().any(|term| term.summed);
-                    assert_eq!(terms.to_string(), render_terms(spec, rule.per, side));
-                }
-            }
-        }
-        assert!(negative && summed);
-    }
-}

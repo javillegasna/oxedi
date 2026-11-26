@@ -27,6 +27,8 @@ the few changes the changelog lists.
   and codes per occurrence. See [Packages and layers](customize/packages.md).
 - **One description for reading and writing** (done). Each column's place is worked out once,
   when the spec loads, and both reading and writing take it from there.
+- **The envelope as a base package** (done). Which envelope element carries the sender,
+  receiver, date and time is data in the envelope package, and the package format is stable.
 
 ## Next: specs for any X12 transaction set
 
@@ -59,7 +61,7 @@ exclusions) the format should express. Discussed in
 - **Validate with pyx12** and get its findings in the same shape as oxedi's own. See
   [Validating with pyx12](python/pyx12.md).
 - **Adapt to your payers** by changing the spec. See [The spec](customize/spec.md).
-- **Write your own vocabulary as packages** on the built-in layers, check it with
+- **Write your own vocabulary as packages**, in a stable format, on the built-in layers, check it with
   `oxedi.validate_stack` (what it can read, write and mask, and what it changes) and run its
   conformance kit with `oxedi.run_kit`. See [Packages and layers](customize/packages.md).
 - **Try it in your browser.** Drop an 835 on the [viewer](https://javillegas.dev/oxedi/viewer/);

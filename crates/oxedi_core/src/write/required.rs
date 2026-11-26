@@ -3,11 +3,11 @@
 //! refusals for the rest.
 
 use crate::spec::{
-    ElementRule, OccurrenceDef, SegmentDef, Spec, Usage, render_selector, render_trigger,
+    ElementRule, LoopDef, OccurrenceDef, SegmentDef, Spec, Usage, render_selector, render_trigger,
 };
 
 use super::build::Builder;
-use super::plan::{ElementPlan, Instances, Place, SegmentPlan, SegmentSource, ValueSource};
+use super::plan::{ElementPlan, Instances, Place, SegmentPlan, ValueSource};
 use super::refusal::Refusal;
 use crate::message::place;
 
@@ -18,77 +18,98 @@ impl Builder<'_> {
     pub(super) fn required(&mut self) {
         let spec = self.spec;
         for (index, def) in spec.loops().iter().enumerate() {
-            let Some(plan) = self.loops.get(index) else {
-                continue;
-            };
-            if plan.instances == Instances::Absent {
+            if self.is_absent(index) {
                 continue;
             }
-            let table = match plan.instances {
-                Instances::Rows { table }
-                | Instances::Inside { table }
-                | Instances::Groups { table } => Some(table),
-                _ => None,
-            };
-            for &child in &def.children {
-                let child_def = spec.get(child);
-                let absent = self
-                    .loops
-                    .get(child.index())
-                    .is_none_or(|plan| plan.instances == Instances::Absent);
-                if child_def.usage == Usage::Required && absent {
-                    self.refusals.push(Refusal::RequiredLoopWithoutSource {
-                        loop_name: child_def.name.clone(),
-                        parent: def.name.clone(),
-                        trigger: render_trigger(&child_def.trigger),
-                    });
-                }
-            }
-            for (at, occurrence) in def.occurrences.iter().enumerate() {
-                let written = self
-                    .loops
-                    .get(index)
-                    .is_some_and(|plan| plan.segments.iter().any(|s| s.occurrence == at));
-                if occurrence.usage == Usage::Required && !written {
-                    self.refusals
-                        .push(Refusal::RequiredOccurrenceWithoutSource {
-                            loop_name: def.name.clone(),
-                            occurrence: occurrence.name.clone(),
-                            selector: render_selector(occurrence),
-                        });
-                }
-            }
-            let mut found = Vec::new();
-            if let Some(plan) = self.loops.get_mut(index) {
-                for segment in &mut plan.segments {
-                    let segment_table = match segment.source {
-                        SegmentSource::Envelope => continue,
-                        SegmentSource::Row { table, .. } | SegmentSource::Repeat { table } => {
-                            Some(table)
-                        }
-                    };
-                    let Some(occurrence) = def.occurrences.get(segment.occurrence) else {
-                        continue;
-                    };
-                    for (element, component, name) in fill_required(spec, segment, occurrence) {
-                        found.push(Refusal::RequiredElementWithoutSource {
-                            table: segment_table.or(table).map(|t| {
-                                spec.tables()
-                                    .get(t)
-                                    .map(|d| d.name.clone())
-                                    .unwrap_or_default()
-                            }),
-                            loop_name: def.name.clone(),
-                            occurrence: occurrence.name.clone(),
-                            place: place(&occurrence.segment, element, component),
-                            name,
-                        });
-                    }
-                }
-            }
-            self.refusals.extend(found);
+            let unwritten: Vec<Refusal> = self
+                .children_without_source(def)
+                .chain(self.occurrences_without_source(index, def))
+                .collect();
+            self.refusals.extend(unwritten);
+            let unfilled = self.fill_elements(index, def);
+            self.refusals.extend(unfilled);
         }
     }
+
+    /// Whether loop `index` has no plan or an absent one.
+    fn is_absent(&self, index: usize) -> bool {
+        self.loops
+            .get(index)
+            .is_none_or(|plan| plan.instances == Instances::Absent)
+    }
+
+    /// The required child loops of `def` that nothing writes.
+    fn children_without_source<'a>(
+        &'a self,
+        def: &'a LoopDef,
+    ) -> impl Iterator<Item = Refusal> + 'a {
+        def.children
+            .iter()
+            .filter(|&&child| self.spec.get(child).usage == Usage::Required)
+            .filter(|&&child| self.is_absent(child.index()))
+            .map(|&child| self.spec.get(child))
+            .map(|child| Refusal::RequiredLoopWithoutSource {
+                loop_name: child.name.clone(),
+                parent: def.name.clone(),
+                trigger: render_trigger(&child.trigger),
+            })
+    }
+
+    /// The required occurrences of loop `index` that no segment writes.
+    fn occurrences_without_source<'a>(
+        &'a self,
+        index: usize,
+        def: &'a LoopDef,
+    ) -> impl Iterator<Item = Refusal> + 'a {
+        let segments = self.loops.get(index).map_or(&[][..], |plan| &plan.segments);
+        def.occurrences
+            .iter()
+            .enumerate()
+            .filter(|(_, occurrence)| occurrence.usage == Usage::Required)
+            .filter(move |(at, _)| segments.iter().all(|s| s.occurrence != *at))
+            .map(|(_, occurrence)| Refusal::RequiredOccurrenceWithoutSource {
+                loop_name: def.name.clone(),
+                occurrence: occurrence.name.clone(),
+                selector: render_selector(occurrence),
+            })
+    }
+
+    /// Gives the required elements of the segments loop `index` writes their
+    /// single allowed code, and refuses the ones that allow none or several.
+    fn fill_elements(&mut self, index: usize, def: &LoopDef) -> Vec<Refusal> {
+        let spec = self.spec;
+        let Some(plan) = self.loops.get_mut(index) else {
+            return Vec::new();
+        };
+        let mut refusals = Vec::new();
+        for segment in &mut plan.segments {
+            let Some(segment_table) = segment.source.table() else {
+                continue;
+            };
+            let Some(occurrence) = def.occurrences.get(segment.occurrence) else {
+                continue;
+            };
+            let table = table_name(spec, segment_table);
+            refusals.extend(fill_required(spec, segment, occurrence).into_iter().map(
+                |(element, component, name)| Refusal::RequiredElementWithoutSource {
+                    table: Some(table.clone()),
+                    loop_name: def.name.clone(),
+                    occurrence: occurrence.name.clone(),
+                    place: place(&occurrence.segment, element, component),
+                    name,
+                },
+            ));
+        }
+        refusals
+    }
+}
+
+/// The name of the table at an index; an index the spec does not hold reads as an
+/// empty name.
+fn table_name(spec: &Spec, table: usize) -> String {
+    spec.tables()
+        .get(table)
+        .map_or_else(String::new, |def| def.name.clone())
 }
 
 /// Adds the occurrence's qualifier code when it has exactly one and nothing

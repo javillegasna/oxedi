@@ -58,6 +58,16 @@ pub enum SegmentSource {
     },
 }
 
+impl SegmentSource {
+    /// The table that fills the segment; none for an envelope segment.
+    pub(super) fn table(&self) -> Option<usize> {
+        match self {
+            SegmentSource::Envelope => None,
+            SegmentSource::Row { table, .. } | SegmentSource::Repeat { table } => Some(*table),
+        }
+    }
+}
+
 /// Where one element (or component) value comes from.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum ValueSource {

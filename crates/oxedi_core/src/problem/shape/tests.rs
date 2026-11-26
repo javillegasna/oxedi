@@ -460,7 +460,7 @@ fn refusal_kinds() {
         Refusal::RepeatWithoutInstances {
             table: s("t"),
             loop_name: s("l"),
-            segment: None,
+            segment: b"S".to_vec(),
         },
         Refusal::CodeOutsideList {
             table: s("t"),

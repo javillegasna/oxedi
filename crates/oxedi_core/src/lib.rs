@@ -53,7 +53,7 @@ pub mod engine;
 pub mod frame;
 pub mod mask;
 pub mod message;
-mod problem;
+pub mod problem;
 pub mod process;
 pub mod project;
 pub mod segment;
@@ -78,6 +78,7 @@ pub use engine::{Event, Instance, InstanceId, LoopEngine, lineage, loop_paths, n
 pub use frame::{Frame, SegmentEnd, next_frame};
 pub use mask::{Mask, MaskError};
 pub use message::ElementRef;
+pub use problem::{Place, Problem, ProblemRecord};
 pub use process::{Output, Processor};
 pub use project::Projector;
 pub use segment::{Segment, SegmentWriteError};

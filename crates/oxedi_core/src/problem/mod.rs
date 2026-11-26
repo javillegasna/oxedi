@@ -4,7 +4,8 @@
 //! offending value); this module writes their `Display` and remedies, so a
 //! wording changes in one folder and no layer holds prose.
 //!
-//! The folder holds: `diagnostic/` (the text of a diagnostic and its rules),
+//! The folder holds: `shape/` (the shape every problem has: kind, place, detail
+//! and a record), `diagnostic/` (the text of a diagnostic and its rules),
 //! `write/` (the text of the writer's refusals, findings and errors),
 //! `load/` (the text of the problems a spec, a package or a kit raises),
 //! `syntax.rs` (the interchange header, a document, a segment), `value.rs`
@@ -15,8 +16,11 @@ mod conformance;
 mod diagnostic;
 mod load;
 mod lookup;
+mod shape;
 mod spec;
 mod syntax;
 mod validate;
 mod value;
 mod write;
+
+pub use shape::{Detail, Place, Problem, ProblemRecord, SpecPlace};

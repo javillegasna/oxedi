@@ -113,19 +113,24 @@ impl Envelope {
     }
 }
 
-/// What an envelope element's value comes from, by the name a finding gives it.
+/// What an envelope element's value comes from, by the name a finding gives it
+/// (`write::EnvelopeSource` outside the module).
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub(super) enum Field {
+pub enum Field {
     /// A caller's field the loop's `control.fields` puts on the element.
     Caller(EnvelopeField),
+    /// The interchange control number.
     ControlNumber,
+    /// The repetition separator.
     Repetition,
+    /// The component separator.
     Component,
+    /// The interchange version.
     Version,
 }
 
 impl Field {
-    pub(super) fn name(self) -> &'static str {
+    pub fn name(self) -> &'static str {
         match self {
             Field::Caller(field) => field.word(),
             Field::ControlNumber => "control_number",

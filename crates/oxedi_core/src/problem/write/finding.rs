@@ -16,7 +16,7 @@ impl fmt::Display for ValueOrigin {
                 write!(f, "table {table:?} row {row} column {column:?}")
             }
             ValueOrigin::Row { table, row } => write!(f, "table {table:?} row {row}"),
-            ValueOrigin::Envelope { field } => write!(f, "envelope field {field:?}"),
+            ValueOrigin::Envelope { field } => write!(f, "envelope field {:?}", field.name()),
         }
     }
 }

@@ -55,6 +55,11 @@ mod by_module {
     use oxedi_core::mask::Mask;
     use oxedi_core::mask::MaskError;
     use oxedi_core::message::ElementRef;
+    use oxedi_core::problem::Detail;
+    use oxedi_core::problem::Place;
+    use oxedi_core::problem::Problem;
+    use oxedi_core::problem::ProblemRecord;
+    use oxedi_core::problem::SpecPlace;
     use oxedi_core::process::Output;
     use oxedi_core::process::Processor;
     use oxedi_core::project::Projector;
@@ -209,6 +214,7 @@ mod by_module {
     use oxedi_core::vocabulary::Pick;
     use oxedi_core::write::ElementPlan;
     use oxedi_core::write::Envelope;
+    use oxedi_core::write::EnvelopeSource;
     use oxedi_core::write::Finding;
     use oxedi_core::write::Instances;
     use oxedi_core::write::LoopPlan;
@@ -229,6 +235,9 @@ use oxedi_core::spec_load::SpecModel;
 // Root re-exports from lib.rs
 use oxedi_core::ConvertError;
 use oxedi_core::ElementRef;
+use oxedi_core::Place;
+use oxedi_core::Problem;
+use oxedi_core::ProblemRecord;
 use oxedi_core::Projector;
 use oxedi_core::StructureChecker;
 use oxedi_core::Tokenizer;

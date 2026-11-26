@@ -184,9 +184,7 @@ impl Emitter<'_> {
         let syntax = self.header_syntax(&values);
         for value in values {
             if let Some(field) = value.field {
-                let origin = ValueOrigin::Envelope {
-                    field: field.name().to_string(),
-                };
+                let origin = ValueOrigin::Envelope { field };
                 if value.checked {
                     self.check_delimiters(
                         syntax,

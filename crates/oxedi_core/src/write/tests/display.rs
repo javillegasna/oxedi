@@ -4,7 +4,7 @@ use super::{at, bare};
 use crate::delimiters::IsaError;
 use crate::diagnostic::{Diagnostic, Rule};
 use crate::document::DocumentError;
-use crate::spec::Selector;
+use crate::spec::{EnvelopeField, Selector};
 use crate::spec::{UnknownColumn, UnknownTable};
 use crate::value::{ColumnType, ElementTextError};
 use crate::write::*;
@@ -29,7 +29,7 @@ fn origins_name_the_cell_the_row_or_the_envelope_field() {
     };
     assert_eq!(row.to_string(), "table \"claims\" row 3");
     let field = ValueOrigin::Envelope {
-        field: "sender_id".into(),
+        field: EnvelopeSource::Caller(EnvelopeField::SenderId),
     };
     assert_eq!(field.to_string(), "envelope field \"sender_id\"");
 }

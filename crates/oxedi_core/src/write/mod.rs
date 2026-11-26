@@ -42,7 +42,7 @@ mod trace;
 mod walk;
 mod writer;
 
-pub use envelope::Envelope;
+pub use envelope::{Envelope, Field as EnvelopeSource};
 pub use finding::{Finding, ValueOrigin, WriteError};
 pub use plan::{
     ElementPlan, Instances, LoopPlan, SegmentPlan, SegmentSource, ValueSource, WritePlan,

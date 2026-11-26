@@ -296,7 +296,7 @@ impl PyWriteFinding {
     #[getter]
     fn field(&self) -> Option<&str> {
         match self.origin()? {
-            ValueOrigin::Envelope { field } => Some(field),
+            ValueOrigin::Envelope { field } => Some(field.name()),
             _ => None,
         }
     }

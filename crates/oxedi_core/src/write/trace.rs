@@ -94,9 +94,7 @@ impl Traces {
                 row,
                 column: names(table, Some(column)),
             }),
-            Some(Src::Field(field)) => Some(ValueOrigin::Envelope {
-                field: field.name().to_string(),
-            }),
+            Some(Src::Field(field)) => Some(ValueOrigin::Envelope { field }),
             None => row.map(|(table, row)| ValueOrigin::Row {
                 table: names(table, None),
                 row,

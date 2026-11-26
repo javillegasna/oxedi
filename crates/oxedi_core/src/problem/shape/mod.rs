@@ -30,12 +30,15 @@ macro_rules! problem {
     };
 }
 
+mod case;
 mod diagnostic;
 mod document;
 mod finding;
 mod kit;
+mod mask;
 mod refusal;
 mod spec;
+mod summary;
 #[cfg(test)]
 mod tests;
 mod write_error;

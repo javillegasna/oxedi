@@ -1,9 +1,12 @@
 use super::*;
+use crate::conformance::CaseFault;
 use crate::delimiters::IsaError;
 use crate::diagnostic::{Diagnostic, PARSER_ORIGIN};
 use crate::document::{DocumentError, SizeError};
+use crate::mask::MaskError;
 use crate::message::ElementRef;
 use crate::spec_load::{KitError, PackageId, SpecError, TableDefError};
+use crate::summary::SummaryError;
 use crate::value::ElementTextError;
 use crate::write::Finding;
 use crate::write::{LoopWriter, PlanError, Refusal, WriteError};
@@ -558,6 +561,147 @@ fn spec_error_kinds_name_their_variants() {
             "ZeroLoopMax",
             "UnknownDefaultTable",
             "EndIsTrigger"
+        ]
+    );
+}
+
+#[test]
+fn summary_mask_and_case_places() {
+    let overflow = SummaryError::Overflow {
+        summary: "s".into(),
+        table: "t".into(),
+        column: "c".into(),
+        row: 2,
+        amount: "1".into(),
+    };
+    assert_eq!(
+        overflow.place(),
+        Place::Cell {
+            table: "t",
+            row: Some(2),
+            column: Some("c")
+        }
+    );
+    let short = MaskError::ShortKey { length: 3 };
+    assert_eq!((short.kind(), short.place()), ("ShortKey", Place::Nowhere));
+    let missing = CaseFault::MissingFile {
+        path: "x.835".into(),
+    };
+    assert_eq!(
+        (missing.kind(), missing.place()),
+        (
+            "MissingFile",
+            Place::Kit {
+                case: None,
+                file: Some("x.835")
+            }
+        )
+    );
+}
+
+#[test]
+fn every_family_gives_a_record() {
+    fn text_matches(problem: &impl Problem) {
+        assert_eq!(problem.record().text, problem.to_string());
+    }
+    text_matches(&unknown_segment());
+    text_matches(&delimiter(cell()));
+    text_matches(&WriteError::Findings(Vec::new()));
+    text_matches(&DocumentError::Size(SizeError { len: 1 }));
+    text_matches(&KitError::NoCases);
+    text_matches(&MaskError::ShortKey { length: 3 });
+    text_matches(&SpecError::NoLoops {
+        spec_name: "s".into(),
+    });
+    text_matches(&SummaryError::NotOneRow {
+        summary: "s".into(),
+        table: "t".into(),
+        rows: 2,
+    });
+    text_matches(&CaseFault::NotText { path: "p".into() });
+    text_matches(&Refusal::SeveralAnchorLoops {
+        table: "t".into(),
+        loops: vec!["a".into(), "b".into()],
+    });
+}
+
+#[test]
+fn small_family_kinds() {
+    let kit = [
+        KitError::FormatTooNew {
+            found: 2,
+            reader: 1,
+        },
+        KitError::NoCases,
+        KitError::RepeatedCase { case: "a".into() },
+        KitError::NoOutputs { case: "a".into() },
+    ]
+    .map(|e| e.kind());
+    assert_eq!(
+        kit,
+        ["FormatTooNew", "NoCases", "RepeatedCase", "NoOutputs"]
+    );
+    let mask = [
+        MaskError::ShortKey { length: 1 },
+        MaskError::UnknownDateMode { given: "x".into() },
+    ]
+    .map(|e| e.kind());
+    assert_eq!(mask, ["ShortKey", "UnknownDateMode"]);
+    let case = [
+        CaseFault::MissingFile { path: "p".into() },
+        CaseFault::NotText { path: "p".into() },
+        CaseFault::NotADocument {
+            path: "p".into(),
+            reason: DocumentError::Size(SizeError { len: 1 }),
+        },
+    ]
+    .map(|e| e.kind());
+    assert_eq!(case, ["MissingFile", "NotText", "NotADocument"]);
+    let summary = |table: &str| table.to_string();
+    let summaries = [
+        SummaryError::Undeclared {
+            summary: summary("s"),
+            declared: Vec::new(),
+        },
+        SummaryError::MissingTable {
+            summary: summary("s"),
+            table: summary("t"),
+            present: Vec::new(),
+        },
+        SummaryError::MissingColumn {
+            summary: summary("s"),
+            table: summary("t"),
+            column: summary("c"),
+        },
+        SummaryError::NotDecimal {
+            summary: summary("s"),
+            table: summary("t"),
+            column: summary("c"),
+            found: crate::value::ColumnType::Date32,
+        },
+        SummaryError::NotOneRow {
+            summary: summary("s"),
+            table: summary("t"),
+            rows: 2,
+        },
+        SummaryError::Overflow {
+            summary: summary("s"),
+            table: summary("t"),
+            column: summary("c"),
+            row: 0,
+            amount: summary("1"),
+        },
+    ]
+    .map(|e| e.kind());
+    assert_eq!(
+        summaries,
+        [
+            "Undeclared",
+            "MissingTable",
+            "MissingColumn",
+            "NotDecimal",
+            "NotOneRow",
+            "Overflow"
         ]
     );
 }

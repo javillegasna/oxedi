@@ -38,6 +38,9 @@
 //!   what it can do (read, write, mask), and [`conformance::run_kit`] runs a
 //!   conformance kit over bytes; tools use them, the built-ins' run-time path
 //!   does not.
+//! - [`problem`] writes the text of every problem the layers raise, which they
+//!   raise as data, and gives each the one shape [`Problem`] (a kind, a
+//!   [`Place`] and a detail), read whole as a [`ProblemRecord`].
 //!
 //! The structure is data: no code in this crate is specific to the 835 beyond
 //! the built-in spec it loads.

@@ -93,7 +93,14 @@ pub const TABLE: &[Row] = &[
     ),
     row(
         "spec_load",
-        &["message", "segment", "spec", "value", "vocabulary"],
+        &[
+            "delimiters",
+            "message",
+            "segment",
+            "spec",
+            "value",
+            "vocabulary",
+        ],
     ),
     row("summary", &["column", "spec", "value"]),
     row("tokenizer", &["delimiters", "frame", "segment"]),

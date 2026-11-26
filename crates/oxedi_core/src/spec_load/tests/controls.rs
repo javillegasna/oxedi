@@ -180,6 +180,23 @@ fn bad_control_displays_the_loop_and_every_reason() {
             "loop \"transaction\" has an invalid \"control\": \"fields\" puts \"sender_id\" on element 2, which holds the control number (\"opener_element\"); move the field to another element",
         ),
         (
+            ControlError::FieldOnHeaderPlace {
+                element: 11,
+                place: "repetition separator",
+                field: EnvelopeField::Time,
+                segment: "ISA".into(),
+            },
+            "loop \"transaction\" has an invalid \"control\": \"fields\" puts \"time\" on element 11 of the top loop's trigger \"ISA\", the place of the repetition separator, which the syntax layer owns; move the field to another element",
+        ),
+        (
+            ControlError::FieldNotOnTrigger {
+                element: 9,
+                field: EnvelopeField::Time,
+                segment: "HD".into(),
+            },
+            "loop \"transaction\" has an invalid \"control\": \"fields\" puts \"time\" on element 9, which the trigger segment \"HD\" does not define; define the element in \"segments\" or move the field",
+        ),
+        (
             ControlError::FieldTwice {
                 field: EnvelopeField::Date,
                 first: 3,
@@ -307,4 +324,19 @@ fn a_value_of_the_wrong_kind_is_refused_at_its_path() {
         assert!(matches!(&err, SpecError::Format { .. }), "{json}: {err:?}");
         assert_eq!(err.to_string(), expected, "{json}");
     }
+}
+
+#[test]
+fn a_control_field_on_an_element_the_trigger_does_not_define_is_refused() {
+    let spec = |element: &str| {
+        format!(
+            r#"{{"name":"t","loops":{{"env":{{"trigger":{{"segment":"HD"}},"end":"TR","control":{{"opener_element":2,"closer_element":2,"count_element":1,"count":"segments","fields":{{"{element}":"time"}}}}}}}},"segments":{{"HD":{{"elements":{{"1":{{"name":"a","type":"AN"}},"2":{{"name":"b","type":"N0"}}}}}}}}}}"#
+        )
+    };
+    let err = Spec::from_json(&spec("9")).unwrap_err().to_string();
+    assert!(
+        err.contains("on element 9, which the trigger segment \"HD\" does not"),
+        "{err}"
+    );
+    assert!(Spec::from_json(&spec("1")).is_ok());
 }

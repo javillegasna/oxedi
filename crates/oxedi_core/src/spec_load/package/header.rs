@@ -31,8 +31,9 @@ pub struct PackageHeader {
 impl PackageHeader {
     /// The newest format this reader takes. A new optional key raises it, and a
     /// reader takes its own number and every lower one.
-    /// Format 2 lets `version` leave out `values`.
-    pub const FORMAT: u32 = 2;
+    /// Format 2 lets `version` leave out `values`. Format 3 lets an envelope
+    /// loop's `control` state `fields`.
+    pub const FORMAT: u32 = 3;
 }
 
 /// The two keys a package file holds; the spec is kept as a value.

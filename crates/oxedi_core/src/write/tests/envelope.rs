@@ -204,9 +204,7 @@ fn the_trigger_occurrence_sets_the_written_widths() {
     ];
     for (patch, segment, element, expected) in cases {
         let spec = patched(&builtin(Version::V5010), patch).unwrap();
-        let document = Document::parse(BALANCED_5010).unwrap();
-        let (tables, _) = Processor::run(&spec, &document, None);
-        let (bytes, _) = write_with_findings(&spec, &tables, &plain_envelope()).unwrap();
+        let (bytes, _) = written_with_findings(&spec);
         assert_eq!(written_element(&bytes, segment, element), expected);
         if segment == b"ST" {
             assert_eq!(written_element(&bytes, b"SE", 2), expected);
@@ -261,4 +259,64 @@ fn every_builtin_envelope_trigger_reads_its_definition_at_the_trigger_occurrence
             }
         }
     }
+}
+
+/// `BALANCED_5010` written by `spec` with the plain envelope, with the findings.
+fn written_with_findings(spec: &Spec) -> (Vec<u8>, Vec<Finding>) {
+    let document = Document::parse(BALANCED_5010).unwrap();
+    let (tables, _) = Processor::run(spec, &document, None);
+    write_with_findings(spec, &tables, &plain_envelope()).unwrap()
+}
+
+#[test]
+fn a_caller_field_moved_to_another_element_is_written_there() {
+    let spec = patched(
+        &builtin(Version::V5010),
+        r#"{"loops":{"group":{"control":{"fields":{"2":"application_receiver","3":"application_sender"}}}}}"#,
+    )
+    .unwrap();
+    let bytes = written(&spec, BALANCED_5010, &plain_envelope()).unwrap();
+    assert_eq!(written_element(&bytes, b"GS", 2), b"RECEIVER");
+    assert_eq!(written_element(&bytes, b"GS", 3), b"SENDER");
+}
+
+#[test]
+fn a_caller_field_on_a_place_the_syntax_layer_owns_is_refused() {
+    for element in ["11", "12", "16"] {
+        let patch = format!(
+            r#"{{"loops":{{"interchange":{{"control":{{"fields":{{"10":null,"{element}":"time"}}}}}}}}}}"#
+        );
+        let err = patched(&builtin(Version::V5010), &patch)
+            .unwrap_err()
+            .to_string();
+        assert!(
+            err.contains(&format!("\"time\" on element {element} of the top")),
+            "{err}"
+        );
+    }
+}
+
+#[test]
+fn a_spec_whose_envelope_states_no_fields_reports_the_elements_left_empty() {
+    let spec = patched(
+        &builtin(Version::V5010),
+        r#"{"loops":{"interchange":{"control":{"fields":null}},"group":{"control":{"fields":null}}}}"#,
+    )
+    .unwrap();
+    let (bytes, findings) = written_with_findings(&spec);
+    assert_eq!(written_element(&bytes, b"GS", 2), b"");
+    assert_eq!(written_element(&bytes, b"ISA", 6), b"               ");
+    let missing = |element: usize| {
+        findings.iter().any(|finding| {
+            matches!(
+                finding,
+                Finding::ReadBack { diagnostic, .. }
+                    if diagnostic.segment == Some(1)
+                        && diagnostic.element == Some(element)
+                        && matches!(diagnostic.rule, Rule::RequiredElementMissing { .. })
+            )
+        })
+    };
+    assert!(missing(2), "{findings:?}");
+    assert!(missing(3), "{findings:?}");
 }

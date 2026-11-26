@@ -117,7 +117,11 @@ by the transaction set and version that identity names.
   2. `nest` (`write/nest.rs`) nests the rows under their parent rows by their reference columns.
   3. `Layout::new` (`write/layout.rs`) works out the order of segments and loops.
   4. `Emitter::run` (`write/emit.rs`) walks the loops and writes the bytes, recording which
-     cell each written element came from.
+     cell each written element came from. An envelope loop's trigger takes each element, in this
+     order, from the control number, the delimiters (the header positions of
+     `delimiters/header.rs`, on the top loop's trigger), the caller's `Envelope` through the loop's
+     `control.fields`, the declared version, or else the element's rule at the trigger's occurrence
+     (`write/envelope.rs`).
   5. The written bytes are read back with `Processor::run`. Every diagnostic of that read
      becomes a `Finding::ReadBack` whose `ValueOrigin` names the cell, row or envelope field
      behind it, when it can be traced (`write/finding.rs`).
@@ -137,12 +141,12 @@ The spec files are packages under `crates/oxedi_core/specs/`, each at the path o
 
 | File | What it is | Who loads it |
 |---|---|---|
-| `oxedi/envelope/005010.json` | The envelope, first in every stack: the interchange, group and transaction loops and the ISA, TA1, GS, ST, SE, GE and IEA segments. | `Builtin` (`include_str!` in `spec_load/builtin.rs`) |
+| `oxedi/envelope/005010.json` | The envelope, first in every stack: the interchange, group and transaction loops and the ISA, TA1, GS, ST, SE, GE and IEA segments; each loop's `control` states its control number, count and the caller's `fields` its trigger carries. | `Builtin` (`include_str!` in `spec_load/builtin.rs`) |
 | `oxedi/dictionary/005010.json` | Every segment the 835 uses beyond the envelope's, its elements and components, on the envelope; each element's and component's name, type, scale and lengths; no usage and no codes. | `Builtin` (`spec_load/builtin.rs`) |
 | `oxedi/transaction-set/005010/835.json` | The 835 transaction set, on the dictionary: each loop's parent and trigger, and each occurrence's segment and position. | `Builtin` (`spec_load/builtin.rs`) |
 | `oxedi/guide/005010/835/X221A1.json` | The X221A1 guide, on the transaction set: each loop's usage and maximum; each occurrence's usage, maximum, qualifier and element entries; the usage and codes of segment elements; the version; the balancing rules. | `Builtin` (`spec_load/builtin.rs`) |
 | `oxedi/views/005010/835/X221A1.json` | The tables, the summaries and the default table, on the guide; the top of the 5010 stack. | `Builtin` (`spec_load/builtin.rs`) |
-| `oxedi/envelope/004010.json` | ISA11 type and codes, ISA12 codes, ST03 removed; an edition of the envelope. | `Builtin` (`spec_load/builtin.rs`) |
+| `oxedi/envelope/004010.json` | ISA11 type and codes, ISA12 codes, ST03 removed; an edition of the envelope that inherits the loops' `control`. | `Builtin` (`spec_load/builtin.rs`) |
 | `oxedi/dictionary/004010.json` | The segments and elements 4010 removes or adds; an edition of the dictionary. | `Builtin` (`spec_load/builtin.rs`) |
 | `oxedi/guide/004010/835/X091A1.json` | The X091A1 guide, an edition of X221A1 (layers transaction-set and guide): occurrences, usage and codes; its versions are GS08's codes, and it inherits the version's place from X221A1. | `Builtin` (`spec_load/builtin.rs`): the stack of the packages, composed |
 | `edi_835_parser.json` | A patch package (`edi-835-parser/patch/005010/835/X221A1`) on the 5010 views, with the tables of the `edi-835-parser` compatibility layer; it renames the spec. Its kit is `tests/kits/edi-835-parser-835-005010-X221A1.kit.json`. | `crates/oxedi_py/src/lib.rs`, pinned by `tests/project_golden.rs` |
@@ -229,6 +233,9 @@ Every key is listed in [the spec keys reference](docs/customize/spec.md#spec-key
 | Add a column to a built-in table | `tables.<table>.columns` in `crates/oxedi_core/specs/oxedi/views/005010/835/X221A1.json` | `UPDATE_GOLDEN=1 cargo test -p oxedi_core --test project_golden`, review the diff; document it in `docs/reference/tables.md` |
 | Add a key to the spec format | a row in the object's `spec_object!` declaration in `spec_load/model/` (field, model type, presence word); for an element, a field of `ElementModel` plus `ELEMENT_MODEL_KEYS` (both in `spec_load/model/segments.rs`, pinned in `spec_load/tests/model.rs`); for a summary operation, a field of `SummaryKeys` and its model in `spec_load/model/rules.rs` | When the compiled spec keeps it, a field on its schema definition in `spec/` (`LoopDef` in `spec/loops.rs`, `TableDef` in `spec/tables.rs`, …); compile it in `spec_load/build.rs` or `spec_load/compile.rs`; a new error in `spec_load/error.rs` (`SpecError`), or in `occurrence_error.rs`, `table_error.rs` or `balance_error.rs` of `spec_load/` when it is about one of those, with its `Display` test in `spec_load/tests/`; when a built-in uses it, `UPDATE_GOLDEN=1 cargo test -p oxedi_core --test spec_golden` and read the diff; add the key to `docs/customize/spec.md`; a closed word implements `Vocabulary` (`vocabulary/`) in `spec_load/vocabulary.rs`; the layer that owns the key, a row in `spec_load/package/owners.rs` (pinned in `spec_load/package/tests/owners.rs`); how a package may change it, a facet in `spec_load/package/narrow.rs`; raise `PackageHeader::FORMAT` (`spec_load/package/header.rs`) when the key is optional and new; add it to `docs/customize/packages.md` |
 | Add or change a shipped package | its file under `crates/oxedi_core/specs/` (the path of its id); a new one also in `PACKAGES` and `BUILTINS` of `spec_load/builtin.rs` | `THIRD_PARTY_NOTICES` (at the repository root) and `SDIST_REQUIRED` (`make/python.mk`); its kit under `tests/kits/`; `UPDATE_GOLDEN=1 cargo test -p oxedi_core --test spec_golden` and read the diff |
+| Put a caller's envelope field on another element | the loop's `control.fields` in `crates/oxedi_core/specs/oxedi/envelope/005010.json`, or a patch package | `UPDATE_GOLDEN=1 cargo test -p oxedi_core --test spec_golden` and read the diff; `write/tests/envelope.rs` |
+| Add a caller's envelope field | `EnvelopeField` and its word (`spec/envelope_fields.rs`), and `Envelope` (`write/envelope.rs`) | the field in Python's `Envelope` (`crates/oxedi_py/src/write.rs`) and the `COPY` options (`crates/oxedi_duckdb/src/copy/options.rs`); the `fields` row of `docs/customize/spec.md`; `make stubs` |
+| Change where the interchange header holds its delimiters or version | `HeaderPositions::ISA` (`delimiters/header.rs`), read before any spec is chosen | `delimiters/` tests and `write/tests/envelope.rs`; the reader and the writer both take it from there |
 | Change what a stack refuses or lists | `spec_load/package/` (`stack.rs` roles, `owners.rs`, `narrow.rs`, `compose.rs`) | An error in `spec_load/package/error.rs` with its `Display` test in `spec_load/package/tests/`; `validate/tests.rs` |
 | Change how a message names an element, a set of conditions or a list of names, or quotes file bytes or a key | `message/mod.rs` | `message/tests.rs`; the `Display` tests of the messages that use it |
 | Add a diagnostic rule | `diagnostic/rule.rs` (`Rule` variant, `level`, `kind`, and `segment_id` when the rule is about one segment's elements, so its datum can be masked) and `diagnostic/display.rs` (message, written over the pieces of `diagnostic/text.rs` and `message/`) | Raise it in `check/` (structure) or `project/check.rs` (elements); a full-text `Display` test in `diagnostic/tests.rs` |
@@ -310,6 +317,7 @@ Internal words used in the code. X12 and payment terms for users are in
 | element / component | 1-based positions inside a segment / inside a composite element: `CLP01`, `SVC01-2`. |
 | repetition | An element repeated with the repetition separator (ISA11 in 5010). |
 | delimiters (`delims`) | Element, component, segment terminator, and the optional repetition and release bytes; read from the ISA. `delims` is the usual short form in code. |
+| header positions | The interchange header's places the syntax fixes (`HeaderPositions`): repetition 11, version 12, component 16; read before any spec is chosen, written by the writer on the top envelope trigger (`delimiters/header.rs`). |
 | loop | A group of segments that repeats, named by the implementation guide (`2100`). |
 | trivia | Bytes between segments (line breaks, a byte order mark), kept in the next segment's `raw` (`trivia/`). |
 
@@ -358,6 +366,7 @@ Internal words used in the code. X12 and payment terms for users are in
 | refusal | Why a **spec** cannot be written (`Refusal`, collected in `PlanError`). | `write/refusal.rs` |
 | finding | Something wrong in the **tables or the written file** (`Finding`); strict writing turns findings into `WriteError::Findings`. In prose, "diagnostic" is a reading result and "finding" a writing or external-validator result. | `write/finding.rs` |
 | value origin | The cell, row or envelope field a written value came from (`ValueOrigin`). | `write/finding.rs` |
+| envelope field | A caller's field (`EnvelopeField`) an envelope loop's `control.fields` places on an element of its trigger; the writer reads it. | `spec/envelope_fields.rs` |
 | envelope (writer) | The caller's sender, receiver, date, time, control number and delimiters (`Envelope`). | `write/envelope.rs` |
 | conformance | Compares what a spec gives for a file with what a conformance kit expects: `run_kit` runs a kit, which names the stack's top package, over bytes the caller read and reports per case (the first fault ends a case), `render` writes an output as an expected file holds it, and `first_difference` says where two texts first differ. For tools that check specs; the browser module never links it. | `conformance/` |
 | validator | Answers whether a stack of package texts loads (`Validation`): yes, with the packages, the changes of its editions and patches and what it can do, or no, with the error that names the package, the key and the value. It decides nothing itself: it reads with the loader's own checks, writes when `WritePlan::new` builds (its refusals, each with `Refusal::remedy`, are the reasons) and masks when `Spec::masks_anything`. For tools that check packages; the browser module and the built-ins' run-time path never link it. | `validate/` |

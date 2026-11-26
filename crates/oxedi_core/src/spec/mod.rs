@@ -14,7 +14,8 @@
 //! patches and compiles it.
 //!
 //! The schema is split by responsibility: `loops`, `occurrences`, `elements`
-//! (an element, a segment, the automatic column names), `tables` and
+//! (an element, a segment, the automatic column names), `envelope_fields` (the
+//! caller's fields an envelope loop's trigger carries), `tables` and
 //! `balance_rule` (a balancing rule and its text) hold the definitions;
 //! `occurrence_index` the occurrence a segment takes in a loop; `places` where each
 //! column reads, compiled once with the spec; `read_index` the tables, resets,
@@ -31,6 +32,7 @@
 
 mod balance_rule;
 mod elements;
+mod envelope_fields;
 mod id_map;
 mod loops;
 mod occurrence_index;
@@ -50,6 +52,7 @@ mod version;
 
 pub use balance_rule::{BalanceRule, BalanceTerm, Sign};
 pub use elements::{ElementDef, ROW_COLUMN, SEGMENT_COLUMN, SegmentDef};
+pub use envelope_fields::{EnvelopeField, EnvelopeFields};
 pub use loops::{Control, ControlCount, LoopDef, LoopId, Trigger};
 pub use occurrence_index::OccurrenceId;
 pub use occurrences::{ElementEntry, OccurrenceDef, Qualifier, Setting, Usage};

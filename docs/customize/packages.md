@@ -85,7 +85,7 @@ before it:
 
 | Layer | What it holds |
 |---|---|
-| `envelope` | The complete base of a stack: the interchange, group and transaction loops and the envelope segments, and it may write every key the three layers after it own. |
+| `envelope` | The complete base of a stack: the interchange, group and transaction loops and the envelope segments, with each loop's control and the caller's fields its trigger carries (see [The envelope package](#the-envelope-package)); it may write every key the three layers after it own. |
 | `dictionary` | Each segment of a release once: its elements and components, their names, types, scale and lengths. |
 | `transaction-set` | The loops of one transaction set: their parents, triggers, ends and controls, and each occurrence's segment and position. |
 | `guide` | What an implementation guide fixes: usage, maximums, qualifiers, codes and lengths, per occurrence or per segment element; the version; the balancing rules. |
@@ -207,20 +207,75 @@ A package built on the shipped 5010 views is always an edition or a patch, since
 it already holds every layer but `patch`. The check lists what it changes instead of
 refusing a change that is not stricter. Read the list.
 
+## The envelope package
+
+The envelope package `oxedi/envelope/005010` states the envelope as data. The 4010 edition
+inherits its loops' `control` and changes only ISA11, ISA12 and ST03.
+
+| Who knows it | What |
+|---|---|
+| The envelope package | The interchange, group and transaction loops, their triggers and ends, the places of the control number (`opener_element`, `closer_element`), the counts, and each loop's `control.fields`: which element of the trigger carries which field of the caller's `oxedi.Envelope` (see [`control`](spec.md#loopsname)). In 5010, `interchange` places ISA05 to ISA10 and ISA15, `group` places GS02 to GS05 and `transaction` places none. |
+| The syntax | ISA's fixed width and its delimiters: the element separator after `ISA`, the repetition separator in ISA11 from version `00402`, the version in ISA12 and the component separator in ISA16. They are read before any spec is chosen, so no package moves them, and they are not fields. |
+| Each element's rule | An envelope element that no field and no table gives is written as the first code its rule allows in the occurrence the loop's trigger opens on, padded to its fixed width (numbers with leading zeros). A guide or patch that narrows that element is written as narrowed. |
+
+The writer refuses a spec whose envelope loop declares no occurrence for its trigger, and
+`oxedi.validate_stack` reports it among the reasons the stack cannot write:
+
+```text
+the envelope loop "interchange" declares no occurrence for its trigger "ISA" with no conditions, so its header cannot be placed
+```
+
+A spec whose envelope loops state no `fields` writes those elements empty, and reading the file
+back reports each required one. The key table ([From the old keys to the new](#from-the-old-keys-to-the-new))
+lists the key.
+
+A patch package moves the group's application codes between GS02 and GS03, and the written GS
+line shows it:
+
+```python
+import datetime
+
+swap = json.dumps({
+    "package": {"format": 3, "id": "acme/patch/005010/835/X221A1", "layers": ["patch"],
+                "bases": ["oxedi/views/005010/835/X221A1"]},
+    "spec": {"loops": {"group": {"control": {"fields": {
+        "2": "application_receiver", "3": "application_sender"}}}}},
+})
+swapped = oxedi.Spec.from_packages(swap, packages)
+frames = oxedi.parse_file("remittance.835").tables.to_polars()
+envelope = oxedi.Envelope(
+    sender_id="ACMEPAYER",
+    receiver_id="SUNRISECLINIC",
+    application_sender="SENDERAPP",
+    application_receiver="RECEIVERAPP",
+    date=datetime.date(2024, 1, 10),
+    time=datetime.time(9, 0),
+    line_break=True,
+)
+data = oxedi.write(frames, envelope, spec=swapped).decode()
+gs = data.splitlines()[1]
+assert gs.split("*")[2:4] == ["RECEIVERAPP", "SENDERAPP"]
+print(gs)
+```
+
+```text
+GS*HP*RECEIVERAPP*SENDERAPP*20240110*0900*1*X*005010X221A1~
+```
+
 ## The format number
 
-- This version of oxedi reads format 2, its newest. A reader reads its own number and every lower
+- This version of oxedi reads format 3, its newest. A reader reads its own number and every lower
   one. Format 2 lets a spec's `version` leave out `values`; packages that write `values` read in
-  both.
+  both. Format 3 lets an envelope loop's `control` state `fields`.
 - A package with a higher number is refused before any other key is read, so a newer key never
-  shows up as unknown. The error names both numbers: `package format 3 is newer than 2, the newest
-  format this reader takes; read the package with a newer oxedi, or write it in format 2`.
+  shows up as unknown. The error names both numbers: `package format 4 is newer than 3, the newest
+  format this reader takes; read the package with a newer oxedi, or write it in format 3`.
 - Every key the format does not have is refused. When oxedi adds an optional key, the number goes
   up by one: packages that do not use the key keep loading, and one that uses it says the new
   number, so an older oxedi refuses it with that text instead of reading it wrongly.
 - A kit manifest has its own format number, under the same rule.
-- The format is a draft: it can still change until the envelope becomes a base package with its
-  own rules (a later step of the roadmap).
+- The format is stable from format 3: a later oxedi reads every package of format 1 to 3 as this
+  one does, and a new key comes only as an optional key under a higher number.
 
 ## Check a stack and run its kit
 
@@ -282,7 +337,7 @@ write it.
 spec = json.loads(oxedi.Spec.builtin().to_json())
 del spec["name"]
 whole = json.dumps({
-    "package": {"format": 1, "id": "acme/views/005010/835/X221A1",
+    "package": {"format": 3, "id": "acme/views/005010/835/X221A1",
                 "layers": ["envelope", "dictionary", "transaction-set", "guide", "views"],
                 "bases": []},
     "spec": spec,
@@ -351,6 +406,7 @@ write now.
 | `Spec.to_json()`, Rust `LoadedSpec::to_json` | write `usage` and `elements`, the keys the format now uses |
 | a missing-element or length diagnostic | may end with `in occurrence "<name>"` when the occurrence's entry set the rule |
 | Rust `OccurrenceError::QualifierCodeOutsideElement` | `OccurrenceError::CodeOutsideElement`, with a new `key` field (`qualifier.codes` or `elements.<pos>.codes`); a qualifier's text is unchanged |
+| an envelope loop's sender, receiver, date and time placed by oxedi | the loop's `"control": {"fields": {"<element>": "<field>"}}`, as `oxedi/envelope/005010` writes them |
 
 An old key is refused with the keys that are allowed:
 

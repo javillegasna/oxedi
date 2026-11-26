@@ -240,7 +240,7 @@ components are 1-based. The code names differ from the JSON in three places: a t
 | `segment` | yes | Segment id. |
 | `where` | no | Conditions on the segment's elements: `{"<position>": "<value>"}`. All must hold. |
 
-`control`, all four keys required (this is how `ST`/`SE`, `GS`/`GE` and `ISA`/`IEA` are checked):
+`control`, four required keys and one optional (this is how `ST`/`SE`, `GS`/`GE` and `ISA`/`IEA` are checked):
 
 | Key | Meaning |
 |-----|---------|
@@ -248,6 +248,7 @@ components are 1-based. The code names differ from the JSON in three places: a t
 | `closer_element` | Position of the same number in the `end` segment, for example 2 for `SE02`. |
 | `count_element` | Position of the count in the `end` segment, for example 1 for `SE01`. |
 | `count` | What the count counts: `segments` (trigger to end, both included) or `children` (child loop instances). |
+| `fields` | Optional. The caller's field each element of the trigger carries, `{"<position>": "<field>"}`: `sender_qualifier`, `sender_id`, `receiver_qualifier`, `receiver_id`, `application_sender`, `application_receiver`, `date`, `time` or `usage_indicator`. Not on `opener_element`, one element per field, on an element the trigger segment defines, and not on ISA11, ISA12 or ISA16 of the top loop, which the syntax layer owns (the repetition separator, the version and the component separator). |
 
 ### `loops.<name>.occurrences.<name>`
 

@@ -7,7 +7,8 @@ use std::fmt;
 
 use super::error::SpecError;
 use super::model::{ControlModel, LoopModel};
-use crate::spec::{Control, LoopDef, LoopId, Trigger};
+use crate::delimiters::HeaderPositions;
+use crate::spec::{Control, EnvelopeField, EnvelopeFields, LoopDef, LoopId, Spec, Trigger};
 
 /// A check of a loop's own keys: the error when the loop breaks it.
 type HeaderRule = fn(&str, &LoopModel) -> Option<SpecError>;
@@ -128,6 +129,42 @@ pub enum ControlError {
     },
     /// The loop has no `end` segment to carry the count and control number.
     NoEnd,
+    /// A field sits on the element that holds the control number.
+    FieldOnOpener {
+        /// The 1-based element, the opener's.
+        element: usize,
+        /// The field the spec puts there.
+        field: EnvelopeField,
+    },
+    /// A field sits on a place of the interchange header the syntax layer owns.
+    FieldOnHeaderPlace {
+        /// The 1-based element, the place's.
+        element: usize,
+        /// What the place holds, e.g. `repetition separator`.
+        place: &'static str,
+        /// The field the spec puts there.
+        field: EnvelopeField,
+        /// The trigger segment.
+        segment: String,
+    },
+    /// A field sits on an element the trigger segment does not define.
+    FieldNotOnTrigger {
+        /// The 1-based element the spec puts the field on.
+        element: usize,
+        /// The field the spec puts there.
+        field: EnvelopeField,
+        /// The trigger segment.
+        segment: String,
+    },
+    /// One field sits on two elements.
+    FieldTwice {
+        /// The field written twice.
+        field: EnvelopeField,
+        /// The lower element.
+        first: usize,
+        /// The higher element.
+        second: usize,
+    },
 }
 
 impl fmt::Display for ControlError {
@@ -137,6 +174,39 @@ impl fmt::Display for ControlError {
                 write!(f, "{key:?} must be a 1-based element position; found 0")
             }
             ControlError::NoEnd => write!(f, "the loop has no \"end\" segment to check"),
+            ControlError::FieldOnOpener { element, field } => write!(
+                f,
+                "\"fields\" puts {:?} on element {element}, which holds the control number (\"opener_element\"); move the field to another element",
+                field.word()
+            ),
+            ControlError::FieldOnHeaderPlace {
+                element,
+                place,
+                field,
+                segment,
+            } => write!(
+                f,
+                "\"fields\" puts {:?} on element {element} of the top loop's trigger {segment:?}, the place of the {place}, which the syntax layer owns; move the field to another element",
+                field.word()
+            ),
+            ControlError::FieldNotOnTrigger {
+                element,
+                field,
+                segment,
+            } => write!(
+                f,
+                "\"fields\" puts {:?} on element {element}, which the trigger segment {segment:?} does not define; define the element in \"segments\" or move the field",
+                field.word()
+            ),
+            ControlError::FieldTwice {
+                field,
+                first,
+                second,
+            } => write!(
+                f,
+                "\"fields\" puts {:?} on elements {first} and {second}; a field goes on one element",
+                field.word()
+            ),
         }
     }
 }
@@ -159,7 +229,80 @@ fn compile_control(raw: &ControlModel, has_end: bool) -> Result<Control, Control
         closer_element: raw.closer_element,
         count_element: raw.count_element,
         count: raw.count,
+        fields: compile_fields(raw)?,
     })
+}
+
+// The fields by element, in ascending element order, each on one element and
+// none on the one that holds the control number.
+fn compile_fields(raw: &ControlModel) -> Result<EnvelopeFields, ControlError> {
+    raw.fields
+        .iter()
+        .try_fold(EnvelopeFields::default(), |placed, (&element, &field)| {
+            if element == raw.opener_element {
+                return Err(ControlError::FieldOnOpener { element, field });
+            }
+            placed
+                .place(element, field)
+                .map_err(|first| ControlError::FieldTwice {
+                    field,
+                    first,
+                    second: element,
+                })
+        })
+}
+
+/// Fails with the first caller field of a loop's `control` that sits on an
+/// element its trigger segment does not define, or on a place of the top
+/// loop's interchange header the syntax layer owns. Runs after the segments
+/// compile, since loops compile before them.
+pub(super) fn check_control_fields(spec: &Spec) -> Result<(), SpecError> {
+    let fault = spec.loops().iter().find_map(|def| {
+        let control = def.control?;
+        let reason = control
+            .fields
+            .by_element()
+            .into_iter()
+            .find_map(|(element, field)| field_fault(spec, def, element, field))?;
+        Some(SpecError::BadControl {
+            loop_name: def.name.clone(),
+            reason,
+        })
+    });
+    fault.map_or(Ok(()), Err)
+}
+
+// The places of the interchange header the syntax layer owns, by element.
+const HEADER_PLACES: [(usize, &str); 3] = [
+    (HeaderPositions::ISA.repetition, "repetition separator"),
+    (HeaderPositions::ISA.version, "interchange version"),
+    (HeaderPositions::ISA.component, "component separator"),
+];
+
+// What is wrong with `field` on `element` of `def`'s trigger, if anything.
+fn field_fault(
+    spec: &Spec,
+    def: &LoopDef,
+    element: usize,
+    field: EnvelopeField,
+) -> Option<ControlError> {
+    let segment = String::from_utf8_lossy(&def.trigger.segment).into_owned();
+    let owned = HEADER_PLACES.iter().find(|(at, _)| *at == element);
+    if let (None, Some(&(_, place))) = (def.parent, owned) {
+        return Some(ControlError::FieldOnHeaderPlace {
+            element,
+            place,
+            field,
+            segment,
+        });
+    }
+    spec.element_def(&def.trigger.segment, element, None)
+        .is_none()
+        .then_some(ControlError::FieldNotOnTrigger {
+            element,
+            field,
+            segment,
+        })
 }
 
 /// Fails with the first parent cycle found, walking from each loop in spec

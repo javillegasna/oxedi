@@ -95,6 +95,10 @@ The writer works out the rest:
 - The fixed-width `ISA`.
 - The control numbers that must match: `ISA13`/`IEA02`, `GS06`/`GE02`, `ST02`/`SE02`.
 - The counts: `SE01`, `GE01`, `IEA01`.
+- Where each envelope value goes: each envelope loop's `control.fields` in the spec
+  ([The envelope package](../customize/packages.md#the-envelope-package)).
+- Every other envelope element: the first code its rule allows, padded to its fixed width (numbers with leading zeros)
+  (for example ISA14 `0`).
 
 ## Write from SQL
 

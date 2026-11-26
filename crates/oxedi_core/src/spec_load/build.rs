@@ -8,7 +8,7 @@ use std::collections::BTreeMap;
 use std::fmt;
 
 use super::balance::compile_balancing;
-use super::build_loops::{check_cycles, compile_loop, held_segments};
+use super::build_loops::{check_control_fields, check_cycles, compile_loop, held_segments};
 use super::build_occurrences::{check_trigger, compile_occurrences};
 use super::compile::compile_tables;
 use super::error::SpecError;
@@ -30,10 +30,11 @@ struct Build<'m> {
 type Step = fn(&mut Build<'_>) -> Result<(), SpecError>;
 
 /// The compile steps, in the order they run.
-const STEPS: [Step; 13] = [
+const STEPS: [Step; 14] = [
     compile_loop_headers,
     link_loops,
     compile_segment_section,
+    check_control_fields_step,
     compile_loop_occurrences,
     index_occurrences,
     compile_version_section,
@@ -223,6 +224,10 @@ fn compile_version_section(build: &mut Build<'_>) -> Result<(), SpecError> {
         .map(|raw| compile_version(raw, &build.model.segments))
         .transpose()?;
     Ok(())
+}
+
+fn check_control_fields_step(build: &mut Build<'_>) -> Result<(), SpecError> {
+    check_control_fields(&build.spec)
 }
 
 fn check_trigger_ambiguity(build: &mut Build<'_>) -> Result<(), SpecError> {

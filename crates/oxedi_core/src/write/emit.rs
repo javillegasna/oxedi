@@ -10,7 +10,7 @@
 //! index) change, or when a segment holds as many groups as it can.
 
 use crate::column::Cell;
-use crate::spec::{ControlCount, LoopId, Spec};
+use crate::spec::{ControlCount, EnvelopeField, LoopId, Spec};
 use crate::value::{date_display, time_display};
 
 use super::data::Data;
@@ -178,21 +178,7 @@ impl Emitter<'_> {
             *counter = counter.saturating_add(1);
         }
         let control = control_text(number, trigger_rule(self.spec, def, rule.opener_element));
-        let depth = self
-            .layout
-            .depth
-            .get(id.index())
-            .copied()
-            .flatten()
-            .unwrap_or(0);
-        let values = trigger_values(
-            self.spec,
-            def,
-            depth,
-            rule.opener_element,
-            &control,
-            self.envelope,
-        );
+        let values = trigger_values(self.spec, def, &control, self.envelope);
         self.parts.clear();
         self.texts.clear();
         let syntax = self.header_syntax(&values);
@@ -213,7 +199,7 @@ impl Emitter<'_> {
                 }
                 if let Some(reason) = value.refused {
                     let shown = match field {
-                        Field::Time => time_display(self.envelope.time),
+                        Field::Caller(EnvelopeField::Time) => time_display(self.envelope.time),
                         _ => date_display(self.envelope.date),
                     };
                     self.findings.push(Finding::NotWritable {

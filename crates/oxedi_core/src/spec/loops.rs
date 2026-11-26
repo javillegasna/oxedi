@@ -2,6 +2,7 @@
 
 #[cfg(doc)]
 use super::Spec;
+use super::envelope_fields::EnvelopeFields;
 use super::occurrences::{OccurrenceDef, Usage};
 use crate::segment::Segment;
 
@@ -88,6 +89,8 @@ pub struct Control {
     pub count_element: usize,
     /// What the count counts.
     pub count: ControlCount,
+    /// The caller's fields its trigger carries; empty when the spec states none.
+    pub fields: EnvelopeFields,
 }
 
 impl LoopDef {

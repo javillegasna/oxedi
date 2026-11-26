@@ -31,7 +31,7 @@ impl std::error::Error for SizeError {}
 
 /// Where to count a segment from.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum Index {
+pub enum SegmentIndex {
     /// 0-based position from the first segment.
     FromStart(usize),
     /// 1-based position from the last segment: 1 is the last.
@@ -42,7 +42,7 @@ pub enum Index {
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct SegmentOutOfRange {
     /// The index asked for.
-    pub index: Index,
+    pub index: SegmentIndex,
     /// The number of segments the document has.
     pub len: usize,
 }

@@ -19,7 +19,7 @@ use crate::segment::Segment;
 
 mod error;
 
-pub use error::{DocumentError, Index, SegmentOutOfRange, SizeError};
+pub use error::{DocumentError, SegmentIndex, SegmentOutOfRange, SizeError};
 
 /// Where one segment lives inside [`Document::as_bytes`].
 ///
@@ -133,11 +133,11 @@ impl<'a> Document<'a> {
 
     /// The 0-based position `index` names, or the error when the document has
     /// no such segment.
-    pub fn resolve(&self, index: Index) -> Result<usize, SegmentOutOfRange> {
+    pub fn resolve(&self, index: SegmentIndex) -> Result<usize, SegmentOutOfRange> {
         let len = self.len();
         let at = match index {
-            Index::FromStart(position) => Some(position).filter(|position| *position < len),
-            Index::FromEnd(back) => len.checked_sub(back.get()),
+            SegmentIndex::FromStart(position) => Some(position).filter(|position| *position < len),
+            SegmentIndex::FromEnd(back) => len.checked_sub(back.get()),
         };
         at.ok_or(SegmentOutOfRange { index, len })
     }

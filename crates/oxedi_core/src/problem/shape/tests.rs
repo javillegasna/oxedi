@@ -769,11 +769,11 @@ fn a_batch_loop_error_names_its_kind_and_place() {
 fn a_checked_value_error_names_no_place() {
     use crate::delimiters::{DelimiterLength, DelimiterRole};
     use crate::diagnostic::UnknownLevel;
-    use crate::document::{Index, SegmentOutOfRange};
+    use crate::document::{SegmentIndex, SegmentOutOfRange};
     use crate::value::{ColumnType, FloatForDecimal};
     let level = UnknownLevel { number: 4 };
     let index = SegmentOutOfRange {
-        index: Index::FromStart(3),
+        index: SegmentIndex::FromStart(3),
         len: 3,
     };
     let length = DelimiterLength {

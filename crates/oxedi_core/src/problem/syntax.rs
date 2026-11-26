@@ -5,14 +5,14 @@ use std::fmt;
 
 use super::text::Counted;
 use crate::delimiters::{DelimiterLength, HeaderPositions, ISA_ID, IsaError};
-use crate::document::{DocumentError, Index, SegmentOutOfRange, SizeError};
+use crate::document::{DocumentError, SegmentIndex, SegmentOutOfRange, SizeError};
 use crate::segment::SegmentWriteError;
 
 impl fmt::Display for SegmentOutOfRange {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         let sign = match self.index {
-            Index::FromStart(index) => index.to_string(),
-            Index::FromEnd(back) => format!("-{back}"),
+            SegmentIndex::FromStart(index) => index.to_string(),
+            SegmentIndex::FromEnd(back) => format!("-{back}"),
         };
         write!(
             f,

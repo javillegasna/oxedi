@@ -346,17 +346,28 @@ fn an_index_resolves_from_either_end() {
     let delimiters = Delimiters::new(b'*', b':', b'~');
     let document =
         Document::with_delimiters(b"ST*835*1~N1*PR*X~SE*3*1~".as_slice(), delimiters).unwrap();
-    assert_eq!(document.resolve(Index::FromStart(0)), Ok(0));
-    assert_eq!(document.resolve(Index::FromEnd(NonZeroUsize::MIN)), Ok(2));
-    let past = document.resolve(Index::FromStart(3)).unwrap_err();
+    assert_eq!(document.resolve(SegmentIndex::FromStart(0)), Ok(0));
+    assert_eq!(
+        document.resolve(SegmentIndex::FromEnd(NonZeroUsize::MIN)),
+        Ok(2)
+    );
+    let past = document.resolve(SegmentIndex::FromStart(3)).unwrap_err();
     assert_eq!(
         past.to_string(),
         "segment index 3 is out of range: the document has 3 segments"
     );
-    let before = document.resolve(Index::FromEnd(NonZeroUsize::new(4).unwrap()));
+    let before = document.resolve(SegmentIndex::FromEnd(NonZeroUsize::new(4).unwrap()));
     assert_eq!(
         before.unwrap_err().to_string(),
         "segment index -4 is out of range: the document has 3 segments"
     );
     assert!(std::error::Error::source(&past).is_none());
+    let single = Document::with_delimiters(b"ST*835*1~".as_slice(), delimiters).unwrap();
+    assert_eq!(
+        single
+            .resolve(SegmentIndex::FromStart(1))
+            .unwrap_err()
+            .to_string(),
+        "segment index 1 is out of range: the document has 1 segment"
+    );
 }

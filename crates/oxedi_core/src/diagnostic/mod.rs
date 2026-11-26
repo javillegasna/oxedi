@@ -31,12 +31,6 @@ pub enum SnipLevel {
     L3,
 }
 
-impl fmt::Display for SnipLevel {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "SNIP {}", self.number())
-    }
-}
-
 /// One open loop instance: the loop's name and the 1-based ordinal of the
 /// instance among every instance of that loop in the stream.
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
@@ -131,24 +125,6 @@ impl Diagnostic {
     /// diagnostic names no segment or the document has no such segment.
     pub fn span(&self, document: &Document<'_>) -> Option<Span> {
         self.segment.and_then(|index| document.span(index))
-    }
-}
-
-impl fmt::Display for Diagnostic {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        let location = Location {
-            segment: self.segment,
-            element: self.element,
-            component: self.component,
-        };
-        write!(
-            f,
-            "{} · {} · {location} · at {} · datum {}",
-            self.level,
-            self.rule,
-            Within(&self.path),
-            Quoted(&self.datum)
-        )
     }
 }
 

@@ -36,8 +36,8 @@ import oxedi
 result = oxedi.parse_file("remittance.835")
 
 print(result)
-print(result.count_claims(), result.sum_payments())
-print(result.payer["name"], "paid", result.payee["name"])
+print(result.summary("count_claims"), result.summary("sum_payments"))
+print(result.summary("payer")["name"], "paid", result.summary("payee")["name"])
 ```
 
 ```text
@@ -47,7 +47,7 @@ ACME HEALTH PLAN paid SUNRISE CLINIC
 ```
 
 The file has 63 segments, the lines of an 835. oxedi read them into five tables and found no
-problems. `sum_payments()` is a `Decimal`, so money is exact.
+problems. `summary("sum_payments")` is a `Decimal`, so money is exact.
 
 ## Look at the claims
 

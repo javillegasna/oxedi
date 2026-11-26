@@ -54,7 +54,7 @@ paths = sorted(Path("remits").glob("*.835"))
 with ThreadPoolExecutor() as pool:
     results = list(pool.map(oxedi.parse_file, paths))
 
-print([result.count_claims() for result in results])
+print([result.summary("count_claims") for result in results])
 ```
 
 ```text

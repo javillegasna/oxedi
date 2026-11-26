@@ -228,8 +228,8 @@ jobs:
           assert m.version("oxedi") == expected, (m.version("oxedi"), expected)
           path = os.path.join(os.environ["GITHUB_WORKSPACE"], "crates", "oxedi_core", "tests", "fixtures", "multi_claim_sample.txt")
           result = oxedi.parse_file(path)
-          assert result.count_claims() > 0
-          print("testpypi:", m.version("oxedi"), result.count_claims(), "claims")
+          assert result.summary("count_claims") > 0
+          print("testpypi:", m.version("oxedi"), result.summary("count_claims"), "claims")
           PY
 
   # The musl wheel is installed from TestPyPI inside an Alpine container, with the same smoke
@@ -261,8 +261,8 @@ jobs:
           expected = os.environ["VERSION"]
           assert m.version("oxedi") == expected, (m.version("oxedi"), expected)
           result = oxedi.parse_file("/work/crates/oxedi_core/tests/fixtures/multi_claim_sample.txt")
-          assert result.count_claims() > 0
-          print("testpypi:", m.version("oxedi"), result.count_claims(), "claims")
+          assert result.summary("count_claims") > 0
+          print("testpypi:", m.version("oxedi"), result.summary("count_claims"), "claims")
           PY
           '
 

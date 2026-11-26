@@ -673,37 +673,17 @@ class Result:
         r"""
         Every diagnostic, in stream order.
         """
-    @property
-    def payer(self) -> builtins.dict[builtins.str, builtins.str | None] | None:
+    def summary(self, name: builtins.str) -> builtins.int | decimal.Decimal | builtins.dict[builtins.str, builtins.str | None] | None:
         r"""
-        The summary `payer` the spec declares (for the built-in 835: the
-        payer organization of the one transaction), or `None` when the file
-        has none.
-        """
-    @property
-    def payee(self) -> builtins.dict[builtins.str, builtins.str | None] | None:
-        r"""
-        The summary `payee` the spec declares (for the built-in 835: the
-        payee organization of the one transaction), or `None` when the file
-        has none.
-        """
-    def count_claims(self) -> builtins.int:
-        r"""
-        The summary `count_claims` the spec declares (for the built-in 835:
-        the number of claims).
-        """
-    def count_patients(self) -> builtins.int:
-        r"""
-        The summary `count_patients` the spec declares (for the built-in 835:
-        the distinct patient ids of the claims). Values are compared as text:
-        `0123` and `123` are two patients, where edi-835-parser reads both as
-        the number 123 and counts one.
-        """
-    def sum_payments(self) -> decimal.Decimal:
-        r"""
-        The summary `sum_payments` the spec declares (for the built-in 835:
-        the sum of the transactions' total payment amounts), as a `Decimal`
-        at the column's scale.
+        The summary `name` the spec declares, as the value of its kind: an
+        `int` for a `count` or `distinct` summary (a `distinct` one compares
+        values as text, so `0123` and `123` are two), a `Decimal` at the
+        column's scale for a `sum`, a dict of a row's fields for a `row`, or
+        `None` for a `row` the file holds nothing of. Raises `KeyError` for a
+        summary the spec does not declare or a table or column it lacks,
+        `TypeError` for a `sum` over a column that is not decimal, and
+        `ValueError` for a `row` over a table without exactly one row or a sum
+        that overflows.
         """
     def __repr__(self) -> builtins.str: ...
 

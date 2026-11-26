@@ -26,10 +26,10 @@ def old(name):
 def test_native_counts_equal_edi_835_parser(sample):
     result = parse_named(sample)
     expected = old(sample)
-    assert result.count_claims() == expected.count_claims()
-    assert result.count_patients() == expected.count_patients()
-    assert isinstance(result.sum_payments(), Decimal)
-    assert abs(float(result.sum_payments()) - expected.sum_payments()) < 0.005
+    assert result.summary("count_claims") == expected.count_claims()
+    assert result.summary("count_patients") == expected.count_patients()
+    assert isinstance(result.summary("sum_payments"), Decimal)
+    assert abs(float(result.summary("sum_payments")) - expected.sum_payments()) < 0.005
 
 
 def test_patient_ids_are_counted_as_text_so_leading_zeros_make_a_different_patient():
@@ -45,12 +45,12 @@ def test_patient_ids_are_counted_as_text_so_leading_zeros_make_a_different_patie
     result = oxedi.parse("~".join(segments).encode() + b"~")
     rows = [row for row in result.tables["claims"].render().splitlines()[2:] if row]
     assert [row.count("| 0123 |") + row.count("| 123 |") for row in rows] == [1, 1, 1]
-    assert result.count_claims() == 3
-    assert result.count_patients() == 2
+    assert result.summary("count_claims") == 3
+    assert result.summary("count_patients") == 2
 
 
 def test_the_largest_sum_keeps_the_column_scale():
-    assert str(parse_named(LARGEST).sum_payments()) == "173305.00"
+    assert str(parse_named(LARGEST).summary("sum_payments")) == "173305.00"
 
 
 def text(value):
@@ -64,7 +64,7 @@ def test_native_payer_and_payee_equal_edi_835_parser(sample):
     for role in ("payer", "payee"):
         organization = getattr(transaction, role)
         location = organization.location
-        assert getattr(result, role) == {
+        assert result.summary(role) == {
             "name": organization.organization.name,
             "identification_code": text(organization.organization.identification_code),
             "address": organization.address.address if organization.address else None,
@@ -77,8 +77,8 @@ def test_native_payer_and_payee_equal_edi_835_parser(sample):
 def test_a_file_without_a_payee_loop_has_none():
     data = read("edi835_test_file.RMT")
     result = oxedi.parse(data.replace(b"N1*PE*", b"N1*XX*"))
-    assert result.payee is None
-    assert result.payer is not None
+    assert result.summary("payee") is None
+    assert result.summary("payer") is not None
 
 
 def test_a_patch_that_removes_a_summarized_table_fails_to_load():
@@ -97,23 +97,24 @@ def test_an_undeclared_summary_is_named_with_the_declared_ones():
     })
     result = oxedi.parse(read("edi835_test_file.RMT"), spec=spec)
     with pytest.raises(KeyError) as info:
-        result.sum_payments()
+        result.summary("sum_payments")
     assert info.value.args[0] == (
-        'Result.sum_payments: the spec declares no summary "sum_payments"; '
+        'Result.summary("sum_payments"): the spec declares no summary "sum_payments"; '
         "it declares: count_claims, count_patients"
     )
 
 
-def test_a_summary_of_another_kind_is_named():
+def test_a_summary_reads_as_the_kind_the_spec_declares():
     spec = Spec.builtin().patch({"summaries": {"count_claims": {
         "count": None, "sum": {"table": "payments", "column": "total_payment_amount"}}}})
     result = oxedi.parse(read("edi835_test_file.RMT"), spec=spec)
-    with pytest.raises(TypeError) as info:
-        result.count_claims()
-    assert str(info.value) == (
-        'Result.count_claims reads the summary "count_claims" as a count; '
-        "the spec declares a decimal"
-    )
+    assert result.summary("count_claims") == result.summary("sum_payments")
+    assert isinstance(result.summary("count_claims"), Decimal)
+
+
+def test_the_835_summary_methods_are_gone():
+    for name in ("count_claims", "count_patients", "sum_payments", "payer", "payee"):
+        assert not hasattr(oxedi.Result, name)
 
 
 def test_a_patch_that_removes_a_summarized_column_fails_to_load():
@@ -142,21 +143,14 @@ def test_a_patch_that_makes_a_summed_column_text_fails_to_load():
     )
 
 
-def test_payer_reads_one_transaction():
+@pytest.mark.parametrize("role", ["payer", "payee"])
+def test_a_row_summary_reads_one_transaction(role):
     data = read("edi835_test_file.RMT")
     with pytest.raises(ValueError) as info:
-        oxedi.parse(data + data).payer
+        oxedi.parse(data + data).summary(role)
     assert str(info.value) == (
-        'Result.payer: summary "payer" reads the one row of the table "payments", which has 2 rows'
-    )
-
-
-def test_payee_reads_one_transaction():
-    data = read("edi835_test_file.RMT")
-    with pytest.raises(ValueError) as info:
-        oxedi.parse(data + data).payee
-    assert str(info.value) == (
-        'Result.payee: summary "payee" reads the one row of the table "payments", which has 2 rows'
+        f'Result.summary("{role}"): summary "{role}" reads the one row of the table "payments", '
+        "which has 2 rows"
     )
 
 
@@ -201,9 +195,9 @@ def test_a_sum_that_overflows_names_the_table_row_and_amount():
         "name": "total_actual_provider_payment_amount", "type": "R", "min": 1, "max": 40}}}}})
     result = oxedi.parse(data + data, spec=spec)
     with pytest.raises(ValueError) as info:
-        result.sum_payments()
+        result.summary("sum_payments")
     assert str(info.value) == (
-        'Result.sum_payments: summary "sum_payments": the sum of "total_payment_amount" in the '
+        'Result.summary("sum_payments"): summary "sum_payments": the sum of "total_payment_amount" in the '
         'table "payments" '
         f"overflows a 128-bit decimal at row 1 (amount {nines}.00)"
     )

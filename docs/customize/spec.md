@@ -24,7 +24,7 @@ import oxedi
 data = Path("remittance-4010.835").read_bytes()
 spec = oxedi.Spec.builtin(version=oxedi.Version.V4010)
 result = oxedi.parse(data, spec=spec)
-print(result.spec, result.count_claims())
+print(result.spec, result.summary("count_claims"))
 ```
 
 ```text
@@ -347,7 +347,7 @@ that reads a decimal `R` element; null cells are skipped) or `row` (named fields
 table's one row). Every table and column a summary names must be declared in `tables`, so a
 patch that removes one must also remove the summary (with `null`), or it fails to load with
 an error that names the summary. `default_table` names one of the tables. The built-in 835
-declares:
+declares (in Python, `Result.summary(name)` reads each: a `distinct` count compares values as text, so `0123` and `123` count as two):
 
 ```json
 "summaries": {

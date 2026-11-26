@@ -11,8 +11,8 @@ import oxedi
 
 result = oxedi.parse_file("remittance.835")   # or oxedi.parse(data) from bytes
 
-print(result.count_claims(), result.sum_payments())  # sum_payments() is a Decimal
-print(result.payer["name"], result.payee["name"])
+print(result.summary("count_claims"), result.summary("sum_payments"))  # a sum is a Decimal
+print(result.summary("payer")["name"], result.summary("payee")["name"])
 ```
 
 ```text
@@ -20,11 +20,11 @@ print(result.payer["name"], result.payee["name"])
 ACME HEALTH PLAN SUNRISE CLINIC
 ```
 
-`result.payer` and `result.payee` are dicts of text values: `name`, `identification_code`,
+`result.summary("payer")` and `result.summary("payee")` are dicts of text values: `name`, `identification_code`,
 `address`, `city`, `state` and `zip_code`.
 
 !!! note "Files with more than one payment"
-    `result.payer` and `result.payee` are `None` when the file has no such party. They raise
+    `summary("payer")` and `summary("payee")` are `None` when the file has no such party. They raise
     `ValueError` when `payments` has more than one row. Read the `payer_*` and `payee_*`
     columns of `payments` instead.
 

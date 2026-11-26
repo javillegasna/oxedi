@@ -154,7 +154,7 @@ impl fmt::Display for TableDefError {
             TableDefError::PhiOnControlElement { segment, element } => {
                 write!(
                     f,
-                    "\"phi\" cannot flag {}: it is an envelope control number or count; findings about envelope controls quote it unmasked, so it cannot be flagged; remove \"phi\" from this column",
+                    "\"phi\" cannot flag {}: it is an envelope control number or count; diagnostics about envelope controls quote it unmasked, so it cannot be flagged; remove \"phi\" from this column",
                     ElementRef::simple(segment.as_bytes(), *element)
                 )
             }

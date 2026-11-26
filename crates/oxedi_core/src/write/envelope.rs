@@ -12,7 +12,7 @@
 
 use std::borrow::Cow;
 
-use crate::delimiters::Delimiters;
+use crate::delimiters::{Delimiters, HeaderPositions};
 use crate::spec::{ElementDef, ElementRule, LoopDef, OccurrenceDef, Spec};
 use crate::value::{ElementTextError, ElementType};
 
@@ -162,9 +162,9 @@ const LAYOUT: [&[(usize, Field)]; 3] = [
         (8, Field::ReceiverId),
         (9, Field::Date),
         (10, Field::Time),
-        (11, Field::Repetition),
+        (HeaderPositions::ISA.repetition, Field::Repetition),
         (15, Field::UsageIndicator),
-        (16, Field::Component),
+        (HeaderPositions::ISA.component, Field::Component),
     ],
     &[
         (2, Field::ApplicationSender),
@@ -234,10 +234,6 @@ pub(super) fn delimiters(
     Ok(all)
 }
 
-/// The element of the interchange header that holds its version, which a
-/// reader compares to decide whether ISA11 is a repetition separator.
-const VERSION_ELEMENT: usize = 12;
-
 /// Depth of the interchange among the envelope loops: it is the root
 /// envelope loop, and a loop's depth is the number of envelope loops above it.
 const INTERCHANGE_DEPTH: usize = 0;
@@ -266,8 +262,8 @@ pub(super) fn interchange_version(spec: &Spec, envelope: &Envelope) -> Vec<u8> {
         &number,
         envelope,
     );
-    spec.element_def(&root.trigger.segment, VERSION_ELEMENT, None)
-        .and_then(|def| header.value(VERSION_ELEMENT, def))
+    spec.element_def(&root.trigger.segment, HeaderPositions::ISA.version, None)
+        .and_then(|def| header.value(HeaderPositions::ISA.version, def))
         .map(|value| value.bytes)
         .unwrap_or_default()
 }

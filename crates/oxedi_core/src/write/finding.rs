@@ -3,6 +3,7 @@
 
 use std::fmt;
 
+use crate::delimiters::HeaderPositions;
 use crate::diagnostic::Diagnostic;
 use crate::document::DocumentError;
 use crate::message::{Counted, Quoted};
@@ -310,10 +311,12 @@ impl fmt::Display for WriteError {
             ),
             WriteError::NoRepetition { version } => write!(
                 f,
-                "the interchange version {} (ISA12) carries a repetition separator in ISA11, but \
+                "the interchange version {} (ISA{}) carries a repetition separator in ISA{}, but \
                  the envelope field \"delimiters.repetition\" is not set; set it to the separator \
                  to write",
-                Quoted(version)
+                Quoted(version),
+                HeaderPositions::ISA.version,
+                HeaderPositions::ISA.repetition
             ),
             WriteError::Unreadable(error) => {
                 write!(f, "the written file could not be read back: {error}")

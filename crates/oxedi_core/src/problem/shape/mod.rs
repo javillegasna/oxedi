@@ -12,6 +12,7 @@ use crate::spec_load::PackageId;
 use crate::write::{EnvelopeSource, ValueOrigin};
 
 mod diagnostic;
+mod finding;
 #[cfg(test)]
 mod tests;
 

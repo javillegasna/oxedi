@@ -7,7 +7,7 @@ use crate::spec::OccurrenceDef;
 use crate::vocabulary::Pick;
 
 use super::build::{Builder, Codes, Entry};
-use super::plan::{ElementPlan, Place, SegmentPlan, SegmentSource, ValueSource};
+use super::plan::{ElementPlan, SegmentPlan, SegmentSource, Spot, ValueSource};
 use super::refusal::Refusal;
 use super::required::add_qualifier;
 use crate::message::ElementRef;
@@ -57,7 +57,7 @@ impl Builder<'_> {
         plan: &mut SegmentPlan,
         entry: &Entry,
     ) {
-        let place = Place {
+        let place = Spot {
             element: entry.element,
             component: entry.component,
         };

@@ -5,7 +5,7 @@
 use crate::spec::{ElementRule, LoopDef, OccurrenceDef, SegmentDef, Selector, Spec, Usage};
 
 use super::build::Builder;
-use super::plan::{ElementPlan, Instances, Place, SegmentPlan, ValueSource};
+use super::plan::{ElementPlan, Instances, SegmentPlan, Spot, ValueSource};
 use super::refusal::Refusal;
 use crate::message::ElementRef;
 
@@ -119,7 +119,7 @@ pub(super) fn add_qualifier(plan: &mut SegmentPlan, occurrence: &OccurrenceDef) 
     let [code] = qualifier.codes.as_slice() else {
         return;
     };
-    let place = Place {
+    let place = Spot {
         element: qualifier.element,
         component: qualifier.component,
     };
@@ -162,7 +162,7 @@ fn fill_required(
 }
 
 /// Whether some element or component the segment plan writes overlaps `place`.
-fn is_written(segment: &SegmentPlan, place: Place) -> bool {
+fn is_written(segment: &SegmentPlan, place: Spot) -> bool {
     segment.elements.iter().any(|e| e.place().overlaps(place))
 }
 
@@ -174,10 +174,10 @@ fn required_places<'a>(
     def: &'a SegmentDef,
     segment: &SegmentPlan,
     occurrence: &'a OccurrenceDef,
-) -> Vec<(Place, ElementRule<'a>)> {
+) -> Vec<(Spot, ElementRule<'a>)> {
     let mut places = Vec::new();
     for (&element, definition) in &def.elements {
-        let whole = Place {
+        let whole = Spot {
             element,
             component: None,
         };
@@ -192,7 +192,7 @@ fn required_places<'a>(
                     .composite
                     .iter()
                     .filter_map(|(&component, part)| {
-                        let place = Place {
+                        let place = Spot {
                             element,
                             component: Some(component),
                         };

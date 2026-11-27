@@ -12,7 +12,10 @@ mod common;
 use std::fmt::Write as _;
 use std::path::PathBuf;
 
-use oxedi_core::{Builtin, Spec, Version};
+use oxedi_core::{
+    spec::Spec,
+    spec_load::{Builtin, Version},
+};
 
 fn golden_dir() -> PathBuf {
     PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("tests/golden/spec")

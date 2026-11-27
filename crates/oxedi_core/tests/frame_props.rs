@@ -3,7 +3,10 @@
 mod common;
 
 use common::delimiters;
-use oxedi_core::{Delimiters, Frame, next_frame};
+use oxedi_core::{
+    delimiters::Delimiters,
+    frame::{Frame, next_frame},
+};
 use proptest::prelude::*;
 
 fn all_frames<'a>(mut input: &'a [u8], delims: &Delimiters) -> Vec<Frame<'a>> {

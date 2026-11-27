@@ -5,7 +5,12 @@ mod common;
 
 use common::concat_raw;
 
-use oxedi_core::{Delimiters, IsaError, Segment, Tokenizer, next_frame};
+use oxedi_core::{
+    delimiters::{Delimiters, IsaError},
+    frame::next_frame,
+    segment::Segment,
+    tokenizer::Tokenizer,
+};
 
 /// (fixture, number of `~` in it). Terminated segments must match exactly.
 const ENVELOPED: &[(&str, usize)] = &[

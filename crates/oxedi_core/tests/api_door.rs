@@ -10,7 +10,15 @@ use oxedi_core::api::{
     read_tree,
 };
 use oxedi_core::{
-    Builtin, DateMode, Document, Event, LoopEngine, LoopTree, Mask, Processor, Spec, Tokenizer,
+    document::Document,
+    engine::{Event, LoopEngine},
+    mask::Mask,
+    process::Processor,
+    spec::Spec,
+    spec_load::Builtin,
+    tokenizer::Tokenizer,
+    tree::LoopTree,
+    vocabulary::DateMode,
 };
 
 type Options<'m> = ReadOptions<'m, Arc<Spec>>;

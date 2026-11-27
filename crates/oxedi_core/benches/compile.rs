@@ -7,7 +7,7 @@ mod common;
 use criterion::{BenchmarkId, Criterion, criterion_group, criterion_main};
 use oxedi_core::spec_load::{Builtin, Version};
 use oxedi_core::write::WritePlan;
-use oxedi_core::{Delimiters, Projector, Spec};
+use oxedi_core::{delimiters::Delimiters, project::Projector, spec::Spec};
 use std::hint::black_box;
 
 fn compile_builtins(c: &mut Criterion) {

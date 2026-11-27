@@ -8,7 +8,7 @@
 mod common;
 
 use oxedi_core::write::{Envelope, WriteError, write, write_with_findings};
-use oxedi_core::{Document, Processor, Spec, Tables};
+use oxedi_core::{column::Tables, document::Document, process::Processor, spec::Spec};
 
 /// The files that read without a diagnostic.
 const CLEAN: &[&str] = &[

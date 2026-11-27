@@ -5,7 +5,15 @@
 mod common;
 
 use oxedi_core::write::{Envelope, Finding, WriteError, write, write_with_findings};
-use oxedi_core::{Cell, ColumnType, Delimiters, Document, Processor, Spec, Table, Tables, Version};
+use oxedi_core::{
+    column::{Cell, Table, Tables},
+    delimiters::Delimiters,
+    document::Document,
+    process::Processor,
+    spec::Spec,
+    spec_load::Version,
+    value::ColumnType,
+};
 
 /// 2024-01-01 at 12:30.
 fn envelope() -> Envelope {

@@ -3,7 +3,12 @@
 
 mod common;
 
-use oxedi_core::{Diagnostic, Document, Processor, Rule, Spec};
+use oxedi_core::{
+    diagnostic::{Diagnostic, Rule},
+    document::Document,
+    process::Processor,
+    spec::Spec,
+};
 
 fn selected(bytes: Vec<u8>) -> String {
     let five = Spec::builtin_835();

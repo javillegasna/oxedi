@@ -5,7 +5,7 @@ mod common;
 
 use common::{SAMPLES, load_from};
 use criterion::{BenchmarkId, Criterion, Throughput, criterion_group, criterion_main};
-use oxedi_core::{Document, Processor, Spec};
+use oxedi_core::{document::Document, process::Processor, spec::Spec};
 use std::hint::black_box;
 
 /// Indexes the bytes, runs the processor over the document and returns how

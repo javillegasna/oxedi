@@ -143,7 +143,7 @@ fn every_fixture_with_an_isa_is_a_case_of_its_version() {
         for case in kit.cases().values() {
             let name = case.input.as_str().rsplit('/').next().unwrap().to_owned();
             let bytes = common::load_fixture(&name);
-            let delims = oxedi_core::Delimiters::from_isa(&bytes).expect(&name);
+            let delims = oxedi_core::delimiters::Delimiters::from_isa(&bytes).expect(&name);
             let selected = common::select(&five, &four, &bytes, delims);
             assert!(std::ptr::eq(selected, expected), "{manifest}: {name}");
             inputs.push(name);

@@ -8,7 +8,11 @@ use common::delimiters;
 
 use oxedi_core::frame::{first_frame, next_frame};
 use oxedi_core::trivia::BYTE_ORDER_MARK;
-use oxedi_core::{Delimiters, Document, Span, Tokenizer};
+use oxedi_core::{
+    delimiters::Delimiters,
+    document::{Document, Span},
+    tokenizer::Tokenizer,
+};
 use proptest::prelude::*;
 
 /// The spans as recorded straight from each frame, without deriving anything:

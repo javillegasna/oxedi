@@ -12,7 +12,13 @@ use std::sync::Arc;
 use std::sync::atomic::{AtomicUsize, Ordering};
 use std::time::{Duration, Instant};
 
-use oxedi_core::{Delimiters, Document, Frame, Segment, Span, next_frame, trivia::is_trivia};
+use oxedi_core::{
+    delimiters::Delimiters,
+    document::{Document, Span},
+    frame::{Frame, next_frame},
+    segment::Segment,
+    trivia::is_trivia,
+};
 
 /// The system allocator, counting the bytes currently allocated.
 struct Counting;

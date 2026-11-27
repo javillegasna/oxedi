@@ -7,6 +7,8 @@ Read a file into a `Result`: the document, the tables and the diagnostics. See
 
 ::: oxedi.parse_file
 
+::: oxedi.parse_document
+
 ::: oxedi.stream
 
 ::: oxedi.Mask

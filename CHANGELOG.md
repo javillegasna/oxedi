@@ -10,6 +10,7 @@ This file covers the Python package; the DuckDB extension has its own changelog 
 ## [Unreleased]
 
 ### Added
+- `Diagnostic.external(origin, message, level, ...)`, `Mask.diagnostics(diagnostics, document, spec, own_text=())`, `Document.loop_paths(spec, segments)` and `oxedi.parse_document(data)` → `(document, spec, leading)` are public, for adapters to external validators. The level of an external finding is read by the core's own rule.
 - `Spec.envelope()` lists a spec's envelope loops outermost first, each an `oxedi.EnvelopeLoop` (`name`, `trigger`, `end`, `opener_element`, `closer_element`, `count_element`).
 - `oxedi.validate_stack(top, pool)` → `Valid` (`id`, `name`, `packages`, `write` and `mask` `Capability` with their reasons, `changes`, `spec`) or `Invalid`; `Spec.from_packages(top, pool)` loads a stack of package texts; `Spec.builtin_packages()` returns the shipped package texts. `Valid.changes` lists `Change` values (`package`, `path`, `kind: ChangeKind`; `str(change)` is the line it prints).
 - `oxedi.run_kit(manifest, stack, files)` runs a conformance kit (the manifest's text) on a `Valid` stack over bytes the caller read, and `oxedi.kit_files(manifest)` lists the paths it names. `KitReport` and `CaseReport` report each case as `KitPassed`, `KitDiffers` (`KitDifference`: output, file, line, expected and actual text or `KitEnd`) or `KitBroken`; a manifest that does not read, or a kit of another package, raises `SpecError` with the core's text.

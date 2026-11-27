@@ -1,6 +1,6 @@
 //! `Document`, `Segment` and `Delimiters`: the file held losslessly.
 
-use oxedi_core::{Delimiters, Document, Element};
+use oxedi_core::{Delimiters, Document, Element, engine};
 use pyo3::exceptions::{PyIndexError, PyOverflowError, PyValueError};
 use pyo3::prelude::*;
 use pyo3::types::{PyBytes, PyInt, PyList};
@@ -10,6 +10,8 @@ use pyo3_stub_gen::type_info::{
     PyMethodsInfo,
 };
 use pyo3_stub_gen::{PyStubType, TypeInfo};
+
+use crate::spec::PySpec;
 
 native_exception!(
     ParseError,
@@ -233,6 +235,41 @@ impl PyDocument {
     /// The file, byte for byte.
     fn write<'py>(&self, py: Python<'py>) -> Bound<'py, PyBytes> {
         PyBytes::new(py, self.inner.as_bytes())
+    }
+
+    /// The open loops at each of `segments`, outermost first, as `(name,
+    /// ordinal)` pairs, as `parse` names them in a diagnostic's `path`, for
+    /// adapters to external validators. Raises `ValueError` past the last segment.
+    pub fn loop_paths(
+        &self,
+        spec: &Bound<'_, PySpec>,
+        segments: Vec<usize>,
+    ) -> PyResult<Vec<Vec<(String, usize)>>> {
+        if segments.is_empty() {
+            return Ok(Vec::new());
+        }
+        let document = &self.inner;
+        let count = document.len();
+        if let Some(&past) = segments.iter().find(|&&index| index >= count) {
+            return Err(PyValueError::new_err(format!(
+                "Document.loop_paths: segment {past} is past the document's last segment ({count} segments)"
+            )));
+        }
+        let spec = &spec.get().inner;
+        let paths = engine::loop_paths(spec, document.segments(), &segments);
+        Ok(paths
+            .into_iter()
+            .map(|path| {
+                path.into_iter()
+                    .map(|open| {
+                        (
+                            spec.loop_name(open.loop_id).to_string(),
+                            open.ordinal_in_stream,
+                        )
+                    })
+                    .collect()
+            })
+            .collect())
     }
 
     /// The delimiters the file was indexed with.

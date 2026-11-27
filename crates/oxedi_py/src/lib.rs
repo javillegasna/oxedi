@@ -70,7 +70,7 @@ fn core_module(m: &Bound<'_, PyModule>) -> PyResult<()> {
 }
 
 /// Every exception, class and function of the module, one registration each.
-fn members() -> [Register; 42] {
+fn members() -> [Register; 39] {
     [
         |m| m.add("ParseError", m.py().get_type::<document::ParseError>()),
         |m| m.add("SpecError", m.py().get_type::<spec::SpecError>()),
@@ -108,9 +108,6 @@ fn members() -> [Register; 42] {
         |m| wrap_pyfunction!(kit::run_kit, m).and_then(|f| m.add_function(f)),
         |m| wrap_pyfunction!(parse::parse, m).and_then(|f| m.add_function(f)),
         |m| wrap_pyfunction!(parse::parse_document, m).and_then(|f| m.add_function(f)),
-        |m| wrap_pyfunction!(parse::private_parse_document, m).and_then(|f| m.add_function(f)),
-        |m| wrap_pyfunction!(parse::private_loop_paths, m).and_then(|f| m.add_function(f)),
-        |m| wrap_pyfunction!(diagnostic::mask_findings, m).and_then(|f| m.add_function(f)),
         |m| wrap_pyfunction!(stream::stream, m).and_then(|f| m.add_function(f)),
         |m| wrap_pyfunction!(validate::validate_stack, m).and_then(|f| m.add_function(f)),
         |m| wrap_pyfunction!(write::write_tables, m).and_then(|f| m.add_function(f)),

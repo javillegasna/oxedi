@@ -212,33 +212,3 @@ pub fn parse_document(
     })?;
     Ok((PyDocument { inner: document }, PySpec::from(spec), leading))
 }
-
-/// The private form of `parse_document` that takes the spec to use; internal.
-#[gen_stub_pyfunction]
-#[pyfunction]
-#[pyo3(name = "_parse_document", signature = (data, spec = None))]
-pub fn private_parse_document(
-    py: Python<'_>,
-    #[gen_stub(override_type(type_repr = "typing_extensions.Buffer", imports = ("typing_extensions",)))]
-    data: &Bound<'_, PyAny>,
-    spec: Option<&Bound<'_, PySpec>>,
-) -> PyResult<(PyDocument, PySpec, usize)> {
-    let (document, selected, leading) = parse_document(py, data)?;
-    let spec = spec.map_or(selected, |given| PySpec::from(given.get().inner.clone()));
-    Ok((document, spec, leading))
-}
-
-/// The private form of `Document.loop_paths`; internal.
-#[gen_stub_pyfunction]
-#[pyfunction]
-#[pyo3(name = "_loop_paths")]
-pub fn private_loop_paths(
-    document: &Bound<'_, PyDocument>,
-    spec: &Bound<'_, PySpec>,
-    segments: Vec<usize>,
-) -> PyResult<Vec<Vec<(String, usize)>>> {
-    document.get().loop_paths(spec, segments)
-}
-
-pyo3_stub_gen::export_verbatim!("oxedi._core", "_loop_paths");
-pyo3_stub_gen::export_verbatim!("oxedi._core", "_parse_document");

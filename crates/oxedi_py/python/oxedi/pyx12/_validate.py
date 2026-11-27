@@ -8,8 +8,7 @@ from collections.abc import Sequence
 from dataclasses import dataclass
 from typing import BinaryIO, Optional, Union
 
-from .. import Diagnostic, Document, EnvelopeLoop, Mask, Segment, Spec
-from .._core import _loop_paths, _mask_findings, _parse_document
+from .. import Diagnostic, Document, EnvelopeLoop, Mask, Segment, Spec, parse_document
 from ._pyx12 import Run, import_pyx12, refusal, run
 from ._report import parse_report
 from ._tree import Envelope, Finding, Place, collect
@@ -238,7 +237,7 @@ def _finish(
     text oxedi wrote (a failure finding) rather than pyx12's."""
     drafts = sorted(drafts, key=_by_segment)
     segments = [d.segment for d in drafts if d.segment is not None]
-    paths = iter(_loop_paths(document, spec, segments))
+    paths = iter(document.loop_paths(spec, segments))
     found = [
         Diagnostic.external(
             _ORIGIN,
@@ -352,13 +351,14 @@ def validate(
         )
     import_pyx12()
     data = _read(source)
-    document, used, base = _parse_document(data, spec)
+    document, selected, base = parse_document(data)
+    used = spec if spec is not None else selected
     findings, own = _findings(
         data, document, used, base, used.envelope(), masked=mask is not None
     )
     if mask is None:
         return findings
-    return _mask_findings(findings, document, mask, used, own)
+    return mask.diagnostics(findings, document, used, own)
 
 
 def _reason(err: BaseException, masked: bool) -> str:

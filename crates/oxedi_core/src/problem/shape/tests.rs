@@ -795,3 +795,32 @@ fn a_checked_value_error_names_no_place() {
         assert_eq!(problem.record().text, problem.to_string());
     }
 }
+
+#[test]
+fn an_envelope_value_error_points_at_its_envelope_field() {
+    use crate::spec::EnvelopeField::{Date, Time};
+    use crate::value::TimeUnit;
+    use crate::write::Envelope;
+    use crate::write::EnvelopeSource::Caller;
+    let cases = [
+        (Envelope::date_of(2023, 2, 29), "NotADate", Date),
+        (Envelope::time_of(1, 0, 0, 1), "FractionalTime", Time),
+        (Envelope::time_of(24, 0, 0, 0), "TimeOutOfRange", Time),
+        (
+            Envelope::time_from_ticks(-1, TimeUnit::Second),
+            "TicksBeforeMidnight",
+            Time,
+        ),
+    ];
+    for (result, kind, field) in cases {
+        let error = result.unwrap_err();
+        assert_eq!(error.kind(), kind);
+        assert_eq!(
+            error.place(),
+            Place::Envelope {
+                field: Caller(field)
+            }
+        );
+        assert!(std::error::Error::source(&error).is_none());
+    }
+}

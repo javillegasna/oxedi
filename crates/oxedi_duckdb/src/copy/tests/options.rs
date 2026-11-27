@@ -1,6 +1,6 @@
 use oxedi_core::Delimiters;
 use oxedi_core::value::TimeUnit;
-use oxedi_core::write::Envelope;
+use oxedi_core::write::{Envelope, GroupCode};
 
 use super::super::error::CopyError;
 use super::super::options::{Kind, OptionValue, Settings, parse_date, parse_time};
@@ -78,8 +78,8 @@ fn every_option_reaches_the_envelope() {
     let mut expected = Envelope::new("01", "SENDER", "14", "RECEIVER", 19_724, 37_800);
     expected.usage_indicator = "T".to_owned();
     expected.control_number = 42;
-    expected.application_sender = Some("APPS".to_owned());
-    expected.application_receiver = Some("APPR".to_owned());
+    expected.application_sender = GroupCode::Given("APPS".to_owned());
+    expected.application_receiver = GroupCode::Given("APPR".to_owned());
     let mut chosen = Delimiters::new(b'|', b':', b'~');
     chosen.repetition = Some(b'!');
     chosen.release = Some(b'?');

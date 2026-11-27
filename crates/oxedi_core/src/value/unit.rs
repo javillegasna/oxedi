@@ -22,6 +22,16 @@ impl TimeUnit {
         }
     }
 
+    /// The unit's name in the singular, in lowercase.
+    pub const fn word(self) -> &'static str {
+        match self {
+            Self::Second => "second",
+            Self::Millisecond => "millisecond",
+            Self::Microsecond => "microsecond",
+            Self::Nanosecond => "nanosecond",
+        }
+    }
+
     /// Ticks in one day.
     pub const fn ticks_per_day(self) -> i64 {
         DAY_SECONDS * self.ticks_per_second()

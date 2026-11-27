@@ -222,7 +222,9 @@ mod by_module {
     use oxedi_core::write::ElementPlan;
     use oxedi_core::write::Envelope;
     use oxedi_core::write::EnvelopeSource;
+    use oxedi_core::write::EnvelopeValueError;
     use oxedi_core::write::Finding;
+    use oxedi_core::write::GroupCode;
     use oxedi_core::write::Instances;
     use oxedi_core::write::LoopPlan;
     use oxedi_core::write::LoopWriter;
@@ -271,8 +273,10 @@ mod api_door {
     use oxedi_core::api::DocumentError;
     use oxedi_core::api::Element;
     use oxedi_core::api::Envelope;
+    use oxedi_core::api::EnvelopeValueError;
     use oxedi_core::api::Finding;
     use oxedi_core::api::FloatForDecimal;
+    use oxedi_core::api::GroupCode;
     use oxedi_core::api::Identity;
     use oxedi_core::api::Invalid;
     use oxedi_core::api::IsaError;

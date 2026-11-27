@@ -8,7 +8,7 @@
 use oxedi_core::value::{
     ConvertError, TimeUnit, days_from_civil, seconds_from, seconds_of_day, time_of_day,
 };
-use oxedi_core::write::Envelope;
+use oxedi_core::write::{Envelope, GroupCode};
 use oxedi_core::{Builtin, Delimiters};
 
 use super::error::CopyError;
@@ -186,11 +186,11 @@ const OPTIONAL: [(&str, Apply); 8] = [
         Ok(())
     }),
     ("application_sender", |envelope, value| {
-        envelope.application_sender = Some(text("application_sender", value)?);
+        envelope.application_sender = GroupCode::Given(text("application_sender", value)?);
         Ok(())
     }),
     ("application_receiver", |envelope, value| {
-        envelope.application_receiver = Some(text("application_receiver", value)?);
+        envelope.application_receiver = GroupCode::Given(text("application_receiver", value)?);
         Ok(())
     }),
     ("delimiters", |envelope, value| {

@@ -27,6 +27,7 @@ Start reading at the `//!` header of `crates/oxedi_core/src/lib.rs` (one paragra
 then `crates/oxedi_core/src/process/mod.rs` (where the layers meet). Every core folder's
 `mod.rs` lists what each of its files holds, and `crates/oxedi_core/tests/architecture/table.rs`
 lists which module may use which.
+`api/` is the door a binding uses: it owns the read, batch and lookup options and re-exports the types a binding takes and gives.
 
 ## Pipelines
 

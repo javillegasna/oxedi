@@ -95,7 +95,7 @@ fn the_envelope_has_fixed_widths_counts_and_matching_control_numbers() {
     let mut envelope = envelope();
     envelope.control_number = 42;
     envelope.usage_indicator = "T".into();
-    envelope.application_sender = Some("APP".into());
+    envelope.application_sender = oxedi_core::write::GroupCode::Given("APP".into());
     envelope.line_break = true;
     let written = text(&write(&spec, &tables, &envelope).unwrap());
     let lines: Vec<&str> = written.lines().collect();

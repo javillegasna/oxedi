@@ -11,7 +11,8 @@
 //! the codes that fill it), `refusal.rs` (why a spec cannot be written);
 //! `writer.rs` (the entry points [`write()`] and [`write_with_findings`]),
 //! `envelope.rs` (the caller's [`Envelope`] and the envelope segments'
-//! values), `data.rs` (the caller's tables bound to the spec's), `nest.rs`
+//! values), `checked.rs` (the group codes and the checked date and time),
+//! `data.rs` (the caller's tables bound to the spec's), `nest.rs`
 //! (the rows nested by their references), `layout.rs` (what the walk works
 //! out once per spec), `emit.rs` (the walk that writes the file),
 //! `walk.rs` (the instances a loop takes inside an instance), `cells.rs`
@@ -23,6 +24,7 @@
 
 mod build;
 mod cells;
+mod checked;
 mod codes;
 mod data;
 mod emit;
@@ -42,6 +44,7 @@ mod trace;
 mod walk;
 mod writer;
 
+pub use checked::{EnvelopeValueError, GroupCode};
 pub use envelope::{Envelope, Field as EnvelopeSource};
 pub use finding::{Finding, ValueOrigin, WriteError};
 pub use plan::{

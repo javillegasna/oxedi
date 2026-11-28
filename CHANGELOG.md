@@ -10,6 +10,8 @@ This file covers the Python package; the DuckDB extension has its own changelog 
 ## [Unreleased]
 
 ### Added
+- Rust: `oxedi_core::api`, the module for bindings: `read`, `read_tables`, `read_tree`, `Batches` with `BatchBy`, `builtin(Identity)`, `mask_diagnostics`, the typed `SpecChoice` and `DelimiterChoice`, a curated set of the types they take and give (`SnipLevel`, `SegmentIndex`, `Envelope`, `Tables` and the rest), and the checked `SnipLevel::from_number`, `Document::resolve`, `Delimiters::byte`, `ColumnType::takes_float`, `Envelope::date_of`, `time_of` and `time_from_ticks`, each with its problem (`UnknownLevel`, `SegmentOutOfRange`, `DelimiterLength`, `FloatForDecimal`, `EnvelopeValueError`).
+- Rust: `tree::Node::ordinal` and `LoopTree::owner`; `write::GroupCode`.
 - `Spec.envelope()` lists a spec's envelope loops outermost first, each an `oxedi.EnvelopeLoop` (`name`, `trigger`, `end`, `opener_element`, `closer_element`, `count_element`).
 - `oxedi.validate_stack(top, pool)` → `Valid` (`id`, `name`, `packages`, `write` and `mask` `Capability` with their reasons, `changes`, `spec`) or `Invalid`; `Spec.from_packages(top, pool)` loads a stack of package texts; `Spec.builtin_packages()` returns the shipped package texts. `Valid.changes` lists `Change` values (`package`, `path`, `kind: ChangeKind`; `str(change)` is the line it prints).
 - `oxedi.run_kit(manifest, stack, files)` runs a conformance kit (the manifest's text) on a `Valid` stack over bytes the caller read, and `oxedi.kit_files(manifest)` lists the paths it names. `KitReport` and `CaseReport` report each case as `KitPassed`, `KitDiffers` (`KitDifference`: output, file, line, expected and actual text or `KitEnd`) or `KitBroken`; a manifest that does not read, or a kit of another package, raises `SpecError` with the core's text.
@@ -63,6 +65,7 @@ This file covers the Python package; the DuckDB extension has its own changelog 
 - Rust: `write::LoopWriter` (`Envelope`, `Table`): what writes the instances of a loop. `Selector` gains `Where`, a column's segment and its `where` values.
 
 ### Changed
+- Rust: `write::Envelope`'s `application_sender` and `application_receiver` are a `GroupCode` (`InterchangeId` or `Given`) instead of an `Option<String>`, and a struct literal of `tree::Node` needs `ordinal`.
 - The viewer's Diagnostics tab says "No diagnostics" when a file, or a level, has none (it said "No findings").
 - Rust: `Refusal::RepeatWithoutInstances.segment` is a `Vec<u8>`: only a table anchored on a segment is refused this way, so the segment is always there.
 - The error for `phi` on an envelope control element says "diagnostics about envelope controls" (it said "findings").

@@ -18,6 +18,7 @@ use crate::spec::{
 };
 use crate::value::{ElementTextError, ElementType};
 
+use super::checked::GroupCode;
 use super::finding::WriteError;
 use super::render::{envelope_date, envelope_time};
 
@@ -32,10 +33,10 @@ pub struct Envelope {
     pub receiver_qualifier: String,
     /// The receiver id; padded to the interchange's fixed width.
     pub receiver_id: String,
-    /// The functional group's sender code; the sender id when `None`.
-    pub application_sender: Option<String>,
-    /// The functional group's receiver code; the receiver id when `None`.
-    pub application_receiver: Option<String>,
+    /// The functional group's sender code.
+    pub application_sender: GroupCode,
+    /// The functional group's receiver code.
+    pub application_receiver: GroupCode,
     /// The date, as days since 1970-01-01.
     pub date: i32,
     /// The time, as seconds since midnight.
@@ -101,8 +102,8 @@ impl Envelope {
             sender_id: sender_id.into(),
             receiver_qualifier: receiver_qualifier.into(),
             receiver_id: receiver_id.into(),
-            application_sender: None,
-            application_receiver: None,
+            application_sender: GroupCode::InterchangeId,
+            application_receiver: GroupCode::InterchangeId,
             date,
             time,
             usage_indicator: Self::DEFAULT_USAGE_INDICATOR.to_string(),
@@ -441,18 +442,12 @@ fn field_value(
         Field::Caller(EnvelopeField::SenderId) => text(&envelope.sender_id),
         Field::Caller(EnvelopeField::ReceiverQualifier) => text(&envelope.receiver_qualifier),
         Field::Caller(EnvelopeField::ReceiverId) => text(&envelope.receiver_id),
-        Field::Caller(EnvelopeField::ApplicationSender) => text(
-            envelope
-                .application_sender
-                .as_deref()
-                .unwrap_or(envelope.sender_id.trim_end()),
-        ),
-        Field::Caller(EnvelopeField::ApplicationReceiver) => text(
-            envelope
-                .application_receiver
-                .as_deref()
-                .unwrap_or(envelope.receiver_id.trim_end()),
-        ),
+        Field::Caller(EnvelopeField::ApplicationSender) => {
+            text(envelope.application_sender.text(&envelope.sender_id))
+        }
+        Field::Caller(EnvelopeField::ApplicationReceiver) => {
+            text(envelope.application_receiver.text(&envelope.receiver_id))
+        }
         Field::Caller(EnvelopeField::Date) => {
             Some(envelope_date(envelope.date, rule.length.max).map(|text| (text, true)))
         }

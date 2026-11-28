@@ -1,10 +1,14 @@
 use super::super::envelope::interchange_version;
 use super::super::envelope::trigger_rule;
-use super::super::{Envelope, Finding, Refusal, WriteError, write, write_with_findings};
+use super::super::{
+    Envelope, EnvelopeValueError, Finding, GroupCode, Refusal, WriteError, write,
+    write_with_findings,
+};
 use crate::delimiters::Delimiters;
 use crate::diagnostic::Rule;
 use crate::spec::test_support::{builtin, patched};
 use crate::spec_load::Version;
+use crate::value::TimeUnit;
 use crate::{Document, Processor, Spec};
 
 #[test]
@@ -319,4 +323,85 @@ fn a_spec_whose_envelope_states_no_fields_reports_the_elements_left_empty() {
     };
     assert!(missing(2), "{findings:?}");
     assert!(missing(3), "{findings:?}");
+}
+
+#[test]
+fn a_group_code_is_the_interchange_id_unless_given() {
+    let spec = builtin(Version::V5010).spec;
+    let mut envelope = plain_envelope();
+    let bytes = written(&spec, BALANCED_5010, &envelope).unwrap();
+    assert_eq!(written_element(&bytes, b"GS", 2), b"SENDER");
+    envelope.application_sender = GroupCode::Given("APP".into());
+    let bytes = written(&spec, BALANCED_5010, &envelope).unwrap();
+    assert_eq!(written_element(&bytes, b"GS", 2), b"APP");
+    assert_eq!(GroupCode::default(), GroupCode::InterchangeId);
+    let mut padded = plain_envelope();
+    padded.receiver_id = "RECEIVER   ".into();
+    padded.application_receiver = GroupCode::Given("GRP".into());
+    let bytes = written(&spec, BALANCED_5010, &padded).unwrap();
+    assert_eq!(written_element(&bytes, b"GS", 3), b"GRP");
+    padded.application_receiver = GroupCode::InterchangeId;
+    let bytes = written(&spec, BALANCED_5010, &padded).unwrap();
+    assert_eq!(written_element(&bytes, b"GS", 3), b"RECEIVER");
+}
+
+#[test]
+fn a_date_is_checked_to_be_a_calendar_date() {
+    assert_eq!(Envelope::date_of(2024, 2, 29), Ok(19_782));
+    assert_eq!(Envelope::date_of(1970, 1, 1), Ok(0));
+    assert_eq!(
+        Envelope::date_of(2023, 2, 29).unwrap_err().to_string(),
+        "date 2023-02-29 is not a calendar date"
+    );
+}
+
+#[test]
+fn a_time_is_checked_for_fractions_then_range() {
+    assert_eq!(Envelope::time_of(23, 59, 59, 0), Ok(86_399));
+    let text = |result: Result<i32, EnvelopeValueError>| result.unwrap_err().to_string();
+    assert_eq!(
+        text(Envelope::time_of(12, 30, 0, 500_000_000)),
+        "time 12:30:00.5 has a fraction of a second; the envelope holds whole seconds"
+    );
+    assert_eq!(
+        text(Envelope::time_of(24, 0, 0, 0)),
+        "time 24:00:00 is out of range; it must be from 00:00:00 to 23:59:59"
+    );
+    assert_eq!(
+        text(Envelope::time_of(12, 61, 0, 0)),
+        "time 12:61:00 is out of range; it must be from 00:00:00 to 23:59:59"
+    );
+    assert!(Envelope::time_of(i64::MAX, 0, 0, 0).is_err());
+    assert_eq!(
+        text(Envelope::time_of(1, 0, 0, 1_000_000_000)),
+        "time 01:00:00 is out of range; it must be from 00:00:00 to 23:59:59"
+    );
+}
+
+#[test]
+fn a_time_in_ticks_is_whole_seconds_in_range() {
+    let text = |result: Result<i32, EnvelopeValueError>| result.unwrap_err().to_string();
+    assert_eq!(
+        Envelope::time_from_ticks(45_000_000_000, TimeUnit::Microsecond),
+        Ok(45_000)
+    );
+    assert_eq!(
+        text(Envelope::time_from_ticks(
+            45_000_500_000,
+            TimeUnit::Microsecond
+        )),
+        "time 12:30:00.5 has a fraction of a second; the envelope holds whole seconds"
+    );
+    assert_eq!(
+        text(Envelope::time_from_ticks(86_400, TimeUnit::Second)),
+        "time 24:00:00 is out of range; it must be from 00:00:00 to 23:59:59"
+    );
+    assert!(
+        text(Envelope::time_from_ticks(-1_500, TimeUnit::Millisecond))
+            .starts_with("time -1500 milliseconds after midnight")
+    );
+    assert_eq!(
+        text(Envelope::time_from_ticks(-1, TimeUnit::Second)),
+        "time -1 second after midnight is before midnight; it must be from 00:00:00 to 23:59:59"
+    );
 }

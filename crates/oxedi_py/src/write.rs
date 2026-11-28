@@ -8,7 +8,7 @@
 use std::sync::Arc;
 
 use oxedi_core::problem::{Detail, Place, Problem};
-use oxedi_core::write::{Envelope, Finding, WriteError, write_with_findings};
+use oxedi_core::write::{Envelope, Finding, GroupCode, WriteError, write_with_findings};
 use oxedi_core::{Builtin, Spec, Tables};
 use pyo3::prelude::*;
 use pyo3::types::{PyBytes, PyList, PyMapping, PyTuple};
@@ -20,6 +20,19 @@ use crate::import;
 use crate::spec::{self, PySpec};
 use crate::stamp;
 use crate::tables::PyTables;
+
+/// The group code a caller gave, or the interchange id's when none.
+fn group_code(given: Option<String>) -> GroupCode {
+    given.map_or(GroupCode::InterchangeId, GroupCode::Given)
+}
+
+/// The code a caller gave; `None` for the interchange id's.
+fn given_code(code: &GroupCode) -> Option<&str> {
+    match code {
+        GroupCode::InterchangeId => None,
+        GroupCode::Given(code) => Some(code),
+    }
+}
 
 /// Who sends and receives an interchange, when, its first control number
 /// and its delimiters. The writer derives the rest of the envelope: counts,
@@ -85,8 +98,8 @@ impl PyEnvelope {
         let inner = Envelope {
             usage_indicator: usage_indicator.to_string(),
             control_number,
-            application_sender,
-            application_receiver,
+            application_sender: group_code(application_sender),
+            application_receiver: group_code(application_receiver),
             delimiters,
             line_break,
             ..base
@@ -181,13 +194,13 @@ impl PyEnvelope {
     /// The functional group's sender code, when it is not the sender id.
     #[getter]
     fn application_sender(&self) -> Option<&str> {
-        self.inner.application_sender.as_deref()
+        given_code(&self.inner.application_sender)
     }
 
     /// The functional group's receiver code, when it is not the receiver id.
     #[getter]
     fn application_receiver(&self) -> Option<&str> {
-        self.inner.application_receiver.as_deref()
+        given_code(&self.inner.application_receiver)
     }
 
     /// Whether a line break follows each segment.

@@ -27,6 +27,7 @@ pub use crate::delimiters::{DelimiterLength, DelimiterRole};
 pub use crate::diagnostic::UnknownLevel;
 pub use crate::document::{SegmentIndex, SegmentOutOfRange};
 pub use crate::value::FloatForDecimal;
+pub use crate::write::{EnvelopeValueError, GroupCode};
 
 // Specs: loading, composing, validating and the conformance kits.
 pub use crate::conformance::{

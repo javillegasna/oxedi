@@ -105,6 +105,25 @@ The bytes include the line break before the segment, which belongs to it.
     | `BalanceMismatch` | The amounts of a balancing rule do not add up in one loop. |
     | `External` | A finding of another validator, such as pyx12. |
 
+## Report another validator's findings
+
+An adapter to another validator turns each finding into a `Diagnostic`, so the finding sits in
+the same list as the parser's own. `parse_document` gives the document and the spec without
+building the tables, `Document.loop_paths` gives the loops open at a segment, and
+`Diagnostic.external` builds the diagnostic. `Mask.diagnostics` masks such findings as `parse`
+masks its own.
+
+```python
+document, spec, _ = oxedi.parse_document(data)
+(path,) = document.loop_paths(spec, [10])
+finding = oxedi.Diagnostic.external("my-validator", "claim looks wrong", 2, segment=10, path=path)
+print(finding.origin, finding.level, finding.path)
+```
+
+```text
+my-validator 2 interchange#1/group#1/transaction#1/2000#1/2100#1
+```
+
 ## What to do about a diagnostic
 
 A diagnostic describes the file, not a failure of the parse. You decide what to do with it:

@@ -793,7 +793,7 @@ def test_a_finding_names_the_loops_parse_names_at_its_segment(make):
     result = oxedi.parse(data)
     findings = validate(data)
     assert findings
-    paths = oxedi._core._loop_paths(result.document, result.spec, [f.segment for f in findings])
+    paths = result.document.loop_paths(result.spec, [f.segment for f in findings])
     for finding, path in zip(findings, paths):
         assert finding.path == "/".join(f"{name}#{ordinal}" for name, ordinal in path)
     ours = {d.segment: d.path for d in result.diagnostics if d.segment is not None}
@@ -920,7 +920,7 @@ def test_a_masked_validation_leaves_words_holding_a_short_flagged_value_as_writt
     )
 
 
-def test_mask_findings_masks_datum_and_message_and_leaves_the_input_alone():
+def test_mask_diagnostics_masks_datum_and_message_and_leaves_the_input_alone():
     data = balanced_5010()
     result = oxedi.parse(data)
     document = result.document
@@ -933,7 +933,7 @@ def test_mask_findings_masks_datum_and_message_and_leaves_the_input_alone():
     findings = [finding]
     mask = oxedi.Mask(MASK_KEY)
 
-    (masked,) = oxedi._core._mask_findings(findings, document, mask, result.spec)
+    (masked,) = mask.diagnostics(findings, document, result.spec)
 
     assert findings == [finding] and findings[0] is finding
     assert finding.datum == claim and claim.decode() in finding.rule
@@ -943,7 +943,7 @@ def test_mask_findings_masks_datum_and_message_and_leaves_the_input_alone():
     assert place(masked) == place(finding)
 
 
-def test_mask_findings_keeps_the_message_of_a_finding_flagged_as_own_text():
+def test_mask_diagnostics_keeps_the_message_of_a_finding_flagged_as_own_text():
     data = balanced_5010()
     result = oxedi.parse(data)
     document = result.document
@@ -955,8 +955,8 @@ def test_mask_findings_keeps_the_message_of_a_finding_flagged_as_own_text():
     )
     mask = oxedi.Mask(MASK_KEY)
 
-    own, other = oxedi._core._mask_findings(
-        [make(), make()], document, mask, result.spec, [True, False]
+    own, other = mask.diagnostics(
+        [make(), make()], document, result.spec, [True, False]
     )
 
     assert own.rule == other.rule.replace(other.datum.decode(), claim.decode())
@@ -1055,7 +1055,7 @@ def test_validate_with_a_spec_names_the_loops_parse_names_with_it():
     result = oxedi.parse(data, spec=spec)
     expected = [
         "/".join(f"{name}#{number}" for name, number in path)
-        for path in oxedi._core._loop_paths(result.document, result.spec, segments)
+        for path in result.document.loop_paths(result.spec, segments)
     ]
     assert [d.path for d in found] == expected
     (on_address,) = [d for d in found if d.code == "6"]

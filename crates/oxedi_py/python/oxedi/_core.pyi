@@ -44,9 +44,6 @@ __all__ = [
     "Valid",
     "Version",
     "WriteFinding",
-    "_loop_paths",
-    "_mask_findings",
-    "_parse_document",
     "_write",
     "kit_files",
     "parse",
@@ -1058,21 +1055,6 @@ class WriteFinding:
         """
     def __str__(self) -> builtins.str: ...
     def __repr__(self) -> builtins.str: ...
-
-def _loop_paths(document: Document, spec: Spec, segments: typing.Sequence[builtins.int]) -> builtins.list[builtins.list[tuple[builtins.str, builtins.int]]]:
-    r"""
-    The private form of `Document.loop_paths`; internal.
-    """
-
-def _mask_findings(diagnostics: typing.Sequence[Diagnostic], document: Document, mask: Mask, spec: Spec, own_text: typing.Optional[typing.Sequence[builtins.bool]] = None) -> builtins.list[Diagnostic]:
-    r"""
-    The private form of `Mask.diagnostics`, which takes the mask first; internal.
-    """
-
-def _parse_document(data: typing_extensions.Buffer, spec: typing.Optional[Spec] = None) -> tuple[Document, Spec, builtins.int]:
-    r"""
-    The private form of `parse_document` that takes the spec to use; internal.
-    """
 
 def _write(tables: Tables | collections.abc.Mapping[builtins.str, typing.Any], envelope: Envelope, spec: typing.Optional[Spec] = None, allow_findings: builtins.bool = False) -> tuple[bytes, builtins.list[WriteFinding]]:
     r"""

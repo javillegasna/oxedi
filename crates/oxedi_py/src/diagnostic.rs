@@ -6,15 +6,11 @@ use oxedi_core::{Diagnostic, LoopRef, Rule, SnipLevel};
 use pyo3::exceptions::PyValueError;
 use pyo3::prelude::*;
 use pyo3::types::{PyBytes, PyInt, PyList};
-use pyo3_stub_gen::derive::{gen_stub_pyclass, gen_stub_pyfunction, gen_stub_pymethods};
+use pyo3_stub_gen::derive::{gen_stub_pyclass, gen_stub_pymethods};
 use pyo3_stub_gen::type_info::{
     MethodInfo, MethodType, ParameterDefault, ParameterInfo, ParameterKind, PyMethodsInfo,
 };
 use pyo3_stub_gen::{PyStubType, TypeInfo};
-
-use crate::document::PyDocument;
-use crate::mask::PyMask;
-use crate::spec::PySpec;
 
 /// One diagnostic about the data of a file: the rule that failed, where and
 /// the value. A value, never raised.
@@ -270,23 +266,6 @@ pyo3_stub_gen::inventory::submit! {
         column: column!(),
     }
 }
-
-/// The private form of `Mask.diagnostics`, which takes the mask first; internal.
-#[gen_stub_pyfunction]
-#[pyfunction]
-#[pyo3(name = "_mask_findings", signature = (diagnostics, document, mask, spec, own_text=None))]
-pub fn mask_findings(
-    diagnostics: Vec<PyRef<'_, PyDiagnostic>>,
-    document: &Bound<'_, PyDocument>,
-    mask: &Bound<'_, PyMask>,
-    spec: &Bound<'_, PySpec>,
-    own_text: Option<Vec<bool>>,
-) -> Vec<PyDiagnostic> {
-    mask.get()
-        .diagnostics(diagnostics, document, spec, own_text.unwrap_or_default())
-}
-
-pyo3_stub_gen::export_verbatim!("oxedi._core", "_mask_findings");
 
 /// The diagnostics as a Python list of `Diagnostic`.
 pub fn to_list(py: Python<'_>, diagnostics: Vec<Diagnostic>) -> PyResult<Bound<'_, PyList>> {

@@ -6,7 +6,14 @@
 mod common;
 
 use oxedi_core::{
-    Delimiters, Diagnostic, Document, Event, Processor, Rule, Segment, SnipLevel, Spec, Tables,
+    column::Tables,
+    delimiters::Delimiters,
+    diagnostic::{Diagnostic, Rule, SnipLevel},
+    document::Document,
+    engine::Event,
+    process::Processor,
+    segment::Segment,
+    spec::Spec,
 };
 use proptest::prelude::*;
 

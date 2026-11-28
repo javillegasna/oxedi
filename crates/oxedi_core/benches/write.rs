@@ -7,7 +7,7 @@ mod common;
 use common::load_from;
 use criterion::{Criterion, Throughput, criterion_group, criterion_main};
 use oxedi_core::write::{Envelope, write};
-use oxedi_core::{Document, Processor, Spec};
+use oxedi_core::{document::Document, process::Processor, spec::Spec};
 use std::hint::black_box;
 
 fn write_united(c: &mut Criterion) {

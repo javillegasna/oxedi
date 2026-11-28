@@ -6,7 +6,7 @@ mod common;
 
 use common::{SAMPLES, load_from};
 use criterion::{BenchmarkId, Criterion, Throughput, criterion_group, criterion_main};
-use oxedi_core::{Delimiters, LoopEngine, Spec, Tokenizer};
+use oxedi_core::{delimiters::Delimiters, engine::LoopEngine, spec::Spec, tokenizer::Tokenizer};
 use std::hint::black_box;
 
 /// Runs the engine over every segment and returns how many events it emitted.

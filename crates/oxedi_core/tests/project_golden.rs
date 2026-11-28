@@ -18,7 +18,9 @@ use std::path::PathBuf;
 
 use oxedi_core::conformance::render;
 use oxedi_core::spec_load::KitOutput;
-use oxedi_core::{DateMode, Document, Mask, Processor, Tables};
+use oxedi_core::{
+    column::Tables, document::Document, mask::Mask, process::Processor, vocabulary::DateMode,
+};
 
 fn golden_dir() -> PathBuf {
     PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("tests/golden/project")

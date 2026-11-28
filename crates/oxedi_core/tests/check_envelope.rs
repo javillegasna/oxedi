@@ -7,7 +7,7 @@ mod common;
 
 use std::collections::BTreeMap;
 
-use oxedi_core::{Document, Processor, SnipLevel, Spec};
+use oxedi_core::{diagnostic::SnipLevel, document::Document, process::Processor, spec::Spec};
 
 #[test]
 fn the_known_anomalies_are_reported_exactly_and_nothing_else() {
@@ -107,7 +107,11 @@ fn every_diagnostic_points_at_a_segment_holding_its_datum() {
     }
 }
 
-fn points_at_its_datum(name: &str, document: &Document<'_>, diagnostic: &oxedi_core::Diagnostic) {
+fn points_at_its_datum(
+    name: &str,
+    document: &Document<'_>,
+    diagnostic: &oxedi_core::diagnostic::Diagnostic,
+) {
     let span = diagnostic
         .span(document)
         .unwrap_or_else(|| panic!("{name}: {diagnostic} names no segment"));

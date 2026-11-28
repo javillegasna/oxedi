@@ -5,7 +5,10 @@ mod common;
 
 use common::{SAMPLES, load_from};
 use criterion::{BenchmarkId, Criterion, Throughput, criterion_group, criterion_main};
-use oxedi_core::{Delimiters, LoopEngine, Spec, StructureChecker, Tokenizer};
+use oxedi_core::{
+    check::StructureChecker, delimiters::Delimiters, engine::LoopEngine, spec::Spec,
+    tokenizer::Tokenizer,
+};
 use std::hint::black_box;
 
 /// Runs the engine and the structure checker over every segment and returns

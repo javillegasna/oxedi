@@ -11,7 +11,7 @@ use std::collections::BTreeMap;
 use std::fmt::Write as _;
 use std::path::PathBuf;
 
-use oxedi_core::{Event, Spec, Tokenizer};
+use oxedi_core::{engine::Event, spec::Spec, tokenizer::Tokenizer};
 
 fn golden_dir() -> PathBuf {
     PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("tests/golden")
@@ -42,15 +42,15 @@ fn line(spec: &Spec, event: Event, segment_id: &[u8]) -> String {
 
 /// One line per engine event, in order, with the id of the segment the event
 /// names.
-fn lines(spec: &Spec, bytes: &[u8], delims: oxedi_core::Delimiters) -> Vec<String> {
+fn lines(spec: &Spec, bytes: &[u8], delims: oxedi_core::delimiters::Delimiters) -> Vec<String> {
     let segments: Vec<_> = Tokenizer::with_delimiters(bytes, delims).collect();
     common::run_engine(spec, segments.iter().cloned())
         .into_iter()
         .map(|event| {
             let segment_id = match event {
-                oxedi_core::Event::Captured { segment, .. }
-                | oxedi_core::Event::Unmatched { segment, .. }
-                | oxedi_core::Event::Empty { segment } => {
+                oxedi_core::engine::Event::Captured { segment, .. }
+                | oxedi_core::engine::Event::Unmatched { segment, .. }
+                | oxedi_core::engine::Event::Empty { segment } => {
                     segments.get(segment).map(|s| s.id).unwrap_or(b"")
                 }
                 _ => b"",
@@ -60,7 +60,7 @@ fn lines(spec: &Spec, bytes: &[u8], delims: oxedi_core::Delimiters) -> Vec<Strin
         .collect()
 }
 
-fn full_stream(spec: &Spec, bytes: &[u8], delims: oxedi_core::Delimiters) -> String {
+fn full_stream(spec: &Spec, bytes: &[u8], delims: oxedi_core::delimiters::Delimiters) -> String {
     lines(spec, bytes, delims)
         .iter()
         .fold(String::new(), |mut out, l| {
@@ -69,7 +69,7 @@ fn full_stream(spec: &Spec, bytes: &[u8], delims: oxedi_core::Delimiters) -> Str
         })
 }
 
-fn summary(spec: &Spec, bytes: &[u8], delims: oxedi_core::Delimiters) -> String {
+fn summary(spec: &Spec, bytes: &[u8], delims: oxedi_core::delimiters::Delimiters) -> String {
     let mut counts: BTreeMap<String, usize> = BTreeMap::new();
     for key in lines(spec, bytes, delims) {
         let key = key

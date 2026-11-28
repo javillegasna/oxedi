@@ -3,7 +3,10 @@
 
 mod common;
 
-use oxedi_core::{Delimiters, Event, LoopTree, Spec, Tokenizer, Version};
+use oxedi_core::{
+    delimiters::Delimiters, engine::Event, spec::Spec, spec_load::Version, tokenizer::Tokenizer,
+    tree::LoopTree,
+};
 
 /// How many segments of `bytes` no loop of `spec` holds.
 fn unmatched(spec: &Spec, bytes: &[u8], delims: Delimiters) -> usize {

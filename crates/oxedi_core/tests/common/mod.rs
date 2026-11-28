@@ -66,47 +66,47 @@ pub const SAMPLES: &[&str] = &[
 
 /// Every fixture and sample with the delimiters to tokenize it (the
 /// ISA-less fragment gets caller delimiters).
-pub fn all_files() -> Vec<(String, Vec<u8>, oxedi_core::Delimiters)> {
+pub fn all_files() -> Vec<(String, Vec<u8>, oxedi_core::delimiters::Delimiters)> {
     let mut files = Vec::new();
     for &name in FIXTURES {
         let bytes = load_fixture(name);
-        let delims = oxedi_core::Delimiters::from_isa(&bytes).expect(name);
+        let delims = oxedi_core::delimiters::Delimiters::from_isa(&bytes).expect(name);
         files.push((name.to_string(), bytes, delims));
     }
     let blue = load_fixture(NO_ISA_FIXTURE);
     files.push((
         NO_ISA_FIXTURE.to_string(),
         blue,
-        oxedi_core::Delimiters::new(b'*', b':', b'~'),
+        oxedi_core::delimiters::Delimiters::new(b'*', b':', b'~'),
     ));
     for &name in SAMPLES {
         let bytes = load_sample(name);
-        let delims = oxedi_core::Delimiters::from_isa(&bytes).expect(name);
+        let delims = oxedi_core::delimiters::Delimiters::from_isa(&bytes).expect(name);
         files.push((name.to_string(), bytes, delims));
     }
     files
 }
 
 /// The 5010 and 4010 built-in specs, as candidates for [`select`].
-pub fn builtins() -> (oxedi_core::Spec, oxedi_core::Spec) {
+pub fn builtins() -> (oxedi_core::spec::Spec, oxedi_core::spec::Spec) {
     (
-        oxedi_core::Spec::builtin_835(),
-        oxedi_core::Spec::builtin_835_4010(),
+        oxedi_core::spec::Spec::builtin_835(),
+        oxedi_core::spec::Spec::builtin_835_4010(),
     )
 }
 
 /// The built-in spec of the version the file declares, 5010 when it
 /// declares none of theirs: what a caller that passes no spec gets.
 pub fn select<'a>(
-    five: &'a oxedi_core::Spec,
-    four: &'a oxedi_core::Spec,
+    five: &'a oxedi_core::spec::Spec,
+    four: &'a oxedi_core::spec::Spec,
     bytes: &[u8],
-    delims: oxedi_core::Delimiters,
-) -> &'a oxedi_core::Spec {
-    oxedi_core::Spec::select(
+    delims: oxedi_core::delimiters::Delimiters,
+) -> &'a oxedi_core::spec::Spec {
+    oxedi_core::spec::Spec::select(
         &[five, four],
         five,
-        oxedi_core::Tokenizer::with_delimiters(bytes, delims),
+        oxedi_core::tokenizer::Tokenizer::with_delimiters(bytes, delims),
     )
 }
 
@@ -114,15 +114,15 @@ pub fn select<'a>(
 /// it, masked when `mask` is given. Returns the chosen spec with the tables
 /// and the diagnostics.
 pub fn run_builtin<'a>(
-    five: &'a oxedi_core::Spec,
-    four: &'a oxedi_core::Spec,
+    five: &'a oxedi_core::spec::Spec,
+    four: &'a oxedi_core::spec::Spec,
     bytes: &[u8],
-    delims: oxedi_core::Delimiters,
-    mask: Option<&oxedi_core::Mask>,
+    delims: oxedi_core::delimiters::Delimiters,
+    mask: Option<&oxedi_core::mask::Mask>,
 ) -> (
-    &'a oxedi_core::Spec,
-    oxedi_core::Tables,
-    Vec<oxedi_core::Diagnostic>,
+    &'a oxedi_core::spec::Spec,
+    oxedi_core::column::Tables,
+    Vec<oxedi_core::diagnostic::Diagnostic>,
 ) {
     let spec = select(five, four, bytes, delims);
     let (tables, diagnostics) = process(spec, bytes, delims, mask);
@@ -132,21 +132,27 @@ pub fn run_builtin<'a>(
 /// Parse `bytes` with `delims` and project them with `spec`, masked when
 /// `mask` is given.
 pub fn process(
-    spec: &oxedi_core::Spec,
+    spec: &oxedi_core::spec::Spec,
     bytes: &[u8],
-    delims: oxedi_core::Delimiters,
-    mask: Option<&oxedi_core::Mask>,
-) -> (oxedi_core::Tables, Vec<oxedi_core::Diagnostic>) {
-    let document = oxedi_core::Document::with_delimiters(bytes, delims).unwrap();
-    oxedi_core::Processor::run(spec, &document, mask)
+    delims: oxedi_core::delimiters::Delimiters,
+    mask: Option<&oxedi_core::mask::Mask>,
+) -> (
+    oxedi_core::column::Tables,
+    Vec<oxedi_core::diagnostic::Diagnostic>,
+) {
+    let document = oxedi_core::document::Document::with_delimiters(bytes, delims).unwrap();
+    oxedi_core::process::Processor::run(spec, &document, mask)
 }
 
 /// Feed every segment to a fresh engine, then `finish`, and return every event and the engine.
 pub fn run_engine_keeping<'s, 'a>(
-    spec: &'s oxedi_core::Spec,
-    segments: impl IntoIterator<Item = oxedi_core::Segment<'a>>,
-) -> (Vec<oxedi_core::Event>, oxedi_core::LoopEngine<'s>) {
-    let mut engine = oxedi_core::LoopEngine::new(spec);
+    spec: &'s oxedi_core::spec::Spec,
+    segments: impl IntoIterator<Item = oxedi_core::segment::Segment<'a>>,
+) -> (
+    Vec<oxedi_core::engine::Event>,
+    oxedi_core::engine::LoopEngine<'s>,
+) {
+    let mut engine = oxedi_core::engine::LoopEngine::new(spec);
     let mut events = Vec::new();
     for segment in segments {
         events.extend_from_slice(engine.feed(&segment));
@@ -157,32 +163,35 @@ pub fn run_engine_keeping<'s, 'a>(
 
 /// Feed every segment to a fresh engine, then `finish`, and return every event in order.
 pub fn run_engine<'a>(
-    spec: &oxedi_core::Spec,
-    segments: impl IntoIterator<Item = oxedi_core::Segment<'a>>,
-) -> Vec<oxedi_core::Event> {
+    spec: &oxedi_core::spec::Spec,
+    segments: impl IntoIterator<Item = oxedi_core::segment::Segment<'a>>,
+) -> Vec<oxedi_core::engine::Event> {
     run_engine_keeping(spec, segments).0
 }
 
 /// Tokenize `bytes` with `delims` and run the engine over the result.
 pub fn events_of(
-    spec: &oxedi_core::Spec,
+    spec: &oxedi_core::spec::Spec,
     bytes: &[u8],
-    delims: oxedi_core::Delimiters,
-) -> Vec<oxedi_core::Event> {
-    run_engine(spec, oxedi_core::Tokenizer::with_delimiters(bytes, delims))
+    delims: oxedi_core::delimiters::Delimiters,
+) -> Vec<oxedi_core::engine::Event> {
+    run_engine(
+        spec,
+        oxedi_core::tokenizer::Tokenizer::with_delimiters(bytes, delims),
+    )
 }
 
 /// Tokenize `bytes` with `delims`, run the engine and the structure checker
 /// side by side, and return every diagnostic in order, `finish` included.
 pub fn diagnostics_of(
-    spec: &oxedi_core::Spec,
+    spec: &oxedi_core::spec::Spec,
     bytes: &[u8],
-    delims: oxedi_core::Delimiters,
-) -> Vec<oxedi_core::Diagnostic> {
-    let mut engine = oxedi_core::LoopEngine::new(spec);
-    let mut checker = oxedi_core::StructureChecker::new(spec, &delims);
+    delims: oxedi_core::delimiters::Delimiters,
+) -> Vec<oxedi_core::diagnostic::Diagnostic> {
+    let mut engine = oxedi_core::engine::LoopEngine::new(spec);
+    let mut checker = oxedi_core::check::StructureChecker::new(spec, &delims);
     let mut diagnostics = Vec::new();
-    for segment in oxedi_core::Tokenizer::with_delimiters(bytes, delims) {
+    for segment in oxedi_core::tokenizer::Tokenizer::with_delimiters(bytes, delims) {
         let events = engine.feed(&segment).to_vec();
         diagnostics.extend_from_slice(checker.on(&segment, &events, engine.path()));
     }
@@ -281,7 +290,7 @@ fn compare_goldens_reports_orphan_files_and_unlisted_subdirectories() {
 }
 
 /// Every segment's `raw` bytes, back to back.
-pub fn concat_raw(segments: &[oxedi_core::Segment<'_>]) -> Vec<u8> {
+pub fn concat_raw(segments: &[oxedi_core::segment::Segment<'_>]) -> Vec<u8> {
     segments
         .iter()
         .flat_map(|s| s.raw.iter().copied())
@@ -289,8 +298,8 @@ pub fn concat_raw(segments: &[oxedi_core::Segment<'_>]) -> Vec<u8> {
 }
 
 /// The plain test dialect (`*`, `:`, `~`), with `?` as release when asked.
-pub fn delimiters(use_release: bool) -> oxedi_core::Delimiters {
-    let delims = oxedi_core::Delimiters::new(b'*', b':', b'~');
+pub fn delimiters(use_release: bool) -> oxedi_core::delimiters::Delimiters {
+    let delims = oxedi_core::delimiters::Delimiters::new(b'*', b':', b'~');
     if use_release {
         delims.with_release(b'?')
     } else {
@@ -327,8 +336,11 @@ pub fn assert_same_names(what: &str, named: &[&str], listed: &[&str]) {
 }
 
 /// The built-in 835 at `version` with the merge patch `patch` over its model.
-pub fn patched(version: oxedi_core::Version, patch: &str) -> std::sync::Arc<oxedi_core::Spec> {
-    oxedi_core::Builtin::find("835", version)
+pub fn patched(
+    version: oxedi_core::spec_load::Version,
+    patch: &str,
+) -> std::sync::Arc<oxedi_core::spec::Spec> {
+    oxedi_core::spec_load::Builtin::find("835", version)
         .expect("the registry ships the 835 at every version")
         .loaded()
         .expect("a built-in's model reads")
@@ -338,10 +350,10 @@ pub fn patched(version: oxedi_core::Version, patch: &str) -> std::sync::Arc<oxed
 }
 
 /// The compat patch package over the shipped stack, compiled.
-pub fn compat() -> std::sync::Arc<oxedi_core::Spec> {
+pub fn compat() -> std::sync::Arc<oxedi_core::spec::Spec> {
     use oxedi_core::validate::{Validation, validate};
     let text = include_str!("../../../oxedi_py/python/oxedi/edi_835_parser/edi_835_parser.json");
-    match validate(text, oxedi_core::Builtin::packages()) {
+    match validate(text, oxedi_core::spec_load::Builtin::packages()) {
         Validation::Yes(valid) => valid.loaded.spec,
         Validation::No(invalid) => panic!("{invalid}"),
     }

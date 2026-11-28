@@ -9,7 +9,15 @@ mod common;
 use std::collections::BTreeSet;
 
 use oxedi_core::value::{date_display, days_from_civil};
-use oxedi_core::{Cell, DateMode, Diagnostic, Document, Mask, Phi, Processor, Spec, Table, Tables};
+use oxedi_core::{
+    column::{Cell, Table, Tables},
+    diagnostic::Diagnostic,
+    document::Document,
+    mask::Mask,
+    process::Processor,
+    spec::Spec,
+    vocabulary::{DateMode, Phi},
+};
 
 const KEY: &[u8] = b"oxedi-test-key-0";
 const OTHER_KEY: &[u8] = b"oxedi-test-key-1";
@@ -505,7 +513,7 @@ fn a_finding_on_a_flagged_place_has_its_datum_replaced() {
             ("masked_findings_4010_sample.txt", "241341"),
         ] {
             let bytes = common::load_fixture(name);
-            let delims = oxedi_core::Delimiters::from_isa(&bytes).unwrap();
+            let delims = oxedi_core::delimiters::Delimiters::from_isa(&bytes).unwrap();
             let (_, _, plain) = common::run_builtin(&five, &four, &bytes, delims, None);
             let (_, _, masked) = common::run_builtin(&five, &four, &bytes, delims, Some(&mask));
             let datums = |found: &[Diagnostic]| -> Vec<String> {

@@ -1,10 +1,10 @@
 //! `parse`: one pass over a whole file, with the GIL released.
 
 use oxedi_core::trivia::LeadingTrivia;
-use oxedi_core::{Delimiters, Document, Mask, Processor, engine};
+use oxedi_core::{Delimiters, Document, Mask, Processor};
 
 use pyo3::buffer::PyBuffer;
-use pyo3::exceptions::{PyTypeError, PyValueError};
+use pyo3::exceptions::PyTypeError;
 use pyo3::prelude::*;
 use pyo3::types::{PyList, PyString};
 use pyo3_stub_gen::derive::{gen_stub_pyclass, gen_stub_pyfunction, gen_stub_pymethods};
@@ -190,75 +190,54 @@ impl PyParseResult {
     }
 }
 
-/// Indexes a whole file without running the loop engine or the projector:
-/// the document, the spec a `parse` of the same arguments uses (the one
-/// given, or the built-in of the version the file declares) and how many
-/// bytes precede the first segment's text (the byte order mark and the
-/// whitespace before the ISA).
-///
-/// Internal: adapters to external validators read a file's document and
-/// spec through it without paying for the tables.
+/// Indexes a file without building its tables, for adapters to external
+/// validators. Returns the document, the built-in spec of the version the file
+/// declares (the default one when it declares none) and the bytes before the
+/// first segment's text (byte order mark and whitespace before the ISA). Input
+/// without an ISA raises `ParseError`, as `parse` does.
 #[gen_stub_pyfunction]
 #[pyfunction]
-#[pyo3(name = "_parse_document", signature = (data, spec = None))]
+#[pyo3(name = "parse_document")]
 pub fn parse_document(
     py: Python<'_>,
     #[gen_stub(override_type(type_repr = "typing_extensions.Buffer", imports = ("typing_extensions",)))]
     data: &Bound<'_, PyAny>,
-    spec: Option<&Bound<'_, PySpec>>,
 ) -> PyResult<(PyDocument, PySpec, usize)> {
-    let bytes = copy_input("_parse_document", data)?;
-    let given = spec::given(spec);
+    let bytes = copy_input("parse_document", data)?;
     let (document, spec, leading) = py.detach(|| -> PyResult<_> {
         let leading = LeadingTrivia::of(&bytes).len();
         let document = document::index(bytes, None)?;
-        let spec = spec::given_or_selected(given, document.segments());
+        let spec = spec::given_or_selected(None, document.segments());
         Ok((document, spec, leading))
     })?;
     Ok((PyDocument { inner: document }, PySpec::from(spec), leading))
 }
 
-/// The open loops at each of `segments`, outermost first, as `(name,
-/// ordinal)` pairs: the loops `parse` names in the `path` of a diagnostic
-/// about that segment. The ordinal of an instance counts every instance of
-/// its loop from the start of the stream.
-///
-/// Internal: adapters to external validators call it to place their
-/// findings; it is not part of the public API. An index past the last
-/// segment is a `ValueError` naming it.
+/// The private form of `parse_document` that takes the spec to use; internal.
+#[gen_stub_pyfunction]
+#[pyfunction]
+#[pyo3(name = "_parse_document", signature = (data, spec = None))]
+pub fn private_parse_document(
+    py: Python<'_>,
+    #[gen_stub(override_type(type_repr = "typing_extensions.Buffer", imports = ("typing_extensions",)))]
+    data: &Bound<'_, PyAny>,
+    spec: Option<&Bound<'_, PySpec>>,
+) -> PyResult<(PyDocument, PySpec, usize)> {
+    let (document, selected, leading) = parse_document(py, data)?;
+    let spec = spec.map_or(selected, |given| PySpec::from(given.get().inner.clone()));
+    Ok((document, spec, leading))
+}
+
+/// The private form of `Document.loop_paths`; internal.
 #[gen_stub_pyfunction]
 #[pyfunction]
 #[pyo3(name = "_loop_paths")]
-pub fn loop_paths(
+pub fn private_loop_paths(
     document: &Bound<'_, PyDocument>,
     spec: &Bound<'_, PySpec>,
     segments: Vec<usize>,
 ) -> PyResult<Vec<Vec<(String, usize)>>> {
-    if segments.is_empty() {
-        return Ok(Vec::new());
-    }
-    let document = &document.get().inner;
-    let count = document.len();
-    if let Some(&past) = segments.iter().find(|&&index| index >= count) {
-        return Err(PyValueError::new_err(format!(
-            "_loop_paths: segment {past} is past the document's last segment ({count} segments)"
-        )));
-    }
-    let spec = &spec.get().inner;
-    let paths = engine::loop_paths(spec, document.segments(), &segments);
-    Ok(paths
-        .into_iter()
-        .map(|path| {
-            path.into_iter()
-                .map(|open| {
-                    (
-                        spec.loop_name(open.loop_id).to_string(),
-                        open.ordinal_in_stream,
-                    )
-                })
-                .collect()
-        })
-        .collect())
+    document.get().loop_paths(spec, segments)
 }
 
 pyo3_stub_gen::export_verbatim!("oxedi._core", "_loop_paths");

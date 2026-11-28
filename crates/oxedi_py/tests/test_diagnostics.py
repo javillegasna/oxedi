@@ -69,7 +69,7 @@ def test_every_core_finding_has_the_core_origin_and_no_code():
 
 
 def test_an_external_finding_is_a_diagnostic_with_its_origin_and_code():
-    d = oxedi._core._external_diagnostic(
+    d = oxedi.Diagnostic.external(
         "pyx12", "msg", 2, code="1", segment=3, element=2, datum=b"X"
     )
     assert isinstance(d, oxedi.Diagnostic)
@@ -96,7 +96,7 @@ def test_external_diagnostic_signature_names_kinds_and_defaults():
     # The signature is written three times in the binding (`signature =`,
     # `text_signature` and the stub description); this pins the one Python
     # reports, and stubtest holds the stub to it.
-    parameters = inspect.signature(oxedi._core._external_diagnostic).parameters
+    parameters = inspect.signature(oxedi.Diagnostic.external).parameters
     keyword = inspect.Parameter.POSITIONAL_OR_KEYWORD
     empty = inspect.Parameter.empty
     assert [(p.name, p.kind, p.default) for p in parameters.values()] == [
@@ -108,12 +108,12 @@ def test_external_diagnostic_signature_names_kinds_and_defaults():
         ("element", keyword, None),
         ("component", keyword, None),
         ("datum", keyword, b""),
-        ("path", keyword, None),
+        ("path", keyword, ()),
     ]
 
 
 def test_external_diagnostic_takes_every_parameter_by_keyword():
-    d = oxedi._core._external_diagnostic(
+    d = oxedi.Diagnostic.external(
         origin="pyx12",
         message="msg",
         level=3,
@@ -135,7 +135,7 @@ def test_external_diagnostic_takes_every_parameter_by_keyword():
 
 
 def test_an_external_finding_without_code_or_position():
-    d = oxedi._core._external_diagnostic("pyx12", "it failed", 1)
+    d = oxedi.Diagnostic.external("pyx12", "it failed", 1)
     assert (d.level, d.code, d.segment, d.element, d.datum) == (
         1,
         None,
@@ -152,20 +152,20 @@ def test_an_external_finding_without_code_or_position():
 @pytest.mark.parametrize("level", [0, 4, -1])
 def test_an_external_level_outside_one_to_three_is_refused(level):
     with pytest.raises(ValueError, match=f"^level must be 1, 2 or 3, got {level}$"):
-        oxedi._core._external_diagnostic("pyx12", "msg", level)
+        oxedi.Diagnostic.external("pyx12", "msg", level)
 
 
 @pytest.mark.parametrize("argument", ["segment", "element", "component"])
 @pytest.mark.parametrize("value", [-1, 2**64, 10**30])
 def test_external_position_out_of_range_names_the_argument(argument, value):
     with pytest.raises(ValueError, match=rf"^{argument} must be a non-negative integer, got {value}$"):
-        oxedi._core._external_diagnostic("pyx12", "msg", 1, **{argument: value})
+        oxedi.Diagnostic.external("pyx12", "msg", 1, **{argument: value})
 
 
 @pytest.mark.parametrize("value", [-(2**63) - 1, 2**63, 99999999999999999999])
 def test_external_level_beyond_i64_is_a_value_error(value):
     with pytest.raises(ValueError, match=rf"^level must be 1, 2 or 3, got {value}$"):
-        oxedi._core._external_diagnostic("pyx12", "msg", value)
+        oxedi.Diagnostic.external("pyx12", "msg", value)
 
 
 # Rules parse reports while a loop opens or closes: their path is the stack
@@ -200,7 +200,7 @@ def test_loop_paths_name_the_loops_parse_names_at_each_segment(file_name):
     ]
     paths = oxedi._core._loop_paths(result.document, result.spec, [d.segment for d in named])
     for diagnostic, path in zip(named, paths):
-        built = oxedi._core._external_diagnostic("x", "m", 1, segment=diagnostic.segment, path=path)
+        built = oxedi.Diagnostic.external("x", "m", 1, segment=diagnostic.segment, path=path)
         assert built.path == diagnostic.path, (diagnostic.segment, str(diagnostic))
 
 
@@ -232,5 +232,12 @@ def test_loop_paths_refuse_a_segment_past_the_last():
     with pytest.raises(ValueError) as info:
         oxedi._core._loop_paths(result.document, result.spec, [0, count])
     assert str(info.value) == (
-        f"_loop_paths: segment {count} is past the document's last segment ({count} segments)"
+        f"Document.loop_paths: segment {count} is past the document's last segment ({count} segments)"
     )
+
+
+def test_parse_document_gives_the_builtin_the_file_declares():
+    data = read("balanced_4010_sample.txt")
+    document, spec, _ = oxedi.parse_document(data)
+    assert spec.to_json() == oxedi.Spec.builtin(oxedi.Version.V4010).to_json()
+    assert document.write() == data

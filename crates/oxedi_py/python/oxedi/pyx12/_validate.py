@@ -9,7 +9,7 @@ from dataclasses import dataclass
 from typing import BinaryIO, Optional, Union
 
 from .. import Diagnostic, Document, EnvelopeLoop, Mask, Segment, Spec
-from .._core import _external_diagnostic, _loop_paths, _mask_findings, _parse_document
+from .._core import _loop_paths, _mask_findings, _parse_document
 from ._pyx12 import Run, import_pyx12, refusal, run
 from ._report import parse_report
 from ._tree import Envelope, Finding, Place, collect
@@ -17,7 +17,7 @@ from ._tree import Envelope, Finding, Place, collect
 
 @dataclass(frozen=True)
 class Draft:
-    """The arguments of ``_external_diagnostic`` but its loop path;
+    """The arguments of ``Diagnostic.external`` but its loop path;
     ``own_text`` marks a message oxedi wrote rather than pyx12's."""
 
     message: str
@@ -240,9 +240,9 @@ def _finish(
     segments = [d.segment for d in drafts if d.segment is not None]
     paths = iter(_loop_paths(document, spec, segments))
     found = [
-        _external_diagnostic(
+        Diagnostic.external(
             _ORIGIN,
-            path=next(paths) if d.segment is not None else None,
+            path=next(paths) if d.segment is not None else (),
             message=d.message,
             level=d.level,
             code=d.code,

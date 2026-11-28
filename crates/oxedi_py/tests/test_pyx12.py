@@ -927,7 +927,7 @@ def test_mask_findings_masks_datum_and_message_and_leaves_the_input_alone():
     index = next(i for i in range(len(document)) if document[i].id == b"CLP")
     claim = bytes(document[index].elements[0])
     message = f"Invalid value '{claim.decode()}' in CLP01"
-    finding = oxedi._core._external_diagnostic(
+    finding = oxedi.Diagnostic.external(
         "pyx12", message, 2, code="8", segment=index, element=1, datum=claim
     )
     findings = [finding]
@@ -950,7 +950,7 @@ def test_mask_findings_keeps_the_message_of_a_finding_flagged_as_own_text():
     index = next(i for i in range(len(document)) if document[i].id == b"CLP")
     claim = bytes(document[index].elements[0])
     message = f"could not finish validating: it was processing segment #{claim.decode()}"
-    make = lambda: oxedi._core._external_diagnostic(
+    make = lambda: oxedi.Diagnostic.external(
         "pyx12", message, 1, segment=index, element=1, datum=claim
     )
     mask = oxedi.Mask(MASK_KEY)

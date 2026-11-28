@@ -44,13 +44,13 @@ __all__ = [
     "Valid",
     "Version",
     "WriteFinding",
-    "_external_diagnostic",
     "_loop_paths",
     "_mask_findings",
     "_parse_document",
     "_write",
     "kit_files",
     "parse",
+    "parse_document",
     "run_kit",
     "stream",
     "validate_stack",
@@ -274,6 +274,13 @@ class Diagnostic:
         """
     def __str__(self) -> builtins.str: ...
     def __repr__(self) -> builtins.str: ...
+    @staticmethod
+    def external(origin: builtins.str, message: builtins.str, level: builtins.int, code: typing.Optional[builtins.str] = None, segment: typing.Optional[builtins.int] = None, element: typing.Optional[builtins.int] = None, component: typing.Optional[builtins.int] = None, datum: bytes = b"", path: typing.Sequence[tuple[builtins.str, builtins.int]] = ()) -> Diagnostic:
+        r"""
+        Builds the diagnostic of a finding an external validator reported, for adapters to such validators.
+        
+        `level` is the SNIP level, 1, 2 or 3; `code`, `segment`, `element` and `component` are `None` when the finding names no code or place; `path` holds the open loops as `(name, ordinal)` pairs, outermost first, as `Document.loop_paths` returns them. Raises `ValueError` for a level or a position that is not valid.
+        """
 
 @typing.final
 class Document:
@@ -289,6 +296,12 @@ class Document:
     def write(self) -> bytes:
         r"""
         The file, byte for byte.
+        """
+    def loop_paths(self, spec: Spec, segments: typing.Sequence[builtins.int]) -> builtins.list[builtins.list[tuple[builtins.str, builtins.int]]]:
+        r"""
+        The open loops at each of `segments`, outermost first, as `(name,
+        ordinal)` pairs, as `parse` names them in a diagnostic's `path`, for
+        adapters to external validators. Raises `ValueError` past the last segment.
         """
     def __repr__(self) -> builtins.str: ...
     def __getitem__(self, index: builtins.int, /) -> Segment: ...
@@ -641,6 +654,10 @@ class Mask:
     """
     def __repr__(self) -> builtins.str: ...
     def __new__(cls, key: builtins.bytes | builtins.str, dates: builtins.str = 'year') -> Mask: ...
+    def diagnostics(self, diagnostics: typing.Sequence[Diagnostic], document: Document, spec: Spec, own_text: typing.Sequence[builtins.bool] = ()) -> builtins.list[Diagnostic]:
+        r"""
+        Copies of `diagnostics`, findings an external validator raised about `document`, masked as `parse` masks its own. A finding whose position in `own_text` is true was written by the adapter: its datum is masked but its message, which holds no value of the file, is kept.
+        """
 
 class ParseError(builtins.ValueError):
     r"""
@@ -1042,48 +1059,19 @@ class WriteFinding:
     def __str__(self) -> builtins.str: ...
     def __repr__(self) -> builtins.str: ...
 
-def _external_diagnostic(origin: builtins.str, message: builtins.str, level: builtins.int, code: typing.Optional[builtins.str] = None, segment: typing.Optional[builtins.int] = None, element: typing.Optional[builtins.int] = None, component: typing.Optional[builtins.int] = None, datum: bytes = b"", path: typing.Optional[typing.Sequence[tuple[builtins.str, builtins.int]]] = None) -> Diagnostic:
-    r"""
-    Builds a `Diagnostic` for a finding reported by an external validator; internal.
-    """
-
 def _loop_paths(document: Document, spec: Spec, segments: typing.Sequence[builtins.int]) -> builtins.list[builtins.list[tuple[builtins.str, builtins.int]]]:
     r"""
-    The open loops at each of `segments`, outermost first, as `(name,
-    ordinal)` pairs: the loops `parse` names in the `path` of a diagnostic
-    about that segment. The ordinal of an instance counts every instance of
-    its loop from the start of the stream.
-    
-    Internal: adapters to external validators call it to place their
-    findings; it is not part of the public API. An index past the last
-    segment is a `ValueError` naming it.
+    The private form of `Document.loop_paths`; internal.
     """
 
 def _mask_findings(diagnostics: typing.Sequence[Diagnostic], document: Document, mask: Mask, spec: Spec, own_text: typing.Optional[typing.Sequence[builtins.bool]] = None) -> builtins.list[Diagnostic]:
     r"""
-    Copies of `diagnostics`, findings an external validator raised about
-    `document`, with the datum of each one at a place a column `spec` flags
-    as patient data masked by `mask`, as `parse` masks its own diagnostics,
-    and, in the message, the original datum and each flagged value of the
-    finding's segment replaced by its masked form. The inputs are left as
-    they are. A finding whose position in `own_text` is true is one the
-    adapter wrote itself: its datum is masked but its message is left as
-    written.
-    
-    Internal: adapters to external validators call it; it is not part of the
-    public API.
+    The private form of `Mask.diagnostics`, which takes the mask first; internal.
     """
 
 def _parse_document(data: typing_extensions.Buffer, spec: typing.Optional[Spec] = None) -> tuple[Document, Spec, builtins.int]:
     r"""
-    Indexes a whole file without running the loop engine or the projector:
-    the document, the spec a `parse` of the same arguments uses (the one
-    given, or the built-in of the version the file declares) and how many
-    bytes precede the first segment's text (the byte order mark and the
-    whitespace before the ISA).
-    
-    Internal: adapters to external validators read a file's document and
-    spec through it without paying for the tables.
+    The private form of `parse_document` that takes the spec to use; internal.
     """
 
 def _write(tables: Tables | collections.abc.Mapping[builtins.str, typing.Any], envelope: Envelope, spec: typing.Optional[Spec] = None, allow_findings: builtins.bool = False) -> tuple[bytes, builtins.list[WriteFinding]]:
@@ -1106,6 +1094,15 @@ def parse(data: typing_extensions.Buffer, spec: typing.Optional[Spec] = None, de
     tables and every diagnostic. Without `spec`, the built-in spec of the
     version the file declares is used, else the default one. With `mask`, the
     patient data of the tables and diagnostics is hidden.
+    """
+
+def parse_document(data: typing_extensions.Buffer) -> tuple[Document, Spec, builtins.int]:
+    r"""
+    Indexes a file without building its tables, for adapters to external
+    validators. Returns the document, the built-in spec of the version the file
+    declares (the default one when it declares none) and the bytes before the
+    first segment's text (byte order mark and whitespace before the ISA). Input
+    without an ISA raises `ParseError`, as `parse` does.
     """
 
 def run_kit(manifest: builtins.str, stack: Valid, files: typing.Mapping[builtins.str, builtins.bytes]) -> KitReport:

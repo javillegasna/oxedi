@@ -1,6 +1,9 @@
 use super::*;
-use oxedi_core::{Document, Event, Processor, Spec};
+use oxedi_core::api::{ChosenSpec, ReadOptions, SpecChoice, read};
+use oxedi_core::loop_paths;
+use oxedi_core::{Document, Spec};
 use std::path::{Path, PathBuf};
+use std::sync::Arc;
 
 fn corpus() -> Vec<PathBuf> {
     let root = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../oxedi_core/tests");
@@ -40,34 +43,23 @@ fn ranges_are_contiguous_and_cover_the_file() {
     }
 }
 
+/// The built-in spec of the version `document` declares, else the default.
+fn chosen(document: &Document<'_>) -> ChosenSpec<Arc<Spec>> {
+    SpecChoice::<Arc<Spec>>::Declared.choose(document.segments())
+}
+
 /// The open loops at each segment, outermost first, as `(name, ordinal)`:
-/// the engine's stack when the segment is captured, left unmatched or found
-/// empty, rebuilt from the events the engine returns.
+/// the engine's own answer for every segment.
 fn engine_paths(spec: &Spec, document: &Document<'_>) -> Vec<Vec<(String, usize)>> {
-    let mut engine = oxedi_core::LoopEngine::new(spec);
-    let mut open: Vec<(String, usize)> = Vec::new();
-    let mut paths = Vec::new();
-    for segment in document.segments() {
-        let mut path = None;
-        for event in engine.feed(&segment) {
-            match *event {
-                Event::LoopOpened { instance, .. } => {
-                    open.push((
-                        spec.loop_name(instance.loop_id).to_string(),
-                        instance.ordinal_in_stream,
-                    ));
-                }
-                Event::LoopClosed { .. } => {
-                    open.pop();
-                }
-                Event::Captured { .. } | Event::Unmatched { .. } | Event::Empty { .. } => {
-                    path.get_or_insert_with(|| open.clone());
-                }
-            }
-        }
-        paths.push(path.unwrap_or_else(|| open.clone()));
-    }
-    paths
+    let wanted: Vec<usize> = (0..document.len()).collect();
+    loop_paths(spec, document.segments(), &wanted)
+        .iter()
+        .map(|path| {
+            path.iter()
+                .map(|i| (spec.loop_name(i.loop_id).to_string(), i.ordinal_in_stream))
+                .collect()
+        })
+        .collect()
 }
 
 /// The loops from the root down to `node`, as `(name, ordinal)`.
@@ -90,7 +82,8 @@ fn chain(view: &View, node: usize) -> Vec<(String, usize)> {
 fn assert_ownership(label: &str, bytes: &[u8]) -> View {
     let view = view(bytes).expect("view");
     let document = Document::parse(bytes).expect("parse");
-    let spec = select(&document);
+    let chosen = chosen(&document);
+    let spec = chosen.spec();
     let tree = oxedi_core::LoopTree::build(spec, document.segments());
     let mut holders: Vec<Vec<usize>> = vec![Vec::new(); view.segments.len()];
     for (index, node) in tree.nodes().iter().enumerate() {
@@ -160,8 +153,8 @@ fn tables_and_diagnostics_match_the_core() {
             continue;
         };
         let view = view(&bytes).expect("view");
-        let document = Document::parse(&bytes[..]).expect("parse");
-        let (tables, diagnostics) = Processor::run(select(&document), &document, None);
+        let reading = read(&bytes[..], ReadOptions::<Arc<Spec>>::default()).expect("read");
+        let (tables, diagnostics) = (reading.tables, reading.diagnostics);
         assert_eq!(view.tables.len(), tables.len(), "{path:?}");
         for (mine, theirs) in view.tables.iter().zip(tables.iter()) {
             assert_eq!(mine.name, theirs.name());
@@ -182,8 +175,9 @@ fn diagnostic_views_hold_each_level_and_place() {
             continue;
         };
         let view = view(&bytes).expect("view");
-        let document = Document::parse(&bytes[..]).expect("parse");
-        let (_, diagnostics) = Processor::run(select(&document), &document, None);
+        let diagnostics = read(&bytes[..], ReadOptions::<Arc<Spec>>::default())
+            .expect("read")
+            .diagnostics;
         assert_eq!(view.diagnostics.len(), diagnostics.len(), "{path:?}");
         for (mine, core) in view.diagnostics.iter().zip(&diagnostics) {
             assert_eq!(mine.level, core.level.to_string(), "{path:?}");

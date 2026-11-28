@@ -2,20 +2,14 @@
 //! owning loop instance, the loop tree, the projected tables as text and
 //! the diagnostics with their location.
 
+use oxedi_core::api::{ReadOptions, read_tree};
 use oxedi_core::problem::{Detail, Place, Problem, ProblemRecord};
-use oxedi_core::{
-    Builtin, Cell, DateMode, Diagnostic, Document, Event, LoopTree, Mask, NodeId, Processor, Spec,
-    Tables,
-};
+use oxedi_core::{Cell, DateMode, Diagnostic, Document, LoopTree, Mask, NodeId, Spec, Tables};
 use serde::Serialize;
+use std::sync::Arc;
 
 #[cfg(test)]
 mod tests;
-
-/// The built-in spec of the version `document` declares, else the default.
-pub(crate) fn select(document: &Document<'_>) -> &'static Spec {
-    &Builtin::select(document.segments()).spec
-}
 
 /// One file as the viewer shows it.
 #[derive(Debug, Serialize)]
@@ -135,14 +129,13 @@ pub fn view_masked(bytes: &[u8], mask_key: Option<&[u8]>) -> Result<View, String
 }
 
 fn view_with(bytes: &[u8], mask: Option<&Mask>) -> Result<View, String> {
-    let document = Document::parse(bytes).map_err(|err| err.to_string())?;
-    let spec = select(&document);
-    let Walk {
-        tables,
-        diagnostics,
-        tree,
-        owners,
-    } = walk(spec, &document, mask);
+    let options = ReadOptions {
+        mask,
+        ..ReadOptions::<Arc<Spec>>::default()
+    };
+    let (reading, tree) = read_tree(bytes, options).map_err(|err| err.to_string())?;
+    let spec = reading.spec.spec();
+    let document = &reading.document;
     let delimiters = document.delimiters();
     let text = |byte: u8| char::from(byte).to_string();
     Ok(View {
@@ -156,10 +149,11 @@ fn view_with(bytes: &[u8], mask: Option<&Mask>) -> Result<View, String> {
             segment: text(delimiters.segment),
             repetition: delimiters.repetition.map(text),
         },
-        segments: segments(&document, &owners),
+        segments: segments(document, &tree),
         nodes: nodes(spec, &tree),
-        tables: tables_view(&tables),
-        diagnostics: diagnostics
+        tables: tables_view(&reading.tables),
+        diagnostics: reading
+            .diagnostics
             .iter()
             .map(diagnostic)
             .collect::<Result<_, _>>()?,
@@ -171,128 +165,30 @@ pub fn to_json(bytes: &[u8], mask_key: Option<&[u8]>) -> Result<String, String> 
     serde_json::to_string(&view_masked(bytes, mask_key)?).map_err(|err| err.to_string())
 }
 
-/// What one pass of the processor over a document leaves.
-struct Walk {
-    tables: Tables,
-    diagnostics: Vec<Diagnostic>,
-    tree: LoopTree,
-    /// For each segment, the index of the tree node open when it was read.
-    owners: Vec<usize>,
-}
-
-/// Feeds every segment to one processor, folding its events into the loop
-/// tree and following the open instances, so each segment, a segment with
-/// no content included, gets the innermost instance open when it was read.
-fn walk(spec: &Spec, document: &Document<'_>, mask: Option<&Mask>) -> Walk {
-    let mut processor = Processor::new(spec, document.delimiters()).with_mask(mask);
-    let mut builder = LoopTree::builder();
-    let mut owners = Owners::new(document.len());
-    let mut diagnostics = Vec::new();
-    for segment in document.segments() {
-        let output = processor.feed(&segment);
-        owners.on(output.events());
-        builder.on(output.events());
-        diagnostics.extend_from_slice(output.diagnostics());
-    }
-    let output = processor.finish();
-    owners.on(output.events());
-    builder.on(output.events());
-    diagnostics.extend_from_slice(output.diagnostics());
-    Walk {
-        tables: processor.take_tables(),
-        diagnostics,
-        tree: builder.finish(),
-        owners: owners.finish(),
-    }
-}
-
-/// The stack of open tree nodes, numbered as [`oxedi_core::TreeBuilder`] numbers them
-/// (in the order loops open, the root being 0), and the node each segment
-/// was first reported in.
-struct Owners {
-    open: Vec<usize>,
-    next: usize,
-    owner: Vec<Option<usize>>,
-}
-
-impl Owners {
-    fn new(segments: usize) -> Owners {
-        Owners {
-            open: vec![0],
-            next: 1,
-            owner: vec![None; segments],
-        }
-    }
-
-    fn on(&mut self, events: &[Event]) {
-        for event in events {
-            match *event {
-                Event::LoopOpened { .. } => {
-                    self.open.push(self.next);
-                    self.next = self.next.saturating_add(1);
-                }
-                // The root never closes.
-                Event::LoopClosed { .. } => {
-                    if self.open.len() > 1 {
-                        self.open.pop();
-                    }
-                }
-                Event::Captured { segment, .. }
-                | Event::Unmatched { segment, .. }
-                | Event::Empty { segment } => {
-                    if let Some(slot @ None) = self.owner.get_mut(segment) {
-                        *slot = self.open.last().copied();
-                    }
-                }
-            }
-        }
-    }
-
-    fn finish(self) -> Vec<usize> {
-        self.owner
-            .into_iter()
-            .map(|node| node.unwrap_or(0))
-            .collect()
-    }
-}
-
-fn segments(document: &Document<'_>, owners: &[usize]) -> Vec<SegmentView> {
+fn segments(document: &Document<'_>, tree: &LoopTree) -> Vec<SegmentView> {
     document
         .spans()
-        .zip(owners.iter().copied())
         .enumerate()
-        .map(|(index, (span, node))| SegmentView {
+        .map(|(index, span)| SegmentView {
             id: String::from_utf8_lossy(document.segment_id(index).unwrap_or_default())
                 .into_owned(),
             start: span.raw.start,
             end: span.raw.end,
-            node,
+            node: tree.owner(index).index(),
         })
         .collect()
 }
 
 fn nodes(spec: &Spec, tree: &LoopTree) -> Vec<NodeView> {
-    let mut seen = vec![0usize; spec.loops().len()];
     tree.nodes()
         .iter()
-        .map(|node| {
-            let (loop_name, ordinal) = match node.loop_id {
-                Some(id) => {
-                    let ordinal = seen.get_mut(id.index()).map_or(0, |count| {
-                        *count = count.saturating_add(1);
-                        *count
-                    });
-                    (Some(spec.loop_name(id).to_string()), ordinal)
-                }
-                None => (None, 0),
-            };
-            NodeView {
-                loop_name,
-                ordinal,
-                implicit: node.implicit,
-                parent: node.parent.map(NodeId::index),
-                children: node.children.iter().map(|child| child.index()).collect(),
-            }
+        .map(|node| NodeView {
+            loop_name: node.loop_id.map(|id| spec.loop_name(id).to_string()),
+            // 0 is the root's documented value: it has no ordinal.
+            ordinal: node.ordinal.unwrap_or(0),
+            implicit: node.implicit,
+            parent: node.parent.map(NodeId::index),
+            children: node.children.iter().map(|child| child.index()).collect(),
         })
         .collect()
 }
